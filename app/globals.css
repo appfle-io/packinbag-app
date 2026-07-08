@@ -227,3 +227,17 @@ body {
 [data-font-scale="lg"] .text-\[18px\] { font-size: 20.25px; }
 [data-font-scale="lg"] .text-\[20px\] { font-size: 22.5px; }
 [data-font-scale="lg"] .text-\[22px\] { font-size: 24.75px; }
+
+/* 위와 같은 이유로, md: 반응형 텍스트 크기(데스크톱 폭)도 별도로 오버라이드해야 함.
+   (Tailwind는 "text-[17px] md:text-[18px]" 같은 반응형 클래스를 별도 클래스 +
+   미디어쿼리로 생성하기 때문에, 기본 클래스 오버라이드만으로는 데스크톱 폭에서 적용 안 됨) */
+@media (min-width: 48rem) {
+  [data-font-scale="sm"] .md\:text-\[11px\] { font-size: 10.18px; }
+  [data-font-scale="sm"] .md\:text-\[12px\] { font-size: 11.1px; }
+  [data-font-scale="sm"] .md\:text-\[14px\] { font-size: 12.95px; }
+  [data-font-scale="sm"] .md\:text-\[18px\] { font-size: 16.65px; }
+  [data-font-scale="lg"] .md\:text-\[11px\] { font-size: 12.38px; }
+  [data-font-scale="lg"] .md\:text-\[12px\] { font-size: 13.5px; }
+  [data-font-scale="lg"] .md\:text-\[14px\] { font-size: 15.75px; }
+  [data-font-scale="lg"] .md\:text-\[18px\] { font-size: 20.25px; }
+}

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Pack } from "@/lib/types";
+import { isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -12,6 +13,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 export default function PackGrid({
   packs,
+  libraryPacks,
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
@@ -29,6 +31,7 @@ export default function PackGrid({
   dragSourcePackId,
 }: {
   packs: Pack[];
+  libraryPacks: Pack[];
   onToggleItem: (packId: string, itemId: string) => void;
   onChangeItemText: (
     packId: string,
@@ -64,6 +67,7 @@ export default function PackGrid({
     <PackCard
       key={pack.id}
       pack={pack}
+      isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
       onToggleItem={(itemId) => onToggleItem(pack.id, itemId)}
       onChangeItemText={(itemId, text, style) =>
         onChangeItemText(pack.id, itemId, text, style)

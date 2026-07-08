@@ -22,24 +22,13 @@ import GroupMembersModal from "@/components/GroupMembersModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
+import { isInSyncWithLibrary } from "@/lib/packSync";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import ImageLightbox from "@/components/ImageLightbox";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-function itemsMatch(a: Item[], b: Item[]) {
-  if (a.length !== b.length) return false;
-  return a.every((item, i) => item.type === b[i].type && item.text === b[i].text);
-}
-
-function isInSyncWithLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
-  if (!pack.linkedLibraryPackId) return false;
-  const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
-  if (!source) return false;
-  return pack.name.trim() === source.name.trim() && itemsMatch(pack.items, source.items);
-}
 
 export default function BagEditorScreen({
   initialBag,
@@ -392,19 +381,25 @@ export default function BagEditorScreen({
     suggestedName: string;
   } | null>(null);
   const [saveConfirmTarget, setSaveConfirmTarget] = useState<string | null>(null);
-  const [updateChoiceTarget, setUpdateChoiceTarget] = useState<string | null>(null);
+  const [updateChoiceTarget, setUpdateChoiceTarget] = useState<{
+    packId: string;
+    conflict: boolean;
+  } | null>(null);
 
   const commitSaveToLibrary = (packId: string, nameOverride?: string) => {
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack) return;
     const name = (nameOverride ?? pack.name).trim();
     const newLibraryId = uid();
+    const now = new Date().toISOString();
     onSaveAsLibraryPack({
       ...pack,
       id: newLibraryId,
       name,
+      updatedAt: now,
       savedAsLibraryPack: undefined,
       linkedLibraryPackId: undefined,
+      linkedLibraryUpdatedAt: undefined,
       items: pack.items.map((i) => ({ ...i, id: uid() })),
     });
     updatePacks((packs) =>
@@ -415,6 +410,7 @@ export default function BagEditorScreen({
               name,
               savedAsLibraryPack: true,
               linkedLibraryPackId: newLibraryId,
+              linkedLibraryUpdatedAt: now,
             }
           : p
       )
@@ -430,13 +426,22 @@ export default function BagEditorScreen({
       setSaveConfirmTarget(packId);
       return;
     }
-    if (pack.savedAsLibraryPack) {
-      // 라이브러리 원본과 완전히 동일한 상태
+    // 캐시된 값(savedAsLibraryPack)이 아니라 지금 이 순간의 라이브러리 기준으로 다시 비교한다.
+    // 다른 가방/기기에서 같은 라이브러리 팩을 먼저 바꿔놨을 수도 있기 때문에, 화면에 남아있는
+    // 예전 상태만 믿으면 "변경사항 없음"을 잘못 판단할 수 있다.
+    if (isInSyncWithLibrary(pack, libraryPacks)) {
       show("변경사항이 없어요");
       return;
     }
-    // 저장된 적 있는데 그 이후 수정됨 -> 새롭게 저장 / 덮어쓰기 선택
-    setUpdateChoiceTarget(packId);
+    // 저장된 적 있는데 지금 보니 라이브러리랑 다름 -> 그게 "내가 방금 고쳐서"인지
+    // "다른 가방이 먼저 라이브러리를 바꿔놔서"인지 구분해서, 후자면 덮어쓰기를 막는다.
+    const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
+    const conflict =
+      !!source &&
+      !!pack.linkedLibraryUpdatedAt &&
+      !!source.updatedAt &&
+      source.updatedAt > pack.linkedLibraryUpdatedAt;
+    setUpdateChoiceTarget({ packId, conflict });
   };
 
   const confirmInitialSave = (packId: string) => {
@@ -472,17 +477,22 @@ export default function BagEditorScreen({
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack?.linkedLibraryPackId) return;
     const name = pack.name.trim();
+    const now = new Date().toISOString();
     onSaveAsLibraryPack({
       ...pack,
       id: pack.linkedLibraryPackId,
       name,
+      updatedAt: now,
       savedAsLibraryPack: undefined,
       linkedLibraryPackId: undefined,
+      linkedLibraryUpdatedAt: undefined,
       items: pack.items.map((i) => ({ ...i })),
     });
     updatePacks((packs) =>
       packs.map((p) =>
-        p.id === packId ? { ...p, name, savedAsLibraryPack: true } : p
+        p.id === packId
+          ? { ...p, name, savedAsLibraryPack: true, linkedLibraryUpdatedAt: now }
+          : p
       )
     );
     show("팩을 덮어썼어요");
@@ -503,6 +513,7 @@ export default function BagEditorScreen({
               ...p,
               name: source.name,
               savedAsLibraryPack: true,
+              linkedLibraryUpdatedAt: source.updatedAt,
               items: source.items.map((i) => ({ ...i, id: uid() })),
             }
           : p
@@ -682,6 +693,7 @@ export default function BagEditorScreen({
         ) : (
           <PackGrid
             packs={bag.packs}
+            libraryPacks={libraryPacks}
             onToggleItem={handleToggleItem}
             onChangeItemText={handleChangeItemText}
             onDeleteItem={handleDeleteItem}
@@ -772,9 +784,10 @@ export default function BagEditorScreen({
 
       {updateChoiceTarget && (
         <PackUpdateDialog
+          conflict={updateChoiceTarget.conflict}
           onCancel={() => setUpdateChoiceTarget(null)}
-          onSaveAsNew={() => handleChooseSaveAsNew(updateChoiceTarget)}
-          onOverwrite={() => commitOverwriteToLibrary(updateChoiceTarget)}
+          onSaveAsNew={() => handleChooseSaveAsNew(updateChoiceTarget.packId)}
+          onOverwrite={() => commitOverwriteToLibrary(updateChoiceTarget.packId)}
         />
       )}
 

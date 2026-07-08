@@ -23,6 +23,7 @@ import ProgressRing from "./ProgressRing";
 
 export default function PackCard({
   pack,
+  isSyncedWithLibrary,
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
@@ -41,6 +42,7 @@ export default function PackCard({
   isPackDragSource,
 }: {
   pack: Pack;
+  isSyncedWithLibrary: boolean;
   onToggleItem: (itemId: string) => void;
   onChangeItemText: (
     itemId: string,
@@ -139,7 +141,7 @@ export default function PackCard({
             onClick={onSaveToLibrary}
             aria-label="팩 저장"
           >
-            {pack.savedAsLibraryPack ? (
+            {isSyncedWithLibrary ? (
               <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
             ) : (
               <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />

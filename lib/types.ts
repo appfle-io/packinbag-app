@@ -33,6 +33,10 @@ export interface Pack {
   savedAsLibraryPack?: boolean;
   // 이 팩이 어떤 라이브러리 팩과 연결돼있는지 (새로고침 대상)
   linkedLibraryPackId?: string;
+  // 마지막으로 라이브러리와 동기화(저장/덮어쓰기/새로고침)했던 시점의 라이브러리 팩 updatedAt.
+  // 저장 시점에 라이브러리 쪽 updatedAt이 이 값보다 더 최신이면 "다른 가방/기기에서
+  // 먼저 바뀐 것"으로 판단해 덮어쓰기 대신 새롭게 저장을 유도한다.
+  linkedLibraryUpdatedAt?: string;
   createdAt?: string; // 라이브러리 팩 정렬(생성일자)용. 최초 저장 시점에 서버에서 채워짐
   updatedAt?: string;
   // 팩 카드/태그에 보여줄 색상 프리셋 id (lib/packColors.ts 참고). 없으면 무색.

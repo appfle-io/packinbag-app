@@ -12,6 +12,7 @@ function cloneAsNewPack(pack: Pack): Pack {
     id: `pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     savedAsLibraryPack: true,
     linkedLibraryPackId: pack.id,
+    linkedLibraryUpdatedAt: pack.updatedAt,
     items: pack.items.map((item) => ({
       ...item,
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

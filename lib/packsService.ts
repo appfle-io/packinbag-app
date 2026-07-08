@@ -32,7 +32,10 @@ export function subscribeToLibraryPacks(
 
 export async function saveLibraryPackRemote(uid: string, pack: Pack) {
   const ref = doc(packsCol(uid), pack.id);
-  const now = new Date().toISOString();
+  // updatedAt은 호출하는 쪽(BagEditorScreen)에서 미리 만들어서 넘겨준 값을 그대로 쓴다.
+  // 그래야 그쪽에서 같은 타임스탬프를 pack.linkedLibraryUpdatedAt으로도 저장해서
+  // "그 이후로 라이브러리가 또 바뀌었는지" 정확히 비교할 수 있다.
+  const now = pack.updatedAt ?? new Date().toISOString();
   // createdAt은 최초 저장 시점 값을 계속 유지해야 "생성일자" 정렬이 의미있다.
   // 로컬 상태엔 없을 수 있어서(저장 후 안 돌려받는 구조) 없으면 기존 문서에서 확인한다.
   let createdAt = pack.createdAt;
