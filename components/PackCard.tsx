@@ -178,6 +178,7 @@ export default function PackCard({
           gridAutoRows: "min-content",
           gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",
           alignContent: "start",
+          alignItems: "start",
         }}
       >
         {displayItems.map((item) => (

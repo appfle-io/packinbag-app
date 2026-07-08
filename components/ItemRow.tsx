@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 import { IconGripVertical, IconBold, IconStrikethrough } from "@tabler/icons-react";
 import { Item } from "@/lib/types";
 
-const SWIPE_THRESHOLD = -36;
-const SWIPE_MAX = -72;
+const DELETE_SWIPE_THRESHOLD = -36;
+const DELETE_SWIPE_MAX = -72;
+const EDIT_SWIPE_THRESHOLD = 36;
+const EDIT_SWIPE_MAX = 72;
 
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
 const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
@@ -50,14 +52,18 @@ export default function ItemRow({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging) return;
     const delta = e.clientX - startX.current;
-    const next = Math.min(0, Math.max(SWIPE_MAX, baseOffset.current + delta));
+    const next = Math.min(EDIT_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + delta));
     setDragX(next);
   };
 
   const endDrag = () => {
     if (!dragging) return;
     setDragging(false);
-    setDragX((current) => (current <= SWIPE_THRESHOLD ? SWIPE_MAX : 0));
+    setDragX((current) => {
+      if (current <= DELETE_SWIPE_THRESHOLD) return DELETE_SWIPE_MAX;
+      if (current >= EDIT_SWIPE_THRESHOLD) return EDIT_SWIPE_MAX;
+      return 0;
+    });
   };
 
   const commitEdit = () => {
@@ -85,16 +91,16 @@ export default function ItemRow({
     }
   };
 
-  const startEdit = () => {
-    if (dragX !== 0) {
-      setDragX(0);
-      return;
-    }
+  const openEdit = () => {
     setDraft(item.text);
     setDraftBold(!!item.bold);
     setDraftStrike(!!item.strike);
     setDraftColor(item.color || "");
     setEditing(true);
+  };
+
+  const closeSwipeIfOpen = () => {
+    if (dragX !== 0) setDragX(0);
   };
 
   const preventBlur = (e: React.MouseEvent) => e.preventDefault();
@@ -105,7 +111,7 @@ export default function ItemRow({
         item.type === "text" ? "col-span-full" : ""
       }`}
     >
-      {(dragging || dragX !== 0) && (
+      {(dragging || dragX !== 0) && dragX < 0 && (
         <button
           onClick={() => {
             setDragX(0);
@@ -115,6 +121,19 @@ export default function ItemRow({
           style={{ width: 72, background: "var(--danger)", color: "#fff" }}
         >
           삭제
+        </button>
+      )}
+
+      {(dragging || dragX !== 0) && dragX > 0 && (
+        <button
+          onClick={() => {
+            setDragX(0);
+            openEdit();
+          }}
+          className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
+          style={{ width: 72, background: "var(--accent)", color: "#fff" }}
+        >
+          수정
         </button>
       )}
 
@@ -245,7 +264,7 @@ export default function ItemRow({
           )
         ) : (
           <button
-            onClick={startEdit}
+            onClick={closeSwipeIfOpen}
             className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] line-clamp-2"
           >
             {item.type === "check" ? (
