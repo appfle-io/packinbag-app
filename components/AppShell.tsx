@@ -12,6 +12,7 @@ import {
   leaveBagRemote,
   removeMemberRemote,
   regenerateInviteCodeRemote,
+  updateMemberProfileSnapshot,
 } from "@/lib/bagsService";
 import {
   subscribeToLibraryPacks,
@@ -89,6 +90,23 @@ export default function AppShell() {
     if (!user) return;
     return subscribeToUserBags(user.uid, setBags);
   }, [user]);
+
+  // 내 닉네임/아바타를 바꾼 뒤(혹은 예전에 참여해두고 한 번도 갱신 안 된 채로 남아있는
+  // 경우까지) 각 가방에 찍힌 memberProfiles 스냅샷이 최신 프로필과 다르면 그 가방만
+  // 가볍게 고쳐쓴다. 이미 실시간 구독 중인 bags 목록을 그대로 비교에 쓰기 때문에 별도
+  // 쿼리 없이 동작하고, 실제로 값이 어긋난 가방에만 쓰기가 일어난다.
+  useEffect(() => {
+    if (!user || !profile?.nickname || !profile.avatarId) return;
+    bags.forEach((bag) => {
+      const snap = bag.memberProfiles?.[user.uid];
+      if (!snap) return;
+      if (snap.nickname === profile.nickname && snap.avatarId === profile.avatarId) return;
+      updateMemberProfileSnapshot(bag.id, user.uid, {
+        nickname: profile.nickname!,
+        avatarId: profile.avatarId!,
+      }).catch(() => {});
+    });
+  }, [bags, user, profile]);
 
   useEffect(() => {
     if (!user) return;

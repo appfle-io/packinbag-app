@@ -163,22 +163,22 @@ export async function removeMemberRemote(bagId: string, memberUid: string) {
   });
 }
 
-// 프로필(닉네임/아바타)을 수정했을 때, 이미 가입해둔 모든 가방의 memberProfiles 스냅샷도
-// 함께 최신화한다. memberProfiles는 참여 시점에 한 번 찍어두는 스냅샷이라, 이걸 갱신해주지
-// 않으면 초대코드/그룹원 목록 화면에 예전 닉네임·아바타가 계속 남아있게 된다.
-export async function syncMemberProfileAcrossBags(
+// 프로필(닉네임/아바타)을 수정했거나, 예전에 참여한 뒤 한 번도 갱신 안 된 경우를 대비해
+// 특정 가방 하나의 내 memberProfiles 스냅샷만 최신 값으로 고쳐쓴다. memberProfiles는 참여
+// 시점에 한 번 찍어두는 스냅샷이라, 갱신해주지 않으면 초대코드/그룹원 목록 화면에 예전
+// 닉네임·아바타가 계속 남아있게 된다.
+// 매 프로필 수정마다 가입된 모든 가방을 쿼리해서 한꺼번에 덮어쓰는 대신, 이미 화면에 실시간
+// 구독 중인 가방 목록(bags state)을 기준으로 실제로 값이 달라진 가방에만 호출하는 방식을
+// 쓴다 (AppShell의 자동 점검 로직 참고) - 추가 쿼리 없이 가볍게 처리 가능.
+export async function updateMemberProfileSnapshot(
+  bagId: string,
   uid: string,
   profile: { nickname: string; avatarId: string }
 ) {
-  const snap = await getDocs(query(bagsCol(), where("memberIds", "array-contains", uid)));
-  await Promise.all(
-    snap.docs.map((d) =>
-      updateDoc(d.ref, {
-        [`memberProfiles.${uid}.nickname`]: profile.nickname,
-        [`memberProfiles.${uid}.avatarId`]: profile.avatarId,
-      }).catch(() => {})
-    )
-  );
+  await updateDoc(doc(bagsCol(), bagId), {
+    [`memberProfiles.${uid}.nickname`]: profile.nickname,
+    [`memberProfiles.${uid}.avatarId`]: profile.avatarId,
+  });
 }
 
 // 기존 초대코드를 무효화하고 새 코드를 발급 (기존 코드로는 더 이상 참여 불가)

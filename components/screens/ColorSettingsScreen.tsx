@@ -261,7 +261,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
           scaleLabel="가방 크기"
           preview={
-            <div className="mt-3 rounded-lg p-2" style={SPLIT_BG}>
+            <div className="mt-3 rounded-lg p-2 flex justify-center" style={SPLIT_BG}>
               <div
                 className="rounded-xl border border-border shadow-sm flex flex-col gap-1 w-[136px] p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))]"
                 style={{ background: "var(--bag-card-bg)" }}
@@ -291,7 +291,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeScale={(pct) => setPackCardScale(pct / 100)}
           scaleLabel="팩 크기"
           preview={
-            <div className="mt-3 rounded-lg p-2" style={SPLIT_BG}>
+            <div className="mt-3 rounded-lg p-2 flex justify-center" style={SPLIT_BG}>
               <div
                 className="rounded-xl border border-border shadow-sm flex flex-col gap-1 w-[136px] p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))]"
                 style={{ background: "var(--pack-card-bg)" }}
