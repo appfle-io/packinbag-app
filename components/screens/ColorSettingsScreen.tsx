@@ -261,17 +261,35 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
           scaleLabel="가방 크기"
           preview={
-            <div className="mt-3 rounded-lg p-2 flex justify-center" style={SPLIT_BG}>
-              <div
-                className="rounded-xl border border-border shadow-sm flex flex-col gap-1 w-[136px] p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))]"
-                style={{ background: "var(--bag-card-bg)" }}
-              >
-                <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium">
-                  예시 가방
-                </span>
-                <span className="text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
-                  전자기기, 세면도구
-                </span>
+            <div className="mt-3 rounded-lg py-3" style={SPLIT_BG}>
+              {/* 실제 홈 화면(HomeScreen)과 동일한 grid-cols-2 sm:grid-cols-3 grid를 그대로
+                  써서, 빈 칸들로 열 너비를 채워 첫 번째 카드가 실제와 똑같은 폭의
+                  정사각 카드가 되도록 한다. */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+                <div
+                  className="aspect-square rounded-xl border border-border shadow-sm flex flex-col p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))]"
+                  style={{ background: "var(--bag-card-bg)" }}
+                >
+                  <div className="flex items-start justify-between gap-1.5 shrink-0">
+                    <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium">
+                      예시 가방
+                    </span>
+                    <span
+                      className="text-[calc(10px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5 shrink-0"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+                    >
+                      D-3
+                    </span>
+                  </div>
+                  <p className="text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-1.5">
+                    전자기기, 세면도구
+                  </p>
+                  <p className="text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-auto">
+                    0/12
+                  </p>
+                </div>
+                <div aria-hidden="true" />
+                <div aria-hidden="true" className="hidden sm:block" />
               </div>
             </div>
           }
@@ -291,17 +309,34 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeScale={(pct) => setPackCardScale(pct / 100)}
           scaleLabel="팩 크기"
           preview={
-            <div className="mt-3 rounded-lg p-2 flex justify-center" style={SPLIT_BG}>
+            <div className="mt-3 rounded-lg py-3" style={SPLIT_BG}>
               <div
-                className="rounded-xl border border-border shadow-sm flex flex-col gap-1 w-[136px] p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))]"
+                className="rounded-xl border border-border shadow-sm flex flex-col p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))]"
                 style={{ background: "var(--pack-card-bg)" }}
               >
                 <span className="text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] font-medium truncate">
                   예시 팩
                 </span>
-                <span className="text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
+                <div className="flex flex-col justify-center gap-2 h-[calc(90px*var(--pack-card-scale,1))] mt-1.5">
+                  {["칫솔", "치약"].map((label) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span
+                        className="shrink-0 rounded"
+                        style={{
+                          border: "1.5px solid var(--border-strong)",
+                          width: "calc(18px*var(--pack-card-scale,1))",
+                          height: "calc(18px*var(--pack-card-scale,1))",
+                        }}
+                      />
+                      <span className="text-[calc(15px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]">
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="pt-2 mt-1.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
                   2개
-                </span>
+                </p>
               </div>
             </div>
           }
