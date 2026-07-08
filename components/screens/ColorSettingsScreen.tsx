@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { IconArrowLeft, IconCheck, IconBan } from "@tabler/icons-react";
 import { useTheme, DEFAULT_CARD_COLOR_ID, FontScale } from "@/components/ThemeProvider";
 import { ACCENT_PRESETS } from "@/lib/accentColors";
@@ -15,6 +16,14 @@ const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
   { key: "lg", label: "크게", previewPx: 14.5 },
 ];
 
+// 투명도 변화를 눈으로 확인할 수 있도록 미리보기 뒤에 깔아주는 체크무늬 배경.
+// 라이트/다크 어느 테마에서도 잘 보이도록 검정 반투명을 아주 옅게 반복시킨다.
+const CHECKER_BG: CSSProperties = {
+  backgroundImage:
+    "repeating-conic-gradient(rgba(128,128,128,0.18) 0% 25%, transparent 0% 50%)",
+  backgroundSize: "16px 16px",
+};
+
 function ColorSlotSection({
   title,
   description,
@@ -28,6 +37,7 @@ function ColorSlotSection({
   scalePct,
   onChangeScale,
   scaleLabel,
+  preview,
 }: {
   title: string;
   description: string;
@@ -41,6 +51,7 @@ function ColorSlotSection({
   scalePct?: number;
   onChangeScale?: (pct: number) => void;
   scaleLabel?: string;
+  preview?: ReactNode;
 }) {
   return (
     <div className="mb-6">
@@ -118,6 +129,8 @@ function ColorSlotSection({
             onChange={onChangeScale}
           />
         )}
+
+        {preview}
       </div>
     </div>
   );
@@ -190,6 +203,23 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           showDefaultOption={false}
           onSelectPreset={setAccent}
           onOpenCustomPicker={() => setOpenPicker("accent")}
+          preview={
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-lg px-3 py-1.5 text-[12px] font-medium"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                예시 버튼
+              </button>
+              <span
+                className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+              >
+                D-3
+              </span>
+            </div>
+          }
         />
 
         <div className="mb-6">
@@ -207,11 +237,19 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
               step={5}
               onChange={(pct) => setBaseOpacity(pct / 100)}
             />
+            <div className="mt-3 rounded-lg p-2" style={CHECKER_BG}>
+              <div
+                className="rounded-md px-3 py-2 text-[12px] text-text-secondary"
+                style={{ background: "var(--surface-2)" }}
+              >
+                예시 배경 (정렬 버튼, 짐 배경 등)
+              </div>
+            </div>
           </div>
         </div>
 
         <ColorSlotSection
-          title="가방 색상"
+          title="가방 그리드"
           description="가방 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           selectedId={bagColorId}
           customHex={bagCustomHex}
@@ -223,10 +261,25 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scalePct={Math.round(bagCardScale * 100)}
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
           scaleLabel="가방 크기"
+          preview={
+            <div className="mt-3 rounded-lg p-2" style={CHECKER_BG}>
+              <div
+                className="rounded-xl border border-border p-[calc(10px*var(--bag-card-scale,1))] flex flex-col gap-1 w-[calc(120px*var(--bag-card-scale,1))]"
+                style={{ background: "var(--bag-card-bg)" }}
+              >
+                <span className="text-[calc(12px*var(--bag-card-scale,1))] font-medium">
+                  예시 가방
+                </span>
+                <span className="text-[calc(10px*var(--bag-card-scale,1))] text-text-secondary">
+                  전자기기, 세면도구
+                </span>
+              </div>
+            </div>
+          }
         />
 
         <ColorSlotSection
-          title="팩 그리드 색상"
+          title="팩 그리드"
           description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           selectedId={packGridColorId}
           customHex={packGridCustomHex}
@@ -238,6 +291,21 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scalePct={Math.round(packCardScale * 100)}
           onChangeScale={(pct) => setPackCardScale(pct / 100)}
           scaleLabel="팩 크기"
+          preview={
+            <div className="mt-3 rounded-lg p-2" style={CHECKER_BG}>
+              <div
+                className="rounded-xl border border-border p-[calc(10px*var(--pack-card-scale,1))] flex flex-col gap-1 w-[calc(120px*var(--pack-card-scale,1))]"
+                style={{ background: "var(--pack-card-bg)" }}
+              >
+                <span className="text-[calc(12px*var(--pack-card-scale,1))] font-medium">
+                  예시 팩
+                </span>
+                <span className="text-[calc(10px*var(--pack-card-scale,1))] text-text-secondary">
+                  칫솔, 치약
+                </span>
+              </div>
+            </div>
+          }
         />
       </div>
 

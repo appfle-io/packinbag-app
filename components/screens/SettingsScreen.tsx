@@ -148,65 +148,65 @@ export default function SettingsScreen({
         </p>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden mb-6">
-        <button
-          onClick={() => setView("colorSettings")}
-          className="w-full flex items-center justify-between p-3"
-        >
-          <span className="text-[13px]">화면설정</span>
-          <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-        </button>
-      </div>
-
-      <div className="rounded-lg border border-border overflow-hidden mb-6">
-        <button
-          onClick={() => setView("packSettings")}
-          className="w-full flex items-center justify-between p-3"
-        >
-          <span className="text-[13px]">팩 설정</span>
-          <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-        </button>
-      </div>
-
-      <div className="rounded-lg border border-border overflow-hidden mb-6">
-        <button
-          onClick={() => setShowAnnouncements(true)}
-          className="w-full flex items-center justify-between p-3 border-b border-border"
-        >
-          <span className="flex items-center gap-2 text-[13px]">
-            <IconSpeakerphone size={16} stroke={1.75} />
-            공지사항
-          </span>
-          <span className="flex items-center gap-1">
-            {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
-            )}
+      <div className="mb-6">
+        <p className="text-[12px] text-text-secondary mb-2">설정</p>
+        <div className="rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setView("colorSettings")}
+            className="w-full flex items-center justify-between p-3 border-b border-border"
+          >
+            <span className="text-[13px]">화면설정</span>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-          </span>
-        </button>
-        <button
-          onClick={() => setShowFaq(true)}
-          className="w-full flex items-center justify-between p-3"
-        >
-          <span className="flex items-center gap-2 text-[13px]">
-            <IconHelpCircle size={16} stroke={1.75} />
-            자주 묻는 질문
-          </span>
-          <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-        </button>
+          </button>
+          <button
+            onClick={() => setView("packSettings")}
+            className="w-full flex items-center justify-between p-3"
+          >
+            <span className="text-[13px]">팩 설정</span>
+            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+          </button>
+        </div>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden mb-6">
-        <a
-          href="mailto:appfle.dev@gmail.com?subject=팩인백 문의"
-          className="flex items-center justify-between p-3 border-b border-border"
-        >
-          <span className="flex items-center gap-2 text-[13px]">
-            <IconMail size={16} stroke={1.75} />
-            문의하기
-          </span>
-          <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-        </a>
+      <div className="mb-6">
+        <p className="text-[12px] text-text-secondary mb-2">고객지원</p>
+        <div className="rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setShowAnnouncements(true)}
+            className="w-full flex items-center justify-between p-3 border-b border-border"
+          >
+            <span className="flex items-center gap-2 text-[13px]">
+              <IconSpeakerphone size={16} stroke={1.75} />
+              공지사항
+            </span>
+            <span className="flex items-center gap-1">
+              {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
+              )}
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </span>
+          </button>
+          <button
+            onClick={() => setShowFaq(true)}
+            className="w-full flex items-center justify-between p-3 border-b border-border"
+          >
+            <span className="flex items-center gap-2 text-[13px]">
+              <IconHelpCircle size={16} stroke={1.75} />
+              자주 묻는 질문
+            </span>
+            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+          </button>
+          <a
+            href="mailto:appfle.dev@gmail.com?subject=팩인백 문의"
+            className="flex items-center justify-between p-3"
+          >
+            <span className="flex items-center gap-2 text-[13px]">
+              <IconMail size={16} stroke={1.75} />
+              문의하기
+            </span>
+            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+          </a>
+        </div>
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden mb-6">
