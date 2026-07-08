@@ -8,6 +8,7 @@ import {
   IconAlignLeft,
 } from "@tabler/icons-react";
 import { Item, Pack } from "@/lib/types";
+import { getPackColorHex } from "@/lib/packColors";
 import { useAuth } from "@/contexts/AuthProvider";
 import EditableText from "@/components/EditableText";
 import ItemRow from "@/components/ItemRow";
@@ -33,6 +34,7 @@ export default function PackLibraryEditorScreen({
   const { show } = useToast();
   const { profile } = useAuth();
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
+  const accentHex = getPackColorHex(pack.color);
   const displayItems = moveCompletedToBottom
     ? [...pack.items].sort(
         (a, b) =>
@@ -120,20 +122,26 @@ export default function PackLibraryEditorScreen({
         </div>
 
         <div
-          className="mb-3 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] md:grid-cols-[repeat(auto-fit,minmax(170px,1fr))]"
-          style={{
-            gap: "8px 10px",
-          }}
+          className="mb-3 rounded-xl border border-border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))]"
+          style={{ background: accentHex ? `${accentHex}26` : "var(--pack-card-bg)" }}
         >
-          {displayItems.map((item) => (
-            <ItemRow
-              key={item.id}
-              item={item}
-              onToggle={item.type === "check" ? () => toggleItem(item.id) : undefined}
-              onChangeText={(text, style) => changeItemText(item.id, text, style)}
-              onDelete={() => deleteItem(item.id)}
-            />
-          ))}
+          <div
+            className="grid grid-cols-[repeat(auto-fit,minmax(calc(140px*var(--pack-card-scale,1)),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(170px*var(--pack-card-scale,1)),1fr))]"
+            style={{
+              gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",
+              alignItems: "start",
+            }}
+          >
+            {displayItems.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                onToggle={item.type === "check" ? () => toggleItem(item.id) : undefined}
+                onChangeText={(text, style) => changeItemText(item.id, text, style)}
+                onDelete={() => deleteItem(item.id)}
+              />
+            ))}
+          </div>
         </div>
 
         {pack.items.length === 0 && (
