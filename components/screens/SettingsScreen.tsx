@@ -23,10 +23,10 @@ const modes: { key: ThemeMode; label: string }[] = [
   { key: "dark", label: "다크" },
 ];
 
-const fontScales: { key: FontScale; label: string }[] = [
-  { key: "sm", label: "작게" },
-  { key: "md", label: "보통" },
-  { key: "lg", label: "크게" },
+const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
+  { key: "sm", label: "작게", previewPx: 12 },
+  { key: "md", label: "보통", previewPx: 13 },
+  { key: "lg", label: "크게", previewPx: 14.5 },
 ];
 
 const startTabs: { key: "home" | "packs"; label: string }[] = [
@@ -135,14 +135,15 @@ export default function SettingsScreen({
       <div className="mb-6">
         <p className="text-[12px] text-text-secondary mb-2">글자 크기</p>
         <div className="flex rounded-lg border border-border overflow-hidden">
-          {fontScales.map(({ key, label }) => (
+          {fontScales.map(({ key, label, previewPx }) => (
             <button
               key={key}
               onClick={() => setFontScale(key)}
-              className="flex-1 py-2 text-[13px]"
+              className="flex-1 py-2"
               style={{
                 background: fontScale === key ? "var(--accent)" : "var(--surface)",
                 color: fontScale === key ? "#fff" : "var(--foreground)",
+                fontSize: previewPx,
               }}
             >
               {label}

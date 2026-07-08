@@ -194,3 +194,36 @@ body {
   stroke-dasharray: 1;
   animation: pib-toast-check-draw 360ms ease-out 260ms both;
 }
+
+/* 글자 크기 설정 (설정 > 글자크기: 작게/보통/크게)
+   앱 전체가 text-[Npx] 형태의 고정 px 클래스만 쓰고 있어서, 여기서 그 클래스들의
+   font-size만 배율로 오버라이드한다. 아이콘 크기/여백/레이아웃은 전혀 건드리지
+   않기 때문에 화면 확대(zoom)와 달리 글자만 커지고 작아진다. */
+[data-font-scale="sm"] .text-\[9px\] { font-size: 8.33px; }
+[data-font-scale="sm"] .text-\[10px\] { font-size: 9.25px; }
+[data-font-scale="sm"] .text-\[11px\] { font-size: 10.18px; }
+[data-font-scale="sm"] .text-\[11\.5px\] { font-size: 10.64px; }
+[data-font-scale="sm"] .text-\[12px\] { font-size: 11.1px; }
+[data-font-scale="sm"] .text-\[12\.5px\] { font-size: 11.56px; }
+[data-font-scale="sm"] .text-\[13px\] { font-size: 12.03px; }
+[data-font-scale="sm"] .text-\[14px\] { font-size: 12.95px; }
+[data-font-scale="sm"] .text-\[15px\] { font-size: 13.88px; }
+[data-font-scale="sm"] .text-\[16px\] { font-size: 14.8px; }
+[data-font-scale="sm"] .text-\[17px\] { font-size: 15.73px; }
+[data-font-scale="sm"] .text-\[18px\] { font-size: 16.65px; }
+[data-font-scale="sm"] .text-\[20px\] { font-size: 18.5px; }
+[data-font-scale="sm"] .text-\[22px\] { font-size: 20.35px; }
+[data-font-scale="lg"] .text-\[9px\] { font-size: 10.12px; }
+[data-font-scale="lg"] .text-\[10px\] { font-size: 11.25px; }
+[data-font-scale="lg"] .text-\[11px\] { font-size: 12.38px; }
+[data-font-scale="lg"] .text-\[11\.5px\] { font-size: 12.94px; }
+[data-font-scale="lg"] .text-\[12px\] { font-size: 13.5px; }
+[data-font-scale="lg"] .text-\[12\.5px\] { font-size: 14.06px; }
+[data-font-scale="lg"] .text-\[13px\] { font-size: 14.62px; }
+[data-font-scale="lg"] .text-\[14px\] { font-size: 15.75px; }
+[data-font-scale="lg"] .text-\[15px\] { font-size: 16.88px; }
+[data-font-scale="lg"] .text-\[16px\] { font-size: 18px; }
+[data-font-scale="lg"] .text-\[17px\] { font-size: 19.12px; }
+[data-font-scale="lg"] .text-\[18px\] { font-size: 20.25px; }
+[data-font-scale="lg"] .text-\[20px\] { font-size: 22.5px; }
+[data-font-scale="lg"] .text-\[22px\] { font-size: 24.75px; }

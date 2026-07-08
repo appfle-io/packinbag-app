@@ -5,8 +5,8 @@ import {
   IconSquareCheck,
   IconSquareOff,
   IconAlignLeft,
-  IconBookmark,
-  IconBookmarkFilled,
+  IconDeviceFloppy,
+  IconDeviceFloppyFilled,
   IconRefresh,
   IconTrash,
   IconGripVertical,
@@ -80,7 +80,7 @@ export default function PackCard({
   return (
     <div
       data-pack-drop-id={pack.id}
-      className="flex flex-col rounded-xl border p-3 md:p-4 min-h-0 shadow-sm"
+      className="flex flex-col rounded-xl border p-3.5 md:p-5 min-h-0 shadow-sm"
       style={{
         borderColor: isDragOver ? "var(--accent)" : "var(--border)",
         boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
@@ -89,8 +89,8 @@ export default function PackCard({
         transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
       }}
     >
-      <div className="flex items-center justify-between mb-2 shrink-0 gap-2">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+      <div className="flex items-center justify-between mb-2.5 shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {onStartPackDrag && (
             <span
               onPointerDown={(e) => {
@@ -101,7 +101,7 @@ export default function PackCard({
               style={{ color: "var(--text-muted)" }}
               aria-label="드래그해서 팩 순서 바꾸기"
             >
-              <IconGripVertical size={14} stroke={1.75} />
+              <IconGripVertical size={17} stroke={1.75} />
             </span>
           )}
           <PackColorDot colorId={pack.color} onChange={onChangeColor} />
@@ -112,52 +112,51 @@ export default function PackCard({
               className="shrink-0"
             >
               {allChecked ? (
-                <IconSquareOff size={15} stroke={1.75} color="var(--text-secondary)" />
+                <IconSquareOff size={18} stroke={1.75} color="var(--text-secondary)" />
               ) : (
-                <IconSquareCheck size={15} stroke={1.75} color="var(--text-secondary)" />
+                <IconSquareCheck size={18} stroke={1.75} color="var(--text-secondary)" />
               )}
             </button>
           )}
           <EditableText
             value={pack.name}
             onChange={onRenamePack}
-            className="text-[14px] font-medium truncate text-left min-w-0"
-            inputClassName="text-[14px] font-medium min-w-0 flex-1"
+            className="text-[17px] font-medium truncate text-left min-w-0"
+            inputClassName="text-[17px] font-medium min-w-0 flex-1"
           />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {ratio !== null && <ProgressRing ratio={ratio} size={16} accentHex={accentHex ?? undefined} />}
-          <span className="text-[12px] text-text-secondary">
+        <div className="flex items-center gap-2.5 shrink-0">
+          {ratio !== null && <ProgressRing ratio={ratio} size={19} accentHex={accentHex ?? undefined} />}
+          <span className="text-[14px] text-text-secondary">
             {pack.items.length}개
           </span>
           {pack.linkedLibraryPackId && (
             <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
-              <IconRefresh size={15} stroke={1.75} color="var(--text-secondary)" />
+              <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
             </button>
           )}
           <button
             onClick={onSaveToLibrary}
-            aria-label="팩으로 저장"
-            disabled={pack.savedAsLibraryPack}
+            aria-label="팩 저장"
           >
             {pack.savedAsLibraryPack ? (
-              <IconBookmarkFilled size={15} stroke={1.75} color="var(--accent)" />
+              <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
             ) : (
-              <IconBookmark size={15} stroke={1.75} color="var(--text-secondary)" />
+              <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
             )}
           </button>
           <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
-            <IconTrash size={15} stroke={1.75} color="var(--text-secondary)" />
+            <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
           </button>
         </div>
       </div>
 
       <div
-        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(128px,1fr))] md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))] h-[150px] md:h-[190px]"
+        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(154px,1fr))] md:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] h-[180px] md:h-[228px]"
         style={{
           overflowY: "auto",
           gridAutoRows: "min-content",
-          gap: "6px 8px",
+          gap: "8px 10px",
           alignContent: "start",
         }}
       >
@@ -180,13 +179,13 @@ export default function PackCard({
         ))}
       </div>
 
-      <div className="flex gap-4 pt-2 mt-2 border-t border-border text-[12px] text-text-secondary shrink-0">
-        <button onClick={onAddCheckItem} className="flex items-center gap-1">
-          <IconSquareCheck size={14} stroke={1.75} />
+      <div className="flex gap-5 pt-2.5 mt-2.5 border-t border-border text-[14px] text-text-secondary shrink-0">
+        <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
+          <IconSquareCheck size={17} stroke={1.75} />
           체크항목
         </button>
-        <button onClick={onAddTextItem} className="flex items-center gap-1">
-          <IconAlignLeft size={14} stroke={1.75} />
+        <button onClick={onAddTextItem} className="flex items-center gap-1.5">
+          <IconAlignLeft size={17} stroke={1.75} />
           텍스트
         </button>
       </div>

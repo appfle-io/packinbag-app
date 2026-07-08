@@ -6,12 +6,14 @@ export default function ConfirmDialog({
   title,
   message,
   confirmLabel = "삭제",
+  tone = "danger",
   onConfirm,
   onCancel,
 }: {
   title: string;
   message?: string;
   confirmLabel?: string;
+  tone?: "danger" | "accent";
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -42,7 +44,7 @@ export default function ConfirmDialog({
             <button
               onClick={onConfirm}
               className="flex-1 rounded-lg py-2 text-[13px] font-medium"
-              style={{ background: "var(--danger)", color: "#fff" }}
+              style={{ background: tone === "accent" ? "var(--accent)" : "var(--danger)", color: "#fff" }}
             >
               {confirmLabel}
             </button>

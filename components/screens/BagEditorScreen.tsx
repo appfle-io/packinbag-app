@@ -17,6 +17,7 @@ import PackGrid from "@/components/PackGrid";
 import PackImportModal from "@/components/PackImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SaveAsDialog from "@/components/SaveAsDialog";
+import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
@@ -390,6 +391,8 @@ export default function BagEditorScreen({
     packId: string;
     suggestedName: string;
   } | null>(null);
+  const [saveConfirmTarget, setSaveConfirmTarget] = useState<string | null>(null);
+  const [updateChoiceTarget, setUpdateChoiceTarget] = useState<string | null>(null);
 
   const commitSaveToLibrary = (packId: string, nameOverride?: string) => {
     const pack = bag.packs.find((p) => p.id === packId);
@@ -421,7 +424,25 @@ export default function BagEditorScreen({
 
   const handleSaveToLibrary = (packId: string) => {
     const pack = bag.packs.find((p) => p.id === packId);
-    if (!pack || pack.savedAsLibraryPack) return;
+    if (!pack) return;
+    if (!pack.linkedLibraryPackId) {
+      // 아직 한 번도 저장한 적 없는 팩 -> 저장 여부 확인
+      setSaveConfirmTarget(packId);
+      return;
+    }
+    if (pack.savedAsLibraryPack) {
+      // 라이브러리 원본과 완전히 동일한 상태
+      show("변경사항이 없어요");
+      return;
+    }
+    // 저장된 적 있는데 그 이후 수정됨 -> 새롭게 저장 / 덮어쓰기 선택
+    setUpdateChoiceTarget(packId);
+  };
+
+  const confirmInitialSave = (packId: string) => {
+    setSaveConfirmTarget(null);
+    const pack = bag.packs.find((p) => p.id === packId);
+    if (!pack) return;
     const nameTaken = libraryPacks.some(
       (p) => p.name.trim() === pack.name.trim()
     );
@@ -430,6 +451,41 @@ export default function BagEditorScreen({
       return;
     }
     commitSaveToLibrary(packId);
+  };
+
+  const handleChooseSaveAsNew = (packId: string) => {
+    setUpdateChoiceTarget(null);
+    const pack = bag.packs.find((p) => p.id === packId);
+    if (!pack) return;
+    const nameTaken = libraryPacks.some(
+      (p) => p.id !== pack.linkedLibraryPackId && p.name.trim() === pack.name.trim()
+    );
+    if (nameTaken) {
+      setDuplicateTarget({ packId, suggestedName: `${pack.name} (2)` });
+      return;
+    }
+    commitSaveToLibrary(packId);
+  };
+
+  const commitOverwriteToLibrary = (packId: string) => {
+    setUpdateChoiceTarget(null);
+    const pack = bag.packs.find((p) => p.id === packId);
+    if (!pack?.linkedLibraryPackId) return;
+    const name = pack.name.trim();
+    onSaveAsLibraryPack({
+      ...pack,
+      id: pack.linkedLibraryPackId,
+      name,
+      savedAsLibraryPack: undefined,
+      linkedLibraryPackId: undefined,
+      items: pack.items.map((i) => ({ ...i })),
+    });
+    updatePacks((packs) =>
+      packs.map((p) =>
+        p.id === packId ? { ...p, name, savedAsLibraryPack: true } : p
+      )
+    );
+    show("팩을 덮어썼어요");
   };
 
   const handleRefreshFromLibrary = (packId: string) => {
@@ -700,6 +756,25 @@ export default function BagEditorScreen({
             commitSaveToLibrary(duplicateTarget.packId, name);
             setDuplicateTarget(null);
           }}
+        />
+      )}
+
+      {saveConfirmTarget && (
+        <ConfirmDialog
+          title="팩을 저장하시겠습니까?"
+          message="다음에 다시 꺼내 쓸 수 있어요"
+          confirmLabel="저장"
+          tone="accent"
+          onCancel={() => setSaveConfirmTarget(null)}
+          onConfirm={() => confirmInitialSave(saveConfirmTarget)}
+        />
+      )}
+
+      {updateChoiceTarget && (
+        <PackUpdateDialog
+          onCancel={() => setUpdateChoiceTarget(null)}
+          onSaveAsNew={() => handleChooseSaveAsNew(updateChoiceTarget)}
+          onOverwrite={() => commitOverwriteToLibrary(updateChoiceTarget)}
         />
       )}
 

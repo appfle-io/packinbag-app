@@ -19,12 +19,6 @@ const DEFAULT_CUSTOM = "#8b5cf6";
 // "default"는 커스텀하지 않은 상태 (기본 무채색 카드 배경 = --surface 그대로)
 export const DEFAULT_CARD_COLOR_ID = "default";
 
-const FONT_SCALE_RATIO: Record<FontScale, number> = {
-  sm: 0.925,
-  md: 1,
-  lg: 1.125,
-};
-
 function resolveTheme(mode: ThemeMode): "light" | "dark" {
   if (mode === "system") {
     if (typeof window === "undefined") return "light";
@@ -82,11 +76,15 @@ function applyCardColor(
   root.setProperty(cssVar, tone.soft);
 }
 
-// 이 앱은 대부분 text-[13px]류의 px 고정 크기를 쓰고 있어서, html 루트 font-size를
-// 바꾸는 rem 배율 방식은 효과가 없다. 대신 CSS zoom으로 레이아웃 전체를 함께
-// 확대/축소한다 (아이콘/여백까지 비례해서 커지므로 macOS/iOS의 "더 큰 텍스트"와 비슷한 느낌).
+// 글자 크기 설정: html 루트에 data-font-scale 속성만 세팅한다. 실제 배율 적용은
+// globals.css의 .text-[Npx] 클래스별 오버라이드 규칙에서 처리한다 - 그래야
+// 아이콘/여백/레이아웃 크기는 그대로 두고 글자 크기만 커지거나 작아진다.
 function applyFontScale(scale: FontScale) {
-  document.documentElement.style.setProperty("zoom", String(FONT_SCALE_RATIO[scale]));
+  if (scale === "md") {
+    document.documentElement.removeAttribute("data-font-scale");
+  } else {
+    document.documentElement.setAttribute("data-font-scale", scale);
+  }
 }
 
 const ThemeContext = createContext<{

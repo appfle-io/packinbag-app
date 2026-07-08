@@ -109,7 +109,7 @@ export default function ItemRow({
             setDragX(0);
             onDelete();
           }}
-          className="absolute right-0 top-0 h-full flex items-center justify-center text-[12px]"
+          className="absolute right-0 top-0 h-full flex items-center justify-center text-[14px]"
           style={{ width: 72, background: "var(--danger)", color: "#fff" }}
         >
           삭제
@@ -128,7 +128,7 @@ export default function ItemRow({
           background: item.type === "check" ? "var(--surface-2)" : "transparent",
           opacity: isDragSource ? 0.35 : 1,
         }}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-2.5 md:px-3 md:py-3 touch-pan-y"
+        className="flex items-center gap-2 rounded-lg px-3 py-3 md:px-3.5 md:py-3.5 touch-pan-y"
       >
         {onStartDrag && (
           <span
@@ -140,7 +140,7 @@ export default function ItemRow({
             style={{ color: "var(--text-muted)" }}
             aria-label="드래그해서 다른 팩으로 옮기기"
           >
-            <IconGripVertical size={14} stroke={1.75} />
+            <IconGripVertical size={17} stroke={1.75} />
           </span>
         )}
 
@@ -149,13 +149,13 @@ export default function ItemRow({
             type="checkbox"
             checked={!!item.checked}
             onChange={onToggle}
-            className="shrink-0 h-4 w-4 accent-[var(--accent)]"
+            className="shrink-0 h-5 w-5 accent-[var(--accent)]"
           />
         )}
 
         {editing ? (
           item.type === "text" ? (
-            <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+            <div className="min-w-0 flex-1 flex flex-col gap-2">
               <input
                 autoFocus
                 value={draft}
@@ -163,43 +163,43 @@ export default function ItemRow({
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
                 placeholder="텍스트 입력"
-                className="min-w-0 w-full bg-transparent text-[14px] md:text-[15px] leading-normal py-1.5 md:py-2 outline-none"
+                className="min-w-0 w-full bg-transparent text-[17px] md:text-[18px] leading-normal py-2 md:py-2.5 outline-none"
                 style={{
                   fontWeight: draftBold ? 700 : 400,
                   textDecoration: draftStrike ? "line-through" : "none",
                   color: draftColor || "var(--foreground)",
                 }}
               />
-              <div className="flex items-center flex-wrap gap-1.5 md:gap-2">
+              <div className="flex items-center flex-wrap gap-2 md:gap-2.5">
                 <button
                   type="button"
                   onMouseDown={preventBlur}
                   onClick={() => setDraftBold((b) => !b)}
                   aria-label="굵게"
-                  className="flex items-center justify-center h-6 w-6 md:h-7 md:w-7 rounded shrink-0"
+                  className="flex items-center justify-center h-7 w-7 md:h-8 md:w-8 rounded shrink-0"
                   style={{
                     background: draftBold ? "var(--accent)" : "var(--surface)",
                     color: draftBold ? "#fff" : "var(--text-secondary)",
                   }}
                 >
-                  <IconBold size={13} stroke={2.25} />
+                  <IconBold size={16} stroke={2.25} />
                 </button>
                 <button
                   type="button"
                   onMouseDown={preventBlur}
                   onClick={() => setDraftStrike((s) => !s)}
                   aria-label="취소선"
-                  className="flex items-center justify-center h-6 w-6 md:h-7 md:w-7 rounded shrink-0"
+                  className="flex items-center justify-center h-7 w-7 md:h-8 md:w-8 rounded shrink-0"
                   style={{
                     background: draftStrike ? "var(--accent)" : "var(--surface)",
                     color: draftStrike ? "#fff" : "var(--text-secondary)",
                   }}
                 >
-                  <IconStrikethrough size={13} stroke={2.25} />
+                  <IconStrikethrough size={16} stroke={2.25} />
                 </button>
                 <span
                   className="shrink-0"
-                  style={{ width: 1, height: 14, background: "var(--border)" }}
+                  style={{ width: 1, height: 17, background: "var(--border)" }}
                 />
                 {TEXT_COLORS.map((c) => (
                   <button
@@ -208,7 +208,7 @@ export default function ItemRow({
                     onMouseDown={preventBlur}
                     onClick={() => setDraftColor(c)}
                     aria-label={c ? `색상 ${c}` : "기본 색상"}
-                    className="h-[18px] w-[18px] md:h-5 md:w-5 rounded-full shrink-0"
+                    className="h-[22px] w-[22px] md:h-6 md:w-6 rounded-full shrink-0"
                     style={{
                       background: c || "var(--surface)",
                       border:
@@ -228,13 +228,13 @@ export default function ItemRow({
               onBlur={commitEdit}
               onKeyDown={(e) => e.key === "Enter" && commitEdit()}
               placeholder="짐 이름"
-              className="min-w-0 flex-1 bg-transparent text-[14px] md:text-[15px] leading-normal py-1.5 md:py-2 outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[17px] md:text-[18px] leading-normal py-2 md:py-2.5 outline-none"
             />
           )
         ) : (
           <button
             onClick={startEdit}
-            className="min-w-0 flex-1 text-left text-[14px] md:text-[15px] line-clamp-2"
+            className="min-w-0 flex-1 text-left text-[17px] md:text-[18px] line-clamp-2"
           >
             {item.type === "check" ? (
               <span
