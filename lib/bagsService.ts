@@ -163,6 +163,24 @@ export async function removeMemberRemote(bagId: string, memberUid: string) {
   });
 }
 
+// 프로필(닉네임/아바타)을 수정했을 때, 이미 가입해둔 모든 가방의 memberProfiles 스냅샷도
+// 함께 최신화한다. memberProfiles는 참여 시점에 한 번 찍어두는 스냅샷이라, 이걸 갱신해주지
+// 않으면 초대코드/그룹원 목록 화면에 예전 닉네임·아바타가 계속 남아있게 된다.
+export async function syncMemberProfileAcrossBags(
+  uid: string,
+  profile: { nickname: string; avatarId: string }
+) {
+  const snap = await getDocs(query(bagsCol(), where("memberIds", "array-contains", uid)));
+  await Promise.all(
+    snap.docs.map((d) =>
+      updateDoc(d.ref, {
+        [`memberProfiles.${uid}.nickname`]: profile.nickname,
+        [`memberProfiles.${uid}.avatarId`]: profile.avatarId,
+      }).catch(() => {})
+    )
+  );
+}
+
 // 기존 초대코드를 무효화하고 새 코드를 발급 (기존 코드로는 더 이상 참여 불가)
 export async function regenerateInviteCodeRemote(bag: Bag): Promise<string> {
   const newCode = generateInviteCode();

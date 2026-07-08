@@ -55,7 +55,7 @@ function ColorSlotSection({
   return (
     <div className="mb-6">
       <p className="text-[12px] text-text-secondary mb-2">{title}</p>
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center gap-2.5">
           {showDefaultOption && (
             <button
@@ -223,7 +223,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
         <div className="mb-6">
           <p className="text-[12px] text-text-secondary mb-2">기본 투명도</p>
-          <div className="rounded-lg border border-border bg-surface p-3">
+          <div className="rounded-lg border border-border bg-surface-2 p-3">
             <p className="text-[11px] text-text-muted">
               하단 메뉴, 필터 버튼, 짐(체크항목·텍스트) 배경, 설정 메뉴의 선택 안 된 버튼
               배경 등에 공통으로 적용돼요

@@ -24,6 +24,7 @@ import {
 } from "firebase/auth";
 import {
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -31,6 +32,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
 import { deleteAllUserData } from "@/lib/accountService";
+import { syncMemberProfileAcrossBags } from "@/lib/bagsService";
 
 interface AuthContextValue {
   user: User | null;
@@ -201,11 +203,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateNickname = async (nickname: string) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), { nickname }, { merge: true });
+    // 아바타를 연달아 바꾸는 경우(ProfileEditScreen)에도 최신 값이 반영되도록,
+    // 로컬 profile state 대신 방금 쓴 문서를 다시 읽어서 동기화한다.
+    const fresh = await getDoc(doc(db, "users", user.uid));
+    syncMemberProfileAcrossBags(user.uid, {
+      nickname,
+      avatarId: (fresh.data()?.avatarId as string | undefined) ?? profile?.avatarId ?? "",
+    }).catch(() => {});
   };
 
   const updateAvatar = async (avatarId: string) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), { avatarId }, { merge: true });
+    const fresh = await getDoc(doc(db, "users", user.uid));
+    syncMemberProfileAcrossBags(user.uid, {
+      nickname: (fresh.data()?.nickname as string | undefined) ?? profile?.nickname ?? "",
+      avatarId,
+    }).catch(() => {});
   };
 
   // 화면 모드/강조 색상을 계정에 저장 (기기 간 동기화용). 로그인 안 했으면 아무것도 안 함.
