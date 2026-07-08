@@ -1,0 +1,196 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --surface: #f7f7f8;
+  --surface-2: #eef0f2;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  /* 가방/팩 카드 배경 톤 - 설정에서 커스텀하지 않으면 --surface와 동일 */
+  --bag-card-bg: var(--surface);
+  --pack-card-bg: var(--surface);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+}
+
+[data-theme="dark"] {
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --border: #38383a;
+  --border-strong: #48484a;
+  --accent: #3b82f6;
+  --accent-strong: #60a5fa;
+  --accent-soft: #172554;
+  --danger: #f87171;
+  --danger-soft: #3f1d1d;
+}
+
+* {
+  border-color: var(--border);
+}
+
+@keyframes pib-splash-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pib-splash-rise {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pib-splash-logo {
+  animation: pib-splash-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pib-splash-text {
+  animation: pib-splash-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 200ms;
+}
+
+@keyframes pib-note-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.pib-note-spin {
+  animation: pib-note-pulse 1.4s ease-in-out infinite;
+}
+
+.pib-note-fade {
+  animation: pib-splash-rise 320ms ease both;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic",
+    -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes pib-toast-pop-in {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pib-toast-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes pib-toast-circle-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pib-toast-check-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.pib-toast-pop {
+  animation:
+    pib-toast-pop-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    pib-toast-fade-out 220ms ease-in 1480ms both;
+}
+
+.pib-toast-circle {
+  animation: pib-toast-circle-pop 320ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.pib-toast-check {
+  stroke-dasharray: 1;
+  animation: pib-toast-check-draw 360ms ease-out 260ms both;
+}

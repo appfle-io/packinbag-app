@@ -1,0 +1,79 @@
+rules_version = '2';
+
+// 팩인백 Firestore 보안 규칙
+// - users/{uid}: 본인만 읽고 쓸 수 있음
+// - users/{uid}/libraryPacks: 팩 라이브러리는 공유되지 않는 개인 전용 공간. 본인만 접근.
+// - bags/{bagId}: 공유 단위는 "가방"이다. memberIds에 포함된 사람만 읽고 쓸 수 있음(동시편집).
+//   생성은 본인 1인 멤버로만 가능. 참여는 초대코드를 아는 사람이 자기 uid만 추가하는 형태로만 허용.
+// - bags/{bagId}/presence: 그 가방 멤버만 자신의 접속 상태를 쓸 수 있음(실시간 접속자 표시용).
+// - inviteCodes/{code}: 코드 -> bagId 매핑. 코드를 아는 사람만 조회 가능(목록조회는 불가).
+// - announcements/{id}: 공지사항. 로그인한 사람 누구나 읽고, 마스터(운영자) 이메일만 쓸 수 있음.
+//
+// 참고: "소그룹(최대 10명)" 신뢰 기반 사용을 가정한 1차 버전입니다.
+// bags 컬렉션 자체에 대한 규칙은 resource.data를 직접 사용하고(추가 get() 호출 없음),
+// 부모 가방의 멤버인지 확인해야 하는 하위 presence 문서에서만 get()을 사용한다.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /libraryPacks/{packId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // 초대코드 -> 가방id 매핑. 코드를 아는 사람이면 조회 가능(참여 전이라 멤버가 아니어도 됨).
+    // list(전체 목록 조회)는 금지되어 있어 코드를 모르면 뒤질 수 없음.
+    match /inviteCodes/{code} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // 공지사항: 로그인한 사람 누구나 읽을 수 있고, 마스터(운영자) 이메일만 쓸 수 있다.
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+    }
+
+    match /bags/{bagId} {
+      allow read: if request.auth != null &&
+        request.auth.uid in resource.data.memberIds;
+
+      allow create: if request.auth != null &&
+        request.resource.data.memberIds == [request.auth.uid] &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.memberIds.size() == 1;
+
+      // 이미 멤버인 사람의 일반 수정(멤버 목록을 줄이는 탈퇴 포함, memberIds 추가는 불가)
+      allow update: if request.auth != null &&
+        request.auth.uid in resource.data.memberIds &&
+        (
+          request.resource.data.memberIds.size() <= resource.data.memberIds.size() ||
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds'])
+        );
+
+      // 아직 멤버가 아닌 사용자가 초대코드로 참여할 때: 자기 uid 하나만 추가 허용
+      // (memberProfiles.{uid} 스냅샷도 함께 기록할 수 있게 허용)
+      allow update: if request.auth != null &&
+        !(request.auth.uid in resource.data.memberIds) &&
+        request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid]) &&
+        resource.data.memberIds.size() < 10 &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberProfiles']);
+
+      allow delete: if request.auth != null &&
+        request.auth.uid in resource.data.memberIds;
+
+      match /presence/{presenceUid} {
+        allow read: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+        allow write: if request.auth != null &&
+          request.auth.uid == presenceUid &&
+          request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+      }
+    }
+  }
+}
