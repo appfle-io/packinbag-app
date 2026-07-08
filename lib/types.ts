@@ -99,6 +99,13 @@ export interface UserProfile {
   customBagColorHex?: string;
   packGridColorId?: string;
   customPackGridColorHex?: string;
+  // 가방/팩 카드 배경색 투명도 (0~1, 없으면 1 = 완전 불투명). 기본색(default)일 때도 적용됨 -
+  // 낮출수록 카드 뒤 배경(라이트=흰색/다크=검정)이 비쳐 보임
+  bagColorOpacity?: number;
+  packGridColorOpacity?: number;
+  // 가방 카드 / 팩 카드 크기 배율 (없으면 1 = 100%). 카드 안 여백·아이콘·글자를 함께 배율 적용
+  bagCardScale?: number;
+  packCardScale?: number;
   // 글자 크기 (없으면 "md" 기본값)
   fontScale?: "sm" | "md" | "lg";
   // 앱 실행 시 처음 보여줄 탭 (없으면 "home" 기본값)

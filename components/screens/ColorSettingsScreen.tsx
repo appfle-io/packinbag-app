@@ -2,11 +2,18 @@
 
 import { useState } from "react";
 import { IconArrowLeft, IconCheck, IconBan } from "@tabler/icons-react";
-import { useTheme, DEFAULT_CARD_COLOR_ID } from "@/components/ThemeProvider";
+import { useTheme, DEFAULT_CARD_COLOR_ID, FontScale } from "@/components/ThemeProvider";
 import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
+import PercentSlider from "@/components/PercentSlider";
 
 type Slot = "accent" | "bag" | "packGrid";
+
+const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
+  { key: "sm", label: "작게", previewPx: 12 },
+  { key: "md", label: "보통", previewPx: 13 },
+  { key: "lg", label: "크게", previewPx: 14.5 },
+];
 
 function ColorSlotSection({
   title,
@@ -16,6 +23,11 @@ function ColorSlotSection({
   showDefaultOption,
   onSelectPreset,
   onOpenCustomPicker,
+  opacityPct,
+  onChangeOpacity,
+  scalePct,
+  onChangeScale,
+  scaleLabel,
 }: {
   title: string;
   description: string;
@@ -24,6 +36,11 @@ function ColorSlotSection({
   showDefaultOption: boolean;
   onSelectPreset: (id: string) => void;
   onOpenCustomPicker: () => void;
+  opacityPct?: number;
+  onChangeOpacity?: (pct: number) => void;
+  scalePct?: number;
+  onChangeScale?: (pct: number) => void;
+  scaleLabel?: string;
 }) {
   return (
     <div className="mb-6">
@@ -79,6 +96,28 @@ function ColorSlotSection({
           </div>
         </div>
         <p className="text-[11px] text-text-muted mt-2.5">{description}</p>
+
+        {opacityPct !== undefined && onChangeOpacity && (
+          <PercentSlider
+            label="투명도"
+            value={opacityPct}
+            min={0}
+            max={100}
+            step={5}
+            onChange={onChangeOpacity}
+          />
+        )}
+
+        {scalePct !== undefined && onChangeScale && (
+          <PercentSlider
+            label={scaleLabel ?? "크기"}
+            value={scalePct}
+            min={70}
+            max={130}
+            step={5}
+            onChange={onChangeScale}
+          />
+        )}
       </div>
     </div>
   );
@@ -86,6 +125,8 @@ function ColorSlotSection({
 
 export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) {
   const {
+    fontScale,
+    setFontScale,
     accentId,
     setAccent,
     customHex,
@@ -94,10 +135,18 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setBagColor,
     bagCustomHex,
     setCustomBagColor,
+    bagColorOpacity,
+    setBagColorOpacity,
+    bagCardScale,
+    setBagCardScale,
     packGridColorId,
     setPackGridColor,
     packGridCustomHex,
     setCustomPackGridColor,
+    packGridColorOpacity,
+    setPackGridColorOpacity,
+    packCardScale,
+    setPackCardScale,
   } = useTheme();
   const [openPicker, setOpenPicker] = useState<Slot | null>(null);
 
@@ -107,10 +156,30 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         <button onClick={onBack} className="flex items-center gap-1">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
-        <p className="text-[15px] font-medium">색상</p>
+        <p className="text-[15px] font-medium">화면설정</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">글자 크기</p>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {fontScales.map(({ key, label, previewPx }) => (
+              <button
+                key={key}
+                onClick={() => setFontScale(key)}
+                className="flex-1 py-2"
+                style={{
+                  background: fontScale === key ? "var(--accent)" : "var(--surface)",
+                  color: fontScale === key ? "#fff" : "var(--foreground)",
+                  fontSize: previewPx,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <ColorSlotSection
           title="강조 색상"
           description="맨 오른쪽 원을 누르면 색상 팔레트나 헥스코드(#ffffff)로 직접 고를 수 있어요"
@@ -129,6 +198,11 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           showDefaultOption
           onSelectPreset={setBagColor}
           onOpenCustomPicker={() => setOpenPicker("bag")}
+          opacityPct={Math.round(bagColorOpacity * 100)}
+          onChangeOpacity={(pct) => setBagColorOpacity(pct / 100)}
+          scalePct={Math.round(bagCardScale * 100)}
+          onChangeScale={(pct) => setBagCardScale(pct / 100)}
+          scaleLabel="가방 크기"
         />
 
         <ColorSlotSection
@@ -139,6 +213,11 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           showDefaultOption
           onSelectPreset={setPackGridColor}
           onOpenCustomPicker={() => setOpenPicker("packGrid")}
+          opacityPct={Math.round(packGridColorOpacity * 100)}
+          onChangeOpacity={(pct) => setPackGridColorOpacity(pct / 100)}
+          scalePct={Math.round(packCardScale * 100)}
+          onChangeScale={(pct) => setPackCardScale(pct / 100)}
+          scaleLabel="팩 크기"
         />
       </div>
 

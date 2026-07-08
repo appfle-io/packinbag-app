@@ -21,6 +21,8 @@ import ConfirmDialog from "./ConfirmDialog";
 import PackColorDot from "./PackColorDot";
 import ProgressRing from "./ProgressRing";
 
+// 설정 > 화면설정 > 팩 크기 슬라이더 값(--pack-card-scale)에 맞춰 여백/아이콘/짐 칸/글자
+// 크기를 함께 조절한다. 글자는 --font-scale-factor(설정 > 글자 크기)까지 같이 곱해진다.
 export default function PackCard({
   pack,
   isSyncedWithLibrary,
@@ -82,7 +84,7 @@ export default function PackCard({
   return (
     <div
       data-pack-drop-id={pack.id}
-      className="flex flex-col rounded-xl border p-3.5 md:p-5 min-h-0 shadow-sm"
+      className="flex flex-col rounded-xl border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
       style={{
         borderColor: isDragOver ? "var(--accent)" : "var(--border)",
         boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
@@ -100,18 +102,21 @@ export default function PackCard({
                 onStartPackDrag(e.clientX, e.clientY);
               }}
               className="shrink-0 touch-none cursor-grab"
-              style={{ color: "var(--text-muted)" }}
+              style={{ color: "var(--text-muted)", transform: "scale(var(--pack-card-scale,1))" }}
               aria-label="드래그해서 팩 순서 바꾸기"
             >
               <IconGripVertical size={17} stroke={1.75} />
             </span>
           )}
-          <PackColorDot colorId={pack.color} onChange={onChangeColor} />
+          <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+            <PackColorDot colorId={pack.color} onChange={onChangeColor} />
+          </span>
           {checkItems.length > 0 && (
             <button
               onClick={() => onToggleAll(!allChecked)}
               aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
               className="shrink-0"
+              style={{ transform: "scale(var(--pack-card-scale,1))" }}
             >
               {allChecked ? (
                 <IconSquareOff size={18} stroke={1.75} color="var(--text-secondary)" />
@@ -123,23 +128,32 @@ export default function PackCard({
           <EditableText
             value={pack.name}
             onChange={onRenamePack}
-            className="text-[17px] font-medium truncate text-left min-w-0"
-            inputClassName="text-[17px] font-medium min-w-0 flex-1"
+            className="text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
+            inputClassName="text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
-          {ratio !== null && <ProgressRing ratio={ratio} size={19} accentHex={accentHex ?? undefined} />}
-          <span className="text-[14px] text-text-secondary">
+          {ratio !== null && (
+            <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+              <ProgressRing ratio={ratio} size={19} accentHex={accentHex ?? undefined} />
+            </span>
+          )}
+          <span className="text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
             {pack.items.length}개
           </span>
           {pack.linkedLibraryPackId && (
-            <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
+            <button
+              onClick={onRefreshFromLibrary}
+              aria-label="팩 다시 불러오기"
+              style={{ transform: "scale(var(--pack-card-scale,1))" }}
+            >
               <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
             </button>
           )}
           <button
             onClick={onSaveToLibrary}
             aria-label="팩 저장"
+            style={{ transform: "scale(var(--pack-card-scale,1))" }}
           >
             {isSyncedWithLibrary ? (
               <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
@@ -147,18 +161,22 @@ export default function PackCard({
               <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
             )}
           </button>
-          <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
+          <button
+            onClick={() => setConfirmDelete(true)}
+            aria-label="팩 삭제"
+            style={{ transform: "scale(var(--pack-card-scale,1))" }}
+          >
             <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
           </button>
         </div>
       </div>
 
       <div
-        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(154px,1fr))] md:grid-cols-[repeat(auto-fit,minmax(180px,1fr))] h-[180px] md:h-[228px]"
+        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(calc(154px*var(--pack-card-scale,1)),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))]"
         style={{
           overflowY: "auto",
           gridAutoRows: "min-content",
-          gap: "8px 10px",
+          gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",
           alignContent: "start",
         }}
       >
@@ -181,13 +199,17 @@ export default function PackCard({
         ))}
       </div>
 
-      <div className="flex gap-5 pt-2.5 mt-2.5 border-t border-border text-[14px] text-text-secondary shrink-0">
+      <div className="flex gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
         <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
-          <IconSquareCheck size={17} stroke={1.75} />
+          <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+            <IconSquareCheck size={17} stroke={1.75} />
+          </span>
           체크항목
         </button>
         <button onClick={onAddTextItem} className="flex items-center gap-1.5">
-          <IconAlignLeft size={17} stroke={1.75} />
+          <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+            <IconAlignLeft size={17} stroke={1.75} />
+          </span>
           텍스트
         </button>
       </div>

@@ -55,6 +55,10 @@ interface AuthContextValue {
     customBagColorHex?: string;
     packGridColorId?: string;
     customPackGridColorHex?: string;
+    bagColorOpacity?: number;
+    packGridColorOpacity?: number;
+    bagCardScale?: number;
+    packCardScale?: number;
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
   updateDefaultTab: (defaultTab: "home" | "packs") => Promise<void>;
@@ -207,6 +211,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     customBagColorHex?: string;
     packGridColorId?: string;
     customPackGridColorHex?: string;
+    bagColorOpacity?: number;
+    packGridColorOpacity?: number;
+    bagCardScale?: number;
+    packCardScale?: number;
   }) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), prefs, { merge: true });

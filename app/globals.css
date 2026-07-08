@@ -195,6 +195,43 @@ body {
   animation: pib-toast-check-draw 360ms ease-out 260ms both;
 }
 
+/* 설정 화면의 투명도/크기 슬라이더 - 동그란 손잡이를 좌우로 드래그하는 형태 */
+.pib-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  outline: none;
+  margin: 0;
+}
+.pib-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.pib-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.pib-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
 /* 글자 크기 설정 (설정 > 글자크기: 작게/보통/크게)
    앱 전체가 text-[Npx] 형태의 고정 px 클래스만 쓰고 있어서, 여기서 그 클래스들의
    font-size만 배율로 오버라이드한다. 아이콘 크기/여백/레이아웃은 전혀 건드리지

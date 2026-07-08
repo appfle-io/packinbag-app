@@ -10,6 +10,8 @@ const SWIPE_MAX = -72;
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
 const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
 
+// 설정 > 화면설정 > 팩 크기(--pack-card-scale) + 글자 크기(--font-scale-factor)에 맞춰
+// 패딩/아이콘/글자 크기를 함께 조절한다.
 export default function ItemRow({
   item,
   onToggle,
@@ -109,7 +111,7 @@ export default function ItemRow({
             setDragX(0);
             onDelete();
           }}
-          className="absolute right-0 top-0 h-full flex items-center justify-center text-[14px]"
+          className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
           style={{ width: 72, background: "var(--danger)", color: "#fff" }}
         >
           삭제
@@ -128,7 +130,7 @@ export default function ItemRow({
           background: item.type === "check" ? "var(--surface-2)" : "transparent",
           opacity: isDragSource ? 0.35 : 1,
         }}
-        className="flex items-center gap-2 rounded-lg px-3 py-3 md:px-3.5 md:py-3.5 touch-pan-y"
+        className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))] touch-pan-y"
       >
         {onStartDrag && (
           <span
@@ -137,7 +139,7 @@ export default function ItemRow({
               onStartDrag(e.clientX, e.clientY);
             }}
             className="shrink-0 touch-none cursor-grab"
-            style={{ color: "var(--text-muted)" }}
+            style={{ color: "var(--text-muted)", transform: "scale(var(--pack-card-scale,1))" }}
             aria-label="드래그해서 다른 팩으로 옮기기"
           >
             <IconGripVertical size={17} stroke={1.75} />
@@ -149,7 +151,11 @@ export default function ItemRow({
             type="checkbox"
             checked={!!item.checked}
             onChange={onToggle}
-            className="shrink-0 h-5 w-5 accent-[var(--accent)]"
+            className="shrink-0 accent-[var(--accent)]"
+            style={{
+              width: "calc(20px * var(--pack-card-scale,1))",
+              height: "calc(20px * var(--pack-card-scale,1))",
+            }}
           />
         )}
 
@@ -163,7 +169,7 @@ export default function ItemRow({
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
                 placeholder="텍스트 입력"
-                className="min-w-0 w-full bg-transparent text-[17px] md:text-[18px] leading-normal py-2 md:py-2.5 outline-none"
+                className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
                 style={{
                   fontWeight: draftBold ? 700 : 400,
                   textDecoration: draftStrike ? "line-through" : "none",
@@ -176,10 +182,12 @@ export default function ItemRow({
                   onMouseDown={preventBlur}
                   onClick={() => setDraftBold((b) => !b)}
                   aria-label="굵게"
-                  className="flex items-center justify-center h-7 w-7 md:h-8 md:w-8 rounded shrink-0"
+                  className="flex items-center justify-center rounded shrink-0"
                   style={{
                     background: draftBold ? "var(--accent)" : "var(--surface)",
                     color: draftBold ? "#fff" : "var(--text-secondary)",
+                    width: "calc(28px * var(--pack-card-scale,1))",
+                    height: "calc(28px * var(--pack-card-scale,1))",
                   }}
                 >
                   <IconBold size={16} stroke={2.25} />
@@ -189,10 +197,12 @@ export default function ItemRow({
                   onMouseDown={preventBlur}
                   onClick={() => setDraftStrike((s) => !s)}
                   aria-label="취소선"
-                  className="flex items-center justify-center h-7 w-7 md:h-8 md:w-8 rounded shrink-0"
+                  className="flex items-center justify-center rounded shrink-0"
                   style={{
                     background: draftStrike ? "var(--accent)" : "var(--surface)",
                     color: draftStrike ? "#fff" : "var(--text-secondary)",
+                    width: "calc(28px * var(--pack-card-scale,1))",
+                    height: "calc(28px * var(--pack-card-scale,1))",
                   }}
                 >
                   <IconStrikethrough size={16} stroke={2.25} />
@@ -208,13 +218,15 @@ export default function ItemRow({
                     onMouseDown={preventBlur}
                     onClick={() => setDraftColor(c)}
                     aria-label={c ? `색상 ${c}` : "기본 색상"}
-                    className="h-[22px] w-[22px] md:h-6 md:w-6 rounded-full shrink-0"
+                    className="rounded-full shrink-0"
                     style={{
                       background: c || "var(--surface)",
                       border:
                         draftColor === c
                           ? "1.5px solid var(--foreground)"
                           : "1.5px solid var(--border-strong)",
+                      width: "calc(22px * var(--pack-card-scale,1))",
+                      height: "calc(22px * var(--pack-card-scale,1))",
                     }}
                   />
                 ))}
@@ -228,13 +240,13 @@ export default function ItemRow({
               onBlur={commitEdit}
               onKeyDown={(e) => e.key === "Enter" && commitEdit()}
               placeholder="짐 이름"
-              className="min-w-0 flex-1 bg-transparent text-[17px] md:text-[18px] leading-normal py-2 md:py-2.5 outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
             />
           )
         ) : (
           <button
             onClick={startEdit}
-            className="min-w-0 flex-1 text-left text-[17px] md:text-[18px] line-clamp-2"
+            className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] line-clamp-2"
           >
             {item.type === "check" ? (
               <span

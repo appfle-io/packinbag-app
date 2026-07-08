@@ -49,7 +49,7 @@ export default function BottomTabBar({
         className="relative z-10 flex flex-1 items-center justify-center py-[19px] transition-transform active:scale-90"
       >
         <IconPackage
-          size={25}
+          size={30}
           stroke={1.75}
           color={active === "packs" ? "var(--accent)" : "var(--text-secondary)"}
         />
@@ -84,7 +84,7 @@ export default function BottomTabBar({
         className="relative z-10 flex flex-1 items-center justify-center py-[19px] transition-transform active:scale-90"
       >
         <IconSettings
-          size={25}
+          size={30}
           stroke={1.75}
           color={active === "settings" ? "var(--accent)" : "var(--text-secondary)"}
         />

@@ -6,6 +6,9 @@ import { getPackColorHex } from "@/lib/packColors";
 import { formatDDayLabel } from "@/lib/dday";
 import ProgressRing from "@/components/ProgressRing";
 
+// 설정 > 화면설정 > 가방 크기 슬라이더 값(--bag-card-scale)에 맞춰 패딩/간격/글자
+// 크기를 함께 조절한다. 글자는 --font-scale-factor(설정 > 글자 크기)까지 같이 곱해서,
+// "가방 크기"와 "글자 크기" 두 설정이 자연스럽게 겹쳐 적용되도록 한다.
 export default function BagCard({
   bag,
   onClick,
@@ -21,16 +24,16 @@ export default function BagCard({
   return (
     <button
       onClick={onClick}
-      className="aspect-square rounded-xl border border-border p-3 md:p-4 flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none"
+      className="aspect-square rounded-xl border border-border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none"
       style={{ background: "var(--bag-card-bg)" }}
     >
       <div className="flex items-start justify-between gap-1.5 shrink-0">
-        <span className="text-[13px] md:text-[14px] font-medium line-clamp-2">
+        <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2">
           {bag.name}
         </span>
         {ddayLabel && (
           <span
-            className="text-[10px] md:text-[11px] font-medium rounded-full px-1.5 py-0.5 shrink-0"
+            className="text-[calc(10px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5 shrink-0"
             style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
           >
             {ddayLabel}
@@ -46,12 +49,12 @@ export default function BagCard({
               return (
                 <span
                   key={pack.id}
-                  className="flex items-center gap-1 text-[11px] md:text-[12px] text-text-secondary truncate"
+                  className="flex items-center gap-1 text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary truncate"
                 >
                   {dotHex && (
                     <span
                       className="h-1.5 w-1.5 rounded-full shrink-0"
-                      style={{ background: dotHex }}
+                      style={{ background: dotHex, transform: "scale(var(--bag-card-scale,1))" }}
                     />
                   )}
                   <span className="truncate">
@@ -66,13 +69,17 @@ export default function BagCard({
           </div>
         </div>
       )}
-      <span className="flex items-center justify-end gap-2 text-[11px] md:text-[12px] text-text-secondary shrink-0 mt-auto pt-1.5">
+      <span className="flex items-center justify-end gap-2 text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
         {bag.memberIds.length > 1 && (
           <span className="flex items-center gap-0.5 text-text-muted">
             👥 {bag.memberIds.length}
           </span>
         )}
-        {overallRatio !== null && <ProgressRing ratio={overallRatio} size={18} />}
+        {overallRatio !== null && (
+          <span style={{ transform: "scale(var(--bag-card-scale,1))" }}>
+            <ProgressRing ratio={overallRatio} size={18} />
+          </span>
+        )}
         {totalLabel && <span className="font-medium">{totalLabel}</span>}
       </span>
     </button>
