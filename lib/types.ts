@@ -103,6 +103,9 @@ export interface UserProfile {
   // 낮출수록 카드 뒤 배경(라이트=흰색/다크=검정)이 비쳐 보임
   bagColorOpacity?: number;
   packGridColorOpacity?: number;
+  // 기본 투명도 (0~1, 없으면 1 = 완전 불투명): 하단 탭바, 필터 버튼, 짐(체크/텍스트) 배경,
+  // 설정 메뉴 미선택 버튼 배경 등 --surface-2를 쓰는 모든 요소에 공통 적용됨
+  baseOpacity?: number;
   // 가방 카드 / 팩 카드 크기 배율 (없으면 1 = 100%). 카드 안 여백·아이콘·글자를 함께 배율 적용
   bagCardScale?: number;
   packCardScale?: number;

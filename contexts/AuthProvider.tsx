@@ -57,6 +57,7 @@ interface AuthContextValue {
     customPackGridColorHex?: string;
     bagColorOpacity?: number;
     packGridColorOpacity?: number;
+    baseOpacity?: number;
     bagCardScale?: number;
     packCardScale?: number;
   }) => Promise<void>;
@@ -128,6 +129,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         customBagColorHex: data?.customBagColorHex as string | undefined,
         packGridColorId: data?.packGridColorId as string | undefined,
         customPackGridColorHex: data?.customPackGridColorHex as string | undefined,
+        bagColorOpacity: data?.bagColorOpacity as number | undefined,
+        packGridColorOpacity: data?.packGridColorOpacity as number | undefined,
+        baseOpacity: data?.baseOpacity as number | undefined,
+        bagCardScale: data?.bagCardScale as number | undefined,
+        packCardScale: data?.packCardScale as number | undefined,
         fontScale: data?.fontScale as UserProfile["fontScale"],
         defaultTab: data?.defaultTab as UserProfile["defaultTab"],
         dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,

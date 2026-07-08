@@ -116,7 +116,7 @@ export default function SettingsScreen({
               onClick={() => setMode(key)}
               className="flex-1 py-2 text-[13px]"
               style={{
-                background: mode === key ? "var(--accent)" : "var(--surface)",
+                background: mode === key ? "var(--accent)" : "var(--surface-2)",
                 color: mode === key ? "#fff" : "var(--foreground)",
               }}
             >
@@ -135,7 +135,7 @@ export default function SettingsScreen({
               onClick={() => updateDefaultTab(key).catch(() => {})}
               className="flex-1 py-2 text-[13px]"
               style={{
-                background: startTab === key ? "var(--accent)" : "var(--surface)",
+                background: startTab === key ? "var(--accent)" : "var(--surface-2)",
                 color: startTab === key ? "#fff" : "var(--foreground)",
               }}
             >

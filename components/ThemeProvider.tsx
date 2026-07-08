@@ -19,7 +19,11 @@ const BAG_OPACITY_KEY = "packinbag-bag-color-opacity";
 const PACK_GRID_OPACITY_KEY = "packinbag-pack-grid-color-opacity";
 const BAG_SCALE_KEY = "packinbag-bag-card-scale";
 const PACK_SCALE_KEY = "packinbag-pack-card-scale";
+const BASE_OPACITY_KEY = "packinbag-base-opacity";
 const DEFAULT_CUSTOM = "#8b5cf6";
+// --surface-2의 원래(불투명) 색상값. globals.css의 :root/[data-theme="dark"] 값과 동일하게 유지 -
+// 기본 투명도 100%일 때는 지금까지와 완전히 같은 색으로 보이게 하기 위함.
+const SURFACE_2_BASE = { light: "#eef0f2", dark: "#2c2c2e" };
 // "default"는 커스텀하지 않은 상태 (기본 무채색 카드 배경 = --surface 그대로)
 export const DEFAULT_CARD_COLOR_ID = "default";
 // 투명도/카드 크기 기본값 (둘 다 "지금 이대로" = 100%)
@@ -55,6 +59,7 @@ interface ColorSettings {
   packGridColorId: string;
   packGridCustomHex: string;
   packGridColorOpacity: number;
+  baseOpacity: number;
 }
 
 function applyAll(settings: ColorSettings) {
@@ -68,6 +73,7 @@ function applyAll(settings: ColorSettings) {
     packGridColorId,
     packGridCustomHex,
     packGridColorOpacity,
+    baseOpacity,
   } = settings;
   const resolved = resolveTheme(mode);
   document.documentElement.setAttribute("data-theme", resolved);
@@ -81,6 +87,18 @@ function applyAll(settings: ColorSettings) {
   root.setProperty("--accent-soft", tone.soft);
   applyCardColor("--bag-card-bg", bagColorId, bagCustomHex, resolved, bagColorOpacity);
   applyCardColor("--pack-card-bg", packGridColorId, packGridCustomHex, resolved, packGridColorOpacity);
+  applyBaseOpacity(resolved, baseOpacity);
+}
+
+// 기본 투명도: 하단 탭바, 필터 버튼, 짐(체크/텍스트) 배경, 설정 메뉴 미선택 버튼 배경 등
+// --surface-2를 쓰는 모든 곳에 공통으로 적용된다. globals.css에 정의된 고정값 대신
+// 이 CSS 변수를 인라인으로 덮어써서 색상은 그대로 두고 투명도만 조절한다
+// (100%일 때는 color-mix 결과가 원래 색과 동일해서 기존 모습 그대로 유지됨).
+function applyBaseOpacity(resolved: "light" | "dark", opacity: number) {
+  const root = document.documentElement.style;
+  const pct = Math.round(Math.max(0, Math.min(1, opacity)) * 100);
+  const base = SURFACE_2_BASE[resolved];
+  root.setProperty("--surface-2", `color-mix(in srgb, ${base} ${pct}%, transparent)`);
 }
 
 // 가방/팩 카드 배경 톤 + 투명도를 CSS 변수에 반영.
@@ -153,6 +171,8 @@ const ThemeContext = createContext<{
   setPackGridColorOpacity: (opacity: number) => void;
   packCardScale: number;
   setPackCardScale: (scale: number) => void;
+  baseOpacity: number;
+  setBaseOpacity: (opacity: number) => void;
 }>({
   mode: "system",
   setMode: () => {},
@@ -178,6 +198,8 @@ const ThemeContext = createContext<{
   setPackGridColorOpacity: () => {},
   packCardScale: DEFAULT_CARD_SCALE,
   setPackCardScale: () => {},
+  baseOpacity: DEFAULT_OPACITY,
+  setBaseOpacity: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -236,6 +258,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const raw = window.localStorage.getItem(PACK_SCALE_KEY);
     return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
   });
+  const [baseOpacity, setBaseOpacityState] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_OPACITY;
+    const raw = window.localStorage.getItem(BASE_OPACITY_KEY);
+    return raw !== null ? Number(raw) : DEFAULT_OPACITY;
+  });
 
   const currentSettings = (): ColorSettings => ({
     mode,
@@ -247,6 +274,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     packGridColorId,
     packGridCustomHex,
     packGridColorOpacity,
+    baseOpacity,
   });
 
   useEffect(() => {
@@ -262,6 +290,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     packGridColorId,
     packGridCustomHex,
     packGridColorOpacity,
+    baseOpacity,
   ]);
 
   useEffect(() => {
@@ -300,6 +329,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       customPackGridColorHex: remotePackGridCustom,
       packGridColorOpacity: remotePackGridOpacity,
       packCardScale: remotePackScale,
+      baseOpacity: remoteBaseOpacity,
     } = profile;
     if (
       !remoteMode &&
@@ -310,7 +340,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       remoteBagOpacity === undefined &&
       remoteBagScale === undefined &&
       remotePackGridOpacity === undefined &&
-      remotePackScale === undefined
+      remotePackScale === undefined &&
+      remoteBaseOpacity === undefined
     )
       return; // 계정에 저장된 값이 아직 없으면 기기 값 유지
 
@@ -362,6 +393,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (remotePackScale !== undefined) {
       setPackCardScaleState(remotePackScale);
       window.localStorage.setItem(PACK_SCALE_KEY, String(remotePackScale));
+    }
+    if (remoteBaseOpacity !== undefined) {
+      setBaseOpacityState(remoteBaseOpacity);
+      window.localStorage.setItem(BASE_OPACITY_KEY, String(remoteBaseOpacity));
     }
   }, [profile]);
 
@@ -455,6 +490,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     updateThemePrefs({ packCardScale: scale }).catch(() => {});
   };
 
+  const setBaseOpacity = (opacity: number) => {
+    setBaseOpacityState(opacity);
+    window.localStorage.setItem(BASE_OPACITY_KEY, String(opacity));
+    applyAll({ ...currentSettings(), baseOpacity: opacity });
+    updateThemePrefs({ baseOpacity: opacity }).catch(() => {});
+  };
+
   return (
     <ThemeContext.Provider
       value={{
@@ -482,6 +524,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setPackGridColorOpacity,
         packCardScale,
         setPackCardScale,
+        baseOpacity,
+        setBaseOpacity,
       }}
     >
       {children}

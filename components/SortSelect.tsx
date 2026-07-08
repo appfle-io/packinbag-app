@@ -14,7 +14,7 @@ export default function SortSelect({
   return (
     <div
       className="relative flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 shrink-0"
-      style={{ background: "var(--surface)" }}
+      style={{ background: "var(--surface-2)" }}
     >
       <IconArrowsSort size={14} stroke={1.75} color="var(--text-secondary)" />
       <select

@@ -147,6 +147,8 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setPackGridColorOpacity,
     packCardScale,
     setPackCardScale,
+    baseOpacity,
+    setBaseOpacity,
   } = useTheme();
   const [openPicker, setOpenPicker] = useState<Slot | null>(null);
 
@@ -169,7 +171,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
                 onClick={() => setFontScale(key)}
                 className="flex-1 py-2"
                 style={{
-                  background: fontScale === key ? "var(--accent)" : "var(--surface)",
+                  background: fontScale === key ? "var(--accent)" : "var(--surface-2)",
                   color: fontScale === key ? "#fff" : "var(--foreground)",
                   fontSize: previewPx,
                 }}
@@ -189,6 +191,24 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onSelectPreset={setAccent}
           onOpenCustomPicker={() => setOpenPicker("accent")}
         />
+
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">기본 투명도</p>
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <p className="text-[11px] text-text-muted">
+              하단 메뉴, 필터 버튼, 짐(체크항목·텍스트) 배경, 설정 메뉴의 선택 안 된 버튼
+              배경 등에 공통으로 적용돼요
+            </p>
+            <PercentSlider
+              label="투명도"
+              value={Math.round(baseOpacity * 100)}
+              min={0}
+              max={100}
+              step={5}
+              onChange={(pct) => setBaseOpacity(pct / 100)}
+            />
+          </div>
+        </div>
 
         <ColorSlotSection
           title="가방 색상"

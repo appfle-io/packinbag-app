@@ -18,7 +18,7 @@ export default function BottomTabBar({
     <nav
       className="relative flex shrink-0 pt-2.5"
       style={{
-        background: "var(--surface)",
+        background: "var(--surface-2)",
         borderTop: "1px solid var(--border)",
         paddingBottom: "max(14px, env(safe-area-inset-bottom))",
       }}
@@ -62,7 +62,7 @@ export default function BottomTabBar({
           className="absolute -top-11 flex h-[92px] w-[92px] items-center justify-center rounded-full transition-transform active:scale-90"
           style={{
             background: active === "home" ? "var(--accent)" : "var(--surface-2)",
-            border: "5px solid var(--surface)",
+            border: "5px solid var(--surface-2)",
             boxShadow:
               active === "home"
                 ? "0 10px 22px -4px var(--accent), 0 3px 8px rgba(0,0,0,0.2)"
