@@ -173,6 +173,22 @@ export default function PackLibraryEditorScreen({
 
   const preventBlur = (e: React.MouseEvent) => e.preventDefault();
 
+  // 모바일(iOS Safari)에서 하단 입력창에 포커스가 잡히면 브라우저가 레이아웃 뷰포트를
+  // 위로 슬쩍 스크롤시켜서(overflow:hidden이어도 visualViewport 레벨에서 발생) 상단
+  // 제목 영역까지 같이 밀려 올라가 보이는 문제가 있다. visualViewport가 리사이즈/스크롤될
+  // 때마다 레이아웃 스크롤을 0으로 되돌려서 상단 헤더가 항상 고정되어 보이게 한다.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const resetScroll = () => window.scrollTo(0, 0);
+    vv.addEventListener("resize", resetScroll);
+    vv.addEventListener("scroll", resetScroll);
+    return () => {
+      vv.removeEventListener("resize", resetScroll);
+      vv.removeEventListener("scroll", resetScroll);
+    };
+  }, []);
+
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
@@ -246,7 +262,7 @@ export default function PackLibraryEditorScreen({
           (텍스트 모드일 때) 서식 옵션 + 입력창 + 확인(전송) 버튼 */}
       <div
         className="shrink-0 border-t border-border p-3 flex flex-col gap-2"
-        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
+        style={{ paddingBottom: "max(22px, calc(env(safe-area-inset-bottom) + 10px))" }}
       >
         <div className="flex items-center gap-4">
           <button
