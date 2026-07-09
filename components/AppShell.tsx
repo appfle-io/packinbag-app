@@ -70,6 +70,7 @@ export default function AppShell() {
   const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
   const announcementPopupShownRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+  const [settingsSubviewActive, setSettingsSubviewActive] = useState(false);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -501,11 +502,14 @@ export default function AppShell() {
   const tabIndex = tabOrder.indexOf(tab);
 
   // 빈 배경(카드/버튼/입력이 아닌 곳)을 좌우로 스와이프하면 탭이 전환된다.
+  // 다만 설정 탭 안에서 하위 화면(프로필 수정, 화면설정 등)을 보고 있을 때는
+  // 좌우 스와이프가 메인 탭 전환으로 이어지면 안 된다 - 하위 화면에서는
+  // (엣지 스와이프로) 상위 화면으로 돌아가는 것만 허용된다.
   const handleTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    const ignore = !!target.closest(
-      "button, a, input, textarea, [data-pack-drop-id], .fixed"
-    );
+    const ignore =
+      !!target.closest("button, a, input, textarea, [data-pack-drop-id], .fixed") ||
+      (tab === "settings" && settingsSubviewActive);
     const t = e.touches[0];
     swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };
   };
@@ -572,6 +576,7 @@ export default function AppShell() {
                 onCreateAnnouncement={handleCreateAnnouncement}
                 onUpdateAnnouncement={handleUpdateAnnouncement}
                 onDeleteAnnouncement={handleDeleteAnnouncement}
+                onSubviewActiveChange={setSettingsSubviewActive}
               />
             </div>
           </div>

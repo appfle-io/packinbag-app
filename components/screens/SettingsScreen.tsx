@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconMail,
   IconChevronRight,
@@ -52,6 +52,7 @@ export default function SettingsScreen({
   onCreateAnnouncement,
   onUpdateAnnouncement,
   onDeleteAnnouncement,
+  onSubviewActiveChange,
 }: {
   uid: string;
   announcements: Announcement[];
@@ -60,6 +61,10 @@ export default function SettingsScreen({
   onCreateAnnouncement: (data: Omit<Announcement, "id" | "createdAt">) => Promise<void>;
   onUpdateAnnouncement: (id: string, data: Partial<Announcement>) => Promise<void>;
   onDeleteAnnouncement: (id: string) => Promise<void>;
+  // 설정 탭 안에서 하위 화면(프로필 수정, 화면설정 등)이 열려있는지 상위(AppShell)에
+  // 알린다. 하위 화면에 있을 때는 좌우로 쓸어넘겨도 메인 탭(팩/홈/설정)이 바뀌면 안
+  // 되고, 뒤로가기(엣지 스와이프)만 되어야 하기 때문.
+  onSubviewActiveChange?: (active: boolean) => void;
 }) {
   const { mode, setMode } = useTheme();
   const { profile, updateDefaultTab } = useAuth();
@@ -68,6 +73,13 @@ export default function SettingsScreen({
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [showUnlockCode, setShowUnlockCode] = useState(false);
+
+  useEffect(() => {
+    onSubviewActiveChange?.(view !== "main");
+    // 화면을 나갈 때(설정 탭을 벗어나거나 언마운트될 때)는 항상 false로 되돌린다.
+    return () => onSubviewActiveChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   if (view === "profile") {
     return <ProfileEditScreen onBack={() => setView("main")} />;

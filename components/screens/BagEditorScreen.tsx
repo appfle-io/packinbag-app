@@ -154,6 +154,39 @@ export default function BagEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bag]);
 
+  // 화면을 나갈 때(뒤로가기/스와이프/탭 전환 등 어떤 경로로든 이 화면이 사라질 때)
+  // 아직 디바운스 대기 중이라 서버에 반영되지 않은 변경이 있으면 그 즉시 저장한다.
+  // PackLibraryEditorScreen에는 이미 있는 안전장치인데 이 화면엔 빠져 있었다 -
+  // 그 사이(최대 500ms) 수정하고 바로 나가면 그 변경이 조용히 사라지는 문제가 있었음.
+  const bagRef = useRef(bag);
+  useEffect(() => {
+    bagRef.current = bag;
+  }, [bag]);
+  // isNew는 "새 가방 -> 최초 저장 완료" 시점에 false로 바뀌는데, 이 화면은 그때
+  // 리마운트되지 않고 그대로 유지된다. 아래 언마운트 effect는 []依존성이라 클로저가
+  // 마운트 시점 값을 그대로 들고 있으므로, 최신 값을 보려면 ref로 따로 추적해야 한다.
+  const isNewRef = useRef(isNew);
+  useEffect(() => {
+    isNewRef.current = isNew;
+  }, [isNew]);
+  useEffect(() => {
+    return () => {
+      // 새로 만들다가 버리는 가방(isNew)은 별도의 "저장하지 않은 내용이 있어요"
+      // 확인 다이얼로그 + 임시 가방 삭제 흐름(AppShell.handleBackFromEditor)이 이미
+      // 처리한다. 여기서 또 저장을 시도하면 삭제 중인 가방을 되살리는 경합이 생길 수
+      // 있어 기존 가방(!isNew)에서 자동저장 대기 중일 때만 나가기 전 flush한다.
+      if (isNewRef.current || !autosaveTimerRef.current || !isDirtyRef.current) return;
+      window.clearTimeout(autosaveTimerRef.current);
+      saveBagRemote(bagRef.current)
+        .then(() => show("나가기 전 변경사항을 저장했어요"))
+        .catch((err) => {
+          console.error("[팩인백] 나가기 전 자동저장 실패:", err);
+          show(`나가기 전 변경사항 저장에 실패했어요 (${firebaseErrorCode(err)})`);
+        });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 다른 멤버가 이 가방을 동시에 보고 있을 때 그들의 변경(체크/이름/짐/팩 등 전부)을
   // 실시간으로 반영한다. 단, 내가 방금 만든 로컬 변경이 아직 서버로 안 나갔거나(디바운스
   // 대기 중) 저장 중이면(isDirtyRef) 그 사이에 들어온 원격 변경은 건너뛴다 - 곧 내가
