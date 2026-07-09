@@ -43,6 +43,8 @@ import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
+import { isPremiumUser, FREE_MAX_LIBRARY_PACKS, FREE_MAX_ACTIVE_BAGS, PremiumLimitError } from "@/lib/premiumLimits";
+import PremiumLimitModal from "@/components/PremiumLimitModal";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -68,6 +70,7 @@ export default function AppShell() {
   const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
   const announcementPopupShownRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+  const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinTimeDone(true), 900);
@@ -164,6 +167,12 @@ export default function AppShell() {
     );
 
   const openNewBag = async () => {
+    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !isPremiumUser(user.email, profile)) {
+      setPremiumLimitMessage(
+        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
+      );
+      return;
+    }
     const now = new Date().toISOString();
     const draft: Bag = {
       id: uid(),
@@ -184,21 +193,31 @@ export default function AppShell() {
     };
     setIsNewBag(true);
     try {
-      const created = await createBagRemote(user.uid, draft, {
+      const created = await createBagRemote(user, draft, {
         nickname: profile.nickname!,
         avatarId: profile.avatarId!,
       });
       setEditingBag(created);
     } catch (err) {
+      setIsNewBag(false);
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
-      setIsNewBag(false);
     }
   };
 
   // 메모 AI 가져오기뿐 아니라 샘플 템플릿 선택, 해시태그 AI 생성 결과도 모두
   // 동일한 형태(ImportedBagResult)라서 이 함수를 함께 쓴다.
   const openNewBagFromNote = async (result: NoteImportResult) => {
+    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !isPremiumUser(user.email, profile)) {
+      setPremiumLimitMessage(
+        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
+      );
+      return;
+    }
     const now = new Date().toISOString();
     const draft: Bag = {
       id: uid(),
@@ -235,16 +254,20 @@ export default function AppShell() {
     };
     setIsNewBag(true);
     try {
-      const created = await createBagRemote(user.uid, draft, {
+      const created = await createBagRemote(user, draft, {
         nickname: profile.nickname!,
         avatarId: profile.avatarId!,
       });
       setEditingBag(created);
       show("가방을 채웠어요. 확인 후 저장해주세요");
     } catch (err) {
+      setIsNewBag(false);
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
-      setIsNewBag(false);
     }
   };
 
@@ -333,7 +356,22 @@ export default function AppShell() {
   };
 
   const handleSaveAsLibraryPack = (pack: Pack) => {
-    saveLibraryPackRemote(user.uid, pack).catch((err) => {
+    const isNewLibraryPack = !libraryPacks.some((p) => p.id === pack.id);
+    if (
+      isNewLibraryPack &&
+      libraryPacks.length >= FREE_MAX_LIBRARY_PACKS &&
+      !isPremiumUser(user.email, profile)
+    ) {
+      setPremiumLimitMessage(
+        `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
+      );
+      return;
+    }
+    saveLibraryPackRemote(user, pack).catch((err) => {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 팩 저장 실패:", err);
       show(`팩 저장에 실패했어요 (${firebaseErrorCode(err)})`);
     });
@@ -371,11 +409,25 @@ export default function AppShell() {
     }
   };
 
-  const openNewPack = () =>
+  const openNewPack = () => {
+    if (
+      libraryPacks.length >= FREE_MAX_LIBRARY_PACKS &&
+      !isPremiumUser(user.email, profile)
+    ) {
+      setPremiumLimitMessage(
+        `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
+      );
+      return;
+    }
     setEditingPack({ id: uid(), name: "새 팩", items: [] });
+  };
 
   const handleSavePack = (pack: Pack) => {
-    saveLibraryPackRemote(user.uid, pack).catch((err) => {
+    saveLibraryPackRemote(user, pack).catch((err) => {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 팩 저장 실패:", err);
       show(`팩 저장에 실패했어요 (${firebaseErrorCode(err)})`);
     });
@@ -412,6 +464,16 @@ export default function AppShell() {
           />
         </div>
         <SplashScreen visible={showSplash} />
+        {premiumLimitMessage && (
+          <PremiumLimitModal
+            message={premiumLimitMessage}
+            onClose={() => setPremiumLimitMessage(null)}
+            onUnlocked={() => {
+              setPremiumLimitMessage(null);
+              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+            }}
+          />
+        )}
       </>
     );
   }
@@ -519,6 +581,16 @@ export default function AppShell() {
           announcements={activeUndismissed}
           onDismiss={handleDismissAnnouncement}
           onClose={() => setShowAnnouncementPopup(false)}
+        />
+      )}
+      {premiumLimitMessage && (
+        <PremiumLimitModal
+          message={premiumLimitMessage}
+          onClose={() => setPremiumLimitMessage(null)}
+          onUnlocked={() => {
+            setPremiumLimitMessage(null);
+            show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+          }}
         />
       )}
       <SplashScreen visible={showSplash} />

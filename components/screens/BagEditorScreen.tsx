@@ -28,6 +28,7 @@ import { isInSyncWithLibrary } from "@/lib/packSync";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import ImageLightbox from "@/components/ImageLightbox";
+import { MAX_BAG_IMAGES } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -234,11 +235,16 @@ export default function BagEditorScreen({
       packs.map((p) => (p.id !== packId ? p : { ...p, color: colorId }))
     );
 
-  const handleAddPack = () =>
-    updatePacks((packs) => [
-      ...packs,
-      { id: uid(), name: "새 팩", items: [] },
-    ]);
+  // 10개 캡을 "+팩" 버튼의 disabled 속성뿐 아니라 함수 자체에도 걸어둔다 - 그래야
+  // PackImportModal의 "새 팩 만들기"처럼 disabled 체크가 없는 다른 진입점에서
+  // 호출해도 안전하다. 캡에 걸리면 조용히 무시하지 않고 이유를 알려준다.
+  const handleAddPack = () => {
+    if (bag.packs.length >= 10) {
+      show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+      return;
+    }
+    updatePacks((packs) => [...packs, { id: uid(), name: "새 팩", items: [] }]);
+  };
 
   const handleImport = (imported: Pack[]) =>
     updatePacks((packs) => [...packs, ...imported].slice(0, 10));
@@ -578,7 +584,7 @@ export default function BagEditorScreen({
 
   const handleAddImages = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const toUpload = Array.from(files).slice(0, 3 - bag.images.length);
+    const toUpload = Array.from(files).slice(0, MAX_BAG_IMAGES - bag.images.length);
     setUploadingImages(true);
     try {
       const urls = await Promise.all(
@@ -693,7 +699,7 @@ export default function BagEditorScreen({
               </button>
             </div>
           ))}
-          {bag.images.length < 3 && (
+          {bag.images.length < MAX_BAG_IMAGES && (
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImages}
@@ -764,6 +770,45 @@ export default function BagEditorScreen({
         )}
       </div>
 
+      {/* 짐을 롱프레스로 들어올린 동안, 화면 상단에 모든 팩 이름을 칩으로 띄워둔다.
+          화면 밖(스크롤해야 보이는) 팩으로도 스크롤 없이 바로 옮길 수 있게 하기 위함 -
+          기존 [data-pack-drop-id] 드롭존 판정 로직(위 handleMove)을 그대로 재사용한다. */}
+      {drag && (
+        <div
+          className="fixed inset-x-0 top-0 z-[94] flex items-center gap-2 overflow-x-auto no-scrollbar px-3"
+          style={{
+            paddingTop: "max(10px, env(safe-area-inset-top))",
+            paddingBottom: 10,
+            background: "var(--surface)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          }}
+        >
+          <span className="text-[11px] text-text-muted shrink-0 pl-1 whitespace-nowrap">
+            팩으로 옮기기
+          </span>
+          {bag.packs.map((p) => {
+            const isSource = p.id === drag.fromPackId;
+            const isOver = drag.overPackId === p.id;
+            return (
+              <div
+                key={p.id}
+                data-pack-drop-id={p.id}
+                className="shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium whitespace-nowrap"
+                style={{
+                  background: isOver ? "var(--accent)" : "var(--surface-2)",
+                  color: isOver ? "#fff" : isSource ? "var(--text-muted)" : undefined,
+                  border: isSource
+                    ? "1px dashed var(--border-strong)"
+                    : "1px solid transparent",
+                }}
+              >
+                {p.name || "팩"}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {drag && (
         <div
           className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
@@ -807,6 +852,7 @@ export default function BagEditorScreen({
           libraryPacks={libraryPacks}
           onClose={() => setShowImport(false)}
           onImport={handleImport}
+          onCreateNew={handleAddPack}
         />
       )}
 

@@ -14,14 +14,18 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
+import { PremiumLimitError } from "@/lib/premiumLimits";
 
 function bagsCol() {
   return collection(db, "bags");
 }
 
+// 초대코드 생성은 이제 서버(app/api/create-bag)에서 하지만, 다른 곳(초대코드 재발급 등)에서도
+// 같은 형식이 필요해서 그대로 남겨둔다.
 function generateInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 헷갈리는 0/O, 1/I 제외
   let code = "";
@@ -46,29 +50,33 @@ export function subscribeToUserBags(
   });
 }
 
+// 가방 생성은 무료 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)을 서버에서 검증해야 해서
+// 클라이언트가 직접 Firestore에 쓰지 않고 app/api/create-bag(Admin SDK)을 호출한다.
+// firestore.rules에서도 bags의 client-side create를 막아둬서, 이 경로 말고는 생성이
+// 안 되게 되어 있다 - devtools로 검사 로직을 건너뛰어도 서버가 다시 막는다.
 export async function createBagRemote(
-  uid: string,
+  user: User,
   bag: Bag,
   ownerProfile: { nickname: string; avatarId: string }
-) {
-  const inviteCode = generateInviteCode();
-  const now = new Date().toISOString();
-  const withMembers: Bag = {
-    ...bag,
-    ownerId: uid,
-    memberIds: [uid],
-    memberProfiles: {
-      [uid]: { nickname: ownerProfile.nickname, avatarId: ownerProfile.avatarId, joinedAt: now },
+): Promise<Bag> {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/create-bag", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
     },
-    inviteCode,
-  };
-  await setDoc(
-    doc(bagsCol(), bag.id),
-    stripUndefined({ ...withMembers, updatedAt: now })
-  );
-  // 초대코드 -> 가방id 매핑 (참여 전에도 조회 가능해야 하므로 별도 컬렉션)
-  await setDoc(doc(db, "inviteCodes", inviteCode), { bagId: bag.id });
-  return withMembers;
+    body: JSON.stringify({ bag, ownerProfile }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = (data?.error as string | undefined) ?? "가방 생성에 실패했어요";
+    if (data?.code === "BAG_LIMIT_REACHED") {
+      throw new PremiumLimitError(message);
+    }
+    throw new Error(message);
+  }
+  return data.bag as Bag;
 }
 
 export async function saveBagRemote(bag: Bag) {

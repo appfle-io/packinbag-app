@@ -24,10 +24,12 @@ export default function PackImportModal({
   libraryPacks,
   onClose,
   onImport,
+  onCreateNew,
 }: {
   libraryPacks: Pack[];
   onClose: () => void;
   onImport: (packs: Pack[]) => void;
+  onCreateNew: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -114,7 +116,13 @@ export default function PackImportModal({
             )}
           </div>
 
-          <button className="flex items-center justify-center gap-1.5 text-[13px] text-text-secondary py-1">
+          <button
+            onClick={() => {
+              onCreateNew();
+              onClose();
+            }}
+            className="flex items-center justify-center gap-1.5 text-[13px] text-text-secondary py-1"
+          >
             <IconPlus size={14} stroke={1.75} />새 팩 만들기
           </button>
 

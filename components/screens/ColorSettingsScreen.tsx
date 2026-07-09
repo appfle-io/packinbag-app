@@ -8,6 +8,9 @@ import { useSwipeBack } from "@/lib/useSwipeBack";
 import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
 import PercentSlider from "@/components/PercentSlider";
+import { useAuth } from "@/contexts/AuthProvider";
+import { isPremiumUser } from "@/lib/premiumLimits";
+import PremiumLimitModal from "@/components/PremiumLimitModal";
 
 type Slot = "accent" | "bag" | "packGrid" | "packLibrary";
 
@@ -69,6 +72,7 @@ function ColorSlotSection({
   onChangeScale,
   scaleLabel,
   preview,
+  defaultOpen,
 }: {
   title: string;
   description: string;
@@ -83,8 +87,9 @@ function ColorSlotSection({
   onChangeScale?: (pct: number) => void;
   scaleLabel?: string;
   preview?: ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!defaultOpen);
   return (
     <div className="mb-1">
       <SectionHeaderButton title={title} open={open} onToggle={() => setOpen((o) => !o)} />
@@ -206,9 +211,21 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setBaseOpacity,
   } = useTheme();
   const [openPicker, setOpenPicker] = useState<Slot | null>(null);
-  const [fontScaleOpen, setFontScaleOpen] = useState(false);
-  const [baseOpacityOpen, setBaseOpacityOpen] = useState(false);
+  const [fontScaleOpen, setFontScaleOpen] = useState(true);
+  const [baseOpacityOpen, setBaseOpacityOpen] = useState(true);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
+  const { user, profile } = useAuth();
+  const [showColorLimitModal, setShowColorLimitModal] = useState(false);
+
+  // 헥사코드 직접입력(커스텀 색상 피커)은 프리미엄 전용 기능. 무료 사용자는 프리셋
+  // 색상만 고를 수 있고, 커스텀 원을 눌러도 피커 대신 업그레이드 안내가 뜬다.
+  const openCustomPicker = (slot: Slot) => {
+    if (!isPremiumUser(user?.email, profile)) {
+      setShowColorLimitModal(true);
+      return;
+    }
+    setOpenPicker(slot);
+  };
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -253,7 +270,8 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           customHex={customHex}
           showDefaultOption={false}
           onSelectPreset={setAccent}
-          onOpenCustomPicker={() => setOpenPicker("accent")}
+          onOpenCustomPicker={() => openCustomPicker("accent")}
+          defaultOpen
           preview={
             <div className="mt-3 flex items-center gap-2">
               <button
@@ -305,7 +323,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           )}
         </div>
 
-        <h2 className="text-[14px] font-semibold mt-4 mb-3">가방</h2>
+        <h2 className="text-[14px] font-semibold mt-10 mb-3">가방</h2>
 
         <ColorSlotSection
           title="가방 카드"
@@ -314,7 +332,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           customHex={bagCustomHex}
           showDefaultOption
           onSelectPreset={setBagColor}
-          onOpenCustomPicker={() => setOpenPicker("bag")}
+          onOpenCustomPicker={() => openCustomPicker("bag")}
           opacityPct={Math.round(bagColorOpacity * 100)}
           onChangeOpacity={(pct) => setBagColorOpacity(pct / 100)}
           scalePct={Math.round(bagCardScale * 100)}
@@ -358,7 +376,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           customHex={packGridCustomHex}
           showDefaultOption
           onSelectPreset={setPackGridColor}
-          onOpenCustomPicker={() => setOpenPicker("packGrid")}
+          onOpenCustomPicker={() => openCustomPicker("packGrid")}
           opacityPct={Math.round(packGridColorOpacity * 100)}
           onChangeOpacity={(pct) => setPackGridColorOpacity(pct / 100)}
           scalePct={Math.round(packCardScale * 100)}
@@ -409,7 +427,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           customHex={packLibraryCustomHex}
           showDefaultOption
           onSelectPreset={setPackLibraryColor}
-          onOpenCustomPicker={() => setOpenPicker("packLibrary")}
+          onOpenCustomPicker={() => openCustomPicker("packLibrary")}
           opacityPct={Math.round(packLibraryColorOpacity * 100)}
           onChangeOpacity={(pct) => setPackLibraryColorOpacity(pct / 100)}
           scalePct={Math.round(packLibraryCardScale * 100)}
@@ -462,6 +480,13 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           initialHex={packLibraryCustomHex}
           onChange={setCustomPackLibraryColor}
           onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {showColorLimitModal && (
+        <PremiumLimitModal
+          message="헥사코드로 색상을 직접 입력하는 기능은 프리미엄 전용이에요. 무료에서는 프리셋 색상만 고를 수 있어요."
+          onClose={() => setShowColorLimitModal(false)}
+          onUnlocked={() => setShowColorLimitModal(false)}
         />
       )}
     </div>
