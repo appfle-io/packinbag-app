@@ -2,15 +2,17 @@
 
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 import ToggleSwitch from "@/components/ToggleSwitch";
 
 export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const { profile, updatePackSettings } = useAuth();
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   // 명시적으로 꺼둔 적이 없으면 기본 켜짐
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
         <button onClick={onBack} className="flex items-center gap-1">
           <IconArrowLeft size={20} stroke={1.75} />

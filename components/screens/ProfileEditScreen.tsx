@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconArrowLeft, IconRefresh } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 import { AVATAR_OPTIONS } from "@/lib/avatars";
 import { randomNickname } from "@/lib/nickname";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
@@ -14,6 +15,7 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
   const { user, profile, updateNickname, updateAvatar, changePassword, logout, deleteAccount } =
     useAuth();
   const { show } = useToast();
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const [nicknameDraft, setNicknameDraft] = useState(profile?.nickname ?? "");
   const [avatarDraft, setAvatarDraft] = useState(profile?.avatarId ?? AVATAR_OPTIONS[0].id);
   const [saving, setSaving] = useState(false);
@@ -71,7 +73,7 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
         <button onClick={onBack} className="flex items-center gap-1">
           <IconArrowLeft size={20} stroke={1.75} />

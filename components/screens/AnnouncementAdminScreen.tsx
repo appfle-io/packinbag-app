@@ -4,6 +4,7 @@ import { useState } from "react";
 import { IconArrowLeft, IconPlus, IconEdit, IconTrash } from "@tabler/icons-react";
 import { Announcement } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 
@@ -39,6 +40,8 @@ export default function AnnouncementAdminScreen({
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const { show } = useToast();
+  // 작성/수정 중이면 스와이프 뒤로가기는 목록으로만 돌아가고, 목록 화면에서는 상위 onBack.
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(() => (draft ? setDraft(null) : onBack()));
 
   const valid =
     !!draft && draft.title.trim() && draft.content.trim() && draft.startDate && draft.endDate;
@@ -73,7 +76,7 @@ export default function AnnouncementAdminScreen({
 
   if (draft) {
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between p-4 pb-2 shrink-0">
           <button onClick={() => setDraft(null)} className="flex items-center gap-1">
             <IconArrowLeft size={20} stroke={1.75} />
@@ -137,7 +140,7 @@ export default function AnnouncementAdminScreen({
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
         <button onClick={onBack} className="flex items-center gap-1">
           <IconArrowLeft size={20} stroke={1.75} />

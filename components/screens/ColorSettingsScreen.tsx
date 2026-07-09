@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { IconArrowLeft, IconCheck, IconBan } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconBan, IconChevronDown } from "@tabler/icons-react";
 import { useTheme, DEFAULT_CARD_COLOR_ID, FontScale } from "@/components/ThemeProvider";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
 import PercentSlider from "@/components/PercentSlider";
@@ -22,6 +23,35 @@ const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
 const SPLIT_BG: CSSProperties = {
   backgroundImage: "linear-gradient(to right, var(--background) 50%, var(--border-strong) 50%)",
 };
+
+// 제목은 항상 보이고, 탭하면 그 아래 내용이 펼쳐지는 공용 헤더 버튼.
+function SectionHeaderButton({
+  title,
+  open,
+  onToggle,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between mb-2"
+    >
+      <span className="text-[12px] text-text-secondary">{title}</span>
+      <IconChevronDown
+        size={14}
+        stroke={1.75}
+        color="var(--text-muted)"
+        style={{
+          transform: open ? "rotate(180deg)" : "none",
+          transition: "transform 150ms ease",
+        }}
+      />
+    </button>
+  );
+}
 
 function ColorSlotSection({
   title,
@@ -52,9 +82,11 @@ function ColorSlotSection({
   scaleLabel?: string;
   preview?: ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="mb-6">
-      <p className="text-[12px] text-text-secondary mb-2">{title}</p>
+      <SectionHeaderButton title={title} open={open} onToggle={() => setOpen((o) => !o)} />
+      {open && (
       <div className="rounded-lg border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center gap-2.5">
           {showDefaultOption && (
@@ -131,6 +163,7 @@ function ColorSlotSection({
 
         {preview}
       </div>
+      )}
     </div>
   );
 }
@@ -171,9 +204,12 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setBaseOpacity,
   } = useTheme();
   const [openPicker, setOpenPicker] = useState<Slot | null>(null);
+  const [fontScaleOpen, setFontScaleOpen] = useState(false);
+  const [baseOpacityOpen, setBaseOpacityOpen] = useState(false);
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
         <button onClick={onBack} className="flex items-center gap-1">
           <IconArrowLeft size={20} stroke={1.75} />
@@ -183,7 +219,12 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         <div className="mb-6">
-          <p className="text-[12px] text-text-secondary mb-2">글자 크기</p>
+          <SectionHeaderButton
+            title="글자 크기"
+            open={fontScaleOpen}
+            onToggle={() => setFontScaleOpen((o) => !o)}
+          />
+          {fontScaleOpen && (
           <div className="flex rounded-lg border border-border overflow-hidden">
             {fontScales.map(({ key, label, previewPx }) => (
               <button
@@ -200,6 +241,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
               </button>
             ))}
           </div>
+          )}
         </div>
 
         <ColorSlotSection
@@ -230,7 +272,12 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         />
 
         <div className="mb-6">
-          <p className="text-[12px] text-text-secondary mb-2">기본 투명도</p>
+          <SectionHeaderButton
+            title="기본 투명도"
+            open={baseOpacityOpen}
+            onToggle={() => setBaseOpacityOpen((o) => !o)}
+          />
+          {baseOpacityOpen && (
           <div className="rounded-lg border border-border bg-surface-2 p-3">
             <p className="text-[11px] text-text-muted">
               하단 메뉴, 필터 버튼, 짐(체크항목·텍스트) 배경, 설정 메뉴의 선택 안 된 버튼
@@ -253,6 +300,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
               </div>
             </div>
           </div>
+          )}
         </div>
 
         <h2 className="text-[14px] font-semibold mb-3">가방</h2>
