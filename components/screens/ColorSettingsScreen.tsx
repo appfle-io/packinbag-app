@@ -71,6 +71,7 @@ function ColorSlotSection({
   scalePct,
   onChangeScale,
   scaleLabel,
+  scaleMax,
   preview,
   defaultOpen,
 }: {
@@ -86,6 +87,7 @@ function ColorSlotSection({
   scalePct?: number;
   onChangeScale?: (pct: number) => void;
   scaleLabel?: string;
+  scaleMax?: number;
   preview?: ReactNode;
   defaultOpen?: boolean;
 }) {
@@ -162,7 +164,7 @@ function ColorSlotSection({
             label={scaleLabel ?? "크기"}
             value={scalePct}
             min={70}
-            max={130}
+            max={scaleMax ?? 130}
             step={5}
             onChange={onChangeScale}
           />
@@ -338,6 +340,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scalePct={Math.round(bagCardScale * 100)}
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
           scaleLabel="내용 크기"
+          scaleMax={170}
           preview={
             <div className="mt-3 flex justify-center">
               {/* 실제 홈 화면의 grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 그리드에서
@@ -421,7 +424,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         <h2 className="text-[14px] font-semibold mt-4 mb-3">팩</h2>
 
         <ColorSlotSection
-          title="팩 라이브러리 타일"
+          title="팩 보관함 그리드"
           description="팩 탭 목록의 타일 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           selectedId={packLibraryColorId}
           customHex={packLibraryCustomHex}
@@ -433,6 +436,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scalePct={Math.round(packLibraryCardScale * 100)}
           onChangeScale={(pct) => setPackLibraryCardScale(pct / 100)}
           scaleLabel="내용 크기"
+          scaleMax={170}
           preview={
             <div className="mt-3 flex justify-center">
               <div

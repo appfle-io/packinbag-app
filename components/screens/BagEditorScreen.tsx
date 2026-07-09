@@ -66,12 +66,25 @@ export default function BagEditorScreen({
   const [showImport, setShowImport] = useState(false);
   const [showAiOrganize, setShowAiOrganize] = useState(false);
   const [confirmDeleteBag, setConfirmDeleteBag] = useState(false);
+  const [confirmLeaveUnsaved, setConfirmLeaveUnsaved] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
-  const swipeBackRef = useSwipeBack<HTMLDivElement>(() => onBack(bag));
+  // 새로 만드는 중(isNew)에 "저장" 버튼을 아직 누르지 않았는데 로컬 변경이 하나라도
+  // 생겼는지 추적한다. true인 상태로 뒤로가기/스와이프 하면 그대로 나가도 되는지 확인
+  // 다이얼로그를 띄운다 - 실제 삭제(handleBackFromEditor의 임시 가방 정리)는 그대로 두고,
+  // 그 직전에 한 번 더 물어보는 역할만 한다.
+  const hasUnsavedChangesRef = useRef(false);
+  const handleBackAttempt = () => {
+    if (isNew && hasUnsavedChangesRef.current) {
+      setConfirmLeaveUnsaved(true);
+      return;
+    }
+    onBack(bag);
+  };
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(handleBackAttempt);
 
   const handleRemoveMember = async (memberUid: string) => {
     await onRemoveMember(bag.id, memberUid);
@@ -121,6 +134,7 @@ export default function BagEditorScreen({
       return;
     }
     isDirtyRef.current = true;
+    hasUnsavedChangesRef.current = true;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
       saveBagRemote(bag)
@@ -605,6 +619,7 @@ export default function BagEditorScreen({
   const handleSave = () => {
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     isDirtyRef.current = false;
+    hasUnsavedChangesRef.current = false;
     onSave(bag);
     show("가방을 저장했어요");
   };
@@ -619,7 +634,7 @@ export default function BagEditorScreen({
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
-        <button onClick={() => onBack(bag)} className="-m-2.5 p-2.5" aria-label="뒤로가기">
+        <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
           <IconArrowLeft size={22} stroke={1.75} />
         </button>
         <div className="flex items-center gap-2">
@@ -915,6 +930,20 @@ export default function BagEditorScreen({
           onConfirm={() => {
             setConfirmDeleteBag(false);
             onDeleteBag(bag);
+          }}
+        />
+      )}
+
+      {confirmLeaveUnsaved && (
+        <ConfirmDialog
+          title="저장하지 않은 내용이 있어요"
+          message="지금 나가면 만든 내용이 사라져요. 그대로 나가시겠어요?"
+          confirmLabel="나가기"
+          tone="danger"
+          onCancel={() => setConfirmLeaveUnsaved(false)}
+          onConfirm={() => {
+            setConfirmLeaveUnsaved(false);
+            onBack(bag);
           }}
         />
       )}
