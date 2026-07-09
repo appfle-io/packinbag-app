@@ -174,7 +174,7 @@ export default function PackCard({
       </div>
 
       <div
-        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(calc(154px*var(--pack-card-scale,1)),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))]"
+        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))]"
         style={{
           overflowY: "auto",
           gridAutoRows: "min-content",
