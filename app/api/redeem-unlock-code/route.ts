@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
   const db = adminDb();
   const codeRef = db.collection("unlockCodes").doc(code);
   const userRef = db.collection("users").doc(uid);
+  let expiresAtIso: string | null = null;
 
   try {
     await db.runTransaction(async (tx) => {
@@ -68,17 +69,44 @@ export async function POST(req: NextRequest) {
         throw new Error("ALREADY_CLAIMED");
       }
 
-      // status가 'claimed'이면서 이미 내가 그 주인인 경우(같은 코드 재입력)는 그대로 통과 -
-      // 새로 쓸 내용이 지금과 동일하므로 아래 set을 다시 해도 안전하다(멱등).
+      if (status === "claimed" && claimedBy?.uid === uid) {
+        // 같은 코드를 같은 사람이 다시 입력한 경우: 이미 적용된 상태이므로 만료 시각을
+        // 다시 계산하지 않고(연장/재시작 방지), 혹시 유저 문서 쪽 필드가 지워졌을 때를
+        // 대비해 기존 expiresAt 값만 다시 동기화한다.
+        const existingExpiresAt = data.expiresAt as { toDate?: () => Date } | null | undefined;
+        const iso =
+          existingExpiresAt && typeof existingExpiresAt.toDate === "function"
+            ? existingExpiresAt.toDate().toISOString()
+            : null;
+        expiresAtIso = iso;
+        tx.set(userRef, { unlockCode: code, unlockCodeExpiresAt: iso }, { merge: true });
+        return;
+      }
+
+      // 처음 사용 처리하는 경우: 코드에 설정된 기간(durationDays)만큼 "지금부터"
+      // 만료 시각을 계산한다. durationDays가 없거나 null이면 무제한(만료 없음).
+      const durationDays = data.durationDays as number | null | undefined;
+      const now = new Date();
+      const expiresAt =
+        typeof durationDays === "number" && durationDays > 0
+          ? new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+          : null;
+      expiresAtIso = expiresAt ? expiresAt.toISOString() : null;
+
       tx.set(
         codeRef,
         {
           status: "claimed",
-          claimedBy: { uid, email, claimedAt: new Date() },
+          claimedBy: { uid, email, claimedAt: now },
+          expiresAt,
         },
         { merge: true }
       );
-      tx.set(userRef, { unlockCode: code }, { merge: true });
+      tx.set(
+        userRef,
+        { unlockCode: code, unlockCodeExpiresAt: expiresAtIso },
+        { merge: true }
+      );
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "UNKNOWN";
@@ -95,5 +123,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "코드 확인에 실패했어요. 잠시 후 다시 시도해주세요" }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, expiresAt: expiresAtIso });
 }

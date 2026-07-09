@@ -6,10 +6,15 @@ import { useSwipeBack } from "@/lib/useSwipeBack";
 import { useToast } from "@/components/Toast";
 import {
   UnlockCodeEntry,
+  UnlockDurationType,
+  UNLOCK_DURATION_LABELS,
   createUnlockCodesBulk,
   invalidateUnlockCode,
   listUnlockCodes,
+  unlockCodeDisplayStatus,
 } from "@/lib/aiUsageService";
+
+const DURATION_OPTIONS: UnlockDurationType[] = ["unlimited", "7d", "1m", "1y", "custom"];
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
@@ -20,6 +25,12 @@ function formatDate(iso: string | null): string {
   });
 }
 
+function durationLabel(entry: UnlockCodeEntry): string {
+  if (entry.durationType === "unlimited") return "무제한";
+  if (entry.durationType === "custom") return `${entry.durationDays ?? "?"}일`;
+  return UNLOCK_DURATION_LABELS[entry.durationType];
+}
+
 export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(() => onBack());
   const { show } = useToast();
@@ -27,6 +38,8 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
   const [count, setCount] = useState("1");
+  const [durationType, setDurationType] = useState<UnlockDurationType>("unlimited");
+  const [customDays, setCustomDays] = useState("30");
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<string[]>([]);
   const [invalidatingCode, setInvalidatingCode] = useState<string | null>(null);
@@ -54,9 +67,18 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
       show("생성할 개수를 확인해주세요");
       return;
     }
+    if (durationType === "custom" && !(parseInt(customDays, 10) > 0)) {
+      show("기간(일수)을 확인해주세요");
+      return;
+    }
     setCreating(true);
     try {
-      const created = await createUnlockCodesBulk(n, note);
+      const created = await createUnlockCodesBulk(
+        n,
+        note,
+        durationType,
+        durationType === "custom" ? parseInt(customDays, 10) : undefined
+      );
       setJustCreated(created);
       setNote("");
       setCount("1");
@@ -96,7 +118,7 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
   const unusedCodes = useMemo(() => codes.filter((c) => c.status === "unused"), [codes]);
 
   // 사용된(claimed/invalidated) 코드를 사용한 사람(이메일) 기준으로 묶기.
-  // 한 사람이 코드를 여러 개 썼을 수 있으므로(무효화 후 재발급) person -> 코드 목록(1:N).
+  // 한 사람이 코드를 여러 개 썼을 수 있으므로(무효화/만료 후 재발급) person -> 코드 목록(1:N).
   const byPerson = useMemo(() => {
     const groups = new Map<string, UnlockCodeEntry[]>();
     for (const c of codes) {
@@ -128,8 +150,38 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
         <p className="text-[12px] text-text-secondary mb-3">
           여기서 생성한 코드를 설정 &gt; 이용권 코드 입력에서 입력한 사용자는 AI 기능을
           무제한으로 쓸 수 있어요. (10자리 대문자+숫자, 랜덤 생성 · 코드 1개는 1명만 사용
-          가능해요)
+          가능해요 · 기간은 사용 시점부터 계산돼요)
         </p>
+
+        <div className="flex gap-1.5 mb-2 flex-wrap">
+          {DURATION_OPTIONS.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setDurationType(opt)}
+              className="rounded-full px-3 py-1.5 text-[12px] font-medium"
+              style={
+                durationType === opt
+                  ? { background: "var(--accent)", color: "#fff" }
+                  : { background: "var(--surface-2)", color: "var(--text-secondary)" }
+              }
+            >
+              {UNLOCK_DURATION_LABELS[opt]}
+            </button>
+          ))}
+        </div>
+
+        {durationType === "custom" && (
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              value={customDays}
+              onChange={(e) => setCustomDays(e.target.value.replace(/[^0-9]/g, ""))}
+              inputMode="numeric"
+              placeholder="일수"
+              className="w-20 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] outline-none text-center"
+            />
+            <span className="text-[12px] text-text-secondary">일 동안 유효</span>
+          </div>
+        )}
 
         <div className="flex gap-2 mb-3">
           <input
@@ -197,7 +249,15 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
                     }}
                   >
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                          style={{ background: "var(--border)", color: "var(--text-muted)" }}
+                        >
+                          {durationLabel(c)}
+                        </span>
+                      </div>
                       <p className="text-[11px] text-text-muted truncate">{c.note || "메모 없음"}</p>
                     </div>
                     <button
@@ -226,46 +286,59 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
                     <div className="px-3 py-2 bg-surface-2">
                       <p className="text-[13px] font-medium truncate">{person.email}</p>
                     </div>
-                    {person.codes.map((c, idx) => (
-                      <div
-                        key={c.code}
-                        className="flex items-center justify-between p-3"
-                        style={{
-                          borderBottom:
-                            idx < person.codes.length - 1 ? "1px solid var(--border)" : undefined,
-                        }}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
-                            <span
-                              className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
-                              style={
-                                c.status === "invalidated"
-                                  ? { background: "var(--border)", color: "var(--text-muted)" }
-                                  : { background: "var(--accent)", color: "#fff" }
-                              }
-                            >
-                              {c.status === "invalidated" ? "무효화됨" : "사용중"}
-                            </span>
+                    {person.codes.map((c, idx) => {
+                      const displayStatus = unlockCodeDisplayStatus(c);
+                      const badgeStyle =
+                        displayStatus === "active"
+                          ? { background: "var(--accent)", color: "#fff" }
+                          : { background: "var(--border)", color: "var(--text-muted)" };
+                      const badgeText =
+                        displayStatus === "active"
+                          ? "사용중"
+                          : displayStatus === "expired"
+                          ? "만료됨"
+                          : "무효화됨";
+                      return (
+                        <div
+                          key={c.code}
+                          className="flex items-center justify-between p-3"
+                          style={{
+                            borderBottom:
+                              idx < person.codes.length - 1 ? "1px solid var(--border)" : undefined,
+                          }}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={badgeStyle}>
+                                {badgeText}
+                              </span>
+                              <span
+                                className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                                style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
+                              >
+                                {durationLabel(c)}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-text-muted truncate">
+                              {c.note || "메모 없음"} · {formatDate(c.claimedAt)} 사용
+                              {c.expiresAt && ` · ${formatDate(c.expiresAt)} 만료`}
+                              {displayStatus === "invalidated" && ` · ${formatDate(c.invalidatedAt)} 무효화`}
+                            </p>
                           </div>
-                          <p className="text-[11px] text-text-muted truncate">
-                            {c.note || "메모 없음"} · {formatDate(c.claimedAt)} 사용
-                            {c.status === "invalidated" && ` · ${formatDate(c.invalidatedAt)} 무효화`}
-                          </p>
+                          {displayStatus === "active" && (
+                            <button
+                              onClick={() => handleInvalidate(c.code)}
+                              disabled={invalidatingCode === c.code}
+                              aria-label="코드 무효화"
+                              className="-m-2 p-2 shrink-0 disabled:opacity-50 flex items-center gap-1"
+                            >
+                              <IconBan size={16} stroke={1.75} color="var(--danger)" />
+                            </button>
+                          )}
                         </div>
-                        {c.status === "claimed" && (
-                          <button
-                            onClick={() => handleInvalidate(c.code)}
-                            disabled={invalidatingCode === c.code}
-                            aria-label="코드 무효화"
-                            className="-m-2 p-2 shrink-0 disabled:opacity-50 flex items-center gap-1"
-                          >
-                            <IconBan size={16} stroke={1.75} color="var(--danger)" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ))}
               </div>

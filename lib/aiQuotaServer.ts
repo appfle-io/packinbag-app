@@ -44,22 +44,29 @@ export async function verifyAndConsumeAiQuota(req: Request): Promise<ServerAiQuo
   }
 
   // 이용권 코드는 "필드가 있으면 무조건 통과"가 아니라, 그 코드가 실제로
-  // unlockCodes 컬렉션에 존재하는지까지 서버에서 다시 확인한다. (클라이언트가
-  // 자기 users/{uid} 문서의 unlockCode 필드를 devtools로 임의의 값으로 직접 써넣는
-  // 것까지는 firestore.rules로 못 막기 때문에, 여기서 진짜 코드인지 재검증해야
-  // 그 우회가 의미 없어진다.)
+  // unlockCodes 컬렉션에 존재하는지 + 무효화/만료되지 않았는지까지 서버에서 다시
+  // 확인한다. (클라이언트가 자기 users/{uid} 문서의 unlockCode 필드를 devtools로
+  // 임의의 값으로 직접 써넣는 것까지는 firestore.rules로 못 막기 때문에, 여기서
+  // 진짜 코드이고 지금도 유효한지 재검증해야 그 우회가 의미 없어진다.)
   const userSnap = await ref.get();
   const claimedCode = userSnap.data()?.unlockCode as string | undefined;
   if (claimedCode) {
     const codeSnap = await db.collection("unlockCodes").doc(claimedCode).get();
-    // status가 'invalidated'면 마스터가 무효화한 코드다 - 즉시 무제한 자격을 잃고
-    // 일반 무료 사용자와 동일하게 취급한다 (기존에 status 필드가 없던 구버전 코드는
-    // 무효화된 적이 없다는 뜻이므로 그대로 통과시킨다).
-    if (codeSnap.exists && codeSnap.data()?.status !== "invalidated") {
-      return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT };
+    if (codeSnap.exists) {
+      const codeData = codeSnap.data();
+      const status = codeData?.status as string | undefined;
+      const expiresAt = codeData?.expiresAt as { toDate?: () => Date } | null | undefined;
+      const isExpired =
+        !!expiresAt && typeof expiresAt.toDate === "function" && expiresAt.toDate().getTime() < Date.now();
+      // status가 'invalidated'면 마스터가 무효화한 코드다. expiresAt이 과거면 기간제
+      // 이용권이 만료된 것이다. 둘 다 아니면(또는 기존 구버전 코드처럼 필드가 없으면
+      // = 무제한) 무제한 자격을 그대로 인정한다.
+      if (status !== "invalidated" && !isExpired) {
+        return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT };
+      }
     }
-    // 존재하지 않거나 무효화된 코드면 그냥 무료 한도로 계속 진행한다 (여기서 막지 않음 -
-    // 정상적인 무료 사용자와 동일하게 취급).
+    // 존재하지 않거나 무효화/만료된 코드면 그냥 무료 한도로 계속 진행한다 (여기서
+    // 막지 않음 - 정상적인 무료 사용자와 동일하게 취급).
   }
 
   const today = todayKstKey();

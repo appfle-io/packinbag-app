@@ -12,7 +12,7 @@ export default function UnlockCodeDialog({
   onSuccess,
 }: {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (expiresAt: string | null) => void;
 }) {
   const { user } = useAuth();
   const [code, setCode] = useState("");
@@ -38,7 +38,7 @@ export default function UnlockCodeDialog({
         setError(data?.error ?? "코드 확인에 실패했어요. 잠시 후 다시 시도해주세요");
         return;
       }
-      onSuccess();
+      onSuccess((data?.expiresAt as string | null) ?? null);
     } catch {
       setError("코드 확인에 실패했어요. 잠시 후 다시 시도해주세요");
     } finally {

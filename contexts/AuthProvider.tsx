@@ -150,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         packSettings: data?.packSettings as UserProfile["packSettings"],
         aiUsage: data?.aiUsage as UserProfile["aiUsage"],
         unlockCode: data?.unlockCode as string | undefined,
+        unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
       });
       setLoading(false);
     });

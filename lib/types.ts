@@ -137,6 +137,10 @@ export interface UserProfile {
   // 이용권 코드를 입력해서 무제한 인증을 받은 경우, 그 코드 값(있으면 무제한).
   // 나중에 유료회원 필드(isPremium 등)가 추가되면 그쪽도 함께 무제한 조건에 포함시킬 예정.
   unlockCode?: string;
+  // unlockCode의 만료 시각(ISO). null/undefined면 "무제한" 코드라 만료가 없다는 뜻.
+  // 코드 자체(unlockCodes/{code}.expiresAt)에 있는 값을 클라이언트가 매번 다시 조회하지
+  // 않아도 되게 이 필드에도 그대로 복사해둔다(redeem 서버 라우트가 두 곳에 동시에 씀).
+  unlockCodeExpiresAt?: string | null;
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.

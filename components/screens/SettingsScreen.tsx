@@ -309,9 +309,18 @@ export default function SettingsScreen({
       {showUnlockCode && (
         <UnlockCodeDialog
           onClose={() => setShowUnlockCode(false)}
-          onSuccess={() => {
+          onSuccess={(expiresAt) => {
             setShowUnlockCode(false);
-            show("이용권 코드가 적용됐어요! 이제 AI 기능을 무제한으로 쓸 수 있어요");
+            if (!expiresAt) {
+              show("이용권 코드가 적용됐어요! 이제 AI 기능을 무제한으로 쓸 수 있어요");
+            } else {
+              const dateLabel = new Date(expiresAt).toLocaleDateString("ko-KR", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
+              show(`이용권 코드가 적용됐어요! ${dateLabel}까지 AI 기능을 무제한으로 쓸 수 있어요`);
+            }
           }}
         />
       )}
