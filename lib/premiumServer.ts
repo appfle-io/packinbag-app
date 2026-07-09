@@ -1,5 +1,5 @@
 // API 라우트에서 "이 사람이 지금 로그인된 진짜 본인인가" + "프리미엄인가"를 서버에서
-// 직접 검증할 때 쓰는 공용 헬퍼. lib/aiQuotaServer.ts의 verifyAndConsumeAiQuota와 같은
+// 직접 검증할 때 쓰는 공용 헬퍼. lib/aiQuotaServer.ts의 verifyAndCheckAiQuota와 같은
 // 이용권 코드 재검증 로직을 쓰지만, AI 일일 사용량 카운트는 다루지 않는다(팩/가방 생성
 // 제한에는 무관).
 //

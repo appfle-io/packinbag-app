@@ -769,15 +769,17 @@ export default function BagEditorScreen({
           기존 [data-pack-drop-id] 드롭존 판정 로직(위 handleMove)을 그대로 재사용한다. */}
       {drag && (
         <div
-          className="fixed inset-x-0 top-0 z-[94] flex items-center gap-2 overflow-x-auto no-scrollbar px-3"
+          className="fixed inset-x-0 top-0 z-[94] flex items-center gap-2 flex-wrap px-3"
           style={{
             paddingTop: "max(10px, env(safe-area-inset-top))",
             paddingBottom: 10,
             background: "var(--surface)",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            maxHeight: "40vh",
+            overflowY: "auto",
           }}
         >
-          <span className="text-[11px] text-text-muted shrink-0 pl-1 whitespace-nowrap">
+          <span className="text-[11px] text-text-muted shrink-0 pl-1 whitespace-nowrap w-full">
             팩으로 옮기기
           </span>
           {bag.packs.map((p) => {

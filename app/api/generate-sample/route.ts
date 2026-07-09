@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndConsumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
 
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.
 export const runtime = "nodejs";
@@ -77,7 +77,7 @@ function sanitizeResult(raw: unknown): { bagName: string; packs: ParsedPack[] } 
 export async function POST(req: NextRequest) {
   let quota;
   try {
-    quota = await verifyAndConsumeAiQuota(req);
+    quota = await verifyAndCheckAiQuota(req);
   } catch (err) {
     if (err instanceof AiAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
@@ -194,6 +194,14 @@ export async function POST(req: NextRequest) {
         { error: "AI 응답을 해석하지 못했어요. 다시 시도해주세요" },
         { status: 502 }
       );
+    }
+
+    // Gemini가 성공적으로 응답했고(retry 루프를 통과) JSON으로 파싱까지 됐을 때만
+    // 무료 사용자의 오늘 사용 횟수를 실제로 차감한다. 503/429로 끝내 실패했거나
+    // 파싱이 안 된 경우는 위에서 이미 return 되어 여기 도달하지 않는다.
+    if (!quota.unlimited) {
+      const consumed = await consumeAiQuota(quota.uid);
+      quota.usedCount = consumed.usedCount;
     }
 
     const result = sanitizeResult(parsed);
