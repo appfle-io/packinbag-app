@@ -16,6 +16,22 @@ const SWIPE_BUTTON_WIDTH = 60;
 const LONG_PRESS_MS = 420;
 const LONG_PRESS_MOVE_CANCEL_PX = 8;
 
+// 롱프레스 드래그 판정 중에 위/아래로 크게 움직이면 "스크롤하려는 의도"로 보고,
+// 이 요소 자체는 touch-action: none이라 브라우저가 자동으로 스크롤해주지 않으므로
+// 대신 가장 가까운 스크롤 가능한 조상 엘리먼트를 찾아 수동으로 스크롤시켜준다.
+const getScrollParent = (el: HTMLElement | null): HTMLElement | null => {
+  let node = el?.parentElement ?? null;
+  while (node) {
+    const style = window.getComputedStyle(node);
+    const canScrollY =
+      (style.overflowY === "auto" || style.overflowY === "scroll") &&
+      node.scrollHeight > node.clientHeight;
+    if (canScrollY) return node;
+    node = node.parentElement;
+  }
+  return null;
+};
+
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
 const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
 
@@ -50,9 +66,12 @@ export default function ItemRow({
   const [draftColor, setDraftColor] = useState(item.color || "");
   const startX = useRef(0);
   const startY = useRef(0);
+  const lastY = useRef(0);
   const baseOffset = useRef(0);
   const longPressTimer = useRef<number | null>(null);
   const longPressTriggered = useRef(false);
+  const scrollParentRef = useRef<HTMLElement | null | undefined>(undefined);
+  const scrollingRef = useRef(false);
 
   const clearLongPressTimer = () => {
     if (longPressTimer.current !== null) {
@@ -65,9 +84,12 @@ export default function ItemRow({
     if (editing) return;
     startX.current = e.clientX;
     startY.current = e.clientY;
+    lastY.current = e.clientY;
     baseOffset.current = dragX;
     setDragging(true);
     longPressTriggered.current = false;
+    scrollingRef.current = false;
+    scrollParentRef.current = undefined;
 
     // 체크박스를 제외한 영역(글씨 포함)을 길게 누르고 있으면 드래그 모드로 진입한다.
     if (onStartDrag) {
@@ -88,15 +110,36 @@ export default function ItemRow({
     const dy = e.clientY - startY.current;
     // 옆으로든 위아래로든 일정 거리 이상 움직이면 스와이프/스크롤 의도로 보고
     // 롱프레스(드래그 시작) 타이머를 취소한다.
-    if (Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX) {
-      clearLongPressTimer();
+    const movedEnough =
+      Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX;
+    if (movedEnough) clearLongPressTimer();
+
+    // 세로 움직임이 가로보다 크면 "스크롤하려는 의도"로 판단한다. 이 요소는
+    // touch-action: none이라 브라우저가 자동으로 스크롤해주지 않으므로, 가장 가까운
+    // 스크롤 가능한 조상을 찾아 직접 scrollTop을 옮겨서 원래 스크롤처럼 동작하게 한다.
+    // (이렇게 해야 "롱프레스로 드래그 시작"과 "그냥 목록 스크롤"이 같은 방향 제스처를
+    // 쓰면서도 서로를 방해하지 않는다.)
+    if (scrollingRef.current || (movedEnough && Math.abs(dy) > Math.abs(dx))) {
+      scrollingRef.current = true;
+      if (scrollParentRef.current === undefined) {
+        scrollParentRef.current = getScrollParent(e.currentTarget as HTMLElement);
+      }
+      const parent = scrollParentRef.current;
+      if (parent) {
+        const deltaY = e.clientY - lastY.current;
+        parent.scrollTop -= deltaY;
+      }
+      lastY.current = e.clientY;
+      return;
     }
+
     const next = Math.min(EDIT_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
     setDragX(next);
   };
 
   const endDrag = () => {
     clearLongPressTimer();
+    scrollingRef.current = false;
     if (!dragging) return;
     setDragging(false);
     setDragX((current) => {
@@ -196,8 +239,9 @@ export default function ItemRow({
           WebkitUserSelect: onStartDrag ? "none" : undefined,
           userSelect: onStartDrag ? "none" : undefined,
           outline: isDragOverTarget ? "2px solid var(--accent)" : undefined,
+          touchAction: "none",
         }}
-        className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))] touch-pan-y"
+        className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
       >
         {item.type === "check" && (
           <input

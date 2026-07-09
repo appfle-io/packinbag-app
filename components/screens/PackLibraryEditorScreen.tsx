@@ -17,7 +17,6 @@ import EditableText from "@/components/EditableText";
 import ItemRow from "@/components/ItemRow";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PackColorDot from "@/components/PackColorDot";
-import { useToast } from "@/components/Toast";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -48,7 +47,6 @@ export default function PackLibraryEditorScreen({
   const [draftBold, setDraftBold] = useState(false);
   const [draftStrike, setDraftStrike] = useState(false);
   const [draftColor, setDraftColor] = useState("");
-  const { show } = useToast();
   const { profile } = useAuth();
   const listRef = useRef<HTMLDivElement>(null);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
@@ -171,6 +169,54 @@ export default function PackLibraryEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag !== null]);
 
+  const deletingRef = useRef(false);
+
+  // 짐을 추가/삭제/수정/순서변경하거나 팩 이름·색상을 바꿀 때마다(=pack 상태가 바뀔 때마다)
+  // 0.5초 후 자동으로 저장한다. 상단의 별도 "저장" 버튼 없이도 항상 최신 상태가
+  // 라이브러리에 반영되도록 하는 것이 목적. 처음 화면이 열릴 때(아직 아무것도 안 바꼈을 때)는
+  // 저장하지 않는다.
+  const [justSaved, setJustSaved] = useState(false);
+  const isFirstPackEffect = useRef(true);
+  const saveTimerRef = useRef<number | null>(null);
+  const justSavedTimerRef = useRef<number | null>(null);
+  const onSaveRef = useRef(onSave);
+  const packRef = useRef(pack);
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+  useEffect(() => {
+    packRef.current = pack;
+  }, [pack]);
+
+  useEffect(() => {
+    if (isFirstPackEffect.current) {
+      isFirstPackEffect.current = false;
+      return;
+    }
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      onSaveRef.current(pack);
+      setJustSaved(true);
+      if (justSavedTimerRef.current) window.clearTimeout(justSavedTimerRef.current);
+      justSavedTimerRef.current = window.setTimeout(() => setJustSaved(false), 1200);
+    }, 500);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [pack]);
+
+  // 화면을 나갈 때(뒤로가기 등) 아직 저장 안 된(디바운스 대기 중인) 변경사항이 있으면
+  // 그 즉시 마지막 상태로 저장한다. 단, 팩 삭제 흐름 중에는 삭제된 팩이 다시
+  // 만들어지는 경합을 피하기 위해 저장을 건너뛴다.
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current && !deletingRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        onSaveRef.current(packRef.current);
+      }
+    };
+  }, []);
+
   const preventBlur = (e: React.MouseEvent) => e.preventDefault();
 
   // iOS Safari/WKWebView는 키보드가 올라올 때 "레이아웃 뷰포트" 크기는 그대로 두고
@@ -220,22 +266,18 @@ export default function PackLibraryEditorScreen({
         <button onClick={onBack}>
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <span
+            className="text-[12px] text-text-muted"
+            style={{ opacity: justSaved ? 1 : 0, transition: "opacity 200ms ease" }}
+          >
+            저장됨
+          </span>
           <button
             onClick={() => setConfirmDelete(true)}
             className="rounded-lg px-2.5 py-1.5"
           >
             <IconTrash size={18} stroke={1.75} color="var(--danger)" />
-          </button>
-          <button
-            onClick={() => {
-              onSave(pack);
-              show("팩을 저장했어요");
-            }}
-            className="rounded-lg px-3 py-1.5 text-[13px] font-medium"
-            style={{ background: "var(--accent)", color: "#fff" }}
-          >
-            저장
           </button>
         </div>
       </div>
@@ -419,6 +461,7 @@ export default function PackLibraryEditorScreen({
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => {
             setConfirmDelete(false);
+            deletingRef.current = true;
             onDelete(pack.id);
           }}
         />
