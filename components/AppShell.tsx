@@ -74,6 +74,25 @@ export default function AppShell() {
     return () => clearTimeout(t);
   }, []);
 
+  // 키보드가 올라올 때 앱 루트 높이가 정확히 줄어들도록 visualViewport 높이를
+  // --app-vh CSS 변수로 동기화한다. `h-dvh` + viewport의 interactiveWidget 설정만으로도
+  // 대부분 해결되지만, 이를 완전히 지원하지 않는 구형 iOS WebView(Capacitor 포함)를 위한
+  // JS 보강 장치 - 지원 안 하는 환경에서는 그냥 아무 효과 없이 CSS의 100dvh 기본값이 쓰인다.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      document.documentElement.style.setProperty("--app-vh", `${vv.height}px`);
+    };
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
+
   // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭 전환).
   // Firestore(외부 시스템)에서 온 값을 반영하는 의도된 동기화라 set-state-in-effect 규칙은 비활성화한다.
   useEffect(() => {
@@ -387,7 +406,7 @@ export default function AppShell() {
   if (editingBag) {
     return (
       <>
-        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background" style={{ height: "var(--app-vh, 100dvh)" }}>
           <BagEditorScreen
             initialBag={editingBag}
             libraryPacks={libraryPacks}
@@ -412,7 +431,7 @@ export default function AppShell() {
   if (editingPack) {
     return (
       <>
-        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background" style={{ height: "var(--app-vh, 100dvh)" }}>
           <PackLibraryEditorScreen
             initialPack={editingPack}
             onBack={() => setEditingPack(null)}
@@ -456,7 +475,7 @@ export default function AppShell() {
 
   return (
     <>
-      <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+      <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background" style={{ height: "var(--app-vh, 100dvh)" }}>
         <EmailVerifyBanner />
         <div
           className="flex-1 overflow-hidden"

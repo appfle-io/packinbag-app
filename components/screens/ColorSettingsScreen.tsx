@@ -25,6 +25,8 @@ const SPLIT_BG: CSSProperties = {
 };
 
 // 제목은 항상 보이고, 탭하면 그 아래 내용이 펼쳐지는 공용 헤더 버튼.
+// 세로 패딩과 구분선을 넣어서 터치 영역을 넉넉하게 확보하고, 연속된 섹션끼리도
+// 시각적으로 구분되게 한다.
 function SectionHeaderButton({
   title,
   open,
@@ -37,11 +39,11 @@ function SectionHeaderButton({
   return (
     <button
       onClick={onToggle}
-      className="w-full flex items-center justify-between mb-2"
+      className="w-full flex items-center justify-between py-3 border-b border-border"
     >
-      <span className="text-[12px] text-text-secondary">{title}</span>
+      <span className="text-[13px] text-text-secondary">{title}</span>
       <IconChevronDown
-        size={14}
+        size={16}
         stroke={1.75}
         color="var(--text-muted)"
         style={{
@@ -84,10 +86,10 @@ function ColorSlotSection({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="mb-6">
+    <div className="mb-1">
       <SectionHeaderButton title={title} open={open} onToggle={() => setOpen((o) => !o)} />
       {open && (
-      <div className="rounded-lg border border-border bg-surface-2 p-3">
+      <div className="mt-3 rounded-lg border border-border bg-surface-2 p-3">
         <div className="flex flex-wrap items-center gap-2.5">
           {showDefaultOption && (
             <button
@@ -210,22 +212,22 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
+      <div className="flex items-center gap-2 p-4 pb-4 shrink-0">
         <button onClick={onBack} className="flex items-center gap-1">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
         <p className="text-[15px] font-medium">화면설정</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
-        <div className="mb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-1 pb-6">
+        <div className="mb-1">
           <SectionHeaderButton
             title="글자 크기"
             open={fontScaleOpen}
             onToggle={() => setFontScaleOpen((o) => !o)}
           />
           {fontScaleOpen && (
-          <div className="flex rounded-lg border border-border overflow-hidden">
+          <div className="mt-3 flex rounded-lg border border-border overflow-hidden">
             {fontScales.map(({ key, label, previewPx }) => (
               <button
                 key={key}
@@ -271,14 +273,14 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           }
         />
 
-        <div className="mb-6">
+        <div className="mb-1">
           <SectionHeaderButton
             title="기본 투명도"
             open={baseOpacityOpen}
             onToggle={() => setBaseOpacityOpen((o) => !o)}
           />
           {baseOpacityOpen && (
-          <div className="rounded-lg border border-border bg-surface-2 p-3">
+          <div className="mt-3 rounded-lg border border-border bg-surface-2 p-3">
             <p className="text-[11px] text-text-muted">
               하단 메뉴, 필터 버튼, 짐(체크항목·텍스트) 배경, 설정 메뉴의 선택 안 된 버튼
               배경 등에 공통으로 적용돼요
@@ -303,7 +305,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           )}
         </div>
 
-        <h2 className="text-[14px] font-semibold mb-3">가방</h2>
+        <h2 className="text-[14px] font-semibold mt-4 mb-3">가방</h2>
 
         <ColorSlotSection
           title="가방 카드"
@@ -398,7 +400,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           }
         />
 
-        <h2 className="text-[14px] font-semibold mb-3">팩</h2>
+        <h2 className="text-[14px] font-semibold mt-4 mb-3">팩</h2>
 
         <ColorSlotSection
           title="팩 라이브러리 타일"
