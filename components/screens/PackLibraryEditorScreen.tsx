@@ -173,24 +173,29 @@ export default function PackLibraryEditorScreen({
 
   const preventBlur = (e: React.MouseEvent) => e.preventDefault();
 
-  // 모바일(iOS Safari)에서 하단 입력창에 포커스가 잡히면 브라우저가 레이아웃 뷰포트를
-  // 위로 슬쩍 스크롤시켜서(overflow:hidden이어도 visualViewport 레벨에서 발생) 상단
-  // 제목 영역까지 같이 밀려 올라가 보이는 문제가 있다. visualViewport가 리사이즈/스크롤될
-  // 때마다 레이아웃 스크롤을 0으로 되돌려서 상단 헤더가 항상 고정되어 보이게 한다.
+  // iOS Safari는 키보드가 올라올 때 "레이아웃 뷰포트" 크기는 그대로 두고 화면을
+  // 슬쩍 스크롤시켜서 포커스된 입력창을 보여주는 방식으로 동작한다. 이 화면은
+  // 부모가 100dvh(=키보드를 반영하지 않는 값)라서 그 스크롤이 헤더까지 밀어버리고,
+  // 입력창은 오히려 키보드에 가려 안 보이게 된다. 대신 실제로 보이는 영역의 높이인
+  // visualViewport.height를 이 화면의 높이로 직접 지정해서, 키보드가 올라온 만큼
+  // 화면 자체가 줄어들도록 한다 — 그러면 브라우저가 스크롤로 보정할 필요가 없어져서
+  // 상단 헤더는 그 자리에 그대로 있고, 입력창은 항상 키보드 바로 위에 보인다.
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const resetScroll = () => window.scrollTo(0, 0);
-    vv.addEventListener("resize", resetScroll);
-    vv.addEventListener("scroll", resetScroll);
-    return () => {
-      vv.removeEventListener("resize", resetScroll);
-      vv.removeEventListener("scroll", resetScroll);
-    };
+    const update = () => setViewportHeight(vv.height);
+    update();
+    vv.addEventListener("resize", update);
+    return () => vv.removeEventListener("resize", update);
   }, []);
 
   return (
-    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
+    <div
+      ref={swipeBackRef}
+      className="flex flex-col overflow-hidden h-dvh"
+      style={viewportHeight != null ? { height: `${viewportHeight}px` } : undefined}
+    >
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
         <button onClick={onBack}>
           <IconArrowLeft size={20} stroke={1.75} />
