@@ -52,10 +52,13 @@ export async function verifyAndConsumeAiQuota(req: Request): Promise<ServerAiQuo
   const claimedCode = userSnap.data()?.unlockCode as string | undefined;
   if (claimedCode) {
     const codeSnap = await db.collection("unlockCodes").doc(claimedCode).get();
-    if (codeSnap.exists) {
+    // status가 'invalidated'면 마스터가 무효화한 코드다 - 즉시 무제한 자격을 잃고
+    // 일반 무료 사용자와 동일하게 취급한다 (기존에 status 필드가 없던 구버전 코드는
+    // 무효화된 적이 없다는 뜻이므로 그대로 통과시킨다).
+    if (codeSnap.exists && codeSnap.data()?.status !== "invalidated") {
       return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT };
     }
-    // 존재하지 않는(가짜) 코드면 그냥 무료 한도로 계속 진행한다 (여기서 막지 않음 -
+    // 존재하지 않거나 무효화된 코드면 그냥 무료 한도로 계속 진행한다 (여기서 막지 않음 -
     // 정상적인 무료 사용자와 동일하게 취급).
   }
 

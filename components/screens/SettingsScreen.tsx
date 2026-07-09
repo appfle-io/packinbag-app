@@ -308,7 +308,6 @@ export default function SettingsScreen({
 
       {showUnlockCode && (
         <UnlockCodeDialog
-          uid={uid}
           onClose={() => setShowUnlockCode(false)}
           onSuccess={() => {
             setShowUnlockCode(false);

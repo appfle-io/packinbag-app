@@ -4,29 +4,38 @@ import Portal from "@/components/Portal";
 
 import { useState } from "react";
 import { IconX } from "@tabler/icons-react";
-import { UNLOCK_CODE_LENGTH, redeemUnlockCode } from "@/lib/aiUsageService";
+import { useAuth } from "@/contexts/AuthProvider";
+import { UNLOCK_CODE_LENGTH } from "@/lib/aiUsageService";
 
 export default function UnlockCodeDialog({
-  uid,
   onClose,
   onSuccess,
 }: {
-  uid: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { user } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!code.trim() || loading) return;
+    if (!code.trim() || loading || !user) return;
     setLoading(true);
     setError(null);
     try {
-      const ok = await redeemUnlockCode(uid, code);
-      if (!ok) {
-        setError("코드를 다시 확인해주세요");
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/redeem-unlock-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error ?? "코드 확인에 실패했어요. 잠시 후 다시 시도해주세요");
         return;
       }
       onSuccess();
