@@ -16,11 +16,11 @@ export default function BottomTabBar({
 
   return (
     <nav
-      className="relative flex shrink-0 pt-2.5"
+      className="relative flex shrink-0 pt-2"
       style={{
         background: "var(--surface-2)",
         borderTop: "1px solid var(--border)",
-        paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+        paddingBottom: "max(9px, env(safe-area-inset-bottom))",
       }}
     >
       {/* 슬라이딩 pill 인디케이터: 좌/우 탭에서만 보이고 홈에서는 사라짐 */}
@@ -46,7 +46,7 @@ export default function BottomTabBar({
       <button
         onClick={() => onChange("packs")}
         aria-label="팩 관리"
-        className="relative z-10 flex flex-1 items-center justify-center py-[19px] transition-transform active:scale-90"
+        className="relative z-10 flex flex-1 items-center justify-center py-[15px] transition-transform active:scale-90"
       >
         <IconPackage
           size={30}
@@ -81,7 +81,7 @@ export default function BottomTabBar({
       <button
         onClick={() => onChange("settings")}
         aria-label="설정"
-        className="relative z-10 flex flex-1 items-center justify-center py-[19px] transition-transform active:scale-90"
+        className="relative z-10 flex flex-1 items-center justify-center py-[15px] transition-transform active:scale-90"
       >
         <IconSettings
           size={30}

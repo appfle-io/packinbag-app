@@ -173,21 +173,41 @@ export default function PackLibraryEditorScreen({
 
   const preventBlur = (e: React.MouseEvent) => e.preventDefault();
 
-  // iOS Safari는 키보드가 올라올 때 "레이아웃 뷰포트" 크기는 그대로 두고 화면을
-  // 슬쩍 스크롤시켜서 포커스된 입력창을 보여주는 방식으로 동작한다. 이 화면은
-  // 부모가 100dvh(=키보드를 반영하지 않는 값)라서 그 스크롤이 헤더까지 밀어버리고,
-  // 입력창은 오히려 키보드에 가려 안 보이게 된다. 대신 실제로 보이는 영역의 높이인
-  // visualViewport.height를 이 화면의 높이로 직접 지정해서, 키보드가 올라온 만큼
-  // 화면 자체가 줄어들도록 한다 — 그러면 브라우저가 스크롤로 보정할 필요가 없어져서
-  // 상단 헤더는 그 자리에 그대로 있고, 입력창은 항상 키보드 바로 위에 보인다.
+  // iOS Safari/WKWebView는 키보드가 올라올 때 "레이아웃 뷰포트" 크기는 그대로 두고
+  // 포커스된 입력창을 보여주려고 페이지 자체를 슬쩍 스크롤(팬)시킨다. 이 화면 높이를
+  // visualViewport.height로 맞춰주는 것만으로는 이 자체 스크롤을 막지 못해서, 높이 보정과
+  // 브라우저의 스크롤 보정이 동시에 일어나 헤더가 화면 밖으로 밀려버리는 문제가 있었다.
+  // 그래서 (1) 화면 높이는 visualViewport.height로 맞추고, (2) 그 갱신 시점마다
+  // window.scrollTo(0, 0)을 반복 호출해서 브라우저가 만들어내는 스크롤을 계속 취소한다.
+  // resize/scroll 이벤트 직후 한 번, 그리고 iOS가 살짝 늦게 다시 스크롤시키는 경우까지
+  // 잡기 위해 rAF + 짧은 지연 후 한 번 더 취소한다.
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () => setViewportHeight(vv.height);
+
+    const cancelNativeScroll = () => {
+      if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+    };
+
+    const update = () => {
+      setViewportHeight(vv.height);
+      cancelNativeScroll();
+      requestAnimationFrame(cancelNativeScroll);
+      window.setTimeout(cancelNativeScroll, 60);
+      window.setTimeout(cancelNativeScroll, 200);
+    };
+
     update();
     vv.addEventListener("resize", update);
-    return () => vv.removeEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    window.addEventListener("scroll", cancelNativeScroll);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      window.removeEventListener("scroll", cancelNativeScroll);
+      cancelNativeScroll();
+    };
   }, []);
 
   return (
@@ -267,7 +287,7 @@ export default function PackLibraryEditorScreen({
           (텍스트 모드일 때) 서식 옵션 + 입력창 + 확인(전송) 버튼 */}
       <div
         className="shrink-0 border-t border-border p-3 flex flex-col gap-2"
-        style={{ paddingBottom: "max(22px, calc(env(safe-area-inset-bottom) + 10px))" }}
+        style={{ paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))" }}
       >
         <div className="flex items-center gap-4">
           <button
@@ -362,6 +382,12 @@ export default function PackLibraryEditorScreen({
             value={draftText}
             onChange={(e) => setDraftText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            onFocus={() => {
+              window.scrollTo(0, 0);
+              requestAnimationFrame(() => window.scrollTo(0, 0));
+              window.setTimeout(() => window.scrollTo(0, 0), 60);
+              window.setTimeout(() => window.scrollTo(0, 0), 200);
+            }}
             placeholder={inputMode === "check" ? "짐 이름" : "텍스트 입력"}
             className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[14px] outline-none"
             style={
