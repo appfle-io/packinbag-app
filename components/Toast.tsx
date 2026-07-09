@@ -4,13 +4,20 @@ import { createContext, useCallback, useContext, useRef, useState } from "react"
 
 type ToastType = "success" | "error";
 
-interface ToastState {
+export interface ToastOptions {
+  // 되돌리기 등 짧은 실행취소 액션이 필요할 때 지정한다. 지정하면 표시 시간이
+  // 더 길어지고, 액션 버튼을 누르면 onAction 실행 후 즉시 토스트가 사라진다.
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+interface ToastState extends ToastOptions {
   key: number;
   message: string;
   type: ToastType;
 }
 
-const ToastContext = createContext<{ show: (message: string) => void }>({
+const ToastContext = createContext<{ show: (message: string, options?: ToastOptions) => void }>({
   show: () => {},
 });
 
@@ -26,15 +33,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const counter = useRef(0);
   const hideTimer = useRef<number | null>(null);
 
-  const show = useCallback((msg: string) => {
+  const show = useCallback((msg: string, options?: ToastOptions) => {
     counter.current += 1;
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
 
-    setToast({ key: counter.current, message: msg, type: detectType(msg) });
+    setToast({
+      key: counter.current,
+      message: msg,
+      type: detectType(msg),
+      actionLabel: options?.actionLabel,
+      onAction: options?.onAction,
+    });
 
+    // 실행취소 버튼이 있는 토스트는 반응할 시간을 더 준다.
     hideTimer.current = window.setTimeout(() => {
       setToast(null);
-    }, 1700);
+    }, options?.actionLabel ? 4000 : 1700);
   }, []);
 
   return (
@@ -53,6 +67,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               border: "1px solid var(--border)",
               minWidth: 148,
               maxWidth: 260,
+              pointerEvents: toast.actionLabel ? "auto" : "none",
             }}
           >
             {toast.type === "success" ? (
@@ -96,6 +111,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             >
               {toast.message}
             </span>
+            {toast.actionLabel && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.onAction?.();
+                  if (hideTimer.current) window.clearTimeout(hideTimer.current);
+                  setToast(null);
+                }}
+                className="text-[12.5px] font-semibold rounded-lg px-3 py-1.5 -mb-1"
+                style={{ color: "var(--accent)" }}
+              >
+                {toast.actionLabel}
+              </button>
+            )}
           </div>
         </div>
       )}

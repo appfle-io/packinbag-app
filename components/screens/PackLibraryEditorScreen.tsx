@@ -17,6 +17,7 @@ import EditableText from "@/components/EditableText";
 import ItemRow from "@/components/ItemRow";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PackColorDot from "@/components/PackColorDot";
+import { useToast } from "@/components/Toast";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -48,6 +49,7 @@ export default function PackLibraryEditorScreen({
   const [draftStrike, setDraftStrike] = useState(false);
   const [draftColor, setDraftColor] = useState("");
   const { profile } = useAuth();
+  const { show } = useToast();
   const listRef = useRef<HTMLDivElement>(null);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
@@ -87,8 +89,29 @@ export default function PackLibraryEditorScreen({
       ),
     }));
 
-  const deleteItem = (itemId: string) =>
-    setPack((p) => ({ ...p, items: p.items.filter((i) => i.id !== itemId) }));
+  const deleteItem = (itemId: string) => {
+    let removedItem: Item | undefined;
+    let removedIndex = -1;
+    setPack((p) => {
+      removedIndex = p.items.findIndex((i) => i.id === itemId);
+      removedItem = p.items[removedIndex];
+      return { ...p, items: p.items.filter((i) => i.id !== itemId) };
+    });
+    if (removedItem) {
+      const restored = removedItem;
+      const restoreIndex = removedIndex;
+      show("짐을 삭제했어요", {
+        actionLabel: "되돌리기",
+        onAction: () => {
+          setPack((p) => {
+            const items = [...p.items];
+            items.splice(Math.min(restoreIndex, items.length), 0, restored);
+            return { ...p, items };
+          });
+        },
+      });
+    }
+  };
 
   const handleSubmit = () => {
     const text = draftText.trim();

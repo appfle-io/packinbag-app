@@ -153,7 +153,7 @@ export default function SettingsScreen({
           {startTabs.map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => updateDefaultTab(key).catch(() => {})}
+              onClick={() => updateDefaultTab(key).catch(() => show("변경사항을 저장하지 못했어요"))}
               className="flex-1 py-2 text-[13px]"
               style={{
                 background: startTab === key ? "var(--accent)" : "var(--surface-2)",

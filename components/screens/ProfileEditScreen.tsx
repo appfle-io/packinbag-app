@@ -9,6 +9,7 @@ import { randomNickname } from "@/lib/nickname";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/Toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import DeleteAccountDialog from "@/components/DeleteAccountDialog";
 
 export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
@@ -20,6 +21,7 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
   const [avatarDraft, setAvatarDraft] = useState(profile?.avatarId ?? AVATAR_OPTIONS[0].id);
   const [saving, setSaving] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const isPasswordAccount = !!user?.providerData.some((p) => p.providerId === "password");
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -42,6 +44,8 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
       if (avatarDraft !== profile?.avatarId) await updateAvatar(avatarDraft);
       show("프로필을 저장했어요");
       onBack();
+    } catch {
+      show("프로필 저장에 실패했어요. 잠시 후 다시 시도해주세요");
     } finally {
       setSaving(false);
     }
@@ -214,7 +218,7 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
 
       <div className="shrink-0 flex flex-col items-center gap-2 pt-4" style={{ paddingBottom: 56 }}>
         <button
-          onClick={logout}
+          onClick={() => setConfirmLogout(true)}
           className="rounded-lg border px-4 py-1.5 text-[12px]"
           style={{
             borderColor: "var(--border)",
@@ -232,6 +236,19 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
           회원 탈퇴
         </button>
       </div>
+
+      {confirmLogout && (
+        <ConfirmDialog
+          title="로그아웃 하시겠어요?"
+          confirmLabel="로그아웃"
+          tone="danger"
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={() => {
+            setConfirmLogout(false);
+            logout();
+          }}
+        />
+      )}
 
       {showDeleteAccount && (
         <DeleteAccountDialog

@@ -5,6 +5,7 @@ import Portal from "@/components/Portal";
 import { useMemo, useState } from "react";
 import { IconX, IconPlus } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
+import { useToast } from "@/components/Toast";
 
 function cloneAsNewPack(pack: Pack): Pack {
   return {
@@ -31,6 +32,7 @@ export default function PackImportModal({
   onImport: (packs: Pack[]) => void;
   onCreateNew: () => void;
 }) {
+  const { show } = useToast();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -60,6 +62,11 @@ export default function PackImportModal({
       .map(cloneAsNewPack);
     onImport(packsToImport);
     onClose();
+    show(
+      packsToImport.length > 1
+        ? `팩 ${packsToImport.length}개를 가방에 추가했어요`
+        : "팩을 가방에 추가했어요"
+    );
   };
 
   return (

@@ -58,7 +58,7 @@ export default function BagEditorScreen({
   onSave: (bag: Bag) => void;
   onDeleteBag: (bag: Bag) => void;
   onSaveAsLibraryPack: (pack: Pack) => void;
-  onLeaveBag: (bagId: string) => void;
+  onLeaveBag: (bagId: string) => Promise<void>;
   onRemoveMember: (bagId: string, memberUid: string) => Promise<void>;
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
 }) {
@@ -70,6 +70,8 @@ export default function BagEditorScreen({
   const [uploadingImages, setUploadingImages] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
+  const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
   // 새로 만드는 중(isNew)에 "저장" 버튼을 아직 누르지 않았는데 로컬 변경이 하나라도
@@ -212,15 +214,38 @@ export default function BagEditorScreen({
       })
     );
 
-  const handleDeleteItem = (packId: string, itemId: string) =>
+  const handleDeleteItem = (packId: string, itemId: string) => {
+    let removedItem: Item | undefined;
+    let removedIndex = -1;
     updatePacks((packs) =>
       packs.map((p) => {
         if (p.id !== packId) return p;
+        removedIndex = p.items.findIndex((i) => i.id === itemId);
+        removedItem = p.items[removedIndex];
         const items = p.items.filter((i) => i.id !== itemId);
         const updated = { ...p, items };
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
       })
     );
+    if (removedItem) {
+      const restored = removedItem;
+      const restoreIndex = removedIndex;
+      show("짐을 삭제했어요", {
+        actionLabel: "되돌리기",
+        onAction: () => {
+          updatePacks((packs) =>
+            packs.map((p) => {
+              if (p.id !== packId) return p;
+              const items = [...p.items];
+              items.splice(Math.min(restoreIndex, items.length), 0, restored);
+              const updated = { ...p, items };
+              return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+            })
+          );
+        },
+      });
+    }
+  };
 
   const handleAddItem = (packId: string, type: "check" | "text") =>
     updatePacks((packs) =>
@@ -258,8 +283,10 @@ export default function BagEditorScreen({
   const handleImport = (imported: Pack[]) =>
     updatePacks((packs) => [...packs, ...imported].slice(0, 10));
 
-  const handleDeletePack = (packId: string) =>
+  const handleDeletePack = (packId: string) => {
     updatePacks((packs) => packs.filter((p) => p.id !== packId));
+    show("팩을 가방에서 삭제했어요");
+  };
 
   // fromPackId === toPackId면 같은 팩 안에서 overItemId 위치로 순서를 바꾸고,
   // 다르면 기존처럼 다른 팩으로 옮긴다.
@@ -620,13 +647,14 @@ export default function BagEditorScreen({
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     isDirtyRef.current = false;
     hasUnsavedChangesRef.current = false;
+    // 저장 결과 토스트는 AppShell.handleSaveBag에서 성공/실패를 확인한 뒤 한 번만 표시한다
+    // (여기서 미리 띄우면 실패해도 이미 성공 토스트를 본 뒤라 혼란을 줄 수 있다).
     onSave(bag);
-    show("가방을 저장했어요");
   };
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
+    await onLeaveBag(bag.id);
     setShowMembers(false);
-    onLeaveBag(bag.id);
     onBack(bag);
     show("가방에서 나갔어요");
   };
@@ -701,7 +729,7 @@ export default function BagEditorScreen({
                 className="h-full w-full object-cover"
               />
               <button
-                onClick={() => removeImage(idx)}
+                onClick={() => setImageDeleteIndex(idx)}
                 className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
                 style={{ background: "rgba(0,0,0,0.5)" }}
               >
@@ -768,7 +796,7 @@ export default function BagEditorScreen({
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
             onDeletePack={handleDeletePack}
-            onRefreshFromLibrary={handleRefreshFromLibrary}
+            onRefreshFromLibrary={(packId: string) => setRefreshConfirmTarget(packId)}
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={drag?.itemId ?? null}
             dragOverItemId={drag?.overItemId ?? null}
@@ -899,6 +927,34 @@ export default function BagEditorScreen({
           tone="accent"
           onCancel={() => setSaveConfirmTarget(null)}
           onConfirm={() => confirmInitialSave(saveConfirmTarget)}
+        />
+      )}
+
+      {imageDeleteIndex !== null && (
+        <ConfirmDialog
+          title="이 사진을 삭제할까요?"
+          message="삭제하면 되돌릴 수 없어요."
+          onCancel={() => setImageDeleteIndex(null)}
+          onConfirm={() => {
+            const idx = imageDeleteIndex;
+            setImageDeleteIndex(null);
+            removeImage(idx);
+          }}
+        />
+      )}
+
+      {refreshConfirmTarget && (
+        <ConfirmDialog
+          title="팩을 라이브러리 최신본으로 불러올까요?"
+          message="지금 이 팩에 있는 내용은 라이브러리 버전으로 덮어써지고 사라져요."
+          confirmLabel="불러오기"
+          tone="accent"
+          onCancel={() => setRefreshConfirmTarget(null)}
+          onConfirm={() => {
+            const packId = refreshConfirmTarget;
+            setRefreshConfirmTarget(null);
+            handleRefreshFromLibrary(packId);
+          }}
         />
       )}
 

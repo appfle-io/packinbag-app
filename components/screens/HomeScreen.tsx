@@ -11,6 +11,7 @@ import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
+import { useToast } from "@/components/Toast";
 
 export default function HomeScreen({
   bags,
@@ -32,6 +33,7 @@ export default function HomeScreen({
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
   const { profile, updateBagSortBy } = useAuth();
+  const { show } = useToast();
   const sortBy = profile?.bagSortBy ?? "createdAt";
   const sortedBags = sortByOption(bags, sortBy);
 
@@ -55,7 +57,7 @@ export default function HomeScreen({
           코드로 참여
         </button>
         {bags.length > 0 && (
-          <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => {})} />
+          <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
         )}
       </div>
 

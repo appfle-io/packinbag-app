@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IconArrowLeft, IconCopy, IconPlus, IconBan } from "@tabler/icons-react";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { useToast } from "@/components/Toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   UnlockCodeEntry,
   UnlockDurationType,
@@ -43,6 +44,7 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
   const [creating, setCreating] = useState(false);
   const [justCreated, setJustCreated] = useState<string[]>([]);
   const [invalidatingCode, setInvalidatingCode] = useState<string | null>(null);
+  const [confirmInvalidateCode, setConfirmInvalidateCode] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -328,7 +330,7 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
                           </div>
                           {displayStatus === "active" && (
                             <button
-                              onClick={() => handleInvalidate(c.code)}
+                              onClick={() => setConfirmInvalidateCode(c.code)}
                               disabled={invalidatingCode === c.code}
                               aria-label="코드 무효화"
                               className="-m-2 p-2 shrink-0 disabled:opacity-50 flex items-center gap-1"
@@ -346,6 +348,20 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
           </>
         )}
       </div>
+
+      {confirmInvalidateCode && (
+        <ConfirmDialog
+          title="이 코드를 무효화할까요?"
+          message="사용자는 더 이상 이 코드로 AI 기능을 무제한으로 쓸 수 없게 돼요. 되돌릴 수 없어요."
+          confirmLabel="무효화"
+          onCancel={() => setConfirmInvalidateCode(null)}
+          onConfirm={() => {
+            const code = confirmInvalidateCode;
+            setConfirmInvalidateCode(null);
+            handleInvalidate(code);
+          }}
+        />
+      )}
     </div>
   );
 }

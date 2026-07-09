@@ -315,11 +315,14 @@ export default function AppShell() {
     }
   };
 
-  const handleLeaveBag = (bagId: string) => {
-    leaveBagRemote(user.uid, bagId).catch((err) => {
+  const handleLeaveBag = async (bagId: string) => {
+    try {
+      await leaveBagRemote(user.uid, bagId);
+    } catch (err) {
       console.error("[팩인백] 가방 나가기 실패:", err);
       show(`가방 나가기에 실패했어요 (${firebaseErrorCode(err)})`);
-    });
+      throw err;
+    }
   };
 
   const handleRemoveMember = async (bagId: string, memberUid: string) => {

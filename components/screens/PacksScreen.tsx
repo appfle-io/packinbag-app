@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { sortByOption } from "@/lib/listSort";
 import PackTile from "@/components/PackTile";
 import SortSelect from "@/components/SortSelect";
+import { useToast } from "@/components/Toast";
 
 export default function PacksScreen({
   packs,
@@ -17,6 +18,7 @@ export default function PacksScreen({
   onNewPack: () => void;
 }) {
   const { profile, updatePackSortBy } = useAuth();
+  const { show } = useToast();
   const sortBy = profile?.packSortBy ?? "createdAt";
   const sortedPacks = sortByOption(packs, sortBy);
 
@@ -31,7 +33,7 @@ export default function PacksScreen({
 
       {packs.length > 0 && (
         <div className="flex justify-end mb-3">
-          <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => {})} />
+          <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
         </div>
       )}
 
