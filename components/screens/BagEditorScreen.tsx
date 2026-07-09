@@ -230,11 +230,6 @@ export default function BagEditorScreen({
       })
     );
 
-  const handleChangePackColor = (packId: string, colorId: string | undefined) =>
-    updatePacks((packs) =>
-      packs.map((p) => (p.id !== packId ? p : { ...p, color: colorId }))
-    );
-
   // 10개 캡을 "+팩" 버튼의 disabled 속성뿐 아니라 함수 자체에도 걸어둔다 - 그래야
   // PackImportModal의 "새 팩 만들기"처럼 disabled 체크가 없는 다른 진입점에서
   // 호출해도 안전하다. 캡에 걸리면 조용히 무시하지 않고 이유를 알려준다.
@@ -755,7 +750,6 @@ export default function BagEditorScreen({
             onDeleteItem={handleDeleteItem}
             onAddItem={handleAddItem}
             onRenamePack={handleRenamePack}
-            onChangeColor={handleChangePackColor}
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
             onDeletePack={handleDeletePack}

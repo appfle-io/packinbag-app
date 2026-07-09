@@ -19,7 +19,6 @@ export default function PackGrid({
   onDeleteItem,
   onAddItem,
   onRenamePack,
-  onChangeColor,
   onToggleAll,
   onSaveToLibrary,
   onDeletePack,
@@ -43,7 +42,6 @@ export default function PackGrid({
   onDeleteItem: (packId: string, itemId: string) => void;
   onAddItem: (packId: string, type: "check" | "text") => void;
   onRenamePack: (packId: string, name: string) => void;
-  onChangeColor: (packId: string, colorId: string | undefined) => void;
   onToggleAll: (packId: string, checked: boolean) => void;
   onSaveToLibrary: (packId: string) => void;
   onDeletePack: (packId: string) => void;
@@ -78,7 +76,6 @@ export default function PackGrid({
       onAddCheckItem={() => onAddItem(pack.id, "check")}
       onAddTextItem={() => onAddItem(pack.id, "text")}
       onRenamePack={(name) => onRenamePack(pack.id, name)}
-      onChangeColor={(colorId) => onChangeColor(pack.id, colorId)}
       onToggleAll={(checked) => onToggleAll(pack.id, checked)}
       onSaveToLibrary={() => onSaveToLibrary(pack.id)}
       onDeletePack={() => onDeletePack(pack.id)}

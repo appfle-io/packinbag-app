@@ -18,7 +18,6 @@ import { useAuth } from "@/contexts/AuthProvider";
 import ItemRow from "./ItemRow";
 import EditableText from "./EditableText";
 import ConfirmDialog from "./ConfirmDialog";
-import PackColorDot from "./PackColorDot";
 import ProgressRing from "./ProgressRing";
 
 // 설정 > 화면설정 > 팩 크기 슬라이더 값(--pack-card-scale)에 맞춰 여백/아이콘/짐 칸/글자
@@ -32,7 +31,6 @@ export default function PackCard({
   onAddCheckItem,
   onAddTextItem,
   onRenamePack,
-  onChangeColor,
   onToggleAll,
   onSaveToLibrary,
   onRefreshFromLibrary,
@@ -56,7 +54,6 @@ export default function PackCard({
   onAddCheckItem: () => void;
   onAddTextItem: () => void;
   onRenamePack: (name: string) => void;
-  onChangeColor: (colorId: string | undefined) => void;
   onToggleAll: (checked: boolean) => void;
   onSaveToLibrary: () => void;
   onRefreshFromLibrary: () => void;
@@ -110,9 +107,6 @@ export default function PackCard({
               <IconGripVertical size={17} stroke={1.75} />
             </span>
           )}
-          <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-            <PackColorDot colorId={pack.color} onChange={onChangeColor} />
-          </span>
           {checkItems.length > 0 && (
             <button
               onClick={() => onToggleAll(!allChecked)}
