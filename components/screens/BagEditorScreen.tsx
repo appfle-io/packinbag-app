@@ -8,6 +8,7 @@ import {
   IconX,
   IconTrash,
   IconUsers,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import EditableText from "@/components/EditableText";
@@ -19,6 +20,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import SaveAsDialog from "@/components/SaveAsDialog";
 import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
+import AiOrganizeModal from "@/components/AiOrganizeModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
@@ -61,6 +63,7 @@ export default function BagEditorScreen({
 }) {
   const [bag, setBag] = useState<Bag>(initialBag);
   const [showImport, setShowImport] = useState(false);
+  const [showAiOrganize, setShowAiOrganize] = useState(false);
   const [confirmDeleteBag, setConfirmDeleteBag] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
@@ -723,6 +726,14 @@ export default function BagEditorScreen({
           >
             <IconPlus size={13} stroke={1.75} />팩
           </button>
+          <button
+            onClick={() => setShowAiOrganize(true)}
+            disabled={bag.packs.flatMap((p) => p.items).length < 2}
+            className="rounded-lg px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
+            style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+          >
+            <IconSparkles size={13} stroke={1.75} />AI로 정리
+          </button>
         </div>
 
         {bag.packs.length === 0 ? (
@@ -796,6 +807,18 @@ export default function BagEditorScreen({
           libraryPacks={libraryPacks}
           onClose={() => setShowImport(false)}
           onImport={handleImport}
+        />
+      )}
+
+      {showAiOrganize && (
+        <AiOrganizeModal
+          bag={bag}
+          onClose={() => setShowAiOrganize(false)}
+          onApply={(newPacks) => {
+            setShowAiOrganize(false);
+            updatePacks(() => newPacks);
+            show("AI가 정리했어요");
+          }}
         />
       )}
 

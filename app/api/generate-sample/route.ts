@@ -4,12 +4,16 @@ import { verifyAndConsumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.
 export const runtime = "nodejs";
 
-const MAX_INPUT_LENGTH = 6000; // 과도하게 긴 메모로 비용이 튀는 것을 방지
+const MAX_TAGS = 3;
+const MAX_TAG_LENGTH = 20;
 const MAX_PACKS = 8;
 const MAX_ITEMS_PER_PACK = 60;
 
-const SYSTEM_PROMPT = `당신은 여행/외출 준비물 메모를 분석해서 정리해주는 도우미입니다.
-사용자가 아이폰 메모 앱에서 복사해온 텍스트를 아래 JSON 형식으로만 응답하세요. 그 외의 설명, 인사말, 코드블록 기호(\`\`\`)는 절대 포함하지 마세요.
+const SYSTEM_PROMPT = `당신은 사용자가 준 해시태그(키워드)를 보고 어울리는 체크리스트를 만들어주는 도우미입니다.
+사용자가 최대 3개의 해시태그를 줄 것입니다. 이 키워드에서 짐작할 수 있는 상황(여행, 장보기, 이사,
+결혼준비, 팀 할일, 파티, 육아, 캠핑 등 무엇이든)에 맞는 준비물/할일 체크리스트를 만들어주세요.
+
+아래 JSON 형식으로만 응답하세요. 그 외의 설명, 인사말, 코드블록 기호(\`\`\`)는 절대 포함하지 마세요.
 
 {
   "bagName": "짧은 가방 이름",
@@ -19,17 +23,24 @@ const SYSTEM_PROMPT = `당신은 여행/외출 준비물 메모를 분석해서 
 }
 
 규칙:
-- 메모의 첫 줄이 제목처럼 보이면(짧고, 목록 기호나 체크박스로 시작하지 않으면) 그 첫 줄을 다듬어서 bagName으로 쓰세요. 첫 줄도 그냥 준비물 항목이거나 메모에 제목이 없으면, 전체 내용에 어울리는 이름을 새로 지어주세요 (예: "제주도 여행 준비물").
-- 항목들을 의미 있는 카테고리(팩)로 분류하세요. 예: 의류, 세면도구, 전자기기, 서류/카드, 약/건강, 유아용품, 기타 등 - 메모 내용에 맞게 자유롭게 이름을 정하세요.
-- 어느 카테고리에도 애매하게 속하는 항목은 "기타" 팩 하나에 모아주세요.
-- 목록 기호(-, *, •, 숫자, 체크박스 등)와 이미 표시된 체크 표시는 제거하고 항목 텍스트만 남기세요.
-- 같은 의미의 중복 항목은 하나로 합치세요.
-- 팩은 최대 ${MAX_PACKS}개까지만 만드세요.
-- 준비물 목록이 아니라 전혀 관련 없는 메모라면 packs를 빈 배열로 응답하세요.`;
+- 해시태그의 의미를 조합해서 실제로 쓸모 있는 이름과 항목을 만들어주세요 (예: #결혼준비 #예산 #셀프 ->
+  "셀프 결혼준비(예산형)" 같은 이름과 그에 맞는 실속형 항목).
+- 항목들을 의미 있는 카테고리(팩)로 분류하세요.
+- 팩은 최대 ${MAX_PACKS}개, 팩당 항목은 최대 ${MAX_ITEMS_PER_PACK}개까지만 만드세요.
+- 해시태그가 너무 추상적이거나 준비물/할일과 전혀 관련 없으면(예: 감정 표현, 욕설 등)
+  packs를 빈 배열로 응답하세요.`;
 
 interface ParsedPack {
   name: string;
   items: string[];
+}
+
+function sanitizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+    .map((t) => t.trim().replace(/^#/, "").slice(0, MAX_TAG_LENGTH))
+    .slice(0, MAX_TAGS);
 }
 
 function sanitizeResult(raw: unknown): { bagName: string; packs: ParsedPack[] } {
@@ -41,8 +52,7 @@ function sanitizeResult(raw: unknown): { bagName: string; packs: ParsedPack[] } 
   const packsRaw = Array.isArray(obj.packs) ? obj.packs : [];
   const packs: ParsedPack[] = packsRaw
     .filter(
-      (p): p is { name: unknown; items: unknown } =>
-        !!p && typeof p === "object"
+      (p): p is { name: unknown; items: unknown } => !!p && typeof p === "object"
     )
     .map((p) => {
       const name =
@@ -94,9 +104,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않아요" }, { status: 400 });
   }
 
-  const text = (body as { text?: unknown })?.text;
-  if (typeof text !== "string" || !text.trim()) {
-    return NextResponse.json({ error: "붙여넣은 내용이 비어있어요" }, { status: 400 });
+  const tags = sanitizeTags((body as { tags?: unknown })?.tags);
+  if (tags.length === 0) {
+    return NextResponse.json({ error: "해시태그를 1개 이상 입력해주세요" }, { status: 400 });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -108,8 +118,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Gemini가 일시적으로 과부하(503)이거나 순간 요청이 몰려서(429) 거절하는 경우가 있는데,
-  // 둘 다 보통 몇 초 안에 풀리는 일시적 문제라 짧은 대기 후 최대 2번까지 자동 재시도한다.
   const MAX_RETRIES = 2;
   const RETRY_DELAY_MS = 900;
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -117,6 +125,8 @@ export async function POST(req: NextRequest) {
   let geminiRes: Response | null = null;
   let lastStatus = 0;
   let lastErrText = "";
+
+  const userText = tags.map((t) => `#${t}`).join(" ");
 
   try {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -130,15 +140,8 @@ export async function POST(req: NextRequest) {
           },
           body: JSON.stringify({
             system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: text.trim().slice(0, MAX_INPUT_LENGTH) }],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: "application/json",
-            },
+            contents: [{ role: "user", parts: [{ text: userText }] }],
+            generationConfig: { responseMimeType: "application/json" },
           }),
         }
       );
@@ -151,14 +154,14 @@ export async function POST(req: NextRequest) {
       lastStatus = res.status;
       lastErrText = await res.text();
       console.error(
-        `[팩인백] Gemini API 오류 (시도 ${attempt + 1}/${MAX_RETRIES + 1}):`,
+        `[팩인백] Gemini API 오류 (샘플 생성, 시도 ${attempt + 1}/${MAX_RETRIES + 1}):`,
         lastStatus,
         lastErrText
       );
 
       const isRetryable = lastStatus === 503 || lastStatus === 429;
       if (isRetryable && attempt < MAX_RETRIES) {
-        await sleep(RETRY_DELAY_MS * (attempt + 1)); // 900ms, 1800ms로 점점 늘려가며 대기
+        await sleep(RETRY_DELAY_MS * (attempt + 1));
         continue;
       }
       break;
@@ -170,7 +173,7 @@ export async function POST(req: NextRequest) {
           ? "지금 AI 요청이 많이 몰려서 응답을 못 받았어요. 잠시 후 다시 시도해주세요"
           : lastStatus === 429
             ? "AI 사용량이 순간적으로 몰렸어요. 잠시 후 다시 시도해주세요"
-            : "AI 분석 중 문제가 발생했어요";
+            : "AI 생성 중 문제가 발생했어요";
       return NextResponse.json({ error: message }, { status: 502 });
     }
 
@@ -186,7 +189,7 @@ export async function POST(req: NextRequest) {
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      console.error("[팩인백] JSON 파싱 실패, 원문:", raw);
+      console.error("[팩인백] JSON 파싱 실패 (샘플 생성), 원문:", raw);
       return NextResponse.json(
         { error: "AI 응답을 해석하지 못했어요. 다시 시도해주세요" },
         { status: 502 }
@@ -194,12 +197,18 @@ export async function POST(req: NextRequest) {
     }
 
     const result = sanitizeResult(parsed);
+    if (result.packs.length === 0) {
+      return NextResponse.json(
+        { error: "해시태그로 준비물 목록을 만들지 못했어요. 다른 키워드로 시도해주세요" },
+        { status: 422 }
+      );
+    }
     return NextResponse.json({
       ...result,
       quota: { unlimited: quota.unlimited, usedCount: quota.usedCount, limit: quota.limit },
     });
   } catch (err) {
-    console.error("[팩인백] 메모 가져오기 실패:", err);
+    console.error("[팩인백] 샘플 생성 실패:", err);
     return NextResponse.json({ error: "서버 오류가 발생했어요" }, { status: 500 });
   }
 }

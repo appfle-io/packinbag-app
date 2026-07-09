@@ -2,40 +2,44 @@
 
 import Portal from "@/components/Portal";
 
-import { useEffect, useState } from "react";
-import { IconX, IconSparkles } from "@tabler/icons-react";
+import { useEffect, useMemo, useState } from "react";
+import { IconSparkles, IconX } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
+import { Bag, Item, Pack } from "@/lib/types";
 import {
   AI_FREE_DAILY_LIMIT,
   currentAiUsageCount,
   isUnlimitedAiUser,
 } from "@/lib/aiUsageService";
-import { ImportedBagResult } from "@/lib/types";
-
-// 다른 화면(HomeScreen, AppShell)에서 기존 이름으로 계속 import할 수 있도록 재수출.
-export type NoteImportResult = ImportedBagResult;
 
 const LOADING_MESSAGES = [
-  "메모를 꼼꼼히 읽고 있어요",
-  "짐 종류를 살펴보고 있어요",
-  "어울리는 팩으로 나누고 있어요",
-  "가방에 짐을 채워넣고 있어요",
+  "짐 목록을 훑어보고 있어요",
+  "비슷한 항목끼리 묶고 있어요",
+  "팩 이름을 다듬고 있어요",
+  "새 구조로 정리하고 있어요",
 ];
 
-export default function NoteImportModal({
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+export default function AiOrganizeModal({
+  bag,
   onClose,
-  onResult,
+  onApply,
 }: {
+  bag: Bag;
   onClose: () => void;
-  onResult: (result: NoteImportResult) => void;
+  onApply: (packs: Pack[]) => void;
 }) {
   const { user, profile } = useAuth();
-  const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingStep, setLoadingStep] = useState(0);
 
   const unlimited = isUnlimitedAiUser(profile?.email, profile);
+
+  const flatItems = useMemo(() => bag.packs.flatMap((p) => p.items), [bag.packs]);
+  const emptyCount = flatItems.filter((i) => !i.text.trim()).length;
+  const canRun = flatItems.length >= 2 && emptyCount === 0;
 
   useEffect(() => {
     if (!loading) return;
@@ -45,30 +49,45 @@ export default function NoteImportModal({
     return () => clearInterval(interval);
   }, [loading]);
 
-  const handleAnalyze = async () => {
-    if (!text.trim() || loading || !user) return;
+  const handleRun = async () => {
+    if (!canRun || loading || !user) return;
     setLoading(true);
     setError(null);
 
     try {
-      // 하루 사용 한도 확인+증가는 서버(Admin SDK)가 로그인 토큰을 직접 검증해서
-      // 처리한다 - 클라이언트는 우회할 수 없다 (lib/aiQuotaServer.ts 참고).
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/import-note", {
+      const res = await fetch("/api/organize-bag", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          items: flatItems.map((item, index) => ({ index, text: item.text })),
+          existingPackNames: bag.packs.map((p) => p.name).filter((n) => n && n !== "새 팩"),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error ?? "분석에 실패했어요");
+        throw new Error(data?.error ?? "정리에 실패했어요");
       }
-      onResult(data);
+
+      const groups: { name: string; itemIndices: number[] }[] = data.packs ?? [];
+      const newPacks: Pack[] = groups
+        .map((g) => ({
+          id: uid(),
+          name: g.name,
+          // AI는 index만 다루고 항목 자체(텍스트/체크 상태/타입)는 원본 Item 객체를
+          // 그대로 재사용하므로, 문구나 체크 상태가 바뀌거나 사라질 위험이 없다.
+          items: g.itemIndices
+            .map((idx) => flatItems[idx])
+            .filter((item): item is Item => !!item),
+        }))
+        .filter((p) => p.items.length > 0);
+
+      onApply(newPacks);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "분석에 실패했어요");
+      setError(err instanceof Error ? err.message : "정리에 실패했어요");
     } finally {
       setLoading(false);
     }
@@ -77,7 +96,7 @@ export default function NoteImportModal({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 z-[60] flex items-center justify-center p-4"
         style={{ background: "rgba(0,0,0,0.45)" }}
         onClick={loading ? undefined : onClose}
       >
@@ -86,7 +105,7 @@ export default function NoteImportModal({
           className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-3"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[16px] font-medium">클립보드에서 가져오기</span>
+            <span className="text-[16px] font-medium">AI로 정리하기</span>
             {!loading && (
               <button onClick={onClose} aria-label="닫기">
                 <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
@@ -95,9 +114,17 @@ export default function NoteImportModal({
           </div>
 
           <p className="text-[12px] text-text-secondary">
-            아이폰 메모 앱에서 준비물 목록을 복사한 뒤 아래에 붙여넣어주세요.
-            AI가 내용을 읽고 팩(카테고리)별로 자동 분류해드려요.
+            지금 이 가방에 있는 짐 {flatItems.length}개를 AI가 훑어보고, 문구·체크 상태는
+            그대로 둔 채 더 어울리는 팩(카테고리)으로 다시 묶어드려요.
           </p>
+
+          {!canRun && !loading && (
+            <p className="text-[12px]" style={{ color: "var(--danger)" }}>
+              {flatItems.length < 2
+                ? "정리할 짐이 너무 적어요 (2개 이상 필요해요)"
+                : "빈 짐 항목을 채우거나 삭제한 뒤 다시 시도해주세요"}
+            </p>
+          )}
 
           {!unlimited && (
             <p className="text-[11px] text-text-muted">
@@ -105,15 +132,11 @@ export default function NoteImportModal({
             </p>
           )}
 
-          {loading ? (
+          {loading && (
             <div className="flex flex-col items-center justify-center gap-3 rounded-lg py-8">
               <div
                 className="pib-note-spin flex items-center justify-center rounded-full"
-                style={{
-                  width: 40,
-                  height: 40,
-                  background: "var(--accent-soft)",
-                }}
+                style={{ width: 40, height: 40, background: "var(--accent-soft)" }}
               >
                 <IconSparkles size={18} stroke={1.75} color="var(--accent)" />
               </div>
@@ -125,14 +148,6 @@ export default function NoteImportModal({
                 {LOADING_MESSAGES[loadingStep]}
               </p>
             </div>
-          ) : (
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="여기에 길게 눌러 붙여넣기"
-              rows={8}
-              className="rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[13px] outline-none resize-none"
-            />
           )}
 
           {error && (
@@ -143,16 +158,16 @@ export default function NoteImportModal({
 
           {!loading && (
             <button
-              onClick={handleAnalyze}
-              disabled={!text.trim()}
+              onClick={handleRun}
+              disabled={!canRun}
               className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[14px] font-medium"
               style={{
-                background: text.trim() ? "var(--accent)" : "var(--surface-2)",
-                color: text.trim() ? "#fff" : "var(--text-muted)",
+                background: canRun ? "var(--accent)" : "var(--surface-2)",
+                color: canRun ? "#fff" : "var(--text-muted)",
               }}
             >
               <IconSparkles size={15} stroke={1.75} />
-              AI로 분석하기
+              AI로 정리하기
             </button>
           )}
         </div>

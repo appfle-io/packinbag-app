@@ -10,6 +10,7 @@ import SortSelect from "@/components/SortSelect";
 import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
+import SampleBagSheet from "@/components/SampleBagSheet";
 
 export default function HomeScreen({
   bags,
@@ -29,6 +30,7 @@ export default function HomeScreen({
   const [showJoin, setShowJoin] = useState(!!initialInviteCode);
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
+  const [showSampleSheet, setShowSampleSheet] = useState(false);
   const { profile, updateBagSortBy } = useAuth();
   const sortBy = profile?.bagSortBy ?? "createdAt";
   const sortedBags = sortByOption(bags, sortBy);
@@ -102,9 +104,23 @@ export default function HomeScreen({
             setShowNewBagOptions(false);
             onNewBag();
           }}
+          onFromSample={() => {
+            setShowNewBagOptions(false);
+            setShowSampleSheet(true);
+          }}
           onFromNote={() => {
             setShowNewBagOptions(false);
             setShowNoteImport(true);
+          }}
+        />
+      )}
+
+      {showSampleSheet && (
+        <SampleBagSheet
+          onClose={() => setShowSampleSheet(false)}
+          onSelect={(result) => {
+            setShowSampleSheet(false);
+            onImportNote(result);
           }}
         />
       )}

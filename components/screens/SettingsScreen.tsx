@@ -1,21 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { IconMail, IconChevronRight, IconSpeakerphone, IconHelpCircle } from "@tabler/icons-react";
+import {
+  IconMail,
+  IconChevronRight,
+  IconSpeakerphone,
+  IconHelpCircle,
+  IconSparkles,
+} from "@tabler/icons-react";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
 import { isMasterEmail } from "@/lib/masterEmails";
+import {
+  AI_FREE_DAILY_LIMIT,
+  currentAiUsageCount,
+  isUnlimitedAiUser,
+} from "@/lib/aiUsageService";
 import Avatar from "@/components/Avatar";
 import ProfileEditScreen from "@/components/screens/ProfileEditScreen";
 import VersionInfoScreen from "@/components/screens/VersionInfoScreen";
 import LicensesScreen from "@/components/screens/LicensesScreen";
 import AnnouncementAdminScreen from "@/components/screens/AnnouncementAdminScreen";
+import UnlockCodeAdminScreen from "@/components/screens/UnlockCodeAdminScreen";
 import PackSettingsScreen from "@/components/screens/PackSettingsScreen";
 import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
+import UnlockCodeDialog from "@/components/UnlockCodeDialog";
+import { useToast } from "@/components/Toast";
 
 const modes: { key: ThemeMode; label: string }[] = [
   { key: "system", label: "시스템" },
@@ -28,7 +42,7 @@ const startTabs: { key: "home" | "packs"; label: string }[] = [
   { key: "packs", label: "팩 라이브러리" },
 ];
 
-type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "colorSettings";
+type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "colorSettings" | "unlockCodeAdmin";
 
 export default function SettingsScreen({
   uid,
@@ -49,9 +63,11 @@ export default function SettingsScreen({
 }) {
   const { mode, setMode } = useTheme();
   const { profile, updateDefaultTab } = useAuth();
+  const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
+  const [showUnlockCode, setShowUnlockCode] = useState(false);
 
   if (view === "profile") {
     return <ProfileEditScreen onBack={() => setView("main")} />;
@@ -80,10 +96,15 @@ export default function SettingsScreen({
       />
     );
   }
+  if (view === "unlockCodeAdmin") {
+    return <UnlockCodeAdminScreen onBack={() => setView("main")} />;
+  }
 
   const startTab = profile?.defaultTab ?? "home";
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const isMaster = isMasterEmail(profile?.email);
+  const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
+  const aiUsedCount = currentAiUsageCount(profile);
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
@@ -169,6 +190,28 @@ export default function SettingsScreen({
       </div>
 
       <div className="mb-6">
+        <p className="text-[12px] text-text-secondary mb-2">AI 기능</p>
+        <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
+            <span className="text-[13px]">
+              {aiUnlimited
+                ? "무제한 이용 중"
+                : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
+            </span>
+          </div>
+          {!aiUnlimited && (
+            <button
+              onClick={() => setShowUnlockCode(true)}
+              className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
+            >
+              이용권 코드 입력
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6">
         <p className="text-[12px] text-text-secondary mb-2">고객지원</p>
         <div className="rounded-lg border border-border overflow-hidden">
           <button
@@ -233,10 +276,19 @@ export default function SettingsScreen({
         <div className="rounded-lg border border-border overflow-hidden">
           <button
             onClick={() => setView("announcementAdmin")}
-            className="w-full flex items-center justify-between p-3"
+            className="w-full flex items-center justify-between p-3 border-b border-border"
           >
             <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
               공지사항 관리 (운영자)
+            </span>
+            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+          </button>
+          <button
+            onClick={() => setView("unlockCodeAdmin")}
+            className="w-full flex items-center justify-between p-3"
+          >
+            <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+              이용권 코드 관리 (운영자)
             </span>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
           </button>
@@ -253,6 +305,17 @@ export default function SettingsScreen({
       )}
 
       {showFaq && <FaqModal onClose={() => setShowFaq(false)} />}
+
+      {showUnlockCode && (
+        <UnlockCodeDialog
+          uid={uid}
+          onClose={() => setShowUnlockCode(false)}
+          onSuccess={() => {
+            setShowUnlockCode(false);
+            show("이용권 코드가 적용됐어요! 이제 AI 기능을 무제한으로 쓸 수 있어요");
+          }}
+        />
+      )}
     </div>
   );
 }

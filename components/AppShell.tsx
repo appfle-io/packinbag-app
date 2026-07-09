@@ -196,6 +196,8 @@ export default function AppShell() {
     }
   };
 
+  // 메모 AI 가져오기뿐 아니라 샘플 템플릿 선택, 해시태그 AI 생성 결과도 모두
+  // 동일한 형태(ImportedBagResult)라서 이 함수를 함께 쓴다.
   const openNewBagFromNote = async (result: NoteImportResult) => {
     const now = new Date().toISOString();
     const draft: Bag = {
@@ -207,12 +209,16 @@ export default function AppShell() {
           ? result.packs.map((p) => ({
               id: uid(),
               name: p.name,
-              items: p.items.map((text) => ({
-                id: uid(),
-                type: "check",
-                text,
-                checked: false,
-              })),
+              items: p.items.map((raw) => {
+                const text = typeof raw === "string" ? raw : raw.text;
+                const type = typeof raw === "string" ? "check" : raw.type ?? "check";
+                return {
+                  id: uid(),
+                  type,
+                  text,
+                  checked: false,
+                };
+              }),
             }))
           : [
               {
@@ -234,7 +240,7 @@ export default function AppShell() {
         avatarId: profile.avatarId!,
       });
       setEditingBag(created);
-      show("메모를 분석해서 가방을 채웠어요. 확인 후 저장해주세요");
+      show("가방을 채웠어요. 확인 후 저장해주세요");
     } catch (err) {
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);

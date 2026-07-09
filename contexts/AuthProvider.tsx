@@ -148,6 +148,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bagSortBy: data?.bagSortBy as UserProfile["bagSortBy"],
         packSortBy: data?.packSortBy as UserProfile["packSortBy"],
         packSettings: data?.packSettings as UserProfile["packSettings"],
+        aiUsage: data?.aiUsage as UserProfile["aiUsage"],
+        unlockCode: data?.unlockCode as string | undefined,
       });
       setLoading(false);
     });

@@ -128,6 +128,33 @@ export interface UserProfile {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)
     moveCompletedToBottom?: boolean;
   };
+  // AI 기능(메모/샘플 가져오기, 가방 속 AI 정리) 일일 무료 사용량.
+  // date가 오늘(KST)과 다르면 count는 0으로 취급한다 (lib/aiUsageService.ts 참고)
+  aiUsage?: {
+    date: string; // YYYY-MM-DD (KST)
+    count: number;
+  };
+  // 이용권 코드를 입력해서 무제한 인증을 받은 경우, 그 코드 값(있으면 무제한).
+  // 나중에 유료회원 필드(isPremium 등)가 추가되면 그쪽도 함께 무제한 조건에 포함시킬 예정.
+  unlockCode?: string;
+}
+
+// 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.
+// items는 문자열(체크형 기본)이거나, 타입을 직접 지정하고 싶을 때(예: 업무 보드 샘플의
+// 텍스트형 카드)는 객체 형태로 줄 수 있다.
+export interface ImportedItemDraft {
+  text: string;
+  type?: ItemType; // 없으면 "check" 기본값
+}
+
+export interface ImportedPackDraft {
+  name: string;
+  items: (string | ImportedItemDraft)[];
+}
+
+export interface ImportedBagResult {
+  bagName: string;
+  packs: ImportedPackDraft[];
 }
 
 // 마스터 계정이 작성하는 공지사항. 노출기간(startDate~endDate) 안에 있고
