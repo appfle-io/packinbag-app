@@ -39,6 +39,7 @@ export default function PackCard({
   onDeletePack,
   onStartItemDrag,
   dragSourceItemId,
+  dragOverItemId,
   isDragOver,
   onStartPackDrag,
   isPackDragSource,
@@ -62,6 +63,7 @@ export default function PackCard({
   onDeletePack: () => void;
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
+  dragOverItemId?: string | null;
   isDragOver?: boolean;
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
@@ -196,6 +198,7 @@ export default function PackCard({
                 : undefined
             }
             isDragSource={dragSourceItemId === item.id}
+            isDragOverTarget={dragOverItemId === item.id}
           />
         ))}
       </div>

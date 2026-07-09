@@ -17,6 +17,7 @@
   /* 가방/팩 카드 배경 톤 - 설정에서 커스텀하지 않으면 --surface와 동일 */
   --bag-card-bg: var(--surface);
   --pack-card-bg: var(--surface);
+  --pack-library-card-bg: var(--surface);
 }
 
 @theme inline {

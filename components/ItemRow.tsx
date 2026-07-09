@@ -1,13 +1,20 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconGripVertical, IconBold, IconStrikethrough } from "@tabler/icons-react";
+import { IconBold, IconStrikethrough } from "@tabler/icons-react";
 import { Item } from "@/lib/types";
 
-const DELETE_SWIPE_THRESHOLD = -36;
-const DELETE_SWIPE_MAX = -72;
-const EDIT_SWIPE_THRESHOLD = 36;
-const EDIT_SWIPE_MAX = 72;
+const DELETE_SWIPE_THRESHOLD = -30;
+const DELETE_SWIPE_MAX = -60;
+const EDIT_SWIPE_THRESHOLD = 30;
+const EDIT_SWIPE_MAX = 60;
+const SWIPE_BUTTON_WIDTH = 60;
+
+// 짐을 다른 팩으로 옮기거나 순서를 바꿀 때 쓰는 롱프레스 드래그 설정.
+// 이 시간(ms) 이상 큰 움직임 없이 누르고 있으면 드래그 모드로 진입하고,
+// 그전에 손가락이 옆으로 움직이면(스와이프 의도로 판단) 롱프레스를 취소한다.
+const LONG_PRESS_MS = 420;
+const LONG_PRESS_MOVE_CANCEL_PX = 8;
 
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
 const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
@@ -21,6 +28,7 @@ export default function ItemRow({
   onDelete,
   onStartDrag,
   isDragSource,
+  isDragOverTarget,
 }: {
   item: Item;
   onToggle?: () => void;
@@ -31,6 +39,7 @@ export default function ItemRow({
   onDelete: () => void;
   onStartDrag?: (clientX: number, clientY: number) => void;
   isDragSource?: boolean;
+  isDragOverTarget?: boolean;
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -40,23 +49,54 @@ export default function ItemRow({
   const [draftStrike, setDraftStrike] = useState(!!item.strike);
   const [draftColor, setDraftColor] = useState(item.color || "");
   const startX = useRef(0);
+  const startY = useRef(0);
   const baseOffset = useRef(0);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (editing) return;
     startX.current = e.clientX;
+    startY.current = e.clientY;
     baseOffset.current = dragX;
     setDragging(true);
+    longPressTriggered.current = false;
+
+    // 체크박스를 제외한 영역(글씨 포함)을 길게 누르고 있으면 드래그 모드로 진입한다.
+    if (onStartDrag) {
+      const x = e.clientX;
+      const y = e.clientY;
+      longPressTimer.current = window.setTimeout(() => {
+        longPressTriggered.current = true;
+        setDragging(false);
+        setDragX(0);
+        onStartDrag(x, y);
+      }, LONG_PRESS_MS);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!dragging) return;
-    const delta = e.clientX - startX.current;
-    const next = Math.min(EDIT_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + delta));
+    if (!dragging || longPressTriggered.current) return;
+    const dx = e.clientX - startX.current;
+    const dy = e.clientY - startY.current;
+    // 옆으로든 위아래로든 일정 거리 이상 움직이면 스와이프/스크롤 의도로 보고
+    // 롱프레스(드래그 시작) 타이머를 취소한다.
+    if (Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+      clearLongPressTimer();
+    }
+    const next = Math.min(EDIT_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
     setDragX(next);
   };
 
   const endDrag = () => {
+    clearLongPressTimer();
     if (!dragging) return;
     setDragging(false);
     setDragX((current) => {
@@ -117,8 +157,8 @@ export default function ItemRow({
             setDragX(0);
             onDelete();
           }}
-          className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
-          style={{ width: 72, background: "var(--danger)", color: "#fff" }}
+          className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
+          style={{ width: SWIPE_BUTTON_WIDTH, background: "var(--danger)", color: "#fff" }}
         >
           삭제
         </button>
@@ -130,46 +170,41 @@ export default function ItemRow({
             setDragX(0);
             openEdit();
           }}
-          className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
-          style={{ width: 72, background: "var(--accent)", color: "#fff" }}
+          className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
+          style={{ width: SWIPE_BUTTON_WIDTH, background: "#2563eb", color: "#fff" }}
         >
           수정
         </button>
       )}
 
       <div
+        data-item-id={item.id}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
         onPointerCancel={endDrag}
+        onContextMenu={(e) => {
+          if (onStartDrag) e.preventDefault();
+        }}
         style={{
           transform: `translateX(${dragX}px)`,
           transition: dragging ? "none" : "transform 150ms ease",
           background: item.type === "check" ? "var(--surface-2)" : "transparent",
           opacity: isDragSource ? 0.35 : 1,
+          WebkitTouchCallout: "none",
+          WebkitUserSelect: onStartDrag ? "none" : undefined,
+          userSelect: onStartDrag ? "none" : undefined,
+          outline: isDragOverTarget ? "2px solid var(--accent)" : undefined,
         }}
         className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))] touch-pan-y"
       >
-        {onStartDrag && (
-          <span
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              onStartDrag(e.clientX, e.clientY);
-            }}
-            className="shrink-0 touch-none cursor-grab"
-            style={{ color: "var(--text-muted)", transform: "scale(var(--pack-card-scale,1))" }}
-            aria-label="드래그해서 다른 팩으로 옮기기"
-          >
-            <IconGripVertical size={17} stroke={1.75} />
-          </span>
-        )}
-
         {item.type === "check" && (
           <input
             type="checkbox"
             checked={!!item.checked}
             onChange={onToggle}
+            onPointerDown={(e) => e.stopPropagation()}
             className="shrink-0 accent-[var(--accent)]"
             style={{
               width: "calc(20px * var(--pack-card-scale,1))",

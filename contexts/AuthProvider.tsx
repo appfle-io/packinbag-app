@@ -55,11 +55,15 @@ interface AuthContextValue {
     customBagColorHex?: string;
     packGridColorId?: string;
     customPackGridColorHex?: string;
+    packLibraryColorId?: string;
+    customPackLibraryColorHex?: string;
     bagColorOpacity?: number;
     packGridColorOpacity?: number;
+    packLibraryColorOpacity?: number;
     baseOpacity?: number;
     bagCardScale?: number;
     packCardScale?: number;
+    packLibraryCardScale?: number;
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
   updateDefaultTab: (defaultTab: "home" | "packs") => Promise<void>;
@@ -129,11 +133,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         customBagColorHex: data?.customBagColorHex as string | undefined,
         packGridColorId: data?.packGridColorId as string | undefined,
         customPackGridColorHex: data?.customPackGridColorHex as string | undefined,
+        packLibraryColorId: data?.packLibraryColorId as string | undefined,
+        customPackLibraryColorHex: data?.customPackLibraryColorHex as string | undefined,
         bagColorOpacity: data?.bagColorOpacity as number | undefined,
         packGridColorOpacity: data?.packGridColorOpacity as number | undefined,
+        packLibraryColorOpacity: data?.packLibraryColorOpacity as number | undefined,
         baseOpacity: data?.baseOpacity as number | undefined,
         bagCardScale: data?.bagCardScale as number | undefined,
         packCardScale: data?.packCardScale as number | undefined,
+        packLibraryCardScale: data?.packLibraryCardScale as number | undefined,
         fontScale: data?.fontScale as UserProfile["fontScale"],
         defaultTab: data?.defaultTab as UserProfile["defaultTab"],
         dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
@@ -217,10 +225,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     customBagColorHex?: string;
     packGridColorId?: string;
     customPackGridColorHex?: string;
+    packLibraryColorId?: string;
+    customPackLibraryColorHex?: string;
     bagColorOpacity?: number;
     packGridColorOpacity?: number;
+    packLibraryColorOpacity?: number;
+    baseOpacity?: number;
     bagCardScale?: number;
     packCardScale?: number;
+    packLibraryCardScale?: number;
   }) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), prefs, { merge: true });

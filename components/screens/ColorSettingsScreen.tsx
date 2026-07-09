@@ -8,7 +8,7 @@ import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
 import PercentSlider from "@/components/PercentSlider";
 
-type Slot = "accent" | "bag" | "packGrid";
+type Slot = "accent" | "bag" | "packGrid" | "packLibrary";
 
 const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
   { key: "sm", label: "작게", previewPx: 12 },
@@ -159,6 +159,14 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setPackGridColorOpacity,
     packCardScale,
     setPackCardScale,
+    packLibraryColorId,
+    setPackLibraryColor,
+    packLibraryCustomHex,
+    setCustomPackLibraryColor,
+    packLibraryColorOpacity,
+    setPackLibraryColorOpacity,
+    packLibraryCardScale,
+    setPackLibraryCardScale,
     baseOpacity,
     setBaseOpacity,
   } = useTheme();
@@ -247,8 +255,10 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           </div>
         </div>
 
+        <h2 className="text-[14px] font-semibold mb-3">가방</h2>
+
         <ColorSlotSection
-          title="가방 그리드"
+          title="가방 카드"
           description="가방 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           selectedId={bagColorId}
           customHex={bagCustomHex}
@@ -259,7 +269,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setBagColorOpacity(pct / 100)}
           scalePct={Math.round(bagCardScale * 100)}
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
-          scaleLabel="가방 크기"
+          scaleLabel="내용 크기"
           preview={
             <div className="mt-3 flex justify-center">
               {/* 실제 홈 화면의 grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 그리드에서
@@ -292,7 +302,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         />
 
         <ColorSlotSection
-          title="팩 그리드"
+          title="가방 속 팩카드"
           description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           selectedId={packGridColorId}
           customHex={packGridCustomHex}
@@ -303,7 +313,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setPackGridColorOpacity(pct / 100)}
           scalePct={Math.round(packCardScale * 100)}
           onChangeScale={(pct) => setPackCardScale(pct / 100)}
-          scaleLabel="팩 크기"
+          scaleLabel="카드 크기"
           preview={
             <div className="mt-3 flex justify-center">
               {/* 모바일에서는 실제처럼 폭 100%(세로 스택), md 이상에서는 실제 2열
@@ -339,6 +349,41 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
             </div>
           }
         />
+
+        <h2 className="text-[14px] font-semibold mb-3">팩</h2>
+
+        <ColorSlotSection
+          title="팩 라이브러리 타일"
+          description="팩 탭 목록의 타일 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
+          selectedId={packLibraryColorId}
+          customHex={packLibraryCustomHex}
+          showDefaultOption
+          onSelectPreset={setPackLibraryColor}
+          onOpenCustomPicker={() => setOpenPicker("packLibrary")}
+          opacityPct={Math.round(packLibraryColorOpacity * 100)}
+          onChangeOpacity={(pct) => setPackLibraryColorOpacity(pct / 100)}
+          scalePct={Math.round(packLibraryCardScale * 100)}
+          onChangeScale={(pct) => setPackLibraryCardScale(pct / 100)}
+          scaleLabel="내용 크기"
+          preview={
+            <div className="mt-3 flex justify-center">
+              <div
+                className="aspect-square rounded-xl border border-border shadow-sm flex flex-col p-[calc(12px*var(--pack-library-card-scale,1))] md:p-[calc(16px*var(--pack-library-card-scale,1))] w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2rem)/3)]"
+                style={{ background: "var(--pack-library-card-bg)" }}
+              >
+                <span className="text-[calc(13px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] font-medium">
+                  예시 팩
+                </span>
+                <p className="text-[calc(11px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-1.5">
+                  칫솔, 치약
+                </p>
+                <p className="text-[calc(11px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-auto">
+                  2개
+                </p>
+              </div>
+            </div>
+          }
+        />
       </div>
 
       {openPicker === "accent" && (
@@ -359,6 +404,13 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         <ColorPickerPopover
           initialHex={packGridCustomHex}
           onChange={setCustomPackGridColor}
+          onClose={() => setOpenPicker(null)}
+        />
+      )}
+      {openPicker === "packLibrary" && (
+        <ColorPickerPopover
+          initialHex={packLibraryCustomHex}
+          onChange={setCustomPackLibraryColor}
           onClose={() => setOpenPicker(null)}
         />
       )}

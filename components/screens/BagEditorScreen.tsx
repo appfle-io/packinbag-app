@@ -243,8 +243,36 @@ export default function BagEditorScreen({
   const handleDeletePack = (packId: string) =>
     updatePacks((packs) => packs.filter((p) => p.id !== packId));
 
-  const handleMoveItem = (fromPackId: string, toPackId: string, itemId: string) => {
-    if (fromPackId === toPackId) return;
+  // fromPackId === toPackId면 같은 팩 안에서 overItemId 위치로 순서를 바꾸고,
+  // 다르면 기존처럼 다른 팩으로 옮긴다.
+  const handleMoveItem = (
+    fromPackId: string,
+    toPackId: string,
+    itemId: string,
+    overItemId?: string | null
+  ) => {
+    if (fromPackId === toPackId) {
+      if (!overItemId || overItemId === itemId) return;
+      updatePacks((packs) =>
+        packs.map((p) => {
+          if (p.id !== fromPackId) return p;
+          const item = p.items.find((i) => i.id === itemId);
+          if (!item) return p;
+          const withoutItem = p.items.filter((i) => i.id !== itemId);
+          const targetIndex = withoutItem.findIndex((i) => i.id === overItemId);
+          if (targetIndex === -1) return p;
+          return {
+            ...p,
+            items: [
+              ...withoutItem.slice(0, targetIndex),
+              item,
+              ...withoutItem.slice(targetIndex),
+            ],
+          };
+        })
+      );
+      return;
+    }
     updatePacks((packs) => {
       const fromPack = packs.find((p) => p.id === fromPackId);
       const item = fromPack?.items.find((i) => i.id === itemId);
@@ -271,6 +299,7 @@ export default function BagEditorScreen({
     x: number;
     y: number;
     overPackId: string | null;
+    overItemId: string | null;
   } | null>(null);
 
   const handleStartItemDrag = (
@@ -280,7 +309,15 @@ export default function BagEditorScreen({
     clientX: number,
     clientY: number
   ) => {
-    setDrag({ itemId, fromPackId: packId, text, x: clientX, y: clientY, overPackId: null });
+    setDrag({
+      itemId,
+      fromPackId: packId,
+      text,
+      x: clientX,
+      y: clientY,
+      overPackId: null,
+      overItemId: null,
+    });
   };
 
   useEffect(() => {
@@ -290,13 +327,15 @@ export default function BagEditorScreen({
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const packEl = el?.closest("[data-pack-drop-id]") as HTMLElement | null;
       const overPackId = packEl?.getAttribute("data-pack-drop-id") ?? null;
-      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overPackId } : d));
+      const itemEl = el?.closest("[data-item-id]") as HTMLElement | null;
+      const overItemId = itemEl?.getAttribute("data-item-id") ?? null;
+      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overPackId, overItemId } : d));
     };
 
     const handleUp = () => {
       setDrag((d) => {
-        if (d && d.overPackId && d.overPackId !== d.fromPackId) {
-          handleMoveItem(d.fromPackId, d.overPackId, d.itemId);
+        if (d && d.overPackId) {
+          handleMoveItem(d.fromPackId, d.overPackId, d.itemId, d.overItemId);
         }
         return null;
       });
@@ -706,6 +745,7 @@ export default function BagEditorScreen({
             onRefreshFromLibrary={handleRefreshFromLibrary}
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={drag?.itemId ?? null}
+            dragOverItemId={drag?.overItemId ?? null}
             dragOverPackId={drag?.overPackId ?? packDrag?.overPackId ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}

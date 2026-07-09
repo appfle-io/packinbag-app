@@ -15,10 +15,14 @@ const BAG_COLOR_KEY = "packinbag-bag-color";
 const BAG_CUSTOM_KEY = "packinbag-bag-color-custom";
 const PACK_GRID_COLOR_KEY = "packinbag-pack-grid-color";
 const PACK_GRID_CUSTOM_KEY = "packinbag-pack-grid-color-custom";
+const PACK_LIBRARY_COLOR_KEY = "packinbag-pack-library-color";
+const PACK_LIBRARY_CUSTOM_KEY = "packinbag-pack-library-color-custom";
 const BAG_OPACITY_KEY = "packinbag-bag-color-opacity";
 const PACK_GRID_OPACITY_KEY = "packinbag-pack-grid-color-opacity";
+const PACK_LIBRARY_OPACITY_KEY = "packinbag-pack-library-color-opacity";
 const BAG_SCALE_KEY = "packinbag-bag-card-scale";
 const PACK_SCALE_KEY = "packinbag-pack-card-scale";
+const PACK_LIBRARY_SCALE_KEY = "packinbag-pack-library-card-scale";
 const BASE_OPACITY_KEY = "packinbag-base-opacity";
 const DEFAULT_CUSTOM = "#8b5cf6";
 // --surface-2의 원래(불투명) 색상값. globals.css의 :root/[data-theme="dark"] 값과 동일하게 유지 -
@@ -59,6 +63,9 @@ interface ColorSettings {
   packGridColorId: string;
   packGridCustomHex: string;
   packGridColorOpacity: number;
+  packLibraryColorId: string;
+  packLibraryCustomHex: string;
+  packLibraryColorOpacity: number;
   baseOpacity: number;
 }
 
@@ -73,6 +80,9 @@ function applyAll(settings: ColorSettings) {
     packGridColorId,
     packGridCustomHex,
     packGridColorOpacity,
+    packLibraryColorId,
+    packLibraryCustomHex,
+    packLibraryColorOpacity,
     baseOpacity,
   } = settings;
   const resolved = resolveTheme(mode);
@@ -87,6 +97,13 @@ function applyAll(settings: ColorSettings) {
   root.setProperty("--accent-soft", tone.soft);
   applyCardColor("--bag-card-bg", bagColorId, bagCustomHex, resolved, bagColorOpacity);
   applyCardColor("--pack-card-bg", packGridColorId, packGridCustomHex, resolved, packGridColorOpacity);
+  applyCardColor(
+    "--pack-library-card-bg",
+    packLibraryColorId,
+    packLibraryCustomHex,
+    resolved,
+    packLibraryColorOpacity
+  );
   applyBaseOpacity(resolved, baseOpacity);
 }
 
@@ -124,13 +141,14 @@ function applyCardColor(
   root.setProperty(cssVar, `color-mix(in srgb, ${baseColor} ${pct}%, transparent)`);
 }
 
-// 가방 카드 / 팩 카드 크기 배율을 CSS 변수로 반영 (라이트/다크 무관, 그냥 숫자).
-// 각 컴포넌트(BagCard/PackCard/ItemRow)에서 padding·아이콘·글자 크기를
-// calc(기본값 * var(--bag-card-scale)) 형태로 계산할 때 쓴다.
-function applyCardScale(bagScale: number, packScale: number) {
+// 가방 카드 / 팩 카드 / 팩 라이브러리 타일 크기 배율을 CSS 변수로 반영 (라이트/다크 무관, 그냥 숫자).
+// 각 컴포넌트(BagCard/PackCard/PackTile/ItemRow)에서 padding·아이콘·글자 크기를
+// calc(기본값 * var(--xxx-scale)) 형태로 계산할 때 쓴다.
+function applyCardScale(bagScale: number, packScale: number, packLibraryScale: number) {
   const root = document.documentElement.style;
   root.setProperty("--bag-card-scale", String(bagScale));
   root.setProperty("--pack-card-scale", String(packScale));
+  root.setProperty("--pack-library-card-scale", String(packLibraryScale));
 }
 
 // 글자 크기 설정: html 루트에 data-font-scale 속성을 세팅해서 globals.css의
@@ -171,6 +189,14 @@ const ThemeContext = createContext<{
   setPackGridColorOpacity: (opacity: number) => void;
   packCardScale: number;
   setPackCardScale: (scale: number) => void;
+  packLibraryColorId: string;
+  setPackLibraryColor: (id: string) => void;
+  packLibraryCustomHex: string;
+  setCustomPackLibraryColor: (hex: string) => void;
+  packLibraryColorOpacity: number;
+  setPackLibraryColorOpacity: (opacity: number) => void;
+  packLibraryCardScale: number;
+  setPackLibraryCardScale: (scale: number) => void;
   baseOpacity: number;
   setBaseOpacity: (opacity: number) => void;
 }>({
@@ -198,6 +224,14 @@ const ThemeContext = createContext<{
   setPackGridColorOpacity: () => {},
   packCardScale: DEFAULT_CARD_SCALE,
   setPackCardScale: () => {},
+  packLibraryColorId: DEFAULT_CARD_COLOR_ID,
+  setPackLibraryColor: () => {},
+  packLibraryCustomHex: DEFAULT_CUSTOM,
+  setCustomPackLibraryColor: () => {},
+  packLibraryColorOpacity: DEFAULT_OPACITY,
+  setPackLibraryColorOpacity: () => {},
+  packLibraryCardScale: DEFAULT_CARD_SCALE,
+  setPackLibraryCardScale: () => {},
   baseOpacity: DEFAULT_OPACITY,
   setBaseOpacity: () => {},
 });
@@ -258,6 +292,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const raw = window.localStorage.getItem(PACK_SCALE_KEY);
     return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
   });
+  const [packLibraryColorId, setPackLibraryColorState] = useState<string>(() => {
+    if (typeof window === "undefined") return DEFAULT_CARD_COLOR_ID;
+    return window.localStorage.getItem(PACK_LIBRARY_COLOR_KEY) ?? DEFAULT_CARD_COLOR_ID;
+  });
+  const [packLibraryCustomHex, setPackLibraryCustomHexState] = useState<string>(() => {
+    if (typeof window === "undefined") return DEFAULT_CUSTOM;
+    return window.localStorage.getItem(PACK_LIBRARY_CUSTOM_KEY) ?? DEFAULT_CUSTOM;
+  });
+  const [packLibraryColorOpacity, setPackLibraryColorOpacityState] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_OPACITY;
+    const raw = window.localStorage.getItem(PACK_LIBRARY_OPACITY_KEY);
+    return raw !== null ? Number(raw) : DEFAULT_OPACITY;
+  });
+  const [packLibraryCardScale, setPackLibraryCardScaleState] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_CARD_SCALE;
+    const raw = window.localStorage.getItem(PACK_LIBRARY_SCALE_KEY);
+    return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
+  });
   const [baseOpacity, setBaseOpacityState] = useState<number>(() => {
     if (typeof window === "undefined") return DEFAULT_OPACITY;
     const raw = window.localStorage.getItem(BASE_OPACITY_KEY);
@@ -274,6 +326,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     packGridColorId,
     packGridCustomHex,
     packGridColorOpacity,
+    packLibraryColorId,
+    packLibraryCustomHex,
+    packLibraryColorOpacity,
     baseOpacity,
   });
 
@@ -290,6 +345,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     packGridColorId,
     packGridCustomHex,
     packGridColorOpacity,
+    packLibraryColorId,
+    packLibraryCustomHex,
+    packLibraryColorOpacity,
     baseOpacity,
   ]);
 
@@ -298,8 +356,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [fontScale]);
 
   useEffect(() => {
-    applyCardScale(bagCardScale, packCardScale);
-  }, [bagCardScale, packCardScale]);
+    applyCardScale(bagCardScale, packCardScale, packLibraryCardScale);
+  }, [bagCardScale, packCardScale, packLibraryCardScale]);
 
   useEffect(() => {
     if (mode !== "system") return;
@@ -329,6 +387,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       customPackGridColorHex: remotePackGridCustom,
       packGridColorOpacity: remotePackGridOpacity,
       packCardScale: remotePackScale,
+      packLibraryColorId: remotePackLibraryColorId,
+      customPackLibraryColorHex: remotePackLibraryCustom,
+      packLibraryColorOpacity: remotePackLibraryOpacity,
+      packLibraryCardScale: remotePackLibraryScale,
       baseOpacity: remoteBaseOpacity,
     } = profile;
     if (
@@ -337,10 +399,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       !remoteFontScale &&
       !remoteBagColorId &&
       !remotePackGridColorId &&
+      !remotePackLibraryColorId &&
       remoteBagOpacity === undefined &&
       remoteBagScale === undefined &&
       remotePackGridOpacity === undefined &&
       remotePackScale === undefined &&
+      remotePackLibraryOpacity === undefined &&
+      remotePackLibraryScale === undefined &&
       remoteBaseOpacity === undefined
     )
       return; // 계정에 저장된 값이 아직 없으면 기기 값 유지
@@ -393,6 +458,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (remotePackScale !== undefined) {
       setPackCardScaleState(remotePackScale);
       window.localStorage.setItem(PACK_SCALE_KEY, String(remotePackScale));
+    }
+    if (remotePackLibraryColorId) {
+      setPackLibraryColorState(remotePackLibraryColorId);
+      window.localStorage.setItem(PACK_LIBRARY_COLOR_KEY, remotePackLibraryColorId);
+    }
+    if (remotePackLibraryCustom) {
+      setPackLibraryCustomHexState(remotePackLibraryCustom);
+      window.localStorage.setItem(PACK_LIBRARY_CUSTOM_KEY, remotePackLibraryCustom);
+    }
+    if (remotePackLibraryOpacity !== undefined) {
+      setPackLibraryColorOpacityState(remotePackLibraryOpacity);
+      window.localStorage.setItem(PACK_LIBRARY_OPACITY_KEY, String(remotePackLibraryOpacity));
+    }
+    if (remotePackLibraryScale !== undefined) {
+      setPackLibraryCardScaleState(remotePackLibraryScale);
+      window.localStorage.setItem(PACK_LIBRARY_SCALE_KEY, String(remotePackLibraryScale));
     }
     if (remoteBaseOpacity !== undefined) {
       setBaseOpacityState(remoteBaseOpacity);
@@ -456,7 +537,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setBagCardScale = (scale: number) => {
     setBagCardScaleState(scale);
     window.localStorage.setItem(BAG_SCALE_KEY, String(scale));
-    applyCardScale(scale, packCardScale);
+    applyCardScale(scale, packCardScale, packLibraryCardScale);
     updateThemePrefs({ bagCardScale: scale }).catch(() => {});
   };
 
@@ -486,8 +567,38 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setPackCardScale = (scale: number) => {
     setPackCardScaleState(scale);
     window.localStorage.setItem(PACK_SCALE_KEY, String(scale));
-    applyCardScale(bagCardScale, scale);
+    applyCardScale(bagCardScale, scale, packLibraryCardScale);
     updateThemePrefs({ packCardScale: scale }).catch(() => {});
+  };
+
+  const setPackLibraryColor = (id: string) => {
+    setPackLibraryColorState(id);
+    window.localStorage.setItem(PACK_LIBRARY_COLOR_KEY, id);
+    applyAll({ ...currentSettings(), packLibraryColorId: id });
+    updateThemePrefs({ packLibraryColorId: id }).catch(() => {});
+  };
+
+  const setCustomPackLibraryColor = (hex: string) => {
+    setPackLibraryCustomHexState(hex);
+    setPackLibraryColorState("custom");
+    window.localStorage.setItem(PACK_LIBRARY_CUSTOM_KEY, hex);
+    window.localStorage.setItem(PACK_LIBRARY_COLOR_KEY, "custom");
+    applyAll({ ...currentSettings(), packLibraryColorId: "custom", packLibraryCustomHex: hex });
+    updateThemePrefs({ packLibraryColorId: "custom", customPackLibraryColorHex: hex }).catch(() => {});
+  };
+
+  const setPackLibraryColorOpacity = (opacity: number) => {
+    setPackLibraryColorOpacityState(opacity);
+    window.localStorage.setItem(PACK_LIBRARY_OPACITY_KEY, String(opacity));
+    applyAll({ ...currentSettings(), packLibraryColorOpacity: opacity });
+    updateThemePrefs({ packLibraryColorOpacity: opacity }).catch(() => {});
+  };
+
+  const setPackLibraryCardScale = (scale: number) => {
+    setPackLibraryCardScaleState(scale);
+    window.localStorage.setItem(PACK_LIBRARY_SCALE_KEY, String(scale));
+    applyCardScale(bagCardScale, packCardScale, scale);
+    updateThemePrefs({ packLibraryCardScale: scale }).catch(() => {});
   };
 
   const setBaseOpacity = (opacity: number) => {
@@ -524,6 +635,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setPackGridColorOpacity,
         packCardScale,
         setPackCardScale,
+        packLibraryColorId,
+        setPackLibraryColor,
+        packLibraryCustomHex,
+        setCustomPackLibraryColor,
+        packLibraryColorOpacity,
+        setPackLibraryColorOpacity,
+        packLibraryCardScale,
+        setPackLibraryCardScale,
         baseOpacity,
         setBaseOpacity,
       }}
