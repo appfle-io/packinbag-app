@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowLeft, IconTrash, IconPlus, IconLock, IconX } from "@tabler/icons-react";
-import { Item, Pack } from "@/lib/types";
+import {
+  IconArrowLeft,
+  IconTrash,
+  IconPlus,
+  IconLock,
+  IconX,
+  IconChevronRight,
+  IconChevronLeft,
+} from "@tabler/icons-react";
+import { Bag, Item, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import EditableText from "@/components/EditableText";
@@ -24,18 +32,23 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 //
 // 예외: 지금 편집 중인 팩이 "빠른팩"(pack.isQuickPack)이면, 같은 화면에 다른 팩이
 // 안 보여서 드래그로 다른 팩에 옮길 수가 없다. 그래서 이 팩에서만 롱프레스가 순서변경
-// 드래그 대신 "이동할 팩 선택" 시트를 띄우고, 고르면 그 팩으로 즉시 이동(원본에서
-// 제거 + 대상에 복사)한다.
+// 드래그 대신 "다중선택 모드"로 진입한다 - 길게 누른 짐이 선택되고, 이후 다른 짐들을
+// 탭해서 선택을 추가/해제할 수 있다. 하단 액션바의 "이동"을 누르면 목적지를 고르는
+// 시트가 뜨는데, 목적지는 라이브러리 팩뿐 아니라 특정 가방의 특정 팩까지도 가능하다.
 export default function PackLibraryEditorScreen({
   initialPack,
   libraryPacks,
   lockedPackIds,
+  bags,
+  lockedBagIds,
   readOnly,
   onRequestUnlock,
   onBack,
   onSave,
   onSaveOtherPack,
   onDelete,
+  onAddItemsToBagPack,
+  onRemoveItemsFromBagPack,
 }: {
   initialPack: Pack;
   // 팩 선택 모달 상단에 보여줄 라이브러리 전체 팩 목록. 지금 편집 중인 팩이
@@ -46,6 +59,10 @@ export default function PackLibraryEditorScreen({
   // 목록에서 이 팩들은 제외한다 - 지금 열려있는 팩(unlocked 상태라 이 화면이 열림)을
   // 편집하는 김에 잠긴 팩에 몰래 짐을 추가하는 것을 막기 위함.
   lockedPackIds?: Set<string>;
+  // 빠른팩의 "이동" 목적지로 특정 가방의 특정 팩까지 보여주기 위한 전체 가방 목록.
+  bags?: Bag[];
+  // 무료 전환으로 잠긴(읽기 전용) 가방 id 목록 - 이동 목적지 목록에서 제외한다.
+  lockedBagIds?: Set<string>;
   // true면 지금 편집 중인 이 팩 자체가 잠긴 상태. 보기만 가능하고 모든 수정/삭제가 막힌다.
   readOnly: boolean;
   onRequestUnlock: () => void;
@@ -54,6 +71,9 @@ export default function PackLibraryEditorScreen({
   // 지금 편집 중인 팩이 아닌 "다른" 팩에 짐을 추가/복사할 때 그 팩을 즉시 원격저장.
   onSaveOtherPack: (pack: Pack) => void;
   onDelete: (packId: string) => void;
+  // 빠른팩에서 짐을 특정 가방의 특정 팩으로 이동할 때 호출. (되돌리기는 아래 콜백)
+  onAddItemsToBagPack?: (bagId: string, packId: string, items: Item[]) => void;
+  onRemoveItemsFromBagPack?: (bagId: string, packId: string, itemIds: Set<string>) => void;
 }) {
   const [pack, setPack] = useState<Pack>(initialPack);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -149,6 +169,12 @@ export default function PackLibraryEditorScreen({
       : [pack, ...libraryPacks]
   ).filter((p) => p.id === pack.id || !lockedPackIds?.has(p.id));
 
+  // 빠른팩 이동 목적지로 보여줄 가방 목록: 잠긴(읽기 전용) 가방과 팩이 하나도 없는
+  // 가방은 제외한다.
+  const displayBags = (bags ?? []).filter(
+    (b) => !lockedBagIds?.has(b.id) && b.packs.length > 0
+  );
+
   const buildNewItem = (data: ItemFormSaveData): Item => ({
     id: uid(),
     type: data.type,
@@ -219,41 +245,92 @@ export default function PackLibraryEditorScreen({
     el.scrollTop = el.scrollHeight;
   }, [pack.items.length]);
 
-  // --- 짐 순서 변경(롱프레스 드래그) ------------------------------------
+  // --- 짐 순서 변경(롱프레스 드래그) / 빠른팩 다중선택 이동 --------------------
   // 팩이 하나뿐인 화면이라 "다른 팩으로 이동"은 필요 없고, 같은 팩 안에서
   // 순서만 바꾼다. "가방 속 팩"과 동일하게 그립 아이콘 없이 롱프레스로 시작.
-  // (빠른팩은 예외 - 아래 moveTarget 참고)
+  // (빠른팩은 예외 - 아래 selectedItemIds 참고)
   const [drag, setDrag] = useState<{ itemId: string; overItemId: string | null } | null>(null);
-  // 빠른팩에서만 쓰이는 "이동할 팩 선택" 시트 상태. 다른 팩에서는 항상 null.
-  const [moveTarget, setMoveTarget] = useState<{ itemId: string } | null>(null);
+  // 빠른팩에서만 쓰이는 다중선택 상태. null이면 선택 모드가 아님, Set이면 선택된 짐 id들.
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string> | null>(null);
+  // 이동 목적지 시트 표시 여부 + (가방을 골라서 드릴다운했으면) 그 가방 id
+  const [showMoveSheet, setShowMoveSheet] = useState(false);
+  const [moveSheetBagId, setMoveSheetBagId] = useState<string | null>(null);
 
   const handleStartItemDrag = (itemId: string) => {
     if (guardReadOnly()) return;
     if (pack.isQuickPack) {
-      setMoveTarget({ itemId });
+      // 이미 선택 모드면 이 짐도 선택에 추가하고, 아니면 이 짐 하나로 선택 모드 시작.
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev ?? []);
+        next.add(itemId);
+        return next;
+      });
       return;
     }
     setDrag({ itemId, overItemId: null });
   };
 
-  // 빠른팩의 짐을 다른 라이브러리 팩으로 옮긴다: 지금 팩(빠른팩)에서 제거하고,
-  // 고른 팩에는 새 복사본을 즉시 원격저장(onSaveOtherPack)한다. 실수로 옮겼을 때는
-  // 토스트의 "되돌리기"로 원상복구할 수 있다.
-  const handleMoveItemToPack = (itemId: string, targetPackId: string) => {
+  // 선택 모드 중 짐을 탭하면 선택을 토글한다. 전부 해제되면 선택 모드를 자동으로 끈다.
+  const toggleSelectItem = (itemId: string) => {
+    setSelectedItemIds((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next.size === 0 ? null : next;
+    });
+  };
+
+  const cancelSelection = () => {
+    setSelectedItemIds(null);
+    setShowMoveSheet(false);
+    setMoveSheetBagId(null);
+  };
+
+  // 선택된 짐들을 목적지(라이브러리 팩 또는 가방의 특정 팩)로 이동한다: 지금 팩(빠른팩)
+  // 에서는 제거하고, 목적지에는 새 복사본들을 즉시 원격저장한다. 되돌리기는 새로 생긴
+  // 복사본들의 id만 기준으로 목적지에서 제거 + 원래 짐들을 다시 빠른팩에 복원한다.
+  const commitMove = (
+    destination: { kind: "library"; packId: string } | { kind: "bag"; bagId: string; packId: string }
+  ) => {
     if (guardReadOnly()) return;
-    const movedItem = pack.items.find((i) => i.id === itemId);
-    const target = displayPacks.find((p) => p.id === targetPackId);
-    setMoveTarget(null);
-    if (!movedItem || !target) return;
-    setPack((p) => ({ ...p, items: p.items.filter((i) => i.id !== itemId) }));
-    const itemCopy = { ...movedItem, id: uid() };
-    const targetItemsBefore = target.items;
-    onSaveOtherPack({ ...target, items: [...targetItemsBefore, itemCopy] });
-    show(`"${target.name}" 팩으로 옮겼어요`, {
+    if (!selectedItemIds || selectedItemIds.size === 0) return;
+    const movedItems = pack.items.filter((i) => selectedItemIds.has(i.id));
+    if (movedItems.length === 0) return;
+    const copies = movedItems.map((i) => ({ ...i, id: uid() }));
+    const copyIds = new Set(copies.map((c) => c.id));
+
+    setPack((p) => ({ ...p, items: p.items.filter((i) => !selectedItemIds.has(i.id)) }));
+    setSelectedItemIds(null);
+    setShowMoveSheet(false);
+    setMoveSheetBagId(null);
+
+    let destinationLabel = "";
+    if (destination.kind === "library") {
+      const target = displayPacks.find((p) => p.id === destination.packId);
+      if (!target) return;
+      destinationLabel = target.name;
+      onSaveOtherPack({ ...target, items: [...target.items, ...copies] });
+    } else {
+      const bag = displayBags.find((b) => b.id === destination.bagId);
+      const targetPack = bag?.packs.find((p) => p.id === destination.packId);
+      if (!bag || !targetPack) return;
+      destinationLabel = `${bag.name} · ${targetPack.name}`;
+      onAddItemsToBagPack?.(destination.bagId, destination.packId, copies);
+    }
+
+    show(`"${destinationLabel}"(으)로 ${movedItems.length}개 옮겼어요`, {
       actionLabel: "되돌리기",
       onAction: () => {
-        setPack((p) => ({ ...p, items: [...p.items, movedItem] }));
-        onSaveOtherPack({ ...target, items: targetItemsBefore });
+        setPack((p) => ({ ...p, items: [...p.items, ...movedItems] }));
+        if (destination.kind === "library") {
+          const target = displayPacks.find((p) => p.id === destination.packId);
+          if (target) {
+            onSaveOtherPack({ ...target, items: target.items.filter((i) => !copyIds.has(i.id)) });
+          }
+        } else {
+          onRemoveItemsFromBagPack?.(destination.bagId, destination.packId, copyIds);
+        }
       },
     });
   };
@@ -388,6 +465,8 @@ export default function PackLibraryEditorScreen({
     };
   }, []);
 
+  const selecting = pack.isQuickPack && selectedItemIds !== null;
+
   return (
     <div
       ref={swipeBackRef}
@@ -395,23 +474,33 @@ export default function PackLibraryEditorScreen({
       style={viewportHeight != null ? { height: `${viewportHeight}px` } : undefined}
     >
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
-        <button onClick={onBack}>
-          <IconArrowLeft size={20} stroke={1.75} />
+        <button onClick={selecting ? cancelSelection : onBack}>
+          {selecting ? (
+            <IconX size={20} stroke={1.75} />
+          ) : (
+            <IconArrowLeft size={20} stroke={1.75} />
+          )}
         </button>
         <div className="flex items-center gap-3">
-          <span
-            className="text-[12px] text-text-muted"
-            style={{ opacity: justSaved ? 1 : 0, transition: "opacity 200ms ease" }}
-          >
-            저장됨
-          </span>
-          {!readOnly && !pack.isQuickPack && (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="rounded-lg px-2.5 py-1.5"
-            >
-              <IconTrash size={18} stroke={1.75} color="var(--danger)" />
-            </button>
+          {selecting ? (
+            <span className="text-[13px] font-medium">{selectedItemIds!.size}개 선택됨</span>
+          ) : (
+            <>
+              <span
+                className="text-[12px] text-text-muted"
+                style={{ opacity: justSaved ? 1 : 0, transition: "opacity 200ms ease" }}
+              >
+                저장됨
+              </span>
+              {!readOnly && !pack.isQuickPack && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="rounded-lg px-2.5 py-1.5"
+                >
+                  <IconTrash size={18} stroke={1.75} color="var(--danger)" />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -432,9 +521,10 @@ export default function PackLibraryEditorScreen({
         </button>
       )}
 
-      {pack.isQuickPack && (
+      {pack.isQuickPack && !selecting && (
         <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
-          빠른입력으로 던져둔 짐들이에요. 짐을 길게 누르면 원하는 팩으로 옮길 수 있어요.
+          빠른입력으로 던져둔 짐들이에요. 짐을 길게 누르면 선택 모드가 시작돼요 - 다른 짐도
+          탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮길 수 있어요.
         </p>
       )}
 
@@ -458,7 +548,8 @@ export default function PackLibraryEditorScreen({
 
       {/* 이미 추가된 짐 목록: 1개면 한 줄을 다 채우고, 늘어날수록 반응형으로
           여러 열로 재배치된다(auto-fit). 오른쪽 스와이프=수정, 왼쪽 스와이프=삭제,
-          체크박스 제외 영역 롱프레스=순서변경 드래그 시작(빠른팩은 "이동할 팩 선택" 시트). */}
+          체크박스 제외 영역 롱프레스=순서변경 드래그 시작(빠른팩은 다중선택 모드 시작).
+          다중선택 모드 중에는 탭 = 선택 토글이고 스와이프/드래그는 비활성화된다. */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 pb-3">
         {displayItems.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
@@ -469,39 +560,77 @@ export default function PackLibraryEditorScreen({
             className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))]"
             style={{ gap: "8px 10px", alignItems: "start" }}
           >
-            {displayItems.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onToggle={item.type === "check" ? () => toggleItem(item.id) : undefined}
-                onChangeText={(text, style) => changeItemText(item.id, text, style)}
-                onDelete={() => deleteItem(item.id)}
-                onEdit={() => openEditModal(item)}
-                onStartDrag={() => handleStartItemDrag(item.id)}
-                isDragSource={drag?.itemId === item.id}
-                isDragOverTarget={drag?.overItemId === item.id}
-              />
-            ))}
+            {displayItems.map((item) => {
+              const isSelected = selecting && selectedItemIds!.has(item.id);
+              return (
+                <div
+                  key={item.id}
+                  style={
+                    selecting
+                      ? {
+                          outline: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
+                          borderRadius: 8,
+                          background: isSelected ? "var(--accent-soft)" : undefined,
+                        }
+                      : undefined
+                  }
+                >
+                  <ItemRow
+                    item={item}
+                    onToggle={item.type === "check" ? () => toggleItem(item.id) : undefined}
+                    onChangeText={(text, style) => changeItemText(item.id, text, style)}
+                    onDelete={() => deleteItem(item.id)}
+                    onEdit={() => openEditModal(item)}
+                    onStartDrag={() => handleStartItemDrag(item.id)}
+                    isDragSource={drag?.itemId === item.id}
+                    isDragOverTarget={drag?.overItemId === item.id}
+                    disabled={selecting}
+                    onRowTap={selecting ? () => toggleSelectItem(item.id) : undefined}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* 하단 중앙 "추가" 버튼 - 누르면 짐 추가/수정 모달(ItemFormModal)이 뜬다.
-          가방 속 팩과 달리 상단 팩 선택이 체크박스형(여러개 선택 가능)이다. */}
-      {!readOnly && (
+      {/* 하단 액션 영역: 평소엔 "추가" 버튼, 빠른팩 다중선택 중에는 "이동" 액션바로 바뀐다. */}
+      {selecting ? (
         <div
-          className="shrink-0 border-t border-border p-3 flex justify-center"
+          className="shrink-0 border-t border-border p-3 flex items-center gap-2"
           style={{ paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))" }}
         >
           <button
-            onClick={openAddModal}
-            className="flex items-center justify-center gap-1.5 rounded-full px-8 py-3 text-[15px] font-medium"
+            onClick={cancelSelection}
+            className="rounded-lg px-4 py-2.5 text-[14px]"
+            style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+          >
+            취소
+          </button>
+          <button
+            onClick={() => setShowMoveSheet(true)}
+            className="flex-1 rounded-lg py-2.5 text-[14px] font-medium"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
-            <IconPlus size={18} stroke={2} />
-            추가
+            이동
           </button>
         </div>
+      ) : (
+        !readOnly && (
+          <div
+            className="shrink-0 border-t border-border p-3 flex justify-center"
+            style={{ paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))" }}
+          >
+            <button
+              onClick={openAddModal}
+              className="flex items-center justify-center gap-1.5 rounded-full px-8 py-3 text-[15px] font-medium"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              <IconPlus size={18} stroke={2} />
+              추가
+            </button>
+          </div>
+        )
       )}
 
       {itemModal && (
@@ -520,44 +649,134 @@ export default function PackLibraryEditorScreen({
         />
       )}
 
-      {moveTarget && (
+      {showMoveSheet && (
         <Portal>
           <div
             className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
             style={{ background: "rgba(0,0,0,0.45)" }}
-            onClick={() => setMoveTarget(null)}
+            onClick={() => {
+              setShowMoveSheet(false);
+              setMoveSheetBagId(null);
+            }}
           >
             <div
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[15px] font-medium">이동할 팩 선택</span>
-                <button onClick={() => setMoveTarget(null)} aria-label="닫기">
-                  <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
-                </button>
-              </div>
-              {displayPacks.filter((p) => p.id !== pack.id).length === 0 ? (
-                <p className="text-[12px] text-text-muted py-4 text-center">
-                  이동할 수 있는 다른 팩이 없어요. 먼저 팩을 하나 만들어보세요.
-                </p>
+              {moveSheetBagId ? (
+                (() => {
+                  const bag = displayBags.find((b) => b.id === moveSheetBagId);
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 mb-1">
+                        <button onClick={() => setMoveSheetBagId(null)} aria-label="뒤로">
+                          <IconChevronLeft size={18} stroke={1.75} color="var(--text-secondary)" />
+                        </button>
+                        <span className="text-[15px] font-medium truncate">
+                          {bag?.name ?? "가방"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setShowMoveSheet(false);
+                            setMoveSheetBagId(null);
+                          }}
+                          aria-label="닫기"
+                          className="ml-auto"
+                        >
+                          <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
+                        {(bag?.packs ?? []).map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => commitMove({ kind: "bag", bagId: bag!.id, packId: p.id })}
+                            className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                            style={{ background: "var(--surface-2)" }}
+                          >
+                            <span className="text-[13px] font-medium truncate">{p.name}</span>
+                            <span className="text-[11px] text-text-muted shrink-0">
+                              {p.items.length}개
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()
               ) : (
-                <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
-                  {displayPacks
-                    .filter((p) => p.id !== pack.id)
-                    .map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleMoveItemToPack(moveTarget.itemId, p.id)}
-                        className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
-                        style={{ background: "var(--surface-2)" }}
-                      >
-                        <span className="text-[13px] font-medium truncate">{p.name}</span>
-                        <span className="text-[11px] text-text-muted shrink-0">{p.items.length}개</span>
-                      </button>
-                    ))}
-                </div>
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[15px] font-medium">이동할 곳 선택</span>
+                    <button
+                      onClick={() => {
+                        setShowMoveSheet(false);
+                        setMoveSheetBagId(null);
+                      }}
+                      aria-label="닫기"
+                    >
+                      <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[11px] text-text-muted px-1">라이브러리 팩</p>
+                      {displayPacks.filter((p) => p.id !== pack.id).length === 0 ? (
+                        <p className="text-[12px] text-text-muted py-2 px-1">
+                          이동할 수 있는 라이브러리 팩이 없어요.
+                        </p>
+                      ) : (
+                        displayPacks
+                          .filter((p) => p.id !== pack.id)
+                          .map((p) => (
+                            <button
+                              key={p.id}
+                              onClick={() => commitMove({ kind: "library", packId: p.id })}
+                              className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                              style={{ background: "var(--surface-2)" }}
+                            >
+                              <span className="text-[13px] font-medium truncate">{p.name}</span>
+                              <span className="text-[11px] text-text-muted shrink-0">
+                                {p.items.length}개
+                              </span>
+                            </button>
+                          ))
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[11px] text-text-muted px-1 mt-1">가방 속 팩</p>
+                      {displayBags.length === 0 ? (
+                        <p className="text-[12px] text-text-muted py-2 px-1">
+                          이동할 수 있는 가방이 없어요.
+                        </p>
+                      ) : (
+                        displayBags.map((b) => (
+                          <button
+                            key={b.id}
+                            onClick={() => setMoveSheetBagId(b.id)}
+                            className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                            style={{ background: "var(--surface-2)" }}
+                          >
+                            <span className="min-w-0">
+                              <span className="text-[13px] font-medium truncate block">{b.name}</span>
+                              <span className="text-[11px] text-text-muted">
+                                팩 {b.packs.length}개
+                              </span>
+                            </span>
+                            <IconChevronRight
+                              size={16}
+                              stroke={1.75}
+                              color="var(--text-muted)"
+                              className="shrink-0"
+                            />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>

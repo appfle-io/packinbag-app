@@ -53,6 +53,8 @@ export default function ItemRow({
   onStartDrag,
   isDragSource,
   isDragOverTarget,
+  disabled,
+  onRowTap,
 }: {
   item: Item;
   onToggle?: () => void;
@@ -68,6 +70,12 @@ export default function ItemRow({
   onStartDrag?: (clientX: number, clientY: number) => void;
   isDragSource?: boolean;
   isDragOverTarget?: boolean;
+  // true면 스와이프/롱프레스드래그를 전부 비활성화한다 (빠른팩의 다중선택 모드에서
+  // 사용 - 선택 중에 스와이프 삭제/수정이나 순서변경 드래그가 끼어들면 안 되기 때문).
+  disabled?: boolean;
+  // 있으면 짐 텍스트를 탭했을 때 기본 동작(스와이프 닫기) 대신 이 콜백을 호출한다.
+  // 다중선택 모드에서 탭 = 선택 토글로 쓰기 위한 훅.
+  onRowTap?: () => void;
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -93,7 +101,7 @@ export default function ItemRow({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (editing) return;
+    if (editing || disabled) return;
     startX.current = e.clientX;
     startY.current = e.clientY;
     lastY.current = e.clientY;
@@ -378,7 +386,13 @@ export default function ItemRow({
           )
         ) : (
           <button
-            onClick={closeSwipeIfOpen}
+            onClick={() => {
+              if (onRowTap) {
+                onRowTap();
+                return;
+              }
+              closeSwipeIfOpen();
+            }}
             className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] line-clamp-2"
           >
             {item.type === "check" ? (

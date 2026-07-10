@@ -581,6 +581,42 @@ export default function AppShell() {
       });
   };
 
+  // 빠른팩(다중선택) 이동 부해 - 특정 가방의 특정 팩 안으로 짐을 이동한다. 지금
+  // 구독 중인 bags 배열을 기준으로 목표 팩에 아이템을 이어붙이고 그 가방 전체를 저장한다
+  // (BagEditorScreen을 열지 않고 바로 저장하는 가방 자동저장과 같은 패턴).
+  const handleAddItemsToBagPack = (bagId: string, packId: string, items: Item[]) => {
+    const bag = bags.find((b) => b.id === bagId);
+    if (!bag) return;
+    const updated: Bag = {
+      ...bag,
+      packs: bag.packs.map((p) =>
+        p.id === packId ? { ...p, items: [...p.items, ...items] } : p
+      ),
+      updatedAt: new Date().toISOString(),
+    };
+    saveBagRemote(updated).catch((err) => {
+      console.error("[팩인백] 가방으로 짐 이동 실패:", err);
+      show(`가방으로 이동하는 데 실패했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
+  // 위 handleAddItemsToBagPack의 되돌리기(토스트 "되돌리기")용 - 방금 옮긴 짐만 id 기준으로
+  // 그 가방 팩에서 제거한다.
+  const handleRemoveItemsFromBagPack = (bagId: string, packId: string, itemIds: Set<string>) => {
+    const bag = bags.find((b) => b.id === bagId);
+    if (!bag) return;
+    const updated: Bag = {
+      ...bag,
+      packs: bag.packs.map((p) =>
+        p.id === packId ? { ...p, items: p.items.filter((i) => !itemIds.has(i.id)) } : p
+      ),
+      updatedAt: new Date().toISOString(),
+    };
+    saveBagRemote(updated).catch((err) => {
+      console.error("[팩인백] 가방 이동 되돌리기 실패:", err);
+    });
+  };
+
   // 하단 "+" 빠른입력 모달에서 항목을 추가할 때마다 호출된다. 빠른팩이 아직 없으면
   // (한 번도 안 썼으면) isQuickPack:true로 새로 만들고, 있으면 기존 팩 끝에 이어붙인다.
   // 빠른팩은 무료 3개 한도와 무관하게 항상 생성/저장이 허용된다(app/api/create-library-pack,
@@ -644,12 +680,16 @@ export default function AppShell() {
             initialPack={editingPack}
             libraryPacks={libraryPacks}
             lockedPackIds={lockedPackIds}
+            bags={bags}
+            lockedBagIds={lockedBagIds}
             readOnly={isEditingPackLocked}
             onRequestUnlock={requestUnlockForPack}
             onBack={() => setEditingPack(null)}
             onSave={handleSavePack}
             onSaveOtherPack={handleSavePack}
             onDelete={handleDeletePack}
+            onAddItemsToBagPack={handleAddItemsToBagPack}
+            onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
           />
         </div>
         <SplashScreen visible={showSplash} />
