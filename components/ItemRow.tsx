@@ -33,7 +33,8 @@ const getScrollParent = (el: HTMLElement | null): HTMLElement | null => {
 };
 
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
-const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
+// 짐 추가/수정 모달(ItemFormModal)에서도 동일 팔레트를 써서 export.
+export const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
 
 // 설정 > 화면설정 > 팩 크기(--pack-card-scale) + 글자 크기(--font-scale-factor)에 맞춰
 // 패딩/아이콘/글자 크기를 함께 조절한다.
@@ -42,6 +43,7 @@ export default function ItemRow({
   onToggle,
   onChangeText,
   onDelete,
+  onEdit,
   onStartDrag,
   isDragSource,
   isDragOverTarget,
@@ -53,13 +55,17 @@ export default function ItemRow({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDelete: () => void;
+  // 있으면 수정 진입시 인라인 편집 대신 이 콜백(모달 열기)을 호출한다.
+  // 가방 편집화면(BagEditorScreen)에서만 넘겨주고, 팩 라이브러리 편집화면은
+  // 기존 인라인 편집 방식을 그대로 유지한다.
+  onEdit?: () => void;
   onStartDrag?: (clientX: number, clientY: number) => void;
   isDragSource?: boolean;
   isDragOverTarget?: boolean;
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const [editing, setEditing] = useState(item.text === "");
+  const [editing, setEditing] = useState(!onEdit && item.text === "");
   const [draft, setDraft] = useState(item.text);
   const [draftBold, setDraftBold] = useState(!!item.bold);
   const [draftStrike, setDraftStrike] = useState(!!item.strike);
@@ -175,6 +181,10 @@ export default function ItemRow({
   };
 
   const openEdit = () => {
+    if (onEdit) {
+      onEdit();
+      return;
+    }
     setDraft(item.text);
     setDraftBold(!!item.bold);
     setDraftStrike(!!item.strike);

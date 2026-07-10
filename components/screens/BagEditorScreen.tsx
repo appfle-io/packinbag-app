@@ -15,6 +15,8 @@ import EditableText from "@/components/EditableText";
 import BagNotice from "@/components/BagNotice";
 import TravelDateField from "@/components/TravelDateField";
 import PackGrid from "@/components/PackGrid";
+import PackChipBar from "@/components/PackChipBar";
+import ItemFormModal from "@/components/ItemFormModal";
 import PackImportModal from "@/components/PackImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SaveAsDialog from "@/components/SaveAsDialog";
@@ -280,18 +282,92 @@ export default function BagEditorScreen({
     }
   };
 
-  const handleAddItem = (packId: string, type: "check" | "text") =>
+  // "체크항목"/"텍스트" 버튼을 누르면 바로 빈 짐을 만들던 예전 방식 대신,
+  // 어떤 팩에서 시작했는지/타입만 기억해두고 중앙 모달(ItemFormModal)을 연다.
+  // 실제 짐 생성은 모달의 저장 버튼(handleCreateItem)에서 이뤄진다.
+  const [itemModal, setItemModal] = useState<
+    | { mode: "add"; sourcePackId: string; type: "check" | "text" }
+    | { mode: "edit"; sourcePackId: string; item: Item }
+    | null
+  >(null);
+
+  const handleOpenAddItem = (packId: string, type: "check" | "text") =>
+    setItemModal({ mode: "add", sourcePackId: packId, type });
+
+  const handleOpenEditItem = (packId: string, itemId: string) => {
+    const pack = bag.packs.find((p) => p.id === packId);
+    const item = pack?.items.find((i) => i.id === itemId);
+    if (!item) return;
+    setItemModal({ mode: "edit", sourcePackId: packId, item });
+  };
+
+  const handleCreateItem = (
+    targetPackId: string,
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string }
+  ) =>
     updatePacks((packs) =>
       packs.map((p) => {
-        if (p.id !== packId) return p;
-        const items = [
-          ...p.items,
-          { id: uid(), type, text: "", checked: false } as Item,
-        ];
+        if (p.id !== targetPackId) return p;
+        const newItem: Item = {
+          id: uid(),
+          type: data.type,
+          text: data.text,
+          ...(data.type === "check"
+            ? { checked: false }
+            : { bold: data.bold, strike: data.strike, color: data.color }),
+        };
+        const items = [...p.items, newItem];
         const updated = { ...p, items };
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
       })
     );
+
+  // 짐 수정 모달의 저장 처리. 같은 팩을 유지하면 원래 위치 그대로 내용만 갱신하고,
+  // 모달에서 다른 팩으로 바꿔서 저장하면 기존 드래그 이동(handleMoveItem)처럼 원래
+  // 팩에서 제거하고 대상 팩 맨 끝에 추가한다.
+  const handleUpdateItem = (
+    sourcePackId: string,
+    itemId: string,
+    targetPackId: string,
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string }
+  ) => {
+    updatePacks((packs) => {
+      const sourcePack = packs.find((p) => p.id === sourcePackId);
+      const original = sourcePack?.items.find((i) => i.id === itemId);
+      if (!original) return packs;
+
+      const updatedItem: Item = {
+        id: original.id,
+        type: data.type,
+        text: data.text,
+        ...(data.type === "check"
+          ? { checked: original.type === "check" ? original.checked : false }
+          : { bold: data.bold, strike: data.strike, color: data.color }),
+      };
+
+      if (sourcePackId === targetPackId) {
+        return packs.map((p) => {
+          if (p.id !== sourcePackId) return p;
+          const items = p.items.map((i) => (i.id === itemId ? updatedItem : i));
+          const updated = { ...p, items };
+          return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+        });
+      }
+
+      return packs.map((p) => {
+        if (p.id === sourcePackId) {
+          const updated = { ...p, items: p.items.filter((i) => i.id !== itemId) };
+          return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+        }
+        if (p.id === targetPackId) {
+          const updated = { ...p, items: [...p.items, updatedItem] };
+          return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+        }
+        return p;
+      });
+    });
+    if (sourcePackId !== targetPackId) show("짐을 옮겼어요");
+  };
 
   const handleRenamePack = (packId: string, name: string) =>
     updatePacks((packs) =>
@@ -824,7 +900,8 @@ export default function BagEditorScreen({
             onToggleItem={handleToggleItem}
             onChangeItemText={handleChangeItemText}
             onDeleteItem={handleDeleteItem}
-            onAddItem={handleAddItem}
+            onAddItem={handleOpenAddItem}
+            onEditItem={handleOpenEditItem}
             onRenamePack={handleRenamePack}
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
@@ -845,39 +922,28 @@ export default function BagEditorScreen({
           기존 [data-pack-drop-id] 드롭존 판정 로직(위 handleMove)을 그대로 재사용한다. */}
       {drag && (
         <div
-          className="fixed inset-x-0 top-0 z-[94] flex items-center gap-2 flex-wrap px-3"
+          className="fixed inset-x-0 top-0 z-[94] px-3"
           style={{
             paddingTop: "max(10px, env(safe-area-inset-top))",
-            paddingBottom: 10,
+            paddingBottom: 12,
             background: "var(--surface)",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            maxHeight: "40vh",
+            maxHeight: "45vh",
             overflowY: "auto",
           }}
         >
-          <span className="text-[11px] text-text-muted shrink-0 pl-1 whitespace-nowrap w-full">
-            팩으로 옮기기
-          </span>
-          {bag.packs.map((p) => {
-            const isSource = p.id === drag.fromPackId;
-            const isOver = drag.overPackId === p.id;
-            return (
-              <div
-                key={p.id}
-                data-pack-drop-id={p.id}
-                className="shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium whitespace-nowrap"
-                style={{
-                  background: isOver ? "var(--accent)" : "var(--surface-2)",
-                  color: isOver ? "#fff" : isSource ? "var(--text-muted)" : undefined,
-                  border: isSource
-                    ? "1px dashed var(--border-strong)"
-                    : "1px solid transparent",
-                }}
-              >
-                {p.name || "팩"}
-              </div>
-            );
-          })}
+          <PackChipBar
+            packs={bag.packs}
+            label="팩으로 옮기기"
+            dropIds
+            getState={(packId) =>
+              packId === drag.fromPackId
+                ? "source"
+                : packId === drag.overPackId
+                ? "selected"
+                : "normal"
+            }
+          />
         </div>
       )}
 
@@ -987,6 +1053,30 @@ export default function BagEditorScreen({
             const packId = refreshConfirmTarget;
             setRefreshConfirmTarget(null);
             handleRefreshFromLibrary(packId);
+          }}
+        />
+      )}
+
+      {itemModal && (
+        <ItemFormModal
+          packs={bag.packs}
+          selectionMode="single"
+          initialSelectedPackIds={[itemModal.sourcePackId]}
+          mode={itemModal.mode}
+          initialType={itemModal.mode === "add" ? itemModal.type : itemModal.item.type}
+          initialText={itemModal.mode === "edit" ? itemModal.item.text : ""}
+          initialBold={itemModal.mode === "edit" ? !!itemModal.item.bold : false}
+          initialStrike={itemModal.mode === "edit" ? !!itemModal.item.strike : false}
+          initialColor={itemModal.mode === "edit" ? itemModal.item.color || "" : ""}
+          onClose={() => setItemModal(null)}
+          onSave={(targetPackIds, data) => {
+            const targetPackId = targetPackIds[0];
+            if (itemModal.mode === "add") {
+              handleCreateItem(targetPackId, data);
+            } else {
+              handleUpdateItem(itemModal.sourcePackId, itemModal.item.id, targetPackId, data);
+            }
+            setItemModal(null);
           }}
         />
       )}

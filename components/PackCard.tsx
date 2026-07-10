@@ -30,6 +30,7 @@ export default function PackCard({
   onDeleteItem,
   onAddCheckItem,
   onAddTextItem,
+  onEditItem,
   onRenamePack,
   onToggleAll,
   onSaveToLibrary,
@@ -53,6 +54,8 @@ export default function PackCard({
   onDeleteItem: (itemId: string) => void;
   onAddCheckItem: () => void;
   onAddTextItem: () => void;
+  // 있으면 짐 수정 진입시 인라인 편집 대신 모달을 열도록 ItemRow에 전달한다.
+  onEditItem?: (itemId: string) => void;
   onRenamePack: (name: string) => void;
   onToggleAll: (checked: boolean) => void;
   onSaveToLibrary: () => void;
@@ -186,6 +189,7 @@ export default function PackCard({
             }
             onChangeText={(text, style) => onChangeItemText(item.id, text, style)}
             onDelete={() => onDeleteItem(item.id)}
+            onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
             onStartDrag={
               onStartItemDrag
                 ? (x, y) => onStartItemDrag(item.id, item.text, x, y)

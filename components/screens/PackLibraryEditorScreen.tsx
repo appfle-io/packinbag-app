@@ -1,53 +1,51 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  IconArrowLeft,
-  IconTrash,
-  IconSquareCheck,
-  IconAlignLeft,
-  IconBold,
-  IconStrikethrough,
-  IconArrowUp,
-} from "@tabler/icons-react";
+import { IconArrowLeft, IconTrash, IconPlus } from "@tabler/icons-react";
 import { Item, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import EditableText from "@/components/EditableText";
 import ItemRow from "@/components/ItemRow";
+import ItemFormModal, { ItemFormSaveData } from "@/components/ItemFormModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PackColorDot from "@/components/PackColorDot";
 import { useToast } from "@/components/Toast";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// 텍스트 항목 색상 팔레트 (ItemRow의 편집 툴바와 동일 구성)
-const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
-
-// 팩 편집 화면: 채팅방처럼 하단에 입력창을 고정해두고, 짐을 입력해서 보내면
-// 입력창 바로 위 목록에 쌓인다. 기본은 체크박스 항목이고, 위쪽 모드 선택(체크박스/텍스트)
-// 중 지금 고른 쪽이 굵게+확대+강조색으로 표시된다. 텍스트 모드면 서식 옵션이 추가로
-// 나타난다. 이미 추가된 짐은 기존과 동일하게 오른쪽 스와이프=수정, 왼쪽 스와이프=삭제로
-// 조작하고, 체크박스 제외 영역을 롱프레스하면(그립 아이콘 없음) 같은 팩 안에서 순서를
-// 바꿀 수 있다.
+// 팩 편집 화면: 짐 추가/수정은 하단 "추가" 버튼으로 중앙 모달(ItemFormModal)을 열어서
+// 처리한다. 가방 속 팩 편집과 다른 점은, 상단 팩 선택이 라디오형(하나만)이 아니라
+// 체크박스형(여러 개)이라는 것 - 라이브러리에 있는 다른 팩도 함께 체크하면 그 팩들에도
+// 동시에 짐이 추가/복사된다. 이미 추가된 짐은 기존과 동일하게 오른쪽 스와이프=수정
+// (역시 이 모달을 열도록 변경), 왼쪽 스와이프=삭제로 조작하고, 체크박스 제외 영역을
+// 롱프레스하면(그립 아이콘 없음) 같은 팩 안에서 순서를 바꿀 수 있다.
 export default function PackLibraryEditorScreen({
   initialPack,
+  libraryPacks,
   onBack,
   onSave,
+  onSaveOtherPack,
   onDelete,
 }: {
   initialPack: Pack;
+  // 팩 선택 모달 상단에 보여줄 라이브러리 전체 팩 목록. 지금 편집 중인 팩이
+  // 아직 한 번도 저장되지 않았다면(방금 "새 팩 만들기") 이 목록에 없을 수 있어서
+  // displayPacks 계산에서 별도로 합쳐준다.
+  libraryPacks: Pack[];
   onBack: () => void;
   onSave: (pack: Pack) => void;
+  // 지금 편집 중인 팩이 아닌 "다른" 팩에 짐을 추가/복사할 때 그 팩을 즉시 원격저장.
+  onSaveOtherPack: (pack: Pack) => void;
   onDelete: (packId: string) => void;
 }) {
   const [pack, setPack] = useState<Pack>(initialPack);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [inputMode, setInputMode] = useState<"check" | "text">("check");
-  const [draftText, setDraftText] = useState("");
-  const [draftBold, setDraftBold] = useState(false);
-  const [draftStrike, setDraftStrike] = useState(false);
-  const [draftColor, setDraftColor] = useState("");
+  // "추가" 버튼으로 열리는 짐 추가/수정 모달의 상태. edit일 때 item은 항상 지금 이
+  // 팩(pack) 안에 있는 짐이다 - 다른 팩의 짐을 여기서 수정하는 경우는 없다.
+  const [itemModal, setItemModal] = useState<
+    { mode: "add" } | { mode: "edit"; item: Item } | null
+  >(null);
   const { profile } = useAuth();
   const { show } = useToast();
   const listRef = useRef<HTMLDivElement>(null);
@@ -113,22 +111,66 @@ export default function PackLibraryEditorScreen({
     }
   };
 
-  const handleSubmit = () => {
-    const text = draftText.trim();
-    if (!text) return;
-    const newItem: Item =
-      inputMode === "check"
-        ? { id: uid(), type: "check", text, checked: false }
-        : {
-            id: uid(),
-            type: "text",
-            text,
-            bold: draftBold,
-            strike: draftStrike,
-            color: draftColor || undefined,
-          };
-    setPack((p) => ({ ...p, items: [...p.items, newItem] }));
-    setDraftText("");
+  // 짐 추가/수정 모달을 위한 팩 선택 목록: 지금 편집 중인 팩(pack, 로컬 최신 상태)과
+  // 라이브러리 전체 팩(libraryPacks)을 합친다. 아직 한 번도 저장 안 된 새 팩이면
+  // libraryPacks에 없을 수 있어서 그런 경우엔 앞에 끼워 넣는다.
+  const displayPacks = libraryPacks.some((p) => p.id === pack.id)
+    ? libraryPacks.map((p) => (p.id === pack.id ? pack : p))
+    : [pack, ...libraryPacks];
+
+  const buildNewItem = (data: ItemFormSaveData): Item => ({
+    id: uid(),
+    type: data.type,
+    text: data.text,
+    ...(data.type === "check"
+      ? { checked: false }
+      : { bold: data.bold, strike: data.strike, color: data.color }),
+  });
+
+  const openAddModal = () => setItemModal({ mode: "add" });
+  const openEditModal = (item: Item) => setItemModal({ mode: "edit", item });
+
+  // 모달 저장 처리:
+  // - 지금 팩(pack.id)이 체크되어 있으면: add는 새 짐 추가, edit는 원래 자리에서
+  //   내용만 갱신(체크박스형 checked 값은 타입이 안 바뀌었으면 유지).
+  // - 지금 팩 체크가 빠져 있으면(edit에서만 가능): 이 팩에서는 제거.
+  // - 체크된 다른 팩들에는 항상 새 복사본을 만들어서 즉시 원격저장(onSaveOtherPack).
+  //   (팩 간 짐은 항상 독립된 복사본이라는 기존 원칙과 동일 - 원본을 옮기는 게 아님)
+  const handleModalSave = (selectedPackIds: string[], data: ItemFormSaveData) => {
+    const includesCurrent = selectedPackIds.includes(pack.id);
+    const otherPackIds = selectedPackIds.filter((id) => id !== pack.id);
+
+    if (itemModal?.mode === "edit") {
+      const itemId = itemModal.item.id;
+      if (includesCurrent) {
+        setPack((p) => ({
+          ...p,
+          items: p.items.map((i) => {
+            if (i.id !== itemId) return i;
+            return {
+              id: i.id,
+              type: data.type,
+              text: data.text,
+              ...(data.type === "check"
+                ? { checked: i.type === "check" ? i.checked : false }
+                : { bold: data.bold, strike: data.strike, color: data.color }),
+            };
+          }),
+        }));
+      } else {
+        setPack((p) => ({ ...p, items: p.items.filter((i) => i.id !== itemId) }));
+      }
+    } else if (includesCurrent) {
+      setPack((p) => ({ ...p, items: [...p.items, buildNewItem(data)] }));
+    }
+
+    otherPackIds.forEach((packId) => {
+      const target = libraryPacks.find((p) => p.id === packId);
+      if (!target) return;
+      onSaveOtherPack({ ...target, items: [...target.items, buildNewItem(data)] });
+    });
+
+    setItemModal(null);
   };
 
   // 짐을 새로 추가하면(= 목록 끝에 쌓이면) 입력창 바로 위, 즉 목록 맨 아래로
@@ -240,7 +282,6 @@ export default function PackLibraryEditorScreen({
     };
   }, []);
 
-  const preventBlur = (e: React.MouseEvent) => e.preventDefault();
 
   // iOS Safari/WKWebView는 키보드가 올라올 때 "레이아웃 뷰포트" 크기는 그대로 두고
   // 포커스된 입력창을 보여주려고 페이지 자체를 슬쩍 스크롤(팬)시킨다. 이 화면 높이를
@@ -325,7 +366,7 @@ export default function PackLibraryEditorScreen({
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 pb-3">
         {displayItems.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
-            아래 입력창으로 짐을 추가해보세요.
+            아래 추가 버튼으로 짐을 추가해보세요.
           </p>
         ) : (
           <div
@@ -339,6 +380,7 @@ export default function PackLibraryEditorScreen({
                 onToggle={item.type === "check" ? () => toggleItem(item.id) : undefined}
                 onChangeText={(text, style) => changeItemText(item.id, text, style)}
                 onDelete={() => deleteItem(item.id)}
+                onEdit={() => openEditModal(item)}
                 onStartDrag={() => handleStartItemDrag(item.id)}
                 isDragSource={drag?.itemId === item.id}
                 isDragOverTarget={drag?.overItemId === item.id}
@@ -348,134 +390,37 @@ export default function PackLibraryEditorScreen({
         )}
       </div>
 
-      {/* 채팅형 입력창: 체크박스/텍스트 선택(선택된 쪽이 굵게+확대+강조색) +
-          (텍스트 모드일 때) 서식 옵션 + 입력창 + 확인(전송) 버튼 */}
+      {/* 하단 중앙 "추가" 버튼 - 누르면 짐 추가/수정 모달(ItemFormModal)이 뜬다.
+          가방 속 팩과 달리 상단 팩 선택이 체크박스형(여러개 선택 가능)이다. */}
       <div
-        className="shrink-0 border-t border-border p-3 flex flex-col gap-2"
+        className="shrink-0 border-t border-border p-3 flex justify-center"
         style={{ paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))" }}
       >
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setInputMode("check")}
-            className="flex items-center gap-1.5"
-            style={{
-              color: inputMode === "check" ? "var(--accent)" : "var(--text-muted)",
-              fontWeight: inputMode === "check" ? 700 : 400,
-              fontSize: inputMode === "check" ? 14 : 12.5,
-              transition: "font-size 120ms ease, color 120ms ease",
-            }}
-          >
-            <IconSquareCheck size={inputMode === "check" ? 17 : 14} stroke={1.75} />
-            체크박스
-          </button>
-          <button
-            onClick={() => setInputMode("text")}
-            className="flex items-center gap-1.5"
-            style={{
-              color: inputMode === "text" ? "var(--accent)" : "var(--text-muted)",
-              fontWeight: inputMode === "text" ? 700 : 400,
-              fontSize: inputMode === "text" ? 14 : 12.5,
-              transition: "font-size 120ms ease, color 120ms ease",
-            }}
-          >
-            <IconAlignLeft size={inputMode === "text" ? 17 : 14} stroke={1.75} />
-            텍스트
-          </button>
-        </div>
-
-        {inputMode === "text" && (
-          <div className="flex items-center flex-wrap gap-2">
-            <button
-              type="button"
-              onMouseDown={preventBlur}
-              onClick={() => setDraftBold((b) => !b)}
-              aria-label="굵게"
-              className="flex items-center justify-center rounded shrink-0"
-              style={{
-                background: draftBold ? "var(--accent)" : "var(--surface)",
-                color: draftBold ? "#fff" : "var(--text-secondary)",
-                width: 28,
-                height: 28,
-              }}
-            >
-              <IconBold size={16} stroke={2.25} />
-            </button>
-            <button
-              type="button"
-              onMouseDown={preventBlur}
-              onClick={() => setDraftStrike((s) => !s)}
-              aria-label="취소선"
-              className="flex items-center justify-center rounded shrink-0"
-              style={{
-                background: draftStrike ? "var(--accent)" : "var(--surface)",
-                color: draftStrike ? "#fff" : "var(--text-secondary)",
-                width: 28,
-                height: 28,
-              }}
-            >
-              <IconStrikethrough size={16} stroke={2.25} />
-            </button>
-            <span
-              className="shrink-0"
-              style={{ width: 1, height: 17, background: "var(--border)" }}
-            />
-            {TEXT_COLORS.map((c) => (
-              <button
-                key={c || "default"}
-                type="button"
-                onMouseDown={preventBlur}
-                onClick={() => setDraftColor(c)}
-                aria-label={c ? `색상 ${c}` : "기본 색상"}
-                className="rounded-full shrink-0"
-                style={{
-                  background: c || "var(--surface)",
-                  border:
-                    draftColor === c
-                      ? "1.5px solid var(--foreground)"
-                      : "1.5px solid var(--border-strong)",
-                  width: 22,
-                  height: 22,
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            value={draftText}
-            onChange={(e) => setDraftText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            onFocus={() => {
-              window.scrollTo(0, 0);
-              requestAnimationFrame(() => window.scrollTo(0, 0));
-              window.setTimeout(() => window.scrollTo(0, 0), 60);
-              window.setTimeout(() => window.scrollTo(0, 0), 200);
-            }}
-            placeholder={inputMode === "check" ? "짐 이름" : "텍스트 입력"}
-            className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[14px] outline-none"
-            style={
-              inputMode === "text"
-                ? {
-                    fontWeight: draftBold ? 700 : 400,
-                    textDecoration: draftStrike ? "line-through" : "none",
-                    color: draftColor || "var(--foreground)",
-                  }
-                : undefined
-            }
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={!draftText.trim()}
-            aria-label="짐 추가"
-            className="shrink-0 rounded-lg p-2.5 disabled:opacity-40"
-            style={{ background: "var(--accent)", color: "#fff" }}
-          >
-            <IconArrowUp size={18} stroke={2} />
-          </button>
-        </div>
+        <button
+          onClick={openAddModal}
+          className="flex items-center justify-center gap-1.5 rounded-full px-8 py-3 text-[15px] font-medium"
+          style={{ background: "var(--accent)", color: "#fff" }}
+        >
+          <IconPlus size={18} stroke={2} />
+          추가
+        </button>
       </div>
+
+      {itemModal && (
+        <ItemFormModal
+          packs={displayPacks}
+          selectionMode="multi"
+          initialSelectedPackIds={[pack.id]}
+          mode={itemModal.mode}
+          initialType={itemModal.mode === "edit" ? itemModal.item.type : "check"}
+          initialText={itemModal.mode === "edit" ? itemModal.item.text : ""}
+          initialBold={itemModal.mode === "edit" ? !!itemModal.item.bold : false}
+          initialStrike={itemModal.mode === "edit" ? !!itemModal.item.strike : false}
+          initialColor={itemModal.mode === "edit" ? itemModal.item.color || "" : ""}
+          onClose={() => setItemModal(null)}
+          onSave={handleModalSave}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmDialog

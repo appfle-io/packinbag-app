@@ -18,6 +18,7 @@ export default function PackGrid({
   onChangeItemText,
   onDeleteItem,
   onAddItem,
+  onEditItem,
   onRenamePack,
   onToggleAll,
   onSaveToLibrary,
@@ -41,6 +42,8 @@ export default function PackGrid({
   ) => void;
   onDeleteItem: (packId: string, itemId: string) => void;
   onAddItem: (packId: string, type: "check" | "text") => void;
+  // 있으면 짐 수정 진입시 모달을 여는 콜백 (없으면 PackCard가 기존 인라인 편집 유지)
+  onEditItem?: (packId: string, itemId: string) => void;
   onRenamePack: (packId: string, name: string) => void;
   onToggleAll: (packId: string, checked: boolean) => void;
   onSaveToLibrary: (packId: string) => void;
@@ -75,6 +78,7 @@ export default function PackGrid({
       onDeleteItem={(itemId) => onDeleteItem(pack.id, itemId)}
       onAddCheckItem={() => onAddItem(pack.id, "check")}
       onAddTextItem={() => onAddItem(pack.id, "text")}
+      onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
       onRenamePack={(name) => onRenamePack(pack.id, name)}
       onToggleAll={(checked) => onToggleAll(pack.id, checked)}
       onSaveToLibrary={() => onSaveToLibrary(pack.id)}

@@ -488,8 +488,10 @@ export default function AppShell() {
         <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
           <PackLibraryEditorScreen
             initialPack={editingPack}
+            libraryPacks={libraryPacks}
             onBack={() => setEditingPack(null)}
             onSave={handleSavePack}
+            onSaveOtherPack={handleSavePack}
             onDelete={handleDeletePack}
           />
         </div>
