@@ -77,6 +77,7 @@ interface AuthContextValue {
   updateBagOrder: (order: string[]) => Promise<void>;
   updatePackOrder: (order: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
+  updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -167,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bagOrder: data?.bagOrder as string[] | undefined,
         packOrder: data?.packOrder as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
+        quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
         aiUsage: data?.aiUsage as UserProfile["aiUsage"],
         unlockCode: data?.unlockCode as string | undefined,
         unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
@@ -392,6 +394,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // 하단 QuickPackBar를 접은 상태(오른쪽 끝 떠있는 작은 버블)로 보여줄지. 계정에 저장해서 어느
+  // 화면(팩/가방)에서도 동일하게 적용된다.
+  const updateQuickPackCollapsed = async (collapsed: boolean) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
+  };
+
   const resendVerificationEmail = async () => {
     if (!user) return;
     try {
@@ -472,6 +481,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateBagOrder,
         updatePackOrder,
         updatePackSettings,
+        updateQuickPackCollapsed,
         resendVerificationEmail,
         resendVerificationByCredential,
         sendPasswordReset,

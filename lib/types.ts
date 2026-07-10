@@ -163,6 +163,10 @@ export interface UserProfile {
     // 진입 후에는 평소처럼 자유롭게 펼치고 접을 수 있다. 없으면 false(기본) 기본값.
     alwaysCollapseOnEntry?: boolean;
   };
+  // 하단 QuickPackBar(빠른팩 미리보기)를 접어서 오른쪽 끝에 떠있는 작은 원형 버튼으로만
+  // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)
+  // 어디서나 동일하게 적용된다.
+  quickPackCollapsed?: boolean;
   // AI 기능(메모/샘플 가져오기, 가방 속 AI 정리) 일일 무료 사용량.
   // date가 오늘(KST)과 다르면 count는 0으로 취급한다 (lib/aiUsageService.ts 참고)
   aiUsage?: {
