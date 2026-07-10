@@ -57,37 +57,41 @@ export default function BagCard({
           <IconLock size={11} stroke={2} color="#fff" />
         </span>
       )}
-      <div className="flex items-start justify-between gap-1.5 shrink-0">
-        <span className="flex items-start gap-1 min-w-0">
-          {onTogglePin && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePin();
-              }}
-              aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
-              className="shrink-0 h-[15px] w-[15px] flex items-center justify-center -mt-[1px]"
-            >
-              {pinned ? (
-                <IconPinFilled size={13} stroke={1.75} color="var(--accent)" />
-              ) : (
-                <IconPin size={13} stroke={1.75} color="var(--text-muted)" />
-              )}
-            </button>
-          )}
-          <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0">
-            {bag.name}
-          </span>
+      {/* 제목 줄: 제목은 왼쪽에서 최대한 넓게, 고정핀은 오른쪽 끝에 별도 자리를 차지한다
+          (D-Day 배지와 자리를 다투지 않도록 D-Day는 아예 다음 줄로 내려서 따로 보여준다). */}
+      <div className="flex items-start justify-between gap-1 shrink-0">
+        <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0 flex-1">
+          {bag.name}
         </span>
-        {ddayLabel && (
+        {onTogglePin && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePin();
+            }}
+            aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
+            // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
+            // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
+            className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+          >
+            {pinned ? (
+              <IconPinFilled size={14} stroke={1.75} color="var(--accent)" />
+            ) : (
+              <IconPin size={14} stroke={1.75} color="var(--text-muted)" />
+            )}
+          </button>
+        )}
+      </div>
+      {ddayLabel && (
+        <div className="mt-1 shrink-0">
           <span
-            className="text-[calc(10px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5 shrink-0"
+            className="inline-block text-[calc(10px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5"
             style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
           >
             {ddayLabel}
           </span>
-        )}
-      </div>
+        </div>
+      )}
       {bag.packs.length > 0 && (
         <div className="flex-1 min-h-0 overflow-hidden mt-1.5">
           <div className="grid grid-cols-2 gap-x-2 md:gap-x-3 gap-y-0.5 md:gap-y-1">

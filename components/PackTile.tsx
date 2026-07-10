@@ -52,7 +52,19 @@ export default function PackTile({
           <IconLock size={11} stroke={2} color="#fff" />
         </span>
       )}
-      <span className="flex items-center gap-1.5 shrink-0">
+      {/* 제목 줄: 점(색상)+이름은 왼쪽에서 최대한 넓게, 고정핀은 오른쪽 끝에 별도 자리. */}
+      <div className="flex items-start justify-between gap-1 shrink-0">
+        <span className="flex items-center gap-1.5 min-w-0 flex-1">
+          {dotHex && (
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ background: dotHex, transform: "scale(var(--pack-library-card-scale,1))" }}
+            />
+          )}
+          <span className="text-[calc(13px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0">
+            {pack.name}
+          </span>
+        </span>
         {onTogglePin && (
           <button
             onClick={(e) => {
@@ -60,25 +72,18 @@ export default function PackTile({
               onTogglePin();
             }}
             aria-label={pinned ? "고정 해제" : "이 팩 고정하기"}
-            className="shrink-0 h-[15px] w-[15px] flex items-center justify-center"
+            // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
+            // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
+            className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
           >
             {pinned ? (
-              <IconPinFilled size={13} stroke={1.75} color="var(--accent)" />
+              <IconPinFilled size={14} stroke={1.75} color="var(--accent)" />
             ) : (
-              <IconPin size={13} stroke={1.75} color="var(--text-muted)" />
+              <IconPin size={14} stroke={1.75} color="var(--text-muted)" />
             )}
           </button>
         )}
-        {dotHex && (
-          <span
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ background: dotHex, transform: "scale(var(--pack-library-card-scale,1))" }}
-          />
-        )}
-        <span className="text-[calc(13px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2">
-          {pack.name}
-        </span>
-      </span>
+      </div>
       {itemNames.length > 0 && (
         <span className="flex-1 text-[calc(11px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary line-clamp-2 break-keep mt-1.5">
           {itemNames.join(", ")}
