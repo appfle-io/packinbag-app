@@ -80,6 +80,29 @@ function PremiumSyncOverlay({ visible }: { visible: boolean }) {
   );
 }
 
+// 새 가방을 만들기 위해 Firestore에 쓰는 동안(빈 가방/AI 메모 가져오기/샘플 템플릿/해시태그
+// AI 생성 모두 같은 경로) 보여주는 전체화면 오버레이. 이 구간은 모달이 이미 닫히고 아직
+// 새 가방 화면으로 전환되기 전이라 아무 반응이 없으면 멈춘 것처럼 보이는데, 이 오버레이로
+// "지금 만들고 있다"는 걸 바로 알 수 있게 한다.
+function CreatingBagOverlay({ visible }: { visible: boolean }) {
+  return (
+    <div
+      className="fixed inset-0 z-[210] flex flex-col items-center justify-center gap-3"
+      style={{
+        background: "var(--background)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 200ms ease",
+        pointerEvents: visible ? "auto" : "none",
+      }}
+    >
+      <IconLoader2 size={28} stroke={1.75} color="var(--text-muted)" className="animate-spin" />
+      <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+        가방을 만들고 있어요
+      </span>
+    </div>
+  );
+}
+
 export default function AppShell() {
   const { user, profile, loading } = useAuth();
   const { show } = useToast();
@@ -100,6 +123,9 @@ export default function AppShell() {
   const [settingsSubviewActive, setSettingsSubviewActive] = useState(false);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
   const [showPremiumSyncOverlay, setShowPremiumSyncOverlay] = useState(false);
+  // 새 가방을 Firestore에 쓰는 동안(openNewBag/openNewBagFromNote) true. CreatingBagOverlay를
+  // 띄우는 용도로만 쓰이고, 실제 가방 생성 로직에는 영향을 주지 않는다.
+  const [creatingBag, setCreatingBag] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinTimeDone(true), 900);
@@ -287,6 +313,7 @@ export default function AppShell() {
       updatedAt: now,
     };
     setIsNewBag(true);
+    setCreatingBag(true);
     try {
       const created = await createBagRemote(user, draft, {
         nickname: profile.nickname!,
@@ -301,6 +328,8 @@ export default function AppShell() {
       }
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+    } finally {
+      setCreatingBag(false);
     }
   };
 
@@ -348,6 +377,7 @@ export default function AppShell() {
       updatedAt: now,
     };
     setIsNewBag(true);
+    setCreatingBag(true);
     try {
       const created = await createBagRemote(user, draft, {
         nickname: profile.nickname!,
@@ -363,6 +393,8 @@ export default function AppShell() {
       }
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+    } finally {
+      setCreatingBag(false);
     }
   };
 
@@ -712,6 +744,7 @@ export default function AppShell() {
       )}
       <SplashScreen visible={showSplash} />
       <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
+      <CreatingBagOverlay visible={creatingBag} />
     </>
   );
 }

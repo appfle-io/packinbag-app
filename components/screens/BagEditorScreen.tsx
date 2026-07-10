@@ -10,6 +10,11 @@ import {
   IconUsers,
   IconSparkles,
   IconLock,
+  IconLoader2,
+  IconChevronDown,
+  IconChevronRight,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import EditableText from "@/components/EditableText";
@@ -850,6 +855,13 @@ export default function BagEditorScreen({
     show("가방에서 나갔어요");
   };
 
+  // 상단 전체 컨트롤(접기/넓게보기) 아이콘이 지금 어떤 상태를 보여줘야 하는지 판단하기 위해,
+  // 모든 팩이 같은 displayState인지 확인한다. 팩들이 섞여있으면(일부만 접힘 등) 기본 아이콘으로 보인다.
+  const allPacksCollapsed =
+    bag.packs.length > 0 && bag.packs.every((p) => (p.displayState ?? "normal") === "collapsed");
+  const allPacksWide =
+    bag.packs.length > 0 && bag.packs.every((p) => (p.displayState ?? "normal") === "wide");
+
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
@@ -959,7 +971,11 @@ export default function BagEditorScreen({
               disabled={uploadingImages}
               className="shrink-0 h-14 w-14 rounded-lg border border-dashed border-border-strong flex items-center justify-center text-text-muted disabled:opacity-50"
             >
-              <IconPhoto size={18} stroke={1.75} />
+              {uploadingImages ? (
+                <IconLoader2 size={18} stroke={1.75} className="animate-spin" />
+              ) : (
+                <IconPhoto size={18} stroke={1.75} />
+              )}
             </button>
           )}
           <input
@@ -996,24 +1012,28 @@ export default function BagEditorScreen({
               <IconSparkles size={13} stroke={1.75} />AI로 정리
             </button>
             {bag.packs.length > 0 && (
-              <div className="flex items-center gap-1 ml-auto rounded-lg border border-border p-0.5">
+              <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
                 <button
-                  onClick={() => handleSetAllDisplayState("collapsed")}
-                  className="rounded-md px-2 py-1 text-[11px]"
+                  onClick={() =>
+                    handleSetAllDisplayState(allPacksCollapsed ? "normal" : "collapsed")
+                  }
+                  aria-label={allPacksCollapsed ? "팩 전체 펼치기" : "팩 전체 접기"}
                 >
-                  전체 접기
+                  {allPacksCollapsed ? (
+                    <IconChevronDown size={17} stroke={1.75} color="var(--text-secondary)" />
+                  ) : (
+                    <IconChevronRight size={17} stroke={1.75} color="var(--text-secondary)" />
+                  )}
                 </button>
                 <button
-                  onClick={() => handleSetAllDisplayState("normal")}
-                  className="rounded-md px-2 py-1 text-[11px]"
+                  onClick={() => handleSetAllDisplayState(allPacksWide ? "normal" : "wide")}
+                  aria-label={allPacksWide ? "팩 전체 기본 크기로" : "팩 전체 넓게 보기"}
                 >
-                  기본
-                </button>
-                <button
-                  onClick={() => handleSetAllDisplayState("wide")}
-                  className="rounded-md px-2 py-1 text-[11px]"
-                >
-                  전체 펼치기
+                  {allPacksWide ? (
+                    <IconArrowsMinimize size={17} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
+                  )}
                 </button>
               </div>
             )}
