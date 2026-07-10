@@ -49,6 +49,7 @@ export default function PackLibraryEditorScreen({
   onDelete,
   onAddItemsToBagPack,
   onRemoveItemsFromBagPack,
+  variant = "fullscreen",
 }: {
   initialPack: Pack;
   // 팩 선택 모달 상단에 보여줄 라이브러리 전체 팩 목록. 지금 편집 중인 팩이
@@ -74,6 +75,10 @@ export default function PackLibraryEditorScreen({
   // 빠른팩에서 짐을 특정 가방의 특정 팩으로 이동할 때 호출. (되돌리기는 아래 콜백)
   onAddItemsToBagPack?: (bagId: string, packId: string, items: Item[]) => void;
   onRemoveItemsFromBagPack?: (bagId: string, packId: string, itemIds: Set<string>) => void;
+  // "fullscreen"(기본): 가방 편집화면과 동일하게 화면 전체를 채운다.
+  // "sheet": AppShell이 내용 길이에 맞춰 커지는 바텀시트 컨테이너 안에 이 화면을 넣을 때 -
+  // 화면 자체가 h-dvh(기기 전체 높이)를 강제하지 않고 부모(시트)가 준 높이를 그대로 채운다.
+  variant?: "fullscreen" | "sheet";
 }) {
   const [pack, setPack] = useState<Pack>(initialPack);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -175,6 +180,10 @@ export default function PackLibraryEditorScreen({
     (b) => !lockedBagIds?.has(b.id) && b.packs.length > 0
   );
 
+  // 방금 새로 추가한 짐의 id. 추가 직후 화면에 그 짐이 보이도록 스크롤을 맞추는 용도로만
+  // 쓰이고, 스크롤을 한 번 맞추면 바로 null로 비운다.
+  const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null);
+
   const buildNewItem = (data: ItemFormSaveData): Item => ({
     id: uid(),
     type: data.type,
@@ -225,7 +234,11 @@ export default function PackLibraryEditorScreen({
         setPack((p) => ({ ...p, items: p.items.filter((i) => i.id !== itemId) }));
       }
     } else if (includesCurrent) {
-      setPack((p) => ({ ...p, items: [...p.items, buildNewItem(data)] }));
+      // 새 짐 추가: 어디에 정렬되어 보이든(완료 항목 아래로 정리 설정과 무관하게)
+      // 추가 직후 화면에 바로 보이도록 이 짐의 id를 기억해서 스크롤을 맞춘다.
+      const newItem = buildNewItem(data);
+      setPack((p) => ({ ...p, items: [...p.items, newItem] }));
+      setLastAddedItemId(newItem.id);
     }
 
     otherPackIds.forEach((packId) => {
@@ -237,13 +250,21 @@ export default function PackLibraryEditorScreen({
     setItemModal(null);
   };
 
-  // 짐을 새로 추가하면(= 목록 끝에 쌓이면) 입력창 바로 위, 즉 목록 맨 아래로
-  // 자동 스크롤해서 방금 추가한 짐이 바로 보이게 한다.
+  // 방금 추가한 짐(lastAddedItemId)이 있으면 그 짐이 화면에 보이도록 스크롤한다.
+  // "완료 항목 맨 아래로 이동" 설정이 켜져 있으면 새 짐(미완료)은 미완료 그룹, 즉 화면
+  // 위쪽에 놓이는데, 예전에는 무조건 목록 맨 아래(scrollHeight)로 스크롤해서 새로
+  // 추가한 짐이 화면 밖으로 밀려나 안 보이는 문제가 있었다 - 이제는 그 짐의 실제
+  // 위치로 스크롤을 맞춘다.
   useEffect(() => {
+    if (!lastAddedItemId) return;
     const el = listRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [pack.items.length]);
+    const itemEl = el?.querySelector(
+      `[data-item-id="${lastAddedItemId}"]`
+    ) as HTMLElement | null;
+    itemEl?.scrollIntoView({ block: "nearest" });
+    setLastAddedItemId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAddedItemId]);
 
   // --- 짐 순서 변경(롱프레스 드래그) / 빠른팩 다중선택 이동 --------------------
   // 팩이 하나뿐인 화면이라 "다른 팩으로 이동"은 필요 없고, 같은 팩 안에서
@@ -437,6 +458,8 @@ export default function PackLibraryEditorScreen({
   // window.scrollTo(0, 0)을 반복 호출해서 브라우저가 만들어내는 스크롤을 계속 취소한다.
   // resize/scroll 이벤트 직후 한 번, 그리고 iOS가 살짝 늦게 다시 스크롤시키는 경우까지
   // 잡기 위해 rAF + 짧은 지연 후 한 번 더 취소한다.
+  // (sheet variant일 때도 그대로 켜둔다 - 인라인 이름 편집 중 키보드가 올라오면 시트가
+  // 그만큼 위로 키를 채워서 입력창이 키보드에 가리지 않게 해준다.)
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   useEffect(() => {
     const vv = window.visualViewport;
@@ -470,8 +493,8 @@ export default function PackLibraryEditorScreen({
   return (
     <div
       ref={swipeBackRef}
-      className="flex flex-col overflow-hidden h-dvh"
-      style={viewportHeight != null ? { height: `${viewportHeight}px` } : undefined}
+      className={`flex flex-col overflow-hidden ${variant === "sheet" ? "h-full" : "h-dvh"}`}
+      style={variant === "fullscreen" && viewportHeight != null ? { height: `${viewportHeight}px` } : undefined}
     >
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
         <button onClick={selecting ? cancelSelection : onBack}>

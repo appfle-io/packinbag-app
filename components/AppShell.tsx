@@ -43,6 +43,7 @@ import SettingsScreen from "@/components/screens/SettingsScreen";
 import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
+import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
@@ -671,33 +672,6 @@ export default function AppShell() {
     );
   }
 
-  if (editingPack) {
-    const isEditingPackLocked = lockedPackIds.has(editingPack.id);
-    return (
-      <>
-        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
-          <PackLibraryEditorScreen
-            initialPack={editingPack}
-            libraryPacks={libraryPacks}
-            lockedPackIds={lockedPackIds}
-            bags={bags}
-            lockedBagIds={lockedBagIds}
-            readOnly={isEditingPackLocked}
-            onRequestUnlock={requestUnlockForPack}
-            onBack={() => setEditingPack(null)}
-            onSave={handleSavePack}
-            onSaveOtherPack={handleSavePack}
-            onDelete={handleDeletePack}
-            onAddItemsToBagPack={handleAddItemsToBagPack}
-            onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-          />
-        </div>
-        <SplashScreen visible={showSplash} />
-        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-      </>
-    );
-  }
-
   if (showSettings) {
     return (
       <>
@@ -803,6 +777,41 @@ export default function AppShell() {
           onAdd={handleQuickAddItem}
         />
       )}
+      {editingPack && (() => {
+        const isEditingPackLocked = lockedPackIds.has(editingPack.id);
+        return (
+          <Portal>
+            <div
+              className="fixed inset-0 z-[75] flex items-end justify-center"
+              style={{ background: "rgba(0,0,0,0.45)" }}
+              onClick={() => setEditingPack(null)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
+                style={{ maxHeight: "85vh" }}
+              >
+                <PackLibraryEditorScreen
+                  variant="sheet"
+                  initialPack={editingPack}
+                  libraryPacks={libraryPacks}
+                  lockedPackIds={lockedPackIds}
+                  bags={bags}
+                  lockedBagIds={lockedBagIds}
+                  readOnly={isEditingPackLocked}
+                  onRequestUnlock={requestUnlockForPack}
+                  onBack={() => setEditingPack(null)}
+                  onSave={handleSavePack}
+                  onSaveOtherPack={handleSavePack}
+                  onDelete={handleDeletePack}
+                  onAddItemsToBagPack={handleAddItemsToBagPack}
+                  onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+                />
+              </div>
+            </div>
+          </Portal>
+        );
+      })()}
       {showAnnouncementPopup && activeUndismissed.length > 0 && (
         <AnnouncementPopupStack
           announcements={activeUndismissed}
