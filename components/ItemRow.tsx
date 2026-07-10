@@ -10,6 +10,12 @@ const EDIT_SWIPE_THRESHOLD = 30;
 const EDIT_SWIPE_MAX = 60;
 const SWIPE_BUTTON_WIDTH = 60;
 
+// 스와이프로 판정되려면 필요한 최소 가로 이동거리 / 세로 대비 배율.
+// 가로 이동이 이 거리 이상이면서 세로보다 이 배율만큼 커야만 짐이 슬라이드된다 -
+// 스크롤하려고 손가락을 내릴 때 생기는 미세한 가로 흔들림을 걸러내기 위한 값이다.
+const SWIPE_INTENT_MIN_PX = 12;
+const SWIPE_INTENT_RATIO = 1.6;
+
 // 짐을 다른 팩으로 옮기거나 순서를 바꿀 때 쓰는 롱프레스 드래그 설정.
 // 이 시간(ms) 이상 큰 움직임 없이 누르고 있으면 드래그 모드로 진입하고,
 // 그전에 손가락이 옆으로 움직이면(스와이프 의도로 판단) 롱프레스를 취소한다.
@@ -120,13 +126,8 @@ export default function ItemRow({
       Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX;
     if (movedEnough) clearLongPressTimer();
 
-    // 세로 움직임이 가로보다 크면 "스크롤하려는 의도"로 판단한다. 이 요소는
-    // touch-action: none이라 브라우저가 자동으로 스크롤해주지 않으므로, 가장 가까운
-    // 스크롤 가능한 조상을 찾아 직접 scrollTop을 옮겨서 원래 스크롤처럼 동작하게 한다.
-    // (이렇게 해야 "롱프레스로 드래그 시작"과 "그냥 목록 스크롤"이 같은 방향 제스처를
-    // 쓰면서도 서로를 방해하지 않는다.)
-    if (scrollingRef.current || (movedEnough && Math.abs(dy) > Math.abs(dx))) {
-      scrollingRef.current = true;
+    // 이미 스크롤로 확정된 상태면 그대로 스크롤 처리를 이어간다.
+    if (scrollingRef.current) {
       if (scrollParentRef.current === undefined) {
         scrollParentRef.current = getScrollParent(e.currentTarget as HTMLElement);
       }
@@ -136,6 +137,30 @@ export default function ItemRow({
         parent.scrollTop -= deltaY;
       }
       lastY.current = e.clientY;
+      return;
+    }
+
+    // 가로 스와이프 의도인지 판단한다: 최소 이동거리(SWIPE_INTENT_MIN_PX) 이상이고,
+    // 세로보다 확실히(SWIPE_INTENT_RATIO배) 커야 스와이프로 인정한다. 스크롤하려고
+    // 손가락을 내릴 때 생기는 미세한 가로 흔들림에도 짐이 슬쩍 밀리던 오탐을 막기 위함이다.
+    const isHorizontalSwipe =
+      Math.abs(dx) >= SWIPE_INTENT_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_INTENT_RATIO;
+
+    if (!isHorizontalSwipe) {
+      // 세로 움직임이 가로와 같거나 크면 스크롤 의도로 확정한다.
+      // (아직 애매한(둘 다 작은 거리) 경우엔 이번 이벤트는 그냥 대기한다.)
+      if (movedEnough && Math.abs(dy) >= Math.abs(dx)) {
+        scrollingRef.current = true;
+        if (scrollParentRef.current === undefined) {
+          scrollParentRef.current = getScrollParent(e.currentTarget as HTMLElement);
+        }
+        const parent = scrollParentRef.current;
+        if (parent) {
+          const deltaY = e.clientY - lastY.current;
+          parent.scrollTop -= deltaY;
+        }
+        lastY.current = e.clientY;
+      }
       return;
     }
 
