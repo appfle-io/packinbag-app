@@ -191,8 +191,8 @@ export default function PackCard({
           <div
             className={
               isWide
-                ? "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(360px*var(--pack-card-scale,1))] md:h-[calc(456px*var(--pack-card-scale,1))]"
-                : "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))]"
+                ? "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] max-h-[calc(360px*var(--pack-card-scale,1))] md:max-h-[calc(456px*var(--pack-card-scale,1))]"
+                : "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] max-h-[calc(180px*var(--pack-card-scale,1))] md:max-h-[calc(228px*var(--pack-card-scale,1))]"
             }
             style={{
               overflowY: "auto",
