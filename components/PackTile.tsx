@@ -42,6 +42,13 @@ export default function PackTile({
         background: dotHex ? `${dotHex}26` : "var(--pack-library-card-bg)",
         opacity: isDragSource ? 0.4 : locked ? 0.6 : 1,
         boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
+        // 카드를 길게 누르면 순서변경 드래그(PacksScreen)로 이어지는데, 이 카드에는
+        // user-select/touch-callout 방지 처리가 없어서 그 전에 네이티브 텍스트 선택/복사
+        // 콜아웃(에디트모드)이 먼저 뜨는 문제가 있었다. ItemRow.tsx의 드래그 대상과
+        // 동일하게 여기서도 선택/콜아웃을 막아서 롱프레스가 곧바로 드래그로만 이어지게 한다.
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
       }}
     >
       {locked && (

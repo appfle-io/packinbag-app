@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowLeft, IconTrash, IconPlus, IconLock } from "@tabler/icons-react";
+import { IconArrowLeft, IconTrash, IconPlus, IconLock, IconX } from "@tabler/icons-react";
 import { Item, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
@@ -10,6 +10,7 @@ import ItemRow from "@/components/ItemRow";
 import ItemFormModal, { ItemFormSaveData } from "@/components/ItemFormModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PackColorDot from "@/components/PackColorDot";
+import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -20,6 +21,11 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 // 동시에 짐이 추가/복사된다. 이미 추가된 짐은 기존과 동일하게 오른쪽 스와이프=수정
 // (역시 이 모달을 열도록 변경), 왼쪽 스와이프=삭제로 조작하고, 체크박스 제외 영역을
 // 롱프레스하면(그립 아이콘 없음) 같은 팩 안에서 순서를 바꿀 수 있다.
+//
+// 예외: 지금 편집 중인 팩이 "빠른팩"(pack.isQuickPack)이면, 같은 화면에 다른 팩이
+// 안 보여서 드래그로 다른 팩에 옮길 수가 없다. 그래서 이 팩에서만 롱프레스가 순서변경
+// 드래그 대신 "이동할 팩 선택" 시트를 띄우고, 고르면 그 팩으로 즉시 이동(원본에서
+// 제거 + 대상에 복사)한다.
 export default function PackLibraryEditorScreen({
   initialPack,
   libraryPacks,
@@ -216,11 +222,40 @@ export default function PackLibraryEditorScreen({
   // --- 짐 순서 변경(롱프레스 드래그) ------------------------------------
   // 팩이 하나뿐인 화면이라 "다른 팩으로 이동"은 필요 없고, 같은 팩 안에서
   // 순서만 바꾼다. "가방 속 팩"과 동일하게 그립 아이콘 없이 롱프레스로 시작.
+  // (빠른팩은 예외 - 아래 moveTarget 참고)
   const [drag, setDrag] = useState<{ itemId: string; overItemId: string | null } | null>(null);
+  // 빠른팩에서만 쓰이는 "이동할 팩 선택" 시트 상태. 다른 팩에서는 항상 null.
+  const [moveTarget, setMoveTarget] = useState<{ itemId: string } | null>(null);
 
   const handleStartItemDrag = (itemId: string) => {
     if (guardReadOnly()) return;
+    if (pack.isQuickPack) {
+      setMoveTarget({ itemId });
+      return;
+    }
     setDrag({ itemId, overItemId: null });
+  };
+
+  // 빠른팩의 짐을 다른 라이브러리 팩으로 옮긴다: 지금 팩(빠른팩)에서 제거하고,
+  // 고른 팩에는 새 복사본을 즉시 원격저장(onSaveOtherPack)한다. 실수로 옮겼을 때는
+  // 토스트의 "되돌리기"로 원상복구할 수 있다.
+  const handleMoveItemToPack = (itemId: string, targetPackId: string) => {
+    if (guardReadOnly()) return;
+    const movedItem = pack.items.find((i) => i.id === itemId);
+    const target = displayPacks.find((p) => p.id === targetPackId);
+    setMoveTarget(null);
+    if (!movedItem || !target) return;
+    setPack((p) => ({ ...p, items: p.items.filter((i) => i.id !== itemId) }));
+    const itemCopy = { ...movedItem, id: uid() };
+    const targetItemsBefore = target.items;
+    onSaveOtherPack({ ...target, items: [...targetItemsBefore, itemCopy] });
+    show(`"${target.name}" 팩으로 옮겼어요`, {
+      actionLabel: "되돌리기",
+      onAction: () => {
+        setPack((p) => ({ ...p, items: [...p.items, movedItem] }));
+        onSaveOtherPack({ ...target, items: targetItemsBefore });
+      },
+    });
   };
 
   useEffect(() => {
@@ -350,7 +385,6 @@ export default function PackLibraryEditorScreen({
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
       window.removeEventListener("scroll", cancelNativeScroll);
-      cancelNativeScroll();
     };
   }, []);
 
@@ -371,7 +405,7 @@ export default function PackLibraryEditorScreen({
           >
             저장됨
           </span>
-          {!readOnly && (
+          {!readOnly && !pack.isQuickPack && (
             <button
               onClick={() => setConfirmDelete(true)}
               className="rounded-lg px-2.5 py-1.5"
@@ -398,6 +432,12 @@ export default function PackLibraryEditorScreen({
         </button>
       )}
 
+      {pack.isQuickPack && (
+        <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
+          빠른입력으로 던져둔 짐들이에요. 짐을 길게 누르면 원하는 팩으로 옮길 수 있어요.
+        </p>
+      )}
+
       <div className="flex items-center gap-2 px-4 pb-2 shrink-0">
         <PackColorDot
           colorId={pack.color}
@@ -409,7 +449,7 @@ export default function PackLibraryEditorScreen({
         <EditableText
           value={pack.name}
           onChange={(name) => setPack((p) => ({ ...p, name }))}
-          readOnly={readOnly}
+          readOnly={readOnly || pack.isQuickPack}
           className="text-[18px] font-medium block text-left min-w-0 flex-1"
           inputClassName="text-[18px] font-medium block w-full"
           placeholder="새 팩"
@@ -418,7 +458,7 @@ export default function PackLibraryEditorScreen({
 
       {/* 이미 추가된 짐 목록: 1개면 한 줄을 다 채우고, 늘어날수록 반응형으로
           여러 열로 재배치된다(auto-fit). 오른쪽 스와이프=수정, 왼쪽 스와이프=삭제,
-          체크박스 제외 영역 롱프레스=순서변경 드래그 시작. */}
+          체크박스 제외 영역 롱프레스=순서변경 드래그 시작(빠른팩은 "이동할 팩 선택" 시트). */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 pb-3">
         {displayItems.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
@@ -478,6 +518,50 @@ export default function PackLibraryEditorScreen({
           onClose={() => setItemModal(null)}
           onSave={handleModalSave}
         />
+      )}
+
+      {moveTarget && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setMoveTarget(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[15px] font-medium">이동할 팩 선택</span>
+                <button onClick={() => setMoveTarget(null)} aria-label="닫기">
+                  <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+              </div>
+              {displayPacks.filter((p) => p.id !== pack.id).length === 0 ? (
+                <p className="text-[12px] text-text-muted py-4 text-center">
+                  이동할 수 있는 다른 팩이 없어요. 먼저 팩을 하나 만들어보세요.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
+                  {displayPacks
+                    .filter((p) => p.id !== pack.id)
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleMoveItemToPack(moveTarget.itemId, p.id)}
+                        className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                        style={{ background: "var(--surface-2)" }}
+                      >
+                        <span className="text-[13px] font-medium truncate">{p.name}</span>
+                        <span className="text-[11px] text-text-muted shrink-0">{p.items.length}개</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Portal>
       )}
 
       {confirmDelete && (

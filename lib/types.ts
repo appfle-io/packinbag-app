@@ -45,6 +45,12 @@ export interface Pack {
   // "wide"는 짐 영역 높이를 기본 높이의 2배로 보여주고(그 이상은 내부 스크롤),
   // "collapsed"는 짐 영역을 숨기고 헤더(이름/진행률/아이콘)만 보여준다.
   displayState?: "normal" | "wide" | "collapsed";
+  // true면 이 팩은 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩("빠른팩")이다.
+  // 사용자당 최대 1개, id는 항상 QUICK_PACK_ID(lib/premiumLimits.ts) 고정값을 쓴다.
+  // 무료 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)과 잠금 대상 계산에서 항상 제외되고,
+  // 아이템이 0개가 되면 화면에서는 숨겨지지만(HIDE) 문서 자체는 삭제되지 않는다 -
+  // 다음에 다시 빠른입력하면 그대로 재사용된다.
+  isQuickPack?: boolean;
   // 이용권이 없거나 만료/무효화된 사람이 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을
   // 넘겨서 갖고 있던 팩 중 "최신 N개"에 들지 못한 것에 true로 표시된다. 서버(app/api/sync-lock-status)만
   // 이 필드를 쓸 수 있고(firestore.rules에서 클라이언트 수정/삭제를 막음), 잠긴 팩은 보기만
@@ -152,6 +158,10 @@ export interface UserProfile {
   packSettings?: {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)
     moveCompletedToBottom?: boolean;
+    // ON이면 가방에 들어갈 때마다(진입 시점만) 모든 팩이 접힌 상태로 시작한다.
+    // 저장된 Pack.displayState는 전혀 바꾸지 않고(진입 시 적용되는 화면 표시만 덮어씀),
+    // 진입 후에는 평소처럼 자유롭게 펼치고 접을 수 있다. 없으면 false(기본) 기본값.
+    alwaysCollapseOnEntry?: boolean;
   };
   // AI 기능(메모/샘플 가져오기, 가방 속 AI 정리) 일일 무료 사용량.
   // date가 오늘(KST)과 다르면 count는 0으로 취급한다 (lib/aiUsageService.ts 참고)

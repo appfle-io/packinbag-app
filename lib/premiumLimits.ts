@@ -39,6 +39,11 @@ export const FREE_MAX_ACTIVE_BAGS = 3;
 // 가방당 사진 첨부 최대 장수 - 무료/유료 공통 제한 (멤버 혼재 정책 충돌 방지용)
 export const MAX_BAG_IMAGES = 5;
 
+// 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩("빠른팩")의 고정 문서 id.
+// 사용자당 항상 이 id 하나만 존재하고(Pack.isQuickPack도 함께 true로 저장),
+// 무료 라이브러리 개수 제한/잠금 대상에서 항상 제외된다.
+export const QUICK_PACK_ID = "quick-pack";
+
 // createdAt(ISO 문자열) 기준 내림순(최신을 앞으로) 정렬. ISO 8601 문자열은 문자열
 // 대소 비교(localeCompare)만으로도 실제 시간 순서와 일치한다. createdAt이 없는
 // 항목(드물지만 방어적으로)은 맨 뒤로 밀려서 잠금 대상이 되기 쉽게 둔다.
@@ -59,7 +64,10 @@ export function computeLockedBagIds(bags: Bag[], ownerUid: string): Set<string> 
 // 무료인데 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을 넘는 팩을 갖고 있을 때,
 // 최신 N개만 잠금 해제하고 나머지를 잠금 대상으로 계산한다. 팩 라이브러리
 // (users/{uid}/libraryPacks)는 원래부터 개인 전용 공간이라 소유자 구분이 필요 없다.
+// 빠른팩(isQuickPack)은 개수 제한/잠금 대상 계산 자체에서 항상 제외한다 - 몇 개를
+// 갖고 있든 무료 3개 한도와 무관하게 항상 잠금 해제 상태여야 한다.
 export function computeLockedPackIds(packs: Pack[]): Set<string> {
-  const sorted = sortByCreatedAtDesc(packs);
+  const eligible = packs.filter((p) => !p.isQuickPack);
+  const sorted = sortByCreatedAtDesc(eligible);
   return new Set(sorted.slice(FREE_MAX_LIBRARY_PACKS).map((p) => p.id));
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconSettings } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
 import PackTile from "@/components/PackTile";
 import SortSelect from "@/components/SortSelect";
+import QuickPackBar from "@/components/QuickPackBar";
 import { useToast } from "@/components/Toast";
 
 const LONG_PRESS_MS = 400;
@@ -14,22 +15,29 @@ const MOVE_CANCEL_PX = 10;
 
 export default function PacksScreen({
   packs,
+  quickPack,
   lockedPackIds,
   onOpenPack,
   onNewPack,
+  onOpenSettings,
 }: {
+  // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 그리드 렌더링 전에
+  // 걸러낸다 - 빠른팩은 그리드가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
   packs: Pack[];
+  quickPack?: Pack;
   // 무료 전환으로 잠긴 팩 id 목록. 타일에 자물쇠 표시만 하고, 탭하면 여전히 열린다 -
   // 실제 읽기 전용 처리는 PackLibraryEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
   lockedPackIds?: Set<string>;
   onOpenPack: (pack: Pack) => void;
   onNewPack: () => void;
+  onOpenSettings: () => void;
 }) {
   const { profile, updatePackSortBy, togglePackPinned, updatePackOrder } = useAuth();
   const { show } = useToast();
   const sortBy = profile?.packSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedPackIds ?? [];
-  const arrangedPacks = arrangeList(packs, { sortBy, pinnedIds, order: profile?.packOrder });
+  const gridPacks = packs.filter((p) => !p.isQuickPack);
+  const arrangedPacks = arrangeList(gridPacks, { sortBy, pinnedIds, order: profile?.packOrder });
   const pinnedSet = new Set(pinnedIds);
 
   // 길게 눌러서 순서 바꾸기 (HomeScreen의 가방 그리드와 동일한 패턴)
@@ -104,55 +112,70 @@ export default function PacksScreen({
   }, [reorderDrag !== null]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <div className="flex items-baseline gap-2 mb-4">
-        <h1 className="text-[22px] font-bold">팩</h1>
-        <span className="text-[12px] text-text-muted">
-          한 번 만들어두면 여러 가방에서 두고두고 써요
-        </span>
-      </div>
-
-      {packs.length > 0 && (
-        <div className="flex justify-end mb-3">
-          <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-        {arrangedPacks.map((pack) => (
-          <div
-            key={pack.id}
-            data-pack-tile-drop-id={pack.id}
-            onPointerDown={(e) => handleTilePointerDown(pack.id, e)}
-            onPointerMove={handleTilePointerMove}
-            onPointerUp={handleTilePointerUp}
-            onPointerCancel={handleTilePointerUp}
-            onClickCapture={(e) => {
-              if (justDraggedRef.current) {
-                justDraggedRef.current = false;
-                e.stopPropagation();
-                e.preventDefault();
-              }
-            }}
-          >
-            <PackTile
-              pack={pack}
-              locked={lockedPackIds?.has(pack.id)}
-              pinned={pinnedSet.has(pack.id)}
-              onTogglePin={() => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))}
-              isDragSource={reorderDrag?.id === pack.id}
-              isDragOver={reorderDrag?.overId === pack.id}
-              onClick={() => onOpenPack(pack)}
-            />
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="shrink-0 p-4 pb-0">
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h1 className="text-[22px] font-bold shrink-0">팩</h1>
+            <span className="text-[12px] text-text-muted truncate">
+              한 번 만들어두면 여러 가방에서 두고두고 써요
+            </span>
           </div>
-        ))}
-        <button
-          onClick={onNewPack}
-          className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
-        >
-          <IconPlus size={22} stroke={1.75} />
-        </button>
+          <button
+            onClick={onOpenSettings}
+            aria-label="설정"
+            className="-m-2 p-2 shrink-0"
+          >
+            <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
+          </button>
+        </div>
+
+        {gridPacks.length > 0 && (
+          <div className="flex justify-end mb-3">
+            <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+          </div>
+        )}
       </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+          {arrangedPacks.map((pack) => (
+            <div
+              key={pack.id}
+              data-pack-tile-drop-id={pack.id}
+              onPointerDown={(e) => handleTilePointerDown(pack.id, e)}
+              onPointerMove={handleTilePointerMove}
+              onPointerUp={handleTilePointerUp}
+              onPointerCancel={handleTilePointerUp}
+              onClickCapture={(e) => {
+                if (justDraggedRef.current) {
+                  justDraggedRef.current = false;
+                  e.stopPropagation();
+                  e.preventDefault();
+                }
+              }}
+            >
+              <PackTile
+                pack={pack}
+                locked={lockedPackIds?.has(pack.id)}
+                pinned={pinnedSet.has(pack.id)}
+                onTogglePin={() => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))}
+                isDragSource={reorderDrag?.id === pack.id}
+                isDragOver={reorderDrag?.overId === pack.id}
+                onClick={() => onOpenPack(pack)}
+              />
+            </div>
+          ))}
+          <button
+            onClick={onNewPack}
+            className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+          >
+            <IconPlus size={22} stroke={1.75} />
+          </button>
+        </div>
+      </div>
+
+      <QuickPackBar pack={quickPack} onClick={() => quickPack && onOpenPack(quickPack)} />
 
       {reorderDrag && (
         <div
@@ -165,7 +188,7 @@ export default function PacksScreen({
             color: "#fff",
           }}
         >
-          {packs.find((p) => p.id === reorderDrag.id)?.name || "팩"}
+          {gridPacks.find((p) => p.id === reorderDrag.id)?.name || "팩"}
         </div>
       )}
     </div>

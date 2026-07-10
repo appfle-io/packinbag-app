@@ -10,6 +10,8 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   // 명시적으로 꺼둔 적이 없으면 기본 켜짐
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
+  // 명시적으로 켜둔 적이 없으면 기본 꺼짐
+  const alwaysCollapseOnEntry = profile?.packSettings?.alwaysCollapseOnEntry ?? false;
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -36,6 +38,20 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
             checked={moveCompletedToBottom}
             onChange={(v) => updatePackSettings({ moveCompletedToBottom: v })}
             ariaLabel="완료된 항목 맨 아래로 이동"
+          />
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium">가방 열 때 팩 접어서 보기</p>
+            <p className="text-[11.5px] text-text-secondary mt-0.5">
+              가방에 들어갈 때마다 팩이 접힌 상태로 시작돼요. 이후엔 자유롭게 펼치고 접을 수 있어요.
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={alwaysCollapseOnEntry}
+            onChange={(v) => updatePackSettings({ alwaysCollapseOnEntry: v })}
+            ariaLabel="가방 열 때 팩 접어서 보기"
           />
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IconLoader2 } from "@tabler/icons-react";
-import { Bag, Pack, Announcement } from "@/lib/types";
+import { Bag, Item, Pack, Announcement } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
   subscribeToUserBags,
@@ -42,12 +42,14 @@ import PacksScreen from "@/components/screens/PacksScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
+import QuickAddModal from "@/components/QuickAddModal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
   isPremiumUser,
   FREE_MAX_LIBRARY_PACKS,
   FREE_MAX_ACTIVE_BAGS,
+  QUICK_PACK_ID,
   PremiumLimitError,
   computeLockedBagIds,
   computeLockedPackIds,
@@ -116,11 +118,15 @@ export default function AppShell() {
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
+  // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더 톱니바퀴로 열고 뒤로가기로
+  // 닫는 풀스크린 화면이다(editingBag/editingPack과 동일한 "위로 쌓이는" 패턴).
+  const [showSettings, setShowSettings] = useState(false);
+  // 하단 중앙 "+" 버튼(빠른입력) 모달 표시 여부.
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [splashMinTimeDone, setSplashMinTimeDone] = useState(false);
   const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
   const announcementPopupShownRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
-  const [settingsSubviewActive, setSettingsSubviewActive] = useState(false);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
   const [showPremiumSyncOverlay, setShowPremiumSyncOverlay] = useState(false);
   // 새 가방을 Firestore에 쓰는 동안(openNewBag/openNewBagFromNote) true. CreatingBagOverlay를
@@ -227,6 +233,8 @@ export default function AppShell() {
   // 무료 전환으로 잠긴(내가 소유한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
   const lockedPackIds = !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
+  // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
+  const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
 
   const requestUnlockForBag = () =>
     setPremiumLimitMessage(
@@ -573,6 +581,21 @@ export default function AppShell() {
       });
   };
 
+  // 하단 "+" 빠른입력 모달에서 항목을 추가할 때마다 호출된다. 빠른팩이 아직 없으면
+  // (한 번도 안 썼으면) isQuickPack:true로 새로 만들고, 있으면 기존 팩 끝에 이어붙인다.
+  // 빠른팩은 무료 3개 한도와 무관하게 항상 생성/저장이 허용된다(app/api/create-library-pack,
+  // lib/premiumLimits.ts computeLockedPackIds 참고).
+  const handleQuickAddItem = (data: { type: "check" | "text"; text: string }) => {
+    const newItem: Item = { id: uid(), type: data.type, text: data.text, checked: false };
+    const draft: Pack = quickPack
+      ? { ...quickPack, items: [...quickPack.items, newItem] }
+      : { id: QUICK_PACK_ID, name: "빠른팩", items: [newItem], isQuickPack: true };
+    saveLibraryPackRemote(user, draft).catch((err) => {
+      console.error("[팩인백] 빠른입력 저장 실패:", err);
+      show(`빠른입력 저장에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
   if (editingBag) {
     const isEditingBagLocked = lockedBagIds.has(editingBag.id);
     return (
@@ -635,20 +658,36 @@ export default function AppShell() {
     );
   }
 
-  const tabOrder: TabKey[] = ["packs", "home", "settings"];
+  if (showSettings) {
+    return (
+      <>
+        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+          <SettingsScreen
+            uid={user.uid}
+            announcements={announcements}
+            dismissedAnnouncementIds={dismissedIds}
+            onDismissAnnouncement={handleDismissAnnouncement}
+            onCreateAnnouncement={handleCreateAnnouncement}
+            onUpdateAnnouncement={handleUpdateAnnouncement}
+            onDeleteAnnouncement={handleDeleteAnnouncement}
+            onBack={() => setShowSettings(false)}
+          />
+        </div>
+        <SplashScreen visible={showSplash} />
+        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
+      </>
+    );
+  }
+
+  const tabOrder: TabKey[] = ["packs", "home"];
   const tabIndex = tabOrder.indexOf(tab);
 
   // 빈 배경(카드/버튼/입력이 아닌 곳)을 좌우로 스와이프하면 탭이 전환된다.
-  // 다만 설정 탭 안에서 하위 화면(프로필 수정, 화면설정 등)을 보고 있을 때는
-  // 좌우 스와이프가 메인 탭 전환으로 이어지면 안 된다 - 하위 화면에서는
-  // (엣지 스와이프로) 상위 화면으로 돌아가는 것만 허용된다.
   const handleTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    const ignore =
-      !!target.closest(
-        'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], .fixed'
-      ) ||
-      (tab === "settings" && settingsSubviewActive);
+    const ignore = !!target.closest(
+      'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], .fixed'
+    );
     const t = e.touches[0];
     swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };
   };
@@ -681,24 +720,27 @@ export default function AppShell() {
           <div
             className="flex h-full"
             style={{
-              width: "300%",
-              transform: `translateX(-${tabIndex * (100 / 3)}%)`,
+              width: "200%",
+              transform: `translateX(-${tabIndex * (100 / 2)}%)`,
               transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <PacksScreen
                 packs={libraryPacks}
+                quickPack={quickPack}
                 lockedPackIds={lockedPackIds}
                 onOpenPack={(pack) => setEditingPack(pack)}
                 onNewPack={openNewPack}
+                onOpenSettings={() => setShowSettings(true)}
               />
             </div>
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <HomeScreen
                 bags={bags}
                 initialInviteCode={inviteCodeFromUrl()}
                 lockedBagIds={lockedBagIds}
+                quickPack={quickPack}
                 onOpenBag={(bag) => {
                   setIsNewBag(false);
                   setEditingBag(bag);
@@ -706,25 +748,21 @@ export default function AppShell() {
                 onNewBag={openNewBag}
                 onImportNote={openNewBagFromNote}
                 onJoinBag={handleJoinBag}
-              />
-            </div>
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              <SettingsScreen
-                uid={user.uid}
-                announcements={announcements}
-                dismissedAnnouncementIds={dismissedIds}
-                onDismissAnnouncement={handleDismissAnnouncement}
-                onCreateAnnouncement={handleCreateAnnouncement}
-                onUpdateAnnouncement={handleUpdateAnnouncement}
-                onDeleteAnnouncement={handleDeleteAnnouncement}
-                onSubviewActiveChange={setSettingsSubviewActive}
+                onOpenSettings={() => setShowSettings(true)}
+                onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
               />
             </div>
           </div>
         </div>
-        <BottomTabBar active={tab} onChange={setTab} />
+        <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
         <InstallPrompt />
       </div>
+      {showQuickAdd && (
+        <QuickAddModal
+          onClose={() => setShowQuickAdd(false)}
+          onAdd={handleQuickAddItem}
+        />
+      )}
       {showAnnouncementPopup && activeUndismissed.length > 0 && (
         <AnnouncementPopupStack
           announcements={activeUndismissed}

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   IconMail,
   IconChevronRight,
   IconSpeakerphone,
   IconHelpCircle,
   IconSparkles,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -30,6 +31,7 @@ import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
 import { useToast } from "@/components/Toast";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const modes: { key: ThemeMode; label: string }[] = [
   { key: "system", label: "시스템" },
@@ -44,6 +46,8 @@ const startTabs: { key: "home" | "packs"; label: string }[] = [
 
 type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "colorSettings" | "unlockCodeAdmin";
 
+// 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더의 톱니바퀴 아이콘으로 열고
+// 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
 export default function SettingsScreen({
   uid,
   announcements,
@@ -52,7 +56,7 @@ export default function SettingsScreen({
   onCreateAnnouncement,
   onUpdateAnnouncement,
   onDeleteAnnouncement,
-  onSubviewActiveChange,
+  onBack,
 }: {
   uid: string;
   announcements: Announcement[];
@@ -61,10 +65,7 @@ export default function SettingsScreen({
   onCreateAnnouncement: (data: Omit<Announcement, "id" | "createdAt">) => Promise<void>;
   onUpdateAnnouncement: (id: string, data: Partial<Announcement>) => Promise<void>;
   onDeleteAnnouncement: (id: string) => Promise<void>;
-  // 설정 탭 안에서 하위 화면(프로필 수정, 화면설정 등)이 열려있는지 상위(AppShell)에
-  // 알린다. 하위 화면에 있을 때는 좌우로 쓸어넘겨도 메인 탭(팩/홈/설정)이 바뀌면 안
-  // 되고, 뒤로가기(엣지 스와이프)만 되어야 하기 때문.
-  onSubviewActiveChange?: (active: boolean) => void;
+  onBack: () => void;
 }) {
   const { mode, setMode } = useTheme();
   const { profile, updateDefaultTab } = useAuth();
@@ -73,13 +74,9 @@ export default function SettingsScreen({
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [showUnlockCode, setShowUnlockCode] = useState(false);
-
-  useEffect(() => {
-    onSubviewActiveChange?.(view !== "main");
-    // 화면을 나갈 때(설정 탭을 벗어나거나 언마운트될 때)는 항상 false로 되돌린다.
-    return () => onSubviewActiveChange?.(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  // "main" 화면에서 스와이프로 뒤로가면 이 화면 자체(onBack)를 닫는다. 하위 화면(프로필
+  // 수정, 화면설정 등)은 각자 자기 onBack(=setView("main"))으로 스와이프백을 따로 건다.
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
 
   if (view === "profile") {
     return <ProfileEditScreen onBack={() => setView("main")} />;
@@ -119,193 +116,200 @@ export default function SettingsScreen({
   const aiUsedCount = currentAiUsageCount(profile);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <h1 className="text-[18px] font-medium mb-4">설정</h1>
-
-      {profile && (
-        <button
-          onClick={() => setView("profile")}
-          className="w-full mb-6 rounded-lg border border-border bg-surface p-3 flex items-center gap-3"
-        >
-          <Avatar avatarId={profile.avatarId} size={40} />
-          <div className="flex-1 min-w-0 text-left">
-            <p className="text-[14px] font-medium truncate">
-              {profile.nickname ?? "닉네임 설정하기"}
-            </p>
-            <p className="text-[12px] text-text-secondary truncate">
-              {profile.email}
-            </p>
-          </div>
-          <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
+        <button onClick={onBack} className="-m-2.5 p-2.5" aria-label="뒤로가기">
+          <IconArrowLeft size={20} stroke={1.75} />
         </button>
-      )}
-
-      <div className="mb-6">
-        <p className="text-[12px] text-text-secondary mb-2">화면 모드</p>
-        <div className="flex rounded-lg border border-border overflow-hidden">
-          {modes.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setMode(key)}
-              className="flex-1 py-2 text-[13px]"
-              style={{
-                background: mode === key ? "var(--accent)" : "var(--surface-2)",
-                color: mode === key ? "#fff" : "var(--foreground)",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <h1 className="text-[18px] font-medium">설정</h1>
       </div>
 
-      <div className="mb-6">
-        <p className="text-[12px] text-text-secondary mb-2">시작 화면</p>
-        <div className="flex rounded-lg border border-border overflow-hidden">
-          {startTabs.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => updateDefaultTab(key).catch(() => show("변경사항을 저장하지 못했어요"))}
-              className="flex-1 py-2 text-[13px]"
-              style={{
-                background: startTab === key ? "var(--accent)" : "var(--surface-2)",
-                color: startTab === key ? "#fff" : "var(--foreground)",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="text-[11px] text-text-muted mt-2">
-          앱을 열었을 때 처음 보여줄 화면이에요
-        </p>
-      </div>
-
-      <div className="mb-6">
-        <p className="text-[12px] text-text-secondary mb-2">설정</p>
-        <div className="rounded-lg border border-border overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
+        {profile && (
           <button
-            onClick={() => setView("colorSettings")}
-            className="w-full flex items-center justify-between p-3 border-b border-border"
+            onClick={() => setView("profile")}
+            className="w-full mb-6 rounded-lg border border-border bg-surface p-3 flex items-center gap-3"
           >
-            <span className="text-[13px]">화면설정</span>
+            <Avatar avatarId={profile.avatarId} size={40} />
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[14px] font-medium truncate">
+                {profile.nickname ?? "닉네임 설정하기"}
+              </p>
+              <p className="text-[12px] text-text-secondary truncate">
+                {profile.email}
+              </p>
+            </div>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
           </button>
-          <button
-            onClick={() => setView("packSettings")}
-            className="w-full flex items-center justify-between p-3"
-          >
-            <span className="text-[13px]">팩 설정</span>
-            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-          </button>
-        </div>
-      </div>
+        )}
 
-      <div className="mb-6">
-        <p className="text-[12px] text-text-secondary mb-2">AI 기능</p>
-        <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
-            <span className="text-[13px]">
-              {aiUnlimited
-                ? "무제한 이용 중"
-                : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
-            </span>
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">화면 모드</p>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {modes.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setMode(key)}
+                className="flex-1 py-2 text-[13px]"
+                style={{
+                  background: mode === key ? "var(--accent)" : "var(--surface-2)",
+                  color: mode === key ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          {!aiUnlimited && (
-            <button
-              onClick={() => setShowUnlockCode(true)}
-              className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
-            >
-              이용권 코드 입력
-            </button>
-          )}
         </div>
-      </div>
 
-      <div className="mb-6">
-        <p className="text-[12px] text-text-secondary mb-2">고객지원</p>
-        <div className="rounded-lg border border-border overflow-hidden">
-          <button
-            onClick={() => setShowAnnouncements(true)}
-            className="w-full flex items-center justify-between p-3 border-b border-border"
-          >
-            <span className="flex items-center gap-2 text-[13px]">
-              <IconSpeakerphone size={16} stroke={1.75} />
-              공지사항
-            </span>
-            <span className="flex items-center gap-1">
-              {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
-              )}
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">시작 화면</p>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {startTabs.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => updateDefaultTab(key).catch(() => show("변경사항을 저장하지 못했어요"))}
+                className="flex-1 py-2 text-[13px]"
+                style={{
+                  background: startTab === key ? "var(--accent)" : "var(--surface-2)",
+                  color: startTab === key ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-text-muted mt-2">
+            앱을 열었을 때 처음 보여줄 화면이에요
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">설정</p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setView("colorSettings")}
+              className="w-full flex items-center justify-between p-3 border-b border-border"
+            >
+              <span className="text-[13px]">화면설정</span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </span>
-          </button>
-          <button
-            onClick={() => setShowFaq(true)}
-            className="w-full flex items-center justify-between p-3 border-b border-border"
-          >
-            <span className="flex items-center gap-2 text-[13px]">
-              <IconHelpCircle size={16} stroke={1.75} />
-              자주 묻는 질문
-            </span>
-            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-          </button>
-          <a
-            href="mailto:appfle.dev@gmail.com?subject=팩인백 문의"
-            className="flex items-center justify-between p-3"
-          >
-            <span className="flex items-center gap-2 text-[13px]">
-              <IconMail size={16} stroke={1.75} />
-              문의하기
-            </span>
-            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-          </a>
+            </button>
+            <button
+              onClick={() => setView("packSettings")}
+              className="w-full flex items-center justify-between p-3"
+            >
+              <span className="text-[13px]">팩 설정</span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div className="rounded-lg border border-border overflow-hidden mb-6">
-        <button
-          onClick={() => setView("version")}
-          className="w-full flex items-center justify-between p-3 border-b border-border"
-        >
-          <span className="text-[13px]">버전 정보</span>
-          <span className="flex items-center gap-1 text-[12px] text-text-muted">
-            v1.0.0
-            <IconChevronRight size={16} stroke={1.75} />
-          </span>
-        </button>
-        <button
-          onClick={() => setView("licenses")}
-          className="w-full flex items-center justify-between p-3"
-        >
-          <span className="text-[13px]">오픈소스 라이선스</span>
-          <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-        </button>
-      </div>
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">AI 기능</p>
+          <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
+              <span className="text-[13px]">
+                {aiUnlimited
+                  ? "무제한 이용 중"
+                  : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
+              </span>
+            </div>
+            {!aiUnlimited && (
+              <button
+                onClick={() => setShowUnlockCode(true)}
+                className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
+              >
+                이용권 코드 입력
+              </button>
+            )}
+          </div>
+        </div>
 
-      {isMaster && (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="mb-6">
+          <p className="text-[12px] text-text-secondary mb-2">고객지원</p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setShowAnnouncements(true)}
+              className="w-full flex items-center justify-between p-3 border-b border-border"
+            >
+              <span className="flex items-center gap-2 text-[13px]">
+                <IconSpeakerphone size={16} stroke={1.75} />
+                공지사항
+              </span>
+              <span className="flex items-center gap-1">
+                {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
+                )}
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </span>
+            </button>
+            <button
+              onClick={() => setShowFaq(true)}
+              className="w-full flex items-center justify-between p-3 border-b border-border"
+            >
+              <span className="flex items-center gap-2 text-[13px]">
+                <IconHelpCircle size={16} stroke={1.75} />
+                자주 묻는 질문
+              </span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+            <a
+              href="mailto:appfle.dev@gmail.com?subject=팩인백 문의"
+              className="flex items-center justify-between p-3"
+            >
+              <span className="flex items-center gap-2 text-[13px]">
+                <IconMail size={16} stroke={1.75} />
+                문의하기
+              </span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </a>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border overflow-hidden mb-6">
           <button
-            onClick={() => setView("announcementAdmin")}
+            onClick={() => setView("version")}
             className="w-full flex items-center justify-between p-3 border-b border-border"
           >
-            <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              공지사항 관리 (운영자)
+            <span className="text-[13px]">버전 정보</span>
+            <span className="flex items-center gap-1 text-[12px] text-text-muted">
+              v1.0.0
+              <IconChevronRight size={16} stroke={1.75} />
             </span>
-            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
           </button>
           <button
-            onClick={() => setView("unlockCodeAdmin")}
+            onClick={() => setView("licenses")}
             className="w-full flex items-center justify-between p-3"
           >
-            <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              이용권 코드 관리 (운영자)
-            </span>
+            <span className="text-[13px]">오픈소스 라이선스</span>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
           </button>
         </div>
-      )}
+
+        {isMaster && (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setView("announcementAdmin")}
+              className="w-full flex items-center justify-between p-3 border-b border-border"
+            >
+              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                공지사항 관리 (운영자)
+              </span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+            <button
+              onClick={() => setView("unlockCodeAdmin")}
+              className="w-full flex items-center justify-between p-3"
+            >
+              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                이용권 코드 관리 (운영자)
+              </span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+          </div>
+        )}
+      </div>
 
       {showAnnouncements && (
         <AnnouncementsModal

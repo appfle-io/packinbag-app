@@ -18,6 +18,7 @@ import {
   IconFileText,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthProvider";
 import EditableText from "@/components/EditableText";
 import BagNotice from "@/components/BagNotice";
 import TravelDateField from "@/components/TravelDateField";
@@ -100,6 +101,16 @@ export default function BagEditorScreen({
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
+  const { profile } = useAuth();
+
+  // 설정 > 팩 설정 > "가방 열 때 팩 접어서 보기"가 켜져 있으면, 이 화면에 처음 들어온
+  // 순간에만 모든 팩을 접힌 상태로 보여준다. 저장된 Pack.displayState는 전혀 건드리지
+  // 않고(=자동저장 대상이 아님) 화면에 그리는 값만 아래 effectivePacks에서 덮어쓴다.
+  // 사용자가 개별/전체 펼치기·접기 컨트롤을 한 번이라도 쓰면 그 순간 꺼지고, 이후부터는
+  // 평소처럼 저장된 displayState 그대로를 보여준다(다음에 다시 들어오면 또 접힌 채로 시작).
+  const [collapseOverrideActive, setCollapseOverrideActive] = useState(
+    !!profile?.packSettings?.alwaysCollapseOnEntry
+  );
 
   // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
   // 호출한 쪽에서 그대로 return해서 실제 상태 변경으로 이어지지 않게 한다. 모달이 열려있는
@@ -463,12 +474,15 @@ export default function BagEditorScreen({
   };
 
   // 팩 카드 개별 토글(넓히기/접기)에서 호출되는 경우와, 상단 전체 컨트롤(접기/기본/펼치기)에서
-  // 모든 팩을 한번에 바꿀 때 둘 다 이 함수만 쓸 수 있다.
+  // 모든 팩을 한번에 바꿀 때 둘 다 이 함수만 쓸 수 있다. "가방 열 때 팩 접어서 보기" 설정으로
+  // 화면에 임시로 접힌 것처럼 보여주고 있던 상태(collapseOverrideActive)라면, 사용자가 실제로
+  // 펼치기/접기를 조작하는 순간이므로 그 임시 오버라이드는 끄고 저장된 값을 그대로 따르게 한다.
   const handleChangeDisplayState = (
     packId: string,
     nextState: "normal" | "wide" | "collapsed"
   ) => {
     if (guardReadOnly()) return;
+    setCollapseOverrideActive(false);
     updatePacks((packs) =>
       packs.map((p) => (p.id === packId ? { ...p, displayState: nextState } : p))
     );
@@ -476,6 +490,7 @@ export default function BagEditorScreen({
 
   const handleSetAllDisplayState = (nextState: "normal" | "wide" | "collapsed") => {
     if (guardReadOnly()) return;
+    setCollapseOverrideActive(false);
     updatePacks((packs) => packs.map((p) => ({ ...p, displayState: nextState })));
   };
 
@@ -876,12 +891,20 @@ export default function BagEditorScreen({
     show("가방에서 나갔어요");
   };
 
+  // 화면에 실제로 그릴 팩 목록. collapseOverrideActive면 저장된 displayState를
+  // 무시하고 전부 "collapsed"로 덮어써서 보여준다(데이터 자체는 그대로 둠).
+  const effectivePacks = collapseOverrideActive
+    ? bag.packs.map((p) => ({ ...p, displayState: "collapsed" as const }))
+    : bag.packs;
+
   // 상단 전체 컨트롤(접기/넓게보기) 아이콘이 지금 어떤 상태를 보여줘야 하는지 판단하기 위해,
   // 모든 팩이 같은 displayState인지 확인한다. 팩들이 섞여있으면(일부만 접힘 등) 기본 아이콘으로 보인다.
   const allPacksCollapsed =
-    bag.packs.length > 0 && bag.packs.every((p) => (p.displayState ?? "normal") === "collapsed");
+    effectivePacks.length > 0 &&
+    effectivePacks.every((p) => (p.displayState ?? "normal") === "collapsed");
   const allPacksWide =
-    bag.packs.length > 0 && bag.packs.every((p) => (p.displayState ?? "normal") === "wide");
+    effectivePacks.length > 0 &&
+    effectivePacks.every((p) => (p.displayState ?? "normal") === "wide");
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -1082,7 +1105,7 @@ export default function BagEditorScreen({
           </p>
         ) : (
           <PackGrid
-            packs={bag.packs}
+            packs={effectivePacks}
             libraryPacks={libraryPacks}
             onToggleItem={handleToggleItem}
             onChangeItemText={handleChangeItemText}

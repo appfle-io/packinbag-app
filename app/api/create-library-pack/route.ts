@@ -45,9 +45,14 @@ export async function POST(req: NextRequest) {
   const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
 
   const premium = await isPremiumServer(uid, email);
-  if (!premium) {
+  // 빠른팩(isQuickPack)은 무료 라이브러리 개수 제한과 무관하게 항상 생성을 허용한다 -
+  // 사용자당 최대 1개뿐이고, 하단 "+" 빠른입력에서 최초 1회 만들어지는 시스템 팩이다.
+  if (!premium && !draft.isQuickPack) {
     const existing = await packsCol.count().get();
-    if (existing.data().count >= FREE_MAX_LIBRARY_PACKS) {
+    // 이미 있는 빠른팩은 이 3개 한도에 포함시키지 않는다(제한 계산용 count에서 제외).
+    const existingQuickPack = await packsCol.where("isQuickPack", "==", true).limit(1).get();
+    const nonQuickCount = existing.data().count - (existingQuickPack.empty ? 0 : 1);
+    if (nonQuickCount >= FREE_MAX_LIBRARY_PACKS) {
       return NextResponse.json(
         {
           error: `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`,
