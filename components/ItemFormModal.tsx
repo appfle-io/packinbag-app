@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconX,
   IconSquareCheck,
@@ -19,6 +19,36 @@ export interface ItemFormSaveData {
   bold?: boolean;
   strike?: boolean;
   color?: string;
+}
+
+// 모바일 키보드가 올라오면 iOS는 레이아웃 뷰포트는 그대로 두고 비주얼 뷰포트만
+// 줄인다. 모달을 레이아웃 뷰포트 기준(fixed inset-0)으로 두면 브라우저가 포커스된
+// 입력창을 보여주려고 자동 스크롤하면서 모달이 밀리거나 잘리는 핑퐁 현상이 생긴다.
+// 그래서 브라우저의 자동 스크롤과 싸우지 않고, 대신 visualViewport의 실제
+// height/offsetTop을 그대로 읽어서 모달 컨테이너 크기를 거기에 맞춰버린다.
+function useVisualViewport() {
+  const getRect = () => {
+    if (typeof window === "undefined") return { height: 0, offsetTop: 0 };
+    const vv = window.visualViewport;
+    return vv ? { height: vv.height, offsetTop: vv.offsetTop } : { height: window.innerHeight, offsetTop: 0 };
+  };
+
+  const [rect, setRect] = useState(getRect);
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setRect({ height: vv.height, offsetTop: vv.offsetTop });
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  return rect;
 }
 
 // 짐 추가/수정용 중앙 모달.
@@ -58,6 +88,7 @@ export default function ItemFormModal({
   const [bold, setBold] = useState(initialBold);
   const [strike, setStrike] = useState(initialStrike);
   const [color, setColor] = useState(initialColor);
+  const { height: viewportHeight, offsetTop: viewportOffsetTop } = useVisualViewport();
 
   const handleSelectPack = (packId: string) => {
     if (selectionMode === "single") {
@@ -85,13 +116,14 @@ export default function ItemFormModal({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[96] flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.45)" }}
+        className="fixed inset-x-0 z-[96] flex items-center justify-center p-4"
+        style={{ top: viewportOffsetTop, height: viewportHeight, background: "rgba(0,0,0,0.45)" }}
         onClick={onClose}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4"
+          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
+          style={{ maxHeight: "100%" }}
         >
           <div className="flex items-center justify-between">
             <span className="text-[16px] font-medium">
