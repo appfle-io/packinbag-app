@@ -31,6 +31,7 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
 import { deleteAllUserData } from "@/lib/accountService";
+import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
 
 interface AuthContextValue {
   user: User | null;
@@ -172,6 +173,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       avatarId,
       createdAt: serverTimestamp(),
     });
+    // 신규 가입자 온보딩 샘플(가방/팩 라이브러리)을 심어준다. 이 과정에서 문제가 생겨도
+    // 가입 자체를 막으면 안 되니 실패는 콘솔에만 남기고 넘어간다.
+    try {
+      await seedSampleDataForNewUser(cred.user, { nickname, avatarId });
+    } catch (err) {
+      console.error("[팩인백] 샘플 데이터 생성 실패:", err);
+    }
     let sent = true;
     try {
       await sendEmailVerification(cred.user);
@@ -202,11 +210,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 구글로 가입한 사람이 처음 한 번 닉네임/아바타를 고르면 호출됨
   const completeProfile = async (nickname: string, avatarId: string) => {
     if (!user) return;
+    // 닉네임/아바타가 둘 다 비어있던 경우만 "진짜 처음"이다 - 기존 유저가 프로필을
+    // 다시 수정하는 경로(설정 화면)는 updateNickname/updateAvatar를 따로 쓰기 때문에
+    // 여기로는 안 들어오지만, 혹시 몰라 한 번 더 방어적으로 확인한다.
+    const isFirstTime = !profile?.nickname && !profile?.avatarId;
     await setDoc(
       doc(db, "users", user.uid),
       { nickname, avatarId },
       { merge: true }
     );
+    if (isFirstTime) {
+      try {
+        await seedSampleDataForNewUser(user, { nickname, avatarId });
+      } catch (err) {
+        console.error("[팩인백] 샘플 데이터 생성 실패:", err);
+      }
+    }
   };
 
   const updateNickname = async (nickname: string) => {
