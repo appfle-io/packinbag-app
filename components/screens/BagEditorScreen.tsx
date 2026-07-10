@@ -15,6 +15,7 @@ import {
   IconChevronRight,
   IconArrowsMaximize,
   IconArrowsMinimize,
+  IconFileText,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import EditableText from "@/components/EditableText";
@@ -41,6 +42,16 @@ import { MAX_BAG_IMAGES } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// PDF is not compressed like images (compressImageFile skips non-image files and returns
+// them as-is), so it can be uploaded at full size. Keep a size cap here to avoid huge files.
+const MAX_BAG_PDF_BYTES = 3 * 1024 * 1024;
+
+// Firebase Storage download URLs keep the original filename (with extension) right before the
+// "?" query string (see lib/storageService.ts), so we can tell PDFs apart from images by that.
+function isPdfUrl(url: string): boolean {
+  return url.split("?")[0].toLowerCase().endsWith(".pdf");
+}
 
 export default function BagEditorScreen({
   initialBag,
@@ -814,6 +825,16 @@ export default function BagEditorScreen({
     if (guardReadOnly()) return;
     if (!files || files.length === 0) return;
     const toUpload = Array.from(files).slice(0, MAX_BAG_IMAGES - bag.images.length);
+    // PDF is not compressed on upload, so reject oversized PDFs here before spending
+    // an upload attempt (images are still compressed down automatically as before).
+    const oversizedPdf = toUpload.find((f) => {
+      const looksLikePdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+      return looksLikePdf && f.size > MAX_BAG_PDF_BYTES;
+    });
+    if (oversizedPdf) {
+      show("PDF 파일은 3MB 이하만 첨부할 수 있어요");
+      return;
+    }
     setUploadingImages(true);
     try {
       const urls = await Promise.all(
@@ -942,34 +963,49 @@ export default function BagEditorScreen({
         />
 
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4">
-          {bag.images.map((src, idx) => (
-            <div
-              key={idx}
-              className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={src}
-                alt=""
-                onClick={() => setLightboxIndex(idx)}
-                className="h-full w-full object-cover"
-              />
-              {!readOnly && (
-                <button
-                  onClick={() => setImageDeleteIndex(idx)}
-                  className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
-                  style={{ background: "rgba(0,0,0,0.5)" }}
-                >
-                  <IconX size={10} stroke={2} color="#fff" />
-                </button>
-              )}
-            </div>
-          ))}
+          {bag.images.map((src, idx) => {
+            const isPdf = isPdfUrl(src);
+            return (
+              <div
+                key={idx}
+                className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
+              >
+                {isPdf ? (
+                  <button
+                    onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
+                    className="h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
+                    aria-label="PDF 열기"
+                  >
+                    <IconFileText size={20} stroke={1.75} />
+                    <span className="text-[9px]">PDF</span>
+                  </button>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={src}
+                    alt=""
+                    onClick={() => setLightboxIndex(idx)}
+                    className="h-full w-full object-cover"
+                  />
+                )}
+                {!readOnly && (
+                  <button
+                    onClick={() => setImageDeleteIndex(idx)}
+                    className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
+                    style={{ background: "rgba(0,0,0,0.5)" }}
+                  >
+                    <IconX size={10} stroke={2} color="#fff" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
           {!readOnly && bag.images.length < MAX_BAG_IMAGES && (
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImages}
               className="shrink-0 h-14 w-14 rounded-lg border border-dashed border-border-strong flex items-center justify-center text-text-muted disabled:opacity-50"
+              aria-label="사진 또는 PDF 첨부"
             >
               {uploadingImages ? (
                 <IconLoader2 size={18} stroke={1.75} className="animate-spin" />
@@ -981,7 +1017,7 @@ export default function BagEditorScreen({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             multiple
             hidden
             onChange={(e) => handleAddImages(e.target.files)}
