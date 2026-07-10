@@ -52,24 +52,23 @@ export default function PackTile({
           <IconLock size={11} stroke={2} color="#fff" />
         </span>
       )}
-      {onTogglePin && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onTogglePin();
-          }}
-          aria-label={pinned ? "고정 해제" : "이 팩 고정하기"}
-          className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full flex items-center justify-center"
-          style={{ background: pinned ? "var(--accent)" : "rgba(0,0,0,0.35)" }}
-        >
-          {pinned ? (
-            <IconPinFilled size={11} stroke={2} color="#fff" />
-          ) : (
-            <IconPin size={11} stroke={2} color="#fff" />
-          )}
-        </button>
-      )}
       <span className="flex items-center gap-1.5 shrink-0">
+        {onTogglePin && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePin();
+            }}
+            aria-label={pinned ? "고정 해제" : "이 팩 고정하기"}
+            className="shrink-0 h-[15px] w-[15px] flex items-center justify-center"
+          >
+            {pinned ? (
+              <IconPinFilled size={13} stroke={1.75} color="var(--accent)" />
+            ) : (
+              <IconPin size={13} stroke={1.75} color="var(--text-muted)" />
+            )}
+          </button>
+        )}
         {dotHex && (
           <span
             className="h-2 w-2 rounded-full shrink-0"

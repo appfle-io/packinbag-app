@@ -57,26 +57,27 @@ export default function BagCard({
           <IconLock size={11} stroke={2} color="#fff" />
         </span>
       )}
-      {onTogglePin && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onTogglePin();
-          }}
-          aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
-          className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full flex items-center justify-center"
-          style={{ background: pinned ? "var(--accent)" : "rgba(0,0,0,0.35)" }}
-        >
-          {pinned ? (
-            <IconPinFilled size={11} stroke={2} color="#fff" />
-          ) : (
-            <IconPin size={11} stroke={2} color="#fff" />
-          )}
-        </button>
-      )}
       <div className="flex items-start justify-between gap-1.5 shrink-0">
-        <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2">
-          {bag.name}
+        <span className="flex items-start gap-1 min-w-0">
+          {onTogglePin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin();
+              }}
+              aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
+              className="shrink-0 h-[15px] w-[15px] flex items-center justify-center -mt-[1px]"
+            >
+              {pinned ? (
+                <IconPinFilled size={13} stroke={1.75} color="var(--accent)" />
+              ) : (
+                <IconPin size={13} stroke={1.75} color="var(--text-muted)" />
+              )}
+            </button>
+          )}
+          <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0">
+            {bag.name}
+          </span>
         </span>
         {ddayLabel && (
           <span
