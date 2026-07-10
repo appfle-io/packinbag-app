@@ -1073,6 +1073,16 @@ export default function BagEditorScreen({
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
                 <button
+                  onClick={() => handleSetAllDisplayState(allPacksWide ? "normal" : "wide")}
+                  aria-label={allPacksWide ? "팩 전체 기본 크기로" : "팩 전체 넓게 보기"}
+                >
+                  {allPacksWide ? (
+                    <IconArrowsMinimize size={17} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
+                  )}
+                </button>
+                <button
                   onClick={() =>
                     handleSetAllDisplayState(allPacksCollapsed ? "normal" : "collapsed")
                   }
@@ -1082,16 +1092,6 @@ export default function BagEditorScreen({
                     <IconChevronDown size={17} stroke={1.75} color="var(--text-secondary)" />
                   ) : (
                     <IconChevronRight size={17} stroke={1.75} color="var(--text-secondary)" />
-                  )}
-                </button>
-                <button
-                  onClick={() => handleSetAllDisplayState(allPacksWide ? "normal" : "wide")}
-                  aria-label={allPacksWide ? "팩 전체 기본 크기로" : "팩 전체 넓게 보기"}
-                >
-                  {allPacksWide ? (
-                    <IconArrowsMinimize size={17} stroke={1.75} color="var(--accent)" />
-                  ) : (
-                    <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
                   )}
                 </button>
               </div>

@@ -49,7 +49,7 @@ export default function BottomTabBar({
         className="relative z-10 flex flex-1 items-center justify-center py-[15px] transition-transform active:scale-90"
       >
         <IconPackage
-          size={30}
+          size={34}
           stroke={1.75}
           color={active === "packs" ? "var(--accent)" : "var(--text-secondary)"}
         />
@@ -66,7 +66,7 @@ export default function BottomTabBar({
             boxShadow: "0 10px 22px -4px var(--accent), 0 3px 8px rgba(0,0,0,0.2)",
           }}
         >
-          <IconPlus size={42} stroke={1.75} color="#fff" />
+          <IconPlus size={42} stroke={5.5} color="#fff" />
         </button>
       </div>
 
@@ -76,7 +76,7 @@ export default function BottomTabBar({
         className="relative z-10 flex flex-1 items-center justify-center py-[15px] transition-transform active:scale-90"
       >
         <IconBackpack
-          size={30}
+          size={34}
           stroke={1.75}
           color={active === "home" ? "var(--accent)" : "var(--text-secondary)"}
         />
