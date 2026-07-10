@@ -281,7 +281,7 @@ export default function ItemRow({
           WebkitTouchCallout: "none",
           WebkitUserSelect: onStartDrag ? "none" : undefined,
           userSelect: onStartDrag ? "none" : undefined,
-          outline: isDragOverTarget ? "2px solid var(--accent)" : undefined,
+          boxShadow: isDragOverTarget ? "0 0 0 2px var(--accent)" : undefined,
           touchAction: "none",
         }}
         className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"

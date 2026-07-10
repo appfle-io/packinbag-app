@@ -573,7 +573,7 @@ export default function PackLibraryEditorScreen({
           여러 열로 재배치된다(auto-fit). 오른쪽 스와이프=수정, 왼쪽 스와이프=삭제,
           체크박스 제외 영역 롱프레스=순서변경 드래그 시작(빠른팩은 다중선택 모드 시작).
           다중선택 모드 중에는 탭 = 선택 토글이고 스와이프/드래그는 비활성화된다. */}
-      <div ref={listRef} className="flex-1 overflow-y-auto px-4 pb-3">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
         {displayItems.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
             아래 추가 버튼으로 짐을 추가해보세요.
@@ -591,7 +591,9 @@ export default function PackLibraryEditorScreen({
                   style={
                     selecting
                       ? {
-                          outline: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
+                          boxShadow: isSelected
+                            ? "0 0 0 2px var(--accent)"
+                            : "0 0 0 2px transparent",
                           borderRadius: 8,
                           background: isSelected ? "var(--accent-soft)" : undefined,
                         }
