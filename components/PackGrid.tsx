@@ -1,15 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { Pack } from "@/lib/types";
-import { isInSyncWithLibrary } from "@/lib/packSync";
+import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
 
 export default function PackGrid({
   packs,
@@ -23,6 +16,7 @@ export default function PackGrid({
   onToggleAll,
   onSaveToLibrary,
   onDeletePack,
+  onChangeDisplayState,
   onRefreshFromLibrary,
   onStartItemDrag,
   dragSourceItemId,
@@ -47,7 +41,8 @@ export default function PackGrid({
   onRenamePack: (packId: string, name: string) => void;
   onToggleAll: (packId: string, checked: boolean) => void;
   onSaveToLibrary: (packId: string) => void;
-  onDeletePack: (packId: string) => void;
+  onDeletePack: (packId: string, alsoDeleteLibrary: boolean) => void;
+  onChangeDisplayState: (packId: string, nextState: "normal" | "wide" | "collapsed") => void;
   onRefreshFromLibrary: (packId: string) => void;
   onStartItemDrag?: (packId: string, itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
@@ -56,21 +51,12 @@ export default function PackGrid({
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
 }) {
-  const pages = chunk(packs, 4);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const [activePage, setActivePage] = useState(0);
-
-  const handleScroll = () => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    setActivePage(Math.round(el.scrollLeft / el.clientWidth));
-  };
-
   const renderCard = (pack: Pack) => (
     <PackCard
       key={pack.id}
       pack={pack}
       isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
+      canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
       onToggleItem={(itemId) => onToggleItem(pack.id, itemId)}
       onChangeItemText={(itemId, text, style) =>
         onChangeItemText(pack.id, itemId, text, style)
@@ -82,7 +68,8 @@ export default function PackGrid({
       onRenamePack={(name) => onRenamePack(pack.id, name)}
       onToggleAll={(checked) => onToggleAll(pack.id, checked)}
       onSaveToLibrary={() => onSaveToLibrary(pack.id)}
-      onDeletePack={() => onDeletePack(pack.id)}
+      onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
+      onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
       onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
       onStartItemDrag={
         onStartItemDrag
@@ -101,49 +88,13 @@ export default function PackGrid({
     />
   );
 
+  // 팩 카드 "넓히기"는 가로폭이 아니라 짐 영역의 높이만 늘어나는 방식이라, 컬럼 span
+  // 계산이 필요없다 - 그냥 흐르는 2열 그리드(items-start)로 두면 카드가 커진 행만
+  // 자연스럽게 높아지고, 옆 카드는 그대로 위쪽에 붙어 보인다. 예전의 4개씩 2x2
+  // 페이지네이션(가로 스크롤 스냅)은 카드 높이가 서로 달라지면 어색해져서 제거했다.
   return (
-    <>
-      {/* 데스크톱: 2x2 그리드, 4개 초과시 가로 스크롤 페이지 전환 */}
-      <div className="hidden md:block">
-        <div
-          ref={scrollerRef}
-          onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar"
-        >
-          {pages.map((page, i) => (
-            <div
-              key={i}
-              className="grid grid-cols-2 gap-4 shrink-0 w-full snap-start"
-              style={{ gridTemplateRows: "1fr 1fr", minHeight: 380 }}
-            >
-              {page.map(renderCard)}
-            </div>
-          ))}
-        </div>
-        {pages.length > 1 && (
-          <div className="flex justify-center gap-1.5 mt-3">
-            {pages.map((_, i) => (
-              <div
-                key={i}
-                className="h-1.5 w-1.5 rounded-full"
-                style={{
-                  background:
-                    i === activePage ? "var(--text-secondary)" : "var(--border-strong)",
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 모바일: 세로 스택, 페이지 스크롤 */}
-      <div className="flex flex-col gap-3 md:hidden">
-        {packs.map((pack) => (
-          <div key={pack.id} style={{ minHeight: 0 }}>
-            {renderCard(pack)}
-          </div>
-        ))}
-      </div>
-    </>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
+      {packs.map(renderCard)}
+    </div>
   );
 }

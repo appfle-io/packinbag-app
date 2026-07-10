@@ -31,6 +31,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
+import { togglePinned } from "@/lib/listSort";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
 
@@ -71,6 +72,10 @@ interface AuthContextValue {
   updateDefaultTab: (defaultTab: "home" | "packs") => Promise<void>;
   updateBagSortBy: (sortBy: UserProfile["bagSortBy"]) => Promise<void>;
   updatePackSortBy: (sortBy: UserProfile["packSortBy"]) => Promise<void>;
+  toggleBagPinned: (bagId: string) => Promise<void>;
+  togglePackPinned: (packId: string) => Promise<void>;
+  updateBagOrder: (order: string[]) => Promise<void>;
+  updatePackOrder: (order: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
@@ -157,6 +162,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
         bagSortBy: data?.bagSortBy as UserProfile["bagSortBy"],
         packSortBy: data?.packSortBy as UserProfile["packSortBy"],
+        pinnedBagIds: data?.pinnedBagIds as string[] | undefined,
+        pinnedPackIds: data?.pinnedPackIds as string[] | undefined,
+        bagOrder: data?.bagOrder as string[] | undefined,
+        packOrder: data?.packOrder as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
         aiUsage: data?.aiUsage as UserProfile["aiUsage"],
         unlockCode: data?.unlockCode as string | undefined,
@@ -337,6 +346,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { packSortBy: sortBy }, { merge: true });
   };
 
+  // 고정핀 토글(최대 2개까지). 이미 고정된 걸 다시 누르면 해제되고, 2개가 다 찬 상태에서
+  // 새로 고정하려 하면 togglePinned이 조용히 무시한다.
+  const toggleBagPinned = async (bagId: string) => {
+    if (!user) return;
+    const next = togglePinned(profile?.pinnedBagIds, bagId);
+    await setDoc(doc(db, "users", user.uid), { pinnedBagIds: next }, { merge: true });
+  };
+
+  const togglePackPinned = async (packId: string) => {
+    if (!user) return;
+    const next = togglePinned(profile?.pinnedPackIds, packId);
+    await setDoc(doc(db, "users", user.uid), { pinnedPackIds: next }, { merge: true });
+  };
+
+  // 항목을 길게 눌러 끌어다 순서를 바꾸는 순간 호출된다. 지정한 순서(order)와 정렬기준을
+  // "custom"으로 함께 저장해야 다음에 다시 봐도 같은 순서가 유지된다.
+  const updateBagOrder = async (order: string[]) => {
+    if (!user) return;
+    await setDoc(
+      doc(db, "users", user.uid),
+      { bagOrder: order, bagSortBy: "custom" },
+      { merge: true }
+    );
+  };
+
+  const updatePackOrder = async (order: string[]) => {
+    if (!user) return;
+    await setDoc(
+      doc(db, "users", user.uid),
+      { packOrder: order, packSortBy: "custom" },
+      { merge: true }
+    );
+  };
+
   // 팩(짐 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
   const updatePackSettings = async (
     settings: Partial<NonNullable<UserProfile["packSettings"]>>
@@ -424,6 +467,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateDefaultTab,
         updateBagSortBy,
         updatePackSortBy,
+        toggleBagPinned,
+        togglePackPinned,
+        updateBagOrder,
+        updatePackOrder,
         updatePackSettings,
         resendVerificationEmail,
         resendVerificationByCredential,

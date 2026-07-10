@@ -613,7 +613,9 @@ export default function AppShell() {
   const handleTouchStart = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
     const ignore =
-      !!target.closest("button, a, input, textarea, [data-pack-drop-id], .fixed") ||
+      !!target.closest(
+        'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], .fixed'
+      ) ||
       (tab === "settings" && settingsSubviewActive);
     const t = e.touches[0];
     swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };

@@ -10,6 +10,10 @@ import {
   IconRefresh,
   IconTrash,
   IconGripVertical,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
+  IconChevronDown,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -25,6 +29,7 @@ import ProgressRing from "./ProgressRing";
 export default function PackCard({
   pack,
   isSyncedWithLibrary,
+  canDeleteFromLibrary,
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
@@ -36,6 +41,7 @@ export default function PackCard({
   onSaveToLibrary,
   onRefreshFromLibrary,
   onDeletePack,
+  onChangeDisplayState,
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
@@ -45,6 +51,9 @@ export default function PackCard({
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
+  // linkedLibraryPackId가 "내" 라이브러리에 실제로 있을 때만 true - 이때만 삭제
+  // 다이얼로그에 "라이브러리도 함께 삭제" 옵션을 보여줄 수 있다.
+  canDeleteFromLibrary?: boolean;
   onToggleItem: (itemId: string) => void;
   onChangeItemText: (
     itemId: string,
@@ -60,7 +69,10 @@ export default function PackCard({
   onToggleAll: (checked: boolean) => void;
   onSaveToLibrary: () => void;
   onRefreshFromLibrary: () => void;
-  onDeletePack: () => void;
+  // alsoDeleteLibrary가 true면 연동된 라이브러리 원본도 함께 삭제해달라는 뜻.
+  onDeletePack: (alsoDeleteLibrary: boolean) => void;
+  // 카드 자체의 펼치기/접기 토글 (nextState는 "wide" | "collapsed" | "normal")
+  onChangeDisplayState?: (nextState: "normal" | "wide" | "collapsed") => void;
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
@@ -75,6 +87,9 @@ export default function PackCard({
   const accentHex = getPackColorHex(pack.color);
   const checkItems = pack.items.filter((i) => i.type === "check");
   const allChecked = checkItems.length > 0 && checkItems.every((i) => i.checked);
+  const displayState = pack.displayState ?? "normal";
+  const isCollapsed = displayState === "collapsed";
+  const isWide = displayState === "wide";
   // 실제 저장 순서는 그대로 두고, 화면에 보여줄 때만 완료 항목을 뒤로 보낸다
   // (드래그로 다른 팩에 옮기는 기능은 인덱스가 아니라 id 기반이라 영향 없음)
   const displayItems = moveCompletedToBottom
@@ -110,7 +125,7 @@ export default function PackCard({
               <IconGripVertical size={17} stroke={1.75} />
             </span>
           )}
-          {checkItems.length > 0 && (
+          {checkItems.length > 0 && !isCollapsed && (
             <button
               onClick={() => onToggleAll(!allChecked)}
               aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
@@ -140,6 +155,32 @@ export default function PackCard({
           <span className="text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
             {pack.items.length}개
           </span>
+          {onChangeDisplayState && (
+            <>
+              <button
+                onClick={() => onChangeDisplayState(isWide ? "normal" : "wide")}
+                aria-label={isWide ? "팩 기본 크기로" : "팩 넓게 보기"}
+                style={{ transform: "scale(var(--pack-card-scale,1))" }}
+              >
+                {isWide ? (
+                  <IconArrowsMinimize size={17} stroke={1.75} color="var(--accent)" />
+                ) : (
+                  <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
+                )}
+              </button>
+              <button
+                onClick={() => onChangeDisplayState(isCollapsed ? "normal" : "collapsed")}
+                aria-label={isCollapsed ? "팩 펼치기" : "팩 접기"}
+                style={{ transform: "scale(var(--pack-card-scale,1))" }}
+              >
+                {isCollapsed ? (
+                  <IconChevronRight size={17} stroke={1.75} color="var(--text-secondary)" />
+                ) : (
+                  <IconChevronDown size={17} stroke={1.75} color="var(--text-secondary)" />
+                )}
+              </button>
+            </>
+          )}
           {pack.linkedLibraryPackId && (
             <button
               onClick={onRefreshFromLibrary}
@@ -170,60 +211,71 @@ export default function PackCard({
         </div>
       </div>
 
-      <div
-        className="overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))]"
-        style={{
-          overflowY: "auto",
-          gridAutoRows: "min-content",
-          gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",
-          alignContent: "start",
-          alignItems: "start",
-        }}
-      >
-        {displayItems.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            onToggle={
-              item.type === "check" ? () => onToggleItem(item.id) : undefined
+      {!isCollapsed && (
+        <>
+          <div
+            className={
+              isWide
+                ? "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(360px*var(--pack-card-scale,1))] md:h-[calc(456px*var(--pack-card-scale,1))]"
+                : "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))]"
             }
-            onChangeText={(text, style) => onChangeItemText(item.id, text, style)}
-            onDelete={() => onDeleteItem(item.id)}
-            onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
-            onStartDrag={
-              onStartItemDrag
-                ? (x, y) => onStartItemDrag(item.id, item.text, x, y)
-                : undefined
-            }
-            isDragSource={dragSourceItemId === item.id}
-            isDragOverTarget={dragOverItemId === item.id}
-          />
-        ))}
-      </div>
+            style={{
+              overflowY: "auto",
+              gridAutoRows: "min-content",
+              gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",
+              alignContent: "start",
+              alignItems: "start",
+            }}
+          >
+            {displayItems.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                onToggle={
+                  item.type === "check" ? () => onToggleItem(item.id) : undefined
+                }
+                onChangeText={(text, style) => onChangeItemText(item.id, text, style)}
+                onDelete={() => onDeleteItem(item.id)}
+                onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
+                onStartDrag={
+                  onStartItemDrag
+                    ? (x, y) => onStartItemDrag(item.id, item.text, x, y)
+                    : undefined
+                }
+                isDragSource={dragSourceItemId === item.id}
+                isDragOverTarget={dragOverItemId === item.id}
+              />
+            ))}
+          </div>
 
-      <div className="flex gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
-        <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
-          <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-            <IconSquareCheck size={17} stroke={1.75} />
-          </span>
-          체크항목
-        </button>
-        <button onClick={onAddTextItem} className="flex items-center gap-1.5">
-          <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-            <IconAlignLeft size={17} stroke={1.75} />
-          </span>
-          텍스트
-        </button>
-      </div>
+          <div className="flex gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
+            <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
+              <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                <IconSquareCheck size={17} stroke={1.75} />
+              </span>
+              체크항목
+            </button>
+            <button onClick={onAddTextItem} className="flex items-center gap-1.5">
+              <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                <IconAlignLeft size={17} stroke={1.75} />
+              </span>
+              텍스트
+            </button>
+          </div>
+        </>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog
           title="이 팩을 가방에서 삭제할까요?"
           message="팩에 담긴 짐도 함께 사라져요."
+          checkboxLabel={
+            canDeleteFromLibrary ? "라이브러리에 저장된 원본도 함께 삭제" : undefined
+          }
           onCancel={() => setConfirmDelete(false)}
-          onConfirm={() => {
+          onConfirm={(alsoDeleteLibrary) => {
             setConfirmDelete(false);
-            onDeletePack();
+            onDeletePack(canDeleteFromLibrary ? alsoDeleteLibrary : false);
           }}
         />
       )}

@@ -14,3 +14,12 @@ export function isInSyncWithLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
   if (!source) return false;
   return pack.name.trim() === source.name.trim() && itemsMatch(pack.items, source.items);
 }
+
+// 이 팩이 연동된 라이브러리 원본이 지금 로그인한 사람 자신의 라이브러리에 실제로 있는지
+// 확인한다. 가방은 여러 명이 같이 쓰다 보니 linkedLibraryPackId가 다른 멤버가 저장해둔
+// 라이브러리 팩을 가리킬 수도 있는데, 그런 경우에는 다른 사람의 라이브러리 공간을 지울
+// 권한이 없으니 "함께 삭제" 옵션 자체를 보여주지 않아야 한다.
+export function canDeleteFromLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
+  if (!pack.linkedLibraryPackId) return false;
+  return libraryPacks.some((p) => p.id === pack.linkedLibraryPackId);
+}

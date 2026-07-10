@@ -41,6 +41,10 @@ export interface Pack {
   updatedAt?: string;
   // 팩 카드/태그에 보여줄 색상 프리셋 id (lib/packColors.ts 참고). 없으면 무색.
   color?: string;
+  // 가방 속 팩 카드의 짐 영역 표시 상태 (없으면 "normal" 기본값).
+  // "wide"는 짐 영역 높이를 기본 높이의 2배로 보여주고(그 이상은 내부 스크롤),
+  // "collapsed"는 짐 영역을 숨기고 헤더(이름/진행률/아이콘)만 보여준다.
+  displayState?: "normal" | "wide" | "collapsed";
   // 이용권이 없거나 만료/무효화된 사람이 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을
   // 넘겨서 갖고 있던 팩 중 "최신 N개"에 들지 못한 것에 true로 표시된다. 서버(app/api/sync-lock-status)만
   // 이 필드를 쓸 수 있고(firestore.rules에서 클라이언트 수정/삭제를 막음), 잠긴 팩은 보기만
@@ -92,8 +96,10 @@ export interface Bag {
 // 회원가입 시 고를 수 있는 간단한 샘플 아바타 중 하나의 id (avatars.ts 참고)
 export type AvatarId = string;
 
-// 가방/팩 목록 정렬 기준 (둘 다 같은 옵션 구성)
-export type ListSortOption = "createdAt" | "nameAsc" | "nameDesc" | "updatedAt";
+// 가방/팩 목록 정렬 기준 (둘 다 같은 옵션 구성). "custom"은 고정핀 + 사용자가 길게 눌러서
+// 끌어다 놓은 순서(pinnedXIds/xOrder, UserProfile 참고)를 따르는 모드로, 드래그 리오더를
+// 시작하는 순간 자동으로 이 값으로 전환된다.
+export type ListSortOption = "createdAt" | "nameAsc" | "nameDesc" | "updatedAt" | "custom";
 
 export interface UserProfile {
   uid: string;
@@ -135,6 +141,13 @@ export interface UserProfile {
   // 가방/팩 목록 정렬 기준 (없으면 "createdAt" 기본값)
   bagSortBy?: ListSortOption;
   packSortBy?: ListSortOption;
+  // 고정핀 처리한 가방/팩 id (각각 최대 2개, 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
+  pinnedBagIds?: string[];
+  pinnedPackIds?: string[];
+  // "custom"(사용자설정순) 정렬일 때 쓰는 직접 지정한 순서(id 배열, 고정된 항목 제외).
+  // 여기 없는 새 항목은 뒤쪽에 생성일자 최신순으로 자동으로 붙는다.
+  bagOrder?: string[];
+  packOrder?: string[];
   // 팩(짐 목록) 표시 관련 개인 설정
   packSettings?: {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)

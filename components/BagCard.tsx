@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLock } from "@tabler/icons-react";
+import { IconLock, IconPin, IconPinFilled } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getPackColorHex } from "@/lib/packColors";
@@ -14,11 +14,20 @@ export default function BagCard({
   bag,
   onClick,
   locked,
+  pinned,
+  onTogglePin,
+  isDragSource,
+  isDragOver,
 }: {
   bag: Bag;
   onClick: () => void;
   // true면 무료 전환으로 잠긴 가방. 탭하면 여전히 열리지만(읽기 전용) 자물쇠 표시를 보여준다.
   locked?: boolean;
+  // 고정핀 처리된 가방인지 (최대 2개, 홈 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
+  pinned?: boolean;
+  onTogglePin?: () => void;
+  isDragSource?: boolean;
+  isDragOver?: boolean;
 }) {
   const allItems = bag.packs.flatMap((p) => p.items);
   const totalLabel = formatItemCountLabel(allItems, bag.images.length > 0);
@@ -26,10 +35,19 @@ export default function BagCard({
   const ddayLabel = formatDDayLabel(bag.travelDate);
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="relative aspect-square rounded-xl border border-border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none"
-      style={{ background: "var(--bag-card-bg)", opacity: locked ? 0.6 : 1 }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      }}
+      className="relative aspect-square rounded-xl border border-border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer"
+      style={{
+        background: "var(--bag-card-bg)",
+        opacity: isDragSource ? 0.4 : locked ? 0.6 : 1,
+        boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
+      }}
     >
       {locked && (
         <span
@@ -38,6 +56,23 @@ export default function BagCard({
         >
           <IconLock size={11} stroke={2} color="#fff" />
         </span>
+      )}
+      {onTogglePin && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePin();
+          }}
+          aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
+          className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full flex items-center justify-center"
+          style={{ background: pinned ? "var(--accent)" : "rgba(0,0,0,0.35)" }}
+        >
+          {pinned ? (
+            <IconPinFilled size={11} stroke={2} color="#fff" />
+          ) : (
+            <IconPin size={11} stroke={2} color="#fff" />
+          )}
+        </button>
       )}
       <div className="flex items-start justify-between gap-1.5 shrink-0">
         <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2">
@@ -94,6 +129,6 @@ export default function BagCard({
         )}
         {totalLabel && <span className="font-medium">{totalLabel}</span>}
       </span>
-    </button>
+    </div>
   );
 }

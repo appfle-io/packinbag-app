@@ -27,6 +27,7 @@ import AiOrganizeModal from "@/components/AiOrganizeModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
+import { deleteLibraryPackRemote } from "@/lib/packsService";
 import { isInSyncWithLibrary } from "@/lib/packSync";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
@@ -432,10 +433,34 @@ export default function BagEditorScreen({
     updatePacks((packs) => [...packs, ...imported].slice(0, 10));
   };
 
-  const handleDeletePack = (packId: string) => {
+  const handleDeletePack = (packId: string, alsoDeleteLibrary: boolean) => {
     if (guardReadOnly()) return;
+    const pack = bag.packs.find((p) => p.id === packId);
     updatePacks((packs) => packs.filter((p) => p.id !== packId));
-    show("팩을 가방에서 삭제했어요");
+    if (alsoDeleteLibrary && pack?.linkedLibraryPackId) {
+      deleteLibraryPackRemote(currentUid, pack.linkedLibraryPackId).catch((err) => {
+        console.error("[팩인백] 라이브러리 팩 삭제 실패:", err);
+        show("라이브러리에서는 삭제하지 못했어요");
+      });
+    }
+    show(alsoDeleteLibrary ? "팩을 가방과 라이브러리에서 모두 삭제했어요" : "팩을 가방에서 삭제했어요");
+  };
+
+  // 팩 카드 개별 토글(넓히기/접기)에서 호출되는 경우와, 상단 전체 컨트롤(접기/기본/펼치기)에서
+  // 모든 팩을 한번에 바꿀 때 둘 다 이 함수만 쓸 수 있다.
+  const handleChangeDisplayState = (
+    packId: string,
+    nextState: "normal" | "wide" | "collapsed"
+  ) => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) =>
+      packs.map((p) => (p.id === packId ? { ...p, displayState: nextState } : p))
+    );
+  };
+
+  const handleSetAllDisplayState = (nextState: "normal" | "wide" | "collapsed") => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) => packs.map((p) => ({ ...p, displayState: nextState })));
   };
 
   // fromPackId === toPackId면 같은 팩 안에서 overItemId 위치로 순서를 바꾸고,
@@ -970,6 +995,28 @@ export default function BagEditorScreen({
             >
               <IconSparkles size={13} stroke={1.75} />AI로 정리
             </button>
+            {bag.packs.length > 0 && (
+              <div className="flex items-center gap-1 ml-auto rounded-lg border border-border p-0.5">
+                <button
+                  onClick={() => handleSetAllDisplayState("collapsed")}
+                  className="rounded-md px-2 py-1 text-[11px]"
+                >
+                  전체 접기
+                </button>
+                <button
+                  onClick={() => handleSetAllDisplayState("normal")}
+                  className="rounded-md px-2 py-1 text-[11px]"
+                >
+                  기본
+                </button>
+                <button
+                  onClick={() => handleSetAllDisplayState("wide")}
+                  className="rounded-md px-2 py-1 text-[11px]"
+                >
+                  전체 펼치기
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -990,6 +1037,7 @@ export default function BagEditorScreen({
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
             onDeletePack={handleDeletePack}
+            onChangeDisplayState={handleChangeDisplayState}
             onRefreshFromLibrary={(packId: string) => {
               if (guardReadOnly()) return;
               setRefreshConfirmTarget(packId);
