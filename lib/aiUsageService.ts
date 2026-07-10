@@ -42,6 +42,12 @@ export function isUnlimitedAiUser(
 ): boolean {
   if (isMasterEmail(email)) return true;
   if (!profile?.unlockCode) return false;
+  // 실시간 구독(AuthProvider)으로 방금 무효화/만료가 확인됐으면, 캐시된 unlockCodeExpiresAt
+  // 계산보다 이 값을 우선한다 - 관리자가 무효화를 눌러도 이 값이 없으면 만료일이 아직
+  // 안 지났다는 이유로 계속 무제한으로 잘못 표시될 수 있다.
+  if (profile.unlockCodeLiveStatus === "invalidated" || profile.unlockCodeLiveStatus === "expired") {
+    return false;
+  }
   if (!profile.unlockCodeExpiresAt) return true; // 무제한 코드 (만료 없음)
   return new Date(profile.unlockCodeExpiresAt).getTime() > Date.now();
 }

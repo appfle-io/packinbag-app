@@ -41,6 +41,11 @@ export interface Pack {
   updatedAt?: string;
   // 팩 카드/태그에 보여줄 색상 프리셋 id (lib/packColors.ts 참고). 없으면 무색.
   color?: string;
+  // 이용권이 없거나 만료/무효화된 사람이 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을
+  // 넘겨서 갖고 있던 팩 중 "최신 N개"에 들지 못한 것에 true로 표시된다. 서버(app/api/sync-lock-status)만
+  // 이 필드를 쓸 수 있고(firestore.rules에서 클라이언트 수정/삭제를 막음), 잠긴 팩은 보기만
+  // 가능하고 수정/삭제는 막힌다. 다시 이용권을 등록하면 서버가 자동으로 false로 되돌려준다.
+  locked?: boolean;
 }
 
 // 가방 멤버의 표시용 정보 (닉네임/아바타). users/{uid} 문서는 본인만 읽을 수 있어서
@@ -75,6 +80,13 @@ export interface Bag {
   // 여행일 (D-Day 리마인더용). 지정 안 하면 배지/알림 없음.
   travelDate?: string; // YYYY-MM-DD
   reminderOffsets?: ReminderOffset[]; // 예: [3, 1, 0] = 3일전/1일전/당일 알림 (발송 로직은 추후 구현)
+  // 소유자(ownerId)가 이용권이 없거나 만료/무효화된 상태에서, 본인이 소유한 가방 중
+  // 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)을 넘겨서 "최신 N개"에 들지 못한 가방에
+  // true로 표시된다. 서버(app/api/sync-lock-status)만 이 필드를 쓸 수 있고(firestore.rules/
+  // storage.rules에서 소유자의 수정·삭제·이미지 업로드를 막음), 다른 그룹원은 이 값과
+  // 무관하게 그대로 이용할 수 있다(규칙에서 request.auth.uid == ownerId 조건과 함께 검사).
+  // 잠긴 가방은 보기만 가능하고 수정/삭제/공유 관련 동작은 모두 막힌다.
+  locked?: boolean;
 }
 
 // 회원가입 시 고를 수 있는 간단한 샘플 아바타 중 하나의 id (avatars.ts 참고)
@@ -141,6 +153,13 @@ export interface UserProfile {
   // 코드 자체(unlockCodes/{code}.expiresAt)에 있는 값을 클라이언트가 매번 다시 조회하지
   // 않아도 되게 이 필드에도 그대로 복사해둔다(redeem 서버 라우트가 두 곳에 동시에 씀).
   unlockCodeExpiresAt?: string | null;
+  // unlockCodes/{unlockCode} 문서를 AuthProvider가 실시간 구독(onSnapshot)해서 지금 이
+  // 순간 실제로 무효화/만료됐는지 담아두는 값이다. Firestore에는 저장되지 않고 클라이언트
+  // 메모리에만 있는 값(=매 세션 다시 계산됨). 왜 필요한가: 마스터가 "무효화"를 누르면
+  // unlockCodes/{code}.status만 바뀌고 users/{uid} 문서는 안 건드리기 때문에, 캐시된
+  // unlockCodeExpiresAt만 보면 무효화를 실시간으로 알 수 없다. lib/premiumLimits.ts의
+  // isPremiumUser/isUnlimitedAiUser가 unlockCodeExpiresAt보다 이 값을 우선한다.
+  unlockCodeLiveStatus?: "active" | "invalidated" | "expired" | null;
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.

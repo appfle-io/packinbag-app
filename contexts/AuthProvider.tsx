@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -97,14 +98,22 @@ async function ensureUserDoc(user: User) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  // users/{uid} 문서에서 그대로 읽어온 값. 이용권이 실제로 지금 유효한지(무효화/만료
+  // 여부)는 여기 없다 - 아래 unlockLiveStatus가 따로 담당한다 (그 이유는 바로 아래 주석 참고).
+  const [rawProfile, setRawProfile] = useState<UserProfile | null>(null);
+  // unlockCodes/{code} 문서를 실시간 구독해서 얻는 값. 마스터가 "무효화" 버튼을 누르면
+  // unlockCodes/{code}.status만 바뀌고 users/{uid} 문서는 안 건드리기 때문에, users/{uid}
+  // 구독만으로는 무효화를 실시간으로 알 수 없다 - 그래서 이 문서도 별도로 구독해야 한다.
+  const [unlockLiveStatus, setUnlockLiveStatus] = useState<
+    "active" | "invalidated" | "expired" | null
+  >(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (!firebaseUser) {
-        setProfile(null);
+        setRawProfile(null);
         setLoading(false);
       } else {
         // 재로그인 시 이전 세션의 profile(null)이 잠깐 남아있는 상태에서
@@ -121,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const ref = doc(db, "users", user.uid);
     const unsubDoc = onSnapshot(ref, (snap) => {
       const data = snap.data();
-      setProfile({
+      setRawProfile({
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
@@ -157,6 +166,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     return unsubDoc;
   }, [user]);
+
+  // unlockCodes/{code} 문서를 실시간 구독해서, 관리자가 "무효화" 버튼을 누르는 순간
+  // (또는 만료 시각이 지나는 순간) 화면에 바로 반영되게 한다. 코드가 없으면 구독하지 않고
+  // 상태를 null로 비운다(마스터 계정처럼 코드 자체가 필요 없는 경우 등).
+  useEffect(() => {
+    const code = rawProfile?.unlockCode;
+    if (!code) {
+      setUnlockLiveStatus(null);
+      return;
+    }
+    const unsub = onSnapshot(
+      doc(db, "unlockCodes", code),
+      (snap) => {
+        if (!snap.exists()) {
+          setUnlockLiveStatus("invalidated");
+          return;
+        }
+        const data = snap.data();
+        if (data.status === "invalidated") {
+          setUnlockLiveStatus("invalidated");
+          return;
+        }
+        const expiresAt = data.expiresAt as { toDate?: () => Date } | null | undefined;
+        const expired =
+          !!expiresAt &&
+          typeof expiresAt.toDate === "function" &&
+          expiresAt.toDate().getTime() < Date.now();
+        setUnlockLiveStatus(expired ? "expired" : "active");
+      },
+      () => {
+        // 권한 문제/로그아웃 경합 등으로 구독 자체가 실패하면 상태를 모르는 채로 두고,
+        // premiumLimits.ts가 기존처럼 캐시된 unlockCodeExpiresAt 기준으로 판단하게 둔다.
+        setUnlockLiveStatus(null);
+      }
+    );
+    return unsub;
+  }, [rawProfile?.unlockCode]);
+
+  // 화면/로직에 실제로 노출되는 profile. rawProfile(users/{uid} 문서)과 unlockLiveStatus
+  // (unlockCodes/{code} 문서)를 합친다 - 둘이 서로 다른 문서를 구독하는 별개의 상태라서,
+  // 여기서 하나로 합쳐야 lib/premiumLimits.ts 등 기존 호출부를 안 건드리고 바로 반영된다.
+  const profile = useMemo<UserProfile | null>(() => {
+    if (!rawProfile) return null;
+    return { ...rawProfile, unlockCodeLiveStatus: unlockLiveStatus };
+  }, [rawProfile, unlockLiveStatus]);
 
   const signUpWithEmail = async (
     email: string,

@@ -17,16 +17,20 @@ export default function TravelDateField({
   travelDate,
   reminderOffsets,
   onChange,
+  readOnly,
 }: {
   travelDate?: string;
   reminderOffsets?: ReminderOffset[];
   onChange: (travelDate: string | undefined, reminderOffsets: ReminderOffset[] | undefined) => void;
+  // true면 편집 진입을 막고 배지/날짜만 보여준다.
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState(travelDate ?? "");
   const [draftOffsets, setDraftOffsets] = useState<ReminderOffset[]>(reminderOffsets ?? [1]);
 
   const openEditor = () => {
+    if (readOnly) return;
     setDraftDate(travelDate ?? "");
     setDraftOffsets(reminderOffsets ?? [1]);
     setEditing(true);
@@ -109,6 +113,7 @@ export default function TravelDateField({
   }
 
   if (!travelDate) {
+    if (readOnly) return null;
     return (
       <button
         onClick={openEditor}
@@ -124,7 +129,11 @@ export default function TravelDateField({
   const badge = formatDDayLabel(travelDate);
 
   return (
-    <button onClick={openEditor} className="flex items-center gap-1.5 mb-3">
+    <button
+      onClick={openEditor}
+      className="flex items-center gap-1.5 mb-3"
+      style={{ cursor: readOnly ? "default" : undefined }}
+    >
       {badge && (
         <span
           className="text-[11px] font-medium rounded-full px-2 py-0.5"

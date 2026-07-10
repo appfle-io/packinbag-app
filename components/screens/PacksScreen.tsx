@@ -10,10 +10,14 @@ import { useToast } from "@/components/Toast";
 
 export default function PacksScreen({
   packs,
+  lockedPackIds,
   onOpenPack,
   onNewPack,
 }: {
   packs: Pack[];
+  // 무료 전환으로 잠긴 팩 id 목록. 타일에 자물쇠 표시만 하고, 탭하면 여전히 열린다 -
+  // 실제 읽기 전용 처리는 PackLibraryEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
+  lockedPackIds?: Set<string>;
   onOpenPack: (pack: Pack) => void;
   onNewPack: () => void;
 }) {
@@ -39,7 +43,12 @@ export default function PacksScreen({
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
         {sortedPacks.map((pack) => (
-          <PackTile key={pack.id} pack={pack} onClick={() => onOpenPack(pack)} />
+          <PackTile
+            key={pack.id}
+            pack={pack}
+            locked={lockedPackIds?.has(pack.id)}
+            onClick={() => onOpenPack(pack)}
+          />
         ))}
         <button
           onClick={onNewPack}

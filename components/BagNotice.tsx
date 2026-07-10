@@ -8,9 +8,12 @@ import { IconNotes } from "@tabler/icons-react";
 export default function BagNotice({
   value,
   onChange,
+  readOnly,
 }: {
   value: string;
   onChange: (value: string) => void;
+  // true면 편집 진입을 막고 내용만 보여준다.
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -54,6 +57,7 @@ export default function BagNotice({
   }
 
   if (!value) {
+    if (readOnly) return null;
     return (
       <button
         onClick={() => {
@@ -71,12 +75,16 @@ export default function BagNotice({
 
   return (
     <button
-      onClick={() => {
-        setDraft(value);
-        setEditing(true);
-      }}
+      onClick={
+        readOnly
+          ? undefined
+          : () => {
+              setDraft(value);
+              setEditing(true);
+            }
+      }
       className="block w-full text-left text-[13px] leading-relaxed whitespace-pre-wrap mb-3"
-      style={{ color: "var(--text-secondary)" }}
+      style={{ color: "var(--text-secondary)", cursor: readOnly ? "default" : undefined }}
     >
       {value}
     </button>

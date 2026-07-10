@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { IconLoader2 } from "@tabler/icons-react";
 import { Bag, Pack, Announcement } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
@@ -43,7 +44,14 @@ import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
-import { isPremiumUser, FREE_MAX_LIBRARY_PACKS, FREE_MAX_ACTIVE_BAGS, PremiumLimitError } from "@/lib/premiumLimits";
+import {
+  isPremiumUser,
+  FREE_MAX_LIBRARY_PACKS,
+  FREE_MAX_ACTIVE_BAGS,
+  PremiumLimitError,
+  computeLockedBagIds,
+  computeLockedPackIds,
+} from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -51,6 +59,25 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 function inviteCodeFromUrl(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("invite")?.toUpperCase() ?? "";
+}
+
+// 이용권 상태가 막 바뀐 순간(무효화/만료 감지, 또는 재등록) 짧게 보여주는 전체화면
+// 로딩 오버레이. 화면이 갑자기 잠기거나 풀리는 게 아니라 "지금 뭔가 바뀌고 있다"는
+// 걸 직관적으로 느끼게 하기 위한 것 - 실제 로딩할 데이터는 없고 순수 타이밍용이다.
+function PremiumSyncOverlay({ visible }: { visible: boolean }) {
+  return (
+    <div
+      className="fixed inset-0 z-[210] flex items-center justify-center"
+      style={{
+        background: "var(--background)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 200ms ease",
+        pointerEvents: visible ? "auto" : "none",
+      }}
+    >
+      <IconLoader2 size={28} stroke={1.75} color="var(--text-muted)" className="animate-spin" />
+    </div>
+  );
 }
 
 export default function AppShell() {
@@ -72,6 +99,7 @@ export default function AppShell() {
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
   const [settingsSubviewActive, setSettingsSubviewActive] = useState(false);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
+  const [showPremiumSyncOverlay, setShowPremiumSyncOverlay] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinTimeDone(true), 900);
@@ -123,6 +151,66 @@ export default function AppShell() {
     return subscribeToAnnouncements(setAnnouncements);
   }, [user]);
 
+  // 지금 이 사용자가 프리미엄인지 - AuthProvider가 unlockCodes/{code} 문서까지 실시간
+  // 구독해서 profile에 얹어주므로(unlockCodeLiveStatus), 관리자가 무효화하는 순간
+  // 이 값도 바로 바뀐다.
+  const premium = user && profile ? isPremiumUser(user.email, profile) : false;
+
+  // 이용권 상태(premium)가 true<->false로 바뀌는 순간을 감지한다.
+  // - 첫 렌더에서는 기준값만 저장하고 아무 동작도 하지 않는다(로그인 직후 로딩 중 잠깐
+  //   false로 보이다가 true로 바뀌는 정상적인 초기 로딩까지 "다운그레이드"로 오인하면 안 됨).
+  // - 그 이후로 값이 실제로 바뀌면: (1) 서버에 잠금 상태 재계산을 요청하고
+  //   (app/api/sync-lock-status - 무료<->프리미엄 양방향 모두), (2) 무료로 떨어진 경우에만
+  //   짧은 오버레이 + 안내 토스트로 "뭔가 바뀌었다"는 걸 직관적으로 알린다.
+  const premiumRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!user) {
+      premiumRef.current = null;
+      return;
+    }
+    if (premiumRef.current === null) {
+      premiumRef.current = premium;
+      return;
+    }
+    if (premiumRef.current === premium) return;
+    const wasPremium = premiumRef.current;
+    premiumRef.current = premium;
+
+    user
+      .getIdToken()
+      .then((idToken) =>
+        fetch("/api/sync-lock-status", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${idToken}` },
+        })
+      )
+      .catch((err) => {
+        console.error("[팩인백] 잠금 상태 동기화 요청 실패:", err);
+      });
+
+    if (wasPremium && !premium) {
+      setShowPremiumSyncOverlay(true);
+      const t = setTimeout(() => {
+        setShowPremiumSyncOverlay(false);
+        show("무료 회원으로 전환되어 일부 기능이 제한돼요");
+      }, 700);
+      return () => clearTimeout(t);
+    }
+  }, [premium, user, show]);
+
+  // 무료 전환으로 잠긴(내가 소유한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
+  const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
+  const lockedPackIds = !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
+
+  const requestUnlockForBag = () =>
+    setPremiumLimitMessage(
+      "이 가방은 읽기 전용이에요. 이용권 코드를 등록하면 다시 수정할 수 있어요."
+    );
+  const requestUnlockForPack = () =>
+    setPremiumLimitMessage(
+      "이 팩은 읽기 전용이에요. 이용권 코드를 등록하면 다시 수정할 수 있어요."
+    );
+
   const dismissedIds = profile?.dismissedAnnouncementIds ?? [];
   const activeUndismissed = announcements
     .filter((a) => isAnnouncementActive(a))
@@ -168,7 +256,7 @@ export default function AppShell() {
     );
 
   const openNewBag = async () => {
-    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !isPremiumUser(user.email, profile)) {
+    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
         `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
       );
@@ -213,7 +301,7 @@ export default function AppShell() {
   // 메모 AI 가져오기뿐 아니라 샘플 템플릿 선택, 해시태그 AI 생성 결과도 모두
   // 동일한 형태(ImportedBagResult)라서 이 함수를 함께 쓴다.
   const openNewBagFromNote = async (result: NoteImportResult) => {
-    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !isPremiumUser(user.email, profile)) {
+    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
         `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
       );
@@ -364,7 +452,7 @@ export default function AppShell() {
     if (
       isNewLibraryPack &&
       libraryPacks.length >= FREE_MAX_LIBRARY_PACKS &&
-      !isPremiumUser(user.email, profile)
+      !premium
     ) {
       setPremiumLimitMessage(
         `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
@@ -416,7 +504,7 @@ export default function AppShell() {
   const openNewPack = () => {
     if (
       libraryPacks.length >= FREE_MAX_LIBRARY_PACKS &&
-      !isPremiumUser(user.email, profile)
+      !premium
     ) {
       setPremiumLimitMessage(
         `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
@@ -448,6 +536,7 @@ export default function AppShell() {
   };
 
   if (editingBag) {
+    const isEditingBagLocked = lockedBagIds.has(editingBag.id);
     return (
       <>
         <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
@@ -458,6 +547,8 @@ export default function AppShell() {
             nickname={profile.nickname}
             avatarId={profile.avatarId}
             isNew={isNewBag}
+            readOnly={isEditingBagLocked}
+            onRequestUnlock={requestUnlockForBag}
             onBack={handleBackFromEditor}
             onSave={handleSaveBag}
             onDeleteBag={handleDeleteBag}
@@ -468,6 +559,7 @@ export default function AppShell() {
           />
         </div>
         <SplashScreen visible={showSplash} />
+        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
         {premiumLimitMessage && (
           <PremiumLimitModal
             message={premiumLimitMessage}
@@ -483,12 +575,16 @@ export default function AppShell() {
   }
 
   if (editingPack) {
+    const isEditingPackLocked = lockedPackIds.has(editingPack.id);
     return (
       <>
         <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
           <PackLibraryEditorScreen
             initialPack={editingPack}
             libraryPacks={libraryPacks}
+            lockedPackIds={lockedPackIds}
+            readOnly={isEditingPackLocked}
+            onRequestUnlock={requestUnlockForPack}
             onBack={() => setEditingPack(null)}
             onSave={handleSavePack}
             onSaveOtherPack={handleSavePack}
@@ -496,6 +592,7 @@ export default function AppShell() {
           />
         </div>
         <SplashScreen visible={showSplash} />
+        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
       </>
     );
   }
@@ -552,6 +649,7 @@ export default function AppShell() {
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
               <PacksScreen
                 packs={libraryPacks}
+                lockedPackIds={lockedPackIds}
                 onOpenPack={(pack) => setEditingPack(pack)}
                 onNewPack={openNewPack}
               />
@@ -560,6 +658,7 @@ export default function AppShell() {
               <HomeScreen
                 bags={bags}
                 initialInviteCode={inviteCodeFromUrl()}
+                lockedBagIds={lockedBagIds}
                 onOpenBag={(bag) => {
                   setIsNewBag(false);
                   setEditingBag(bag);
@@ -604,6 +703,7 @@ export default function AppShell() {
         />
       )}
       <SplashScreen visible={showSplash} />
+      <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
     </>
   );
 }

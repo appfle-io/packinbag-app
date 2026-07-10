@@ -9,6 +9,7 @@ import {
   IconTrash,
   IconUsers,
   IconSparkles,
+  IconLock,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import EditableText from "@/components/EditableText";
@@ -42,6 +43,8 @@ export default function BagEditorScreen({
   nickname,
   avatarId,
   isNew,
+  readOnly,
+  onRequestUnlock,
   onBack,
   onSave,
   onDeleteBag,
@@ -56,6 +59,10 @@ export default function BagEditorScreen({
   nickname: string;
   avatarId: string;
   isNew: boolean;
+  // true면 무료 전환으로 잠긴(내 소유) 가방. 보기만 가능하고 모든 수정/삭제/공유 동작이 막힌다.
+  readOnly: boolean;
+  // 잠긴 상태에서 수정을 시도하면 이용권 등록을 유도하는 모달을 띄우기 위해 AppShell에 알린다.
+  onRequestUnlock: () => void;
   onBack: (currentBag: Bag) => void;
   onSave: (bag: Bag) => void;
   onDeleteBag: (bag: Bag) => void;
@@ -76,6 +83,16 @@ export default function BagEditorScreen({
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
+
+  // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
+  // 호출한 쪽에서 그대로 return해서 실제 상태 변경으로 이어지지 않게 한다. 모달이 열려있는
+  // 상태(onRequestUnlock)로 이용권 등록을 바로 유도한다.
+  const guardReadOnly = (): boolean => {
+    if (!readOnly) return false;
+    onRequestUnlock();
+    return true;
+  };
+
   // 새로 만드는 중(isNew)에 "저장" 버튼을 아직 누르지 않았는데 로컬 변경이 하나라도
   // 생겼는지 추적한다. true인 상태로 뒤로가기/스와이프 하면 그대로 나가도 되는지 확인
   // 다이얼로그를 띄운다 - 실제 삭제(handleBackFromEditor의 임시 가방 정리)는 그대로 두고,
@@ -91,6 +108,7 @@ export default function BagEditorScreen({
   const swipeBackRef = useSwipeBack<HTMLDivElement>(handleBackAttempt);
 
   const handleRemoveMember = async (memberUid: string) => {
+    if (guardReadOnly()) return;
     await onRemoveMember(bag.id, memberUid);
     setBag((prev) => {
       const memberProfiles = { ...prev.memberProfiles };
@@ -104,6 +122,7 @@ export default function BagEditorScreen({
   };
 
   const handleRegenerateCode = async () => {
+    if (guardReadOnly()) return;
     const newCode = await onRegenerateInviteCode(bag);
     setBag((prev) => ({ ...prev, inviteCode: newCode }));
   };
@@ -111,7 +130,10 @@ export default function BagEditorScreen({
   const handleChangeTravelDate = (
     travelDate: string | undefined,
     reminderOffsets: ReminderOffset[] | undefined
-  ) => setBag((prev) => ({ ...prev, travelDate, reminderOffsets }));
+  ) => {
+    if (guardReadOnly()) return;
+    setBag((prev) => ({ ...prev, travelDate, reminderOffsets }));
+  };
 
   const updatePacks = (updater: (packs: Pack[]) => Pack[]) =>
     setBag((prev) => ({ ...prev, packs: updater(prev.packs) }));
@@ -194,6 +216,8 @@ export default function BagEditorScreen({
   // 대기 중) 저장 중이면(isDirtyRef) 그 사이에 들어온 원격 변경은 건너뛴다 - 곧 내가
   // 보낼 저장이 그 시점 기준 최신 상태를 다시 반영하기 때문에, 여기서 섞어 넣으면
   // 오히려 화면이 잠깐 깜빡이거나 아직 저장 안 한 내 편집을 잃을 수 있다.
+  // 이 구독은 locked 필드도 그대로 실어오므로, 다른 곳(app/api/sync-lock-status)에서
+  // 잠금 상태가 바뀌면 이 화면도 곧바로 반영된다(=readOnly prop이 AppShell에서 다시 계산됨).
   useEffect(() => {
     const unsub = subscribeToBag(bag.id, (remoteBag) => {
       if (!remoteBag) return;
@@ -205,7 +229,8 @@ export default function BagEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bag.id]);
 
-  const handleToggleItem = (packId: string, itemId: string) =>
+  const handleToggleItem = (packId: string, itemId: string) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) =>
       packs.map((p) =>
         p.id !== packId
@@ -218,13 +243,15 @@ export default function BagEditorScreen({
             }
       )
     );
+  };
 
   const handleChangeItemText = (
     packId: string,
     itemId: string,
     text: string,
     style?: { bold?: boolean; strike?: boolean; color?: string }
-  ) =>
+  ) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) =>
       packs.map((p) => {
         if (p.id !== packId) return p;
@@ -248,8 +275,10 @@ export default function BagEditorScreen({
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
       })
     );
+  };
 
   const handleDeleteItem = (packId: string, itemId: string) => {
+    if (guardReadOnly()) return;
     let removedItem: Item | undefined;
     let removedIndex = -1;
     updatePacks((packs) =>
@@ -291,10 +320,13 @@ export default function BagEditorScreen({
     | null
   >(null);
 
-  const handleOpenAddItem = (packId: string, type: "check" | "text") =>
+  const handleOpenAddItem = (packId: string, type: "check" | "text") => {
+    if (guardReadOnly()) return;
     setItemModal({ mode: "add", sourcePackId: packId, type });
+  };
 
   const handleOpenEditItem = (packId: string, itemId: string) => {
+    if (guardReadOnly()) return;
     const pack = bag.packs.find((p) => p.id === packId);
     const item = pack?.items.find((i) => i.id === itemId);
     if (!item) return;
@@ -304,7 +336,8 @@ export default function BagEditorScreen({
   const handleCreateItem = (
     targetPackId: string,
     data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string }
-  ) =>
+  ) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) =>
       packs.map((p) => {
         if (p.id !== targetPackId) return p;
@@ -321,6 +354,7 @@ export default function BagEditorScreen({
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
       })
     );
+  };
 
   // 짐 수정 모달의 저장 처리. 같은 팩을 유지하면 원래 위치 그대로 내용만 갱신하고,
   // 모달에서 다른 팩으로 바꿔서 저장하면 기존 드래그 이동(handleMoveItem)처럼 원래
@@ -331,6 +365,7 @@ export default function BagEditorScreen({
     targetPackId: string,
     data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string }
   ) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) => {
       const sourcePack = packs.find((p) => p.id === sourcePackId);
       const original = sourcePack?.items.find((i) => i.id === itemId);
@@ -369,7 +404,8 @@ export default function BagEditorScreen({
     if (sourcePackId !== targetPackId) show("짐을 옮겼어요");
   };
 
-  const handleRenamePack = (packId: string, name: string) =>
+  const handleRenamePack = (packId: string, name: string) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) =>
       packs.map((p) => {
         if (p.id !== packId) return p;
@@ -377,11 +413,13 @@ export default function BagEditorScreen({
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
       })
     );
+  };
 
   // 10개 캡을 "+팩" 버튼의 disabled 속성뿐 아니라 함수 자체에도 걸어둔다 - 그래야
   // PackImportModal의 "새 팩 만들기"처럼 disabled 체크가 없는 다른 진입점에서
   // 호출해도 안전하다. 캡에 걸리면 조용히 무시하지 않고 이유를 알려준다.
   const handleAddPack = () => {
+    if (guardReadOnly()) return;
     if (bag.packs.length >= 10) {
       show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
       return;
@@ -389,10 +427,13 @@ export default function BagEditorScreen({
     updatePacks((packs) => [...packs, { id: uid(), name: "새 팩", items: [] }]);
   };
 
-  const handleImport = (imported: Pack[]) =>
+  const handleImport = (imported: Pack[]) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) => [...packs, ...imported].slice(0, 10));
+  };
 
   const handleDeletePack = (packId: string) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) => packs.filter((p) => p.id !== packId));
     show("팩을 가방에서 삭제했어요");
   };
@@ -405,6 +446,7 @@ export default function BagEditorScreen({
     itemId: string,
     overItemId?: string | null
   ) => {
+    if (guardReadOnly()) return;
     if (fromPackId === toPackId) {
       if (!overItemId || overItemId === itemId) return;
       updatePacks((packs) =>
@@ -463,6 +505,7 @@ export default function BagEditorScreen({
     clientX: number,
     clientY: number
   ) => {
+    if (guardReadOnly()) return;
     setDrag({
       itemId,
       fromPackId: packId,
@@ -523,10 +566,12 @@ export default function BagEditorScreen({
     clientX: number,
     clientY: number
   ) => {
+    if (guardReadOnly()) return;
     setPackDrag({ packId, name, x: clientX, y: clientY, overPackId: null });
   };
 
   const handleReorderPack = (fromPackId: string, toPackId: string) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) => {
       const fromIndex = packs.findIndex((p) => p.id === fromPackId);
       const toIndex = packs.findIndex((p) => p.id === toPackId);
@@ -580,6 +625,7 @@ export default function BagEditorScreen({
   } | null>(null);
 
   const commitSaveToLibrary = (packId: string, nameOverride?: string) => {
+    if (guardReadOnly()) return;
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack) return;
     const name = (nameOverride ?? pack.name).trim();
@@ -612,6 +658,7 @@ export default function BagEditorScreen({
   };
 
   const handleSaveToLibrary = (packId: string) => {
+    if (guardReadOnly()) return;
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack) return;
     if (!pack.linkedLibraryPackId) {
@@ -638,6 +685,7 @@ export default function BagEditorScreen({
   };
 
   const confirmInitialSave = (packId: string) => {
+    if (guardReadOnly()) return;
     setSaveConfirmTarget(null);
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack) return;
@@ -652,6 +700,7 @@ export default function BagEditorScreen({
   };
 
   const handleChooseSaveAsNew = (packId: string) => {
+    if (guardReadOnly()) return;
     setUpdateChoiceTarget(null);
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack) return;
@@ -666,6 +715,7 @@ export default function BagEditorScreen({
   };
 
   const commitOverwriteToLibrary = (packId: string) => {
+    if (guardReadOnly()) return;
     setUpdateChoiceTarget(null);
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack?.linkedLibraryPackId) return;
@@ -692,6 +742,7 @@ export default function BagEditorScreen({
   };
 
   const handleRefreshFromLibrary = (packId: string) => {
+    if (guardReadOnly()) return;
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack?.linkedLibraryPackId) return;
     const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
@@ -715,7 +766,8 @@ export default function BagEditorScreen({
     show("팩을 다시 불러왔어요");
   };
 
-  const handleToggleAllInPack = (packId: string, checked: boolean) =>
+  const handleToggleAllInPack = (packId: string, checked: boolean) => {
+    if (guardReadOnly()) return;
     updatePacks((packs) =>
       packs.map((p) =>
         p.id !== packId
@@ -726,8 +778,10 @@ export default function BagEditorScreen({
             }
       )
     );
+  };
 
   const handleAddImages = async (files: FileList | null) => {
+    if (guardReadOnly()) return;
     if (!files || files.length === 0) return;
     const toUpload = Array.from(files).slice(0, MAX_BAG_IMAGES - bag.images.length);
     setUploadingImages(true);
@@ -744,6 +798,7 @@ export default function BagEditorScreen({
   };
 
   const removeImage = (idx: number) => {
+    if (guardReadOnly()) return;
     const url = bag.images[idx];
     setBag((prev) => ({
       ...prev,
@@ -753,6 +808,7 @@ export default function BagEditorScreen({
   };
 
   const handleSave = () => {
+    if (guardReadOnly()) return;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     isDirtyRef.current = false;
     hasUnsavedChangesRef.current = false;
@@ -762,6 +818,7 @@ export default function BagEditorScreen({
   };
 
   const handleLeave = async () => {
+    if (guardReadOnly()) return;
     await onLeaveBag(bag.id);
     setShowMembers(false);
     onBack(bag);
@@ -787,27 +844,48 @@ export default function BagEditorScreen({
               </button>
             </>
           )}
-          <button
-            onClick={() => setConfirmDeleteBag(true)}
-            aria-label="가방 삭제"
-            className="-m-2.5 p-2.5"
-          >
-            <IconTrash size={19} stroke={1.75} color="var(--danger)" />
-          </button>
-          <button
-            onClick={handleSave}
-            className="rounded-lg px-4 py-2.5 text-[13px] font-medium"
-            style={{ background: "var(--accent)", color: "#fff" }}
-          >
-            저장
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setConfirmDeleteBag(true)}
+              aria-label="가방 삭제"
+              className="-m-2.5 p-2.5"
+            >
+              <IconTrash size={19} stroke={1.75} color="var(--danger)" />
+            </button>
+          )}
+          {!readOnly && (
+            <button
+              onClick={handleSave}
+              className="rounded-lg px-4 py-2.5 text-[13px] font-medium"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              저장
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
+        {readOnly && (
+          <button
+            onClick={onRequestUnlock}
+            className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2 mb-3 text-left"
+            style={{ background: "var(--surface-2)" }}
+          >
+            <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+              <IconLock size={13} stroke={1.75} />
+              읽기 전용이에요 · 이용권을 등록하면 다시 수정할 수 있어요
+            </span>
+            <span className="text-[12px] font-medium shrink-0" style={{ color: "var(--accent)" }}>
+              등록
+            </span>
+          </button>
+        )}
+
         <EditableText
           value={bag.name}
           onChange={(name) => setBag((prev) => ({ ...prev, name }))}
+          readOnly={readOnly}
           className="text-[18px] font-medium mb-2 block text-left"
           inputClassName="text-[18px] font-medium mb-2 block w-full"
           placeholder="새 가방"
@@ -816,12 +894,14 @@ export default function BagEditorScreen({
         <BagNotice
           value={bag.notice ?? ""}
           onChange={(notice) => setBag((prev) => ({ ...prev, notice }))}
+          readOnly={readOnly}
         />
 
         <TravelDateField
           travelDate={bag.travelDate}
           reminderOffsets={bag.reminderOffsets}
           onChange={handleChangeTravelDate}
+          readOnly={readOnly}
         />
 
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4">
@@ -837,16 +917,18 @@ export default function BagEditorScreen({
                 onClick={() => setLightboxIndex(idx)}
                 className="h-full w-full object-cover"
               />
-              <button
-                onClick={() => setImageDeleteIndex(idx)}
-                className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
-                style={{ background: "rgba(0,0,0,0.5)" }}
-              >
-                <IconX size={10} stroke={2} color="#fff" />
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => setImageDeleteIndex(idx)}
+                  className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(0,0,0,0.5)" }}
+                >
+                  <IconX size={10} stroke={2} color="#fff" />
+                </button>
+              )}
             </div>
           ))}
-          {bag.images.length < MAX_BAG_IMAGES && (
+          {!readOnly && bag.images.length < MAX_BAG_IMAGES && (
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImages}
@@ -865,29 +947,31 @@ export default function BagEditorScreen({
           />
         </div>
 
-        <div className="flex gap-2 mb-4 flex-wrap">
-          <button
-            onClick={() => setShowImport(true)}
-            className="rounded-lg border border-border px-3 py-1.5 text-[12px]"
-          >
-            팩 불러오기
-          </button>
-          <button
-            onClick={handleAddPack}
-            disabled={bag.packs.length >= 10}
-            className="rounded-lg border border-border px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
-          >
-            <IconPlus size={13} stroke={1.75} />팩
-          </button>
-          <button
-            onClick={() => setShowAiOrganize(true)}
-            disabled={bag.packs.flatMap((p) => p.items).length < 2}
-            className="rounded-lg px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
-            style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
-          >
-            <IconSparkles size={13} stroke={1.75} />AI로 정리
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <button
+              onClick={() => setShowImport(true)}
+              className="rounded-lg border border-border px-3 py-1.5 text-[12px]"
+            >
+              팩 불러오기
+            </button>
+            <button
+              onClick={handleAddPack}
+              disabled={bag.packs.length >= 10}
+              className="rounded-lg border border-border px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
+            >
+              <IconPlus size={13} stroke={1.75} />팩
+            </button>
+            <button
+              onClick={() => setShowAiOrganize(true)}
+              disabled={bag.packs.flatMap((p) => p.items).length < 2}
+              className="rounded-lg px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
+              style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+            >
+              <IconSparkles size={13} stroke={1.75} />AI로 정리
+            </button>
+          </div>
+        )}
 
         {bag.packs.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
@@ -906,7 +990,10 @@ export default function BagEditorScreen({
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
             onDeletePack={handleDeletePack}
-            onRefreshFromLibrary={(packId: string) => setRefreshConfirmTarget(packId)}
+            onRefreshFromLibrary={(packId: string) => {
+              if (guardReadOnly()) return;
+              setRefreshConfirmTarget(packId);
+            }}
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={drag?.itemId ?? null}
             dragOverItemId={drag?.overItemId ?? null}
@@ -999,6 +1086,7 @@ export default function BagEditorScreen({
           bag={bag}
           onClose={() => setShowAiOrganize(false)}
           onApply={(newPacks) => {
+            if (guardReadOnly()) return;
             setShowAiOrganize(false);
             updatePacks(() => newPacks);
             show("AI가 정리했어요");

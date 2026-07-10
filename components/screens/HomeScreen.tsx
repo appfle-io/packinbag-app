@@ -16,6 +16,7 @@ import { useToast } from "@/components/Toast";
 export default function HomeScreen({
   bags,
   initialInviteCode,
+  lockedBagIds,
   onOpenBag,
   onNewBag,
   onImportNote,
@@ -23,6 +24,9 @@ export default function HomeScreen({
 }: {
   bags: Bag[];
   initialInviteCode?: string;
+  // 무료 전환으로 잠긴(내가 소유한) 가방 id 목록. 카드에 자물쇠 표시만 하고, 탭하면
+  // 여전히 열린다 - 실제 읽기 전용 처리는 BagEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
+  lockedBagIds?: Set<string>;
   onOpenBag: (bag: Bag) => void;
   onNewBag: () => void;
   onImportNote: (result: NoteImportResult) => void;
@@ -77,7 +81,12 @@ export default function HomeScreen({
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
           {sortedBags.map((bag) => (
-            <BagCard key={bag.id} bag={bag} onClick={() => onOpenBag(bag)} />
+            <BagCard
+              key={bag.id}
+              bag={bag}
+              locked={lockedBagIds?.has(bag.id)}
+              onClick={() => onOpenBag(bag)}
+            />
           ))}
           <button
             onClick={() => setShowNewBagOptions(true)}

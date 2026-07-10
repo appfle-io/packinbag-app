@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowLeft, IconTrash, IconPlus } from "@tabler/icons-react";
+import { IconArrowLeft, IconTrash, IconPlus, IconLock } from "@tabler/icons-react";
 import { Item, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
@@ -23,6 +23,9 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 export default function PackLibraryEditorScreen({
   initialPack,
   libraryPacks,
+  lockedPackIds,
+  readOnly,
+  onRequestUnlock,
   onBack,
   onSave,
   onSaveOtherPack,
@@ -33,6 +36,13 @@ export default function PackLibraryEditorScreen({
   // 아직 한 번도 저장되지 않았다면(방금 "새 팩 만들기") 이 목록에 없을 수 있어서
   // displayPacks 계산에서 별도로 합쳐준다.
   libraryPacks: Pack[];
+  // 무료 전환으로 잠긴 다른 라이브러리 팩 id 목록. "다른 팩에도 같이 추가" 체크박스
+  // 목록에서 이 팩들은 제외한다 - 지금 열려있는 팩(unlocked 상태라 이 화면이 열림)을
+  // 편집하는 김에 잠긴 팩에 몰래 짐을 추가하는 것을 막기 위함.
+  lockedPackIds?: Set<string>;
+  // true면 지금 편집 중인 이 팩 자체가 잠긴 상태. 보기만 가능하고 모든 수정/삭제가 막힌다.
+  readOnly: boolean;
+  onRequestUnlock: () => void;
   onBack: () => void;
   onSave: (pack: Pack) => void;
   // 지금 편집 중인 팩이 아닌 "다른" 팩에 짐을 추가/복사할 때 그 팩을 즉시 원격저장.
@@ -58,19 +68,29 @@ export default function PackLibraryEditorScreen({
       )
     : pack.items;
 
-  const toggleItem = (itemId: string) =>
+  // 잠긴 팩에서 수정을 시도하는 모든 진입점의 공용 방어선.
+  const guardReadOnly = (): boolean => {
+    if (!readOnly) return false;
+    onRequestUnlock();
+    return true;
+  };
+
+  const toggleItem = (itemId: string) => {
+    if (guardReadOnly()) return;
     setPack((p) => ({
       ...p,
       items: p.items.map((i) =>
         i.id === itemId ? { ...i, checked: !i.checked } : i
       ),
     }));
+  };
 
   const changeItemText = (
     itemId: string,
     text: string,
     style?: { bold?: boolean; strike?: boolean; color?: string }
-  ) =>
+  ) => {
+    if (guardReadOnly()) return;
     setPack((p) => ({
       ...p,
       items: p.items.map((i) =>
@@ -86,8 +106,10 @@ export default function PackLibraryEditorScreen({
           : i
       ),
     }));
+  };
 
   const deleteItem = (itemId: string) => {
+    if (guardReadOnly()) return;
     let removedItem: Item | undefined;
     let removedIndex = -1;
     setPack((p) => {
@@ -113,10 +135,13 @@ export default function PackLibraryEditorScreen({
 
   // 짐 추가/수정 모달을 위한 팩 선택 목록: 지금 편집 중인 팩(pack, 로컬 최신 상태)과
   // 라이브러리 전체 팩(libraryPacks)을 합친다. 아직 한 번도 저장 안 된 새 팩이면
-  // libraryPacks에 없을 수 있어서 그런 경우엔 앞에 끼워 넣는다.
-  const displayPacks = libraryPacks.some((p) => p.id === pack.id)
-    ? libraryPacks.map((p) => (p.id === pack.id ? pack : p))
-    : [pack, ...libraryPacks];
+  // libraryPacks에 없을 수 있어서 그런 경우엔 앞에 끼워 넣는다. 잠긴 다른 팩은 여기서
+  // 제외해서, 체크박스로 선택조차 할 수 없게 만든다(lockedPackIds 참고).
+  const displayPacks = (
+    libraryPacks.some((p) => p.id === pack.id)
+      ? libraryPacks.map((p) => (p.id === pack.id ? pack : p))
+      : [pack, ...libraryPacks]
+  ).filter((p) => p.id === pack.id || !lockedPackIds?.has(p.id));
 
   const buildNewItem = (data: ItemFormSaveData): Item => ({
     id: uid(),
@@ -127,8 +152,14 @@ export default function PackLibraryEditorScreen({
       : { bold: data.bold, strike: data.strike, color: data.color }),
   });
 
-  const openAddModal = () => setItemModal({ mode: "add" });
-  const openEditModal = (item: Item) => setItemModal({ mode: "edit", item });
+  const openAddModal = () => {
+    if (guardReadOnly()) return;
+    setItemModal({ mode: "add" });
+  };
+  const openEditModal = (item: Item) => {
+    if (guardReadOnly()) return;
+    setItemModal({ mode: "edit", item });
+  };
 
   // 모달 저장 처리:
   // - 지금 팩(pack.id)이 체크되어 있으면: add는 새 짐 추가, edit는 원래 자리에서
@@ -137,6 +168,7 @@ export default function PackLibraryEditorScreen({
   // - 체크된 다른 팩들에는 항상 새 복사본을 만들어서 즉시 원격저장(onSaveOtherPack).
   //   (팩 간 짐은 항상 독립된 복사본이라는 기존 원칙과 동일 - 원본을 옮기는 게 아님)
   const handleModalSave = (selectedPackIds: string[], data: ItemFormSaveData) => {
+    if (guardReadOnly()) return;
     const includesCurrent = selectedPackIds.includes(pack.id);
     const otherPackIds = selectedPackIds.filter((id) => id !== pack.id);
 
@@ -187,6 +219,7 @@ export default function PackLibraryEditorScreen({
   const [drag, setDrag] = useState<{ itemId: string; overItemId: string | null } | null>(null);
 
   const handleStartItemDrag = (itemId: string) => {
+    if (guardReadOnly()) return;
     setDrag({ itemId, overItemId: null });
   };
 
@@ -239,7 +272,8 @@ export default function PackLibraryEditorScreen({
   // 짐을 추가/삭제/수정/순서변경하거나 팩 이름·색상을 바꿀 때마다(=pack 상태가 바뀔 때마다)
   // 0.5초 후 자동으로 저장한다. 상단의 별도 "저장" 버튼 없이도 항상 최신 상태가
   // 라이브러리에 반영되도록 하는 것이 목적. 처음 화면이 열릴 때(아직 아무것도 안 바꼈을 때)는
-  // 저장하지 않는다.
+  // 저장하지 않는다. readOnly면 위의 모든 setPack 진입점이 guardReadOnly로 막혀있어서
+  // pack 상태 자체가 변하지 않으므로, 이 effect도 자연히 실행되지 않는다.
   const [justSaved, setJustSaved] = useState(false);
   const isFirstPackEffect = useRef(true);
   const saveTimerRef = useRef<number | null>(null);
@@ -337,23 +371,45 @@ export default function PackLibraryEditorScreen({
           >
             저장됨
           </span>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="rounded-lg px-2.5 py-1.5"
-          >
-            <IconTrash size={18} stroke={1.75} color="var(--danger)" />
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="rounded-lg px-2.5 py-1.5"
+            >
+              <IconTrash size={18} stroke={1.75} color="var(--danger)" />
+            </button>
+          )}
         </div>
       </div>
+
+      {readOnly && (
+        <button
+          onClick={onRequestUnlock}
+          className="mx-4 mb-2 flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left shrink-0"
+          style={{ background: "var(--surface-2)" }}
+        >
+          <span className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+            <IconLock size={13} stroke={1.75} />
+            읽기 전용이에요 · 이용권을 등록하면 다시 수정할 수 있어요
+          </span>
+          <span className="text-[12px] font-medium shrink-0" style={{ color: "var(--accent)" }}>
+            등록
+          </span>
+        </button>
+      )}
 
       <div className="flex items-center gap-2 px-4 pb-2 shrink-0">
         <PackColorDot
           colorId={pack.color}
-          onChange={(colorId) => setPack((p) => ({ ...p, color: colorId }))}
+          onChange={(colorId) => {
+            if (guardReadOnly()) return;
+            setPack((p) => ({ ...p, color: colorId }));
+          }}
         />
         <EditableText
           value={pack.name}
           onChange={(name) => setPack((p) => ({ ...p, name }))}
+          readOnly={readOnly}
           className="text-[18px] font-medium block text-left min-w-0 flex-1"
           inputClassName="text-[18px] font-medium block w-full"
           placeholder="새 팩"
@@ -392,19 +448,21 @@ export default function PackLibraryEditorScreen({
 
       {/* 하단 중앙 "추가" 버튼 - 누르면 짐 추가/수정 모달(ItemFormModal)이 뜬다.
           가방 속 팩과 달리 상단 팩 선택이 체크박스형(여러개 선택 가능)이다. */}
-      <div
-        className="shrink-0 border-t border-border p-3 flex justify-center"
-        style={{ paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))" }}
-      >
-        <button
-          onClick={openAddModal}
-          className="flex items-center justify-center gap-1.5 rounded-full px-8 py-3 text-[15px] font-medium"
-          style={{ background: "var(--accent)", color: "#fff" }}
+      {!readOnly && (
+        <div
+          className="shrink-0 border-t border-border p-3 flex justify-center"
+          style={{ paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))" }}
         >
-          <IconPlus size={18} stroke={2} />
-          추가
-        </button>
-      </div>
+          <button
+            onClick={openAddModal}
+            className="flex items-center justify-center gap-1.5 rounded-full px-8 py-3 text-[15px] font-medium"
+            style={{ background: "var(--accent)", color: "#fff" }}
+          >
+            <IconPlus size={18} stroke={2} />
+            추가
+          </button>
+        </div>
+      )}
 
       {itemModal && (
         <ItemFormModal
