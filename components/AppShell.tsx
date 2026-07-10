@@ -255,8 +255,14 @@ export default function AppShell() {
       </>
     );
 
+  // 무료 개수 제한은 "내가 소유한 가방"만 센다 - app/api/create-bag의 서버 카운트/
+  // lib/premiumLimits.ts의 computeLockedBagIds와 동일한 기준. 여기서는 무료일 때 버튼을
+  // 눌렀을 때 서버 응답을 기다리지 않고 바로 안내 모달을 띄우기 위해 클라이언트에서도
+  // 거의 동일한 검사를 미리 한 번 해본다(실제 강제는 서버 쪽에서 한다).
+  const ownedBagCount = bags.filter((b) => b.ownerId === user.uid).length;
+
   const openNewBag = async () => {
-    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !premium) {
+    if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
         `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
       );
@@ -301,7 +307,7 @@ export default function AppShell() {
   // 메모 AI 가져오기뿐 아니라 샘플 템플릿 선택, 해시태그 AI 생성 결과도 모두
   // 동일한 형태(ImportedBagResult)라서 이 함수를 함께 쓴다.
   const openNewBagFromNote = async (result: NoteImportResult) => {
-    if (bags.length >= FREE_MAX_ACTIVE_BAGS && !premium) {
+    if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
         `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
       );
