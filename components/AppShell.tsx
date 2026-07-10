@@ -107,7 +107,7 @@ function CreatingBagOverlay({ visible }: { visible: boolean }) {
 }
 
 export default function AppShell() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, authBusy } = useAuth();
   const { show } = useToast();
 
   const [bags, setBags] = useState<Bag[]>([]);
@@ -274,7 +274,10 @@ export default function AppShell() {
     return <SplashScreen visible={showSplash} />;
   }
 
-  if (!user)
+  // 회원가입/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할 사이 signOut하는 흐름 동안은,
+  // user가 잠시 생기더라도 홈 화면으로 넘어가면 안 된다(넘어갔다가 곧바로 되돌아오는
+  // 부자연스러운 깜빡임이 생기기 때문). 계속 로그인 화면을 보여준다.
+  if (!user || authBusy)
     return (
       <>
         <AuthScreen />

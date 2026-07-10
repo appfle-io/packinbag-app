@@ -39,6 +39,11 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  // 회원가입 처리 중(계정 생성 -> 샘플데이터/인증메일 -> 로그아웃) true. 이 사이에는
+  // Firebase가 잠깐 로그인 상태가 되지만, 화면은 절대 홈으로 넘어가면 안 된다
+  // (넘어갔다가 마지막에 signOut하면서 다시 로그인 화면으로 튕기는 부자연스러운
+  // 깜빡임이 생기기 때문 - AppShell에서 이 값을 user와 함께 확인해서 막는다).
+  authBusy: boolean;
   signUpWithEmail: (
     email: string,
     password: string,
@@ -114,6 +119,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     "active" | "invalidated" | "expired" | null
   >(null);
   const [loading, setLoading] = useState(true);
+  // signUpWithEmail/resendVerificationByCredential처럼 잠깐 로그인했다가 곧바로
+  // signOut하는 흐름 동안 true. AppShell이 이 값을 user와 함께 확인해서 그 사이엔
+  // 절대 홈 화면으로 넘어가지 않게 막는다.
+  const [authBusy, setAuthBusy] = useState(false);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -229,33 +238,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     nickname: string,
     avatarId: string
   ): Promise<boolean> => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: nickname });
-    await setDoc(doc(db, "users", cred.user.uid), {
-      email,
-      displayName: nickname,
-      nickname,
-      avatarId,
-      createdAt: serverTimestamp(),
-    });
-    // 신규 가입자 온보딩 샘플(가방/팩 라이브러리)을 심어준다. 이 과정에서 문제가 생겨도
-    // 가입 자체를 막으면 안 되니 실패는 콘솔에만 남기고 넘어간다.
+    setAuthBusy(true);
     try {
-      await seedSampleDataForNewUser(cred.user, { nickname, avatarId });
-    } catch (err) {
-      console.error("[팩인백] 샘플 데이터 생성 실패:", err);
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(cred.user, { displayName: nickname });
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email,
+        displayName: nickname,
+        nickname,
+        avatarId,
+        createdAt: serverTimestamp(),
+      });
+      // 신규 가입자 온보딩 샘플(가방/팩 라이브러리)을 심어준다. 이 과정에서 문제가 생겨도
+      // 가입 자체를 막으면 안 되니 실패는 콘솔에만 남기고 넘어간다.
+      try {
+        await seedSampleDataForNewUser(cred.user, { nickname, avatarId });
+      } catch (err) {
+        console.error("[팩인백] 샘플 데이터 생성 실패:", err);
+      }
+      let sent = true;
+      try {
+        await sendEmailVerification(cred.user);
+      } catch (err) {
+        // 계정 생성 자체는 성공했으니 가입을 막지는 않되, 원인 파악용으로 콘솔에 남긴다.
+        console.error("[팩인백] 인증 메일 발송 실패:", err);
+        sent = false;
+      }
+      // 이메일 인증 전에는 로그인 상태를 유지시키지 않는다. (인증 완료 후 직접 로그인해야 함)
+      await signOut(auth);
+      return sent;
+    } finally {
+      setAuthBusy(false);
     }
-    let sent = true;
-    try {
-      await sendEmailVerification(cred.user);
-    } catch (err) {
-      // 계정 생성 자체는 성공했으니 가입을 막지는 않되, 원인 파악용으로 콘솔에 남긴다.
-      console.error("[팩인백] 인증 메일 발송 실패:", err);
-      sent = false;
-    }
-    // 이메일 인증 전에는 로그인 상태를 유지시키지 않는다. (인증 완료 후 직접 로그인해야 함)
-    await signOut(auth);
-    return sent;
   };
 
   const signInWithEmail = async (email: string, password: string) => {
@@ -268,6 +282,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    // 이전에 로그인했던 계정으로 자동 로그인되지 않고, 누를때마다 구글 계정 선택
+    // 화면을 다시 보여줘서 다른 계정으로 바꿔 로그인할 수 있게 한다.
+    provider.setCustomParameters({ prompt: "select_account" });
     const cred = await signInWithPopup(auth, provider);
     await ensureUserDoc(cred.user);
   };
@@ -414,13 +431,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 로그인 화면에서 "인증 메일이 아직 안 왔어요" 상황일 때, 앱에 로그인 상태로
   // 남기지 않으면서 인증 메일만 다시 보내기 위한 함수. 잠깐 로그인했다가 바로 로그아웃한다.
   const resendVerificationByCredential = async (email: string, password: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
+    setAuthBusy(true);
     try {
-      if (!cred.user.emailVerified) {
-        await sendEmailVerification(cred.user);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      try {
+        if (!cred.user.emailVerified) {
+          await sendEmailVerification(cred.user);
+        }
+      } finally {
+        await signOut(auth);
       }
     } finally {
-      await signOut(auth);
+      setAuthBusy(false);
     }
   };
 
@@ -465,6 +487,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         loading,
+        authBusy,
         signUpWithEmail,
         signInWithEmail,
         signInWithGoogle,
