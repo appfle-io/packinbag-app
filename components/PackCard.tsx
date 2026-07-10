@@ -125,6 +125,7 @@ export default function PackCard({
               <IconGripVertical size={17} stroke={1.75} />
             </span>
           )}
+          {/* 팩 전체선택/해제 체크박스 - appfle 요청으로 잠시 비활성화 (2026-07). 필요하면 이 주석만 풀면 됨.
           {checkItems.length > 0 && !isCollapsed && (
             <button
               onClick={() => onToggleAll(!allChecked)}
@@ -139,6 +140,7 @@ export default function PackCard({
               )}
             </button>
           )}
+          */}
           <EditableText
             value={pack.name}
             onChange={onRenamePack}
@@ -181,33 +183,6 @@ export default function PackCard({
               </button>
             </>
           )}
-          {pack.linkedLibraryPackId && (
-            <button
-              onClick={onRefreshFromLibrary}
-              aria-label="팩 다시 불러오기"
-              style={{ transform: "scale(var(--pack-card-scale,1))" }}
-            >
-              <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
-            </button>
-          )}
-          <button
-            onClick={onSaveToLibrary}
-            aria-label="팩 저장"
-            style={{ transform: "scale(var(--pack-card-scale,1))" }}
-          >
-            {isSyncedWithLibrary ? (
-              <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
-            ) : (
-              <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
-            )}
-          </button>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            aria-label="팩 삭제"
-            style={{ transform: "scale(var(--pack-card-scale,1))" }}
-          >
-            <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
-          </button>
         </div>
       </div>
 
@@ -248,7 +223,7 @@ export default function PackCard({
             ))}
           </div>
 
-          <div className="flex gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
+          <div className="flex items-center gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
             <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
               <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                 <IconSquareCheck size={17} stroke={1.75} />
@@ -261,6 +236,29 @@ export default function PackCard({
               </span>
               텍스트
             </button>
+            <div className="flex items-center gap-3 ml-auto">
+              {pack.linkedLibraryPackId && (
+                <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
+                  <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                    <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
+                  </span>
+                </button>
+              )}
+              <button onClick={onSaveToLibrary} aria-label="팩 저장">
+                <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                  {isSyncedWithLibrary ? (
+                    <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
+                  )}
+                </span>
+              </button>
+              <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
+                <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                  <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
+                </span>
+              </button>
+            </div>
           </div>
         </>
       )}

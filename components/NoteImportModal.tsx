@@ -206,7 +206,7 @@ export default function NoteImportModal({
               <input
                 ref={pdfInputRef}
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,.pdf"
                 hidden
                 onChange={(e) => handlePickPdf(e.target.files?.[0] ?? null)}
               />
