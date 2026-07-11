@@ -170,6 +170,13 @@ export default function ItemRow({
   // 스크롤 중 손가락 속도(px/ms)를 추적해서, 손을 뗄 때 모멘텀 스크롤에 넘겨준다.
   const velocityRef = useRef(0);
   const lastMoveTimeRef = useRef(0);
+  // 마우스(웹)로 스와이프한 직후, pointerup 다음에 브라우저가 같은 엘리먼트 위에서
+  // 자동으로 click 이벤트를 한 번 더 발생시킨다 (터치와 달리 마우스는 드래그 후에도
+  // click이 억제되지 않음). 이 click이 그대로 하단 버튼의 onClick(닫기/탭 처리)으로
+  // 이어져서, 스와이프로 열어놓은 수정/삭제 버튼이 열리자마자 다시 닫혀버리는
+  // 문제가 있었다. 실제 스와이프 동작이 있었는지를 이 ref로 기록해뒀다가, 뒤이어
+  // 오는 click 한 번은 무시하도록 한다.
+  const swipedRef = useRef(false);
 
   const clearLongPressTimer = () => {
     if (longPressTimer.current !== null) {
@@ -190,6 +197,8 @@ export default function ItemRow({
     longPressTriggered.current = false;
     scrollingRef.current = false;
     scrollParentRef.current = undefined;
+    // 새 제스처가 시작되면 이전 스와이프 여부 플래그를 초기화한다.
+    swipedRef.current = false;
 
     // 체크박스를 제외한 영역(글씨 포함)을 길게 누르고 있으면 드래그 모드로 진입한다.
     if (onStartDrag) {
@@ -266,6 +275,11 @@ export default function ItemRow({
       return;
     }
 
+    // 실제로 가로 스와이프가 인정된 시점이므로, 뒤이어 오는 click 한 번을
+    // 무시하도록 플래그를 세워둔다 (마우스 드래그 종료 시 브라우저가 자동 발생시키는
+    // click이 열려있는 버튼을 즉시 닫아버리는 것을 막기 위함).
+    swipedRef.current = true;
+
     const next = Math.min(EDIT_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
     setDragX(next);
   };
@@ -331,6 +345,21 @@ export default function ItemRow({
   };
 
   const preventBlur = (e: React.MouseEvent) => e.preventDefault();
+
+  // 콘텐츠(글씨) 영역 클릭 처리. 마우스로 스와이프한 직후 브라우저가 자동으로 쏘는
+  // click 한 번은 swipedRef로 걸러내고, 그 다음부터는 원래 동작(탭 콜백 또는 스와이프
+  // 닫기)을 그대로 수행한다.
+  const handleContentClick = () => {
+    if (swipedRef.current) {
+      swipedRef.current = false;
+      return;
+    }
+    if (onRowTap) {
+      onRowTap();
+      return;
+    }
+    closeSwipeIfOpen();
+  };
 
   return (
     <div
@@ -509,13 +538,7 @@ export default function ItemRow({
           )
         ) : (
           <button
-            onClick={() => {
-              if (onRowTap) {
-                onRowTap();
-                return;
-              }
-              closeSwipeIfOpen();
-            }}
+            onClick={handleContentClick}
             onDoubleClick={handleDoubleClick}
             className={`min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] ${lineClampClass}`}
           >
