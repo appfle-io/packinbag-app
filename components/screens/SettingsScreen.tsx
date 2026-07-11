@@ -42,7 +42,7 @@ const modes: { key: ThemeMode; label: string }[] = [
 
 const startTabs: { key: "home" | "packs"; label: string }[] = [
   { key: "home", label: "가방 목록" },
-  { key: "packs", label: "팩 라이브러리" },
+  { key: "packs", label: "팩 보관함" },
 ];
 
 type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "bagSettings" | "colorSettings" | "unlockCodeAdmin";

@@ -396,7 +396,7 @@ export default function AppShell() {
         avatarId: profile.avatarId!,
       });
       setEditingBag(created);
-      show("가방을 채웠어요. 확인 후 저장해주세요");
+      show("가방을 채웠어요. 자동으로 저장되니 확인만 해주세요");
     } catch (err) {
       setIsNewBag(false);
       if (err instanceof PremiumLimitError) {
@@ -505,7 +505,7 @@ export default function AppShell() {
       !premium
     ) {
       setPremiumLimitMessage(
-        `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
+        `무료로는 팩 보관함에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
       );
       return;
     }
@@ -557,7 +557,7 @@ export default function AppShell() {
       !premium
     ) {
       setPremiumLimitMessage(
-        `무료로는 팩 라이브러리에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
+        `무료로는 팩 보관함에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
       );
       return;
     }

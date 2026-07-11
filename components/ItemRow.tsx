@@ -296,7 +296,11 @@ export default function ItemRow({
             : undefined,
           touchAction: "none",
         }}
-        className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
+        className={`flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] ${
+          noBackground
+            ? "py-[calc(6px*var(--pack-card-scale,1))] md:py-[calc(7px*var(--pack-card-scale,1))]"
+            : "py-[calc(12px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
+        }`}
       >
         {item.type === "check" && (
           <input

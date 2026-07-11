@@ -18,6 +18,8 @@ import {
   IconFileText,
   IconLayoutGrid,
   IconNotes,
+  IconPackageImport,
+  IconPackage,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -170,6 +172,14 @@ export default function BagEditorScreen({
   const updatePacks = (updater: (packs: Pack[]) => Pack[]) =>
     setBag((prev) => ({ ...prev, packs: updater(prev.packs) }));
 
+  // isNew는 "새 가방 -> 최초 저장 완료" 시점에 false로 바뀌는데, 이 화면은 그때
+  // 리마운트되지 않고 그대로 유지된다. 아래 자동저장/언마운트 effect들은 클로저가
+  // 실행 시점 값을 그대로 들고 있을 수 있으므로, 최신 값을 보려면 ref로 따로 추적한다.
+  const isNewRef = useRef(isNew);
+  useEffect(() => {
+    isNewRef.current = isNew;
+  }, [isNew]);
+
   // --- 실시간 동기화 -------------------------------------------------------
   // 이름/메모/체크박스/짐 추가삭제 등 가방 안의 "모든" 변경은 아래 자동저장 effect가
   // 감지해서 서버에 반영한다. 클릭/타이핑마다 바로 쏘지 않고 마지막 변경 후 잠깐
@@ -180,6 +190,11 @@ export default function BagEditorScreen({
   const isDirtyRef = useRef(false); // 로컬 변경이 아직 서버에 반영 안 됐거나 반영 중인 상태
   const isApplyingRemoteRef = useRef(false); // 방금 setBag이 원격 변경 수신 때문인지 표시
   const skipFirstAutosaveRef = useRef(true); // 화면 진입 시 최초 렌더는 저장 스킵
+  // 새로 만드는 중(isNew)인 가방의 "첫 실제 변경"이 서버에 반영되는 순간 딱 한 번만
+  // onSave(=AppShell의 handleSaveBag)를 호출해서 isNewBag을 꺼준다. 더 이상 별도
+  // "저장" 버튼이 없으므로, 이 첫 자동저장 성공이 곧 예전의 "저장 버튼 클릭"과 같은
+  // 역할을 한다 - 그 이후 뒤로가기는 임시 가방 삭제 대상에서 제외된다.
+  const hasConfirmedNewRef = useRef(false);
 
   useEffect(() => {
     if (skipFirstAutosaveRef.current) {
@@ -194,8 +209,17 @@ export default function BagEditorScreen({
     isDirtyRef.current = true;
     hasUnsavedChangesRef.current = true;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    // 새 가방의 첫 변경은 디바운스 없이 즉시 저장한다 - "확정"까지 걸리는 시간을
+    // 최소화해서, 저장 직후 바로 나가도 임시 가방으로 오인되어 삭제되는 경합을 줄인다.
+    const delay = isNewRef.current && !hasConfirmedNewRef.current ? 0 : AUTOSAVE_DEBOUNCE_MS;
     autosaveTimerRef.current = setTimeout(() => {
       saveBagRemote(bag)
+        .then(() => {
+          if (isNewRef.current && !hasConfirmedNewRef.current) {
+            hasConfirmedNewRef.current = true;
+            onSave(bag);
+          }
+        })
         .catch((err) => {
           console.error("[팩인백] 실시간 저장 실패:", err);
           show(`실시간 저장에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -203,7 +227,7 @@ export default function BagEditorScreen({
         .finally(() => {
           isDirtyRef.current = false;
         });
-    }, AUTOSAVE_DEBOUNCE_MS);
+    }, delay);
     return () => {
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
@@ -218,23 +242,23 @@ export default function BagEditorScreen({
   useEffect(() => {
     bagRef.current = bag;
   }, [bag]);
-  // isNew는 "새 가방 -> 최초 저장 완료" 시점에 false로 바뀌는데, 이 화면은 그때
-  // 리마운트되지 않고 그대로 유지된다. 아래 언마운트 effect는 []依존성이라 클로저가
-  // 마운트 시점 값을 그대로 들고 있으므로, 최신 값을 보려면 ref로 따로 추적해야 한다.
-  const isNewRef = useRef(isNew);
-  useEffect(() => {
-    isNewRef.current = isNew;
-  }, [isNew]);
   useEffect(() => {
     return () => {
-      // 새로 만들다가 버리는 가방(isNew)은 별도의 "저장하지 않은 내용이 있어요"
-      // 확인 다이얼로그 + 임시 가방 삭제 흐름(AppShell.handleBackFromEditor)이 이미
-      // 처리한다. 여기서 또 저장을 시도하면 삭제 중인 가방을 되살리는 경합이 생길 수
-      // 있어 기존 가방(!isNew)에서 자동저장 대기 중일 때만 나가기 전 flush한다.
-      if (isNewRef.current || !autosaveTimerRef.current || !isDirtyRef.current) return;
+      // 디바운스 대기 중(아직 서버에 반영 안 된 변경)이면 나가기 전에 그 즉시 저장한다.
+      // 새 가방(isNew)이고 아직 한 번도 확정 안 됐으면, 이 저장이 곧 "확정" 역할도
+      // 겸한다(onSave 호출) - 확정된 뒤에는 AppShell이 더 이상 임시 가방으로 취급하지
+      // 않으므로 뒤로가기로 지워지지 않는다.
+      if (!autosaveTimerRef.current || !isDirtyRef.current) return;
       window.clearTimeout(autosaveTimerRef.current);
       saveBagRemote(bagRef.current)
-        .then(() => show("나가기 전 변경사항을 저장했어요"))
+        .then(() => {
+          if (isNewRef.current && !hasConfirmedNewRef.current) {
+            hasConfirmedNewRef.current = true;
+            onSave(bagRef.current);
+          } else {
+            show("나가기 전 변경사항을 저장했어요");
+          }
+        })
         .catch((err) => {
           console.error("[팩인백] 나가기 전 자동저장 실패:", err);
           show(`나가기 전 변경사항 저장에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -939,16 +963,6 @@ export default function BagEditorScreen({
     deleteBagImage(url);
   };
 
-  const handleSave = () => {
-    if (guardReadOnly()) return;
-    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
-    isDirtyRef.current = false;
-    hasUnsavedChangesRef.current = false;
-    // 저장 결과 토스트는 AppShell.handleSaveBag에서 성공/실패를 확인한 뒤 한 번만 표시한다
-    // (여기서 미리 띄우면 실패해도 이미 성공 토스트를 본 뒤라 혼란을 줄 수 있다).
-    onSave(bag);
-  };
-
   const handleLeave = async () => {
     if (guardReadOnly()) return;
     await onLeaveBag(bag.id);
@@ -1018,11 +1032,15 @@ export default function BagEditorScreen({
           )}
           {!readOnly && (
             <button
-              onClick={handleSave}
-              className="rounded-lg px-4 py-2.5 text-[13px] font-medium"
-              style={{ background: "var(--accent)", color: "#fff" }}
+              onClick={() => setShowAiOrganize(true)}
+              disabled={bag.packs.flatMap((p) => p.items).length < 2}
+              aria-label="AI로 정리"
+              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 disabled:opacity-30"
             >
-              저장
+              <span className="text-[13px] font-semibold leading-none" style={{ color: "var(--accent)" }}>
+                AI
+              </span>
+              <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
             </button>
           )}
         </div>
@@ -1133,24 +1151,24 @@ export default function BagEditorScreen({
           <div className="flex gap-2 mb-4 flex-wrap">
             <button
               onClick={() => setShowImport(true)}
-              className="rounded-lg border border-border px-3 py-1.5 text-[12px]"
+              aria-label="팩 불러오기"
+              className="rounded-lg border border-border p-2"
             >
-              팩 불러오기
+              <IconPackageImport size={17} stroke={1.75} />
             </button>
             <button
               onClick={handleAddPack}
               disabled={bag.packs.length >= 10}
-              className="rounded-lg border border-border px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
+              aria-label="새 팩 추가"
+              className="relative rounded-lg border border-border p-2 disabled:opacity-40"
             >
-              <IconPlus size={13} stroke={1.75} />팩
-            </button>
-            <button
-              onClick={() => setShowAiOrganize(true)}
-              disabled={bag.packs.flatMap((p) => p.items).length < 2}
-              className="rounded-lg px-3 py-1.5 text-[12px] flex items-center gap-1 disabled:opacity-40"
-              style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
-            >
-              <IconSparkles size={13} stroke={1.75} />AI로 정리
+              <IconPackage size={17} stroke={1.75} />
+              <span
+                className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                style={{ background: "var(--accent)" }}
+              >
+                <IconPlus size={9} stroke={3} color="#fff" />
+              </span>
             </button>
             <button
               onClick={handleToggleViewMode}
