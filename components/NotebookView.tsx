@@ -16,6 +16,7 @@ export default function NotebookView({
   onAddItem,
   onEditItem,
   onRenamePack,
+  onToggleAll,
   onSaveToLibrary,
   onDeletePack,
   onChangeDisplayState,
