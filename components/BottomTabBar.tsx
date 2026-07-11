@@ -66,7 +66,7 @@ export default function BottomTabBar({
             boxShadow: "0 10px 22px -4px var(--accent), 0 3px 8px rgba(0,0,0,0.2)",
           }}
         >
-          <IconPlus size={42} stroke={5.5} color="#fff" />
+          <IconPlus size={46} stroke={3} color="#fff" />
         </button>
       </div>
 

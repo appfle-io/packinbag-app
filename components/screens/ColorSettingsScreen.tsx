@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { IconArrowLeft, IconCheck, IconBan, IconChevronDown } from "@tabler/icons-react";
-import { useTheme, DEFAULT_CARD_COLOR_ID, FontScale } from "@/components/ThemeProvider";
+import { useTheme, DEFAULT_CARD_COLOR_ID, FontScale, PACK_CARD_FONT_SCALE_BASE } from "@/components/ThemeProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
@@ -408,9 +408,10 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scalePct={Math.round(packCardScale * 100)}
           onChangeScale={(pct) => setPackCardScale(pct / 100)}
           scaleLabel="카드 크기"
-          scale2Pct={Math.round(packCardFontScale * 100)}
-          onChangeScale2={(pct) => setPackCardFontScale(pct / 100)}
+          scale2Pct={Math.round((packCardFontScale / PACK_CARD_FONT_SCALE_BASE) * 100)}
+          onChangeScale2={(pct) => setPackCardFontScale((pct / 100) * PACK_CARD_FONT_SCALE_BASE)}
           scale2Label="글씨 크기"
+          scale2Max={120}
           preview={
             <div className="mt-3 flex justify-center">
               {/* 모바일에서는 실제처럼 폭 100%(세로 스택), md 이상에서는 실제 2열

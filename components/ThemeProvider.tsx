@@ -35,6 +35,12 @@ export const DEFAULT_CARD_COLOR_ID = "default";
 // 투명도/카드 크기 기본값 (둘 다 "지금 이대로" = 100%)
 const DEFAULT_OPACITY = 1;
 const DEFAULT_CARD_SCALE = 1;
+// 가방 속 팩카드 글자 크기(packCardFontScale)만 예외로 기준점을 다르게 잡는다. 기존에는
+// 스라이더 "100%"가 실제 저장값 1.0을 그대로 쓰면서 체감상 너무 컴는 문제(체감상
+// 120% 정도)가 있어서, 실제 저장값 = 표시값(%) * BASE 공식으로 기준점을 낮춰놓는다
+// (ColorSettingsScreen에서 슬라이더 매핑에 쓴다). 이렇게 하면 새 기본값(0.8)이 예전의
+// "80%" 설정과 동일한 실제 글자 크기를 내면서, 새 슬라이더는 "100%"로 표시된다.
+export const PACK_CARD_FONT_SCALE_BASE = 0.8;
 
 // 글자 크기 배율. data-font-scale 속성(기존 앱 전체 오버라이드용)과 별개로,
 // 가방/팩 카드처럼 "카드 크기" 배율과 곱해서 같이 써야 하는 곳에서는 이 숫자를
@@ -236,7 +242,7 @@ const ThemeContext = createContext<{
   setPackGridColorOpacity: () => {},
   packCardScale: DEFAULT_CARD_SCALE,
   setPackCardScale: () => {},
-  packCardFontScale: DEFAULT_CARD_SCALE,
+  packCardFontScale: PACK_CARD_FONT_SCALE_BASE,
   setPackCardFontScale: () => {},
   packLibraryColorId: DEFAULT_CARD_COLOR_ID,
   setPackLibraryColor: () => {},
@@ -307,9 +313,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
   });
   const [packCardFontScale, setPackCardFontScaleState] = useState<number>(() => {
-    if (typeof window === "undefined") return DEFAULT_CARD_SCALE;
+    if (typeof window === "undefined") return PACK_CARD_FONT_SCALE_BASE;
     const raw = window.localStorage.getItem(PACK_CARD_FONT_SCALE_KEY);
-    return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
+    return raw !== null ? Number(raw) : PACK_CARD_FONT_SCALE_BASE;
   });
   const [packLibraryColorId, setPackLibraryColorState] = useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_CARD_COLOR_ID;
