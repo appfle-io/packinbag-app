@@ -76,7 +76,7 @@ const startMomentumScroll = (parent: HTMLElement, initialVelocity: number) => {
     const dt = Math.min(now - lastTime, 48); // 탭 전환 등으로 인한 큰 dt 스파이크 방지
     lastTime = now;
 
-    parent.scrollTop -= velocity * dt;
+    parent.scrollTop += velocity * dt;
     velocity *= Math.pow(MOMENTUM_FRICTION_PER_16MS, dt / 16.67);
 
     if (Math.abs(velocity) < MOMENTUM_MIN_STOP_VELOCITY) {
