@@ -10,8 +10,6 @@ import {
   IconGripVertical,
   IconChevronDown,
   IconChevronRight,
-  IconSquareCheck,
-  IconAlignLeft,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -38,8 +36,6 @@ export default function NotebookPackSection({
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
-  onAddCheckItem,
-  onAddTextItem,
   onEditItem,
   onRenamePack,
   onToggleAll,
@@ -67,8 +63,6 @@ export default function NotebookPackSection({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (itemId: string) => void;
-  onAddCheckItem: () => void;
-  onAddTextItem: () => void;
   onEditItem?: (itemId: string) => void;
   onRenamePack: (name: string) => void;
   onToggleAll: (checked: boolean) => void;
@@ -245,16 +239,6 @@ export default function NotebookPackSection({
                 roundCheckbox
               />
             ))}
-          </div>
-
-          <div className="flex items-center gap-3 pt-1 pl-6 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
-            <button onClick={onAddCheckItem} className="flex items-center gap-1" aria-label="체크 항목 추가">
-              <IconSquareCheck size={14} stroke={1.75} />
-              항목 추가
-            </button>
-            <button onClick={onAddTextItem} aria-label="텍스트 추가" className="flex items-center">
-              <IconAlignLeft size={14} stroke={1.75} />
-            </button>
           </div>
         </>
       )}

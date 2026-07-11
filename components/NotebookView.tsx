@@ -69,8 +69,6 @@ export default function NotebookView({
           onToggleItem={(itemId) => onToggleItem(pack.id, itemId)}
           onChangeItemText={(itemId, text, style) => onChangeItemText(pack.id, itemId, text, style)}
           onDeleteItem={(itemId) => onDeleteItem(pack.id, itemId)}
-          onAddCheckItem={() => onAddItem(pack.id, "check")}
-          onAddTextItem={() => onAddItem(pack.id, "text")}
           onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
           onRenamePack={(name) => onRenamePack(pack.id, name)}
           onToggleAll={(checked) => onToggleAll(pack.id, checked)}

@@ -36,6 +36,7 @@ import SaveAsDialog from "@/components/SaveAsDialog";
 import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
 import AiOrganizeModal from "@/components/AiOrganizeModal";
+import NotebookQuickAddModal, { QuickAddItemData } from "@/components/NotebookQuickAddModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
@@ -98,6 +99,7 @@ export default function BagEditorScreen({
   const [bag, setBag] = useState<Bag>(initialBag);
   const [showImport, setShowImport] = useState(false);
   const [showAiOrganize, setShowAiOrganize] = useState(false);
+  const [showNotebookQuickAdd, setShowNotebookQuickAdd] = useState(false);
   const [confirmDeleteBag, setConfirmDeleteBag] = useState(false);
   const [confirmLeaveUnsaved, setConfirmLeaveUnsaved] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -486,6 +488,29 @@ export default function BagEditorScreen({
   const handleImport = (imported: Pack[]) => {
     if (guardReadOnly()) return;
     updatePacks((packs) => [...packs, ...imported].slice(0, 10));
+  };
+
+  // 메모장뷰 상단 "+" 통합 추가 모달 전용. 이름까지 바로 지어 새 팩을 만들고 첫 항목까지
+  // 넣은 다음, 그 팩 id를 그대로 돌려줌으로써 모달이 연속입력을 이어갈 때 새로 만든
+  // 그 팩으로 계속 추가할 수 있게 한다. handleAddPack과 동일한 10개 캡 검사를 적용하고,
+  // 실패하면 null을 돌려서 모달 쓰는 쪽에서 그대로 안내하게 한다.
+  const handleQuickAddNewPack = (name: string, data: QuickAddItemData): string | null => {
+    if (guardReadOnly()) return null;
+    if (bag.packs.length >= 10) {
+      show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+      return null;
+    }
+    const newPackId = uid();
+    const newItem: Item = {
+      id: uid(),
+      type: data.type,
+      text: data.text,
+      ...(data.type === "check"
+        ? { checked: false }
+        : { bold: data.bold, strike: data.strike, color: data.color }),
+    };
+    updatePacks((packs) => [...packs, { id: newPackId, name: name.trim() || "새 팩", items: [newItem] }]);
+    return newPackId;
   };
 
   const handleDeletePack = (packId: string, alsoDeleteLibrary: boolean) => {
@@ -1148,7 +1173,10 @@ export default function BagEditorScreen({
         </div>
 
         {!readOnly && (
-          <div className="flex gap-2 mb-4 flex-wrap">
+          <div
+            className="flex gap-2 mb-4 flex-wrap sticky top-0 z-10 py-2"
+            style={{ background: "var(--background)" }}
+          >
             <button
               onClick={() => setShowImport(true)}
               aria-label="팩 불러오기"
@@ -1197,6 +1225,14 @@ export default function BagEditorScreen({
                     ) : (
                       <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
                     )}
+                  </button>
+                )}
+                {viewMode === "notebook" && (
+                  <button
+                    onClick={() => setShowNotebookQuickAdd(true)}
+                    aria-label="항목 추가"
+                  >
+                    <IconPlus size={17} stroke={1.75} color="var(--text-secondary)" />
                   </button>
                 )}
                 <button
@@ -1364,6 +1400,15 @@ export default function BagEditorScreen({
             updatePacks(() => newPacks);
             show("AI가 정리했어요");
           }}
+        />
+      )}
+
+      {showNotebookQuickAdd && (
+        <NotebookQuickAddModal
+          packs={bag.packs}
+          onClose={() => setShowNotebookQuickAdd(false)}
+          onAddToPack={(packId, data) => handleCreateItem(packId, data)}
+          onCreatePack={(name, data) => handleQuickAddNewPack(name, data)}
         />
       )}
 

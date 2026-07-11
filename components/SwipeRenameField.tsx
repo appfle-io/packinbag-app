@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react";
 
-const EDIT_SWIPE_THRESHOLD = 30;
-const EDIT_SWIPE_MAX = 60;
-const SWIPE_BUTTON_WIDTH = 60;
+const EDIT_SWIPE_THRESHOLD = 22;
+const EDIT_SWIPE_MAX = 50;
+const SWIPE_BUTTON_WIDTH = 44;
 const SWIPE_INTENT_MIN_PX = 12;
 const SWIPE_INTENT_RATIO = 1.6;
 
@@ -32,6 +32,12 @@ export default function SwipeRenameField({
   const startX = useRef(0);
   const startY = useRef(0);
   const baseOffset = useRef(0);
+  // 마우스로 드래그하면 pointerup 직후 브라우저가 그 자리에 합성 click 이벤트를 또 발생시킨다
+  // (터치는 이동이 있으면 보통 click을 억제하지만 마우스는 그렇지 않음) - 그래서 스와이프로
+  // 열어놓은 직후에 바로 그 click이 내부 버튼(닫기)을 눌러 다시 0으로 닫혀버리는 버그가 있었다.
+  // 실제로 가로로 움직임(스와이프)이 있었던 제스처에서만 그 다음으로 오는 click을 막는 방식으로 해결한다
+  // (HomeScreen/PacksScreen의 롱프레스 드래그 vs 탭 판정과 동일한 패턴).
+  const justDraggedRef = useRef(false);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (editing || readOnly) return;
@@ -39,6 +45,7 @@ export default function SwipeRenameField({
     startY.current = e.clientY;
     baseOffset.current = dragX;
     setDragging(true);
+    justDraggedRef.current = false;
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -48,6 +55,7 @@ export default function SwipeRenameField({
     const isHorizontalSwipe =
       Math.abs(dx) >= SWIPE_INTENT_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_INTENT_RATIO;
     if (!isHorizontalSwipe) return;
+    justDraggedRef.current = true;
     // 오른쪽으로만 밀리게 한다(왼쪽 스와이프는 삭제용이 아니라 별도 기능이 없어 무시).
     const next = Math.min(EDIT_SWIPE_MAX, Math.max(0, baseOffset.current + dx));
     setDragX(next);
@@ -108,6 +116,13 @@ export default function SwipeRenameField({
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
         onPointerCancel={endDrag}
+        onClickCapture={(e) => {
+          if (justDraggedRef.current) {
+            justDraggedRef.current = false;
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }}
         style={{
           transform: `translateX(${dragX}px)`,
           transition: dragging ? "none" : "transform 150ms ease",
