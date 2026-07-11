@@ -41,9 +41,10 @@ export interface Pack {
   updatedAt?: string;
   // 팩 카드/태그에 보여줄 색상 프리셋 id (lib/packColors.ts 참고). 없으면 무색.
   color?: string;
-  // 가방 속 팩 카드의 짐 영역 표시 상태 (없으면 "normal" 기본값).
-  // "wide"는 짐 영역 높이를 기본 높이의 2배로 보여주고(그 이상은 내부 스크롤),
-  // "collapsed"는 짐 영역을 숨기고 헤더(이름/진행률/아이콘)만 보여준다.
+  // [사용 안 함 - UserProfile.packDisplayStates로 이전됨] 예전에는 이 팩의 펼침/접힘/넓게보기
+  // 상태를 여기(가방 문서, 그룹 전체 공유)에 저장했는데, 그룹원끼리 접고 펴는 상태가 서로
+  // 동기화되는 문제가 있어 사용자별 설정(계정 저장, 기기 간 유지)으로 옮겼다. 예전 데이터
+  // 호환을 위해 필드는 남겨두되 더 이상 읽거나 쓰지 않는다.
   displayState?: "normal" | "wide" | "collapsed";
   // true면 이 팩은 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩("빠른팩")이다.
   // 사용자당 최대 1개, id는 항상 QUICK_PACK_ID(lib/premiumLimits.ts) 고정값을 쓴다.
@@ -172,6 +173,17 @@ export interface UserProfile {
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)
   // 어디서나 동일하게 적용된다.
   quickPackCollapsed?: boolean;
+  // 가방 속 팩의 펼침/접힘/넓게보기 상태(카드뷰)와 섹션 접기(메모장뷰). 그룹원과는
+  // 절대 동기화되지 않고(각자 자기 화면에만 적용), 같은 사용자가 다른 기기에서 다시 로그인해도
+  // 그대로 유지된다(계정에 저장되므로). 키는 `${bagId}:${packId}` 형태.
+  packDisplayStates?: Record<string, "normal" | "wide" | "collapsed">;
+  // 가방별 보기 방식(팩뷰/메모장뷰) 개별 오버라이드. 키는 bagId, 값이 없으면
+  // 아래 defaultBagViewMode(전역 기본값)를 따른다. 이것도 packDisplayStates처럼 그룹원과는
+  // 동기화되지 않는 사용자별 설정이다.
+  bagViewMode?: Record<string, "pack" | "notebook">;
+  // 설정 > 가방설정에서 고르는 새 가방의 기본 보기 방식 (없으면 "pack"(팩뷰) 기본값).
+  // "notebook"은 팩을 헤더+내용으로 이어지는 문서형(메모장) 레이아웃으로 보여준다.
+  defaultBagViewMode?: "pack" | "notebook";
   // AI 기능(메모/샘플 가져오기, 가방 속 AI 정리) 일일 무료 사용량.
   // date가 오늘(KST)과 다르면 count는 0으로 취급한다 (lib/aiUsageService.ts 참고)
   aiUsage?: {

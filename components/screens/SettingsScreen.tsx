@@ -26,6 +26,7 @@ import LicensesScreen from "@/components/screens/LicensesScreen";
 import AnnouncementAdminScreen from "@/components/screens/AnnouncementAdminScreen";
 import UnlockCodeAdminScreen from "@/components/screens/UnlockCodeAdminScreen";
 import PackSettingsScreen from "@/components/screens/PackSettingsScreen";
+import BagSettingsScreen from "@/components/screens/BagSettingsScreen";
 import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
@@ -44,7 +45,7 @@ const startTabs: { key: "home" | "packs"; label: string }[] = [
   { key: "packs", label: "팩 라이브러리" },
 ];
 
-type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "colorSettings" | "unlockCodeAdmin";
+type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "bagSettings" | "colorSettings" | "unlockCodeAdmin";
 
 // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더의 톱니바퀴 아이콘으로 열고
 // 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
@@ -89,6 +90,9 @@ export default function SettingsScreen({
   }
   if (view === "packSettings") {
     return <PackSettingsScreen onBack={() => setView("main")} />;
+  }
+  if (view === "bagSettings") {
+    return <BagSettingsScreen onBack={() => setView("main")} />;
   }
   if (view === "colorSettings") {
     return <ColorSettingsScreen onBack={() => setView("main")} />;
@@ -192,6 +196,13 @@ export default function SettingsScreen({
               className="w-full flex items-center justify-between p-3 border-b border-border"
             >
               <span className="text-[13px]">화면설정</span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+            <button
+              onClick={() => setView("bagSettings")}
+              className="w-full flex items-center justify-between p-3 border-b border-border"
+            >
+              <span className="text-[13px]">가방설정</span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
             </button>
             <button

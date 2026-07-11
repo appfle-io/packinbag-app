@@ -84,6 +84,18 @@ interface AuthContextValue {
   updatePackOrder: (order: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
+  updatePackDisplayState: (
+    bagId: string,
+    packId: string,
+    state: "normal" | "wide" | "collapsed"
+  ) => Promise<void>;
+  updateAllPackDisplayStates: (
+    bagId: string,
+    packIds: string[],
+    state: "normal" | "wide" | "collapsed"
+  ) => Promise<void>;
+  updateBagViewMode: (bagId: string, mode: "pack" | "notebook") => Promise<void>;
+  updateDefaultBagViewMode: (mode: "pack" | "notebook") => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -180,6 +192,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         packOrder: data?.packOrder as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
         quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
+        packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
+        bagViewMode: data?.bagViewMode as UserProfile["bagViewMode"],
+        defaultBagViewMode: data?.defaultBagViewMode as UserProfile["defaultBagViewMode"],
         aiUsage: data?.aiUsage as UserProfile["aiUsage"],
         unlockCode: data?.unlockCode as string | undefined,
         unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
@@ -421,6 +436,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
   };
 
+  // 가방 속 팩 하나의 펼침/접힘/넓게보기 상태를 바꿔 저장한다. 그룹원과 동기화되는
+  // 가방 문서가 아니라 계정(users/{uid})에만 쓰기 때문에, 같은 사용자가 다른 기기에서도
+  // 그대로 보이고 다른 그룹원에게는 전혀 영향을 주지 않는다. 키는 `${bagId}:${packId}`.
+  const updatePackDisplayState = async (
+    bagId: string,
+    packId: string,
+    state: "normal" | "wide" | "collapsed"
+  ) => {
+    if (!user) return;
+    const next = { ...(profile?.packDisplayStates ?? {}), [`${bagId}:${packId}`]: state };
+    await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
+  };
+
+  // 상단 "전체확장/전체접기" 컨트롤용 - 같은 가방 안 모든 팩을 한번에 같은 상태로 바꾼다.
+  const updateAllPackDisplayStates = async (
+    bagId: string,
+    packIds: string[],
+    state: "normal" | "wide" | "collapsed"
+  ) => {
+    if (!user) return;
+    const next = { ...(profile?.packDisplayStates ?? {}) };
+    for (const packId of packIds) next[`${bagId}:${packId}`] = state;
+    await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
+  };
+
+  // 이 가방만의 보기 방식(팩뷰/메모장뷰) 개별 오버라이드. 이것도 사용자별 설정이라
+  // 같은 가방을 보는 다른 그룹원은 각자 원하는 보기 방식으로 자유롭게 볼 수 있다.
+  const updateBagViewMode = async (bagId: string, mode: "pack" | "notebook") => {
+    if (!user) return;
+    const next = { ...(profile?.bagViewMode ?? {}), [bagId]: mode };
+    await setDoc(doc(db, "users", user.uid), { bagViewMode: next }, { merge: true });
+  };
+
+  // 설정 > 가방설정에서 고르는 새 가방의 기본 보기 방식(전역 기본값).
+  const updateDefaultBagViewMode = async (mode: "pack" | "notebook") => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { defaultBagViewMode: mode }, { merge: true });
+  };
+
   const resendVerificationEmail = async () => {
     if (!user) return;
     try {
@@ -508,6 +562,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatePackOrder,
         updatePackSettings,
         updateQuickPackCollapsed,
+        updatePackDisplayState,
+        updateAllPackDisplayStates,
+        updateBagViewMode,
+        updateDefaultBagViewMode,
         resendVerificationEmail,
         resendVerificationByCredential,
         sendPasswordReset,

@@ -16,6 +16,8 @@ import {
   IconArrowsMaximize,
   IconArrowsMinimize,
   IconFileText,
+  IconLayoutGrid,
+  IconNotes,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -23,6 +25,7 @@ import EditableText from "@/components/EditableText";
 import BagNotice from "@/components/BagNotice";
 import TravelDateField from "@/components/TravelDateField";
 import PackGrid from "@/components/PackGrid";
+import NotebookView from "@/components/NotebookView";
 import PackChipBar from "@/components/PackChipBar";
 import ItemFormModal from "@/components/ItemFormModal";
 import PackImportModal from "@/components/PackImportModal";
@@ -101,7 +104,7 @@ export default function BagEditorScreen({
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
-  const { profile } = useAuth();
+  const { profile, updatePackDisplayState, updateAllPackDisplayStates, updateBagViewMode } = useAuth();
 
   // 설정 > 팩 설정 > "가방 열 때 팩 접어서 보기"가 켜져 있으면, 이 화면에 처음 들어온
   // 순간에만 모든 팩을 접힌 상태로 보여준다. 저장된 Pack.displayState는 전혀 건드리지
@@ -477,21 +480,29 @@ export default function BagEditorScreen({
   // 모든 팩을 한번에 바꿀 때 둘 다 이 함수만 쓸 수 있다. "가방 열 때 팩 접어서 보기" 설정으로
   // 화면에 임시로 접힌 것처럼 보여주고 있던 상태(collapseOverrideActive)라면, 사용자가 실제로
   // 펼치기/접기를 조작하는 순간이므로 그 임시 오버라이드는 끄고 저장된 값을 그대로 따르게 한다.
+  // 실제 저장은 가방 문서(그룹 공유)가 아니라 계정(사용자별)에 하므로, 그룹원과는 동기화되지
+  // 않고 나만의 화면 상태로 남는다(다른 기기에서 로그인해도 그대로 유지됨).
   const handleChangeDisplayState = (
     packId: string,
     nextState: "normal" | "wide" | "collapsed"
   ) => {
     if (guardReadOnly()) return;
     setCollapseOverrideActive(false);
-    updatePacks((packs) =>
-      packs.map((p) => (p.id === packId ? { ...p, displayState: nextState } : p))
-    );
+    updatePackDisplayState(bag.id, packId, nextState).catch((err) => {
+      console.error("[팩인백] 팩 표시 상태 저장 실패:", err);
+    });
   };
 
   const handleSetAllDisplayState = (nextState: "normal" | "wide" | "collapsed") => {
     if (guardReadOnly()) return;
     setCollapseOverrideActive(false);
-    updatePacks((packs) => packs.map((p) => ({ ...p, displayState: nextState })));
+    updateAllPackDisplayStates(
+      bag.id,
+      bag.packs.map((p) => p.id),
+      nextState
+    ).catch((err) => {
+      console.error("[팩인백] 팩 전체 표시 상태 저장 실패:", err);
+    });
   };
 
   // fromPackId === toPackId면 같은 팩 안에서 overItemId 위치로 순서를 바꾸고,
@@ -535,7 +546,14 @@ export default function BagEditorScreen({
           return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
         }
         if (p.id === toPackId) {
-          const updated = { ...p, items: [...p.items, item] };
+          // overItemId가 있으면 그 위치에 정확히 끼워넣고, 없으면 기존처럼 이 팩 맨 끝에 추가한다.
+          // 메모장뷰에서 드래그해 드롭온 위치에 그대로 삽입되고, 팩뷰로 바꿀 때도 같은 순서로 보인다.
+          const targetIndex = overItemId ? p.items.findIndex((i) => i.id === overItemId) : -1;
+          const items =
+            targetIndex === -1
+              ? [...p.items, item]
+              : [...p.items.slice(0, targetIndex), item, ...p.items.slice(targetIndex)];
+          const updated = { ...p, items };
           return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
         }
         return p;
@@ -893,9 +911,13 @@ export default function BagEditorScreen({
 
   // 화면에 실제로 그릴 팩 목록. collapseOverrideActive면 저장된 displayState를
   // 무시하고 전부 "collapsed"로 덮어써서 보여준다(데이터 자체는 그대로 둠).
-  const effectivePacks = collapseOverrideActive
-    ? bag.packs.map((p) => ({ ...p, displayState: "collapsed" as const }))
-    : bag.packs;
+  const packDisplayStates = profile?.packDisplayStates ?? {};
+  const effectivePacks = bag.packs.map((p) => ({
+    ...p,
+    displayState: collapseOverrideActive
+      ? ("collapsed" as const)
+      : packDisplayStates[`${bag.id}:${p.id}`] ?? "normal",
+  }));
 
   // 상단 전체 컨트롤(접기/넓게보기) 아이콘이 지금 어떤 상태를 보여줘야 하는지 판단하기 위해,
   // 모든 팩이 같은 displayState인지 확인한다. 팩들이 섞여있으면(일부만 접힘 등) 기본 아이콘으로 보인다.
@@ -905,6 +927,18 @@ export default function BagEditorScreen({
   const allPacksWide =
     effectivePacks.length > 0 &&
     effectivePacks.every((p) => (p.displayState ?? "normal") === "wide");
+
+  // 이 가방을 카드(팩뷰)로 볼지 내용이 이어지는 문서형(메모장뷰)으로 볼지. 이 가방만의
+  // 개별 오버라이드(profile.bagViewMode[bag.id])가 있으면 그것을, 없으면 설정 > 가방설정의
+  // 전역 기본값(defaultBagViewMode)을 따른다. 그룹원과는 동기화되지 않는 사용자별 설정이라,
+  // 같은 가방을 보는 다른 그룹원은 각자 원하는 보기 방식으로 볼 수 있다.
+  const viewMode: "pack" | "notebook" =
+    profile?.bagViewMode?.[bag.id] ?? profile?.defaultBagViewMode ?? "pack";
+  const handleToggleViewMode = () => {
+    updateBagViewMode(bag.id, viewMode === "pack" ? "notebook" : "pack").catch((err) => {
+      console.error("[팩인백] 보기 방식 저장 실패:", err);
+    });
+  };
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -1070,18 +1104,35 @@ export default function BagEditorScreen({
             >
               <IconSparkles size={13} stroke={1.75} />AI로 정리
             </button>
+            <button
+              onClick={handleToggleViewMode}
+              className="rounded-lg border border-border px-3 py-1.5 text-[12px] flex items-center gap-1"
+              aria-label={viewMode === "pack" ? "메모장뷰로 보기" : "팩뷰로 보기"}
+            >
+              {viewMode === "pack" ? (
+                <>
+                  <IconNotes size={13} stroke={1.75} />메모장뷰
+                </>
+              ) : (
+                <>
+                  <IconLayoutGrid size={13} stroke={1.75} />팩뷰
+                </>
+              )}
+            </button>
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
-                <button
-                  onClick={() => handleSetAllDisplayState(allPacksWide ? "normal" : "wide")}
-                  aria-label={allPacksWide ? "팩 전체 기본 크기로" : "팩 전체 넓게 보기"}
-                >
-                  {allPacksWide ? (
-                    <IconArrowsMinimize size={17} stroke={1.75} color="var(--accent)" />
-                  ) : (
-                    <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
-                  )}
-                </button>
+                {viewMode === "pack" && (
+                  <button
+                    onClick={() => handleSetAllDisplayState(allPacksWide ? "normal" : "wide")}
+                    aria-label={allPacksWide ? "팩 전체 기본 크기로" : "팩 전체 넓게 보기"}
+                  >
+                    {allPacksWide ? (
+                      <IconArrowsMinimize size={17} stroke={1.75} color="var(--accent)" />
+                    ) : (
+                      <IconArrowsMaximize size={17} stroke={1.75} color="var(--text-secondary)" />
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     handleSetAllDisplayState(allPacksCollapsed ? "normal" : "collapsed")
@@ -1103,6 +1154,31 @@ export default function BagEditorScreen({
           <p className="text-[13px] text-text-muted py-10 text-center">
             팩을 불러오거나 새로 만들어서 짐을 채워보세요.
           </p>
+        ) : viewMode === "notebook" ? (
+          <NotebookView
+            packs={effectivePacks}
+            libraryPacks={libraryPacks}
+            onToggleItem={handleToggleItem}
+            onChangeItemText={handleChangeItemText}
+            onDeleteItem={handleDeleteItem}
+            onAddItem={handleOpenAddItem}
+            onEditItem={handleOpenEditItem}
+            onRenamePack={handleRenamePack}
+            onToggleAll={handleToggleAllInPack}
+            onSaveToLibrary={handleSaveToLibrary}
+            onDeletePack={handleDeletePack}
+            onChangeDisplayState={handleChangeDisplayState}
+            onRefreshFromLibrary={(packId: string) => {
+              if (guardReadOnly()) return;
+              setRefreshConfirmTarget(packId);
+            }}
+            onStartItemDrag={handleStartItemDrag}
+            dragSourceItemId={drag?.itemId ?? null}
+            dragOverItemId={drag?.overItemId ?? null}
+            dragOverPackId={drag?.overPackId ?? packDrag?.overPackId ?? null}
+            onStartPackDrag={handleStartPackDrag}
+            dragSourcePackId={packDrag?.packId ?? null}
+          />
         ) : (
           <PackGrid
             packs={effectivePacks}
