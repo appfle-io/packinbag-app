@@ -42,8 +42,10 @@ const getScrollParent = (el: HTMLElement | null): HTMLElement | null => {
 // 짐 추가/수정 모달(ItemFormModal)에서도 동일 팔레트를 써서 export.
 export const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
 
-// 설정 > 화면설정 > 팩 크기(--pack-card-scale) + 글자 크기(--font-scale-factor)에 맞춰
-// 패딩/아이콘/글자 크기를 함께 조절한다.
+// 설정 > 화면설정 > 팩 크기(--pack-card-scale)에 맞춰 패딩/아이콘/체크박스 크기를
+// 조절한다. 글자 크기는 별도인 --pack-card-font-scale(설정 > 팩 카드 글씨 크기)을
+// 따로 곱해서 카드 크기와 독립적으로 조절할 수 있다 (둘 다 --font-scale-factor(설정 >
+// 글자 크기)까지 같이 곱해진다).
 export default function ItemRow({
   item,
   onToggle,
@@ -243,7 +245,7 @@ export default function ItemRow({
             setDragX(0);
             onDelete();
           }}
-          className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
+          className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
           style={{ width: SWIPE_BUTTON_WIDTH, background: "var(--danger)", color: "#fff" }}
         >
           삭제
@@ -256,7 +258,7 @@ export default function ItemRow({
             setDragX(0);
             openEdit();
           }}
-          className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]"
+          className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
           style={{ width: SWIPE_BUTTON_WIDTH, background: "#2563eb", color: "#fff" }}
         >
           수정
@@ -310,7 +312,7 @@ export default function ItemRow({
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
                 placeholder="텍스트 입력"
-                className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
+                className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
                 style={{
                   fontWeight: draftBold ? 700 : 400,
                   textDecoration: draftStrike ? "line-through" : "none",
@@ -381,7 +383,7 @@ export default function ItemRow({
               onBlur={commitEdit}
               onKeyDown={(e) => e.key === "Enter" && commitEdit()}
               placeholder="짐 이름"
-              className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
+              className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
             />
           )
         ) : (
@@ -393,7 +395,7 @@ export default function ItemRow({
               }
               closeSwipeIfOpen();
             }}
-            className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] line-clamp-2"
+            className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] line-clamp-2"
           >
             {item.type === "check" ? (
               <span

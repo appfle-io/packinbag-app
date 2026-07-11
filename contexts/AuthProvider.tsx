@@ -72,6 +72,7 @@ interface AuthContextValue {
     bagCardScale?: number;
     packCardScale?: number;
     packLibraryCardScale?: number;
+    packCardFontScale?: number;
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
   updateDefaultTab: (defaultTab: "home" | "packs") => Promise<void>;
@@ -167,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bagCardScale: data?.bagCardScale as number | undefined,
         packCardScale: data?.packCardScale as number | undefined,
         packLibraryCardScale: data?.packLibraryCardScale as number | undefined,
+        packCardFontScale: data?.packCardFontScale as number | undefined,
         fontScale: data?.fontScale as UserProfile["fontScale"],
         defaultTab: data?.defaultTab as UserProfile["defaultTab"],
         dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
@@ -338,6 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bagCardScale?: number;
     packCardScale?: number;
     packLibraryCardScale?: number;
+    packCardFontScale?: number;
   }) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), prefs, { merge: true });

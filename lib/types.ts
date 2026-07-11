@@ -134,10 +134,15 @@ export interface UserProfile {
   // 설정 메뉴 미선택 버튼 배경 등 --surface-2를 쓰는 모든 요소에 공통 적용됨
   baseOpacity?: number;
   // 가방 카드 / 팩 카드(가방 속) / 팩 라이브러리 타일 크기 배율 (없으면 1 = 100%).
-  // 카드 안 여백·아이콘·글자를 함께 배율 적용
+  // 카드 안 여백·아이콘을 배율 적용 (팩 카드는 글자 크기가 아래 packCardFontScale로
+  // 분리되어 있고, 가방 카드/팩 라이브러리 타일은 기존처럼 글자도 함께 배율 적용됨)
   bagCardScale?: number;
   packCardScale?: number;
   packLibraryCardScale?: number;
+  // 가방 속 팩 카드 안 글자 크기 배율 (없으면 1 = 100%). packCardScale(카드 크기)과
+  // 분리되어 독립적으로 조절 가능 - 패딩/아이콘/간격은 packCardScale을, 팩 이름·짐
+  // 텍스트·짐 개수 등 글자 크기는 이 값을 따른다 (앱 전체 글자 크기 설정과도 곱해짐)
+  packCardFontScale?: number;
   // 글자 크기 (없으면 "md" 기본값)
   fontScale?: "sm" | "md" | "lg";
   // 앱 실행 시 처음 보여줄 탭 (없으면 "home" 기본값)

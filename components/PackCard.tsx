@@ -24,8 +24,10 @@ import EditableText from "./EditableText";
 import ConfirmDialog from "./ConfirmDialog";
 import ProgressRing from "./ProgressRing";
 
-// 설정 > 화면설정 > 팩 크기 슬라이더 값(--pack-card-scale)에 맞춰 여백/아이콘/짐 칸/글자
-// 크기를 함께 조절한다. 글자는 --font-scale-factor(설정 > 글자 크기)까지 같이 곱해진다.
+// 설정 > 화면설정 > 팩 크기 슬라이더 값(--pack-card-scale)에 맞춰 여백/아이콘/짐 칸
+// 크기를 조절한다. 글자 크기는 별도인 --pack-card-font-scale(설정 > 팩 카드 글씨 크기
+// 슬라이더)을 따로 곱해서, "카드 크기"와 "글자 크기"를 독립적으로 조절할 수 있게 한다
+// (둘 다 --font-scale-factor(설정 > 글자 크기)까지 같이 곱해진다).
 export default function PackCard({
   pack,
   isSyncedWithLibrary,
@@ -144,8 +146,8 @@ export default function PackCard({
           <EditableText
             value={pack.name}
             onChange={onRenamePack}
-            className="text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
-            inputClassName="text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
+            className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
+            inputClassName="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
@@ -154,7 +156,7 @@ export default function PackCard({
               <ProgressRing ratio={ratio} size={19} accentHex={accentHex ?? undefined} />
             </span>
           )}
-          <span className="text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
+          <span className="text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
             {pack.items.length}개
           </span>
           {onChangeDisplayState && (
@@ -223,7 +225,7 @@ export default function PackCard({
             ))}
           </div>
 
-          <div className="flex items-center gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
+          <div className="flex items-center gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
             <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
               <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                 <IconSquareCheck size={17} stroke={1.75} />

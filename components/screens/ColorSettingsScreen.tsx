@@ -72,6 +72,12 @@ function ColorSlotSection({
   onChangeScale,
   scaleLabel,
   scaleMax,
+  // 팩카드처럼 "카드 크기"와 별도로 "글씨 크기"를 독립적으로 조절해야 하는 섹션에서만
+  // 쓰는 두 번째 슬라이더. 없으면 렌더링하지 않는다.
+  scale2Pct,
+  onChangeScale2,
+  scale2Label,
+  scale2Max,
   preview,
   defaultOpen,
 }: {
@@ -88,6 +94,10 @@ function ColorSlotSection({
   onChangeScale?: (pct: number) => void;
   scaleLabel?: string;
   scaleMax?: number;
+  scale2Pct?: number;
+  onChangeScale2?: (pct: number) => void;
+  scale2Label?: string;
+  scale2Max?: number;
   preview?: ReactNode;
   defaultOpen?: boolean;
 }) {
@@ -170,6 +180,17 @@ function ColorSlotSection({
           />
         )}
 
+        {scale2Pct !== undefined && onChangeScale2 && (
+          <PercentSlider
+            label={scale2Label ?? "글씨 크기"}
+            value={scale2Pct}
+            min={70}
+            max={scale2Max ?? 130}
+            step={5}
+            onChange={onChangeScale2}
+          />
+        )}
+
         {preview}
       </div>
       )}
@@ -201,6 +222,8 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setPackGridColorOpacity,
     packCardScale,
     setPackCardScale,
+    packCardFontScale,
+    setPackCardFontScale,
     packLibraryColorId,
     setPackLibraryColor,
     packLibraryCustomHex,
@@ -339,7 +362,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setBagColorOpacity(pct / 100)}
           scalePct={Math.round(bagCardScale * 100)}
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
-          scaleLabel="내용 크기"
+          scaleLabel="글씨 크기"
           scaleMax={170}
           preview={
             <div className="mt-3 flex justify-center">
@@ -374,7 +397,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
         <ColorSlotSection
           title="가방 속 팩카드"
-          description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
+          description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요. 아래 두 슬라이더로 카드 크기와 글씨 크기를 각각 따로 조절할 수 있어요"
           selectedId={packGridColorId}
           customHex={packGridCustomHex}
           showDefaultOption
@@ -385,6 +408,9 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scalePct={Math.round(packCardScale * 100)}
           onChangeScale={(pct) => setPackCardScale(pct / 100)}
           scaleLabel="카드 크기"
+          scale2Pct={Math.round(packCardFontScale * 100)}
+          onChangeScale2={(pct) => setPackCardFontScale(pct / 100)}
+          scale2Label="글씨 크기"
           preview={
             <div className="mt-3 flex justify-center">
               {/* 모바일에서는 실제처럼 폭 100%(세로 스택), md 이상에서는 실제 2열
@@ -393,7 +419,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
                 className="rounded-xl border border-border shadow-sm flex flex-col p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] w-full md:w-[calc((100%-1rem)/2)]"
                 style={{ background: "var(--pack-card-bg)" }}
               >
-                <span className="text-[calc(17px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] font-medium truncate">
+                <span className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate">
                   예시 팩
                 </span>
                 <div className="flex flex-col justify-center gap-2 h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))] mt-1.5">
@@ -407,13 +433,13 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
                           height: "calc(18px*var(--pack-card-scale,1))",
                         }}
                       />
-                      <span className="text-[calc(15px*var(--pack-card-scale,1)*var(--font-scale-factor,1))]">
+                      <span className="text-[calc(15px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]">
                         {label}
                       </span>
                     </div>
                   ))}
                 </div>
-                <p className="pt-2 mt-1.5 border-t border-border text-[calc(14px*var(--pack-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
+                <p className="pt-2 mt-1.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
                   2개
                 </p>
               </div>
@@ -435,7 +461,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setPackLibraryColorOpacity(pct / 100)}
           scalePct={Math.round(packLibraryCardScale * 100)}
           onChangeScale={(pct) => setPackLibraryCardScale(pct / 100)}
-          scaleLabel="내용 크기"
+          scaleLabel="글씨 크기"
           scaleMax={170}
           preview={
             <div className="mt-3 flex justify-center">
