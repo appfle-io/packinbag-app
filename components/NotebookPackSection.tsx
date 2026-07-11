@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import {
-  IconSquareCheck,
-  IconAlignLeft,
+  IconDotsVertical,
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
   IconRefresh,
@@ -11,20 +10,27 @@ import {
   IconGripVertical,
   IconChevronDown,
   IconChevronRight,
+  IconSquareCheck,
+  IconAlignLeft,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
+import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { getPackColorHex } from "@/lib/packColors";
 import { useAuth } from "@/contexts/AuthProvider";
 import ItemRow from "./ItemRow";
-import EditableText from "./EditableText";
+import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import ProgressRing from "./ProgressRing";
 
 // 메모장뷰(가방 속 팩을 "헤더 + 내용"이 이어지는 문서형 레이아웃으로 보여주는 방식)의
 // 팩 하나. PackCard와 기능은 100% 동일하지만(드래그이동/스와이프수정삭제/저장/새로고침/
-// 삭제 등), 카드 박스 형태 대신 얇은 구분선을 가진 섹션 형태로 보여준다. 짐 영역은
-// 최소 2열부터 화면 크기에 맞게 늘어나는 반응형 그리드(노트 형태의 여러줄 배치)를 쓴다.
+// 삭제/전체선택 등), 아이폰 메모장 체크리스트에 가깝게 보이도록 다음을 다르게 한다:
+// - 카드 박스 대신 얇은 구분선을 가진 섹션
+// - 짐 사이 간격을 좁힘, 짐 개수 표시 제거
+// - 저장/새로고침/삭제를 하단 툴바 대신 헤더의 "⋯" 메뉴로 축소
+// - 짐 추가는 하단의 얇은 "+ 항목 추가" 한 줄로 축소 (체크/텍스트 아이콘만)
+// - 체크박스를 사각형 대신 둥근 모양으로
 export default function NotebookPackSection({
   pack,
   isSyncedWithLibrary,
@@ -36,6 +42,7 @@ export default function NotebookPackSection({
   onAddTextItem,
   onEditItem,
   onRenamePack,
+  onToggleAll,
   onSaveToLibrary,
   onRefreshFromLibrary,
   onDeletePack,
@@ -47,6 +54,8 @@ export default function NotebookPackSection({
   onStartPackDrag,
   isPackDragSource,
   isLast,
+  dragOverItemPosition,
+  isPackDragOverPosition,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -62,6 +71,7 @@ export default function NotebookPackSection({
   onAddTextItem: () => void;
   onEditItem?: (itemId: string) => void;
   onRenamePack: (name: string) => void;
+  onToggleAll: (checked: boolean) => void;
   onSaveToLibrary: () => void;
   onRefreshFromLibrary: () => void;
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
@@ -75,40 +85,45 @@ export default function NotebookPackSection({
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
   isLast?: boolean;
+  dragOverItemPosition?: "before" | "after" | null;
+  // 드래그한 팩을 이 섹션 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
+  isPackDragOverPosition?: "before" | "after" | null;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const { profile } = useAuth();
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   const ratio = getProgressRatio(pack.items);
   const accentHex = getPackColorHex(pack.color);
+  const checkItems = pack.items.filter((i) => i.type === "check");
+  const allChecked = checkItems.length > 0 && checkItems.every((i) => i.checked);
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
-  const displayItems = moveCompletedToBottom
-    ? [...pack.items].sort(
-        (a, b) => Number(a.type === "check" && !!a.checked) - Number(b.type === "check" && !!b.checked)
-      )
-    : pack.items;
+  const displayItems = getDisplayOrderedItems(pack.items, moveCompletedToBottom);
 
   return (
     <div
       data-pack-drop-id={pack.id}
-      className={`py-3 ${isLast ? "" : "border-b border-border"}`}
+      className={`py-2 ${isLast ? "" : "border-b border-border"}`}
       style={{
-        boxShadow: isDragOver ? "inset 0 0 0 2px var(--accent)" : undefined,
-        borderRadius: isDragOver ? 8 : undefined,
+        boxShadow: isDragOver
+          ? isPackDragOverPosition === "after"
+            ? "inset 0 -2px 0 0 var(--accent)"
+            : "inset 0 2px 0 0 var(--accent)"
+          : undefined,
         opacity: isPackDragSource ? 0.4 : 1,
         transition: "box-shadow 120ms ease, opacity 120ms ease",
       }}
     >
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
         <button
           onClick={() => onChangeDisplayState?.(isCollapsed ? "normal" : "collapsed")}
           aria-label={isCollapsed ? "섹션 펼치기" : "섹션 접기"}
           className="shrink-0"
         >
           {isCollapsed ? (
-            <IconChevronRight size={16} stroke={1.75} color="var(--text-secondary)" />
+            <IconChevronRight size={15} stroke={1.75} color="var(--text-secondary)" />
           ) : (
-            <IconChevronDown size={16} stroke={1.75} color="var(--text-secondary)" />
+            <IconChevronDown size={15} stroke={1.75} color="var(--text-secondary)" />
           )}
         </button>
         {onStartPackDrag && (
@@ -121,29 +136,93 @@ export default function NotebookPackSection({
             style={{ color: "var(--text-muted)" }}
             aria-label="드래그해서 팩 순서 바꾸기"
           >
-            <IconGripVertical size={16} stroke={1.75} />
+            <IconGripVertical size={15} stroke={1.75} />
           </span>
         )}
         {accentHex && (
           <span
-            className="shrink-0 h-2 w-2 rounded-full"
+            className="shrink-0 h-1.5 w-1.5 rounded-full"
             style={{ background: accentHex }}
           />
         )}
-        <EditableText
+        <SwipeRenameField
           value={pack.name}
           onChange={onRenamePack}
-          className="text-[16px] font-semibold truncate text-left min-w-0 flex-1"
-          inputClassName="text-[16px] font-semibold min-w-0 flex-1"
+          className="text-[15px] font-semibold truncate text-left min-w-0 flex-1"
+          inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />
-        {ratio !== null && <ProgressRing ratio={ratio} size={18} accentHex={accentHex ?? undefined} />}
-        <span className="text-[12.5px] text-text-secondary shrink-0">{pack.items.length}개</span>
+        {ratio !== null && (
+          <button
+            onClick={() => onToggleAll(!allChecked)}
+            aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
+            className="shrink-0"
+          >
+            <ProgressRing ratio={ratio} size={16} accentHex={accentHex ?? undefined} />
+          </button>
+        )}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setShowMenu((v) => !v)}
+            aria-label="팩 메뉴"
+            className="flex items-center justify-center"
+          >
+            <IconDotsVertical size={16} stroke={1.75} color="var(--text-secondary)" />
+          </button>
+          {showMenu && (
+            <>
+              {/* 메뉴 바깥을 탭하면 닫히도록 전체 화면을 덮는 투명 배경 */}
+              <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+              <div
+                className="absolute right-0 top-full mt-1 z-50 rounded-lg border border-border shadow-lg overflow-hidden"
+                style={{ background: "var(--surface)", minWidth: 140 }}
+              >
+                {pack.linkedLibraryPackId && (
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      onRefreshFromLibrary();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                  >
+                    <IconRefresh size={15} stroke={1.75} />
+                    다시 불러오기
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    onSaveToLibrary();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                >
+                  {isSyncedWithLibrary ? (
+                    <IconDeviceFloppyFilled size={15} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconDeviceFloppy size={15} stroke={1.75} />
+                  )}
+                  팩으로 저장
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    setConfirmDelete(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                  style={{ color: "var(--danger)" }}
+                >
+                  <IconTrash size={15} stroke={1.75} />
+                  팩 삭제
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {!isCollapsed && (
         <>
           <div
-            className="grid grid-cols-[repeat(auto-fit,minmax(max(140px,46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2 md:gap-2.5 pl-6"
+            className="grid grid-cols-[repeat(auto-fit,minmax(max(120px,46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-y-0.5 gap-x-1.5 pl-6"
             style={{ gridAutoRows: "min-content", alignItems: "start" }}
           >
             {displayItems.map((item) => (
@@ -161,36 +240,21 @@ export default function NotebookPackSection({
                 }
                 isDragSource={dragSourceItemId === item.id}
                 isDragOverTarget={dragOverItemId === item.id}
+                dragOverPosition={dragOverItemId === item.id ? dragOverItemPosition : null}
+                noBackground
+                roundCheckbox
               />
             ))}
           </div>
 
-          <div className="flex items-center gap-5 pt-2.5 mt-2.5 pl-6 text-[13px] text-text-secondary">
-            <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
-              <IconSquareCheck size={16} stroke={1.75} />
-              체크항목
+          <div className="flex items-center gap-3 pt-1 pl-6 text-[12.5px]" style={{ color: "var(--text-muted)" }}>
+            <button onClick={onAddCheckItem} className="flex items-center gap-1" aria-label="체크 항목 추가">
+              <IconSquareCheck size={14} stroke={1.75} />
+              항목 추가
             </button>
-            <button onClick={onAddTextItem} className="flex items-center gap-1.5">
-              <IconAlignLeft size={16} stroke={1.75} />
-              텍스트
+            <button onClick={onAddTextItem} aria-label="텍스트 추가" className="flex items-center">
+              <IconAlignLeft size={14} stroke={1.75} />
             </button>
-            <div className="flex items-center gap-3 ml-auto">
-              {pack.linkedLibraryPackId && (
-                <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
-                  <IconRefresh size={17} stroke={1.75} color="var(--text-secondary)" />
-                </button>
-              )}
-              <button onClick={onSaveToLibrary} aria-label="팩 저장">
-                {isSyncedWithLibrary ? (
-                  <IconDeviceFloppyFilled size={17} stroke={1.75} color="var(--accent)" />
-                ) : (
-                  <IconDeviceFloppy size={17} stroke={1.75} color="var(--text-secondary)" />
-                )}
-              </button>
-              <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
-                <IconTrash size={17} stroke={1.75} color="var(--text-secondary)" />
-              </button>
-            </div>
           </div>
         </>
       )}

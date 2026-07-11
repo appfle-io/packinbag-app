@@ -23,7 +23,9 @@ export default function NotebookView({
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
+  dragOverItemPosition,
   dragOverPackId,
+  dragOverPackPosition,
   onStartPackDrag,
   dragSourcePackId,
 }: {
@@ -48,7 +50,9 @@ export default function NotebookView({
   onStartItemDrag?: (packId: string, itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
+  dragOverItemPosition?: "before" | "after" | null;
   dragOverPackId?: string | null;
+  dragOverPackPosition?: "before" | "after" | null;
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
 }) {
@@ -68,6 +72,7 @@ export default function NotebookView({
           onAddTextItem={() => onAddItem(pack.id, "text")}
           onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
           onRenamePack={(name) => onRenamePack(pack.id, name)}
+          onToggleAll={(checked) => onToggleAll(pack.id, checked)}
           onSaveToLibrary={() => onSaveToLibrary(pack.id)}
           onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
           onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
@@ -79,7 +84,9 @@ export default function NotebookView({
           }
           dragSourceItemId={dragSourceItemId}
           dragOverItemId={dragOverItemId}
+          dragOverItemPosition={dragOverItemPosition}
           isDragOver={dragOverPackId === pack.id}
+          isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
           onStartPackDrag={
             onStartPackDrag ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y) : undefined
           }

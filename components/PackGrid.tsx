@@ -21,7 +21,9 @@ export default function PackGrid({
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
+  dragOverItemPosition,
   dragOverPackId,
+  dragOverPackPosition,
   onStartPackDrag,
   dragSourcePackId,
 }: {
@@ -47,7 +49,9 @@ export default function PackGrid({
   onStartItemDrag?: (packId: string, itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
+  dragOverItemPosition?: "before" | "after" | null;
   dragOverPackId?: string | null;
+  dragOverPackPosition?: "before" | "after" | null;
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
 }) {
@@ -78,7 +82,9 @@ export default function PackGrid({
       }
       dragSourceItemId={dragSourceItemId}
       dragOverItemId={dragOverItemId}
+      dragOverItemPosition={dragOverItemPosition}
       isDragOver={dragOverPackId === pack.id}
+      isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
       onStartPackDrag={
         onStartPackDrag
           ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y)

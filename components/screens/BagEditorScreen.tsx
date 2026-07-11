@@ -39,6 +39,7 @@ import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
 import { deleteLibraryPackRemote } from "@/lib/packsService";
 import { isInSyncWithLibrary } from "@/lib/packSync";
+import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import ImageLightbox from "@/components/ImageLightbox";
@@ -506,24 +507,33 @@ export default function BagEditorScreen({
   };
 
   // fromPackId === toPackId면 같은 팩 안에서 overItemId 위치로 순서를 바꾸고,
-  // 다르면 기존처럼 다른 팩으로 옮긴다.
+  // 다르면 기존처럼 다른 팩으로 옮긴다. insertAfter가 true면 overItemId "다음"에,
+  // 아니면(기본) "앞"에 끼워넣는다(드래그 중 커서가 대상 항목의 위쪽 절반/아래쪽 절반
+  // 중 어디 있는지로 판정되어 더 직관적이다). 화면에 보이는 순서(getDisplayOrderedItems)
+  // 기준으로 계산해야 "완료된 항목 맨 아래로 이동" 설정이 켜져있어도 드래그 위치와
+  // 실제 결과가 어긋나지 않는다 - 예전엔 원본(pack.items) 순서 기준으로 계산해서 화면과
+  // 다르게 반영되는 버그가 있었다.
   const handleMoveItem = (
     fromPackId: string,
     toPackId: string,
     itemId: string,
-    overItemId?: string | null
+    overItemId?: string | null,
+    insertAfter?: boolean
   ) => {
     if (guardReadOnly()) return;
+    const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
     if (fromPackId === toPackId) {
       if (!overItemId || overItemId === itemId) return;
       updatePacks((packs) =>
         packs.map((p) => {
           if (p.id !== fromPackId) return p;
-          const item = p.items.find((i) => i.id === itemId);
+          const ordered = getDisplayOrderedItems(p.items, moveCompletedToBottom);
+          const item = ordered.find((i) => i.id === itemId);
           if (!item) return p;
-          const withoutItem = p.items.filter((i) => i.id !== itemId);
-          const targetIndex = withoutItem.findIndex((i) => i.id === overItemId);
+          const withoutItem = ordered.filter((i) => i.id !== itemId);
+          let targetIndex = withoutItem.findIndex((i) => i.id === overItemId);
           if (targetIndex === -1) return p;
+          if (insertAfter) targetIndex += 1;
           return {
             ...p,
             items: [
@@ -546,13 +556,13 @@ export default function BagEditorScreen({
           return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
         }
         if (p.id === toPackId) {
-          // overItemId가 있으면 그 위치에 정확히 끼워넣고, 없으면 기존처럼 이 팩 맨 끝에 추가한다.
-          // 메모장뷰에서 드래그해 드롭온 위치에 그대로 삽입되고, 팩뷰로 바꿀 때도 같은 순서로 보인다.
-          const targetIndex = overItemId ? p.items.findIndex((i) => i.id === overItemId) : -1;
+          const ordered = getDisplayOrderedItems(p.items, moveCompletedToBottom);
+          let targetIndex = overItemId ? ordered.findIndex((i) => i.id === overItemId) : -1;
+          if (targetIndex !== -1 && insertAfter) targetIndex += 1;
           const items =
             targetIndex === -1
-              ? [...p.items, item]
-              : [...p.items.slice(0, targetIndex), item, ...p.items.slice(targetIndex)];
+              ? [...ordered, item]
+              : [...ordered.slice(0, targetIndex), item, ...ordered.slice(targetIndex)];
           const updated = { ...p, items };
           return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
         }
@@ -570,6 +580,7 @@ export default function BagEditorScreen({
     y: number;
     overPackId: string | null;
     overItemId: string | null;
+    overItemPosition: "before" | "after" | null;
   } | null>(null);
 
   const handleStartItemDrag = (
@@ -588,6 +599,7 @@ export default function BagEditorScreen({
       y: clientY,
       overPackId: null,
       overItemId: null,
+      overItemPosition: null,
     });
   };
 
@@ -600,13 +612,38 @@ export default function BagEditorScreen({
       const overPackId = packEl?.getAttribute("data-pack-drop-id") ?? null;
       const itemEl = el?.closest("[data-item-id]") as HTMLElement | null;
       const overItemId = itemEl?.getAttribute("data-item-id") ?? null;
-      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overPackId, overItemId } : d));
+      // 드래그 중인 항목을 대상 항목의 어디에 놓을지를 판단한다. 체크형 짐은 2열 그리드로
+      // 나란히 놀여있어서 좌/우(가로) 기준으로 판단해야 직관적이고(예: 2번을 1번 왜쪽으로
+      // 옮기면 1번 왜쪽에 놓여야 함), 텍스트형 짐은 전체 폭을 차지하는 한 줄이라 위/아래
+      // (세로) 기준이 맞다.
+      let overItemPosition: "before" | "after" | null = null;
+      if (itemEl) {
+        const rect = itemEl.getBoundingClientRect();
+        const itemType = itemEl.getAttribute("data-item-type");
+        overItemPosition =
+          itemType === "text"
+            ? e.clientY - rect.top < rect.height / 2
+              ? "before"
+              : "after"
+            : e.clientX - rect.left < rect.width / 2
+            ? "before"
+            : "after";
+      }
+      setDrag((d) =>
+        d ? { ...d, x: e.clientX, y: e.clientY, overPackId, overItemId, overItemPosition } : d
+      );
     };
 
     const handleUp = () => {
       setDrag((d) => {
         if (d && d.overPackId) {
-          handleMoveItem(d.fromPackId, d.overPackId, d.itemId, d.overItemId);
+          handleMoveItem(
+            d.fromPackId,
+            d.overPackId,
+            d.itemId,
+            d.overItemId,
+            d.overItemPosition === "after"
+          );
         }
         return null;
       });
@@ -632,6 +669,7 @@ export default function BagEditorScreen({
     x: number;
     y: number;
     overPackId: string | null;
+    overPackPosition: "before" | "after" | null;
   } | null>(null);
 
   const handleStartPackDrag = (
@@ -641,19 +679,22 @@ export default function BagEditorScreen({
     clientY: number
   ) => {
     if (guardReadOnly()) return;
-    setPackDrag({ packId, name, x: clientX, y: clientY, overPackId: null });
+    setPackDrag({ packId, name, x: clientX, y: clientY, overPackId: null, overPackPosition: null });
   };
 
-  const handleReorderPack = (fromPackId: string, toPackId: string) => {
+  // insertAfter가 true면 toPackId "다음"에, 아니면 "앞"에 삽입한다(짐 순서변경과 같은
+  // 이유로 커서 위치 기준으로 before/after를 판단해야 어디로 옮겨질지 직관적이다).
+  const handleReorderPack = (fromPackId: string, toPackId: string, insertAfter?: boolean) => {
     if (guardReadOnly()) return;
     updatePacks((packs) => {
       const fromIndex = packs.findIndex((p) => p.id === fromPackId);
-      const toIndex = packs.findIndex((p) => p.id === toPackId);
-      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return packs;
-      const next = [...packs];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      return next;
+      if (fromIndex === -1) return packs;
+      const withoutItem = packs.filter((p) => p.id !== fromPackId);
+      let targetIndex = withoutItem.findIndex((p) => p.id === toPackId);
+      if (targetIndex === -1) return packs;
+      if (insertAfter) targetIndex += 1;
+      const moved = packs[fromIndex];
+      return [...withoutItem.slice(0, targetIndex), moved, ...withoutItem.slice(targetIndex)];
     });
     show("팩 순서를 바꿨어요");
   };
@@ -665,13 +706,20 @@ export default function BagEditorScreen({
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const packEl = el?.closest("[data-pack-drop-id]") as HTMLElement | null;
       const overPackId = packEl?.getAttribute("data-pack-drop-id") ?? null;
-      setPackDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overPackId } : d));
+      let overPackPosition: "before" | "after" | null = null;
+      if (packEl) {
+        const rect = packEl.getBoundingClientRect();
+        overPackPosition = e.clientY - rect.top < rect.height / 2 ? "before" : "after";
+      }
+      setPackDrag((d) =>
+        d ? { ...d, x: e.clientX, y: e.clientY, overPackId, overPackPosition } : d
+      );
     };
 
     const handleUp = () => {
       setPackDrag((d) => {
         if (d && d.overPackId && d.overPackId !== d.packId) {
-          handleReorderPack(d.packId, d.overPackId);
+          handleReorderPack(d.packId, d.overPackId, d.overPackPosition === "after");
         }
         return null;
       });
@@ -1175,7 +1223,9 @@ export default function BagEditorScreen({
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={drag?.itemId ?? null}
             dragOverItemId={drag?.overItemId ?? null}
+            dragOverItemPosition={drag?.overItemPosition ?? null}
             dragOverPackId={drag?.overPackId ?? packDrag?.overPackId ?? null}
+            dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
           />
@@ -1200,7 +1250,9 @@ export default function BagEditorScreen({
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={drag?.itemId ?? null}
             dragOverItemId={drag?.overItemId ?? null}
+            dragOverItemPosition={drag?.overItemPosition ?? null}
             dragOverPackId={drag?.overPackId ?? packDrag?.overPackId ?? null}
+            dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
           />

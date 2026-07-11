@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   IconSquareCheck,
-  IconSquareOff,
   IconAlignLeft,
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
@@ -17,10 +16,11 @@ import {
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
+import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { getPackColorHex } from "@/lib/packColors";
 import { useAuth } from "@/contexts/AuthProvider";
 import ItemRow from "./ItemRow";
-import EditableText from "./EditableText";
+import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import ProgressRing from "./ProgressRing";
 
@@ -47,9 +47,11 @@ export default function PackCard({
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
+  dragOverItemPosition,
   isDragOver,
   onStartPackDrag,
   isPackDragSource,
+  isPackDragOverPosition,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -78,9 +80,13 @@ export default function PackCard({
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
+  // 드래그한 짐을 dragOverItemId 위(before)/아래(after) 중 어디에 놓을지.
+  dragOverItemPosition?: "before" | "after" | null;
   isDragOver?: boolean;
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
+  // 드래그한 팩을 이 카드 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
+  isPackDragOverPosition?: "before" | "after" | null;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { profile } = useAuth();
@@ -94,11 +100,7 @@ export default function PackCard({
   const isWide = displayState === "wide";
   // 실제 저장 순서는 그대로 두고, 화면에 보여줄 때만 완료 항목을 뒤로 보낸다
   // (드래그로 다른 팩에 옮기는 기능은 인덱스가 아니라 id 기반이라 영향 없음)
-  const displayItems = moveCompletedToBottom
-    ? [...pack.items].sort(
-        (a, b) => Number(a.type === "check" && !!a.checked) - Number(b.type === "check" && !!b.checked)
-      )
-    : pack.items;
+  const displayItems = getDisplayOrderedItems(pack.items, moveCompletedToBottom);
 
   return (
     <div
@@ -106,7 +108,11 @@ export default function PackCard({
       className="flex flex-col rounded-xl border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
       style={{
         borderColor: isDragOver ? "var(--accent)" : "var(--border)",
-        boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
+        boxShadow: isDragOver
+          ? isPackDragOverPosition === "after"
+            ? "0 2px 0 0 var(--accent)"
+            : "0 -2px 0 0 var(--accent)"
+          : undefined,
         background: accentHex ? `${accentHex}26` : "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
         transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
@@ -127,23 +133,8 @@ export default function PackCard({
               <IconGripVertical size={17} stroke={1.75} />
             </span>
           )}
-          {/* 팩 전체선택/해제 체크박스 - appfle 요청으로 잠시 비활성화 (2026-07). 필요하면 이 주석만 풀면 됨.
-          {checkItems.length > 0 && !isCollapsed && (
-            <button
-              onClick={() => onToggleAll(!allChecked)}
-              aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
-              className="shrink-0"
-              style={{ transform: "scale(var(--pack-card-scale,1))" }}
-            >
-              {allChecked ? (
-                <IconSquareOff size={18} stroke={1.75} color="var(--text-secondary)" />
-              ) : (
-                <IconSquareCheck size={18} stroke={1.75} color="var(--text-secondary)" />
-              )}
-            </button>
-          )}
-          */}
-          <EditableText
+          {/* 패 전체선택/해제는 이제 헤더의 진행률 링(ProgressRing)을 버튼으로 만들어 눈 - 아래 참고. */}
+          <SwipeRenameField
             value={pack.name}
             onChange={onRenamePack}
             className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
@@ -152,9 +143,13 @@ export default function PackCard({
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           {ratio !== null && (
-            <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+            <button
+              onClick={() => onToggleAll(!allChecked)}
+              aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
+              style={{ transform: "scale(var(--pack-card-scale,1))" }}
+            >
               <ProgressRing ratio={ratio} size={19} accentHex={accentHex ?? undefined} />
-            </span>
+            </button>
           )}
           <span className="text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
             {pack.items.length}개
@@ -221,6 +216,7 @@ export default function PackCard({
                 }
                 isDragSource={dragSourceItemId === item.id}
                 isDragOverTarget={dragOverItemId === item.id}
+                dragOverPosition={dragOverItemId === item.id ? dragOverItemPosition : null}
               />
             ))}
           </div>

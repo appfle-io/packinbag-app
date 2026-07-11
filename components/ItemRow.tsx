@@ -55,6 +55,9 @@ export default function ItemRow({
   onStartDrag,
   isDragSource,
   isDragOverTarget,
+  dragOverPosition,
+  noBackground,
+  roundCheckbox,
   disabled,
   onRowTap,
 }: {
@@ -65,18 +68,16 @@ export default function ItemRow({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDelete: () => void;
-  // 있으면 수정 진입시 인라인 편집 대신 이 콜백(모달 열기)을 호출한다.
-  // 가방 편집화면(BagEditorScreen)에서만 넘겨주고, 팩 라이브러리 편집화면은
-  // 기존 인라인 편집 방식을 그대로 유지한다.
   onEdit?: () => void;
   onStartDrag?: (clientX: number, clientY: number) => void;
   isDragSource?: boolean;
   isDragOverTarget?: boolean;
-  // true면 스와이프/롱프레스드래그를 전부 비활성화한다 (빠른팩의 다중선택 모드에서
-  // 사용 - 선택 중에 스와이프 삭제/수정이나 순서변경 드래그가 끼어들면 안 되기 때문).
+  dragOverPosition?: "before" | "after" | null;
+  noBackground?: boolean;
+  // true면 체크박스를 사각형 대신 아이폰 메모장처럼 얻은 둘레 모양으로 보여준다.
+  // 메모장뷰(NotebookPackSection)에서만 쓴다.
+  roundCheckbox?: boolean;
   disabled?: boolean;
-  // 있으면 짐 텍스트를 탭했을 때 기본 동작(스와이프 닫기) 대신 이 콜백을 호출한다.
-  // 다중선택 모드에서 탭 = 선택 토글로 쓰기 위한 훅.
   onRowTap?: () => void;
 }) {
   const [dragX, setDragX] = useState(0);
@@ -267,6 +268,7 @@ export default function ItemRow({
 
       <div
         data-item-id={item.id}
+        data-item-type={item.type}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
@@ -278,12 +280,20 @@ export default function ItemRow({
         style={{
           transform: `translateX(${dragX}px)`,
           transition: dragging ? "none" : "transform 150ms ease",
-          background: item.type === "check" ? "var(--surface-2)" : "transparent",
+          background: noBackground ? "transparent" : item.type === "check" ? "var(--surface-2)" : "transparent",
           opacity: isDragSource ? 0.35 : 1,
           WebkitTouchCallout: "none",
           WebkitUserSelect: onStartDrag ? "none" : undefined,
           userSelect: onStartDrag ? "none" : undefined,
-          boxShadow: isDragOverTarget ? "0 0 0 2px var(--accent)" : undefined,
+          boxShadow: isDragOverTarget
+            ? item.type === "text"
+              ? dragOverPosition === "after"
+                ? "inset 0 -2px 0 0 var(--accent)"
+                : "inset 0 2px 0 0 var(--accent)"
+              : dragOverPosition === "after"
+              ? "inset -2px 0 0 0 var(--accent)"
+              : "inset 2px 0 0 0 var(--accent)"
+            : undefined,
           touchAction: "none",
         }}
         className="flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] py-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
@@ -294,11 +304,20 @@ export default function ItemRow({
             checked={!!item.checked}
             onChange={onToggle}
             onPointerDown={(e) => e.stopPropagation()}
-            className="shrink-0 accent-[var(--accent)]"
-            style={{
-              width: "calc(20px * var(--pack-card-scale,1))",
-              height: "calc(20px * var(--pack-card-scale,1))",
-            }}
+            className={roundCheckbox ? "shrink-0 appearance-none rounded-full" : "shrink-0 accent-[var(--accent)]"}
+            style={
+              roundCheckbox
+                ? {
+                    width: "calc(20px * var(--pack-card-scale,1))",
+                    height: "calc(20px * var(--pack-card-scale,1))",
+                    border: `1.5px solid ${item.checked ? "var(--accent)" : "var(--border-strong)"}`,
+                    background: item.checked ? "var(--accent)" : "transparent",
+                  }
+                : {
+                    width: "calc(20px * var(--pack-card-scale,1))",
+                    height: "calc(20px * var(--pack-card-scale,1))",
+                  }
+            }
           />
         )}
 
