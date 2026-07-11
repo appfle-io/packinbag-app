@@ -38,6 +38,55 @@ const getScrollParent = (el: HTMLElement | null): HTMLElement | null => {
   return null;
 };
 
+// touch-action: none 때문에 브라우저가 자체적으로 관성(모멘텀) 스크롤을 붙여주지
+// 않아서, 손가락을 떼는 순간 스크롤이 뚝 끊기는 문제가 있었다. 아래는 손가락을 뗄 때
+// 마지막 속도를 이용해 감속하며 계속 스크롤되는 모멘텀을 직접 흉내내는 로직이다.
+// 스크롤 부모(HTMLElement)별로 진행 중인 애니메이션 프레임 id를 저장해서, 같은
+// 컨테이너에서 새 스크롤/플릭이 시작되면 이전 모멘텀을 취소하고 이어받는다.
+const momentumFrames = new WeakMap<HTMLElement, number>();
+
+const MOMENTUM_MIN_START_VELOCITY = 0.02; // px/ms - 이보다 느리면 모멘텀 시작 안함
+const MOMENTUM_MIN_STOP_VELOCITY = 0.01; // px/ms - 이보다 느려지면 모멘텀 종료
+const MOMENTUM_MAX_VELOCITY = 3.5; // px/ms - 너무 빠른 튐 방지용 상한
+const MOMENTUM_FRICTION_PER_16MS = 0.94; // 한 프레임(약 16ms)당 남는 속도 비율
+
+const cancelMomentumScroll = (parent: HTMLElement | null | undefined) => {
+  if (!parent) return;
+  const existing = momentumFrames.get(parent);
+  if (existing !== undefined) {
+    cancelAnimationFrame(existing);
+    momentumFrames.delete(parent);
+  }
+};
+
+const startMomentumScroll = (parent: HTMLElement, initialVelocity: number) => {
+  cancelMomentumScroll(parent);
+  const clamped = Math.max(
+    -MOMENTUM_MAX_VELOCITY,
+    Math.min(MOMENTUM_MAX_VELOCITY, initialVelocity)
+  );
+  if (Math.abs(clamped) < MOMENTUM_MIN_START_VELOCITY) return;
+
+  let velocity = clamped;
+  let lastTime = performance.now();
+
+  const step = (now: number) => {
+    const dt = Math.min(now - lastTime, 48); // 탭 전환 등으로 인한 큰 dt 스파이크 방지
+    lastTime = now;
+
+    parent.scrollTop -= velocity * dt;
+    velocity *= Math.pow(MOMENTUM_FRICTION_PER_16MS, dt / 16.67);
+
+    if (Math.abs(velocity) < MOMENTUM_MIN_STOP_VELOCITY) {
+      momentumFrames.delete(parent);
+      return;
+    }
+    momentumFrames.set(parent, requestAnimationFrame(step));
+  };
+
+  momentumFrames.set(parent, requestAnimationFrame(step));
+};
+
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
 // 짐 추가/수정 모달(ItemFormModal)에서도 동일 팔레트를 써서 export.
 export const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
@@ -95,6 +144,9 @@ export default function ItemRow({
   const longPressTriggered = useRef(false);
   const scrollParentRef = useRef<HTMLElement | null | undefined>(undefined);
   const scrollingRef = useRef(false);
+  // 스크롤 중 손가락 속도(px/ms)를 추적해서, 손을 뗄 때 모멘텀 스크롤에 넘겨준다.
+  const velocityRef = useRef(0);
+  const lastMoveTimeRef = useRef(0);
 
   const clearLongPressTimer = () => {
     if (longPressTimer.current !== null) {
@@ -108,6 +160,8 @@ export default function ItemRow({
     startX.current = e.clientX;
     startY.current = e.clientY;
     lastY.current = e.clientY;
+    lastMoveTimeRef.current = e.timeStamp;
+    velocityRef.current = 0;
     baseOffset.current = dragX;
     setDragging(true);
     longPressTriggered.current = false;
@@ -125,6 +179,17 @@ export default function ItemRow({
         onStartDrag(x, y);
       }, LONG_PRESS_MS);
     }
+  };
+
+  const trackScrollVelocity = (clientY: number, timeStamp: number, deltaY: number) => {
+    const dt = timeStamp - lastMoveTimeRef.current;
+    if (dt > 0) {
+      // 순간 속도를 그대로 쓰면 손떨림에 취약하니, 이전 값과 섞어 부드럽게 만든다.
+      const instant = -deltaY / dt;
+      velocityRef.current = velocityRef.current * 0.7 + instant * 0.3;
+    }
+    lastMoveTimeRef.current = timeStamp;
+    lastY.current = clientY;
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -146,8 +211,8 @@ export default function ItemRow({
       if (parent) {
         const deltaY = e.clientY - lastY.current;
         parent.scrollTop -= deltaY;
+        trackScrollVelocity(e.clientY, e.timeStamp, deltaY);
       }
-      lastY.current = e.clientY;
       return;
     }
 
@@ -167,10 +232,13 @@ export default function ItemRow({
         }
         const parent = scrollParentRef.current;
         if (parent) {
+          // 이 컨테이너에서 이전 플릭의 관성 스크롤이 아직 돌고 있었다면 취소하고
+          // 새 손가락 움직임이 이어받도록 한다 (안 그러면 서로 충돌해 덜컹거린다).
+          cancelMomentumScroll(parent);
           const deltaY = e.clientY - lastY.current;
           parent.scrollTop -= deltaY;
+          trackScrollVelocity(e.clientY, e.timeStamp, deltaY);
         }
-        lastY.current = e.clientY;
       }
       return;
     }
@@ -181,7 +249,14 @@ export default function ItemRow({
 
   const endDrag = () => {
     clearLongPressTimer();
+    const wasScrolling = scrollingRef.current;
+    const parent = scrollParentRef.current;
     scrollingRef.current = false;
+    // 스크롤 중이었다면 손을 뗄 때의 속도로 관성 스크롤을 이어간다 (네이티브 스크롤처럼
+    // 손을 뗀 뒤에도 관성으로 미끄러지듯 계속 움직이게 함).
+    if (wasScrolling && parent) {
+      startMomentumScroll(parent, velocityRef.current);
+    }
     if (!dragging) return;
     setDragging(false);
     setDragX((current) => {
