@@ -168,6 +168,10 @@ export interface UserProfile {
     // 저장된 Pack.displayState는 전혀 바꾸지 않고(진입 시 적용되는 화면 표시만 덮어씀),
     // 진입 후에는 평소처럼 자유롭게 펼치고 접을 수 있다. 없으면 false(기본) 기본값.
     alwaysCollapseOnEntry?: boolean;
+    // 짐 이름을 몇 줄까지 보여줄지 (없으면 1 기본값). 넘치는 내용은 ...으로 줄여 보여준다.
+    itemMaxLines?: 1 | 2 | 3;
+    // 짐 더블클릭 시 클립보드 복사 토스트를 몇 초간 띄울지 (없으면 3 기본값, 3~7 사이).
+    itemCopyToastSeconds?: number;
   };
   // 하단 QuickPackBar(빠른팩 미리보기)를 접어서 오른쪽 끝에 떠있는 작은 원형 버튼으로만
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)

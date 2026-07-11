@@ -12,6 +12,10 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   // 명시적으로 켜둔 적이 없으면 기본 꺼짐
   const alwaysCollapseOnEntry = profile?.packSettings?.alwaysCollapseOnEntry ?? false;
+  // 짐 최대 표시 줄 수 (없으면 1줄 기본값)
+  const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
+  // 짐 더블클릭 복사 토스트 노출 시간 (없으면 3초 기본값, 3~7초)
+  const itemCopyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -53,6 +57,50 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
             onChange={(v) => updatePackSettings({ alwaysCollapseOnEntry: v })}
             ariaLabel="가방 열 때 팩 접어서 보기"
           />
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <p className="text-[13px] font-medium">짐 최대 표시 줄 수</p>
+          <p className="text-[11.5px] text-text-secondary mt-0.5">
+            짐 이름이 길면 여기서 고른 줄 수까지만 보여주고 나머지는 ...으로 줄여요
+          </p>
+          <div className="mt-2.5 flex rounded-lg border border-border overflow-hidden">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                onClick={() => updatePackSettings({ itemMaxLines: n as 1 | 2 | 3 })}
+                className="flex-1 py-2 text-[13px]"
+                style={{
+                  background: itemMaxLines === n ? "var(--accent)" : "var(--surface-2)",
+                  color: itemMaxLines === n ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {n}줄{n === 1 ? " (기본)" : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <p className="text-[13px] font-medium">짐 더블클릭 복사 알림 노출 시간</p>
+          <p className="text-[11.5px] text-text-secondary mt-0.5">
+            짐을 더블클릭하면 내용이 클립보드에 복사돼요. 복사된 내용을 알려주는 알림을 몇 초간 보여줄지 골라요
+          </p>
+          <div className="mt-2.5 flex rounded-lg border border-border overflow-hidden">
+            {[3, 4, 5, 6, 7].map((sec) => (
+              <button
+                key={sec}
+                onClick={() => updatePackSettings({ itemCopyToastSeconds: sec })}
+                className="flex-1 py-2 text-[13px]"
+                style={{
+                  background: itemCopyToastSeconds === sec ? "var(--accent)" : "var(--surface-2)",
+                  color: itemCopyToastSeconds === sec ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {sec}초
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

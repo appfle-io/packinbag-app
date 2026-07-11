@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { IconBold, IconStrikethrough } from "@tabler/icons-react";
 import { Item } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthProvider";
+import { useToast } from "./Toast";
 
 const DELETE_SWIPE_THRESHOLD = -30;
 const DELETE_SWIPE_MAX = -60;
@@ -136,6 +138,27 @@ export default function ItemRow({
   const [draftBold, setDraftBold] = useState(!!item.bold);
   const [draftStrike, setDraftStrike] = useState(!!item.strike);
   const [draftColor, setDraftColor] = useState(item.color || "");
+  const { profile } = useAuth();
+  const { show: showToast } = useToast();
+  // 설정 > 팩 설정에서 고르는 짐 최대 표시 줄 수(1~3, 없으면 1줄 기본값)와
+  // 더블클릭 복사 토스트 노출 시간(3~7초, 없으면 3초 기본값). 모든 짐에 공통 적용된다.
+  const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
+  const copyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
+  const lineClampClass =
+    itemMaxLines === 3 ? "line-clamp-3" : itemMaxLines === 2 ? "line-clamp-2" : "line-clamp-1";
+
+  // 짐을 더블클릭하면 내용을 클립보드에 복사하고, 무슨 내용이 복사됐는지 토스트로 알려준다.
+  const handleDoubleClick = () => {
+    if (!item.text) return;
+    navigator.clipboard
+      .writeText(item.text)
+      .then(() => {
+        showToast(`"${item.text}" 복사됨`, { durationMs: copyToastSeconds * 1000 });
+      })
+      .catch(() => {
+        showToast("복사 실패", { durationMs: copyToastSeconds * 1000 });
+      });
+  };
   const startX = useRef(0);
   const startY = useRef(0);
   const lastY = useRef(0);
@@ -493,7 +516,8 @@ export default function ItemRow({
               }
               closeSwipeIfOpen();
             }}
-            className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] line-clamp-2"
+            onDoubleClick={handleDoubleClick}
+            className={`min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] ${lineClampClass}`}
           >
             {item.type === "check" ? (
               <span

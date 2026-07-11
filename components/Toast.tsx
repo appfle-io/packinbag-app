@@ -9,6 +9,9 @@ export interface ToastOptions {
   // 더 길어지고, 액션 버튼을 누르면 onAction 실행 후 즉시 토스트가 사라진다.
   actionLabel?: string;
   onAction?: () => void;
+  // 지정하면 기본 노출시간(1700ms/actionLabel일 때 4000ms) 대신 이 시간(ms)을 쓴다.
+  // 짐 더블클릭 복사 토스트처럼 사용자가 설정한 노출시간을 반영할 때 쓴다.
+  durationMs?: number;
 }
 
 interface ToastState extends ToastOptions {
@@ -45,10 +48,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       onAction: options?.onAction,
     });
 
-    // 실행취소 버튼이 있는 토스트는 반응할 시간을 더 준다.
+    // 실행취소 버튼이 있는 토스트는 반응할 시간을 더 준다. durationMs가 지정되면 그 값을 최우선한다.
     hideTimer.current = window.setTimeout(() => {
       setToast(null);
-    }, options?.actionLabel ? 4000 : 1700);
+    }, options?.durationMs ?? (options?.actionLabel ? 4000 : 1700));
   }, []);
 
   return (
