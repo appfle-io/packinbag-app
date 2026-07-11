@@ -52,6 +52,7 @@ export default function NotebookPackSection({
   isLast,
   dragOverItemPosition,
   isPackDragOverPosition,
+  hideChecked,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -82,6 +83,7 @@ export default function NotebookPackSection({
   dragOverItemPosition?: "before" | "after" | null;
   // 드래그한 팩을 이 섹션 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
   isPackDragOverPosition?: "before" | "after" | null;
+  hideChecked?: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -92,7 +94,11 @@ export default function NotebookPackSection({
   const checkItems = pack.items.filter((i) => i.type === "check");
   const allChecked = checkItems.length > 0 && checkItems.every((i) => i.checked);
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
-  const displayItems = getDisplayOrderedItems(pack.items, moveCompletedToBottom);
+  const displayItems = hideChecked
+    ? getDisplayOrderedItems(pack.items, moveCompletedToBottom).filter(
+        (i) => !(i.type === "check" && i.checked)
+      )
+    : getDisplayOrderedItems(pack.items, moveCompletedToBottom);
 
   return (
     <div

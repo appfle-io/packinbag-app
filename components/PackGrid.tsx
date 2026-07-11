@@ -10,7 +10,6 @@ export default function PackGrid({
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
-  onAddItem,
   onEditItem,
   onRenamePack,
   onToggleAll,
@@ -26,6 +25,7 @@ export default function PackGrid({
   dragOverPackPosition,
   onStartPackDrag,
   dragSourcePackId,
+  hideChecked,
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -37,7 +37,6 @@ export default function PackGrid({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (packId: string, itemId: string) => void;
-  onAddItem: (packId: string, type: "check" | "text") => void;
   // 있으면 짐 수정 진입시 모달을 여는 콜백 (없으면 PackCard가 기존 인라인 편집 유지)
   onEditItem?: (packId: string, itemId: string) => void;
   onRenamePack: (packId: string, name: string) => void;
@@ -54,6 +53,7 @@ export default function PackGrid({
   dragOverPackPosition?: "before" | "after" | null;
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
+  hideChecked?: boolean;
 }) {
   const renderCard = (pack: Pack) => (
     <PackCard
@@ -66,8 +66,6 @@ export default function PackGrid({
         onChangeItemText(pack.id, itemId, text, style)
       }
       onDeleteItem={(itemId) => onDeleteItem(pack.id, itemId)}
-      onAddCheckItem={() => onAddItem(pack.id, "check")}
-      onAddTextItem={() => onAddItem(pack.id, "text")}
       onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
       onRenamePack={(name) => onRenamePack(pack.id, name)}
       onToggleAll={(checked) => onToggleAll(pack.id, checked)}
@@ -91,6 +89,7 @@ export default function PackGrid({
           : undefined
       }
       isPackDragSource={dragSourcePackId === pack.id}
+      hideChecked={hideChecked}
     />
   );
 

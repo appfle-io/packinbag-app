@@ -13,7 +13,6 @@ export default function NotebookView({
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
-  onAddItem,
   onEditItem,
   onRenamePack,
   onToggleAll,
@@ -29,6 +28,7 @@ export default function NotebookView({
   dragOverPackPosition,
   onStartPackDrag,
   dragSourcePackId,
+  hideChecked,
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -40,7 +40,6 @@ export default function NotebookView({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (packId: string, itemId: string) => void;
-  onAddItem: (packId: string, type: "check" | "text") => void;
   onEditItem?: (packId: string, itemId: string) => void;
   onRenamePack: (packId: string, name: string) => void;
   onToggleAll: (packId: string, checked: boolean) => void;
@@ -56,6 +55,7 @@ export default function NotebookView({
   dragOverPackPosition?: "before" | "after" | null;
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
+  hideChecked?: boolean;
 }) {
   return (
     <div className="flex flex-col">
@@ -90,6 +90,7 @@ export default function NotebookView({
             onStartPackDrag ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y) : undefined
           }
           isPackDragSource={dragSourcePackId === pack.id}
+          hideChecked={hideChecked}
         />
       ))}
     </div>

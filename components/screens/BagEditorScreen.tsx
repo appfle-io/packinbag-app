@@ -20,6 +20,8 @@ import {
   IconNotes,
   IconPackageImport,
   IconPackage,
+  IconEye,
+  IconEyeOff,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -119,6 +121,11 @@ export default function BagEditorScreen({
   const [collapseOverrideActive, setCollapseOverrideActive] = useState(
     !!profile?.packSettings?.alwaysCollapseOnEntry
   );
+
+  // 팩뷰/메모장뷰 상관없이 상단 토글로 켜고 끄는 "완료(체크된) 항목 숨기기". 데이터는 그대로 두고
+  // 화면에 그릴 때만 걸러낸다(PackCard/NotebookPackSection의 displayItems 필터링) - 저장되지 않는
+  // 화면별 임시 상태라 화면을 다시 들어오면 항상 꺼진 채로 시작한다.
+  const [hideChecked, setHideChecked] = useState(false);
 
   // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
   // 호출한 쪽에서 그대로 return해서 실제 상태 변경으로 이어지지 않게 한다. 모달이 열려있는
@@ -369,26 +376,16 @@ export default function BagEditorScreen({
     }
   };
 
-  // "체크항목"/"텍스트" 버튼을 누르면 바로 빈 짐을 만들던 예전 방식 대신,
-  // 어떤 팩에서 시작했는지/타입만 기억해두고 중앙 모달(ItemFormModal)을 연다.
-  // 실제 짐 생성은 모달의 저장 버튼(handleCreateItem)에서 이뤄진다.
-  const [itemModal, setItemModal] = useState<
-    | { mode: "add"; sourcePackId: string; type: "check" | "text" }
-    | { mode: "edit"; sourcePackId: string; item: Item }
-    | null
-  >(null);
-
-  const handleOpenAddItem = (packId: string, type: "check" | "text") => {
-    if (guardReadOnly()) return;
-    setItemModal({ mode: "add", sourcePackId: packId, type });
-  };
+  // 짐 수정은 중앙 모달(ItemFormModal)을 열어서 처리한다. 새 짐 추가는 상단 "+" 버튼으로 여는
+  // 통합 모달(NotebookQuickAddModal)을 통해서만 이뤄진다(아래 handleCreateItem 참고).
+  const [itemModal, setItemModal] = useState<{ sourcePackId: string; item: Item } | null>(null);
 
   const handleOpenEditItem = (packId: string, itemId: string) => {
     if (guardReadOnly()) return;
     const pack = bag.packs.find((p) => p.id === packId);
     const item = pack?.items.find((i) => i.id === itemId);
     if (!item) return;
-    setItemModal({ mode: "edit", sourcePackId: packId, item });
+    setItemModal({ sourcePackId: packId, item });
   };
 
   const handleCreateItem = (
@@ -1215,6 +1212,24 @@ export default function BagEditorScreen({
             </button>
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
+                <button
+                  onClick={() => setHideChecked((v) => !v)}
+                  aria-label={hideChecked ? "완료 항목 다시 보이기" : "완료 항목 숨기기"}
+                >
+                  {hideChecked ? (
+                    <IconEyeOff size={17} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconEye size={17} stroke={1.75} color="var(--text-secondary)" />
+                  )}
+                </button>
+                {viewMode === "pack" && (
+                  <button
+                    onClick={() => setShowNotebookQuickAdd(true)}
+                    aria-label="항목 추가"
+                  >
+                    <IconPlus size={17} stroke={1.75} color="var(--text-secondary)" />
+                  </button>
+                )}
                 {viewMode === "pack" && (
                   <button
                     onClick={() => handleSetAllDisplayState(allPacksWide ? "normal" : "wide")}
@@ -1263,7 +1278,6 @@ export default function BagEditorScreen({
             onToggleItem={handleToggleItem}
             onChangeItemText={handleChangeItemText}
             onDeleteItem={handleDeleteItem}
-            onAddItem={handleOpenAddItem}
             onEditItem={handleOpenEditItem}
             onRenamePack={handleRenamePack}
             onToggleAll={handleToggleAllInPack}
@@ -1282,6 +1296,7 @@ export default function BagEditorScreen({
             dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
+            hideChecked={hideChecked}
           />
         ) : (
           <PackGrid
@@ -1290,7 +1305,6 @@ export default function BagEditorScreen({
             onToggleItem={handleToggleItem}
             onChangeItemText={handleChangeItemText}
             onDeleteItem={handleDeleteItem}
-            onAddItem={handleOpenAddItem}
             onEditItem={handleOpenEditItem}
             onRenamePack={handleRenamePack}
             onToggleAll={handleToggleAllInPack}
@@ -1309,6 +1323,7 @@ export default function BagEditorScreen({
             dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
+            hideChecked={hideChecked}
           />
         )}
       </div>
@@ -1468,20 +1483,16 @@ export default function BagEditorScreen({
           packs={bag.packs}
           selectionMode="single"
           initialSelectedPackIds={[itemModal.sourcePackId]}
-          mode={itemModal.mode}
-          initialType={itemModal.mode === "add" ? itemModal.type : itemModal.item.type}
-          initialText={itemModal.mode === "edit" ? itemModal.item.text : ""}
-          initialBold={itemModal.mode === "edit" ? !!itemModal.item.bold : false}
-          initialStrike={itemModal.mode === "edit" ? !!itemModal.item.strike : false}
-          initialColor={itemModal.mode === "edit" ? itemModal.item.color || "" : ""}
+          mode="edit"
+          initialType={itemModal.item.type}
+          initialText={itemModal.item.text}
+          initialBold={!!itemModal.item.bold}
+          initialStrike={!!itemModal.item.strike}
+          initialColor={itemModal.item.color || ""}
           onClose={() => setItemModal(null)}
           onSave={(targetPackIds, data) => {
             const targetPackId = targetPackIds[0];
-            if (itemModal.mode === "add") {
-              handleCreateItem(targetPackId, data);
-            } else {
-              handleUpdateItem(itemModal.sourcePackId, itemModal.item.id, targetPackId, data);
-            }
+            handleUpdateItem(itemModal.sourcePackId, itemModal.item.id, targetPackId, data);
             setItemModal(null);
           }}
         />

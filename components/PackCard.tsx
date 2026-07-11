@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import {
-  IconSquareCheck,
-  IconAlignLeft,
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
   IconRefresh,
@@ -35,8 +33,6 @@ export default function PackCard({
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
-  onAddCheckItem,
-  onAddTextItem,
   onEditItem,
   onRenamePack,
   onToggleAll,
@@ -52,6 +48,7 @@ export default function PackCard({
   onStartPackDrag,
   isPackDragSource,
   isPackDragOverPosition,
+  hideChecked,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -65,8 +62,6 @@ export default function PackCard({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (itemId: string) => void;
-  onAddCheckItem: () => void;
-  onAddTextItem: () => void;
   // 있으면 짐 수정 진입시 인라인 편집 대신 모달을 열도록 ItemRow에 전달한다.
   onEditItem?: (itemId: string) => void;
   onRenamePack: (name: string) => void;
@@ -87,6 +82,9 @@ export default function PackCard({
   isPackDragSource?: boolean;
   // 드래그한 팩을 이 카드 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
   isPackDragOverPosition?: "before" | "after" | null;
+  // 상단 "완료 항목 숨기기" 토글이 켜져 있으면, 체크된 체크형 짐은 화면에서 걸러낸다
+  // (데이터 자체는 그대로 - 필터링일 뿐 삭제 아님).
+  hideChecked?: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { profile } = useAuth();
@@ -100,7 +98,10 @@ export default function PackCard({
   const isWide = displayState === "wide";
   // 실제 저장 순서는 그대로 두고, 화면에 보여줄 때만 완료 항목을 뒤로 보낸다
   // (드래그로 다른 팩에 옮기는 기능은 인덱스가 아니라 id 기반이라 영향 없음)
-  const displayItems = getDisplayOrderedItems(pack.items, moveCompletedToBottom);
+  const orderedItems = getDisplayOrderedItems(pack.items, moveCompletedToBottom);
+  const displayItems = hideChecked
+    ? orderedItems.filter((i) => !(i.type === "check" && i.checked))
+    : orderedItems;
 
   return (
     <div
@@ -222,18 +223,6 @@ export default function PackCard({
           </div>
 
           <div className="flex items-center gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
-            <button onClick={onAddCheckItem} className="flex items-center gap-1.5">
-              <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                <IconSquareCheck size={17} stroke={1.75} />
-              </span>
-              체크항목
-            </button>
-            <button onClick={onAddTextItem} className="flex items-center gap-1.5">
-              <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                <IconAlignLeft size={17} stroke={1.75} />
-              </span>
-              텍스트
-            </button>
             <div className="flex items-center gap-3 ml-auto">
               {pack.linkedLibraryPackId && (
                 <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
