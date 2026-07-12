@@ -74,15 +74,26 @@ export interface PackSearchResult {
   itemId?: string;
 }
 
-// 팩 보관함 검색: 라이브러리 팩 이름 / 팩 속 짐 텍스트를 검색한다.
-export function searchLibraryPacks(packs: Pack[], query: string): PackSearchResult[] {
+// searchLibraryPacks의 반환값. truncated가 true면 실제 매칭이 MAX_RESULTS(30개)보다 많아서
+// 화면에 안내 문구("결과가 많아 상위 30개만 보여드려요" 등)를 띄울 수 있게 한다.
+export interface PackSearchOutput {
+  results: PackSearchResult[];
+  truncated: boolean;
+}
+
+// 팩 보관함 검색: 라이브러리 팩 이름 / 팩 속 짐 텍스트를 검색한다. MAX_RESULTS보다 하나 더
+// 모아본 뒤에 잘라내는 방식으로 "진짜로 더 있는지"를 정확히 판별한다(그냥 30개에서 멈추면
+// 매칭이 정확히 30개인 경우와 31개 이상인 경우를 구분할 수 없어서 안내 문구를 정확히 못 띄움).
+export function searchLibraryPacks(packs: Pack[], query: string): PackSearchOutput {
   const q = query.trim().toLowerCase();
-  if (!q) return [];
+  if (!q) return { results: [], truncated: false };
   const results: PackSearchResult[] = [];
 
+  packLoop:
   for (const pack of packs) {
     if (pack.name.toLowerCase().includes(q)) {
       results.push({ type: "pack", id: `pack-${pack.id}`, label: pack.name, pack });
+      if (results.length > MAX_RESULTS) break packLoop;
     }
     for (const item of pack.items) {
       if (item.text && item.text.toLowerCase().includes(q)) {
@@ -94,10 +105,11 @@ export function searchLibraryPacks(packs: Pack[], query: string): PackSearchResu
           pack,
           itemId: item.id,
         });
+        if (results.length > MAX_RESULTS) break packLoop;
       }
     }
-    if (results.length >= MAX_RESULTS) return results.slice(0, MAX_RESULTS);
   }
 
-  return results.slice(0, MAX_RESULTS);
+  const truncated = results.length > MAX_RESULTS;
+  return { results: results.slice(0, MAX_RESULTS), truncated };
 }

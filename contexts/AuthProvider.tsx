@@ -207,15 +207,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // unlockCodes/{code} 문서를 실시간 구독해서, 관리자가 "무효화" 버튼을 누르는 순간
   // (또는 만료 시각이 지나는 순간) 화면에 바로 반영되게 한다. 코드가 없으면 구독하지 않고
   // 상태를 null로 비운다(마스터 계정처럼 코드 자체가 필요 없는 경우 등).
+  // Firestore 문서 자체는 안 바뀌고 시간만 흘러서 만료 시각을 넘기는 경우, onSnapshot은
+  // 재실행되지 않는다. 그래서 만료 시각이 되는 정확한 순간에 한 번만 재평가하도록
+  // setTimeout을 걸어둔다 - 폴링이 아니라 1회성 타이머라 네트워크 요청/Firestore 읽기가
+  // 전혀 없고, 부하도 setTimeout 하나 도는 정도로 무시할 수준이다.
+  // 주의: setTimeout은 대략 24.8일(2^31ms)을 넘기는 지연시간을 주면 즉시 실행돼버리는
+  // 오버플로 버그가 있다(1년짜리 이용권 코드도 있어서 실제로 걸릴 수 있는 문제). 그래서
+  // 20일 단위로 잘라서, 만료 시각에 도달할 때까지 재귀적으로 다시 건다.
   useEffect(() => {
     const code = rawProfile?.unlockCode;
     if (!code) {
       setUnlockLiveStatus(null);
       return;
     }
+    let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearExpiryTimer = () => {
+      if (expiryTimer) {
+        clearTimeout(expiryTimer);
+        expiryTimer = null;
+      }
+    };
+    const scheduleExpiryCheck = (expiresAtMs: number) => {
+      clearExpiryTimer();
+      const MAX_TIMEOUT_MS = 20 * 24 * 60 * 60 * 1000; // 20일 (setTimeout 32비트 한계 방지)
+      const tick = () => {
+        const remaining = expiresAtMs - Date.now();
+        if (remaining <= 0) {
+          setUnlockLiveStatus("expired");
+          return;
+        }
+        expiryTimer = setTimeout(tick, Math.min(remaining, MAX_TIMEOUT_MS));
+      };
+      tick();
+    };
     const unsub = onSnapshot(
       doc(db, "unlockCodes", code),
       (snap) => {
+        clearExpiryTimer();
         if (!snap.exists()) {
           setUnlockLiveStatus("invalidated");
           return;
@@ -226,19 +254,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         const expiresAt = data.expiresAt as { toDate?: () => Date } | null | undefined;
-        const expired =
-          !!expiresAt &&
-          typeof expiresAt.toDate === "function" &&
-          expiresAt.toDate().getTime() < Date.now();
+        const expiresAtMs =
+          expiresAt && typeof expiresAt.toDate === "function" ? expiresAt.toDate().getTime() : null;
+        const expired = expiresAtMs !== null && expiresAtMs < Date.now();
         setUnlockLiveStatus(expired ? "expired" : "active");
+        // 아직 만료 전이면, 만료되는 정확한 시각에 한 번 더 재평가하도록 예약해둔다.
+        if (!expired && expiresAtMs !== null) {
+          scheduleExpiryCheck(expiresAtMs);
+        }
       },
       () => {
         // 권한 문제/로그아웃 경합 등으로 구독 자체가 실패하면 상태를 모르는 채로 두고,
         // premiumLimits.ts가 기존처럼 캐시된 unlockCodeExpiresAt 기준으로 판단하게 둔다.
+        clearExpiryTimer();
         setUnlockLiveStatus(null);
       }
     );
-    return unsub;
+    return () => {
+      clearExpiryTimer();
+      unsub();
+    };
   }, [rawProfile?.unlockCode]);
 
   // 화면/로직에 실제로 노출되는 profile. rawProfile(users/{uid} 문서)과 unlockLiveStatus

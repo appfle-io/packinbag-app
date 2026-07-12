@@ -63,9 +63,17 @@ export default function PacksScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const searchResults = useMemo(
-    () => searchLibraryPacks(gridPacks, searchQuery),
-    [gridPacks, searchQuery]
+  // 빠른팩도 검색 대상에 포함한다 - 검색 결과로 그 짐을 누르면 빠른팩이 열리면서
+  // 다른 팩과 동일하게 스크롤 + 하이라이트되는 것을 PackLibraryEditorScreen의
+  // focusItemId 처리가 그대로 지원해서, 그리드에는 안 보여도 검색에서는 찾을 수 있게 한다.
+  const searchablePacks = useMemo(
+    () => (quickPack ? [...gridPacks, quickPack] : gridPacks),
+    [gridPacks, quickPack]
+  );
+
+  const { results: searchResults, truncated: searchTruncated } = useMemo(
+    () => searchLibraryPacks(searchablePacks, searchQuery),
+    [searchablePacks, searchQuery]
   );
 
   const openSearch = () => {
@@ -313,6 +321,11 @@ export default function PacksScreen({
                   )}
                 </button>
               ))}
+              {searchTruncated && (
+                <p className="text-[11px] text-text-muted text-center py-2">
+                  결과가 많아 상위 30개만 보여드려요
+                </p>
+              )}
             </div>
           )}
         </div>
