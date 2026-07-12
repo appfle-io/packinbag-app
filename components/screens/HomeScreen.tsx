@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconPlus, IconSettings, IconTicket, IconHelpCircle } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconSettings,
+  IconTicket,
+  IconHelpCircle,
+  IconTrash,
+  IconCheck,
+} from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
@@ -13,6 +20,7 @@ import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
 import HelpTutorialModal from "@/components/HelpTutorialModal";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { homeHelpSlides } from "@/lib/helpTutorial/homeSlides";
 import { useToast } from "@/components/Toast";
 
@@ -32,6 +40,7 @@ export default function HomeScreen({
   onJoinBag,
   onOpenSettings,
   onOpenQuickPack,
+  onBulkDeleteBags,
 }: {
   bags: Bag[];
   initialInviteCode?: string;
@@ -45,6 +54,8 @@ export default function HomeScreen({
   onJoinBag: (code: string) => Promise<void>;
   onOpenSettings: () => void;
   onOpenQuickPack: () => void;
+  // 길게 눌러 다중선택한 가방들을 한꺼번에 삭제 (AppShell이 이미지/초대코드 정리까지 처리).
+  onBulkDeleteBags: (bagIds: string[]) => void;
 }) {
   const [showJoin, setShowJoin] = useState(!!initialInviteCode);
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
@@ -58,16 +69,29 @@ export default function HomeScreen({
   const arrangedBags = arrangeList(bags, { sortBy, pinnedIds, order: profile?.bagOrder });
   const pinnedSet = new Set(pinnedIds);
 
-  // --- 길게 눌러서 순서 바꾸기 ---------------------------------------------
+  // --- 길게 눌러서 순서 바꾸기 / 다중선택 ------------------------------------
   // 고정된 가방은 드래그 대상에서 제외한다(항상 맨 앞에 고정). 놓는 순간 지금 화면에
   // 보이던 순서를 그대로 bagOrder로 저장하고 정렬기준을 "custom"으로 전환한다
   // (updateBagOrder가 이 둘을 한 번에 처리).
+  //
+  // 길게 누르고 "그대로 뗀" 경우(실제로 다른 카드 위로 옮기지 않은 경우)는 다중선택
+  // 모드 진입으로 취급한다. 즉 같은 롱프레스 제스처가 "움직이면 순서변경", "가만히
+  // 있다 떼면 다중선택 시작"으로 나뉜다 - 그래서 두 기능이 서로 충돌하지 않는다.
   const [reorderDrag, setReorderDrag] = useState<{ id: string; x: number; y: number; overId: string | null } | null>(
     null
   );
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const justDraggedRef = useRef(false);
+
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  // 선택된 항목이 하나도 없으면(마지막 선택을 해제했을 때) 다중선택 모드도 자동으로 빠져나간다.
+  useEffect(() => {
+    if (selectMode && selectedIds.size === 0) setSelectMode(false);
+  }, [selectMode, selectedIds]);
 
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
@@ -76,14 +100,39 @@ export default function HomeScreen({
     }
   };
 
+  const enterSelectMode = (bagId: string) => {
+    setSelectMode(true);
+    setSelectedIds(new Set([bagId]));
+  };
+
+  const toggleSelected = (bagId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(bagId)) next.delete(bagId);
+      else next.add(bagId);
+      return next;
+    });
+  };
+
+  const cancelSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
   const handleCardPointerDown = (bagId: string, e: React.PointerEvent) => {
-    if (pinnedSet.has(bagId)) return; // 고정된 카드는 드래그로 옮길 수 없음
+    if (selectMode) return; // 선택 모드에서는 탭만으로 토글하므로 롱프레스가 필요 없음
     const x = e.clientX;
     const y = e.clientY;
     longPressStartRef.current = { id: bagId, x, y };
     clearLongPressTimer();
     longPressTimerRef.current = setTimeout(() => {
-      setReorderDrag({ id: bagId, x, y, overId: null });
+      if (pinnedSet.has(bagId)) {
+        // 고정된 카드는 순서를 바꿀 수 없지만, 길게 눌러 다중선택 모드로 들어가는 건 허용한다.
+        enterSelectMode(bagId);
+        justDraggedRef.current = true;
+      } else {
+        setReorderDrag({ id: bagId, x, y, overId: null });
+      }
     }, LONG_PRESS_MS);
   };
 
@@ -111,12 +160,18 @@ export default function HomeScreen({
 
     const handleUp = () => {
       setReorderDrag((d) => {
-        if (d && d.overId && d.overId !== d.id && !pinnedSet.has(d.overId)) {
-          const currentIds = arrangedBags.filter((b) => !pinnedSet.has(b.id)).map((b) => b.id);
-          const nextOrder = moveIdInOrder(currentIds, d.id, d.overId);
-          updateBagOrder(nextOrder).catch(() => show("순서를 저장하지 못했어요"));
+        if (d) {
+          if (d.overId && d.overId !== d.id && !pinnedSet.has(d.overId)) {
+            // 실제로 다른 카드 위로 옮겨서 놓은 경우 -> 순서 변경
+            const currentIds = arrangedBags.filter((b) => !pinnedSet.has(b.id)).map((b) => b.id);
+            const nextOrder = moveIdInOrder(currentIds, d.id, d.overId);
+            updateBagOrder(nextOrder).catch(() => show("순서를 저장하지 못했어요"));
+          } else {
+            // 움직이지 않고 그대로 뗀 경우 -> 다중선택 모드로 진입
+            enterSelectMode(d.id);
+          }
+          justDraggedRef.current = true;
         }
-        if (d) justDraggedRef.current = true;
         return null;
       });
     };
@@ -160,18 +215,39 @@ export default function HomeScreen({
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-3 gap-2">
-          <button
-            onClick={() => setShowJoin(true)}
-            className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12px] shrink-0"
-          >
-            <IconTicket size={14} stroke={1.75} />
-            코드로 참여
-          </button>
-          {bags.length > 0 && (
-            <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-          )}
-        </div>
+        {selectMode ? (
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <button
+              onClick={cancelSelectMode}
+              className="text-[13px] text-text-secondary px-1 py-1.5"
+            >
+              취소
+            </button>
+            <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
+            <button
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-medium disabled:opacity-40"
+              style={{ background: "var(--danger)", color: "#fff" }}
+            >
+              <IconTrash size={14} stroke={1.75} />
+              삭제
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <button
+              onClick={() => setShowJoin(true)}
+              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12px] shrink-0"
+            >
+              <IconTicket size={14} stroke={1.75} />
+              코드로 참여
+            </button>
+            {bags.length > 0 && (
+              <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-3">
@@ -194,6 +270,7 @@ export default function HomeScreen({
               <div
                 key={bag.id}
                 data-bag-drop-id={bag.id}
+                className="relative"
                 onPointerDown={(e) => handleCardPointerDown(bag.id, e)}
                 onPointerMove={handleCardPointerMove}
                 onPointerUp={handleCardPointerUp}
@@ -210,19 +287,36 @@ export default function HomeScreen({
                   bag={bag}
                   locked={lockedBagIds?.has(bag.id)}
                   pinned={pinnedSet.has(bag.id)}
-                  onTogglePin={() => toggleBagPinned(bag.id).catch(() => show("고정 상태를 저장하지 못했어요"))}
+                  onTogglePin={
+                    selectMode
+                      ? undefined
+                      : () => toggleBagPinned(bag.id).catch(() => show("고정 상태를 저장하지 못했어요"))
+                  }
                   isDragSource={reorderDrag?.id === bag.id}
                   isDragOver={reorderDrag?.overId === bag.id}
-                  onClick={() => onOpenBag(bag)}
+                  onClick={() => (selectMode ? toggleSelected(bag.id) : onOpenBag(bag))}
                 />
+                {selectMode && (
+                  <div
+                    className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full flex items-center justify-center pointer-events-none"
+                    style={{
+                      background: selectedIds.has(bag.id) ? "var(--accent)" : "rgba(255,255,255,0.85)",
+                      border: selectedIds.has(bag.id) ? "none" : "1.5px solid var(--border-strong)",
+                    }}
+                  >
+                    {selectedIds.has(bag.id) && <IconCheck size={13} stroke={2.75} color="#fff" />}
+                  </div>
+                )}
               </div>
             ))}
-            <button
-              onClick={() => setShowNewBagOptions(true)}
-              className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
-            >
-              <IconPlus size={22} stroke={1.75} />
-            </button>
+            {!selectMode && (
+              <button
+                onClick={() => setShowNewBagOptions(true)}
+                className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+              >
+                <IconPlus size={22} stroke={1.75} />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -295,6 +389,20 @@ export default function HomeScreen({
 
       {showHelp && (
         <HelpTutorialModal slides={homeHelpSlides} onClose={() => setShowHelp(false)} />
+      )}
+
+      {showBulkDeleteConfirm && (
+        <ConfirmDialog
+          title={`가방 ${selectedIds.size}개를 삭제할까요?`}
+          message="삭제된 가방은 되돌릴 수 없어요. 가방에 담긴 모든 팩과 짐이 함께 사라져요."
+          onCancel={() => setShowBulkDeleteConfirm(false)}
+          onConfirm={() => {
+            const ids = Array.from(selectedIds);
+            setShowBulkDeleteConfirm(false);
+            cancelSelectMode();
+            onBulkDeleteBags(ids);
+          }}
+        />
       )}
     </div>
   );

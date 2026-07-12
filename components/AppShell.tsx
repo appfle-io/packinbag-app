@@ -440,6 +440,26 @@ export default function AppShell() {
     })();
   };
 
+  // 홈 화면(가방 보관함)에서 길게 눌러 다중선택한 가방들을 한꺼번에 삭제한다.
+  // handleDeleteBag과 동일하게 이미지/초대코드 정리까지 각 가방마다 수행하고, 실패해도
+  // 나머지는 계속 진행되도록 Promise.all로 병렬 처리한다(하나가 실패하면 catch에서
+  // 일괄 실패 안내만 보여준다 - 이미 지워진 것까지 되돌리지는 않음).
+  const handleBulkDeleteBags = async (bagIds: string[]) => {
+    const targets = bags.filter((b) => bagIds.includes(b.id));
+    try {
+      await Promise.all(
+        targets.map(async (bag) => {
+          await Promise.all(bag.images.map((url) => deleteBagImage(url)));
+          await deleteBagWithInviteCodeRemote(bag);
+        })
+      );
+      show(`가방 ${targets.length}개를 삭제했어요`);
+    } catch (err) {
+      console.error("[팩인백] 가방 일괄 삭제 실패:", err);
+      show(`가방 삭제 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
+    }
+  };
+
   // 새로 만들다가(아직 한 번도 저장 안 하고) 뒤로가기 하면, 미리 만들어둔 임시 가방을 조용히 정리한다.
   const handleBackFromEditor = (currentBag: Bag) => {
     const wasNew = isNewBag;
@@ -583,6 +603,18 @@ export default function AppShell() {
         console.error("[팩인백] 팩 삭제 실패:", err);
         show(`팩 삭제에 실패했어요 (${firebaseErrorCode(err)})`);
       });
+  };
+
+  // 팩 보관함에서 길게 눌러 다중선택한 팩들을 한꺼번에 삭제한다. 라이브러리 팩은 독립된
+  // 사본이라(가방에 불러와도 deep copy) 다른 가방에 영향 없이 그냥 지우면 된다.
+  const handleBulkDeletePacks = async (packIds: string[]) => {
+    try {
+      await Promise.all(packIds.map((id) => deleteLibraryPackRemote(user.uid, id)));
+      show(`팩 ${packIds.length}개를 삭제했어요`);
+    } catch (err) {
+      console.error("[팩인백] 팩 일괄 삭제 실패:", err);
+      show(`팩 삭제 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
+    }
   };
 
   // 빠른팩(다중선택) 이동 부해 - 특정 가방의 특정 팩 안으로 짐을 이동한다. 지금
@@ -750,6 +782,7 @@ export default function AppShell() {
                 onOpenPack={(pack) => setEditingPack(pack)}
                 onNewPack={openNewPack}
                 onOpenSettings={() => setShowSettings(true)}
+                onBulkDeletePacks={handleBulkDeletePacks}
               />
             </div>
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
@@ -767,6 +800,7 @@ export default function AppShell() {
                 onJoinBag={handleJoinBag}
                 onOpenSettings={() => setShowSettings(true)}
                 onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
+                onBulkDeleteBags={handleBulkDeleteBags}
               />
             </div>
           </div>

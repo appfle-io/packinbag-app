@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconPlus, IconSettings } from "@tabler/icons-react";
+import { IconPlus, IconSettings, IconTrash, IconCheck } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
 import PackTile from "@/components/PackTile";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 
 const LONG_PRESS_MS = 400;
@@ -20,6 +21,7 @@ export default function PacksScreen({
   onOpenPack,
   onNewPack,
   onOpenSettings,
+  onBulkDeletePacks,
 }: {
   // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 그리드 렌더링 전에
   // 걸러낸다 - 빠른팩은 그리드가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
@@ -31,6 +33,8 @@ export default function PacksScreen({
   onOpenPack: (pack: Pack) => void;
   onNewPack: () => void;
   onOpenSettings: () => void;
+  // 길게 눌러 다중선택한 팩들을 한꺼번에 삭제 (AppShell이 라이브러리에서 실제로 삭제).
+  onBulkDeletePacks: (packIds: string[]) => void;
 }) {
   const { profile, updatePackSortBy, togglePackPinned, updatePackOrder } = useAuth();
   const { show } = useToast();
@@ -40,13 +44,25 @@ export default function PacksScreen({
   const arrangedPacks = arrangeList(gridPacks, { sortBy, pinnedIds, order: profile?.packOrder });
   const pinnedSet = new Set(pinnedIds);
 
-  // 길게 눌러서 순서 바꾸기 (HomeScreen의 가방 그리드와 동일한 패턴)
+  // 길게 눌러서 순서 바꾸기 (HomeScreen의 가방 그리드와 동일한 패턴). 길게 누르고
+  // "그대로 뗀" 경우(실제로 다른 타일 위로 옮기지 않은 경우)는 다중선택 모드 진입으로
+  // 취급한다 - 같은 롱프레스 제스처가 "움직이면 순서변경", "가만히 있다 떼면 다중선택
+  // 시작"으로 나뉘어서 두 기능이 서로 충돌하지 않는다.
   const [reorderDrag, setReorderDrag] = useState<{ id: string; x: number; y: number; overId: string | null } | null>(
     null
   );
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const justDraggedRef = useRef(false);
+
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  // 선택된 항목이 하나도 없으면(마지막 선택을 해제했을 때) 다중선택 모드도 자동으로 빠져나간다.
+  useEffect(() => {
+    if (selectMode && selectedIds.size === 0) setSelectMode(false);
+  }, [selectMode, selectedIds]);
 
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
@@ -55,14 +71,39 @@ export default function PacksScreen({
     }
   };
 
+  const enterSelectMode = (packId: string) => {
+    setSelectMode(true);
+    setSelectedIds(new Set([packId]));
+  };
+
+  const toggleSelected = (packId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(packId)) next.delete(packId);
+      else next.add(packId);
+      return next;
+    });
+  };
+
+  const cancelSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
   const handleTilePointerDown = (packId: string, e: React.PointerEvent) => {
-    if (pinnedSet.has(packId)) return;
+    if (selectMode) return; // 선택 모드에서는 탭만으로 토글하므로 롱프레스가 필요 없음
     const x = e.clientX;
     const y = e.clientY;
     longPressStartRef.current = { id: packId, x, y };
     clearLongPressTimer();
     longPressTimerRef.current = setTimeout(() => {
-      setReorderDrag({ id: packId, x, y, overId: null });
+      if (pinnedSet.has(packId)) {
+        // 고정된 타일은 순서를 바꿀 수 없지만, 길게 눌러 다중선택 모드로 들어가는 건 허용한다.
+        enterSelectMode(packId);
+        justDraggedRef.current = true;
+      } else {
+        setReorderDrag({ id: packId, x, y, overId: null });
+      }
     }, LONG_PRESS_MS);
   };
 
@@ -90,12 +131,18 @@ export default function PacksScreen({
 
     const handleUp = () => {
       setReorderDrag((d) => {
-        if (d && d.overId && d.overId !== d.id && !pinnedSet.has(d.overId)) {
-          const currentIds = arrangedPacks.filter((p) => !pinnedSet.has(p.id)).map((p) => p.id);
-          const nextOrder = moveIdInOrder(currentIds, d.id, d.overId);
-          updatePackOrder(nextOrder).catch(() => show("순서를 저장하지 못했어요"));
+        if (d) {
+          if (d.overId && d.overId !== d.id && !pinnedSet.has(d.overId)) {
+            // 실제로 다른 타일 위로 옮겨서 놓은 경우 -> 순서 변경
+            const currentIds = arrangedPacks.filter((p) => !pinnedSet.has(p.id)).map((p) => p.id);
+            const nextOrder = moveIdInOrder(currentIds, d.id, d.overId);
+            updatePackOrder(nextOrder).catch(() => show("순서를 저장하지 못했어요"));
+          } else {
+            // 움직이지 않고 그대로 뗀 경우 -> 다중선택 모드로 진입
+            enterSelectMode(d.id);
+          }
+          justDraggedRef.current = true;
         }
-        if (d) justDraggedRef.current = true;
         return null;
       });
     };
@@ -130,10 +177,31 @@ export default function PacksScreen({
           </button>
         </div>
 
-        {gridPacks.length > 0 && (
-          <div className="flex justify-end mb-3">
-            <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+        {selectMode ? (
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <button
+              onClick={cancelSelectMode}
+              className="text-[13px] text-text-secondary px-1 py-1.5"
+            >
+              취소
+            </button>
+            <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
+            <button
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-medium disabled:opacity-40"
+              style={{ background: "var(--danger)", color: "#fff" }}
+            >
+              <IconTrash size={14} stroke={1.75} />
+              삭제
+            </button>
           </div>
+        ) : (
+          gridPacks.length > 0 && (
+            <div className="flex justify-end mb-3">
+              <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+            </div>
+          )
         )}
       </div>
 
@@ -143,6 +211,7 @@ export default function PacksScreen({
             <div
               key={pack.id}
               data-pack-tile-drop-id={pack.id}
+              className="relative"
               onPointerDown={(e) => handleTilePointerDown(pack.id, e)}
               onPointerMove={handleTilePointerMove}
               onPointerUp={handleTilePointerUp}
@@ -159,19 +228,36 @@ export default function PacksScreen({
                 pack={pack}
                 locked={lockedPackIds?.has(pack.id)}
                 pinned={pinnedSet.has(pack.id)}
-                onTogglePin={() => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))}
+                onTogglePin={
+                  selectMode
+                    ? undefined
+                    : () => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))
+                }
                 isDragSource={reorderDrag?.id === pack.id}
                 isDragOver={reorderDrag?.overId === pack.id}
-                onClick={() => onOpenPack(pack)}
+                onClick={() => (selectMode ? toggleSelected(pack.id) : onOpenPack(pack))}
               />
+              {selectMode && (
+                <div
+                  className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full flex items-center justify-center pointer-events-none"
+                  style={{
+                    background: selectedIds.has(pack.id) ? "var(--accent)" : "rgba(255,255,255,0.85)",
+                    border: selectedIds.has(pack.id) ? "none" : "1.5px solid var(--border-strong)",
+                  }}
+                >
+                  {selectedIds.has(pack.id) && <IconCheck size={13} stroke={2.75} color="#fff" />}
+                </div>
+              )}
             </div>
           ))}
-          <button
-            onClick={onNewPack}
-            className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
-          >
-            <IconPlus size={22} stroke={1.75} />
-          </button>
+          {!selectMode && (
+            <button
+              onClick={onNewPack}
+              className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+            >
+              <IconPlus size={22} stroke={1.75} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -190,6 +276,20 @@ export default function PacksScreen({
         >
           {gridPacks.find((p) => p.id === reorderDrag.id)?.name || "팩"}
         </div>
+      )}
+
+      {showBulkDeleteConfirm && (
+        <ConfirmDialog
+          title={`팩 ${selectedIds.size}개를 삭제할까요?`}
+          message="삭제된 팩은 되돌릴 수 없어요. 이미 가방에 불러와진 사본에는 영향이 없어요."
+          onCancel={() => setShowBulkDeleteConfirm(false)}
+          onConfirm={() => {
+            const ids = Array.from(selectedIds);
+            setShowBulkDeleteConfirm(false);
+            cancelSelectMode();
+            onBulkDeletePacks(ids);
+          }}
+        />
       )}
     </div>
   );
