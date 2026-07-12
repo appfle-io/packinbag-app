@@ -159,7 +159,7 @@ export default function PacksScreen({
   }, [reorderDrag !== null]);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="relative flex-1 flex flex-col overflow-hidden">
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-center justify-between mb-4 gap-2">
           <div className="flex items-baseline gap-2 min-w-0">
@@ -186,15 +186,6 @@ export default function PacksScreen({
               취소
             </button>
             <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
-            <button
-              onClick={() => setShowBulkDeleteConfirm(true)}
-              disabled={selectedIds.size === 0}
-              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-medium disabled:opacity-40"
-              style={{ background: "var(--danger)", color: "#fff" }}
-            >
-              <IconTrash size={14} stroke={1.75} />
-              삭제
-            </button>
           </div>
         ) : (
           gridPacks.length > 0 && (
@@ -238,14 +229,17 @@ export default function PacksScreen({
                 onClick={() => (selectMode ? toggleSelected(pack.id) : onOpenPack(pack))}
               />
               {selectMode && (
-                <div
-                  className="absolute top-1.5 left-1.5 h-5 w-5 rounded-full flex items-center justify-center pointer-events-none"
-                  style={{
-                    background: selectedIds.has(pack.id) ? "var(--accent)" : "rgba(255,255,255,0.85)",
-                    border: selectedIds.has(pack.id) ? "none" : "1.5px solid var(--border-strong)",
-                  }}
-                >
-                  {selectedIds.has(pack.id) && <IconCheck size={13} stroke={2.75} color="#fff" />}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div
+                    className="h-9 w-9 rounded-full flex items-center justify-center"
+                    style={{
+                      background: selectedIds.has(pack.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
+                      border: selectedIds.has(pack.id) ? "none" : "1.5px solid var(--border-strong)",
+                      boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    {selectedIds.has(pack.id) && <IconCheck size={18} stroke={3} color="#fff" />}
+                  </div>
                 </div>
               )}
             </div>
@@ -275,6 +269,27 @@ export default function PacksScreen({
           }}
         >
           {gridPacks.find((p) => p.id === reorderDrag.id)?.name || "팩"}
+        </div>
+      )}
+
+      {/* 다중선택 모드일 때 화면 가운데 하단에 떠 있는 삭제 버튼.
+          이 화면(PacksScreen) 루트가 relative라서 앱 컬럼 폭 기준으로 가운데 정렬된다.
+          bottom-24(96px)만큼 충분히 띄운 이유: 하단탭바 중앙에는 "+"(빠른입력) FAB가
+          nav 위로 44px 튀어나와 있는데(BottomTabBar.tsx), 이 화면 컨테이너 바닥이 곧
+          그 nav의 윗변과 같은 자리라서 bottom-4처럼 너무 가깝게 두면 삭제 버튼이 그
+          "+" 버튼과 겹쳐 보인다. 그 FAB 위로 확실히 떨어지도록 여유를 뒀다.
+      */}
+      {selectMode && (
+        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center pointer-events-none">
+          <button
+            onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
+            disabled={selectedIds.size === 0}
+            aria-label="선택한 팩 삭제"
+            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90 disabled:opacity-40"
+            style={{ background: "var(--danger)" }}
+          >
+            <IconTrash size={24} stroke={1.75} color="#fff" />
+          </button>
         </div>
       )}
 
