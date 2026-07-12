@@ -22,6 +22,7 @@ import {
   IconPackage,
   IconEye,
   IconEyeOff,
+  IconHelpCircle,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -48,6 +49,8 @@ import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import ImageLightbox from "@/components/ImageLightbox";
+import HelpTutorialModal from "@/components/HelpTutorialModal";
+import { bagEditorHelpSlides } from "@/lib/helpTutorial/bagEditorSlides";
 import { MAX_BAG_IMAGES } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
@@ -106,6 +109,7 @@ export default function BagEditorScreen({
   const [confirmLeaveUnsaved, setConfirmLeaveUnsaved] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
@@ -1027,9 +1031,18 @@ export default function BagEditorScreen({
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
-        <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
-          <IconArrowLeft size={22} stroke={1.75} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
+            <IconArrowLeft size={22} stroke={1.75} />
+          </button>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="-m-2.5 p-2.5"
+            aria-label="사용법 도움말"
+          >
+            <IconHelpCircle size={20} stroke={1.75} color="var(--text-secondary)" />
+          </button>
+        </div>
         <div className="flex items-center gap-2">
           {!isNew && (
             <>
@@ -1551,6 +1564,10 @@ export default function BagEditorScreen({
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
         />
+      )}
+
+      {showHelp && (
+        <HelpTutorialModal slides={bagEditorHelpSlides} onClose={() => setShowHelp(false)} />
       )}
     </div>
   );
