@@ -13,6 +13,10 @@ import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_LIBRARY_PACKS } from "@/lib/premiumLimit
 //
 // 언제 호출되는가: AppShell이 이용권 상태(premium)가 true<->false로 바뀌는 순간(무효화/
 // 만료가 실시간 감지되거나, 새로 코드를 등록해서 premium이 true가 된 순간) 자동으로 호출한다.
+//
+// 휴지통(trashedByOwnerAt/trashedAt)으로 보낸 항목은 이 잠금 계산 대상에서 항상 제외한다 -
+// 휴지통에 있는 건 이미 목록에서 숨겨져 있어서 잠금 여부 자체가 의미 없고, 계산에 끼워
+// 넣으면 "슬롯"을 차지해서 정상 항목이 잘못 잠기게 된다.
 export const runtime = "nodejs";
 
 function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]): T[] {
@@ -39,13 +43,17 @@ export async function POST(req: NextRequest) {
   try {
     // 1) 내가 소유(ownerId)한 가방들만 대상. 다른 사람 소유의 공유 가방은 손대지 않는다
     // (그 가방은 그 소유자의 이용권 상태로만 잠금 여부가 결정되고, 나는 그룹원일 뿐이다).
+    // 휴지통으로 보낸(trashedByOwnerAt) 가방은 대상에서 제외한다.
     const bagsSnap = await db.collection("bags").where("ownerId", "==", uid).get();
     const bagDocs = sortByCreatedAtDesc(
-      bagsSnap.docs.map((d) => ({
-        id: d.id,
-        createdAt: d.data().createdAt as string | undefined,
-        locked: d.data().locked as boolean | undefined,
-      }))
+      bagsSnap.docs
+        .map((d) => ({
+          id: d.id,
+          createdAt: d.data().createdAt as string | undefined,
+          locked: d.data().locked as boolean | undefined,
+          trashedByOwnerAt: d.data().trashedByOwnerAt as string | undefined,
+        }))
+        .filter((b) => !b.trashedByOwnerAt)
     );
     const lockedBagIds: string[] = [];
     if (bagDocs.length > 0) {
@@ -62,15 +70,19 @@ export async function POST(req: NextRequest) {
       if (writes > 0) await bagBatch.commit();
     }
 
-    // 2) 팩 라이브러리 (본인 전용 하위 컬렉션, 소유자 구분 필요 없음)
+    // 2) 팩 라이브러리 (본인 전용 하위 컬렉션, 소유자 구분 필요 없음). 휴지통으로 보낸
+    // (trashedAt) 팩은 대상에서 제외한다.
     const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
     const packsSnap = await packsCol.get();
     const packDocs = sortByCreatedAtDesc(
-      packsSnap.docs.map((d) => ({
-        id: d.id,
-        createdAt: d.data().createdAt as string | undefined,
-        locked: d.data().locked as boolean | undefined,
-      }))
+      packsSnap.docs
+        .map((d) => ({
+          id: d.id,
+          createdAt: d.data().createdAt as string | undefined,
+          locked: d.data().locked as boolean | undefined,
+          trashedAt: d.data().trashedAt as string | undefined,
+        }))
+        .filter((p) => !p.trashedAt)
     );
     const lockedPackIds: string[] = [];
     if (packDocs.length > 0) {

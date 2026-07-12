@@ -39,6 +39,31 @@ export const FREE_MAX_ACTIVE_BAGS = 3;
 // 가방당 사진 첨부 최대 장수 - 무료/유료 공통 제한 (멤버 혼재 정책 충돌 방지용)
 export const MAX_BAG_IMAGES = 5;
 
+// 휴지통(설정 > 휴지통)에 넣은 가방/팩을 며칠간 보관할지. 이 기간이 지나면 클라이언트가
+// 다음에 열릴 때(로그인한 앱 세션에서) 자동으로 영구삭제한다 - 별도 서버 배치/크론 없이,
+// 삭제 권한을 가진 그 계정의 클라이언트가 다음에 접속했을 때 조용히 정리하는 방식이다.
+// (참고: firestore.rules상 가방은 소유자, 팩은 본인만 삭제 권한이 있어서, 정리도 항상
+// 그 소유자/본인의 클라이언트에서만 실제로 수행된다.)
+export const TRASH_RETENTION_DAYS = 30;
+
+// trashedAt/trashedByOwnerAt(ISO 문자열)이 보관기간을 넘겼는지 확인한다.
+export function isTrashExpired(trashedAtIso: string | undefined | null): boolean {
+  if (!trashedAtIso) return false;
+  const trashedAt = new Date(trashedAtIso).getTime();
+  if (Number.isNaN(trashedAt)) return false;
+  const purgeAt = trashedAt + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return Date.now() >= purgeAt;
+}
+
+// 휴지통 화면에 "N일 후 자동삭제" 배지를 보여주기 위한 남은 일수 (최소 0).
+export function daysUntilPurge(trashedAtIso: string | undefined | null): number {
+  if (!trashedAtIso) return TRASH_RETENTION_DAYS;
+  const trashedAt = new Date(trashedAtIso).getTime();
+  if (Number.isNaN(trashedAt)) return TRASH_RETENTION_DAYS;
+  const purgeAt = trashedAt + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((purgeAt - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩("빠른팩")의 고정 문서 id.
 // 사용자당 항상 이 id 하나만 존재하고(Pack.isQuickPack도 함께 true로 저장),
 // 무료 라이브러리 개수 제한/잠금 대상에서 항상 제외된다.
@@ -55,19 +80,23 @@ function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]): T[] 
 // 몇 개를 "잠금"으로 표시할지 계산한다. 대상은 내(ownerUid)가 직접 소유(ownerId)한
 // 가방만 - 다른 사람이 만들어서 나를 초대한 공유 가방은 이 제한과 무관하므로 대상에서
 // 제외된다(소유자 화면에서만 잠기고 다른 그룹원은 그대로 쓰는 것과 동일한 원칙).
+// 휴지통으로 보낸(trashedByOwnerAt) 가방은 이미 목록에서 숨겨져 있어 잠금 계산 자체에서
+// 제외한다 - 안 그러면 휴지통에 있는 가방이 "슬롯"을 차지해서 정상 가방이 잘못 잠기게 된다.
 // createdAt 내림순(최신순)으로 정렬해서 상위 N개만 잠금 해제, 나머지는 잠금 대상.
 export function computeLockedBagIds(bags: Bag[], ownerUid: string): Set<string> {
-  const owned = sortByCreatedAtDesc(bags.filter((b) => b.ownerId === ownerUid));
+  const owned = sortByCreatedAtDesc(
+    bags.filter((b) => b.ownerId === ownerUid && !b.trashedByOwnerAt)
+  );
   return new Set(owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id));
 }
 
 // 무료인데 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을 넘는 팩을 갖고 있을 때,
 // 최신 N개만 잠금 해제하고 나머지를 잠금 대상으로 계산한다. 팩 라이브러리
 // (users/{uid}/libraryPacks)는 원래부터 개인 전용 공간이라 소유자 구분이 필요 없다.
-// 빠른팩(isQuickPack)은 개수 제한/잠금 대상 계산 자체에서 항상 제외한다 - 몇 개를
-// 갖고 있든 무료 3개 한도와 무관하게 항상 잠금 해제 상태여야 한다.
+// 빠른팩(isQuickPack)과 휴지통으로 보낸(trashedAt) 팩은 개수 제한/잠금 대상 계산 자체에서
+// 항상 제외한다.
 export function computeLockedPackIds(packs: Pack[]): Set<string> {
-  const eligible = packs.filter((p) => !p.isQuickPack);
+  const eligible = packs.filter((p) => !p.isQuickPack && !p.trashedAt);
   const sorted = sortByCreatedAtDesc(eligible);
   return new Set(sorted.slice(FREE_MAX_LIBRARY_PACKS).map((p) => p.id));
 }

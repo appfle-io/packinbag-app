@@ -8,6 +8,9 @@ rules_version = '2';
 //   기존 팩 수정(자동저장)/삭제는 여전히 클라이언트가 직접 하지만, locked:true인 팩(이용권이
 //   없거나 만료/무효화된 상태에서 라이브러리 개수 제한을 넘은 것)은 서버(app/api/
 //   sync-lock-status)만 고칠 수 있고 클라이언트 쪽 수정/삭제는 막힌다(읽기는 계속 허용).
+//   trashedAt(휴지통으로 보낸 시각)은 client가 null -> 값으로 설정(=휴지통 보내기)하는 것만
+//   허용되고, 값 -> null로 되돌리는 것(=복구)은 무료 개수 제한 검증이 필요해서 서버(app/api/
+//   restore-library-pack, Admin SDK)에서만 가능하다.
 // - bags/{bagId}: 공유 단위는 "가방"이다. memberIds에 포함된 사람만 읽고 쓸 수 있음(동시편집).
 //   생성(create)은 무료 개수 제한을 서버에서 검증해야 해서 클라이언트로는 막아뒀고(allow
 //   create: if false), app/api/create-bag(Admin SDK)에서만 만들 수 있다. 참여는 초대코드를
@@ -16,6 +19,11 @@ rules_version = '2';
 //   수정/삭제만 막힌다 - 다른 그룹원은 locked 여부와 무관하게 그대로 이용할 수 있다
 //   (request.auth.uid == ownerId 조건과 함께 검사). locked 필드 자체도 app/api/
 //   sync-lock-status(Admin SDK)만 쓸 수 있다.
+//   trashedByOwnerAt(소유자가 휴지통으로 보낸 시각)은 "소유자"만 null -> 값으로 설정(=휴지통
+//   보내기) 가능하고, 값 -> null로 되돌리는 것(=복구)은 무료 동시 진행 개수 제한 검증이
+//   필요해서 서버(app/api/restore-bag, Admin SDK)에서만 가능하다. 다른 그룹원은 이 필드와
+//   무관하게 계속 가방을 그대로 쓸 수 있다(소유자 화면에서만 휴지통 처리되는 정책이라,
+//   이 필드는 memberIds 수정과 별개로 소유자만 건드릴 수 있게 막아둔다).
 // - bags/{bagId}/presence: 그 가방 멤버만 자신의 접속 상태를 쓸 수 있음(실시간 접속자 표시용).
 // - inviteCodes/{code}: 코드 -> bagId 매핑. 코드를 아는 사람만 조회 가능(목록조회는 불가).
 // - announcements/{id}: 공지사항. 로그인한 사람 누구나 읽고, 마스터(운영자) 이메일만 쓸 수 있음.
@@ -40,10 +48,25 @@ service cloud.firestore {
       // 이 규칙을 그대로 통과한다). 기존 팩 수정/삭제는 여전히 클라이언트가 직접 한다.
       match /libraryPacks/{packId} {
         allow read: if request.auth != null && request.auth.uid == uid;
-        // 잠긴(locked:true) 팩은 서버(app/api/sync-lock-status, Admin SDK)만 수정/삭제할 수
-        // 있다 - 클라이언트 직접 update/delete는 resource.data.locked가 true가 아니어야만 허용된다.
-        allow update, delete: if request.auth != null && request.auth.uid == uid &&
+
+        allow delete: if request.auth != null && request.auth.uid == uid &&
           resource.data.get('locked', false) != true;
+
+        // 일반 수정(자동저장 등) - trashedAt은 여기서 절대 건드릴 수 없다(아래 별도 규칙에서만).
+        allow update: if request.auth != null && request.auth.uid == uid &&
+          resource.data.get('locked', false) != true &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedAt']);
+
+        // 휴지통으로 보내기: trashedAt을 null -> 값으로 바꾸는 것만 허용(다른 필드는 안 됨).
+        allow update: if request.auth != null && request.auth.uid == uid &&
+          resource.data.get('locked', false) != true &&
+          resource.data.get('trashedAt', null) == null &&
+          request.resource.data.get('trashedAt', null) != null &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trashedAt']);
+
+        // 복구(trashedAt을 값 -> null로 되돌리기)는 무료 라이브러리 개수 제한 검증이 필요해서
+        // 클라이언트가 직접 할 수 없다 - app/api/restore-library-pack(Admin SDK)만 가능하다.
+
         allow create: if false;
       }
     }
@@ -94,14 +117,28 @@ service cloud.firestore {
 
       // 이미 멤버인 사람의 일반 수정(멤버 목록을 줄이는 탈퇴 포함, memberIds 추가는 불가).
       // 가방이 locked:true이고 지금 수정하는 사람이 이 가방의 소유자(ownerId)라면 거부된다 -
-      // 다른 그룹원이 수정하는 건 locked 여부와 무관하게 계속 허용된다.
+      // 다른 그룹원이 수정하는 건 locked 여부와 무관하게 계속 허용된다. trashedByOwnerAt은
+      // 여기서 절대 건드릴 수 없다(휴지통 보내기/복구는 아래 별도 규칙에서만 다룬다) -
+      // 안 그러면 소유자가 아닌 멤버도 가방을 휴지통으로 보낼 수 있게 되어버린다.
       allow update: if request.auth != null &&
         request.auth.uid in resource.data.memberIds &&
         !(request.auth.uid == resource.data.ownerId && resource.data.get('locked', false) == true) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedByOwnerAt']) &&
         (
           request.resource.data.memberIds.size() <= resource.data.memberIds.size() ||
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds'])
         );
+
+      // 소유자가 이 가방을 휴지통으로 보내기: trashedByOwnerAt을 null -> 값으로 바꾸는 것만
+      // 허용하고(다른 필드는 함께 바꿀 수 없음), 반드시 소유자 본인만 할 수 있다.
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.ownerId &&
+        resource.data.get('trashedByOwnerAt', null) == null &&
+        request.resource.data.get('trashedByOwnerAt', null) != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trashedByOwnerAt']);
+
+      // 복구(trashedByOwnerAt을 값 -> null로 되돌리기)는 무료 동시 진행 개수 제한 검증이
+      // 필요해서 클라이언트가 직접 할 수 없다 - app/api/restore-bag(Admin SDK)만 가능하다.
 
       // 아직 멤버가 아닌 사용자가 초대코드로 참여할 때: 자기 uid 하나만 추가 허용
       // (memberProfiles.{uid} 스냅샷도 함께 기록할 수 있게 허용)
@@ -111,8 +148,10 @@ service cloud.firestore {
         resource.data.memberIds.size() < 10 &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberProfiles']);
 
-      // 가방 삭제도 수정과 동일하게: locked:true인 가방은 소유자 본인이라면 삭제할 수 없다 -
-      // 다른 그룹원(탈퇴 대상)도 memberIds에 있는 한 이 규칙을 타니, 소유자가 아니라면 당연히 허용된다.
+      // 가방 삭제(영구삭제 - 휴지통에서 "완전삭제" 버튼, 30일 경과 자동정리, 혹은 예전처럼
+      // 새로 만들다가 취소한 임시 가방 정리에 쓰인다)도 수정과 동일하게: locked:true인
+      // 가방은 소유자 본인이라면 삭제할 수 없다 - 다른 그룹원(탈퇴 대상)도 memberIds에
+      // 있는 한 이 규칙을 타니, 소유자가 아니라면 당연히 허용된다.
       allow delete: if request.auth != null &&
         request.auth.uid in resource.data.memberIds &&
         !(request.auth.uid == resource.data.ownerId && resource.data.get('locked', false) == true);

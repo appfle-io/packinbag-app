@@ -17,7 +17,8 @@ import { stripUndefined } from "@/lib/firestoreSanitize";
 // (무료 전환 후 초과분 잠금 로직)와 동일한 기준으로 맞춰뒀다. 예전엔 memberIds
 // array-contains로 "내가 속한 모든 가방"(친구가 초대해준 공유 가방 포함)을 셌었는데,
 // 그러면 남의 가방에 여러 개 참여만 해도 내가 만든 가방이 0개여도 새 가방을 못 만드는
-// 버그가 있었다.
+// 버그가 있었다. 휴지통으로 보낸(trashedByOwnerAt) 가방도 "동시 진행" 개수에서 제외한다 -
+// 휴지통에 있는 가방은 실제로 진행 중인 게 아니기 때문.
 export const runtime = "nodejs";
 
 function generateInviteCode(): string {
@@ -67,12 +68,13 @@ export async function POST(req: NextRequest) {
 
   const premium = await isPremiumServer(uid, email);
   if (!premium) {
-    const existing = await db
-      .collection("bags")
-      .where("ownerId", "==", uid)
-      .count()
-      .get();
-    if (existing.data().count >= FREE_MAX_ACTIVE_BAGS) {
+    // count()로 바로 세지 않고 문서를 가져와서 거르는 이유: 휴지통으로 보낸(trashedByOwnerAt)
+    // 가방은 "동시 진행" 개수에 포함되면 안 되는데, count()는 "그 필드가 없는" 문서까지
+    // 정확하게 걸러내기 어렵다(예전 데이터는 이 필드 자체가 없을 수 있음). 소유 가방 개수는
+    // 많아야 몇 개 수준이라 전체를 가져와도 성능에 문제되지 않는다.
+    const existing = await db.collection("bags").where("ownerId", "==", uid).get();
+    const activeCount = existing.docs.filter((d) => !(d.data() as Bag).trashedByOwnerAt).length;
+    if (activeCount >= FREE_MAX_ACTIVE_BAGS) {
       return NextResponse.json(
         {
           error: `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`,

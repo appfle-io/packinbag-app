@@ -8,10 +8,11 @@ import {
   IconHelpCircle,
   IconSparkles,
   IconArrowLeft,
+  IconTrash,
 } from "@tabler/icons-react";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
-import { Announcement } from "@/lib/types";
+import { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
 import { isMasterEmail } from "@/lib/masterEmails";
 import {
@@ -28,6 +29,7 @@ import UnlockCodeAdminScreen from "@/components/screens/UnlockCodeAdminScreen";
 import PackSettingsScreen from "@/components/screens/PackSettingsScreen";
 import BagSettingsScreen from "@/components/screens/BagSettingsScreen";
 import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
+import TrashScreen from "@/components/screens/TrashScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
@@ -45,7 +47,17 @@ const startTabs: { key: "home" | "packs"; label: string }[] = [
   { key: "packs", label: "팩 보관함" },
 ];
 
-type SettingsView = "main" | "profile" | "version" | "licenses" | "announcementAdmin" | "packSettings" | "bagSettings" | "colorSettings" | "unlockCodeAdmin";
+type SettingsView =
+  | "main"
+  | "profile"
+  | "version"
+  | "licenses"
+  | "announcementAdmin"
+  | "packSettings"
+  | "bagSettings"
+  | "colorSettings"
+  | "unlockCodeAdmin"
+  | "trash";
 
 // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더의 톱니바퀴 아이콘으로 열고
 // 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
@@ -57,6 +69,12 @@ export default function SettingsScreen({
   onCreateAnnouncement,
   onUpdateAnnouncement,
   onDeleteAnnouncement,
+  trashedBags,
+  trashedPacks,
+  onRestoreBag,
+  onPermanentDeleteBag,
+  onRestorePack,
+  onPermanentDeletePack,
   onBack,
 }: {
   uid: string;
@@ -66,6 +84,13 @@ export default function SettingsScreen({
   onCreateAnnouncement: (data: Omit<Announcement, "id" | "createdAt">) => Promise<void>;
   onUpdateAnnouncement: (id: string, data: Partial<Announcement>) => Promise<void>;
   onDeleteAnnouncement: (id: string) => Promise<void>;
+  // 휴지통 화면용 - 내가 소유하고 휴지통으로 보낸 가방, 휴지통으로 보낸 팩 목록.
+  trashedBags: Bag[];
+  trashedPacks: Pack[];
+  onRestoreBag: (bagId: string) => void;
+  onPermanentDeleteBag: (bag: Bag) => void;
+  onRestorePack: (packId: string) => void;
+  onPermanentDeletePack: (packId: string) => void;
   onBack: () => void;
 }) {
   const { mode, setMode } = useTheme();
@@ -97,6 +122,19 @@ export default function SettingsScreen({
   if (view === "colorSettings") {
     return <ColorSettingsScreen onBack={() => setView("main")} />;
   }
+  if (view === "trash") {
+    return (
+      <TrashScreen
+        bags={trashedBags}
+        packs={trashedPacks}
+        onBack={() => setView("main")}
+        onRestoreBag={onRestoreBag}
+        onPermanentDeleteBag={onPermanentDeleteBag}
+        onRestorePack={onRestorePack}
+        onPermanentDeletePack={onPermanentDeletePack}
+      />
+    );
+  }
   if (view === "announcementAdmin") {
     return (
       <AnnouncementAdminScreen
@@ -118,6 +156,7 @@ export default function SettingsScreen({
   const isMaster = isMasterEmail(profile?.email);
   const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
   const aiUsedCount = currentAiUsageCount(profile);
+  const trashCount = trashedBags.length + trashedPacks.length;
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -207,10 +246,30 @@ export default function SettingsScreen({
             </button>
             <button
               onClick={() => setView("packSettings")}
-              className="w-full flex items-center justify-between p-3"
+              className="w-full flex items-center justify-between p-3 border-b border-border"
             >
               <span className="text-[13px]">팩 설정</span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+            <button
+              onClick={() => setView("trash")}
+              className="w-full flex items-center justify-between p-3"
+            >
+              <span className="flex items-center gap-2 text-[13px]">
+                <IconTrash size={15} stroke={1.75} />
+                휴지통
+              </span>
+              <span className="flex items-center gap-1.5">
+                {trashCount > 0 && (
+                  <span
+                    className="text-[11px] font-medium rounded-full px-1.5 py-0.5"
+                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                  >
+                    {trashCount}
+                  </span>
+                )}
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </span>
             </button>
           </div>
         </div>

@@ -9,6 +9,8 @@ import {
   createBagRemote,
   saveBagRemote,
   deleteBagWithInviteCodeRemote,
+  trashBagRemote,
+  restoreBagRemote,
   joinBagByCode,
   leaveBagRemote,
   removeMemberRemote,
@@ -19,6 +21,8 @@ import {
   subscribeToLibraryPacks,
   saveLibraryPackRemote,
   deleteLibraryPackRemote,
+  trashLibraryPackRemote,
+  restoreLibraryPackRemote,
 } from "@/lib/packsService";
 import {
   subscribeToAnnouncements,
@@ -54,6 +58,7 @@ import {
   PremiumLimitError,
   computeLockedBagIds,
   computeLockedPackIds,
+  isTrashExpired,
 } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 
@@ -184,6 +189,33 @@ export default function AppShell() {
     return subscribeToAnnouncements(setAnnouncements);
   }, [user]);
 
+  // 설정 > 휴지통 보관기간(TRASH_RETENTION_DAYS, 30일)이 지난 가방/팩을 조용히 정리한다.
+  // 별도 서버 배치/크론 없이, 그 항목의 삭제 권한을 가진 계정(가방은 소유자, 팩은 본인)의
+  // 클라이언트가 다음에 로그인해서 열릴 때 한 번 검사해서 지운다 - 그래서 30일이 지난
+  // 정확한 그 순간이 아니라 "그 이후 다음 접속 시점"에 지워진다(대부분의 개인용 앱에서는
+  // 이 정도 지연이 실사용에 문제되지 않는다).
+  useEffect(() => {
+    if (!user) return;
+    const expiredBags = bags.filter(
+      (b) => b.ownerId === user.uid && isTrashExpired(b.trashedByOwnerAt)
+    );
+    const expiredPacks = libraryPacks.filter((p) => isTrashExpired(p.trashedAt));
+    if (expiredBags.length === 0 && expiredPacks.length === 0) return;
+    expiredBags.forEach((bag) => {
+      Promise.all(bag.images.map((url) => deleteBagImage(url)))
+        .then(() => deleteBagWithInviteCodeRemote(bag))
+        .catch((err) => {
+          console.error("[팩인백] 휴지통 자동 영구삭제(가방) 실패:", err);
+        });
+    });
+    expiredPacks.forEach((pack) => {
+      deleteLibraryPackRemote(user.uid, pack.id).catch((err) => {
+        console.error("[팩인백] 휴지통 자동 영구삭제(팩) 실패:", err);
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bags, libraryPacks, user]);
+
   // 지금 이 사용자가 프리미엄인지 - AuthProvider가 unlockCodes/{code} 문서까지 실시간
   // 구독해서 profile에 얹어주므로(unlockCodeLiveStatus), 관리자가 무효화하는 순간
   // 이 값도 바로 바뀐다.
@@ -232,6 +264,7 @@ export default function AppShell() {
   }, [premium, user, show]);
 
   // 무료 전환으로 잠긴(내가 소유한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
+  // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
   const lockedPackIds = !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
@@ -293,11 +326,19 @@ export default function AppShell() {
       </>
     );
 
-  // 무료 개수 제한은 "내가 소유한 가방"만 센다 - app/api/create-bag의 서버 카운트/
-  // lib/premiumLimits.ts의 computeLockedBagIds와 동일한 기준. 여기서는 무료일 때 버튼을
-  // 눌렀을 때 서버 응답을 기다리지 않고 바로 안내 모달을 띄우기 위해 클라이언트에서도
+  // 휴지통으로 보낸 항목은 정상 목록(홈/팩 보관함)에서는 숨기고 설정 > 휴지통에서만 보여준다.
+  // 가방은 "내가 소유한 것 중 내가 휴지통으로 보낸 것"만 숨겨진다 - 다른 그룹원의 화면에는
+  // 영향이 없다(그들에게는 이 필드 자체를 신경쓰지 않고 그대로 보여준다).
+  const activeBags = bags.filter((b) => !(b.ownerId === user.uid && b.trashedByOwnerAt));
+  const trashedBags = bags.filter((b) => b.ownerId === user.uid && b.trashedByOwnerAt);
+  const activePacks = libraryPacks.filter((p) => !p.trashedAt);
+  const trashedPacks = libraryPacks.filter((p) => p.trashedAt);
+
+  // 무료 개수 제한은 "내가 소유한, 휴지통에 없는 가방"만 센다 - app/api/create-bag의 서버
+  // 카운트/lib/premiumLimits.ts의 computeLockedBagIds와 동일한 기준. 여기서는 무료일 때
+  // 버튼을 눌렀을 때 서버 응답을 기다리지 않고 바로 안내 모달을 띄우기 위해 클라이언트에서도
   // 거의 동일한 검사를 미리 한 번 해본다(실제 강제는 서버 쪽에서 한다).
-  const ownedBagCount = bags.filter((b) => b.ownerId === user.uid).length;
+  const ownedBagCount = activeBags.filter((b) => b.ownerId === user.uid).length;
 
   const openNewBag = async () => {
     if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
@@ -424,43 +465,78 @@ export default function AppShell() {
     }
   };
 
-  // 완전 삭제(휴지통 버튼): 이미지까지 함께 정리하고 초대코드 매핑도 지운다.
+  // 휴지통으로 보내기(휴지통 버튼): 완전삭제가 아니라 trashedByOwnerAt만 채운다.
+  // 이미지/문서는 그대로 두고, 30일 뒤 자동 영구삭제되거나 그 전에 설정 > 휴지통에서
+  // 복구/영구삭제할 수 있다. BagEditorScreen에서 isOwner일 때만 이 함수가 호출된다
+  // (소유자가 아니면 같은 버튼이 나가기(handleLeaveBag)로 동작한다).
   const handleDeleteBag = (bag: Bag) => {
     setEditingBag(null);
     setIsNewBag(false);
-    (async () => {
-      try {
-        await Promise.all(bag.images.map((url) => deleteBagImage(url)));
-        await deleteBagWithInviteCodeRemote(bag);
-        show("가방을 삭제했어요");
-      } catch (err) {
-        console.error("[팩인백] 가방 삭제 실패:", err);
-        show(`가방 삭제에 실패했어요 (${firebaseErrorCode(err)})`);
-      }
-    })();
+    trashBagRemote(bag.id)
+      .then(() => show("가방을 휴지통으로 보냈어요"))
+      .catch((err) => {
+        console.error("[팩인백] 가방 휴지통 이동 실패:", err);
+        show(`가방을 휴지통으로 보내지 못했어요 (${firebaseErrorCode(err)})`);
+      });
   };
 
-  // 홈 화면(가방 보관함)에서 길게 눌러 다중선택한 가방들을 한꺼번에 삭제한다.
-  // handleDeleteBag과 동일하게 이미지/초대코드 정리까지 각 가방마다 수행하고, 실패해도
-  // 나머지는 계속 진행되도록 Promise.all로 병렬 처리한다(하나가 실패하면 catch에서
-  // 일괄 실패 안내만 보여준다 - 이미 지워진 것까지 되돌리지는 않음).
+  // 홈 화면(가방 보관함)에서 길게 눌러 다중선택한 가방들을 한꺼번에 처리한다.
+  // 내가 소유한 가방은 개별 삭제(handleDeleteBag)와 동일하게 휴지통으로 보내고,
+  // 내가 소유하지 않은(그룹원으로 참여한) 공유 가방은 통째로 지우면(=휴지통 처리해도
+  // 소유자만의 것이라 의미가 다름) 그룹에서 나가는 게 맞으므로 "나가기"로 처리한다
+  // (BagEditorScreen의 개별 삭제 버튼과 동일한 규칙 - isOwner 여부에 따라 갈린다).
   const handleBulkDeleteBags = async (bagIds: string[]) => {
     const targets = bags.filter((b) => bagIds.includes(b.id));
+    const owned = targets.filter((b) => b.ownerId === user.uid);
+    const shared = targets.filter((b) => b.ownerId !== user.uid);
     try {
-      await Promise.all(
-        targets.map(async (bag) => {
-          await Promise.all(bag.images.map((url) => deleteBagImage(url)));
-          await deleteBagWithInviteCodeRemote(bag);
-        })
-      );
-      show(`가방 ${targets.length}개를 삭제했어요`);
+      await Promise.all([
+        ...owned.map((bag) => trashBagRemote(bag.id)),
+        ...shared.map((bag) => leaveBagRemote(user.uid, bag.id)),
+      ]);
+      const parts: string[] = [];
+      if (owned.length > 0) parts.push(`${owned.length}개 휴지통 이동`);
+      if (shared.length > 0) parts.push(`${shared.length}개 나가기`);
+      show(`${parts.join(" · ")}했어요`);
     } catch (err) {
-      console.error("[팩인백] 가방 일괄 삭제 실패:", err);
-      show(`가방 삭제 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
+      console.error("[팩인백] 가방 일괄 처리 실패:", err);
+      show(`처리 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
     }
   };
 
-  // 새로 만들다가(아직 한 번도 저장 안 하고) 뒤로가기 하면, 미리 만들어둔 임시 가방을 조용히 정리한다.
+  // 설정 > 휴지통에서 가방 복구. 무료 동시 진행 개수 제한을 서버가 다시 검증하므로
+  // (app/api/restore-bag) 한도에 걸리면 PremiumLimitError로 던져지고, 그 경우 일반 실패
+  // 토스트 대신 이용권 등록을 유도하는 PremiumLimitModal을 띄운다.
+  const handleRestoreBag = async (bagId: string) => {
+    try {
+      await restoreBagRemote(user, bagId);
+      show("가방을 복구했어요");
+    } catch (err) {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
+      console.error("[팩인백] 가방 복구 실패:", err);
+      show(`가방 복구에 실패했어요 (${firebaseErrorCode(err)})`);
+    }
+  };
+
+  // 설정 > 휴지통에서 "완전삭제" - 여기서부터는 되돌릴 수 없다. 이미지까지 함께 정리하고
+  // 초대코드 매핑도 지운다(예전 handleDeleteBag과 동일한 정리 작업).
+  const handlePermanentDeleteBag = async (bag: Bag) => {
+    try {
+      await Promise.all(bag.images.map((url) => deleteBagImage(url)));
+      await deleteBagWithInviteCodeRemote(bag);
+      show("가방을 완전히 삭제했어요");
+    } catch (err) {
+      console.error("[팩인백] 가방 완전삭제 실패:", err);
+      show(`가방 삭제에 실패했어요 (${firebaseErrorCode(err)})`);
+    }
+  };
+
+  // 새로 만들다가(아직 한 번도 저장 안 하고) 뒤로가기 하면, 미리 만들어둔 임시 가방을 조용히
+  // 정리한다. 이건 "삭제"가 아니라 사용자 입장에서 한 번도 존재한 적 없는 임시 데이터를
+  // 치우는 것이므로 휴지통을 거치지 않고 곧바로 완전삭제한다.
   const handleBackFromEditor = (currentBag: Bag) => {
     const wasNew = isNewBag;
     setEditingBag(null);
@@ -518,10 +594,10 @@ export default function AppShell() {
   };
 
   const handleSaveAsLibraryPack = (pack: Pack) => {
-    const isNewLibraryPack = !libraryPacks.some((p) => p.id === pack.id);
+    const isNewLibraryPack = !activePacks.some((p) => p.id === pack.id);
     if (
       isNewLibraryPack &&
-      libraryPacks.length >= FREE_MAX_LIBRARY_PACKS &&
+      activePacks.length >= FREE_MAX_LIBRARY_PACKS &&
       !premium
     ) {
       setPremiumLimitMessage(
@@ -573,7 +649,7 @@ export default function AppShell() {
 
   const openNewPack = () => {
     if (
-      libraryPacks.length >= FREE_MAX_LIBRARY_PACKS &&
+      activePacks.length >= FREE_MAX_LIBRARY_PACKS &&
       !premium
     ) {
       setPremiumLimitMessage(
@@ -595,25 +671,53 @@ export default function AppShell() {
     });
   };
 
+  // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
+  // 삭제)와는 다른 함수다 - 이건 라이브러리 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
   const handleDeletePack = (packId: string) => {
     setEditingPack(null);
-    deleteLibraryPackRemote(user.uid, packId)
-      .then(() => show("팩을 삭제했어요"))
+    trashLibraryPackRemote(user.uid, packId)
+      .then(() => show("팩을 휴지통으로 보냈어요"))
       .catch((err) => {
-        console.error("[팩인백] 팩 삭제 실패:", err);
-        show(`팩 삭제에 실패했어요 (${firebaseErrorCode(err)})`);
+        console.error("[팩인백] 팩 휴지통 이동 실패:", err);
+        show(`팩을 휴지통으로 보내지 못했어요 (${firebaseErrorCode(err)})`);
       });
   };
 
-  // 팩 보관함에서 길게 눌러 다중선택한 팩들을 한꺼번에 삭제한다. 라이브러리 팩은 독립된
-  // 사본이라(가방에 불러와도 deep copy) 다른 가방에 영향 없이 그냥 지우면 된다.
+  // 팩 보관함에서 길게 눌러 다중선택한 팩들을 한꺼번에 휴지통으로 보낸다.
   const handleBulkDeletePacks = async (packIds: string[]) => {
     try {
-      await Promise.all(packIds.map((id) => deleteLibraryPackRemote(user.uid, id)));
-      show(`팩 ${packIds.length}개를 삭제했어요`);
+      await Promise.all(packIds.map((id) => trashLibraryPackRemote(user.uid, id)));
+      show(`팩 ${packIds.length}개를 휴지통으로 보냈어요`);
     } catch (err) {
-      console.error("[팩인백] 팩 일괄 삭제 실패:", err);
-      show(`팩 삭제 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
+      console.error("[팩인백] 팩 일괄 휴지통 이동 실패:", err);
+      show(`처리 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
+    }
+  };
+
+  // 설정 > 휴지통에서 팩 복구. 무료 라이브러리 개수 제한을 서버가 다시 검증하므로
+  // (app/api/restore-library-pack) 한도에 걸리면 PremiumLimitModal을 띄운다.
+  const handleRestorePack = async (packId: string) => {
+    try {
+      await restoreLibraryPackRemote(user, packId);
+      show("팩을 복구했어요");
+    } catch (err) {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
+      console.error("[팩인백] 팩 복구 실패:", err);
+      show(`팩 복구에 실패했어요 (${firebaseErrorCode(err)})`);
+    }
+  };
+
+  // 설정 > 휴지통에서 "완전삭제" - 되돌릴 수 없다.
+  const handlePermanentDeletePack = async (packId: string) => {
+    try {
+      await deleteLibraryPackRemote(user.uid, packId);
+      show("팩을 완전히 삭제했어요");
+    } catch (err) {
+      console.error("[팩인백] 팩 완전삭제 실패:", err);
+      show(`팩 삭제에 실패했어요 (${firebaseErrorCode(err)})`);
     }
   };
 
@@ -675,7 +779,7 @@ export default function AppShell() {
         <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
           <BagEditorScreen
             initialBag={editingBag}
-            libraryPacks={libraryPacks}
+            libraryPacks={activePacks}
             uid={user.uid}
             nickname={profile.nickname}
             avatarId={profile.avatarId}
@@ -719,11 +823,27 @@ export default function AppShell() {
             onCreateAnnouncement={handleCreateAnnouncement}
             onUpdateAnnouncement={handleUpdateAnnouncement}
             onDeleteAnnouncement={handleDeleteAnnouncement}
+            trashedBags={trashedBags}
+            trashedPacks={trashedPacks}
+            onRestoreBag={handleRestoreBag}
+            onPermanentDeleteBag={handlePermanentDeleteBag}
+            onRestorePack={handleRestorePack}
+            onPermanentDeletePack={handlePermanentDeletePack}
             onBack={() => setShowSettings(false)}
           />
         </div>
         <SplashScreen visible={showSplash} />
         <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
+        {premiumLimitMessage && (
+          <PremiumLimitModal
+            message={premiumLimitMessage}
+            onClose={() => setPremiumLimitMessage(null)}
+            onUnlocked={() => {
+              setPremiumLimitMessage(null);
+              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+            }}
+          />
+        )}
       </>
     );
   }
@@ -776,7 +896,7 @@ export default function AppShell() {
           >
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <PacksScreen
-                packs={libraryPacks}
+                packs={activePacks}
                 quickPack={quickPack}
                 lockedPackIds={lockedPackIds}
                 onOpenPack={(pack) => setEditingPack(pack)}
@@ -787,10 +907,11 @@ export default function AppShell() {
             </div>
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <HomeScreen
-                bags={bags}
+                bags={activeBags}
                 initialInviteCode={inviteCodeFromUrl()}
                 lockedBagIds={lockedBagIds}
                 quickPack={quickPack}
+                currentUid={user.uid}
                 onOpenBag={(bag) => {
                   setIsNewBag(false);
                   setEditingBag(bag);
@@ -831,9 +952,9 @@ export default function AppShell() {
                 <PackLibraryEditorScreen
                   variant="sheet"
                   initialPack={editingPack}
-                  libraryPacks={libraryPacks}
+                  libraryPacks={activePacks}
                   lockedPackIds={lockedPackIds}
-                  bags={bags}
+                  bags={activeBags}
                   lockedBagIds={lockedBagIds}
                   readOnly={isEditingPackLocked}
                   onRequestUnlock={requestUnlockForPack}

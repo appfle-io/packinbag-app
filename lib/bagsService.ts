@@ -120,6 +120,36 @@ export async function deleteBagRemote(bagId: string) {
   await deleteDoc(doc(bagsCol(), bagId));
 }
 
+// 완전삭제 대신 휴지통으로 보낸다(소유자 전용). 이미지/문서는 그대로 두고 trashedByOwnerAt만
+// 채운다 - 30일 뒤 자동 영구삭제되거나, 그 전에 복구/영구삭제할 수 있다.
+// firestore.rules에서 소유자만 이 필드를 null->값으로 바꿀 수 있게 막아둔다(다른 그룹원은
+// 이 필드와 무관하게 가방을 그대로 볼 수 있다).
+export async function trashBagRemote(bagId: string) {
+  await updateDoc(doc(bagsCol(), bagId), { trashedByOwnerAt: new Date().toISOString() });
+}
+
+// 휴지통에서 복구. 무료 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)을 서버에서 다시 검증해야
+// 하고(firestore.rules가 클라이언트의 직접 복구를 막아둔다) app/api/restore-bag를 거친다.
+export async function restoreBagRemote(user: User, bagId: string) {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/restore-bag", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bagId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = (data?.error as string | undefined) ?? "가방을 복구하지 못했어요";
+    if (data?.code === "BAG_LIMIT_REACHED") {
+      throw new PremiumLimitError(message);
+    }
+    throw new Error(message);
+  }
+}
+
 // 가방 초대코드로 참여하기 (최대 10명)
 // 주의: 참여 전에는 아직 멤버가 아니라서 bags/{bagId} 문서를 직접 읽을 수 없다
 // (firestore.rules상 read는 멤버만 허용). 그래서 여기서는 가방을 미리 조회해

@@ -34,6 +34,7 @@ export default function HomeScreen({
   initialInviteCode,
   lockedBagIds,
   quickPack,
+  currentUid,
   onOpenBag,
   onNewBag,
   onImportNote,
@@ -48,13 +49,17 @@ export default function HomeScreen({
   // 여전히 열린다 - 실제 읽기 전용 처리는 BagEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
   lockedBagIds?: Set<string>;
   quickPack?: Pack;
+  // 다중선택 삭제 확인창에서 "내가 소유한 가방"과 "공유받은 가방"을 구분해서 문구를
+  // 다르게 보여주기 위해 필요하다 (소유하지 않은 가방은 삭제가 아니라 나가기 처리됨).
+  currentUid: string;
   onOpenBag: (bag: Bag) => void;
   onNewBag: () => void;
   onImportNote: (result: NoteImportResult) => void;
   onJoinBag: (code: string) => Promise<void>;
   onOpenSettings: () => void;
   onOpenQuickPack: () => void;
-  // 길게 눌러 다중선택한 가방들을 한꺼번에 삭제 (AppShell이 이미지/초대코드 정리까지 처리).
+  // 길게 눌러 다중선택한 가방들을 한꺼번에 처리 (AppShell이 소유한 가방은 완전 삭제,
+  // 공유받은(내 소유가 아닌) 가방은 나가기로 나눠서 처리한다).
   onBulkDeleteBags: (bagIds: string[]) => void;
 }) {
   const [showJoin, setShowJoin] = useState(!!initialInviteCode);
@@ -186,6 +191,27 @@ export default function HomeScreen({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reorderDrag !== null]);
+
+  // 선택된 가방 중 내가 소유한 것과 공유받은(소유하지 않은) 것을 나눈다. 삭제 확인창
+  // 문구를 여기에 맞춰 다르게 보여준다 - 공유받은 가방은 실제로는 "나가기"로 처리되기
+  // 때문에, 사용자가 헷갈리지 않도록 미리 알려준다.
+  const selectedBags = bags.filter((b) => selectedIds.has(b.id));
+  const ownedSelectedCount = selectedBags.filter((b) => b.ownerId === currentUid).length;
+  const sharedSelectedCount = selectedBags.length - ownedSelectedCount;
+
+  const bulkDeleteTitle =
+    sharedSelectedCount === 0
+      ? `가방 ${selectedIds.size}개를 삭제할까요?`
+      : ownedSelectedCount === 0
+      ? `가방 ${selectedIds.size}개에서 나갈까요?`
+      : `가방 ${selectedIds.size}개를 정리할까요?`;
+
+  const bulkDeleteMessage =
+    sharedSelectedCount === 0
+      ? "삭제된 가방은 되돌릴 수 없어요. 가방에 담긴 모든 팩과 짐이 함께 사라져요."
+      : ownedSelectedCount === 0
+      ? "그룹 가방에서 나가면 더 이상 이 가방을 볼 수 없어요. 가방 자체와 다른 그룹원들의 내용은 그대로 유지돼요."
+      : `내가 만든 가방 ${ownedSelectedCount}개는 완전히 삭제되고, 공유받은 가방 ${sharedSelectedCount}개는 그룹에서 나가기 처리돼요.`;
 
   return (
     <div className="relative flex-1 flex flex-col overflow-hidden">
@@ -408,8 +434,10 @@ export default function HomeScreen({
 
       {showBulkDeleteConfirm && (
         <ConfirmDialog
-          title={`가방 ${selectedIds.size}개를 삭제할까요?`}
-          message="삭제된 가방은 되돌릴 수 없어요. 가방에 담긴 모든 팩과 짐이 함께 사라져요."
+          title={bulkDeleteTitle}
+          message={bulkDeleteMessage}
+          confirmLabel={ownedSelectedCount === 0 && sharedSelectedCount > 0 ? "나가기" : "삭제"}
+          tone={ownedSelectedCount === 0 && sharedSelectedCount > 0 ? "accent" : "danger"}
           onCancel={() => setShowBulkDeleteConfirm(false)}
           onConfirm={() => {
             const ids = Array.from(selectedIds);

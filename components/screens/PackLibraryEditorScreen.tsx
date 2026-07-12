@@ -810,8 +810,10 @@ export default function PackLibraryEditorScreen({
 
       {confirmDelete && (
         <ConfirmDialog
-          title="이 팩을 삭제할까요?"
-          message="이미 가방에 불러와진 팩에는 영향 없어요."
+          title="이 팩을 휴지통으로 보낼까요?"
+          message="설정 > 휴지통에서 30일간 보관되며, 그 안에 복구할 수 있어요. 이미 가방에 불러온 팩에는 영향 없어요."
+          confirmLabel="휴지통으로"
+          tone="accent"
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => {
             setConfirmDelete(false);

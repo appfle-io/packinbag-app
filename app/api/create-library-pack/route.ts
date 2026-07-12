@@ -48,10 +48,14 @@ export async function POST(req: NextRequest) {
   // 빠른팩(isQuickPack)은 무료 라이브러리 개수 제한과 무관하게 항상 생성을 허용한다 -
   // 사용자당 최대 1개뿐이고, 하단 "+" 빠른입력에서 최초 1회 만들어지는 시스템 팩이다.
   if (!premium && !draft.isQuickPack) {
-    const existing = await packsCol.count().get();
-    // 이미 있는 빠른팩은 이 3개 한도에 포함시키지 않는다(제한 계산용 count에서 제외).
-    const existingQuickPack = await packsCol.where("isQuickPack", "==", true).limit(1).get();
-    const nonQuickCount = existing.data().count - (existingQuickPack.empty ? 0 : 1);
+    // 휴지통으로 보낸(trashedAt) 팩은 라이브러리 개수 제한에 포함시키지 않는다 - 실제로
+    // 보관 중인 게 아니기 때문. count()로는 이 조건을 정확히 걸러내기 어려워서(예전 데이터는
+    // 필드 자체가 없을 수 있음) 문서를 가져와 코드에서 거른다.
+    const allSnap = await packsCol.get();
+    const nonQuickCount = allSnap.docs.filter((d) => {
+      const data = d.data() as Pack;
+      return !data.isQuickPack && !data.trashedAt;
+    }).length;
     if (nonQuickCount >= FREE_MAX_LIBRARY_PACKS) {
       return NextResponse.json(
         {

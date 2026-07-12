@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
@@ -74,6 +75,34 @@ export async function saveLibraryPackRemote(user: User, pack: Pack) {
 
 export async function deleteLibraryPackRemote(uid: string, packId: string) {
   await deleteDoc(doc(packsCol(uid), packId));
+}
+
+// 완전삭제 대신 휴지통으로 보낸다. trashedAt만 채우고 문서 자체는 그대로 둔다 - 30일 뒤
+// 자동 영구삭제되거나, 그 전에 복구/영구삭제할 수 있다.
+export async function trashLibraryPackRemote(uid: string, packId: string) {
+  await updateDoc(doc(packsCol(uid), packId), { trashedAt: new Date().toISOString() });
+}
+
+// 휴지통에서 복구. 무료 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을 서버에서 다시 검증해야
+// 해서(firestore.rules가 클라이언트의 직접 복구를 막아둔) app/api/restore-library-pack을 거친다.
+export async function restoreLibraryPackRemote(user: User, packId: string) {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/restore-library-pack", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ packId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = (data?.error as string | undefined) ?? "팩을 복구하지 못했어요";
+    if (data?.code === "PACK_LIMIT_REACHED") {
+      throw new PremiumLimitError(message);
+    }
+    throw new Error(message);
+  }
 }
 
 // 실시간 구독 없이 한 번만 조회 (회원탈퇴 등 일괄 처리용)

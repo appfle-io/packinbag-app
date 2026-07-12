@@ -7,6 +7,7 @@ import {
   IconPlus,
   IconX,
   IconTrash,
+  IconLogout,
   IconUsers,
   IconSparkles,
   IconLock,
@@ -102,6 +103,11 @@ export default function BagEditorScreen({
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
 }) {
   const [bag, setBag] = useState<Bag>(initialBag);
+  // 이 가방을 내가 만들었는지(소유자)인지 여부. 소유자가 아니면(그룹원으로 참여한
+  // 공유 가방) 트래시 버튼의 동작이 "삭제"가 아니라 "나가기"로 바뀐다 - 공유 문서를
+  // 통째로 지워버리면 다른 그룹원들에게서도 사라지기 때문에, 소유자가 아닌 사람에게는
+  // 그런 파괴적인 동작을 허용하지 않는다.
+  const isOwner = bag.ownerId === currentUid;
   const [showImport, setShowImport] = useState(false);
   const [showAiOrganize, setShowAiOrganize] = useState(false);
   const [showNotebookQuickAdd, setShowNotebookQuickAdd] = useState(false);
@@ -1059,10 +1065,14 @@ export default function BagEditorScreen({
           {!readOnly && (
             <button
               onClick={() => setConfirmDeleteBag(true)}
-              aria-label="가방 삭제"
+              aria-label={isOwner ? "가방 삭제" : "가방 나가기"}
               className="-m-2.5 p-2.5"
             >
-              <IconTrash size={19} stroke={1.75} color="var(--danger)" />
+              {isOwner ? (
+                <IconTrash size={19} stroke={1.75} color="var(--danger)" />
+              ) : (
+                <IconLogout size={19} stroke={1.75} color="var(--danger)" />
+              )}
             </button>
           )}
           {!readOnly && (
@@ -1533,12 +1543,22 @@ export default function BagEditorScreen({
 
       {confirmDeleteBag && (
         <ConfirmDialog
-          title="이 가방을 삭제할까요?"
-          message="가방에 담긴 모든 팩과 짐이 함께 사라져요."
+          title={isOwner ? "이 가방을 휴지통으로 보낼까요?" : "이 가방에서 나갈까요?"}
+          message={
+            isOwner
+              ? "설정 > 휴지통에서 30일간 보관되며, 그 안에 복구할 수 있어요. 다른 그룹원들은 그대로 볼 수 있어요."
+              : "그룹 가방에서 나가면 더 이상 이 가방을 볼 수 없어요. 가방 자체와 다른 그룹원들의 내용은 그대로 유지돼요."
+          }
+          confirmLabel={isOwner ? "휴지통으로" : "나가기"}
+          tone="accent"
           onCancel={() => setConfirmDeleteBag(false)}
           onConfirm={() => {
             setConfirmDeleteBag(false);
-            onDeleteBag(bag);
+            if (isOwner) {
+              onDeleteBag(bag);
+            } else {
+              handleLeave();
+            }
           }}
         />
       )}

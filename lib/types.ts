@@ -57,6 +57,12 @@ export interface Pack {
   // 이 필드를 쓸 수 있고(firestore.rules에서 클라이언트 수정/삭제를 막음), 잠긴 팩은 보기만
   // 가능하고 수정/삭제는 막힌다. 다시 이용권을 등록하면 서버가 자동으로 false로 되돌려준다.
   locked?: boolean;
+  // 휴지통으로 보낸 시각(ISO). 있으면 팩 라이브러리 목록에서 숨겨지고 설정 > 휴지통에만
+  // 보인다. 30일(TRASH_RETENTION_DAYS)이 지나면 클라이언트가 다음에 열릴 때 자동으로
+  // 영구삭제된다(별도 서버 배치 없이 클라이언트가 열릴 때 검사). 복구(지우기)는 무료 개수
+  // 제한 검증이 필요해서 클라이언트가 직접 지울 수 없고(firestore.rules) app/api/
+  // restore-library-pack만 가능하다.
+  trashedAt?: string;
 }
 
 // 가방 멤버의 표시용 정보 (닉네임/아바타). users/{uid} 문서는 본인만 읽을 수 있어서
@@ -98,7 +104,17 @@ export interface Bag {
   // 무관하게 그대로 이용할 수 있다(규칙에서 request.auth.uid == ownerId 조건과 함께 검사).
   // 잠긴 가방은 보기만 가능하고 수정/삭제/공유 관련 동작은 모두 막힌다.
   locked?: boolean;
+  // 소유자(ownerId)가 이 가방을 휴지통으로 보낸 시각(ISO). 있으면 소유자 본인의 홈 목록에서만
+  // 숨겨지고 설정 > 휴지통에 나타난다 - 다른 그룹원들은 이 필드와 무관하게 가방을 계속
+  // 그대로 볼 수 있다(소유자 화면에서만 휴지통 처리되는 정책). 30일(TRASH_RETENTION_DAYS)이
+  // 지나면 클라이언트가 다음에 열릴 때 자동으로 영구삭제된다(별도 서버 배치 없이 클라이언트가
+  // 열릴 때 검사). 복구(지우기)는 무료 동시 진행 개수 제한 검증이 필요해서 클라이언트가 직접
+  // 지울 수 없고(firestore.rules) app/api/restore-bag만 가능하다.
+  trashedByOwnerAt?: string;
 }
+
+// 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태의 참고용 주석은
+// 파일 아래쪽 ImportedBagResult 근처에 있다.
 
 // 회원가입 시 고를 수 있는 간단한 샘플 아바타 중 하나의 id (avatars.ts 참고)
 export type AvatarId = string;
