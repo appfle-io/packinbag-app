@@ -325,10 +325,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    if (!cred.user.emailVerified) {
-      await signOut(auth);
-      throw new Error("EMAIL_NOT_VERIFIED");
+    // signUpWithEmail/resendVerificationByCredential과 동일한 이유로 authBusy로 감싸야 한다.
+    // signInWithEmailAndPassword가 성공하는 순간 Firebase는 이메일 인증 여부와 무관하게
+    // 일단 로그인 상태로 만들어버리고 onAuthStateChanged가 즉시 발동되는데, authBusy
+    // 가드가 없으면 우리 코드가 emailVerified를 확인하고 다시 로그아웃시키는 그 짧은 순간
+    // 동안 AppShell이 홈 화면을 잠깐 보여줬다가 다시 로그인 화면으로 튕겨나가는
+    // 깜빡임이 생긴다(이메일 인증 안 된 계정으로 로그인 시도할 때만 해당).
+    setAuthBusy(true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      if (!cred.user.emailVerified) {
+        await signOut(auth);
+        throw new Error("EMAIL_NOT_VERIFIED");
+      }
+    } finally {
+      setAuthBusy(false);
     }
   };
 

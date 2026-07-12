@@ -10,8 +10,9 @@
   건드렸다면 영향받는 항목의 상태를 다시 확인한다.
 - 새 항목 추가 형식: `[코드] 항목 설명 — 관련 파일` 한 줄 + 필요하면 확인 방법/비고를
   아래 들여쓰기로.
-- 코드 접두어: `P-` 팩 보관함, `B-` 가방 보관함, `E-` 가방 속 기능들, 화면이 늘어나면
-  새 접두어를 추가한다 (예: 설정 `S-`).
+- 코드 접두어: `A-` 로그인/회원가입, `P-` 팩 보관함, `B-` 가방 보관함, `E-` 가방 속
+  기능들, `N-` 네이티브(Capacitor) 배포 전 확인. 화면이 늘어나면 새 접두어를 추가한다
+  (예: 설정 `S-`).
 - 상태 아이콘
   - ✅ 코드 검토로 정상 확인됨
   - 🔍 코드는 확인했지만 실기기/실사용 테스트가 필요함
@@ -38,6 +39,55 @@
    `PdfPreviewModal.tsx`(iframe 기반 인앱 미리보기) + `BagEditorScreen`의 프리미엄
    업셀 모달(PremiumLimitModal 재사용)을 추가해서 무료회원이 실패를 겪기 전에 먼저
    안내하도록 함.
+4. **이메일 미인증 계정으로 로그인 시도 시 홈 화면이 잠깐 반짝였다가 튕겨나감** (2026-07-12 발견/수정)
+   `signUpWithEmail`/`resendVerificationByCredential`은 `authBusy` 가드로 감싸져 있었지만,
+   정작 로그인 버튼이 호출하는 `signInWithEmail`에는 이 가드가 빠져있었음.
+   `signInWithEmailAndPassword`가 성공하면 Firebase가 이메일 인증 여부와 무관하게 일단
+   로그인 상태로 만들어버려서 `onAuthStateChanged`가 즉시 발동되는데, `authBusy`가 없으면
+   우리 코드가 `emailVerified`를 확인하고 다시 로그아웃시키는 그 짧은 순간 동안 AppShell이
+   홈 화면(+ EmailVerifyBanner)을 잠깐 보여줬다가 다시 로그인 화면으로 튕겨나가는 깜빡임이
+   생김 — appflo가 예전에 겪었다고 말한 바로 그 증상. `signInWithEmail`도 나머지 두 함수와
+   동일하게 `setAuthBusy(true)/finally setAuthBusy(false)`로 감싸서 수정.
+
+---
+
+## 로그인 / 회원가입 (AuthScreen.tsx, AuthProvider.tsx, GoogleProfileSetup.tsx)
+
+### 이메일 인증 강제 (핵심 요구사항)
+
+- A-01 회원가입 직후 자동 로그인되지 않고 로그인 화면으로 돌아옴, 인증 메일 발송 안내 토스트 — `signUpWithEmail` ✅
+- A-02 이메일 미인증 계정으로 로그인 시도 시 로그인 차단 + "인증 메일 다시 받기" 버튼 노출 — `signInWithEmail`(`EMAIL_NOT_VERIFIED`) ✅
+- A-03 인증 완료 후 정상 로그인 — `emailVerified === true` 통과 ✅
+- A-04 구글 로그인은 이메일 인증 개념 자체가 없음(구글이 이미 검증) — `EmailVerifyBanner`가 `providerId === "password"`인 계정에만 노출되도록 필터링 ✅
+  - 🔍 실기기에서 구글 계정으로 가입 시 인증 관련 문구/배너가 전혀 안 뜨는지 확인
+
+### 화면 전환 매끄러움 (깜빡임 방지) — appflo가 특히 강조한 부분
+
+- A-05 회원가입 처리 중(계정생성→인증메일발송→로그아웃) 홈 화면으로 안 튀는지 — `authBusy` 가드, `AppShell`의 `if (!user || authBusy)` ✅
+- A-06 **이메일 미인증 계정 로그인 시도 시 홈 화면 반짝임 — 오늘 발견/수정(위 이슈 4번), `signInWithEmail`에 `authBusy` 가드 추가** 🔧
+  - 🔍 실기기에서 미인증 계정으로 로그인 버튼 눌러보고 화면이 로그인→(스플래시)→로그인(인증안내) 순으로만 자연스럽게 넘어가는지, 홈 화면이 스치듯이라도 보이지 않는지 확인 필요
+- A-07 "인증 메일 다시 받기"(로그인 화면에서, 비밀번호로 재로그인 후 발송) 흐름도 동일하게 `authBusy`로 감싸져 있어 깜빡임 없음 — `resendVerificationByCredential` ✅
+- A-08 재로그인/재발송 실패 시(비밀번호 틀림 등) 에러 메시지만 뜨고 화면 전환 없음 ✅
+- A-09 로딩 스플래시(`SplashScreen`)가 `loading` 상태 동안 항상 위를 덮고 있어서, 위 A-05/A-06 가드가 혹시 놓치는 타이밍이 있어도 2차 방어선 역할 ✅
+
+### 회원가입 폼
+
+- A-10 비밀번호/비밀번호확인 불일치 시 제출 차단 + 실시간 안내문구 ✅
+- A-11 닉네임 미입력 시 제출 차단 ✅
+- A-12 닉네임 랜덤 추천, 아바타 선택 ✅
+- A-13 가입 성공 시 이메일은 유지하고 비밀번호 필드만 초기화(재로그인 편의) ✅
+- A-14 인증 메일 발송 자체가 실패해도 가입은 완료 처리(별도 안내 문구로 구분) — `sent` 플래그 ✅
+
+### 비밀번호 재설정
+
+- A-15 로그인 화면 → 비밀번호 재설정 화면 전환, 로그인 시도 중이던 이메일 자동 채움 ✅
+- A-16 재설정 메일 발송 후 로그인 화면으로 자동 복귀 ✅
+
+### 구글 최초 로그인 (닉네임/아바타 없음)
+
+- A-17 구글 최초 로그인 시 `GoogleProfileSetup`(닉네임+아바타 선택) 강제 노출 — `AppShell`의 `if (!profile?.nickname || !profile?.avatarId)` ✅
+- A-18 "다른 계정으로 로그인" — 로그아웃 확인 다이얼로그 후 로그아웃 ✅
+- A-19 프로필 저장 완료 시 샘플 온보딩 데이터(`seedSampleDataForNewUser`) 최초 1회만 생성 ✅
 
 ---
 
@@ -96,7 +146,7 @@
 ### 검색
 
 - B-13 가방 이름 / 가방 속 팩 이름 / 짐 텍스트 검색 — `librarySearch.ts searchBags` ✅
-- B-14 검색 결과 클릭 시 가방 열리며 팩/짐까지 스크롤+하이라이트 — `onOpenBag(bag, {packId, itemId})` → `BagEditorScreen`의 `focusTarget` effect (E-41과 동일 로직) ✅
+- B-14 검색 결과 클릭 시 가방 열리며 팩/짐까지 스크롤+하이라이트 — `onOpenBag(bag, {packId, itemId})` → `BagEditorScreen`의 `focusTarget` effect (E-44와 동일 로직) ✅
 - B-15 결과 30개 초과 시 안내 문구 — `librarySearch.ts searchBags`(truncated 플래그) ✅
 - B-16 잠긴 가방도 검색되고 클릭 시 읽기전용 진입 — `AppShell.tsx`의 `lockedBagIds` 계산 ✅
 
@@ -171,7 +221,7 @@
 - E-35 PDF 업로드 — 프리미엄 전용으로 전환 완료, `storage.rules`가 요청자의 프리미엄 여부를 실시간 검사(최대 3MB) 🔧
   - 🔍 실제 배포 후: 무료회원이 PDF 선택 시 업로드 안 되고 업셀 모달 뜨는지 / 유료회원은 정상 업로드되는지 실기기 확인 필요
 - E-36 PDF 미리보기 — `PdfPreviewModal`(iframe 인앱 뷰어), 무료회원 클릭 시 업셀 모달, 유료회원 클릭 시 미리보기 열림 🔧
-  - 🔍 iOS WKWebView에서 iframe PDF 렌더링이 정상 동작하는지 실기기 확인 필요(안 되면 "새 탭에서 열기" 버튼이 대체 경로)
+  - 🔍 iOS WKWebView / Android WebView에서 iframe PDF 렌더링이 정상 동작하는지 — N-06 참고
 - E-37 PDF 썸네일에 잠금 배지 — 무료회원에게만 우측하단 자물쇠 아이콘 노출 ✅
 - E-38 유료→무료 다운그레이드 후 기존에 첨부해둔 PDF — 별도 잠금 동기화 없이 다음 열람 시도부터 즉시 차단(실시간 규칙 평가라 sync-lock-status 불필요) ✅
 - E-39 이미지 삭제 확인 다이얼로그, 삭제 시 Storage에서도 실제 제거 ✅
@@ -183,3 +233,35 @@
 - E-42 초대코드 재발급 → 실제로 무효화됨(위 "발견 후 수정한 이슈" 1번) ✅🔧
 - E-43 소유자만 멤버 내보내기 가능, 마지막 남은 소유자는 나가기 대신 삭제 유도 문구 ✅
 - E-44 검색 결과로 들어왔을 때(focusTarget) 접힌 팩 자동 펼치고 스크롤+하이라이트 ✅
+
+---
+
+## 네이티브(Capacitor) 배포 전 필수 확인
+
+지금은 Mac(웹)/iPhone·iPad(PWA)/Android(PWA) 전부 같은 웹 코드가 브라우저에서 돌아가는
+상태다. Capacitor로 감싼 실제 네이티브 앱(특히 iOS, 나중엔 Android)은 아직 한 번도 Xcode로
+빌드/실기기 테스트된 적이 없어서, 아래 항목들은 그 첫 빌드 때 반드시 확인해야 한다
+(`capacitor.config.ts`의 `server.url`이 아직 placeholder인 것도 확인).
+
+- N-01 구글 로그인(`signInWithPopup`) — WKWebView는 정책상 임베디드 웹뷰 OAuth를 막을
+  가능성이 높음(이미 알려진 미해결 블로커). 재현되면 네이티브 구글 로그인 플러그인으로 교체 필요
+- N-02 이메일 로그인/회원가입/이메일 인증 전체 흐름 — 위 A-01~A-19 전부 네이티브 앱에서도
+  동일하게 매끄러운지(특히 A-06 깜빡임 방지가 WKWebView에서도 타이밍이 다르지 않은지)
+- N-03 파일 선택(`<input type="file" accept="image/*,application/pdf,.pdf" multiple>`) —
+  사진첩/파일 앱이 정상적으로 뜨는지, 여러 장 선택이 되는지
+- N-04 짐/팩 드래그 앤 드롭(pointer 이벤트 기반) — 터치로 롱프레스 후 드래그가 매끄러운지,
+  스크롤과 충돌하지 않는지
+- N-05 초대 링크 복사(`navigator.clipboard.writeText`) — Capacitor 웹뷰에서 클립보드 API가
+  정상 동작하는지
+- N-06 PDF 인앱 미리보기(iframe, `PdfPreviewModal`) — iOS WKWebView는 될 가능성이 높지만
+  미검증. **Android는 Capacitor로 감쌀 때(현재는 미착수) WebView 컴포넌트가 Chrome 앱과
+  달리 PDF 내장 뷰어가 없을 수 있어 특히 위험 — 빈 화면/다운로드 프롬프트로 뜰 가능성 확인**
+- N-07 "새 탭에서 열기" 버튼(`window.open(url, "_blank")`, `PdfPreviewModal`) — Capacitor
+  앱은 웹뷰 하나로만 구성돼서 "새 탭" 개념이 없음. 아무 반응 없거나 앱이 그 URL로
+  네비게이트해버릴 수 있음 → 문제 확인되면 `@capacitor/browser`(`Browser.open()`)로 교체
+  (아직 패키지 미설치 — `package.json`에 없음, 이 시점에 함께 추가)
+- N-08 .ics 캘린더 다운로드(계획 중인 기능, 아직 미구현) — 네이티브 빌드 시 별도 확인 필요
+- N-09 이미지 압축(`compressImageFile`, Canvas 기반) — WKWebView/Android WebView의 Canvas
+  API 성능/정확도가 데스크톱 브라우저와 다를 수 있음
+- N-10 Firebase Storage 업로드/다운로드 네트워크 요청 — Capacitor 앱이 `firebasestorage.googleapis.com`,
+  `generativelanguage.googleapis.com` 등 외부 도메인 요청을 문제없이 보내는지
