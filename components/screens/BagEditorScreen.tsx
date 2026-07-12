@@ -332,7 +332,7 @@ export default function BagEditorScreen({
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("pib-search-highlight");
-        window.setTimeout(() => el.classList.remove("pib-search-highlight"), 1650);
+        window.setTimeout(() => el.classList.remove("pib-search-highlight"), 1850);
       }
       onFocusHandled?.();
     }, 350);
