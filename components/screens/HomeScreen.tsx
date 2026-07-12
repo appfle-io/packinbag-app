@@ -92,7 +92,7 @@ export default function HomeScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const searchResults = useMemo(
+  const { results: searchResults, truncated: searchTruncated } = useMemo(
     () => searchBags(bags, searchQuery),
     [bags, searchQuery]
   );
@@ -368,6 +368,11 @@ export default function HomeScreen({
                   )}
                 </button>
               ))}
+              {searchTruncated && (
+                <p className="text-[11px] text-text-muted text-center py-2">
+                  결과가 많아 상위 30개만 보여드려요
+                </p>
+              )}
             </div>
           )}
         </div>

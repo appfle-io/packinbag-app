@@ -578,7 +578,7 @@ export default function AppShell() {
 
   const handleRegenerateInviteCode = async (bag: Bag) => {
     try {
-      return await regenerateInviteCodeRemote(bag);
+      return await regenerateInviteCodeRemote(user, bag);
     } catch (err) {
       console.error("[팩인백] 초대 코드 재발급 실패:", err);
       show(`초대 코드 재발급에 실패했어요 (${firebaseErrorCode(err)})`);

@@ -24,16 +24,8 @@ function bagsCol() {
   return collection(db, "bags");
 }
 
-// 초대코드 생성은 이제 서버(app/api/create-bag)에서 하지만, 다른 곳(초대코드 재발급 등)에서도
-// 같은 형식이 필요해서 그대로 남겨둔다.
-function generateInviteCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 헷갈리는 0/O, 1/I 제외
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
+// 초대코드 생성은 app/api/create-bag과 app/api/regenerate-invite-code(Admin SDK) 양쪽에서
+// 각자 자체 로직으로 처리한다 - 이 파일에서는 더 이상 필요 없다.
 
 // 로그인한 사람이 속한(memberIds에 자기 uid가 있는) 가방만 실시간 구독
 export function subscribeToUserBags(
@@ -219,17 +211,24 @@ export async function updateMemberProfileSnapshot(
   });
 }
 
-// 기존 초대코드를 무효화하고 새 코드를 발급 (기존 코드로는 더 이상 참여 불가)
-export async function regenerateInviteCodeRemote(bag: Bag): Promise<string> {
-  const newCode = generateInviteCode();
-  await setDoc(doc(db, "inviteCodes", newCode), { bagId: bag.id });
-  await updateDoc(doc(bagsCol(), bag.id), { inviteCode: newCode });
-  if (bag.inviteCode) {
-    try {
-      await deleteDoc(doc(db, "inviteCodes", bag.inviteCode));
-    } catch {
-      // 이미 없으면 무시
-    }
+// 초대코드 재발급은 이제 app/api/regenerate-invite-code(Admin SDK)만 한다. firestore.rules의
+// inviteCodes는 `allow update, delete: if false`라서 클라이언트가 이전 코드 문서를
+// 직접 지울 수가 없기 때문이다(예전에 클라이언트 deleteDoc을 시도하던 버전은 항상
+// permission-denied로 조용히 실패해서, 재발급해도 이전 코드로 계속 참여가 되는 버그가
+// 있었다).
+export async function regenerateInviteCodeRemote(user: User, bag: Bag): Promise<string> {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/regenerate-invite-code", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bagId: bag.id }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data?.error as string | undefined) ?? "초대코드 재발급에 실패했어요");
   }
-  return newCode;
+  return data.inviteCode as string;
 }

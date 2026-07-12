@@ -21,15 +21,25 @@ export interface BagSearchResult {
   itemId?: string;
 }
 
+// searchBags의 반환값. truncated가 true면 실제 매칭이 MAX_RESULTS(30개)보다 많아서
+// 화면에 안내 문구를 띄울 수 있게 한다 (PackSearchOutput과 동일한 패턴).
+export interface BagSearchOutput {
+  results: BagSearchResult[];
+  truncated: boolean;
+}
+
 // 가방 보관함 검색: 가방 이름 / 가방 속 팩 이름 / 팩 속 짐 텍스트를 모두 검색한다.
-export function searchBags(bags: Bag[], query: string): BagSearchResult[] {
+// MAX_RESULTS보다 하나 더 모아본 뒤에 잘라내는 방식으로 "진짜로 더 있는지"를 정확히 판별한다.
+export function searchBags(bags: Bag[], query: string): BagSearchOutput {
   const q = query.trim().toLowerCase();
-  if (!q) return [];
+  if (!q) return { results: [], truncated: false };
   const results: BagSearchResult[] = [];
 
+  bagLoop:
   for (const bag of bags) {
     if (bag.name.toLowerCase().includes(q)) {
       results.push({ type: "bag", id: `bag-${bag.id}`, label: bag.name, bag });
+      if (results.length > MAX_RESULTS) break bagLoop;
     }
     for (const pack of bag.packs) {
       if (pack.name.toLowerCase().includes(q)) {
@@ -41,6 +51,7 @@ export function searchBags(bags: Bag[], query: string): BagSearchResult[] {
           bag,
           packId: pack.id,
         });
+        if (results.length > MAX_RESULTS) break bagLoop;
       }
       for (const item of pack.items) {
         if (item.text && item.text.toLowerCase().includes(q)) {
@@ -53,13 +64,14 @@ export function searchBags(bags: Bag[], query: string): BagSearchResult[] {
             packId: pack.id,
             itemId: item.id,
           });
+          if (results.length > MAX_RESULTS) break bagLoop;
         }
       }
-      if (results.length >= MAX_RESULTS) return results.slice(0, MAX_RESULTS);
     }
   }
 
-  return results.slice(0, MAX_RESULTS);
+  const truncated = results.length > MAX_RESULTS;
+  return { results: results.slice(0, MAX_RESULTS), truncated };
 }
 
 export type PackSearchResultType = "pack" | "item";
