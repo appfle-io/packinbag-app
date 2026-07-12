@@ -540,10 +540,16 @@ export default function ItemRow({
           <button
             onClick={handleContentClick}
             onDoubleClick={handleDoubleClick}
-            className={`min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] ${lineClampClass}`}
+            // 줄바꿈 제한(line-clamp)은 이 button 자체가 아니라 안의 span에 건다 - 이 button은 부모 div의
+            // flex 자식(flex-1)이라, -webkit-line-clamp가 요구하는 display:-webkit-box를
+            // flex 아이템에 직접 걸면 일부 브라우저(iOS WKWebView 포함)에서 줄수 제한이
+            // 무시되고 텍스트가 그대로 여러 줄 다 보여버리는 버그가 있었다. span은 flex 아이템이
+            // 아니라 문제가 없다.
+            className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
           >
             {item.type === "check" ? (
               <span
+                className={lineClampClass}
                 style={{
                   color: item.checked ? "var(--text-muted)" : "var(--foreground)",
                   textDecoration: item.checked ? "line-through" : "none",
@@ -553,6 +559,7 @@ export default function ItemRow({
               </span>
             ) : (
               <span
+                className={lineClampClass}
                 style={{
                   fontWeight: item.bold ? 700 : 400,
                   textDecoration: item.strike ? "line-through" : "none",
