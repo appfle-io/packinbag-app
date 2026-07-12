@@ -49,6 +49,8 @@ export default function PackLibraryEditorScreen({
   onDelete,
   onAddItemsToBagPack,
   onRemoveItemsFromBagPack,
+  focusItemId,
+  onFocusHandled,
   variant = "fullscreen",
 }: {
   initialPack: Pack;
@@ -79,6 +81,10 @@ export default function PackLibraryEditorScreen({
   // "sheet": AppShell이 내용 길이에 맞춰 커지는 바텀시트 컨테이너 안에 이 화면을 넣을 때 -
   // 화면 자체가 h-dvh(기기 전체 높이)를 강제하지 않고 부모(시트)가 준 높이를 그대로 채운다.
   variant?: "fullscreen" | "sheet";
+  // 검색 결과(짐 매칭)를 눌러서 들어온 경우에만 넘어온다. 있으면 그 짐까지 자동 스크롤 +
+  // 잠깐 하이라이트한다 (AppShell이 PacksScreen 검색 결과 클릭을 중계).
+  focusItemId?: string | null;
+  onFocusHandled?: () => void;
 }) {
   const [pack, setPack] = useState<Pack>(initialPack);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -265,6 +271,27 @@ export default function PackLibraryEditorScreen({
     setLastAddedItemId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastAddedItemId]);
+
+  // 검색 결과(짐 매칭)를 눌러서 들어온 경우(focusItemId) 해당 짐으로 스크롤하고 잠깐
+  // 하이라이트(pib-search-highlight, globals.css)를 붙였다 뗀다. 이 화면은 팩 하나만 보여주므로
+  // BagEditorScreen과 달리 펼치기/접기 처리는 필요 없다.
+  useEffect(() => {
+    if (!focusItemId) return;
+    const targetId = focusItemId;
+    const timer = window.setTimeout(() => {
+      const el = listRef.current?.querySelector(
+        `[data-item-id="${targetId}"]`
+      ) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("pib-search-highlight");
+        window.setTimeout(() => el.classList.remove("pib-search-highlight"), 1650);
+      }
+      onFocusHandled?.();
+    }, 150);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusItemId]);
 
   // --- 짐 순서 변경(롱프레스 드래그) / 빠른팩 다중선택 이동 --------------------
   // 팩이 하나뿐인 화면이라 "다른 팩으로 이동"은 필요 없고, 같은 팩 안에서

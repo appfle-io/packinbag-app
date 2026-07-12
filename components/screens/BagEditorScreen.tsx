@@ -83,6 +83,8 @@ export default function BagEditorScreen({
   onLeaveBag,
   onRemoveMember,
   onRegenerateInviteCode,
+  focusTarget,
+  onFocusHandled,
 }: {
   initialBag: Bag;
   libraryPacks: Pack[];
@@ -101,6 +103,10 @@ export default function BagEditorScreen({
   onLeaveBag: (bagId: string) => Promise<void>;
   onRemoveMember: (bagId: string, memberUid: string) => Promise<void>;
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
+  // 검색 결과를 눌러서 들어왔을 때만 넘어온다. 있으면 그 팩(+짐)까지 자동 스크롤하고
+  // 잠깐 하이라이트한다 (AppShell이 HomeScreen 검색 결과 클릭을 중계).
+  focusTarget?: { packId?: string; itemId?: string } | null;
+  onFocusHandled?: () => void;
 }) {
   const [bag, setBag] = useState<Bag>(initialBag);
   // 이 가방을 내가 만들었는지(소유자)인지 여부. 소유자가 아니면(그룹원으로 참여한
@@ -303,6 +309,37 @@ export default function BagEditorScreen({
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bag.id]);
+
+  // 검색 결과를 눌러서 들어온 경우(focusTarget) 해당 팩이 접혀있으면 펼치고, 그 팩(또는 짐)으로
+  // 스크롤한 뒤 잠깐 하이라이트(pib-search-highlight, globals.css)를 붙였다 뗀다. 펼치는
+  // 애니메이션/리렌더링이 끝난 뒤에만 요소를 찾을 수 있어서 약간의 지연(setTimeout) 뒤에 찾는다.
+  useEffect(() => {
+    if (!focusTarget?.packId) return;
+    const { packId, itemId } = focusTarget;
+
+    const key = `${bag.id}:${packId}`;
+    const currentState = collapseOverrideActive
+      ? "collapsed"
+      : profile?.packDisplayStates?.[key] ?? "normal";
+    if (collapseOverrideActive) setCollapseOverrideActive(false);
+    if (currentState === "collapsed") {
+      updatePackDisplayState(bag.id, packId, "normal").catch(() => {});
+    }
+
+    const timer = window.setTimeout(() => {
+      const selector = itemId ? `[data-item-id="${itemId}"]` : `[data-pack-drop-id="${packId}"]`;
+      const el = document.querySelector(selector) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("pib-search-highlight");
+        window.setTimeout(() => el.classList.remove("pib-search-highlight"), 1650);
+      }
+      onFocusHandled?.();
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTarget]);
 
   const handleToggleItem = (packId: string, itemId: string) => {
     if (guardReadOnly()) return;

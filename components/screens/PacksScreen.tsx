@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { IconPlus, IconSettings, IconTrash, IconCheck } from "@tabler/icons-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  IconPlus,
+  IconSettings,
+  IconTrash,
+  IconCheck,
+  IconSearch,
+  IconHelpCircle,
+  IconX,
+} from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
+import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
 import PackTile from "@/components/PackTile";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
@@ -30,7 +39,9 @@ export default function PacksScreen({
   // 무료 전환으로 잠긴 팩 id 목록. 타일에 자물쇠 표시만 하고, 탭하면 여전히 열린다 -
   // 실제 읽기 전용 처리는 PackLibraryEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
   lockedPackIds?: Set<string>;
-  onOpenPack: (pack: Pack) => void;
+  // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다
+  // (상단 검색 결과 중 짐 매칭을 눌렀을 때만 넘어옴 - 평소 타일 탭은 넘기지 않음).
+  onOpenPack: (pack: Pack, focusItemId?: string) => void;
   onNewPack: () => void;
   onOpenSettings: () => void;
   // 길게 눌러 다중선택한 팩들을 한꺼번에 삭제 (AppShell이 라이브러리에서 실제로 삭제).
@@ -43,6 +54,41 @@ export default function PacksScreen({
   const gridPacks = packs.filter((p) => !p.isQuickPack);
   const arrangedPacks = arrangeList(gridPacks, { sortBy, pinnedIds, order: profile?.packOrder });
   const pinnedSet = new Set(pinnedIds);
+
+  // --- 검색 --------------------------------------------------------------
+  // 가방 보관함(HomeScreen)과 동일한 패턴: 검색 아이콘 -> 헤더가 입력창으로 바뀌며
+  // 자동 포커스 -> 입력할 때마다 즉시 필터링. 팩 보관함에는 "가방" 개념이 없어서
+  // 팩 이름 / 팩 속 짐 텍스트만 검색 대상이다.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const searchResults = useMemo(
+    () => searchLibraryPacks(gridPacks, searchQuery),
+    [gridPacks, searchQuery]
+  );
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+
+  const handleResultClick = (result: PackSearchResult) => {
+    closeSearch();
+    onOpenPack(result.pack, result.itemId);
+  };
+
+  // 팩 보관함 설명서(?)는 아직 튜토리얼 슬라이드가 준비되지 않아서, 눌러도 짧은
+  // 안내 토스트만 보여준다. 나중에 슬라이드를 다 만들면 HomeScreen처럼
+  // HelpTutorialModal + lib/helpTutorial/packsSlides.ts로 교체하면 된다.
+  const handleHelpClick = () => {
+    show("아직 준비되지 않았어요");
+  };
 
   // 길게 눌러서 순서 바꾸기 (HomeScreen의 가방 그리드와 동일한 패턴). 길게 누르고
   // "그대로 뗀" 경우(실제로 다른 타일 위로 옮기지 않은 경우)는 다중선택 모드 진입으로
@@ -162,98 +208,174 @@ export default function PacksScreen({
     <div className="relative flex-1 flex flex-col overflow-hidden">
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-center justify-between mb-4 gap-2">
-          <div className="flex items-baseline gap-2 min-w-0">
-            <h1 className="text-[22px] font-bold shrink-0">팩</h1>
-            <span className="text-[12px] text-text-muted truncate">
-              한 번 만들어두면 여러 가방에서 두고두고 써요
-            </span>
-          </div>
-          <button
-            onClick={onOpenSettings}
-            aria-label="설정"
-            className="-m-2 p-2 shrink-0"
-          >
-            <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
-          </button>
-        </div>
-
-        {selectMode ? (
-          <div className="flex items-center justify-between mb-3 gap-2">
-            <button
-              onClick={cancelSelectMode}
-              className="text-[13px] text-text-secondary px-1 py-1.5"
-            >
-              취소
-            </button>
-            <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
-          </div>
-        ) : (
-          gridPacks.length > 0 && (
-            <div className="flex justify-end mb-3">
-              <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-            </div>
-          )
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 pb-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-          {arrangedPacks.map((pack) => (
-            <div
-              key={pack.id}
-              data-pack-tile-drop-id={pack.id}
-              className="relative"
-              onPointerDown={(e) => handleTilePointerDown(pack.id, e)}
-              onPointerMove={handleTilePointerMove}
-              onPointerUp={handleTilePointerUp}
-              onPointerCancel={handleTilePointerUp}
-              onClickCapture={(e) => {
-                if (justDraggedRef.current) {
-                  justDraggedRef.current = false;
-                  e.stopPropagation();
-                  e.preventDefault();
-                }
-              }}
-            >
-              <PackTile
-                pack={pack}
-                locked={lockedPackIds?.has(pack.id)}
-                pinned={pinnedSet.has(pack.id)}
-                onTogglePin={
-                  selectMode
-                    ? undefined
-                    : () => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))
-                }
-                isDragSource={reorderDrag?.id === pack.id}
-                isDragOver={reorderDrag?.overId === pack.id}
-                onClick={() => (selectMode ? toggleSelected(pack.id) : onOpenPack(pack))}
-              />
-              {selectMode && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div
-                    className="h-9 w-9 rounded-full flex items-center justify-center"
-                    style={{
-                      background: selectedIds.has(pack.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
-                      border: selectedIds.has(pack.id) ? "none" : "1.5px solid var(--border-strong)",
-                      boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
-                    }}
-                  >
-                    {selectedIds.has(pack.id) && <IconCheck size={18} stroke={3} color="#fff" />}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          {!selectMode && (
-            <button
-              onClick={onNewPack}
-              className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
-            >
-              <IconPlus size={22} stroke={1.75} />
-            </button>
+          {searchOpen ? (
+            <>
+              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5">
+                <IconSearch size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="팩, 짐 검색"
+                  className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} aria-label="검색어 지우기" className="shrink-0">
+                    <IconX size={15} stroke={1.75} color="var(--text-muted)" />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={closeSearch}
+                className="shrink-0 text-[13px] text-text-secondary px-1"
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-baseline gap-2 min-w-0">
+                <h1 className="text-[22px] font-bold shrink-0">팩</h1>
+                <span className="text-[12px] text-text-muted truncate">
+                  한 번 만들어두면 여러 가방에서 두고두고 써요
+                </span>
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <button
+                  onClick={openSearch}
+                  aria-label="검색"
+                  className="-m-2 p-2"
+                >
+                  <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+                <button
+                  onClick={handleHelpClick}
+                  aria-label="사용법 도움말"
+                  className="-m-2 p-2"
+                >
+                  <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+                <button
+                  onClick={onOpenSettings}
+                  aria-label="설정"
+                  className="-m-2 p-2"
+                >
+                  <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+              </div>
+            </>
           )}
         </div>
+
+        {!searchOpen &&
+          (selectMode ? (
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <button
+                onClick={cancelSelectMode}
+                className="text-[13px] text-text-secondary px-1 py-1.5"
+              >
+                취소
+              </button>
+              <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
+            </div>
+          ) : (
+            gridPacks.length > 0 && (
+              <div className="flex justify-end mb-3">
+                <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+              </div>
+            )
+          ))}
       </div>
+
+      {searchOpen ? (
+        <div className="flex-1 overflow-y-auto px-4 pb-3">
+          {searchQuery.trim() === "" ? (
+            <p className="text-[13px] text-text-muted py-16 text-center">
+              팩 이름, 짐을 검색해보세요.
+            </p>
+          ) : searchResults.length === 0 ? (
+            <p className="text-[13px] text-text-muted py-16 text-center">
+              검색 결과가 없어요.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  onClick={() => handleResultClick(result)}
+                  className="flex flex-col items-start rounded-lg bg-surface-2 px-3 py-2.5 text-left"
+                >
+                  <span className="text-[13px] font-medium truncate w-full">{result.label}</span>
+                  {result.subtitle && (
+                    <span className="text-[11px] text-text-muted truncate w-full">
+                      {result.subtitle}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-4 pb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+            {arrangedPacks.map((pack) => (
+              <div
+                key={pack.id}
+                data-pack-tile-drop-id={pack.id}
+                className="relative"
+                onPointerDown={(e) => handleTilePointerDown(pack.id, e)}
+                onPointerMove={handleTilePointerMove}
+                onPointerUp={handleTilePointerUp}
+                onPointerCancel={handleTilePointerUp}
+                onClickCapture={(e) => {
+                  if (justDraggedRef.current) {
+                    justDraggedRef.current = false;
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }
+                }}
+              >
+                <PackTile
+                  pack={pack}
+                  locked={lockedPackIds?.has(pack.id)}
+                  pinned={pinnedSet.has(pack.id)}
+                  onTogglePin={
+                    selectMode
+                      ? undefined
+                      : () => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))
+                  }
+                  isDragSource={reorderDrag?.id === pack.id}
+                  isDragOver={reorderDrag?.overId === pack.id}
+                  onClick={() => (selectMode ? toggleSelected(pack.id) : onOpenPack(pack))}
+                />
+                {selectMode && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div
+                      className="h-9 w-9 rounded-full flex items-center justify-center"
+                      style={{
+                        background: selectedIds.has(pack.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
+                        border: selectedIds.has(pack.id) ? "none" : "1.5px solid var(--border-strong)",
+                        boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
+                      }}
+                    >
+                      {selectedIds.has(pack.id) && <IconCheck size={18} stroke={3} color="#fff" />}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {!selectMode && (
+              <button
+                onClick={onNewPack}
+                className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+              >
+                <IconPlus size={22} stroke={1.75} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <QuickPackBar pack={quickPack} onClick={() => quickPack && onOpenPack(quickPack)} />
 

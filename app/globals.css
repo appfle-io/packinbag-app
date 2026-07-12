@@ -285,3 +285,21 @@ body {
   [data-font-scale="lg"] .md\:text-\[14px\] { font-size: 15.75px; }
   [data-font-scale="lg"] .md\:text-\[18px\] { font-size: 20.25px; }
 }
+
+/* 가방/팩 보관함 검색 결과를 클릭해서 특정 팩(또는 짐)으로 이동했을 때, 그 자리를
+   잠깐 강조해서 눈에 띄게 하는 하이라이트 펄스. data-pack-drop-id / data-item-id
+   엘리먼트에 이 클래스를 잠깐 붙였다가 뗀다 (BagEditorScreen/PackLibraryEditorScreen 참고). */
+@keyframes pib-search-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: transparent;
+  }
+  12%, 55% {
+    box-shadow: 0 0 0 3px var(--accent);
+    background-color: var(--accent-soft);
+  }
+}
+.pib-search-highlight {
+  animation: pib-search-highlight 1.6s ease-out both;
+  border-radius: 10px;
+}

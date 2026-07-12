@@ -124,6 +124,11 @@ export default function AppShell() {
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
+  // 가방 보관함/팩 보관함 상단 검색 결과를 눌러서 들어왔을 때만 채워진다. 각각
+  // BagEditorScreen(focusTarget)/PackLibraryEditorScreen(focusItemId)에 그대로 넘겨서 해당
+  // 팩(+짐)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
+  const [bagFocus, setBagFocus] = useState<{ packId?: string; itemId?: string } | null>(null);
+  const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더 톱니바퀴로 열고 뒤로가기로
   // 닫는 풀스크린 화면이다(editingBag/editingPack과 동일한 "위로 쌓이는" 패턴).
   const [showSettings, setShowSettings] = useState(false);
@@ -541,6 +546,7 @@ export default function AppShell() {
     const wasNew = isNewBag;
     setEditingBag(null);
     setIsNewBag(false);
+    setBagFocus(null);
     if (wasNew) {
       Promise.all(currentBag.images.map((url) => deleteBagImage(url)))
         .then(() => deleteBagWithInviteCodeRemote(currentBag))
@@ -793,6 +799,8 @@ export default function AppShell() {
             onLeaveBag={handleLeaveBag}
             onRemoveMember={handleRemoveMember}
             onRegenerateInviteCode={handleRegenerateInviteCode}
+            focusTarget={bagFocus}
+            onFocusHandled={() => setBagFocus(null)}
           />
         </div>
         <SplashScreen visible={showSplash} />
@@ -899,7 +907,10 @@ export default function AppShell() {
                 packs={activePacks}
                 quickPack={quickPack}
                 lockedPackIds={lockedPackIds}
-                onOpenPack={(pack) => setEditingPack(pack)}
+                onOpenPack={(pack, focusItemId) => {
+                  setEditingPack(pack);
+                  setPackFocusItemId(focusItemId ?? null);
+                }}
                 onNewPack={openNewPack}
                 onOpenSettings={() => setShowSettings(true)}
                 onBulkDeletePacks={handleBulkDeletePacks}
@@ -912,9 +923,10 @@ export default function AppShell() {
                 lockedBagIds={lockedBagIds}
                 quickPack={quickPack}
                 currentUid={user.uid}
-                onOpenBag={(bag) => {
+                onOpenBag={(bag, focus) => {
                   setIsNewBag(false);
                   setEditingBag(bag);
+                  setBagFocus(focus ?? null);
                 }}
                 onNewBag={openNewBag}
                 onImportNote={openNewBagFromNote}
@@ -937,12 +949,16 @@ export default function AppShell() {
       )}
       {editingPack && (() => {
         const isEditingPackLocked = lockedPackIds.has(editingPack.id);
+        const closePackEditor = () => {
+          setEditingPack(null);
+          setPackFocusItemId(null);
+        };
         return (
           <Portal>
             <div
               className="fixed inset-0 z-[75] flex items-end justify-center"
               style={{ background: "rgba(0,0,0,0.45)" }}
-              onClick={() => setEditingPack(null)}
+              onClick={closePackEditor}
             >
               <div
                 onClick={(e) => e.stopPropagation()}
@@ -958,12 +974,14 @@ export default function AppShell() {
                   lockedBagIds={lockedBagIds}
                   readOnly={isEditingPackLocked}
                   onRequestUnlock={requestUnlockForPack}
-                  onBack={() => setEditingPack(null)}
+                  onBack={closePackEditor}
                   onSave={handleSavePack}
                   onSaveOtherPack={handleSavePack}
                   onDelete={handleDeletePack}
                   onAddItemsToBagPack={handleAddItemsToBagPack}
                   onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+                  focusItemId={packFocusItemId}
+                  onFocusHandled={() => setPackFocusItemId(null)}
                 />
               </div>
             </div>

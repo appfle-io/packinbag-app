@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconPlus,
   IconSettings,
@@ -8,10 +8,13 @@ import {
   IconHelpCircle,
   IconTrash,
   IconCheck,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
+import { searchBags, BagSearchResult } from "@/lib/librarySearch";
 import BagCard from "@/components/BagCard";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
@@ -28,6 +31,11 @@ import { useToast } from "@/components/Toast";
 const LONG_PRESS_MS = 400;
 // 롱프레스 판정 전에 이 픽셀 이상 움직이면 스크롤 의도로 보고 롱프레스를 취소한다.
 const MOVE_CANCEL_PX = 10;
+
+// 검색 결과를 눌렀을 때 어디로 이동할지 알려주는 정보. packId가 있으면 해당 팩까지
+// 자동 스크롤 + 하이라이트하고, itemId까지 있으면 짐 자체를 하이라이트한다
+// (BagEditorScreen이 focusTarget prop으로 받아서 처리 - AppShell이 중계).
+export type BagOpenFocus = { packId?: string; itemId?: string };
 
 export default function HomeScreen({
   bags,
@@ -52,7 +60,9 @@ export default function HomeScreen({
   // 다중선택 삭제 확인창에서 "내가 소유한 가방"과 "공유받은 가방"을 구분해서 문구를
   // 다르게 보여주기 위해 필요하다 (소유하지 않은 가방은 삭제가 아니라 나가기 처리됨).
   currentUid: string;
-  onOpenBag: (bag: Bag) => void;
+  // focus가 있으면 가방을 연 뒤 그 팩(또는 짐)까지 자동 스크롤 + 하이라이트한다
+  // (상단 검색 결과를 눌렀을 때만 넘어옴 - 평소 카드 탭은 focus 없이 호출).
+  onOpenBag: (bag: Bag, focus?: BagOpenFocus) => void;
   onNewBag: () => void;
   onImportNote: (result: NoteImportResult) => void;
   onJoinBag: (code: string) => Promise<void>;
@@ -73,6 +83,35 @@ export default function HomeScreen({
   const pinnedIds = profile?.pinnedBagIds ?? [];
   const arrangedBags = arrangeList(bags, { sortBy, pinnedIds, order: profile?.bagOrder });
   const pinnedSet = new Set(pinnedIds);
+
+  // --- 검색 --------------------------------------------------------------
+  // 검색 아이콘을 누르면 헤더의 제목/설명 자리가 입력창으로 바뀌고 자동 포커스된다.
+  // 입력할 때마다(디바운스 없이) 가방 이름/가방 속 팩 이름/짐 텍스트를 즉시 검색해서
+  // 보여주고, 결과를 누르면 onOpenBag으로 그 가방을 열면서 팩까지 이동시킨다.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const searchResults = useMemo(
+    () => searchBags(bags, searchQuery),
+    [bags, searchQuery]
+  );
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    // 다음 페인트 이후 포커스해야 방금 렌더된 input에 확실히 포커스가 간다.
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+
+  const handleResultClick = (result: BagSearchResult) => {
+    closeSearch();
+    onOpenBag(result.bag, { packId: result.packId, itemId: result.itemId });
+  };
 
   // --- 길게 눌러서 순서 바꾸기 / 다중선택 ------------------------------------
   // 고정된 가방은 드래그 대상에서 제외한다(항상 맨 앞에 고정). 놓는 순간 지금 화면에
@@ -217,129 +256,196 @@ export default function HomeScreen({
     <div className="relative flex-1 flex flex-col overflow-hidden">
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-center justify-between mb-4 gap-2">
-          <div className="flex items-baseline gap-2 min-w-0">
-            <h1 className="text-[22px] font-bold shrink-0">가방</h1>
-            <span className="text-[12px] text-text-muted truncate">
-              팩을 모아 자유롭게 정리하는 공간이에요
-            </span>
-          </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <button
-              onClick={() => setShowHelp(true)}
-              aria-label="사용법 도움말"
-              className="-m-2 p-2"
-            >
-              <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
-            </button>
-            <button
-              onClick={onOpenSettings}
-              aria-label="설정"
-              className="-m-2 p-2"
-            >
-              <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
-            </button>
-          </div>
-        </div>
-
-        {selectMode ? (
-          <div className="flex items-center justify-between mb-3 gap-2">
-            <button
-              onClick={cancelSelectMode}
-              className="text-[13px] text-text-secondary px-1 py-1.5"
-            >
-              취소
-            </button>
-            <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between mb-3 gap-2">
-            <button
-              onClick={() => setShowJoin(true)}
-              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12px] shrink-0"
-            >
-              <IconTicket size={14} stroke={1.75} />
-              코드로 참여
-            </button>
-            {bags.length > 0 && (
-              <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 pb-3">
-        {bags.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-24">
-            <button
-              onClick={() => setShowNewBagOptions(true)}
-              className="h-14 w-14 rounded-full flex items-center justify-center"
-              style={{ background: "var(--accent)" }}
-            >
-              <IconPlus size={26} stroke={1.75} color="#fff" />
-            </button>
-            <span className="text-[13px] text-text-muted">
-              새 가방 만들기
-            </span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-            {arrangedBags.map((bag) => (
-              <div
-                key={bag.id}
-                data-bag-drop-id={bag.id}
-                className="relative"
-                onPointerDown={(e) => handleCardPointerDown(bag.id, e)}
-                onPointerMove={handleCardPointerMove}
-                onPointerUp={handleCardPointerUp}
-                onPointerCancel={handleCardPointerUp}
-                onClickCapture={(e) => {
-                  if (justDraggedRef.current) {
-                    justDraggedRef.current = false;
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }
-                }}
-              >
-                <BagCard
-                  bag={bag}
-                  locked={lockedBagIds?.has(bag.id)}
-                  pinned={pinnedSet.has(bag.id)}
-                  onTogglePin={
-                    selectMode
-                      ? undefined
-                      : () => toggleBagPinned(bag.id).catch(() => show("고정 상태를 저장하지 못했어요"))
-                  }
-                  isDragSource={reorderDrag?.id === bag.id}
-                  isDragOver={reorderDrag?.overId === bag.id}
-                  onClick={() => (selectMode ? toggleSelected(bag.id) : onOpenBag(bag))}
+          {searchOpen ? (
+            <>
+              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5">
+                <IconSearch size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="가방, 팩, 짐 검색"
+                  className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
                 />
-                {selectMode && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div
-                      className="h-9 w-9 rounded-full flex items-center justify-center"
-                      style={{
-                        background: selectedIds.has(bag.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
-                        border: selectedIds.has(bag.id) ? "none" : "1.5px solid var(--border-strong)",
-                        boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
-                      }}
-                    >
-                      {selectedIds.has(bag.id) && <IconCheck size={18} stroke={3} color="#fff" />}
-                    </div>
-                  </div>
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} aria-label="검색어 지우기" className="shrink-0">
+                    <IconX size={15} stroke={1.75} color="var(--text-muted)" />
+                  </button>
                 )}
               </div>
-            ))}
-            {!selectMode && (
+              <button
+                onClick={closeSearch}
+                className="shrink-0 text-[13px] text-text-secondary px-1"
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-baseline gap-2 min-w-0">
+                <h1 className="text-[22px] font-bold shrink-0">가방</h1>
+                <span className="text-[12px] text-text-muted truncate">
+                  팩을 모아 자유롭게 정리하는 공간이에요
+                </span>
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <button
+                  onClick={openSearch}
+                  aria-label="검색"
+                  className="-m-2 p-2"
+                >
+                  <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+                <button
+                  onClick={() => setShowHelp(true)}
+                  aria-label="사용법 도움말"
+                  className="-m-2 p-2"
+                >
+                  <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+                <button
+                  onClick={onOpenSettings}
+                  aria-label="설정"
+                  className="-m-2 p-2"
+                >
+                  <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {!searchOpen &&
+          (selectMode ? (
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <button
+                onClick={cancelSelectMode}
+                className="text-[13px] text-text-secondary px-1 py-1.5"
+              >
+                취소
+              </button>
+              <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <button
+                onClick={() => setShowJoin(true)}
+                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12px] shrink-0"
+              >
+                <IconTicket size={14} stroke={1.75} />
+                코드로 참여
+              </button>
+              {bags.length > 0 && (
+                <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+              )}
+            </div>
+          ))}
+      </div>
+
+      {searchOpen ? (
+        <div className="flex-1 overflow-y-auto px-4 pb-3">
+          {searchQuery.trim() === "" ? (
+            <p className="text-[13px] text-text-muted py-16 text-center">
+              가방 이름, 팩 이름, 짐을 검색해보세요.
+            </p>
+          ) : searchResults.length === 0 ? (
+            <p className="text-[13px] text-text-muted py-16 text-center">
+              검색 결과가 없어요.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  onClick={() => handleResultClick(result)}
+                  className="flex flex-col items-start rounded-lg bg-surface-2 px-3 py-2.5 text-left"
+                >
+                  <span className="text-[13px] font-medium truncate w-full">{result.label}</span>
+                  {result.subtitle && (
+                    <span className="text-[11px] text-text-muted truncate w-full">
+                      {result.subtitle}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-4 pb-3">
+          {bags.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-24">
               <button
                 onClick={() => setShowNewBagOptions(true)}
-                className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+                className="h-14 w-14 rounded-full flex items-center justify-center"
+                style={{ background: "var(--accent)" }}
               >
-                <IconPlus size={22} stroke={1.75} />
+                <IconPlus size={26} stroke={1.75} color="#fff" />
               </button>
-            )}
-          </div>
-        )}
-      </div>
+              <span className="text-[13px] text-text-muted">
+                새 가방 만들기
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+              {arrangedBags.map((bag) => (
+                <div
+                  key={bag.id}
+                  data-bag-drop-id={bag.id}
+                  className="relative"
+                  onPointerDown={(e) => handleCardPointerDown(bag.id, e)}
+                  onPointerMove={handleCardPointerMove}
+                  onPointerUp={handleCardPointerUp}
+                  onPointerCancel={handleCardPointerUp}
+                  onClickCapture={(e) => {
+                    if (justDraggedRef.current) {
+                      justDraggedRef.current = false;
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }
+                  }}
+                >
+                  <BagCard
+                    bag={bag}
+                    locked={lockedBagIds?.has(bag.id)}
+                    pinned={pinnedSet.has(bag.id)}
+                    onTogglePin={
+                      selectMode
+                        ? undefined
+                        : () => toggleBagPinned(bag.id).catch(() => show("고정 상태를 저장하지 못했어요"))
+                    }
+                    isDragSource={reorderDrag?.id === bag.id}
+                    isDragOver={reorderDrag?.overId === bag.id}
+                    onClick={() => (selectMode ? toggleSelected(bag.id) : onOpenBag(bag))}
+                  />
+                  {selectMode && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div
+                        className="h-9 w-9 rounded-full flex items-center justify-center"
+                        style={{
+                          background: selectedIds.has(bag.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
+                          border: selectedIds.has(bag.id) ? "none" : "1.5px solid var(--border-strong)",
+                          boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        {selectedIds.has(bag.id) && <IconCheck size={18} stroke={3} color="#fff" />}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {!selectMode && (
+                <button
+                  onClick={() => setShowNewBagOptions(true)}
+                  className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+                >
+                  <IconPlus size={22} stroke={1.75} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <QuickPackBar pack={quickPack} onClick={onOpenQuickPack} />
 
