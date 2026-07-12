@@ -2,29 +2,77 @@ rules_version = '2';
 
 // 팩인백 Storage 보안 규칙
 // 경로: bags/{bagId}/{fileName}
-// 해당 가방의 멤버만 읽고 쓸 수 있고, 이미지 파일만, 5MB 이하만 업로드 가능.
+// 해당 가방의 멤버만 읽고 쓸 수 있고, 이미지는 5MB 이하만 업로드 가능.
+// PDF는 프리미엄 전용 기능(2026-07 추가)이라 업로드/다운로드 모두 "지금 요청하는 사람이
+// 프리미엄인지"를 그때그때 실시간으로 검사한다(무료→유료 전환/유료→무료 다운그레이드가
+// 바로 반영됨 - 가방/팩의 locked 필드처럼 별도 동기화 배치가 필요 없다, 매 요청마다
+// unlockCodes 문서를 직접 확인하기 때문). 이미지는 기존과 동일하게 무료/유료 구분 없음.
 // 가방이 locked:true(소유자가 무료 전환 후 개수 제한을 넘어선 상태)이고 지금 업로드하는
 // 사람이 그 가방의 소유자(ownerId)라면, 업로드가 거부된다 - 다른 그룹원은 locked 여부와
 // 무관하게 여전히 업로드할 수 있다(firestore.rules에서 가방 수정/삭제를 막는 것과 동일한 원칙).
 //
-// 주의: 같은 경로에 allow write를 여러 번 쓰면 OR로 합쳐진다(하나만 만족해도 허용됨).
-// 그래서 "인증+멤버십" 조건과 "용량+타입" 조건을 반드시 하나의 allow write 안에서 &&로
-// 묶어야 한다 (분리하면 용량/타입만 맞으면 로그인 없이도 쓰기가 허용되는 구멍이 생김).
+// 주의: 같은 경로에 allow read/write를 여러 번 쓰면 OR로 합쳐진다(하나만 만족해도 허용됨).
+// 그래서 조건들을 함수 하나(isMember 등) 안에 모으고, 최종 allow는 각각 하나씩만 둔다 -
+// 잘못 나누면 "인증 없이도 조건만 맞으면 허용" 같은 구멍이 생긴다.
 
 service firebase.storage {
   match /b/{bucket}/o {
     match /bags/{bagId}/{fileName} {
+
+      function bagData() {
+        return firestore.get(/databases/(default)/documents/bags/$(bagId)).data;
+      }
+
+      function isMember() {
+        return request.auth.uid in bagData().memberIds;
+      }
+
+      function isOwnerLocked() {
+        return request.auth.uid == bagData().ownerId && bagData().get('locked', false) == true;
+      }
+
+      function isMasterEmail() {
+        return request.auth.token.email in
+          ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+      }
+
+      // 지금 요청 중인 사람(request.auth.uid)이 프리미엄인지 - app/api 라우트들의
+      // isPremiumServer(lib/premiumServer.ts)와 동일한 판정 기준을 규칙 언어로 옮긴 것.
+      // 마스터 계정이거나, users/{uid}.unlockCode가 실제로 unlockCodes 컬렉션에 존재하고
+      // 지금도 유효(무효화/만료 안 됨)해야 프리미엄으로 본다.
+      function isPremium() {
+        let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+        let code = userDoc.get('unlockCode', null);
+        return isMasterEmail() || (
+          code != null &&
+          firestore.exists(/databases/(default)/documents/unlockCodes/$(code)) &&
+          firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.get('status', 'active') != 'invalidated' &&
+          (
+            !('expiresAt' in firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data) ||
+            firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.expiresAt == null ||
+            firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.expiresAt > request.time
+          )
+        );
+      }
+
+      function isPdf(contentType) {
+        return contentType == 'application/pdf';
+      }
+
       allow read: if request.auth != null &&
-        request.auth.uid in firestore.get(/databases/(default)/documents/bags/$(bagId)).data.memberIds;
+        isMember() &&
+        (
+          resource.contentType.matches('image/.*') ||
+          (isPdf(resource.contentType) && isPremium())
+        );
 
       allow write: if request.auth != null &&
-        request.auth.uid in firestore.get(/databases/(default)/documents/bags/$(bagId)).data.memberIds &&
-        !(
-          request.auth.uid == firestore.get(/databases/(default)/documents/bags/$(bagId)).data.ownerId &&
-          firestore.get(/databases/(default)/documents/bags/$(bagId)).data.get('locked', false) == true
-        ) &&
-        request.resource.size < 5 * 1024 * 1024 &&
-        request.resource.contentType.matches('image/.*');
+        isMember() &&
+        !isOwnerLocked() &&
+        (
+          (request.resource.contentType.matches('image/.*') && request.resource.size < 5 * 1024 * 1024) ||
+          (isPdf(request.resource.contentType) && isPremium() && request.resource.size < 3 * 1024 * 1024)
+        );
     }
   }
 }

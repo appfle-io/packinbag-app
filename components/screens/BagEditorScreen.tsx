@@ -50,9 +50,11 @@ import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import ImageLightbox from "@/components/ImageLightbox";
+import PdfPreviewModal from "@/components/PdfPreviewModal";
+import PremiumLimitModal from "@/components/PremiumLimitModal";
 import HelpTutorialModal from "@/components/HelpTutorialModal";
 import { bagEditorHelpSlides } from "@/lib/helpTutorial/bagEditorSlides";
-import { MAX_BAG_IMAGES } from "@/lib/premiumLimits";
+import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -124,10 +126,16 @@ export default function BagEditorScreen({
   const [showHelp, setShowHelp] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
+  // PDF 미리보기/업로드는 프리미엄 전용 기능(2026-07 추가). 실제 차단은
+  // storage.rules가 해주지만(프리미엄이 아닌 요청자에게는 읽기/쓰기 자체가 거부됨),
+  // 여기서는 실패하기 전에 미리 안내해서 사용자가 왜 막혔는지 바로 알게 한다.
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
   const { profile, updatePackDisplayState, updateAllPackDisplayStates, updateBagViewMode } = useAuth();
+  const premium = isPremiumUser(profile?.email, profile ?? null);
 
   // 설정 > 팩 설정 > "가방 열 때 팩 접어서 보기"가 켜져 있으면, 이 화면에 처음 들어온
   // 순간에만 모든 팩을 접힌 상태로 보여준다. 저장된 Pack.displayState는 전혀 건드리지
@@ -998,13 +1006,23 @@ export default function BagEditorScreen({
   const handleAddImages = async (files: FileList | null) => {
     if (guardReadOnly()) return;
     if (!files || files.length === 0) return;
-    const toUpload = Array.from(files).slice(0, MAX_BAG_IMAGES - bag.images.length);
+    const selected = Array.from(files).slice(0, MAX_BAG_IMAGES - bag.images.length);
+
+    // PDF는 프리미엄 전용 기능 - storage.rules가 실제로도 프리미엄 요청자에게만 읽기/쓰기를
+    // 허용한다. 무료 회원이 PDF를 골랐다면 그 파일들만 업로드 목록에서 빼고 업그레이드
+    // 안내 모달을 띄우며, 같이 고른 이미지는 그대로 정상 업로드된다.
+    const isPdfFile = (f: File) =>
+      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+    const pdfFiles = selected.filter(isPdfFile);
+    const toUpload = premium ? selected : selected.filter((f) => !isPdfFile(f));
+    if (pdfFiles.length > 0 && !premium) {
+      setShowPdfPremiumModal(true);
+    }
+    if (toUpload.length === 0) return;
+
     // PDF is not compressed on upload, so reject oversized PDFs here before spending
     // an upload attempt (images are still compressed down automatically as before).
-    const oversizedPdf = toUpload.find((f) => {
-      const looksLikePdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
-      return looksLikePdf && f.size > MAX_BAG_PDF_BYTES;
-    });
+    const oversizedPdf = toUpload.find((f) => isPdfFile(f) && f.size > MAX_BAG_PDF_BYTES);
     if (oversizedPdf) {
       show("PDF 파일은 3MB 이하만 첨부할 수 있어요");
       return;
@@ -1177,12 +1195,22 @@ export default function BagEditorScreen({
               >
                 {isPdf ? (
                   <button
-                    onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
-                    className="h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
-                    aria-label="PDF 열기"
+                    onClick={() =>
+                      premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
+                    }
+                    className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
+                    aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
                   >
                     <IconFileText size={20} stroke={1.75} />
                     <span className="text-[9px]">PDF</span>
+                    {!premium && (
+                      <span
+                        className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.55)" }}
+                      >
+                        <IconLock size={9} stroke={2} color="#fff" />
+                      </span>
+                    )}
                   </button>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -1620,6 +1648,21 @@ export default function BagEditorScreen({
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}
+        />
+      )}
+
+      {pdfPreviewUrl && (
+        <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />
+      )}
+
+      {showPdfPremiumModal && (
+        <PremiumLimitModal
+          message="PDF 첨부/미리보기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          onClose={() => setShowPdfPremiumModal(false)}
+          onUnlocked={() => {
+            setShowPdfPremiumModal(false);
+            show("이용권 코드가 적용됐어요! PDF 기능을 다시 시도해주세요");
+          }}
         />
       )}
 
