@@ -33,8 +33,9 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 // 예외: 지금 편집 중인 팩이 "빠른팩"(pack.isQuickPack)이면, 같은 화면에 다른 팩이
 // 안 보여서 드래그로 다른 팩에 옮길 수가 없다. 그래서 이 팩에서만 롱프레스가 순서변경
 // 드래그 대신 "다중선택 모드"로 진입한다 - 길게 누른 짐이 선택되고, 이후 다른 짐들을
-// 탭해서 선택을 추가/해제할 수 있다. 하단 액션바의 "이동"을 누르면 목적지를 고르는
+// 탭해서 선택을 추가/해제할 수 있다. 하단 액션바에서 "이동"을 누르면 목적지를 고르는
 // 시트가 뜨는데, 목적지는 라이브러리 팩뿐 아니라 특정 가방의 특정 팩까지도 가능하다.
+// "삭제"를 누르면 목적지 없이 바로 빠른팩에서 지워진다(확인창 없이, 되돌리기 토스트만).
 export default function PackLibraryEditorScreen({
   initialPack,
   libraryPacks,
@@ -383,6 +384,26 @@ export default function PackLibraryEditorScreen({
     });
   };
 
+  // 선택된 짐들을 어디로도 옮기지 않고 그냥 빠른팩에서 삭제한다. 다른 짐 삭제(deleteItem)와
+  // 동일하게 확인창 없이 바로 삭제하고 "되돌리기" 토스트로 복구 기회를 준다 - 다중선택
+  // 상태에서 자주 쓰는 동작이라 매번 확인창을 띄우면 번거롭다.
+  const commitDeleteSelected = () => {
+    if (guardReadOnly()) return;
+    if (!selectedItemIds || selectedItemIds.size === 0) return;
+    const removedItems = pack.items.filter((i) => selectedItemIds.has(i.id));
+    if (removedItems.length === 0) return;
+
+    setPack((p) => ({ ...p, items: p.items.filter((i) => !selectedItemIds.has(i.id)) }));
+    setSelectedItemIds(null);
+
+    show(`${removedItems.length}개를 삭제했어요`, {
+      actionLabel: "되돌리기",
+      onAction: () => {
+        setPack((p) => ({ ...p, items: [...p.items, ...removedItems] }));
+      },
+    });
+  };
+
   useEffect(() => {
     if (!drag) return;
 
@@ -574,7 +595,7 @@ export default function PackLibraryEditorScreen({
       {pack.isQuickPack && !selecting && (
         <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
           빠른입력으로 던져둔 짐들이에요. 짐을 길게 누르면 선택 모드가 시작돼요 - 다른 짐도
-          탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮길 수 있어요.
+          탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮기거나 한 번에 삭제할 수 있어요.
         </p>
       )}
 
@@ -658,6 +679,13 @@ export default function PackLibraryEditorScreen({
             style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
           >
             취소
+          </button>
+          <button
+            onClick={commitDeleteSelected}
+            className="rounded-lg px-4 py-2.5 text-[14px] font-medium"
+            style={{ background: "var(--danger)", color: "#fff" }}
+          >
+            삭제
           </button>
           <button
             onClick={() => setShowMoveSheet(true)}
