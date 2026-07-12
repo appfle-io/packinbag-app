@@ -18,6 +18,7 @@ import { searchBags, BagSearchResult } from "@/lib/librarySearch";
 import BagCard from "@/components/BagCard";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
+import NotificationBell from "@/components/NotificationBell";
 import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
@@ -38,6 +39,7 @@ const MOVE_CANCEL_PX = 10;
 export type BagOpenFocus = { packId?: string; itemId?: string };
 
 export default function HomeScreen({
+  uid,
   bags,
   initialInviteCode,
   lockedBagIds,
@@ -51,6 +53,9 @@ export default function HomeScreen({
   onOpenQuickPack,
   onBulkDeleteBags,
 }: {
+  // 알림종 배지/패널에 쓰임(NotificationBell). currentUid와 동일한 값이지만,
+  // 이 프롭은 순수하게 NotificationBell에만 쓰이도록 이름을 따로 두었다.
+  uid: string;
   bags: Bag[];
   initialInviteCode?: string;
   // 무료 전환으로 잠긴(내가 소유한) 가방 id 목록. 카드에 자물쇠 표시만 하고, 탭하면
@@ -303,6 +308,7 @@ export default function HomeScreen({
                 >
                   <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
+                <NotificationBell uid={uid} />
                 <button
                   onClick={onOpenSettings}
                   aria-label="설정"

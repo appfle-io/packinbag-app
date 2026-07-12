@@ -40,8 +40,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 마스터(운영자) 이메일 판정 - 여러 match 블록에서 공통으로 쓴다.
+    function isMasterEmail() {
+      return request.auth.token.email in
+        ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+    }
+
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // 문의하기 답변 등록 시 마스터가 작성자에게 알림을 남기는 곳. 나중에 푸시
+      // 기능이 생기면 서버(Admin SDK)가 같은 구조에 다른 type을 쓰기만 하면 되도록
+      // 설계되어 있다.
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+
+        // 본인은 읽음 처리(read 필드)만 바꿀 수 있다.
+        allow update: if request.auth != null && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+        // 지금은 마스터가 다른 사람의 notifications 하위 컬렉션에 쓰는
+        // 유일한 경로(문의 답변 등록 시). 나중에 푸시용 서버 라우트가 생기면
+        // Admin SDK를 쓰면 이 규칙을 그대로 통과한다.
+        allow create: if request.auth != null && isMasterEmail();
+
+        allow delete: if false;
+      }
 
       // 팩 라이브러리 새로 만들기(create)는 무료 개수 제한(FREE_MAX_LIBRARY_PACKS)을
       // 서버에서 검증해야 해서 app/api/create-library-pack에서만 가능하다(Admin SDK는
@@ -69,6 +93,30 @@ service cloud.firestore {
 
         allow create: if false;
       }
+    }
+
+    // 문의하기 게시판. 본인이 쓴 글은 본인만, 전체 목록/답변은 마스터(운영자)만
+    // 볼 수 있다. 답변 등록(update)도 마스터만 가능하고, status/answer/answeredAt
+    // 세 필드만 바꿀 수 있다(질문 내용 자체는 위조 불가).
+    match /inquiries/{inquiryId} {
+      allow read: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isMasterEmail());
+
+      allow create: if request.auth != null &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.category in ['bag', 'pack', 'ai', 'other'] &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60 &&
+        request.resource.data.content is string &&
+        request.resource.data.content.size() > 0 && request.resource.data.content.size() <= 2000;
+
+      allow update: if request.auth != null && isMasterEmail() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'answeredAt']) &&
+        request.resource.data.status == 'answered' &&
+        request.resource.data.answer is string && request.resource.data.answer.size() > 0;
+
+      allow delete: if false;
     }
 
     // 초대코드 -> 가방id 매핑. 코드를 아는 사람이면 조회 가능(참여 전이라 멤버가 아니어도 됨).

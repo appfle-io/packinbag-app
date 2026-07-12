@@ -270,3 +270,35 @@ export interface PresenceEntry {
   avatarId: AvatarId;
   updatedAt: number; // epoch ms, 클라이언트에서 오래된 항목 필터링용
 }
+
+// 문의하기 게시판. 카테고리 + 제목 + 내용으로 작성하고, 마스터(운영자) 계정만
+// 전체 목록을 볼 수 있고 답변을 달 수 있다. 일반 사용자는 본인이 쓴 글만 볼 수 있다
+// (firestore.rules에서 uid 일치 또는 마스터 이메일만 허용).
+export type InquiryCategory = "bag" | "pack" | "ai" | "other";
+
+export interface Inquiry {
+  id: string;
+  uid: string; // 작성자
+  authorNickname: string; // 작성 시점 스냅샷(닉네임 바뀌어도 예전 글은 그대로)
+  category: InquiryCategory;
+  title: string;
+  content: string;
+  createdAt: string;
+  status: "pending" | "answered";
+  answer?: string;
+  answeredAt?: string;
+}
+
+// 범용 알림함(users/{uid}/notifications). 지금은 "내 문의에 답변 달림" 하나뿐이지만,
+// 나중에 푸시 기능이 추가되면 같은 구조에 type만 늘려가면서 쓰이도록 설계된다.
+export type NotificationType = "inquiry_answered";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  relatedId?: string; // 예: 해당 inquiry id
+  createdAt: string;
+  read: boolean;
+}

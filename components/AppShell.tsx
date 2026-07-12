@@ -904,6 +904,7 @@ export default function AppShell() {
           >
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <PacksScreen
+                uid={user.uid}
                 packs={activePacks}
                 quickPack={quickPack}
                 lockedPackIds={lockedPackIds}
@@ -918,6 +919,7 @@ export default function AppShell() {
             </div>
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <HomeScreen
+                uid={user.uid}
                 bags={activeBags}
                 initialInviteCode={inviteCodeFromUrl()}
                 lockedBagIds={lockedBagIds}

@@ -17,6 +17,7 @@ import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
 import PackTile from "@/components/PackTile";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
+import NotificationBell from "@/components/NotificationBell";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 
@@ -24,6 +25,7 @@ const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
 
 export default function PacksScreen({
+  uid,
   packs,
   quickPack,
   lockedPackIds,
@@ -34,6 +36,8 @@ export default function PacksScreen({
 }: {
   // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 그리드 렌더링 전에
   // 걸러낸다 - 빠른팩은 그리드가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
+  // 알림종 배지/패널에 쓰임(NotificationBell).
+  uid: string;
   packs: Pack[];
   quickPack?: Pack;
   // 무료 전환으로 잠긴 팩 id 목록. 타일에 자물쇠 표시만 하고, 탭하면 여전히 열린다 -
@@ -263,6 +267,7 @@ export default function PacksScreen({
                 >
                   <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
+                <NotificationBell uid={uid} />
                 <button
                   onClick={onOpenSettings}
                   aria-label="설정"

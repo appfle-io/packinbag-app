@@ -1092,7 +1092,7 @@ export default function BagEditorScreen({
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between p-4 pb-2 shrink-0">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-6">
           <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
             <IconArrowLeft size={22} stroke={1.75} />
           </button>

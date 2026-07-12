@@ -39,7 +39,19 @@
    `PdfPreviewModal.tsx`(iframe 기반 인앱 미리보기) + `BagEditorScreen`의 프리미엄
    업셀 모달(PremiumLimitModal 재사용)을 추가해서 무료회원이 실패를 겪기 전에 먼저
    안내하도록 함.
-4. **이메일 미인증 계정으로 로그인 시도 시 홈 화면이 잠깐 반짝였다가 튕겨나감** (2026-07-12 발견/수정)
+5. **ConfirmDialog가 파일 삭제 시트 안에서 클릭이 안 먹힘** (2026-07-12 발견/수정)
+   `ConfirmDialog`가 `z-[70]`이었는데, 팩을 삭제하려고 할 때 팩 편집 시트(AppShell의
+   `z-[75]` 백드롭) 안에서 띄으면 그 다이얼로그가 시트 백드롭보다 낮은 z-index에
+   가려졌다. 시각적으로는 다이얼로그가 보이지만 실제 클릭은 그 위에 있는 시트 백드롭(=닫기
+   동작)이 받아버려서, "휴지통으로" 버튼을 누르면 삭제가 안 되고 시트만 닫혀는 버그가
+   있었음. `z-[95]`로 올려서 앱 내 모든 시트/모달보다 항상 위에 오도록 수정.
+6. **알림종이 설정 아이콘을 가림** (2026-07-12 발견/수정)
+   처음에 `AppShell` 레벨에서 항상 우상단에 고정된 독립 오버레이로 만들었다가,
+   팩/가방 보관함 화면 자체의 헤더 아이콘 줄(검색/도움말/설정)과 같은 자리를 놓고
+   겹쳐서 설정 아이콘을 가려 누를 수 없게 된 버그. 지금은 PacksScreen/HomeScreen/
+   SettingsScreen 각자의 헤더 아이콘 줄 안에 다른 아이콘들과 나란히 들어가는 평범한
+   인라인 버튼으로 바꿔서 위치 충돌 자체가 구조적으로 불가능해졌다.
+7. **이메일 미인증 계정으로 로그인 시도 시 홈 화면이 잠깐 반짝였다가 튕겨나감** (2026-07-12 발견/수정)
    `signUpWithEmail`/`resendVerificationByCredential`은 `authBusy` 가드로 감싸져 있었지만,
    정작 로그인 버튼이 호출하는 `signInWithEmail`에는 이 가드가 빠져있었음.
    `signInWithEmailAndPassword`가 성공하면 Firebase가 이메일 인증 여부와 무관하게 일단
@@ -64,7 +76,7 @@
 ### 화면 전환 매끄러움 (깜빡임 방지) — appflo가 특히 강조한 부분
 
 - A-05 회원가입 처리 중(계정생성→인증메일발송→로그아웃) 홈 화면으로 안 튀는지 — `authBusy` 가드, `AppShell`의 `if (!user || authBusy)` ✅
-- A-06 **이메일 미인증 계정 로그인 시도 시 홈 화면 반짝임 — 오늘 발견/수정(위 이슈 4번), `signInWithEmail`에 `authBusy` 가드 추가** 🔧
+- A-06 **이메일 미인증 계정 로그인 시도 시 홈 화면 반짝임 — 오늘 발견/수정(위 이슈 7번), `signInWithEmail`에 `authBusy` 가드 추가** 🔧
   - 🔍 실기기에서 미인증 계정으로 로그인 버튼 눌러보고 화면이 로그인→(스플래시)→로그인(인증안내) 순으로만 자연스럽게 넘어가는지, 홈 화면이 스치듯이라도 보이지 않는지 확인 필요
 - A-07 "인증 메일 다시 받기"(로그인 화면에서, 비밀번호로 재로그인 후 발송) 흐름도 동일하게 `authBusy`로 감싸져 있어 깜빡임 없음 — `resendVerificationByCredential` ✅
 - A-08 재로그인/재발송 실패 시(비밀번호 틀림 등) 에러 메시지만 뜨고 화면 전환 없음 ✅
@@ -265,3 +277,28 @@
   API 성능/정확도가 데스크톱 브라우저와 다를 수 있음
 - N-10 Firebase Storage 업로드/다운로드 네트워크 요청 — Capacitor 앱이 `firebasestorage.googleapis.com`,
   `generativelanguage.googleapis.com` 등 외부 도메인 요청을 문제없이 보내는지
+
+---
+
+## 문의하기 / 알림종 (SettingsScreen 내 신규 기능, 2026-07 추가)
+
+설정 화면 자체는 별도 체크리스트로 관리하지 않기로 했지만(appflo 요청, 필요할 때 추가 요청),
+문의하기 게시판 + 알림종은 신규 기능이라 따로 추적한다.
+
+- I-01 문의 작성(카테고리 선택 + 제목 + 내용) 정상 등록 — `InquiryComposeModal.tsx`, `createInquiryRemote` ✅
+- I-02 내 문의 목록(본인 글만) + 미답변 필터 — `InquiryScreen.tsx`, `subscribeToMyInquiries` ✅
+- I-03 문의 상세에서 답변 확인(답변 전이면 "아직 답변 없음" 안내) ✅
+- I-04 관리자 전체 문의 목록 + 미답변 필터 — `InquiryAdminScreen.tsx`, `subscribeToAllInquiries` ✅
+  - 🔍 마스터 계정으로 실제 로그인해서 설정 > 문의 관리 진입점이 보이는지, 일반 계정은 안 보이는지 실기기 확인 필요
+- I-05 관리자 답변 등록 → status "answered" 전환 + 작성자에게 알림 자동 생성(배치 처리) — `answerInquiryRemote` ✅
+  - 🔍 둘 중 하나만 성공하는 경우가 없는지(배치 원자성) 실기기 확인 권장
+- I-06 firestore.rules — 본인 글만 read, 관리자만 전체 read+답변 write, 질문 내용(title/content) 자체는 답변 등록 시에도 위조 불가(status/answer/answeredAt 세 필드만 허용)
+  - 🔍 **로컬 파일과 Firebase 콘솔에 실제 배포된 규칙이 일치하는지 수동 대조 필요**(이번에도 새로 추가된 inquiries/notifications 규칙 반영 안 하면 작동 안 함)
+- I-07 알림종 배지(읽지 않은 건 있으면 작은 반짝 점), 클릭 시 패널, 개별/전체 읽음처리 — `NotificationBell.tsx` ✅
+- I-08 알림종 위치 (2026-07-12 재설계): 처음에 AppShell 고정 오버레이로 만들었다가
+  헤더 아이콘 충돌(설정 아이콘을 가림)이 발견되어, PacksScreen/HomeScreen/SettingsScreen 각자의
+  헤더 아이콘 줄 안에 들어가는 인라인 버튼으로 재설계(위 "발견 후 수정한 이슈" 6번). **가방 편집
+  화면은 여전히 제외**(헤더에 NotificationBell을 따로 넣지 않음) ✅🔧
+- I-09 설정 화면 개편: 휴지통 아이콘 제거 + AI기능 아래·고객지원 위 독립 메뉴칸으로 이동 ✅
+- I-10 가방 편집 화면 뒤로가기↔물음표 간격 4px→24px로 확대(터치영역 겹침 방지) — `BagEditorScreen.tsx` ✅
+

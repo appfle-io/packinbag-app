@@ -29,7 +29,7 @@ export default function ConfirmDialog({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+        className="fixed inset-0 z-[95] flex items-center justify-center p-4"
         style={{ background: "rgba(0,0,0,0.45)" }}
         onClick={onCancel}
       >

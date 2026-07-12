@@ -8,7 +8,6 @@ import {
   IconHelpCircle,
   IconSparkles,
   IconArrowLeft,
-  IconTrash,
 } from "@tabler/icons-react";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -30,9 +29,12 @@ import PackSettingsScreen from "@/components/screens/PackSettingsScreen";
 import BagSettingsScreen from "@/components/screens/BagSettingsScreen";
 import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
 import TrashScreen from "@/components/screens/TrashScreen";
+import InquiryScreen from "@/components/screens/InquiryScreen";
+import InquiryAdminScreen from "@/components/screens/InquiryAdminScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
+import NotificationBell from "@/components/NotificationBell";
 import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
@@ -57,7 +59,9 @@ type SettingsView =
   | "bagSettings"
   | "colorSettings"
   | "unlockCodeAdmin"
-  | "trash";
+  | "trash"
+  | "inquiries"
+  | "inquiryAdmin";
 
 // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더의 톱니바퀴 아이콘으로 열고
 // 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
@@ -135,6 +139,18 @@ export default function SettingsScreen({
       />
     );
   }
+  if (view === "inquiries") {
+    return (
+      <InquiryScreen
+        uid={uid}
+        nickname={profile?.nickname ?? ""}
+        onBack={() => setView("main")}
+      />
+    );
+  }
+  if (view === "inquiryAdmin") {
+    return <InquiryAdminScreen onBack={() => setView("main")} />;
+  }
   if (view === "announcementAdmin") {
     return (
       <AnnouncementAdminScreen
@@ -164,7 +180,8 @@ export default function SettingsScreen({
         <button onClick={onBack} className="-m-2.5 p-2.5" aria-label="뒤로가기">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
-        <h1 className="text-[18px] font-medium">설정</h1>
+        <h1 className="text-[18px] font-medium flex-1">설정</h1>
+        <NotificationBell uid={uid} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
@@ -246,30 +263,10 @@ export default function SettingsScreen({
             </button>
             <button
               onClick={() => setView("packSettings")}
-              className="w-full flex items-center justify-between p-3 border-b border-border"
+              className="w-full flex items-center justify-between p-3"
             >
               <span className="text-[13px]">팩 설정</span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
-            <button
-              onClick={() => setView("trash")}
-              className="w-full flex items-center justify-between p-3"
-            >
-              <span className="flex items-center gap-2 text-[13px]">
-                <IconTrash size={15} stroke={1.75} />
-                휴지통
-              </span>
-              <span className="flex items-center gap-1.5">
-                {trashCount > 0 && (
-                  <span
-                    className="text-[11px] font-medium rounded-full px-1.5 py-0.5"
-                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
-                  >
-                    {trashCount}
-                  </span>
-                )}
-                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-              </span>
             </button>
           </div>
         </div>
@@ -294,6 +291,26 @@ export default function SettingsScreen({
               </button>
             )}
           </div>
+        </div>
+
+        <div className="mb-6">
+          <button
+            onClick={() => setView("trash")}
+            className="w-full rounded-lg border border-border flex items-center justify-between p-3"
+          >
+            <span className="text-[13px]">휴지통</span>
+            <span className="flex items-center gap-1.5">
+              {trashCount > 0 && (
+                <span
+                  className="text-[11px] font-medium rounded-full px-1.5 py-0.5"
+                  style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                >
+                  {trashCount}
+                </span>
+              )}
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </span>
+          </button>
         </div>
 
         <div className="mb-6">
@@ -324,16 +341,16 @@ export default function SettingsScreen({
               </span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
             </button>
-            <a
-              href="mailto:appfle.dev@gmail.com?subject=팩인백 문의"
-              className="flex items-center justify-between p-3"
+            <button
+              onClick={() => setView("inquiries")}
+              className="w-full flex items-center justify-between p-3"
             >
               <span className="flex items-center gap-2 text-[13px]">
                 <IconMail size={16} stroke={1.75} />
                 문의하기
               </span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </a>
+            </button>
           </div>
         </div>
 
@@ -370,10 +387,19 @@ export default function SettingsScreen({
             </button>
             <button
               onClick={() => setView("unlockCodeAdmin")}
-              className="w-full flex items-center justify-between p-3"
+              className="w-full flex items-center justify-between p-3 border-b border-border"
             >
               <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
                 이용권 코드 관리 (운영자)
+              </span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+            <button
+              onClick={() => setView("inquiryAdmin")}
+              className="w-full flex items-center justify-between p-3"
+            >
+              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                문의 관리 (운영자)
               </span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
             </button>
