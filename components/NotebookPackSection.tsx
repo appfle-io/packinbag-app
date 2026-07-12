@@ -173,7 +173,9 @@ export default function NotebookPackSection({
               {/* 메뉴 바깥을 탭하면 닫히도록 전체 화면을 덮는 투명 배경 */}
               <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
               <div
-                className="absolute right-0 top-full mt-1 z-50 rounded-lg border border-border shadow-lg overflow-hidden"
+                className={`absolute right-0 z-50 rounded-lg border border-border shadow-lg overflow-hidden ${
+                  isLast ? "bottom-full mb-1" : "top-full mt-1"
+                }`}
                 style={{ background: "var(--surface)", minWidth: 140 }}
               >
                 {pack.linkedLibraryPackId && (

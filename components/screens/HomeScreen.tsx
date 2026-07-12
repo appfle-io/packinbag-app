@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconPlus, IconSettings, IconTicket } from "@tabler/icons-react";
+import { IconPlus, IconSettings, IconTicket, IconHelpCircle } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
@@ -12,6 +12,8 @@ import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
+import HelpTutorialModal from "@/components/HelpTutorialModal";
+import { homeHelpSlides } from "@/lib/helpTutorial/homeSlides";
 import { useToast } from "@/components/Toast";
 
 // 길게 누른(롱프레스) 걸로 판정하는 시간. 이보다 짧게 떼면 그냥 탭(가방 열기)으로 처리한다.
@@ -48,6 +50,7 @@ export default function HomeScreen({
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const { profile, updateBagSortBy, toggleBagPinned, updateBagOrder } = useAuth();
   const { show } = useToast();
   const sortBy = profile?.bagSortBy ?? "createdAt";
@@ -139,13 +142,22 @@ export default function HomeScreen({
               팩을 모아 자유롭게 정리하는 공간이에요
             </span>
           </div>
-          <button
-            onClick={onOpenSettings}
-            aria-label="설정"
-            className="-m-2 p-2 shrink-0"
-          >
-            <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
-          </button>
+          <div className="flex items-center gap-4 shrink-0">
+            <button
+              onClick={() => setShowHelp(true)}
+              aria-label="사용법 도움말"
+              className="-m-2 p-2"
+            >
+              <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
+            </button>
+            <button
+              onClick={onOpenSettings}
+              aria-label="설정"
+              className="-m-2 p-2"
+            >
+              <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between mb-3 gap-2">
@@ -279,6 +291,10 @@ export default function HomeScreen({
             onImportNote(result);
           }}
         />
+      )}
+
+      {showHelp && (
+        <HelpTutorialModal slides={homeHelpSlides} onClose={() => setShowHelp(false)} />
       )}
     </div>
   );
