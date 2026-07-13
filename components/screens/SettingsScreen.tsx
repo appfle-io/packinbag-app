@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
 import { isMasterEmail } from "@/lib/masterEmails";
+import { APP_VERSION } from "@/lib/changelog";
 import {
   AI_FREE_DAILY_LIMIT,
   currentAiUsageCount,
@@ -361,7 +362,7 @@ export default function SettingsScreen({
           >
             <span className="text-[13px]">버전 정보</span>
             <span className="flex items-center gap-1 text-[12px] text-text-muted">
-              v1.0.0
+              v{APP_VERSION}
               <IconChevronRight size={16} stroke={1.75} />
             </span>
           </button>

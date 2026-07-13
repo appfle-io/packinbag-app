@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Portal from "@/components/Portal";
-import { IconBell, IconX } from "@tabler/icons-react";
+import { IconBell, IconRefresh, IconX } from "@tabler/icons-react";
 import { AppNotification } from "@/lib/types";
 import {
   markAllNotificationsRead,
   markNotificationRead,
   subscribeToNotifications,
 } from "@/lib/notificationsService";
+import { useNewVersionAvailable } from "@/lib/useNewVersionAvailable";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
@@ -20,9 +21,18 @@ function formatDate(iso: string) {
 // 나머지 아이콘들과 나란히 들어가는 평범한 인라인 버튼으로 바꿨다 - 위치 충돌 걱정 없이
 // 항상 같은 상대적 자리(아이콘 줄의 한 자리)에 보인다. 알림 패널 자체는 여전히 화면
 // 전체를 덮는 오버레이라 다른 화면 요소와 겹칠 일이 없다.
+//
+// "새 배포가 있어요" 안내(lib/useNewVersionAvailable.ts)도 이 알림종에 함께 보여준다.
+// Vercel에 새 코드가 배포되는 순간 자동으로 감지되고(수동으로 뭔가 기록할 필요 없음),
+// 종에 "NEW" 글자 뱃지가 뜬다. 카드를 탭하면 새로고침해서 최신 코드를 받아온다 - 새로고침
+// 후에는 클라이언트가 최신 빌드를 로딩하게 되므로 뱃지도 자동으로 사라진다(별도로
+// "읽음" 상태를 저장할 필요가 없음). 나중에 앱 푸시(FCM)를 붙이면 배포 시점에 푸시로도
+// 같은 안내를 보낼 수 있다 - 이 폴링 감지는 그 전까지의, 그리고 푸시를 안 받는 사람을
+// 위한 이중 안전망 역할도 한다.
 export default function NotificationBell({ uid }: { uid: string }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
+  const hasNewVersion = useNewVersionAvailable();
 
   useEffect(() => subscribeToNotifications(uid, setNotifications), [uid]);
 
@@ -36,11 +46,20 @@ export default function NotificationBell({ uid }: { uid: string }) {
         className="relative -m-2 p-2"
       >
         <IconBell size={20} stroke={1.75} color="var(--text-secondary)" />
-        {unreadCount > 0 && (
+        {hasNewVersion ? (
           <span
-            className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full"
-            style={{ background: "var(--danger)" }}
-          />
+            className="absolute -top-1 -right-2 rounded-full px-1 text-[8px] font-bold leading-[13px] text-white"
+            style={{ background: "var(--accent)" }}
+          >
+            NEW
+          </span>
+        ) : (
+          unreadCount > 0 && (
+            <span
+              className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full"
+              style={{ background: "var(--danger)" }}
+            />
+          )
         )}
       </button>
 
@@ -77,8 +96,43 @@ export default function NotificationBell({ uid }: { uid: string }) {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto flex flex-col gap-1">
+                {hasNewVersion && (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left"
+                    style={{
+                      background: "var(--surface-2)",
+                      border: "1px solid var(--accent)",
+                    }}
+                  >
+                    <span
+                      className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center"
+                      style={{ background: "var(--accent)" }}
+                    >
+                      <IconRefresh size={16} stroke={2} color="#fff" />
+                    </span>
+                    <span className="flex flex-col min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          className="text-[9px] font-bold rounded-full px-1.5 py-0.5 text-white shrink-0"
+                          style={{ background: "var(--accent)" }}
+                        >
+                          NEW
+                        </span>
+                        <span className="text-[12.5px] font-medium">
+                          새 기능이 추가됐어요!
+                        </span>
+                      </span>
+                      <span className="text-[11.5px] text-text-secondary">
+                        눌러서 새로고침하면 바로 이용할 수 있어요
+                      </span>
+                    </span>
+                  </button>
+                )}
                 {notifications.length === 0 ? (
-                  <p className="text-[12px] text-text-muted py-8 text-center">알림이 없어요</p>
+                  !hasNewVersion && (
+                    <p className="text-[12px] text-text-muted py-8 text-center">알림이 없어요</p>
+                  )
                 ) : (
                   notifications.map((n) => (
                     <button
