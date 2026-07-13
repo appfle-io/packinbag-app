@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
@@ -11,6 +11,9 @@ import {
   IconArrowsMinimize,
   IconChevronDown,
   IconChevronRight,
+  IconSquareCheck,
+  IconAlignLeft,
+  IconX,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -49,6 +52,7 @@ export default function PackCard({
   isPackDragSource,
   isPackDragOverPosition,
   hideChecked,
+  onAddItem,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -85,8 +89,30 @@ export default function PackCard({
   // 상단 "완료 항목 숨기기" 토글이 켜져 있으면, 체크된 체크형 짐은 화면에서 걸러낸다
   // (데이터 자체는 그대로 - 필터링일 뿐 삭제 아님).
   hideChecked?: boolean;
+  // 하단 푸터의 체크박스/텍스트 빠른추가 버튼용. 없으면 버튼 자체를 숨긴다.
+  onAddItem?: (data: { type: "check" | "text"; text: string }) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // 팩 카드 하단의 체크박스/텍스트 빠른추가 인라인 입력 상태. null이면 아이콘 2개만
+  // 보이고, "check"|"text"면 그 타입으로 인라인 입력창이 펼쳐진다. 추가할 때마다
+  // 모달 없이 바로 그 팩에 추가되고, 입력창은 닫히지 않고 비워진 채로 포커스가
+  // 유지되어 연달아 여러 개를 넣을 수 있다(Esc나 빈 채로 포커스 아웃하면 닫힘).
+  const [quickAddType, setQuickAddType] = useState<"check" | "text" | null>(null);
+  const [quickAddText, setQuickAddText] = useState("");
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
+
+  const commitQuickAdd = () => {
+    const text = quickAddText.trim();
+    if (!text || !quickAddType || !onAddItem) return;
+    onAddItem({ type: quickAddType, text });
+    setQuickAddText("");
+    quickAddInputRef.current?.focus();
+  };
+
+  const closeQuickAdd = () => {
+    setQuickAddType(null);
+    setQuickAddText("");
+  };
   const { profile } = useAuth();
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   const ratio = getProgressRatio(pack.items);
@@ -222,7 +248,54 @@ export default function PackCard({
             ))}
           </div>
 
-          <div className="flex items-center gap-5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
+          <div className="flex items-center gap-2.5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
+            {onAddItem && (
+              quickAddType ? (
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <input
+                    ref={quickAddInputRef}
+                    autoFocus
+                    value={quickAddText}
+                    onChange={(e) => setQuickAddText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitQuickAdd();
+                      } else if (e.key === "Escape") {
+                        closeQuickAdd();
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!quickAddText.trim()) closeQuickAdd();
+                    }}
+                    placeholder={quickAddType === "check" ? "체크박스 항목 입력" : "텍스트 입력"}
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
+                  />
+                  <button onClick={closeQuickAdd} aria-label="빠른추가 닫기" className="shrink-0">
+                    <IconX size={15} stroke={1.75} color="var(--text-secondary)" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setQuickAddType("check")}
+                    aria-label="체크박스 항목 빠르게 추가"
+                  >
+                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                      <IconSquareCheck size={18} stroke={1.75} color="var(--text-secondary)" />
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setQuickAddType("text")}
+                    aria-label="텍스트 항목 빠르게 추가"
+                  >
+                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                      <IconAlignLeft size={18} stroke={1.75} color="var(--text-secondary)" />
+                    </span>
+                  </button>
+                </div>
+              )
+            )}
             <div className="flex items-center gap-3 ml-auto">
               {pack.linkedLibraryPackId && (
                 <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">

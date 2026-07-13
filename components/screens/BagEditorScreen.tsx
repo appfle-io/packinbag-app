@@ -1412,6 +1412,7 @@ export default function BagEditorScreen({
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
             hideChecked={hideChecked}
+            onAddItem={(packId, data) => handleCreateItem(packId, data)}
           />
         )}
       </div>

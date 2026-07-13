@@ -26,6 +26,7 @@ export default function PackGrid({
   onStartPackDrag,
   dragSourcePackId,
   hideChecked,
+  onAddItem,
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -54,6 +55,7 @@ export default function PackGrid({
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
+  onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
 }) {
   const renderCard = (pack: Pack) => (
     <PackCard
@@ -90,6 +92,7 @@ export default function PackGrid({
       }
       isPackDragSource={dragSourcePackId === pack.id}
       hideChecked={hideChecked}
+      onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
     />
   );
 

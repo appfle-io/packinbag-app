@@ -27,15 +27,15 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 // 처리한다. 가방 속 팩 편집과 다른 점은, 상단 팩 선택이 라디오형(하나만)이 아니라
 // 체크박스형(여러 개)이라는 것 - 라이브러리에 있는 다른 팩도 함께 체크하면 그 팩들에도
 // 동시에 짐이 추가/복사된다. 이미 추가된 짐은 기존과 동일하게 오른쪽 스와이프=수정
-// (역시 이 모달을 열도록 변경), 왼쪽 스와이프=삭제로 조작하고, 체크박스 제외 영역을
-// 롱프레스하면(그립 아이콘 없음) 같은 팩 안에서 순서를 바꿀 수 있다.
+// (역시 이 모달을 열도록 변경), 왼쪽 스와이프=삭제로 조작한다.
 //
-// 예외: 지금 편집 중인 팩이 "빠른팩"(pack.isQuickPack)이면, 같은 화면에 다른 팩이
-// 안 보여서 드래그로 다른 팩에 옮길 수가 없다. 그래서 이 팩에서만 롱프레스가 순서변경
-// 드래그 대신 "다중선택 모드"로 진입한다 - 길게 누른 짐이 선택되고, 이후 다른 짐들을
-// 탭해서 선택을 추가/해제할 수 있다. 하단 액션바에서 "이동"을 누르면 목적지를 고르는
-// 시트가 뜨는데, 목적지는 라이브러리 팩뿐 아니라 특정 가방의 특정 팩까지도 가능하다.
-// "삭제"를 누르면 목적지 없이 바로 빠른팩에서 지워진다(확인창 없이, 되돌리기 토스트만).
+// 짐을 길게 누르는 제스처는 하나로 순서변경과 다중선택을 겸한다: 롱프레스가 시작된 뒤
+// 손가락을 실제로 다른 짐 위로 옮기면(overItemId가 바뀌면) 그 자리로 순서를 바꾸고,
+// 움직이지 않고 그 자리에서 그대로 손을 떼면 다중선택 모드로 진입한다 - 길게 누른
+// 짐이 선택되고, 이후 다른 짐들을 탭해서 선택을 추가/해제할 수 있다. 하단 액션바에서
+// "이동"을 누르면 목적지를 고르는 시트가 뜨는데, 목적지는 라이브러리 팩뿐 아니라 특정
+// 가방의 특정 팩까지도 가능하다. "삭제"를 누르면 목적지 없이 바로 이 팩에서 지워진다
+// (확인창 없이, 되돌리기 토스트만) - 빠른팩이든 일반 팩이든 동일하게 동작한다.
 export default function PackLibraryEditorScreen({
   initialPack,
   libraryPacks,
@@ -254,7 +254,12 @@ export default function PackLibraryEditorScreen({
       onSaveOtherPack({ ...target, items: [...target.items, buildNewItem(data)] });
     });
 
-    setItemModal(null);
+    // 수정(edit) 모드만 저장 후 모달을 닫는다. 추가(add) 모드는 ItemFormModal이 자체적으로
+    // 텍스트를 비우고 포커스를 유지해서 연달아 추가하게 하므로, 여기서는 닫지 않는다
+    // (사용자가 모달의 취소/X를 직접 누르면 닫힌다).
+    if (itemModal?.mode === "edit") {
+      setItemModal(null);
+    }
   };
 
   // 방금 추가한 짐(lastAddedItemId)이 있으면 그 짐이 화면에 보이도록 스크롤한다.
@@ -294,12 +299,12 @@ export default function PackLibraryEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusItemId]);
 
-  // --- 짐 순서 변경(롱프레스 드래그) / 빠른팩 다중선택 이동 --------------------
+  // --- 짐 순서 변경(롱프레스 드래그) / 다중선택 이동 --------------------------
   // 팩이 하나뿐인 화면이라 "다른 팩으로 이동"은 필요 없고, 같은 팩 안에서
   // 순서만 바꾼다. "가방 속 팩"과 동일하게 그립 아이콘 없이 롱프레스로 시작.
-  // (빠른팩은 예외 - 아래 selectedItemIds 참고)
+  // (손을 뗄 때 실제로 옮겼는지 여부로 순서변경/다중선택을 구분 - 아래 handleUp 참고)
   const [drag, setDrag] = useState<{ itemId: string; overItemId: string | null } | null>(null);
-  // 빠른팩에서만 쓰이는 다중선택 상태. null이면 선택 모드가 아님, Set이면 선택된 짐 id들.
+  // 다중선택 상태. null이면 선택 모드가 아님, Set이면 선택된 짐 id들(빠른팩/일반팩 공통).
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string> | null>(null);
   // 이동 목적지 시트 표시 여부 + (가방을 골라서 드릴다운했으면) 그 가방 id
   const [showMoveSheet, setShowMoveSheet] = useState(false);
@@ -307,15 +312,6 @@ export default function PackLibraryEditorScreen({
 
   const handleStartItemDrag = (itemId: string) => {
     if (guardReadOnly()) return;
-    if (pack.isQuickPack) {
-      // 이미 선택 모드면 이 짐도 선택에 추가하고, 아니면 이 짐 하나로 선택 모드 시작.
-      setSelectedItemIds((prev) => {
-        const next = new Set(prev ?? []);
-        next.add(itemId);
-        return next;
-      });
-      return;
-    }
     setDrag({ itemId, overItemId: null });
   };
 
@@ -384,7 +380,7 @@ export default function PackLibraryEditorScreen({
     });
   };
 
-  // 선택된 짐들을 어디로도 옮기지 않고 그냥 빠른팩에서 삭제한다. 다른 짐 삭제(deleteItem)와
+  // 선택된 짐들을 어디로도 옮기지 않고 그냥 이 팩에서 삭제한다. 다른 짐 삭제(deleteItem)와
   // 동일하게 확인창 없이 바로 삭제하고 "되돌리기" 토스트로 복구 기회를 준다 - 다중선택
   // 상태에서 자주 쓰는 동작이라 매번 확인창을 띄우면 번거롭다.
   const commitDeleteSelected = () => {
@@ -416,22 +412,34 @@ export default function PackLibraryEditorScreen({
 
     const handleUp = () => {
       setDrag((d) => {
-        if (d && d.overItemId && d.overItemId !== d.itemId) {
-          setPack((p) => {
-            const item = p.items.find((i) => i.id === d.itemId);
-            if (!item) return p;
-            const without = p.items.filter((i) => i.id !== d.itemId);
-            const targetIndex = without.findIndex((i) => i.id === d.overItemId);
-            if (targetIndex === -1) return p;
-            return {
-              ...p,
-              items: [
-                ...without.slice(0, targetIndex),
-                item,
-                ...without.slice(targetIndex),
-              ],
-            };
-          });
+        if (d) {
+          if (d.overItemId && d.overItemId !== d.itemId) {
+            // 실제로 다른 위치로 옮겨졌으니 순서변경.
+            setPack((p) => {
+              const item = p.items.find((i) => i.id === d.itemId);
+              if (!item) return p;
+              const without = p.items.filter((i) => i.id !== d.itemId);
+              const targetIndex = without.findIndex((i) => i.id === d.overItemId);
+              if (targetIndex === -1) return p;
+              return {
+                ...p,
+                items: [
+                  ...without.slice(0, targetIndex),
+                  item,
+                  ...without.slice(targetIndex),
+                ],
+              };
+            });
+          } else {
+            // 실제로 옮기지 않고(같은 자리에서) 손을 뗐다는 건 순서변경이 아니라
+            // 다중선택을 시작하겠다는 뜻으로 본다(롱프레스 시작 후 그대로 떼어지면
+            // 선택, 이동하면 순서변경 - 모든 팩에 공통으로 적용).
+            setSelectedItemIds((prev) => {
+              const next = new Set(prev ?? []);
+              next.add(d.itemId);
+              return next;
+            });
+          }
         }
         return null;
       });
@@ -536,7 +544,7 @@ export default function PackLibraryEditorScreen({
     };
   }, []);
 
-  const selecting = pack.isQuickPack && selectedItemIds !== null;
+  const selecting = selectedItemIds !== null;
 
   return (
     <div
@@ -594,8 +602,15 @@ export default function PackLibraryEditorScreen({
 
       {pack.isQuickPack && !selecting && (
         <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
-          빠른입력으로 던져둔 짐들이에요. 짐을 길게 누르면 선택 모드가 시작돼요 - 다른 짐도
-          탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮기거나 한 번에 삭제할 수 있어요.
+          빠른입력으로 던져둔 짐들이에요. 짐을 길게 눌렀다가 그대로 손을 떼면 선택 모드가
+          시작돼요 - 다른 짐도 탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮기거나
+          한 번에 삭제할 수 있어요.
+        </p>
+      )}
+      {!pack.isQuickPack && !selecting && (
+        <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
+          짐을 길게 눌렀다가 그대로 손을 떼면 선택 모드가 시작돼요(여러 개 골라서 삭제·이동).
+          누른 채로 옮기면 이 팩 안에서 순서가 바뀌어요.
         </p>
       )}
 
@@ -619,8 +634,9 @@ export default function PackLibraryEditorScreen({
 
       {/* 이미 추가된 짐 목록: 1개면 한 줄을 다 채우고, 늘어날수록 반응형으로
           여러 열로 재배치된다(auto-fit). 오른쪽 스와이프=수정, 왼쪽 스와이프=삭제,
-          체크박스 제외 영역 롱프레스=순서변경 드래그 시작(빠른팩은 다중선택 모드 시작).
-          다중선택 모드 중에는 탭 = 선택 토글이고 스와이프/드래그는 비활성화된다. */}
+          체크박스 제외 영역 롱프레스=시작 후 옮기면 순서변경, 그 자리에서 손을 떼면
+          다중선택 모드 시작(빠른팩/일반팩 공통). 다중선택 모드 중에는 탭 = 선택 토글이고
+          스와이프/드래그는 비활성화된다. */}
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
         {displayItems.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   IconX,
   IconSquareCheck,
@@ -88,6 +88,7 @@ export default function ItemFormModal({
   const [bold, setBold] = useState(initialBold);
   const [strike, setStrike] = useState(initialStrike);
   const [color, setColor] = useState(initialColor);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { height: viewportHeight, offsetTop: viewportOffsetTop } = useVisualViewport();
 
   const handleSelectPack = (packId: string) => {
@@ -111,6 +112,17 @@ export default function ItemFormModal({
       text,
       ...(type === "text" ? { bold, strike, color: color || undefined } : {}),
     });
+    // "추가" 모드일 때만 저장 후 모달을 닫지 않고 텍스트/서식만 초기화해서 연달아
+    // 여러 개를 넣을 수 있게 한다(팀 선택은 그대로 유지 - 같은 패들에 계속 추가하는
+    // 경우가 많아서). 닫거나 멈추려면 사용자가 직접 취소/X를 누르면 된다. 수정(edit)
+    // 모드는 부모(handleModalSave)가 대신 모달을 닫는다.
+    if (mode === "add") {
+      setText("");
+      setBold(false);
+      setStrike(false);
+      setColor("");
+      textareaRef.current?.focus();
+    }
   };
 
   return (
@@ -179,6 +191,7 @@ export default function ItemFormModal({
 
           <div className="flex flex-col gap-1.5">
             <textarea
+              ref={textareaRef}
               autoFocus
               rows={3}
               value={text}
