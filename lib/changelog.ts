@@ -13,7 +13,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "1.1.0",
     date: "2026-07-13",
     items: [
-      "새 버전이 배포되면 알림벨에 자동으로 NEW 표시가 뙜다 (누르면 새로고임)",
+      "새 버전이 배포되면 알림벨에 자동으로 NEW 표시가 뜬다 (누르면 새로고침)",
     ],
   },
   {
