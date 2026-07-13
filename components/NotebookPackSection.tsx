@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   IconDotsVertical,
   IconDeviceFloppy,
@@ -10,6 +10,9 @@ import {
   IconGripVertical,
   IconChevronDown,
   IconChevronRight,
+  IconSquareCheck,
+  IconAlignLeft,
+  IconX,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -53,6 +56,7 @@ export default function NotebookPackSection({
   dragOverItemPosition,
   isPackDragOverPosition,
   hideChecked,
+  onAddItem,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -84,9 +88,30 @@ export default function NotebookPackSection({
   // 드래그한 팩을 이 섹션 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
   isPackDragOverPosition?: "before" | "after" | null;
   hideChecked?: boolean;
+  // 헤더의 체크박스/텍스트 빠른추가 아이콘용. 없으면 버튼 자체를 숨긴다.
+  onAddItem?: (data: { type: "check" | "text"; text: string }) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  // 헤더의 체크박스/텍스트 빠른추가 인라인 입력 상태. PackCard와 동일한 패턴 -
+  // 추가할 때마다 모달 없이 바로 이 팩에 추가되고, 입력창은 닫히지 않고 비워진
+  // 채로 포커스가 유지되어 연달아 여러 개를 넣을 수 있다(Esc나 닫기 버튼으로 닫힘).
+  const [quickAddType, setQuickAddType] = useState<"check" | "text" | null>(null);
+  const [quickAddText, setQuickAddText] = useState("");
+  const quickAddInputRef = useRef<HTMLInputElement>(null);
+
+  const commitQuickAdd = () => {
+    const text = quickAddText.trim();
+    if (!text || !quickAddType || !onAddItem) return;
+    onAddItem({ type: quickAddType, text });
+    setQuickAddText("");
+    quickAddInputRef.current?.focus();
+  };
+
+  const closeQuickAdd = () => {
+    setQuickAddType(null);
+    setQuickAddText("");
+  };
   const { profile } = useAuth();
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   const ratio = getProgressRatio(pack.items);
@@ -114,7 +139,7 @@ export default function NotebookPackSection({
         transition: "box-shadow 120ms ease, opacity 120ms ease",
       }}
     >
-      <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="flex items-center gap-2 mb-1.5">
         <button
           onClick={() => onChangeDisplayState?.(isCollapsed ? "normal" : "collapsed")}
           aria-label={isCollapsed ? "섹션 펼치기" : "섹션 접기"}
@@ -159,6 +184,32 @@ export default function NotebookPackSection({
           >
             <ProgressRing ratio={ratio} size={16} accentHex={accentHex ?? undefined} />
           </button>
+        )}
+        {onAddItem && (
+          <>
+            <button
+              onClick={() => setQuickAddType((t) => (t === "check" ? null : "check"))}
+              aria-label="체크박스 항목 빠르게 추가"
+              className="shrink-0"
+            >
+              <IconSquareCheck
+                size={15}
+                stroke={1.75}
+                color={quickAddType === "check" ? "var(--accent)" : "var(--text-secondary)"}
+              />
+            </button>
+            <button
+              onClick={() => setQuickAddType((t) => (t === "text" ? null : "text"))}
+              aria-label="텍스트 항목 빠르게 추가"
+              className="shrink-0"
+            >
+              <IconAlignLeft
+                size={15}
+                stroke={1.75}
+                color={quickAddType === "text" ? "var(--accent)" : "var(--text-secondary)"}
+              />
+            </button>
+          </>
         )}
         <div className="relative shrink-0">
           <button
@@ -220,6 +271,33 @@ export default function NotebookPackSection({
           )}
         </div>
       </div>
+
+      {quickAddType && (
+        <div className="flex items-center gap-1.5 pl-6 mb-1.5">
+          <input
+            ref={quickAddInputRef}
+            autoFocus
+            value={quickAddText}
+            onChange={(e) => setQuickAddText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitQuickAdd();
+              } else if (e.key === "Escape") {
+                closeQuickAdd();
+              }
+            }}
+            onBlur={() => {
+              if (!quickAddText.trim()) closeQuickAdd();
+            }}
+            placeholder={quickAddType === "check" ? "체크박스 항목 입력" : "텍스트 입력"}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
+          />
+          <button onClick={closeQuickAdd} aria-label="빠른추가 닫기" className="shrink-0">
+            <IconX size={14} stroke={1.75} color="var(--text-secondary)" />
+          </button>
+        </div>
+      )}
 
       {!isCollapsed && (
         <>
