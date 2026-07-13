@@ -684,6 +684,8 @@ export default function BagEditorScreen({
     overItemPosition: "before" | "after" | null;
   } | null>(null);
 
+  const dragRef = useRef<typeof drag>(null);
+
   const handleStartItemDrag = (
     packId: string,
     itemId: string,
@@ -692,21 +694,164 @@ export default function BagEditorScreen({
     clientY: number
   ) => {
     if (guardReadOnly()) return;
-    setDrag({
-      itemId,
-      fromPackId: packId,
-      text,
-      x: clientX,
-      y: clientY,
-      overPackId: null,
-      overItemId: null,
-      overItemPosition: null,
+    if (selection && selection.packId === packId && selection.itemIds.has(itemId)) {
+      const next = { packId, itemIds: selection.itemIds, x: clientX, y: clientY, overPackId: null, overItemId: null, overItemPosition: null };
+      groupDragRef.current = next;
+      setGroupDrag(next);
+      return;
+    }
+    toggleSelectItem(packId, itemId);
+  };
+
+  // 짐 다중선택 상태: 한 번에 한 팩만 대상으로 한다(다른 팩을 롱프레스하면 그 팩으로
+  // 선택이 넘어간다). null이면 선택 모드가 아님.
+  const [selection, setSelection] = useState<{ packId: string; itemIds: Set<string> } | null>(
+    null
+  );
+
+  const toggleSelectItem = (packId: string, itemId: string) => {
+    setSelection((prev) => {
+      if (!prev || prev.packId !== packId) {
+        return { packId, itemIds: new Set([itemId]) };
+      }
+      const next = new Set(prev.itemIds);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next.size === 0 ? null : { packId, itemIds: next };
+    });
+  };
+
+  const cancelSelection = () => setSelection(null);
+
+  // 팀뷰에서 "이미 선택된 짐을 다시 길게 누름" 시 시작되는 그룹 이동 드래그 상태.
+  // 다른 패 위에 놓으면 선택된 짐 전체가 그 패으로 옮겨간다.
+  const [groupDrag, setGroupDrag] = useState<{
+    packId: string;
+    itemIds: Set<string>;
+    x: number;
+    y: number;
+    overPackId: string | null;
+    overItemId: string | null;
+    overItemPosition: "before" | "after" | null;
+  } | null>(null);
+  const groupDragRef = useRef<typeof groupDrag>(null);
+
+  // 선택된 짐들을 다른 패으로 통채 옮긴다(순서는 맨 뒤에 추가). 남은 자리에서 손을
+  // 떼면(같은 패 위에 놓거나 대상 패가 없으면) 아무것도 하지 않고 그대로 선택 상태를 유지한다.
+  const handleMoveSelectedItems = (fromPackId: string, toPackId: string, itemIds: Set<string>) => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) => {
+      const fromPack = packs.find((p) => p.id === fromPackId);
+      const movingItems = fromPack?.items.filter((i) => itemIds.has(i.id)) ?? [];
+      if (movingItems.length === 0) return packs;
+      return packs.map((p) => {
+        if (p.id === fromPackId) {
+          const updated = { ...p, items: p.items.filter((i) => !itemIds.has(i.id)) };
+          return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+        }
+        if (p.id === toPackId) {
+          const updated = { ...p, items: [...p.items, ...movingItems] };
+          return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+        }
+        return p;
+      });
+    });
+    show(`${itemIds.size}개를 옮겼어요`);
+    setSelection(null);
+  };
+
+  useEffect(() => {
+    const handleMove = (e: PointerEvent) => {
+      if (!groupDragRef.current) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const packEl = el?.closest("[data-pack-drop-id]") as HTMLElement | null;
+      const overPackId = packEl?.getAttribute("data-pack-drop-id") ?? null;
+      const itemEl = el?.closest("[data-item-id]") as HTMLElement | null;
+      const overItemId = itemEl?.getAttribute("data-item-id") ?? null;
+      let overItemPosition: "before" | "after" | null = null;
+      if (itemEl) {
+        const rect = itemEl.getBoundingClientRect();
+        const itemType = itemEl.getAttribute("data-item-type");
+        overItemPosition =
+          itemType === "text"
+            ? e.clientY - rect.top < rect.height / 2
+              ? "before"
+              : "after"
+            : e.clientX - rect.left < rect.width / 2
+            ? "before"
+            : "after";
+      }
+      setGroupDrag((d) => {
+        if (!d) return d;
+        const next = { ...d, x: e.clientX, y: e.clientY, overPackId, overItemId, overItemPosition };
+        groupDragRef.current = next;
+        return next;
+      });
+    };
+
+    const handleUp = () => {
+      const d = groupDragRef.current;
+      if (!d) return;
+      groupDragRef.current = null;
+      setGroupDrag(null);
+      if (d.overPackId && d.overPackId !== d.packId) {
+        handleMoveSelectedItems(d.packId, d.overPackId, d.itemIds);
+        return;
+      }
+      // 선택된 짐이 때 개뿐이고 같은 패 안의 다른 짐 위에 놓았을 때만 순서변경으로 처리한다.
+      if (d.itemIds.size === 1 && d.overPackId === d.packId && d.overItemId) {
+        const itemId = [...d.itemIds][0];
+        if (d.overItemId !== itemId) {
+          handleMoveItem(d.packId, d.packId, itemId, d.overItemId, d.overItemPosition === "after");
+          setSelection(null);
+        }
+      }
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 선택된 짐들을 그 팩에서 삭제한다. 다른 짐 삭제(handleDeleteItem)와 동일하게
+  // 확인창 없이 바로 삭제하고 "되돌리기" 토스트로 복구 기회를 준다.
+  const commitDeleteSelected = () => {
+    if (guardReadOnly()) return;
+    if (!selection || selection.itemIds.size === 0) return;
+    const { packId, itemIds } = selection;
+    let removedItems: Item[] = [];
+    updatePacks((packs) =>
+      packs.map((p) => {
+        if (p.id !== packId) return p;
+        removedItems = p.items.filter((i) => itemIds.has(i.id));
+        const items = p.items.filter((i) => !itemIds.has(i.id));
+        const updated = { ...p, items };
+        return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+      })
+    );
+    setSelection(null);
+    show(`${removedItems.length}개를 삭제했어요`, {
+      actionLabel: "되돌리기",
+      onAction: () => {
+        updatePacks((packs) =>
+          packs.map((p) => {
+            if (p.id !== packId) return p;
+            const items = [...p.items, ...removedItems];
+            const updated = { ...p, items };
+            return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
+          })
+        );
+      },
     });
   };
 
   useEffect(() => {
-    if (!drag) return;
-
     const handleMove = (e: PointerEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const packEl = el?.closest("[data-pack-drop-id]") as HTMLElement | null;
@@ -730,27 +875,37 @@ export default function BagEditorScreen({
             ? "before"
             : "after";
       }
-      setDrag((d) =>
-        d ? { ...d, x: e.clientX, y: e.clientY, overPackId, overItemId, overItemPosition } : d
-      );
-    };
-
-    const handleUp = () => {
       setDrag((d) => {
-        if (d && d.overPackId) {
-          handleMoveItem(
-            d.fromPackId,
-            d.overPackId,
-            d.itemId,
-            d.overItemId,
-            d.overItemPosition === "after"
-          );
-        }
-        return null;
+        if (!d) return d;
+        const next = { ...d, x: e.clientX, y: e.clientY, overPackId, overItemId, overItemPosition };
+        dragRef.current = next;
+        return next;
       });
     };
 
-    window.addEventListener("pointermove", handleMove);
+    const handleUp = () => {
+      const d = dragRef.current;
+      if (!d) return;
+      dragRef.current = null;
+      setDrag(null);
+      const movedToDifferentPack = !!d.overPackId && d.overPackId !== d.fromPackId;
+      const movedWithinPack =
+        d.overPackId === d.fromPackId && !!d.overItemId && d.overItemId !== d.itemId;
+      if (movedToDifferentPack || movedWithinPack) {
+        handleMoveItem(
+          d.fromPackId,
+          d.overPackId!,
+          d.itemId,
+          d.overItemId,
+          d.overItemPosition === "after"
+        );
+      } else {
+        toggleSelectItem(d.fromPackId, d.itemId);
+      }
+    };
+            // 실제로 옮기지 않고(같은 자리에서) 손을 뗐다는 건 이동이 아니라
+            // 다중선택을 시작하겠다는 뜻으로 본다(팩 보관함과 동일한 제스처).
+            window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
     window.addEventListener("pointercancel", handleUp);
     return () => {
@@ -759,7 +914,7 @@ export default function BagEditorScreen({
       window.removeEventListener("pointercancel", handleUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drag !== null]);
+  }, []);
 
   // --- 팩 순서 드래그 -------------------------------------------------------
   // 짐 드래그(팩→팩 이동)와 별개로, 팩 카드 자체를 드래그해서 가방 안 팩들의
@@ -1377,15 +1532,18 @@ export default function BagEditorScreen({
               setRefreshConfirmTarget(packId);
             }}
             onStartItemDrag={handleStartItemDrag}
-            dragSourceItemId={drag?.itemId ?? null}
-            dragOverItemId={drag?.overItemId ?? null}
-            dragOverItemPosition={drag?.overItemPosition ?? null}
-            dragOverPackId={drag?.overPackId ?? packDrag?.overPackId ?? null}
+            dragSourceItemId={groupDrag && groupDrag.itemIds.size === 1 ? [...groupDrag.itemIds][0] : drag?.itemId ?? null}
+            dragOverItemId={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemId : drag?.overItemId ?? null}
+            dragOverItemPosition={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemPosition : drag?.overItemPosition ?? null}
+            dragOverPackId={drag?.overPackId ?? groupDrag?.overPackId ?? packDrag?.overPackId ?? null}
             dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
             hideChecked={hideChecked}
             onAddItem={(packId, data) => handleCreateItem(packId, data)}
+            selectedPackId={selection?.packId ?? null}
+            selectedItemIds={selection?.itemIds ?? null}
+            onToggleSelectItem={toggleSelectItem}
           />
         ) : (
           <PackGrid
@@ -1405,15 +1563,18 @@ export default function BagEditorScreen({
               setRefreshConfirmTarget(packId);
             }}
             onStartItemDrag={handleStartItemDrag}
-            dragSourceItemId={drag?.itemId ?? null}
-            dragOverItemId={drag?.overItemId ?? null}
-            dragOverItemPosition={drag?.overItemPosition ?? null}
-            dragOverPackId={drag?.overPackId ?? packDrag?.overPackId ?? null}
+            dragSourceItemId={groupDrag && groupDrag.itemIds.size === 1 ? [...groupDrag.itemIds][0] : drag?.itemId ?? null}
+            dragOverItemId={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemId : drag?.overItemId ?? null}
+            dragOverItemPosition={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemPosition : drag?.overItemPosition ?? null}
+            dragOverPackId={drag?.overPackId ?? groupDrag?.overPackId ?? packDrag?.overPackId ?? null}
             dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
             hideChecked={hideChecked}
             onAddItem={(packId, data) => handleCreateItem(packId, data)}
+            selectedPackId={selection?.packId ?? null}
+            selectedItemIds={selection?.itemIds ?? null}
+            onToggleSelectItem={toggleSelectItem}
           />
         )}
       </div>
@@ -1421,7 +1582,7 @@ export default function BagEditorScreen({
       {/* 짐을 롱프레스로 들어올린 동안, 화면 상단에 모든 팩 이름을 칩으로 띄워둔다.
           화면 밖(스크롤해야 보이는) 팩으로도 스크롤 없이 바로 옮길 수 있게 하기 위함 -
           기존 [data-pack-drop-id] 드롭존 판정 로직(위 handleMove)을 그대로 재사용한다. */}
-      {drag && (
+      {(drag || groupDrag) && (
         <div
           className="fixed inset-x-0 top-0 z-[94] px-3"
           style={{
@@ -1437,13 +1598,23 @@ export default function BagEditorScreen({
             packs={bag.packs}
             label="팩으로 옮기기"
             dropIds
-            getState={(packId) =>
-              packId === drag.fromPackId
-                ? "source"
-                : packId === drag.overPackId
-                ? "selected"
-                : "normal"
-            }
+            getState={(packId) => {
+              if (drag) {
+                return packId === drag.fromPackId
+                  ? "source"
+                  : packId === drag.overPackId
+                  ? "selected"
+                  : "normal";
+              }
+              if (groupDrag) {
+                return packId === groupDrag.packId
+                  ? "source"
+                  : packId === groupDrag.overPackId
+                  ? "selected"
+                  : "normal";
+              }
+              return "normal";
+            }}
           />
         </div>
       )}
@@ -1467,6 +1638,22 @@ export default function BagEditorScreen({
         </div>
       )}
 
+      {groupDrag && (
+        <div
+          className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] font-medium shadow-lg"
+          style={{
+            left: groupDrag.x,
+            top: groupDrag.y,
+            transform: "translate(-50%, -120%)",
+            background: "var(--accent)",
+            color: "#fff",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {groupDrag.itemIds.size}개 이동 중
+        </div>
+      )}
+
       {packDrag && (
         <div
           className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
@@ -1483,6 +1670,36 @@ export default function BagEditorScreen({
           }}
         >
           {packDrag.name || "팩"}
+        </div>
+      )}
+
+      {/* 누른 채로 그대로 손을 떼면(이동 없이) 다중선택 모드가 시작된다.
+          하단에 선택 개수 + 취소/삭제 액션바를 띄운다. */}
+      {selection && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-[93] border-t border-border p-3 flex items-center gap-2"
+          style={{
+            background: "var(--surface)",
+            paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))",
+          }}
+        >
+          <span className="text-[13px] font-medium mr-auto">
+            {selection.itemIds.size}개 선택됨
+          </span>
+          <button
+            onClick={cancelSelection}
+            className="rounded-lg px-4 py-2.5 text-[14px]"
+            style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+          >
+            취소
+          </button>
+          <button
+            onClick={commitDeleteSelected}
+            className="rounded-lg px-4 py-2.5 text-[14px] font-medium"
+            style={{ background: "var(--danger)", color: "#fff" }}
+          >
+            삭제
+          </button>
         </div>
       )}
 

@@ -57,6 +57,8 @@ export default function NotebookPackSection({
   isPackDragOverPosition,
   hideChecked,
   onAddItem,
+  selectedItemIds,
+  onToggleSelectItem,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -90,6 +92,9 @@ export default function NotebookPackSection({
   hideChecked?: boolean;
   // 헤더의 체크박스/텍스트 빠른추가 아이콘용. 없으면 버튼 자체를 숨긴다.
   onAddItem?: (data: { type: "check" | "text"; text: string }) => void;
+  // 이 패이 지금 다중선택 중이면 선택된 짐 id 집합, 아니면 null/undefined.
+  selectedItemIds?: Set<string> | null;
+  onToggleSelectItem?: (itemId: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -124,6 +129,7 @@ export default function NotebookPackSection({
         (i) => !(i.type === "check" && i.checked)
       )
     : getDisplayOrderedItems(pack.items, moveCompletedToBottom);
+  const selecting = !!selectedItemIds;
 
   return (
     <div
@@ -305,26 +311,45 @@ export default function NotebookPackSection({
             className="grid grid-cols-[repeat(auto-fit,minmax(max(120px,46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-y-0.5 gap-x-1.5 pl-6"
             style={{ gridAutoRows: "min-content", alignItems: "start" }}
           >
-            {displayItems.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onToggle={item.type === "check" ? () => onToggleItem(item.id) : undefined}
-                onChangeText={(text, style) => onChangeItemText(item.id, text, style)}
-                onDelete={() => onDeleteItem(item.id)}
-                onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
-                onStartDrag={
-                  onStartItemDrag
-                    ? (x, y) => onStartItemDrag(item.id, item.text, x, y)
-                    : undefined
-                }
-                isDragSource={dragSourceItemId === item.id}
-                isDragOverTarget={dragOverItemId === item.id}
-                dragOverPosition={dragOverItemId === item.id ? dragOverItemPosition : null}
-                noBackground
-                roundCheckbox
-              />
-            ))}
+            {displayItems.map((item) => {
+              const isSelected = selecting && selectedItemIds!.has(item.id);
+              return (
+                <div
+                  key={item.id}
+                  style={
+                    selecting
+                      ? {
+                          boxShadow: isSelected
+                            ? "0 0 0 2px var(--accent)"
+                            : "0 0 0 2px transparent",
+                          borderRadius: 8,
+                          background: isSelected ? "var(--accent-soft)" : undefined,
+                        }
+                      : undefined
+                  }
+                >
+                  <ItemRow
+                    item={item}
+                    onToggle={item.type === "check" ? () => onToggleItem(item.id) : undefined}
+                    onChangeText={(text, style) => onChangeItemText(item.id, text, style)}
+                    onDelete={() => onDeleteItem(item.id)}
+                    onEdit={onEditItem ? () => onEditItem(item.id) : undefined}
+                    onStartDrag={
+                      onStartItemDrag
+                        ? (x, y) => onStartItemDrag(item.id, item.text, x, y)
+                        : undefined
+                    }
+                    isDragSource={dragSourceItemId === item.id}
+                    isDragOverTarget={dragOverItemId === item.id}
+                    dragOverPosition={dragOverItemId === item.id ? dragOverItemPosition : null}
+                    noBackground
+                    roundCheckbox
+                    disabled={selecting}
+                    onRowTap={selecting ? () => onToggleSelectItem?.(item.id) : undefined}
+                  />
+                </div>
+              );
+            })}
           </div>
         </>
       )}

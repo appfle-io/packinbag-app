@@ -312,8 +312,12 @@ export default function PackLibraryEditorScreen({
 
   const handleStartItemDrag = (itemId: string) => {
     if (guardReadOnly()) return;
-    setDrag({ itemId, overItemId: null });
+    const next = { itemId, overItemId: null };
+    dragRef.current = next;
+    setDrag(next);
   };
+
+  const dragRef = useRef<typeof drag>(null);
 
   // 선택 모드 중 짐을 탭하면 선택을 토글한다. 전부 해제되면 선택 모드를 자동으로 끈다.
   const toggleSelectItem = (itemId: string) => {
@@ -401,16 +405,20 @@ export default function PackLibraryEditorScreen({
   };
 
   useEffect(() => {
-    if (!drag) return;
-
     const handleMove = (e: PointerEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const itemEl = el?.closest("[data-item-id]") as HTMLElement | null;
       const overItemId = itemEl?.getAttribute("data-item-id") ?? null;
-      setDrag((d) => (d ? { ...d, overItemId } : d));
+      setDrag((d) => {
+        if (!d) return d;
+        const next = { ...d, overItemId };
+        dragRef.current = next;
+        return next;
+      });
     };
 
     const handleUp = () => {
+      if (!dragRef.current) return;
       setDrag((d) => {
         if (d) {
           if (d.overItemId && d.overItemId !== d.itemId) {
@@ -454,7 +462,7 @@ export default function PackLibraryEditorScreen({
       window.removeEventListener("pointercancel", handleUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drag !== null]);
+  }, []);
 
   const deletingRef = useRef(false);
 

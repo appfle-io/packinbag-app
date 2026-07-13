@@ -27,6 +27,9 @@ export default function PackGrid({
   dragSourcePackId,
   hideChecked,
   onAddItem,
+  selectedPackId,
+  selectedItemIds,
+  onToggleSelectItem,
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -56,6 +59,11 @@ export default function PackGrid({
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
   onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
+  // 다중선택이 진행 중인 패의 id와 그 안에서 선택된 짐 id 집합. 없으면 다중선택
+  // 모드 자체가 아님.
+  selectedPackId?: string | null;
+  selectedItemIds?: Set<string> | null;
+  onToggleSelectItem?: (packId: string, itemId: string) => void;
 }) {
   const renderCard = (pack: Pack) => (
     <PackCard
@@ -93,6 +101,8 @@ export default function PackGrid({
       isPackDragSource={dragSourcePackId === pack.id}
       hideChecked={hideChecked}
       onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
+      selectedItemIds={selectedPackId === pack.id ? selectedItemIds : null}
+      onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
     />
   );
 

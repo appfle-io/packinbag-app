@@ -186,7 +186,23 @@ export default function ItemRow({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (editing || disabled) return;
+    if (editing) return;
+    if (disabled) {
+      // 다중선택 모드 중에도 롱프레스만은 감지한다(스와이프는 여전히 막은 채로) -
+      // 이미 선택된 항목이면 그룹 이동 시작용으로, 아니면 선택 추가용으로 부모가 판단한다.
+      if (onStartDrag) {
+        startX.current = e.clientX;
+        startY.current = e.clientY;
+        longPressTriggered.current = false;
+        const x = e.clientX;
+        const y = e.clientY;
+        longPressTimer.current = window.setTimeout(() => {
+          longPressTriggered.current = true;
+          onStartDrag(x, y);
+        }, LONG_PRESS_MS);
+      }
+      return;
+    }
     startX.current = e.clientX;
     startY.current = e.clientY;
     lastY.current = e.clientY;
@@ -225,6 +241,15 @@ export default function ItemRow({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (disabled) {
+      if (longPressTriggered.current) return;
+      const dx = e.clientX - startX.current;
+      const dy = e.clientY - startY.current;
+      if (Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX) {
+        clearLongPressTimer();
+      }
+      return;
+    }
     if (!dragging || longPressTriggered.current) return;
     const dx = e.clientX - startX.current;
     const dy = e.clientY - startY.current;

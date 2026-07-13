@@ -30,6 +30,9 @@ export default function NotebookView({
   dragSourcePackId,
   hideChecked,
   onAddItem,
+  selectedPackId,
+  selectedItemIds,
+  onToggleSelectItem,
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -58,6 +61,9 @@ export default function NotebookView({
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
   onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
+  selectedPackId?: string | null;
+  selectedItemIds?: Set<string> | null;
+  onToggleSelectItem?: (packId: string, itemId: string) => void;
 }) {
   return (
     <div className="flex flex-col">
@@ -94,6 +100,8 @@ export default function NotebookView({
           isPackDragSource={dragSourcePackId === pack.id}
           hideChecked={hideChecked}
           onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
+          selectedItemIds={selectedPackId === pack.id ? selectedItemIds : null}
+          onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
         />
       ))}
     </div>
