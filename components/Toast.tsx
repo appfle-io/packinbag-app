@@ -87,12 +87,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               ["--toast-fade-delay" as string]: `${Math.max(0, toast.resolvedDurationMs - 220)}ms`,
             }}
           >
+            <div className="flex items-center gap-2.5">
             {toast.type === "success" ? (
               <span
                 className="pib-toast-circle flex items-center justify-center rounded-full shrink-0"
-                style={{ width: 40, height: 40, background: "var(--accent)" }}
+                style={{ width: 32, height: 32, background: "var(--accent)" }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M4 12.5L9.5 18L20 6"
                     stroke="#fff"
@@ -107,9 +108,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             ) : (
               <span
                 className="pib-toast-circle flex items-center justify-center rounded-full shrink-0"
-                style={{ width: 40, height: 40, background: "var(--danger)" }}
+                style={{ width: 32, height: 32, background: "var(--danger)" }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M6 6L18 18M18 6L6 18"
                     stroke="#fff"
@@ -123,11 +124,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               </span>
             )}
             <span
-              className="text-[13px] font-medium leading-snug"
+              className="text-[13px] font-medium leading-snug text-left"
               style={{ color: "var(--foreground)" }}
             >
               {toast.message}
             </span>
+            </div>
             {toast.actionLabel && (
               <button
                 type="button"

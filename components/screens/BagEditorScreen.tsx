@@ -24,6 +24,7 @@ import {
   IconEye,
   IconEyeOff,
   IconHelpCircle,
+  IconArrowBackUp,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -199,11 +200,35 @@ export default function BagEditorScreen({
     reminderOffsets: ReminderOffset[] | undefined
   ) => {
     if (guardReadOnly()) return;
+    pushUndoSnapshot();
     setBag((prev) => ({ ...prev, travelDate, reminderOffsets }));
   };
 
-  const updatePacks = (updater: (packs: Pack[]) => Pack[]) =>
+  const updatePacks = (updater: (packs: Pack[]) => Pack[]) => {
+    pushUndoSnapshot();
     setBag((prev) => ({ ...prev, packs: updater(prev.packs) }));
+  };
+
+  // Undo stack (covers everything except file/image uploads). Each mutating action
+  // pushes the bag state from just before it here; pressing undo pops the last one
+  // and restores it as-is.
+  const historyRef = useRef<Bag[]>([]);
+  const [historyLen, setHistoryLen] = useState(0);
+
+  const pushUndoSnapshot = () => {
+    historyRef.current = [...historyRef.current, bag];
+    setHistoryLen(historyRef.current.length);
+  };
+
+  const handleUndo = () => {
+    if (guardReadOnly()) return;
+    const prevHistory = historyRef.current;
+    if (prevHistory.length === 0) return;
+    const last = prevHistory[prevHistory.length - 1];
+    historyRef.current = prevHistory.slice(0, -1);
+    setHistoryLen(historyRef.current.length);
+    setBag(last);
+  };
 
   // isNew는 "새 가방 -> 최초 저장 완료" 시점에 false로 바뀌는데, 이 화면은 그때
   // 리마운트되지 않고 그대로 유지된다. 아래 자동저장/언마운트 effect들은 클로저가
@@ -312,6 +337,10 @@ export default function BagEditorScreen({
       if (!remoteBag) return;
       if (isDirtyRef.current) return;
       isApplyingRemoteRef.current = true;
+      // Remote update just arrived - clear the local undo stack since it no longer
+      // matches the bag state we're about to show.
+      historyRef.current = [];
+      setHistoryLen(0);
       setBag(remoteBag);
     });
     return unsub;
@@ -1246,7 +1275,7 @@ export default function BagEditorScreen({
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-4 pb-2 shrink-0">
+      <div className="relative flex items-center justify-between p-4 pb-2 shrink-0">
         <div className="flex items-center gap-6">
           <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
             <IconArrowLeft size={22} stroke={1.75} />
@@ -1259,6 +1288,15 @@ export default function BagEditorScreen({
             <IconHelpCircle size={20} stroke={1.75} color="var(--text-secondary)" />
           </button>
         </div>
+        {!readOnly && historyLen > 0 && (
+          <button
+            onClick={handleUndo}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -m-2.5 p-2.5"
+            aria-label="undo"
+          >
+            <IconArrowBackUp size={20} stroke={1.75} color="var(--text-secondary)" />
+          </button>
+        )}
         <div className="flex items-center gap-2">
           {!isNew && (
             <>
@@ -1320,7 +1358,10 @@ export default function BagEditorScreen({
 
         <EditableText
           value={bag.name}
-          onChange={(name) => setBag((prev) => ({ ...prev, name }))}
+          onChange={(name) => {
+            pushUndoSnapshot();
+            setBag((prev) => ({ ...prev, name }));
+          }}
           readOnly={readOnly}
           className="text-[18px] font-medium mb-2 block text-left"
           inputClassName="text-[18px] font-medium mb-2 block w-full"
@@ -1329,7 +1370,10 @@ export default function BagEditorScreen({
 
         <BagNotice
           value={bag.notice ?? ""}
-          onChange={(notice) => setBag((prev) => ({ ...prev, notice }))}
+          onChange={(notice) => {
+            pushUndoSnapshot();
+            setBag((prev) => ({ ...prev, notice }));
+          }}
           readOnly={readOnly}
         />
 

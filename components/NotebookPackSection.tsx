@@ -191,6 +191,9 @@ export default function NotebookPackSection({
             <ProgressRing ratio={ratio} size={16} accentHex={accentHex ?? undefined} />
           </button>
         )}
+        {ratio !== null && (
+          <span className="shrink-0 text-[12px] text-text-secondary">{pack.items.length}개</span>
+        )}
         {onAddItem && (
           <>
             <button

@@ -147,8 +147,16 @@ export default function ItemRow({
   const lineClampClass =
     itemMaxLines === 3 ? "line-clamp-3" : itemMaxLines === 2 ? "line-clamp-2" : "line-clamp-1";
 
+  // 다중선택 모드 중엔 같은 짐을 빠르게 두 번 누르면(더블클릭 속도) 두 번째 탭을 무시한다 -
+  // 안 그러면 선택->선택해제가 순식간에 일어나 다중선택 모드가 풀리면서, 동시에 아래
+  // handleDoubleClick(복사)까지 겹쳐 실행되는 문제가 있었다.
+  const lastTapTimeRef = useRef(0);
+  const RAPID_TAP_GUARD_MS = 350;
+
   // 짐을 더블클릭하면 내용을 클립보드에 복사하고, 무슨 내용이 복사됐는지 토스트로 알려준다.
+  // 다중선택 모드(disabled) 중에는 복사 대신 선택 토글이 우선이므로 더블클릭 복사를 막는다.
   const handleDoubleClick = () => {
+    if (disabled) return;
     if (!item.text) return;
     navigator.clipboard
       .writeText(item.text)
@@ -380,6 +388,9 @@ export default function ItemRow({
       return;
     }
     if (onRowTap) {
+      const now = Date.now();
+      if (now - lastTapTimeRef.current < RAPID_TAP_GUARD_MS) return;
+      lastTapTimeRef.current = now;
       onRowTap();
       return;
     }

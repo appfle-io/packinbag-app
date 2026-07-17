@@ -276,77 +276,88 @@ export default function PackCard({
             })}
           </div>
 
-          <div className="flex items-center gap-2.5 pt-2.5 mt-2.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
-            {onAddItem && (
-              quickAddType ? (
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <input
-                    ref={quickAddInputRef}
-                    autoFocus
-                    value={quickAddText}
-                    onChange={(e) => setQuickAddText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        commitQuickAdd();
-                      } else if (e.key === "Escape") {
-                        closeQuickAdd();
-                      }
-                    }}
-                    onBlur={() => {
-                      if (!quickAddText.trim()) closeQuickAdd();
-                    }}
-                    placeholder={quickAddType === "check" ? "체크박스 항목 입력" : "텍스트 입력"}
-                    className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
-                  />
-                  <button onClick={closeQuickAdd} aria-label="빠른추가 닫기" className="shrink-0">
-                    <IconX size={15} stroke={1.75} color="var(--text-secondary)" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setQuickAddType("check")}
-                    aria-label="체크박스 항목 빠르게 추가"
-                  >
-                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                      <IconSquareCheck size={18} stroke={1.75} color="var(--text-secondary)" />
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setQuickAddType("text")}
-                    aria-label="텍스트 항목 빠르게 추가"
-                  >
-                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                      <IconAlignLeft size={18} stroke={1.75} color="var(--text-secondary)" />
-                    </span>
-                  </button>
-                </div>
-              )
-            )}
-            <div className="flex items-center gap-3 ml-auto">
-              {pack.linkedLibraryPackId && (
-                <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
-                  <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                    <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
-                  </span>
-                </button>
+          <div className="flex flex-col gap-1 pt-2.5 mt-2.5 border-t border-border shrink-0">
+            <div className="flex items-center gap-2.5 text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
+              {onAddItem && (
+                quickAddType ? (
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <input
+                      ref={quickAddInputRef}
+                      autoFocus
+                      value={quickAddText}
+                      onChange={(e) => setQuickAddText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitQuickAdd();
+                        } else if (e.key === "Escape") {
+                          closeQuickAdd();
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!quickAddText.trim()) closeQuickAdd();
+                      }}
+                      placeholder={quickAddType === "check" ? "체크박스 항목 입력" : "텍스트 입력"}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
+                    />
+                    <button onClick={closeQuickAdd} aria-label="빠른추가 닫기" className="shrink-0">
+                      <IconX size={15} stroke={1.75} color="var(--text-secondary)" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setQuickAddType("check")}
+                      aria-label="체크박스 항목 빠르게 추가"
+                    >
+                      <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                        <IconSquareCheck size={18} stroke={1.75} color="var(--text-secondary)" />
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setQuickAddType("text")}
+                      aria-label="텍스트 항목 빠르게 추가"
+                    >
+                      <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                        <IconAlignLeft size={18} stroke={1.75} color="var(--text-secondary)" />
+                      </span>
+                    </button>
+                  </div>
+                )
               )}
-              <button onClick={onSaveToLibrary} aria-label="팩 저장">
-                <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                  {isSyncedWithLibrary ? (
-                    <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
-                  ) : (
-                    <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
+              {/* 빠른추가 입력창이 떠 있는 동안엔 오른쪽 팩 저장/새로고침/삭제 버튼을 숨긴다 -
+                  입력 중 옆의 버튼을 잘못 눌러 팩 자체가 삭제/저장되는 걸 막기 위함. */}
+              {!quickAddType && (
+                <div className="flex items-center gap-3 ml-auto">
+                  {pack.linkedLibraryPackId && (
+                    <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
+                      <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                        <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
+                      </span>
+                    </button>
                   )}
-                </span>
-              </button>
-              <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
-                <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                  <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
-                </span>
-              </button>
+                  <button onClick={onSaveToLibrary} aria-label="팩 저장">
+                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                      {isSyncedWithLibrary ? (
+                        <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
+                      ) : (
+                        <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
+                      )}
+                    </span>
+                  </button>
+                  <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
+                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                      <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
+            {quickAddType && (
+              <p className="text-[11px] pl-0.5" style={{ color: "var(--text-muted)" }}>
+                엔터로 입력돼요
+              </p>
+            )}
           </div>
         </>
       )}
