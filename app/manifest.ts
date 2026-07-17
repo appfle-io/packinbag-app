@@ -11,6 +11,13 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#ffffff",
     theme_color: BRAND_ICON_BG,
     icons: [
+      // 안드로이드 크롬 PWA 설치 조건(installability criteria)에는
+      // 192x192 사이즈가 필수라서 추가함 (app/icon-192/route.tsx에서 생성).
+      {
+        src: "/icon-192",
+        sizes: "192x192",
+        type: "image/png",
+      },
       {
         src: "/icon.png",
         sizes: "512x512",
