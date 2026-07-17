@@ -83,8 +83,7 @@ export async function trashLibraryPackRemote(uid: string, packId: string) {
   await updateDoc(doc(packsCol(uid), packId), { trashedAt: new Date().toISOString() });
 }
 
-// 휴지통에서 복구. 무료 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을 서버에서 다시 검증해야
-// 해서(firestore.rules가 클라이언트의 직접 복구를 막아둔) app/api/restore-library-pack을 거친다.
+// 휴지통에서 복구. firestore.rules가 클라이언트의 직접 복구를 막아둬서 app/api/restore-library-pack을 거친다.
 export async function restoreLibraryPackRemote(user: User, packId: string) {
   const idToken = await user.getIdToken();
   const res = await fetch("/api/restore-library-pack", {
@@ -98,9 +97,6 @@ export async function restoreLibraryPackRemote(user: User, packId: string) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message = (data?.error as string | undefined) ?? "팩을 복구하지 못했어요";
-    if (data?.code === "PACK_LIMIT_REACHED") {
-      throw new PremiumLimitError(message);
-    }
     throw new Error(message);
   }
 }
@@ -109,4 +105,49 @@ export async function restoreLibraryPackRemote(user: User, packId: string) {
 export async function getLibraryPacksOnce(uid: string): Promise<Pack[]> {
   const snap = await getDocs(packsCol(uid));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Pack));
+}
+
+// --- v68 폴더(그룹) 기능 -----------------------------------------------------
+// 폴더도 그냥 Pack 문서다(type: "folder", items: []). 아이폰 메모처럼 폴더 안에
+// 폴더를 계속 만들 수 있어(깊이 제한 없음) 트리를 순회해서 하위 id를 모으는 유틸이 필요하다.
+
+// rootId의 모든 하위(직접 자식 + 손자...) id를 재귀로 모은다. allPacks에는 폴더 구조를
+// 다 잡아둬야 하니, 휴지통 예외 없이 항상 전체(필요시 휴지통 포함) 배열을 넘겨야 한다.
+export function collectDescendantPackIds(allPacks: Pack[], rootId: string): string[] {
+  const children = allPacks.filter((p) => p.parentId === rootId);
+  return children.flatMap((c) => [c.id, ...collectDescendantPackIds(allPacks, c.id)]);
+}
+
+// 폴더를 휴지통으로 보내면(아이폰 메모처럼) 하위 팩/폴더까지 함께 보낸다. 일반 팩을 보낼
+// 때도(하위 없음) 똑같이 동작한다(collectDescendantPackIds가 빈 배열을 반환할 뿐).
+export async function trashLibraryEntryRecursive(uid: string, allPacks: Pack[], rootId: string) {
+  const ids = [rootId, ...collectDescendantPackIds(allPacks, rootId)];
+  await Promise.all(ids.map((id) => trashLibraryPackRemote(uid, id)));
+}
+
+// 휴지통에서 폴더를 복구하면 하위 팩/폴더도 함께 복구된다. allPacks에는 트리 순회를 위해
+// 휴지통에 있는 항목까지 포함된 전체(활성+휴지통) 목록을 넘겨야 한다.
+//
+// 주의할 점: 폴더 없이 그 안의 팩 하나만 따로 복구하는 경우(부모 폴더는 휴지통에 그대로
+// 남겨둔 채로) - 그러면 그 팩의 parentId가 여전히 휴지통에 있는 폴더를 가리키게 되어,
+// 트리(활성 폴더만 순회)에서는 어디에도 나타나지 않는 "보이지 않는 팩"이 되어버린다.
+// 그래서 복구 후에는 부모 폴더가 아직 휴지통에 있는지 확인하고, 그렇다면 이 팩을
+// 최상위(parentId undefined)로 옮겨서 다시 눈에 보이게 만든다.
+export async function restoreLibraryEntryRecursive(user: User, allPacks: Pack[], rootId: string) {
+  const ids = [rootId, ...collectDescendantPackIds(allPacks, rootId)];
+  await Promise.all(ids.map((id) => restoreLibraryPackRemote(user, id)));
+
+  const root = allPacks.find((p) => p.id === rootId);
+  if (root?.parentId) {
+    const parent = allPacks.find((p) => p.id === root.parentId);
+    if (parent?.trashedAt) {
+      await saveLibraryPackRemote(user, { ...root, parentId: undefined, trashedAt: undefined });
+    }
+  }
+}
+
+// 휴지통에서 완전삭제(되돌릴 수 없음)도 동일하게 재귀로 처리한다.
+export async function deleteLibraryEntryRecursive(uid: string, allPacks: Pack[], rootId: string) {
+  const ids = [rootId, ...collectDescendantPackIds(allPacks, rootId)];
+  await Promise.all(ids.map((id) => deleteLibraryPackRemote(uid, id)));
 }

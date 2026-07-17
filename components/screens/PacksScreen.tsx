@@ -3,77 +3,127 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconPlus,
+  IconFolderPlus,
+  IconFolder,
   IconSettings,
   IconTrash,
   IconCheck,
   IconSearch,
   IconHelpCircle,
   IconX,
+  IconChevronRight,
+  IconPin,
+  IconPinFilled,
+  IconEdit,
+  IconArrowRight,
 } from "@tabler/icons-react";
-import { Pack } from "@/lib/types";
+import { Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
-import { arrangeList, moveIdInOrder } from "@/lib/listSort";
+import { arrangeList } from "@/lib/listSort";
 import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
-import PackTile from "@/components/PackTile";
+import { collectDescendantPackIds } from "@/lib/packsService";
+import { getPackColorHex } from "@/lib/packColors";
+import { getProgressRatio } from "@/lib/itemStats";
+import ProgressRing from "@/components/ProgressRing";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
 import NotificationBell from "@/components/NotificationBell";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
 
+// v68: 팩 보관함이 그리드(PackTile)에서 아이폰 메모 스타일의 폴더 트리로 바뀌었다.
+// 폴더도 그냥 Pack 문서다(type: "folder", items: []) - parentId로 트리를 표현한다.
+// 화면에 실제로 그릴 한 줄(행)을 "팩/폴더 항목" 또는 "이 레벨에 새로 추가하기" 두 종류로
+// 나눈 뒤, 트리를 재귀로 펼쳐서 평평한 배열로 만들어 렌더링한다(가상 스크롤 없이도
+// 개인 라이브러리 규모에서는 충분히 가볍다).
+type TreeRow =
+  | { kind: "entry"; entry: Pack; depth: number }
+  | { kind: "add"; parentId: string | undefined; depth: number };
+
+function buildRows(
+  allPacks: Pack[],
+  parentId: string | undefined,
+  depth: number,
+  expandedIds: Set<string>,
+  sortBy: ListSortOption | undefined,
+  pinnedIds: string[]
+): TreeRow[] {
+  const siblings = allPacks.filter((p) => (p.parentId ?? undefined) === parentId);
+  const arranged = arrangeList(siblings, { sortBy, pinnedIds });
+  const rows: TreeRow[] = [];
+  for (const entry of arranged) {
+    rows.push({ kind: "entry", entry, depth });
+    if (entry.type === "folder" && expandedIds.has(entry.id)) {
+      rows.push(...buildRows(allPacks, entry.id, depth + 1, expandedIds, sortBy, pinnedIds));
+    }
+  }
+  rows.push({ kind: "add", parentId, depth });
+  return rows;
+}
+
 export default function PacksScreen({
   uid,
   packs,
   quickPack,
-  lockedPackIds,
   onOpenPack,
   onNewPack,
+  onNewFolder,
+  onRenameEntry,
+  onMoveEntries,
   onOpenSettings,
   onBulkDeletePacks,
 }: {
-  // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 그리드 렌더링 전에
-  // 걸러낸다 - 빠른팩은 그리드가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
-  // 알림종 배지/패널에 쓰임(NotificationBell).
+  // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 트리를 그리기 전에 걸러낸다 -
+  // 빠른팩은 트리가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
   uid: string;
   packs: Pack[];
   quickPack?: Pack;
-  // 무료 전환으로 잠긴 팩 id 목록. 타일에 자물쇠 표시만 하고, 탭하면 여전히 열린다 -
-  // 실제 읽기 전용 처리는 PackLibraryEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
-  lockedPackIds?: Set<string>;
-  // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다
-  // (상단 검색 결과 중 짐 매칭을 눌렀을 때만 넘어옴 - 평소 타일 탭은 넘기지 않음).
+  // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다.
   onOpenPack: (pack: Pack, focusItemId?: string) => void;
-  onNewPack: () => void;
+  // parentId를 넘기면 그 폴더 바로 안에 새 팩/폴더를 만든다(없으면 최상위).
+  onNewPack: (parentId?: string) => void;
+  onNewFolder: (parentId?: string) => void;
+  // 트리 행에서 이름을 바꿀 때(폴더는 편집 화면이 없어서 이 경로가 유일한 이름 변경 수단).
+  onRenameEntry: (pack: Pack, name: string) => void;
+  // 다중선택 후 "이동" 액션 - 선택된 id들을 parentId(없으면 최상위)로 옮긴다.
+  onMoveEntries: (packIds: string[], parentId: string | undefined) => void;
   onOpenSettings: () => void;
-  // 길게 눌러 다중선택한 팩들을 한꺼번에 삭제 (AppShell이 라이브러리에서 실제로 삭제).
+  // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더면 하위 항목까지 재귀적으로).
   onBulkDeletePacks: (packIds: string[]) => void;
 }) {
-  const { profile, updatePackSortBy, togglePackPinned, updatePackOrder } = useAuth();
+  const { profile, updatePackSortBy, togglePackPinned } = useAuth();
   const { show } = useToast();
   const sortBy = profile?.packSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedPackIds ?? [];
-  const gridPacks = packs.filter((p) => !p.isQuickPack);
-  const arrangedPacks = arrangeList(gridPacks, { sortBy, pinnedIds, order: profile?.packOrder });
+  const treePacks = packs.filter((p) => !p.isQuickPack);
   const pinnedSet = new Set(pinnedIds);
 
+  // 폴더 펼침/접힘 상태. 계정에 저장하지 않고 화면(세션) 안에서만 유지된다(v1 단순화).
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   // --- 검색 --------------------------------------------------------------
-  // 가방 보관함(HomeScreen)과 동일한 패턴: 검색 아이콘 -> 헤더가 입력창으로 바뀌며
-  // 자동 포커스 -> 입력할 때마다 즉시 필터링. 팩 보관함에는 "가방" 개념이 없어서
-  // 팩 이름 / 팩 속 짐 텍스트만 검색 대상이다.
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 빠른팩도 검색 대상에 포함한다 - 검색 결과로 그 짐을 누르면 빠른팩이 열리면서
-  // 다른 팩과 동일하게 스크롤 + 하이라이트되는 것을 PackLibraryEditorScreen의
-  // focusItemId 처리가 그대로 지원해서, 그리드에는 안 보여도 검색에서는 찾을 수 있게 한다.
-  const searchablePacks = useMemo(
-    () => (quickPack ? [...gridPacks, quickPack] : gridPacks),
-    [gridPacks, quickPack]
-  );
+  // 폴더는 items가 없어서(내용물이 아니라 껍데기) 검색 대상에서 제외한다 - 이름/짐 검색
+  // 모두 실제 팩만 대상으로 한다.
+  const searchablePacks = useMemo(() => {
+    const realPacks = treePacks.filter((p) => p.type !== "folder");
+    return quickPack ? [...realPacks, quickPack] : realPacks;
+  }, [treePacks, quickPack]);
 
   const { results: searchResults, truncated: searchTruncated } = useMemo(
     () => searchLibraryPacks(searchablePacks, searchQuery),
@@ -84,40 +134,31 @@ export default function PacksScreen({
     setSearchOpen(true);
     requestAnimationFrame(() => searchInputRef.current?.focus());
   };
-
   const closeSearch = () => {
     setSearchOpen(false);
     setSearchQuery("");
   };
-
   const handleResultClick = (result: PackSearchResult) => {
     closeSearch();
     onOpenPack(result.pack, result.itemId);
   };
-
-  // 팩 보관함 설명서(?)는 아직 튜토리얼 슬라이드가 준비되지 않아서, 눌러도 짧은
-  // 안내 토스트만 보여준다. 나중에 슬라이드를 다 만들면 HomeScreen처럼
-  // HelpTutorialModal + lib/helpTutorial/packsSlides.ts로 교체하면 된다.
   const handleHelpClick = () => {
     show("아직 준비되지 않았어요");
   };
 
-  // 길게 눌러서 순서 바꾸기 (HomeScreen의 가방 그리드와 동일한 패턴). 길게 누르고
-  // "그대로 뗀" 경우(실제로 다른 타일 위로 옮기지 않은 경우)는 다중선택 모드 진입으로
-  // 취급한다 - 같은 롱프레스 제스처가 "움직이면 순서변경", "가만히 있다 떼면 다중선택
-  // 시작"으로 나뉘어서 두 기능이 서로 충돌하지 않는다.
-  const [reorderDrag, setReorderDrag] = useState<{ id: string; x: number; y: number; overId: string | null } | null>(
-    null
-  );
+  // --- 길게 눌러 다중선택 ---------------------------------------------------
+  // 예전 그리드의 드래그 순서변경은 폴더 트리에서는 빠지고(대신 "이동" 액션으로 폴더 간
+  // 이동을 지원), 롱프레스는 오직 다중선택 시작 용도로만 쓰인다.
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
-  const justDraggedRef = useRef(false);
+  const justLongPressedRef = useRef(false);
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showMoveSheet, setShowMoveSheet] = useState(false);
+  const [renamingEntry, setRenamingEntry] = useState<Pack | null>(null);
 
-  // 선택된 항목이 하나도 없으면(마지막 선택을 해제했을 때) 다중선택 모드도 자동으로 빠져나간다.
   useEffect(() => {
     if (selectMode && selectedIds.size === 0) setSelectMode(false);
   }, [selectMode, selectedIds]);
@@ -129,16 +170,16 @@ export default function PacksScreen({
     }
   };
 
-  const enterSelectMode = (packId: string) => {
+  const enterSelectMode = (id: string) => {
     setSelectMode(true);
-    setSelectedIds(new Set([packId]));
+    setSelectedIds(new Set([id]));
   };
 
-  const toggleSelected = (packId: string) => {
+  const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(packId)) next.delete(packId);
-      else next.add(packId);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -148,73 +189,89 @@ export default function PacksScreen({
     setSelectedIds(new Set());
   };
 
-  const handleTilePointerDown = (packId: string, e: React.PointerEvent) => {
+  const handleRowPointerDown = (id: string, e: React.PointerEvent) => {
     if (selectMode) return; // 선택 모드에서는 탭만으로 토글하므로 롱프레스가 필요 없음
     const x = e.clientX;
     const y = e.clientY;
-    longPressStartRef.current = { id: packId, x, y };
+    longPressStartRef.current = { id, x, y };
     clearLongPressTimer();
     longPressTimerRef.current = setTimeout(() => {
-      if (pinnedSet.has(packId)) {
-        // 고정된 타일은 순서를 바꿀 수 없지만, 길게 눌러 다중선택 모드로 들어가는 건 허용한다.
-        enterSelectMode(packId);
-        justDraggedRef.current = true;
-      } else {
-        setReorderDrag({ id: packId, x, y, overId: null });
-      }
+      enterSelectMode(id);
+      justLongPressedRef.current = true;
     }, LONG_PRESS_MS);
   };
 
-  const handleTilePointerMove = (e: React.PointerEvent) => {
+  const handleRowPointerMove = (e: React.PointerEvent) => {
     const start = longPressStartRef.current;
-    if (!start || reorderDrag) return;
+    if (!start) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
     if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) clearLongPressTimer();
   };
 
-  const handleTilePointerUp = () => {
+  const handleRowPointerUp = () => {
     clearLongPressTimer();
   };
 
-  useEffect(() => {
-    if (!reorderDrag) return;
+  const handleRowClick = (entry: Pack) => {
+    // 롱프레스로 막 선택 모드에 들어간 직후, 손을 뗄 때 뒤따라오는 클릭 이벤트를
+    // 무시한다 - 안 그러면 방금 선택된 항목이 바로 다시 선택 해제되어버린다.
+    if (justLongPressedRef.current) {
+      justLongPressedRef.current = false;
+      return;
+    }
+    if (selectMode) {
+      toggleSelected(entry.id);
+      return;
+    }
+    if (entry.type === "folder") {
+      toggleExpanded(entry.id);
+    } else {
+      onOpenPack(entry);
+    }
+  };
 
-    const handleMove = (e: PointerEvent) => {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      const tileEl = el?.closest("[data-pack-tile-drop-id]") as HTMLElement | null;
-      const overId = tileEl?.getAttribute("data-pack-tile-drop-id") ?? null;
-      setReorderDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overId } : d));
-    };
+  // --- 이동(폴더 피커) -------------------------------------------------------
+  // 선택된 항목 본인 + 그 하위(자손) 폴더로는 이동할 수 없다(순환 방지).
+  const moveBlockedIds = useMemo(() => {
+    const blocked = new Set(selectedIds);
+    selectedIds.forEach((id) => {
+      collectDescendantPackIds(treePacks, id).forEach((d) => blocked.add(d));
+    });
+    return blocked;
+  }, [selectedIds, treePacks]);
 
-    const handleUp = () => {
-      setReorderDrag((d) => {
-        if (d) {
-          if (d.overId && d.overId !== d.id && !pinnedSet.has(d.overId)) {
-            // 실제로 다른 타일 위로 옮겨서 놓은 경우 -> 순서 변경
-            const currentIds = arrangedPacks.filter((p) => !pinnedSet.has(p.id)).map((p) => p.id);
-            const nextOrder = moveIdInOrder(currentIds, d.id, d.overId);
-            updatePackOrder(nextOrder).catch(() => show("순서를 저장하지 못했어요"));
-          } else {
-            // 움직이지 않고 그대로 뗀 경우 -> 다중선택 모드로 진입
-            enterSelectMode(d.id);
-          }
-          justDraggedRef.current = true;
-        }
-        return null;
-      });
+  const folderPickerRows = useMemo(() => {
+    const allFolders = treePacks.filter((p) => p.type === "folder");
+    const rows: { folder: Pack; depth: number }[] = [];
+    const walk = (parentId: string | undefined, depth: number) => {
+      allFolders
+        .filter((f) => (f.parentId ?? undefined) === parentId)
+        .filter((f) => !moveBlockedIds.has(f.id))
+        .sort((a, b) => a.name.localeCompare(b.name, "ko"))
+        .forEach((f) => {
+          rows.push({ folder: f, depth });
+          walk(f.id, depth + 1);
+        });
     };
+    walk(undefined, 0);
+    return rows;
+  }, [treePacks, moveBlockedIds]);
 
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
-    window.addEventListener("pointercancel", handleUp);
-    return () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reorderDrag !== null]);
+  const handleMoveTo = (parentId: string | undefined) => {
+    onMoveEntries(Array.from(selectedIds), parentId);
+    setShowMoveSheet(false);
+    cancelSelectMode();
+  };
+
+  // --- 트리 구성 -------------------------------------------------------------
+  const rows = useMemo(
+    () => buildRows(treePacks, undefined, 0, expandedIds, sortBy, pinnedIds),
+    [treePacks, expandedIds, sortBy, pinnedIds]
+  );
+  // 다중선택 모드 중엔 "여기에 추가" 버튼 행을 숨긴다(선택에 방해되지 않도록).
+  const visibleRows = selectMode ? rows.filter((r) => r.kind === "entry") : rows;
+  const isEmpty = treePacks.length === 0;
 
   return (
     <div className="relative flex-1 flex flex-col overflow-hidden">
@@ -237,10 +294,7 @@ export default function PacksScreen({
                   </button>
                 )}
               </div>
-              <button
-                onClick={closeSearch}
-                className="shrink-0 text-[13px] text-text-secondary px-1"
-              >
+              <button onClick={closeSearch} className="shrink-0 text-[13px] text-text-secondary px-1">
                 취소
               </button>
             </>
@@ -249,30 +303,18 @@ export default function PacksScreen({
               <div className="flex items-baseline gap-2 min-w-0">
                 <h1 className="text-[22px] font-bold shrink-0">팩</h1>
                 <span className="text-[12px] text-text-muted truncate">
-                  한 번 만들어두면 여러 가방에서 두고두고 써요
+                  폴더로 정리해서 두고두고 써요
                 </span>
               </div>
               <div className="flex items-center gap-4 shrink-0">
-                <button
-                  onClick={openSearch}
-                  aria-label="검색"
-                  className="-m-2 p-2"
-                >
+                <button onClick={openSearch} aria-label="검색" className="-m-2 p-2">
                   <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
                 </button>
-                <button
-                  onClick={handleHelpClick}
-                  aria-label="사용법 도움말"
-                  className="-m-2 p-2"
-                >
+                <button onClick={handleHelpClick} aria-label="사용법 도움말" className="-m-2 p-2">
                   <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
                 <NotificationBell uid={uid} />
-                <button
-                  onClick={onOpenSettings}
-                  aria-label="설정"
-                  className="-m-2 p-2"
-                >
+                <button onClick={onOpenSettings} aria-label="설정" className="-m-2 p-2">
                   <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
                 </button>
               </div>
@@ -283,18 +325,18 @@ export default function PacksScreen({
         {!searchOpen &&
           (selectMode ? (
             <div className="flex items-center justify-between mb-3 gap-2">
-              <button
-                onClick={cancelSelectMode}
-                className="text-[13px] text-text-secondary px-1 py-1.5"
-              >
+              <button onClick={cancelSelectMode} className="text-[13px] text-text-secondary px-1 py-1.5">
                 취소
               </button>
               <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
             </div>
           ) : (
-            gridPacks.length > 0 && (
+            !isEmpty && (
               <div className="flex justify-end mb-3">
-                <SortSelect value={sortBy} onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+                <SortSelect
+                  value={sortBy}
+                  onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))}
+                />
               </div>
             )
           ))}
@@ -336,107 +378,160 @@ export default function PacksScreen({
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-4 pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
-            {arrangedPacks.map((pack) => (
-              <div
-                key={pack.id}
-                data-pack-tile-drop-id={pack.id}
-                className="relative"
-                onPointerDown={(e) => handleTilePointerDown(pack.id, e)}
-                onPointerMove={handleTilePointerMove}
-                onPointerUp={handleTilePointerUp}
-                onPointerCancel={handleTilePointerUp}
-                onClickCapture={(e) => {
-                  if (justDraggedRef.current) {
-                    justDraggedRef.current = false;
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }
-                }}
-              >
-                <PackTile
-                  pack={pack}
-                  locked={lockedPackIds?.has(pack.id)}
-                  pinned={pinnedSet.has(pack.id)}
-                  onTogglePin={
-                    selectMode
-                      ? undefined
-                      : () => togglePackPinned(pack.id).catch(() => show("고정 상태를 저장하지 못했어요"))
-                  }
-                  isDragSource={reorderDrag?.id === pack.id}
-                  isDragOver={reorderDrag?.overId === pack.id}
-                  onClick={() => (selectMode ? toggleSelected(pack.id) : onOpenPack(pack))}
-                />
-                {selectMode && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {isEmpty ? (
+            <p className="text-[13px] text-text-muted py-16 text-center">
+              아직 만든 팩이 없어요. 아래에서 팩이나 폴더를 만들어보세요.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {visibleRows.map((row) => {
+                if (row.kind === "add") {
+                  return (
                     <div
-                      className="h-9 w-9 rounded-full flex items-center justify-center"
-                      style={{
-                        background: selectedIds.has(pack.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
-                        border: selectedIds.has(pack.id) ? "none" : "1.5px solid var(--border-strong)",
-                        boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
-                      }}
+                      key={`add-${row.parentId ?? "root"}`}
+                      className="flex items-center gap-2 py-1"
+                      style={{ paddingLeft: 8 + row.depth * 20 }}
                     >
-                      {selectedIds.has(pack.id) && <IconCheck size={18} stroke={3} color="#fff" />}
+                      <button
+                        onClick={() => onNewPack(row.parentId)}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
+                      >
+                        <IconPlus size={13} stroke={1.75} />팩
+                      </button>
+                      <button
+                        onClick={() => onNewFolder(row.parentId)}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
+                      >
+                        <IconFolderPlus size={13} stroke={1.75} />폴더
+                      </button>
                     </div>
+                  );
+                }
+
+                const entry = row.entry;
+                const isFolder = entry.type === "folder";
+                const dotHex = !isFolder ? getPackColorHex(entry.color) : null;
+                const ratio = !isFolder ? getProgressRatio(entry.items) : null;
+                const isSelected = selectedIds.has(entry.id);
+                const childCount = isFolder
+                  ? treePacks.filter((p) => p.parentId === entry.id).length
+                  : entry.items.length;
+
+                return (
+                  <div
+                    key={entry.id}
+                    onPointerDown={(e) => handleRowPointerDown(entry.id, e)}
+                    onPointerMove={handleRowPointerMove}
+                    onPointerUp={handleRowPointerUp}
+                    onPointerCancel={handleRowPointerUp}
+                    onClick={() => handleRowClick(entry)}
+                    className="flex items-center gap-2 rounded-lg px-2 py-2.5 active:bg-black/5"
+                    style={{
+                      paddingLeft: 8 + row.depth * 20,
+                      background: isSelected ? "var(--accent-soft)" : undefined,
+                      WebkitTouchCallout: "none",
+                      WebkitUserSelect: "none",
+                      userSelect: "none",
+                    }}
+                  >
+                    {selectMode && (
+                      <div
+                        className="h-5 w-5 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: isSelected ? "var(--accent)" : "transparent",
+                          border: isSelected ? "none" : "1.5px solid var(--border-strong)",
+                        }}
+                      >
+                        {isSelected && <IconCheck size={13} stroke={3} color="#fff" />}
+                      </div>
+                    )}
+                    {isFolder ? (
+                      <IconChevronRight
+                        size={15}
+                        stroke={2}
+                        color="var(--text-muted)"
+                        className="shrink-0 transition-transform"
+                        style={{
+                          transform: expandedIds.has(entry.id) ? "rotate(90deg)" : "rotate(0deg)",
+                        }}
+                      />
+                    ) : dotHex ? (
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: dotHex }} />
+                    ) : (
+                      <span className="w-[15px] shrink-0" />
+                    )}
+                    {isFolder && (
+                      <IconFolder size={17} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
+                    )}
+                    <span className="text-[14px] font-medium truncate min-w-0 flex-1">{entry.name}</span>
+                    {!isFolder && ratio !== null && <ProgressRing ratio={ratio} size={15} />}
+                    <span className="text-[11px] text-text-muted shrink-0">{childCount}개</span>
+                    {!selectMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePackPinned(entry.id).catch(() => show("고정 상태를 저장하지 못했어요"));
+                        }}
+                        aria-label={pinnedSet.has(entry.id) ? "고정 해제" : "고정하기"}
+                        className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+                      >
+                        {pinnedSet.has(entry.id) ? (
+                          <IconPinFilled size={13} stroke={1.75} color="var(--accent)" />
+                        ) : (
+                          <IconPin size={13} stroke={1.75} color="var(--text-muted)" />
+                        )}
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-            {!selectMode && (
-              <button
-                onClick={onNewPack}
-                className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
-              >
-                <IconPlus size={22} stroke={1.75} />
-              </button>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       <QuickPackBar pack={quickPack} onClick={() => quickPack && onOpenPack(quickPack)} />
 
-      {reorderDrag && (
-        <div
-          className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
-          style={{
-            left: reorderDrag.x,
-            top: reorderDrag.y,
-            transform: "translate(-50%, -120%)",
-            background: "var(--accent)",
-            color: "#fff",
-          }}
-        >
-          {gridPacks.find((p) => p.id === reorderDrag.id)?.name || "팩"}
-        </div>
-      )}
-
-      {/* 다중선택 모드일 때 화면 가운데 하단에 떠 있는 삭제 버튼.
-          이 화면(PacksScreen) 루트가 relative라서 앱 컬럼 폭 기준으로 가운데 정렬된다.
-          bottom-24(96px)만큼 충분히 띄운 이유: 하단탭바 중앙에는 "+"(빠른입력) FAB가
-          nav 위로 44px 튀어나와 있는데(BottomTabBar.tsx), 이 화면 컨테이너 바닥이 곧
-          그 nav의 윗변과 같은 자리라서 bottom-4처럼 너무 가깝게 두면 삭제 버튼이 그
-          "+" 버튼과 겹쳐 보인다. 그 FAB 위로 확실히 떨어지도록 여유를 뒀다.
-      */}
+      {/* 다중선택 모드 하단 액션바: 이름변경(1개 선택일 때만)/이동/삭제.
+          bottom-24만큼 띄운 이유는 예전 그리드와 동일 - 하단탭바 중앙 "+" FAB와 겹치지 않게. */}
       {selectMode && (
-        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center pointer-events-none">
+        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center gap-3 pointer-events-none">
+          {selectedIds.size === 1 && (
+            <button
+              onClick={() => {
+                const only = treePacks.find((p) => selectedIds.has(p.id));
+                if (only) setRenamingEntry(only);
+              }}
+              aria-label="이름 변경"
+              className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
+              style={{ background: "var(--surface-2)" }}
+            >
+              <IconEdit size={22} stroke={1.75} color="var(--text-secondary)" />
+            </button>
+          )}
+          <button
+            onClick={() => setShowMoveSheet(true)}
+            aria-label="이동"
+            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
+            style={{ background: "var(--accent)" }}
+          >
+            <IconArrowRight size={22} stroke={1.75} color="#fff" />
+          </button>
           <button
             onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
-            disabled={selectedIds.size === 0}
-            aria-label="선택한 팩 삭제"
-            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90 disabled:opacity-40"
+            aria-label="선택한 항목 삭제"
+            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
             style={{ background: "var(--danger)" }}
           >
-            <IconTrash size={24} stroke={1.75} color="#fff" />
+            <IconTrash size={22} stroke={1.75} color="#fff" />
           </button>
         </div>
       )}
 
       {showBulkDeleteConfirm && (
         <ConfirmDialog
-          title={`팩 ${selectedIds.size}개를 삭제할까요?`}
-          message="삭제된 팩은 되돌릴 수 없어요. 이미 가방에 불러와진 사본에는 영향이 없어요."
+          title={`${selectedIds.size}개를 삭제할까요?`}
+          message="폴더를 삭제하면 그 안의 팩/폴더도 함께 휴지통으로 이동해요. 삭제된 항목은 되돌릴 수 없어요(휴지통에서 복구 가능). 이미 가방에 불러와진 사본에는 영향이 없어요."
           onCancel={() => setShowBulkDeleteConfirm(false)}
           onConfirm={() => {
             const ids = Array.from(selectedIds);
@@ -445,6 +540,107 @@ export default function PacksScreen({
             onBulkDeletePacks(ids);
           }}
         />
+      )}
+
+      {showMoveSheet && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setShowMoveSheet(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[15px] font-medium">이동할 곳 선택</span>
+                <button onClick={() => setShowMoveSheet(false)} aria-label="닫기">
+                  <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto">
+                <button
+                  onClick={() => handleMoveTo(undefined)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <span className="text-[13px] font-medium">팩 보관함 (최상위)</span>
+                </button>
+                {folderPickerRows.map(({ folder, depth }) => (
+                  <button
+                    key={folder.id}
+                    onClick={() => handleMoveTo(folder.id)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                    style={{ background: "var(--surface-2)", paddingLeft: 12 + depth * 16 }}
+                  >
+                    <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" />
+                    <span className="text-[13px] font-medium truncate">{folder.name}</span>
+                  </button>
+                ))}
+                {folderPickerRows.length === 0 && (
+                  <p className="text-[12px] text-text-muted py-2 px-1">
+                    이동할 수 있는 다른 폴더가 없어요.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {renamingEntry && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setRenamingEntry(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm mx-4 rounded-2xl bg-surface p-4 flex flex-col gap-3"
+            >
+              <span className="text-[15px] font-medium">이름 변경</span>
+              <input
+                autoFocus
+                defaultValue={renamingEntry.name}
+                onFocus={(e) => e.currentTarget.select()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const v = e.currentTarget.value.trim();
+                    if (v && renamingEntry) onRenameEntry(renamingEntry, v);
+                    setRenamingEntry(null);
+                    cancelSelectMode();
+                  }
+                }}
+                id="pib-rename-input"
+                className="rounded-lg border border-border px-3 py-2 text-[14px] outline-none"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setRenamingEntry(null)}
+                  className="rounded-lg px-4 py-2 text-[13px] text-text-secondary"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById("pib-rename-input") as HTMLInputElement | null;
+                    const v = el?.value.trim();
+                    if (v && renamingEntry) onRenameEntry(renamingEntry, v);
+                    setRenamingEntry(null);
+                    cancelSelectMode();
+                  }}
+                  className="rounded-lg px-4 py-2 text-[13px] font-medium"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
       )}
     </div>
   );

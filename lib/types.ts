@@ -29,6 +29,12 @@ export interface Pack {
   id: string;
   name: string;
   items: Item[];
+  // v68+ 팩 보관함 폴더 기능. 없으면(예전 데이터) "pack"으로 취급한다. "folder"면 items는
+  // 항상 빈 배열이고, 실제 내용물은 parentId로 이 폴더를 가리키는 다른 Pack들이다.
+  type?: "pack" | "folder";
+  // 이 팩/폴더가 속한 상위 폴더의 id. 없으면(undefined) 팩 보관함 최상위. 아이폰 메모처럼
+  // 폴더 안에 폴더를 계속 만들 수 있어 깊이 제한이 없다.
+  parentId?: string;
   // 이 팩이 이미 라이브러리에 저장된 적이 있는지 (북마크 채움 여부)
   savedAsLibraryPack?: boolean;
   // 이 팩이 어떤 라이브러리 팩과 연결돼있는지 (새로고침 대상)

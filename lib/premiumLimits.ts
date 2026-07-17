@@ -30,9 +30,6 @@ export function isPremiumUser(
   return isUnlimitedAiUser(email, profile);
 }
 
-// 무료 사용자가 만들 수 있는 팩 라이브러리 최대 개수 (프리미엄은 무제한)
-export const FREE_MAX_LIBRARY_PACKS = 3;
-
 // 무료 사용자가 동시에 가질 수 있는(진행 중인) 가방 최대 개수 (프리미엄은 무제한)
 export const FREE_MAX_ACTIVE_BAGS = 3;
 
@@ -90,13 +87,5 @@ export function computeLockedBagIds(bags: Bag[], ownerUid: string): Set<string> 
   return new Set(owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id));
 }
 
-// 무료인데 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을 넘는 팩을 갖고 있을 때,
-// 최신 N개만 잠금 해제하고 나머지를 잠금 대상으로 계산한다. 팩 라이브러리
-// (users/{uid}/libraryPacks)는 원래부터 개인 전용 공간이라 소유자 구분이 필요 없다.
-// 빠른팩(isQuickPack)과 휴지통으로 보낸(trashedAt) 팩은 개수 제한/잠금 대상 계산 자체에서
-// 항상 제외한다.
-export function computeLockedPackIds(packs: Pack[]): Set<string> {
-  const eligible = packs.filter((p) => !p.isQuickPack && !p.trashedAt);
-  const sorted = sortByCreatedAtDesc(eligible);
-  return new Set(sorted.slice(FREE_MAX_LIBRARY_PACKS).map((p) => p.id));
-}
+// v68: 팩 라이브러리 개수 제한은 폐지됨(폴더 기능 도입과 함께 무제한으로 변경).
+// 가방 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)은 기존 정책 그대로 유지된다.

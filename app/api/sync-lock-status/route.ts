@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
-import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_LIBRARY_PACKS } from "@/lib/premiumLimits";
+import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
 
 // 이용권 상태(등록/무효화/만료)가 바뀔 때마다 클라이언트(AppShell)가 호출하는 라우트.
 //
@@ -70,36 +70,19 @@ export async function POST(req: NextRequest) {
       if (writes > 0) await bagBatch.commit();
     }
 
-    // 2) 팩 라이브러리 (본인 전용 하위 컬렉션, 소유자 구분 필요 없음). 휴지통으로 보낸
-    // (trashedAt) 팩은 대상에서 제외한다.
+    // v68: 팩 라이브러리 개수 제한은 폐지되어 팩에는 더 이상 locked를 걸지 않는다. 예전에
+    // 이미 locked:true로 기록된 팩이 남아있으면 여기서 전부 풀어준다(한 번만 실행되면 되고,
+    // 이후로는 이 섹션 자체가 다시 잠글 일이 없다).
     const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
     const packsSnap = await packsCol.get();
-    const packDocs = sortByCreatedAtDesc(
-      packsSnap.docs
-        .map((d) => ({
-          id: d.id,
-          createdAt: d.data().createdAt as string | undefined,
-          locked: d.data().locked as boolean | undefined,
-          trashedAt: d.data().trashedAt as string | undefined,
-        }))
-        .filter((p) => !p.trashedAt)
-    );
-    const lockedPackIds: string[] = [];
-    if (packDocs.length > 0) {
+    const stillLockedPacks = packsSnap.docs.filter((d) => d.data().locked === true);
+    if (stillLockedPacks.length > 0) {
       const packBatch = db.batch();
-      let writes = 0;
-      packDocs.forEach((p, index) => {
-        const shouldLock = !premium && index >= FREE_MAX_LIBRARY_PACKS;
-        if (shouldLock) lockedPackIds.push(p.id);
-        if (!!p.locked !== shouldLock) {
-          packBatch.update(packsCol.doc(p.id), { locked: shouldLock });
-          writes++;
-        }
-      });
-      if (writes > 0) await packBatch.commit();
+      stillLockedPacks.forEach((d) => packBatch.update(packsCol.doc(d.id), { locked: false }));
+      await packBatch.commit();
     }
 
-    return NextResponse.json({ ok: true, premium, lockedBagIds, lockedPackIds });
+    return NextResponse.json({ ok: true, premium, lockedBagIds });
   } catch (err) {
     console.error("[팩인백] 잠금 상태 동기화 실패:", err);
     return NextResponse.json({ error: "잠금 상태 동기화에 실패했어요" }, { status: 500 });

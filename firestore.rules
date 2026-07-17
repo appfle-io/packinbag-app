@@ -67,28 +67,26 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // 팩 라이브러리 새로 만들기(create)는 무료 개수 제한(FREE_MAX_LIBRARY_PACKS)을
-      // 서버에서 검증해야 해서 app/api/create-library-pack에서만 가능하다(Admin SDK는
-      // 이 규칙을 그대로 통과한다). 기존 팩 수정/삭제는 여전히 클라이언트가 직접 한다.
+      // 팩 라이브러리 새로 만들기(create)는 항상 막혀있어 app/api/create-library-pack에서만
+      // 가능하다(Admin SDK는 이 규칙을 그대로 통과한다). v68부터 팩 개수 제한이 폐지되어
+      // locked 필드는 더 이상 팩에 걸리지 않으므로(예전 데이터 호환 목적으로만 필드가 남아있음)
+      // 수정/삭제 조건에서 locked 검사를 제거했다.
       match /libraryPacks/{packId} {
         allow read: if request.auth != null && request.auth.uid == uid;
 
-        allow delete: if request.auth != null && request.auth.uid == uid &&
-          resource.data.get('locked', false) != true;
+        allow delete: if request.auth != null && request.auth.uid == uid;
 
         // 일반 수정(자동저장 등) - trashedAt은 여기서 절대 건드릴 수 없다(아래 별도 규칙에서만).
         allow update: if request.auth != null && request.auth.uid == uid &&
-          resource.data.get('locked', false) != true &&
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedAt']);
 
         // 휴지통으로 보내기: trashedAt을 null -> 값으로 바꾸는 것만 허용(다른 필드는 안 됨).
         allow update: if request.auth != null && request.auth.uid == uid &&
-          resource.data.get('locked', false) != true &&
           resource.data.get('trashedAt', null) == null &&
           request.resource.data.get('trashedAt', null) != null &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trashedAt']);
 
-        // 복구(trashedAt을 값 -> null로 되돌리기)는 무료 라이브러리 개수 제한 검증이 필요해서
+        // 복구(trashedAt을 값 -> null로 되돌리기)는 firestore.rules 구조를 유지하기 위해 계속
         // 클라이언트가 직접 할 수 없다 - app/api/restore-library-pack(Admin SDK)만 가능하다.
 
         allow create: if false;

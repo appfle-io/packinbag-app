@@ -1,4 +1,11 @@
-# 팩인백 기능 스펙 문서 (v67 기준)
+# 팩인백 기능 스펙 문서 (v68 기준)
+
+## v68 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **팩 보관함 폴더 기능 신설 (아이폰 메모 스타일)** | 🆕 v68 신규 | 팩 보관함이 그리드(PackTile) 방식에서 폴더를 만들 수 있는 트리 리스트로 전면 개편. 폴더도 그냥 Pack 문서(`type: "folder"`, `items: []`)이고, `parentId`로 트리를 표현해서 아이폰 메모처럼 깊이 제한 없이 폴더 안에 폴더를 계속 만들 수 있다. 각 레벨(최상위/폴더 안) 끝에 "+팩"/"+폴더" 버튼으로 그 자리에 바로 생성. 롱프레스 다중선택으로 폴더/팩 구분 없이 선택해서 삭제(폴더는 하위 항목까지 재귀적으로 휴지통 이동, 휴지통에서의 복구/완전삭제도 동일) 또는 "이동"(다른 폴더로 옮기거나 최상위로) 가능. 1개만 선택하면 "이름 변경" 버튼도 나타난다(폴더는 편집 화면이 없어서 이 경로가 유일한 이름 변경 수단). `lib/types.ts`의 `Pack.type`/`Pack.parentId`, `lib/packsService.ts`의 `collectDescendantPackIds`/`trashLibraryEntryRecursive`/`restoreLibraryEntryRecursive`/`deleteLibraryEntryRecursive` |
+| **팩 보관함 무료 개수 제한(3개) 폐지** | 🆕 v68 정책변경 | 폴더 기능 도입과 함께 무료/유료 구분 없이 팩을 무제한으로 저장할 수 있다. `FREE_MAX_LIBRARY_PACKS`, `computeLockedPackIds` 삭제, `app/api/create-library-pack`/`restore-library-pack`/`sync-lock-status`의 개수 검증 로직 제거, `firestore.rules`의 libraryPacks 수정/삭제 규칙에서 `locked` 검사 제거(⚠️ Firebase 콘솔 재게시 필요). **가방 동시 진행 3개 제한(FREE_MAX_ACTIVE_BAGS)은 기존 정책 그대로 유지**(소유 가방만 개수를 세고, 공유가방은 제외된다) |
 
 ## v67 변경 요약
 
@@ -324,6 +331,8 @@
 | 팩 라이브러리 저장/재사용 | ✅ 완료 | v41: 저장 아이콘 클릭 시 상태별 확인 다이얼로그(최초 저장/수정 시 새로저장·덮어쓰기 선택) |
 | 팩 색상 지정 | ✅ 완료 | |
 | 팩 가져오기/다른 이름으로 저장 | ✅ 완료 | PackImportModal, SaveAsDialog |
+| **팩 보관함 폴더** | 🆕 v68 | 무제한 깊이 폴더 트리, 다중선택 이동/삭제(재귀) |
+| **팩 보관함 무료 개수 제한** | ⛔ v68 폐지 | 무료/유료 구분 없이 무제한 저장 |
 
 ## 4. 짐 (Item)
 
@@ -368,3 +377,4 @@
 - "짐" 명칭 변경 검토
 - Apple/Kakao/Naver 로그인
 - WidgetKit 위젯
+- 하단 내비게이션 재구성(가방보관함/빠른팩입력/설정 3탭) — 논의 중, 아직 미착수

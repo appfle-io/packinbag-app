@@ -21,8 +21,9 @@ import {
   subscribeToLibraryPacks,
   saveLibraryPackRemote,
   deleteLibraryPackRemote,
-  trashLibraryPackRemote,
-  restoreLibraryPackRemote,
+  trashLibraryEntryRecursive,
+  restoreLibraryEntryRecursive,
+  deleteLibraryEntryRecursive,
 } from "@/lib/packsService";
 import {
   subscribeToAnnouncements,
@@ -52,12 +53,10 @@ import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
   isPremiumUser,
-  FREE_MAX_LIBRARY_PACKS,
   FREE_MAX_ACTIVE_BAGS,
   QUICK_PACK_ID,
   PremiumLimitError,
   computeLockedBagIds,
-  computeLockedPackIds,
   isTrashExpired,
 } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
@@ -271,7 +270,7 @@ export default function AppShell() {
   // 무료 전환으로 잠긴(내가 소유한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
   // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
-  const lockedPackIds = !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
+  // v68: 팩 개수 제한이 폐지되어 팩/폴더는 더 이상 잠기지 않는다.
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
 
@@ -338,6 +337,10 @@ export default function AppShell() {
   const trashedBags = bags.filter((b) => b.ownerId === user.uid && b.trashedByOwnerAt);
   const activePacks = libraryPacks.filter((p) => !p.trashedAt);
   const trashedPacks = libraryPacks.filter((p) => p.trashedAt);
+  // v68: activePacks에는 폴더(type: "folder")가 섞여 있을 수 있다. 폴더는 트리 화면(PacksScreen)에서는
+  // 보여야 하지만, "팩을 선택/불러오는" 목록(가방에 팩 불러오기, 불러온 팩에 함께 담기)에는
+  // 폴더가 가짜 팩으로 보이면 안 되니 여기서 걸러낸다.
+  const realPacksOnly = activePacks.filter((p) => p.type !== "folder");
 
   // 무료 개수 제한은 "내가 소유한, 휴지통에 없는 가방"만 센다 - app/api/create-bag의 서버
   // 카운트/lib/premiumLimits.ts의 computeLockedBagIds와 동일한 기준. 여기서는 무료일 때
@@ -600,17 +603,6 @@ export default function AppShell() {
   };
 
   const handleSaveAsLibraryPack = (pack: Pack) => {
-    const isNewLibraryPack = !activePacks.some((p) => p.id === pack.id);
-    if (
-      isNewLibraryPack &&
-      activePacks.length >= FREE_MAX_LIBRARY_PACKS &&
-      !premium
-    ) {
-      setPremiumLimitMessage(
-        `무료로는 팩 보관함에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
-      );
-      return;
-    }
     saveLibraryPackRemote(user, pack).catch((err) => {
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
@@ -653,17 +645,47 @@ export default function AppShell() {
     }
   };
 
-  const openNewPack = () => {
-    if (
-      activePacks.length >= FREE_MAX_LIBRARY_PACKS &&
-      !premium
-    ) {
-      setPremiumLimitMessage(
-        `무료로는 팩 보관함에 ${FREE_MAX_LIBRARY_PACKS}개까지만 저장할 수 있어요. 더 저장하려면 이용권 코드를 등록해주세요.`
-      );
-      return;
-    }
-    setEditingPack({ id: uid(), name: "새 팩", items: [] });
+  const openNewPack = (parentId?: string) => {
+    setEditingPack({ id: uid(), name: "새 팩", items: [], parentId });
+  };
+
+  // v68: 폴더는 팩 편집 화면(items가 없음)을 열 필요 없이 바로 생성된다. 생성 직후에는
+  // 팩 트리 화면에서 이름을 편집 상태로 보여줘서 곧바로 이름을 바꿀(EditableText) 수 있게 해준다.
+  const handleCreateFolder = (parentId?: string) => {
+    const draft: Pack = {
+      id: uid(),
+      name: "새 폴더",
+      items: [],
+      type: "folder",
+      parentId,
+    };
+    saveLibraryPackRemote(user, draft).catch((err) => {
+      console.error("[팩인백] 폴더 생성 실패:", err);
+      show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
+  // 폴더/팩 이름 바꾸기(트리 행의 이름 탭 편집). 폴더는 편집 화면이 없어서
+  // 이 경로로만 이름을 바꿀 수 있다(팩은 편집 화면 안 EditableText로도 바꿀 수 있지만
+  // 트리에서 직접 바꿀 때는 이 경로를 쓴다).
+  const handleRenameLibraryEntry = (pack: Pack, name: string) => {
+    saveLibraryPackRemote(user, { ...pack, name }).catch((err) => {
+      console.error("[팩인백] 이름 바꿀 실패:", err);
+      show(`이름 바꿀에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
+  // 팩/폴더를 다른 폴더로(또는 최상위로) 이동한다. 트리 및 다중선택에서 "이동" 액션으로 호출된다.
+  const handleMoveLibraryEntries = (packIds: string[], parentId: string | undefined) => {
+    const idSet = new Set(packIds);
+    Promise.all(
+      activePacks
+        .filter((p) => idSet.has(p.id))
+        .map((p) => saveLibraryPackRemote(user, { ...p, parentId }))
+    ).catch((err) => {
+      console.error("[팩인백] 폴더 이동 실패:", err);
+      show(`이동에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
   };
 
   const handleSavePack = (pack: Pack) => {
@@ -679,9 +701,10 @@ export default function AppShell() {
 
   // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
   // 삭제)와는 다른 함수다 - 이건 라이브러리 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
+  // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
   const handleDeletePack = (packId: string) => {
     setEditingPack(null);
-    trashLibraryPackRemote(user.uid, packId)
+    trashLibraryEntryRecursive(user.uid, activePacks, packId)
       .then(() => show("팩을 휴지통으로 보냈어요"))
       .catch((err) => {
         console.error("[팩인백] 팩 휴지통 이동 실패:", err);
@@ -689,37 +712,36 @@ export default function AppShell() {
       });
   };
 
-  // 팩 보관함에서 길게 눌러 다중선택한 팩들을 한꺼번에 휴지통으로 보낸다.
+  // 팩 보관함에서 길게 눌러 다중선택한 팩/폴더를 한꺼번에 휴지통으로 보낸다. 폴더를 선택했으면
+  // 아이폰 메모처럼 하위 팩/폴더까지 모두 함께 보낸다(trashLibraryEntryRecursive).
   const handleBulkDeletePacks = async (packIds: string[]) => {
     try {
-      await Promise.all(packIds.map((id) => trashLibraryPackRemote(user.uid, id)));
-      show(`팩 ${packIds.length}개를 휴지통으로 보냈어요`);
+      await Promise.all(packIds.map((id) => trashLibraryEntryRecursive(user.uid, activePacks, id)));
+      show(`${packIds.length}개를 휴지통으로 보냈어요`);
     } catch (err) {
       console.error("[팩인백] 팩 일괄 휴지통 이동 실패:", err);
       show(`처리 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
     }
   };
 
-  // 설정 > 휴지통에서 팩 복구. 무료 라이브러리 개수 제한을 서버가 다시 검증하므로
-  // (app/api/restore-library-pack) 한도에 걸리면 PremiumLimitModal을 띄운다.
+  // 설정 > 휴지통에서 팩/폴더 복구. 폴더를 복구하면 하위 팩/폴더도 함께 복구된다
+  // (restoreLibraryEntryRecursive). 트리 순회를 위해 휴지통에 있는 항목까지 포함된
+  // libraryPacks(전체)를 넘겨야 한다.
   const handleRestorePack = async (packId: string) => {
     try {
-      await restoreLibraryPackRemote(user, packId);
+      await restoreLibraryEntryRecursive(user, libraryPacks, packId);
       show("팩을 복구했어요");
     } catch (err) {
-      if (err instanceof PremiumLimitError) {
-        setPremiumLimitMessage(err.message);
-        return;
-      }
       console.error("[팩인백] 팩 복구 실패:", err);
       show(`팩 복구에 실패했어요 (${firebaseErrorCode(err)})`);
     }
   };
 
-  // 설정 > 휴지통에서 "완전삭제" - 되돌릴 수 없다.
+  // 설정 > 휴지통에서 "완전삭제" - 되돌릴 수 없다. 폴더면 하위 팩/폴더도 함께 영구삭제된다
+  // (deleteLibraryEntryRecursive).
   const handlePermanentDeletePack = async (packId: string) => {
     try {
-      await deleteLibraryPackRemote(user.uid, packId);
+      await deleteLibraryEntryRecursive(user.uid, libraryPacks, packId);
       show("팩을 완전히 삭제했어요");
     } catch (err) {
       console.error("[팩인백] 팩 완전삭제 실패:", err);
@@ -785,7 +807,7 @@ export default function AppShell() {
         <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
           <BagEditorScreen
             initialBag={editingBag}
-            libraryPacks={activePacks}
+            libraryPacks={realPacksOnly}
             uid={user.uid}
             nickname={profile.nickname}
             avatarId={profile.avatarId}
@@ -907,12 +929,14 @@ export default function AppShell() {
                 uid={user.uid}
                 packs={activePacks}
                 quickPack={quickPack}
-                lockedPackIds={lockedPackIds}
                 onOpenPack={(pack, focusItemId) => {
                   setEditingPack(pack);
                   setPackFocusItemId(focusItemId ?? null);
                 }}
                 onNewPack={openNewPack}
+                onNewFolder={handleCreateFolder}
+                onRenameEntry={handleRenameLibraryEntry}
+                onMoveEntries={handleMoveLibraryEntries}
                 onOpenSettings={() => setShowSettings(true)}
                 onBulkDeletePacks={handleBulkDeletePacks}
               />
@@ -950,7 +974,6 @@ export default function AppShell() {
         />
       )}
       {editingPack && (() => {
-        const isEditingPackLocked = lockedPackIds.has(editingPack.id);
         const closePackEditor = () => {
           setEditingPack(null);
           setPackFocusItemId(null);
@@ -970,11 +993,10 @@ export default function AppShell() {
                 <PackLibraryEditorScreen
                   variant="sheet"
                   initialPack={editingPack}
-                  libraryPacks={activePacks}
-                  lockedPackIds={lockedPackIds}
+                  libraryPacks={realPacksOnly}
                   bags={activeBags}
                   lockedBagIds={lockedBagIds}
-                  readOnly={isEditingPackLocked}
+                  readOnly={false}
                   onRequestUnlock={requestUnlockForPack}
                   onBack={closePackEditor}
                   onSave={handleSavePack}
