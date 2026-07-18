@@ -45,9 +45,9 @@ const modes: { key: ThemeMode; label: string }[] = [
   { key: "dark", label: "다크" },
 ];
 
-const startTabs: { key: "home" | "packs"; label: string }[] = [
+const startTabs: { key: "home" | "settings"; label: string }[] = [
   { key: "home", label: "가방 목록" },
-  { key: "packs", label: "팩 보관함" },
+  { key: "settings", label: "설정" },
 ];
 
 type SettingsView =

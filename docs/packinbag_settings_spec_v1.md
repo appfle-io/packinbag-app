@@ -1,6 +1,10 @@
-# 팩인백 기능 스펙 문서 (v68 기준)
+# 팩인백 기능 스펙 문서 (v69 기준)
 
-## v68 변경 요약
+## v69 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **하단탑 3개 재구성 (가방보관함 / 빠른입력 / 설정)** | 🆕 v69 신규 | 하단탑이 [팩/가방] 2탑+가운데 FAB 구조에서 [가방보관함 / 빠른입력(중앙 + FAB, 변경 없음) / 설정] 3개로 재개편됨. "팩" 탑이 사라지고, 팩 트리(PacksScreen)는 가방보관함(최좌측 탑, index 0)에서 왼쪽에서 오른쪽으로 스와이프하면 풀스크린으로 열리는 화면으로 바뀌었다(BagEditorScreen과 동일한 "위로 쌓는" 패턴, 뒤로가기 헤더 버튼 + 왼쪽 엣지 스와이프백 모두 지원). 설정(SettingsScreen)은 더 이상 풀스크린 오버레이가 아니라 가방보관함과 같은 슬라이더 안에 들어오는 두 번째 탑 페이지가 되었다. "이전 탑 없음"으로 아무 동작도 안 하던 빈 슬롯(가방보관함에서 왼→우 스와이프)을 팩 트리 열기에 재활용해서 기존 탑전환 스와이프와 충돌이 없다. `components/BottomTabBar.tsx`(TabKey "home"|"settings"로 재정의), `components/AppShell.tsx`(showPackTree 상태, tabOrder, handleTouchEnd), `components/screens/PacksScreen.tsx`(onBack/엣지스와이프백 추가), `lib/types.ts`/`contexts/AuthProvider.tsx`(UserProfile.defaultTab: "home"|"packs" → "home"|"settings"), `components/screens/SettingsScreen.tsx`(시작화면 선택지 갱신) |
 
 | 기능 | 상태 | 비고 |
 |---|---|---|
@@ -377,4 +381,3 @@
 - "짐" 명칭 변경 검토
 - Apple/Kakao/Naver 로그인
 - WidgetKit 위젯
-- 하단 내비게이션 재구성(가방보관함/빠른팩입력/설정 3탭) — 논의 중, 아직 미착수

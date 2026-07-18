@@ -48,6 +48,7 @@ import SettingsScreen from "@/components/screens/SettingsScreen";
 import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
+import PackTreeSwipeHint from "@/components/PackTreeSwipeHint";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
@@ -128,9 +129,10 @@ export default function AppShell() {
   // 팩(+짐)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
   const [bagFocus, setBagFocus] = useState<{ packId?: string; itemId?: string } | null>(null);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
-  // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더 톱니바퀴로 열고 뒤로가기로
-  // 닫는 풀스크린 화면이다(editingBag/editingPack과 동일한 "위로 쌓이는" 패턴).
-  const [showSettings, setShowSettings] = useState(false);
+  // 설정은 이제 하단탭(오른쪽)이다. 팩 트리(PacksScreen)는 탭이 아니라 가방보관함에서
+  // 왼쪽에서 오른쪽으로 스와이프하면 풀스크린으로 열리는 화면이다(editingBag/editingPack과
+  // 동일한 "위로 쌓이는" 패턴) - 아래 handleTouchEnd의 스와이프 처리 참고.
+  const [showPackTree, setShowPackTree] = useState(false);
   // 하단 중앙 "+" 버튼(빠른입력) 모달 표시 여부.
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [splashMinTimeDone, setSplashMinTimeDone] = useState(false);
@@ -150,11 +152,15 @@ export default function AppShell() {
 
 
   // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭 전환).
+  // v68에서 하단탑이 가방보관함/설정 2개로 바뀌면서 "packs"는 더 이상 유효한 탭이 아니다 -
+  // 예전에 "팩 보관함"을 시작 화면으로 저장해둔 사용자는 이 값이 그대로 Firestore에 남아있을 수 있으므로,
+  // "home"/"settings"가 아닌 값이면 무시하고 기본값(home)을 쓴다.
   // Firestore(외부 시스템)에서 온 값을 반영하는 의도된 동기화라 set-state-in-effect 규칙은 비활성화한다.
   useEffect(() => {
     if (!profile || appliedDefaultTabRef.current) return;
     if (!profile.defaultTab) return;
     appliedDefaultTabRef.current = true;
+    if (profile.defaultTab !== "home" && profile.defaultTab !== "settings") return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTab(profile.defaultTab);
   }, [profile]);
@@ -841,27 +847,69 @@ export default function AppShell() {
     );
   }
 
-  if (showSettings) {
+  if (showPackTree) {
     return (
       <>
         <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
-          <SettingsScreen
+          <PacksScreen
             uid={user.uid}
-            announcements={announcements}
-            dismissedAnnouncementIds={dismissedIds}
-            onDismissAnnouncement={handleDismissAnnouncement}
-            onCreateAnnouncement={handleCreateAnnouncement}
-            onUpdateAnnouncement={handleUpdateAnnouncement}
-            onDeleteAnnouncement={handleDeleteAnnouncement}
-            trashedBags={trashedBags}
-            trashedPacks={trashedPacks}
-            onRestoreBag={handleRestoreBag}
-            onPermanentDeleteBag={handlePermanentDeleteBag}
-            onRestorePack={handleRestorePack}
-            onPermanentDeletePack={handlePermanentDeletePack}
-            onBack={() => setShowSettings(false)}
+            packs={activePacks}
+            quickPack={quickPack}
+            onOpenPack={(pack, focusItemId) => {
+              setEditingPack(pack);
+              setPackFocusItemId(focusItemId ?? null);
+            }}
+            onNewPack={openNewPack}
+            onNewFolder={handleCreateFolder}
+            onRenameEntry={handleRenameLibraryEntry}
+            onMoveEntries={handleMoveLibraryEntries}
+            onBack={() => setShowPackTree(false)}
+            onOpenSettings={() => {
+              setShowPackTree(false);
+              setTab("settings");
+            }}
+            onBulkDeletePacks={handleBulkDeletePacks}
           />
         </div>
+        {editingPack && (() => {
+          const closePackEditor = () => {
+            setEditingPack(null);
+            setPackFocusItemId(null);
+          };
+          return (
+            <Portal>
+              <div
+                className="fixed inset-0 z-[75] flex items-end justify-center"
+                style={{ background: "rgba(0,0,0,0.45)" }}
+                onClick={closePackEditor}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
+                  style={{ maxHeight: "85vh" }}
+                >
+                  <PackLibraryEditorScreen
+                    variant="sheet"
+                    initialPack={editingPack}
+                    libraryPacks={realPacksOnly}
+                    bags={activeBags}
+                    lockedBagIds={lockedBagIds}
+                    readOnly={false}
+                    onRequestUnlock={requestUnlockForPack}
+                    onBack={closePackEditor}
+                    onSave={handleSavePack}
+                    onSaveOtherPack={handleSavePack}
+                    onDelete={handleDeletePack}
+                    onAddItemsToBagPack={handleAddItemsToBagPack}
+                    onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+                    focusItemId={packFocusItemId}
+                    onFocusHandled={() => setPackFocusItemId(null)}
+                  />
+                </div>
+              </div>
+            </Portal>
+          );
+        })()}
         <SplashScreen visible={showSplash} />
         <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
         {premiumLimitMessage && (
@@ -878,15 +926,37 @@ export default function AppShell() {
     );
   }
 
-  const tabOrder: TabKey[] = ["packs", "home"];
+  const tabOrder: TabKey[] = ["home", "settings"];
   const tabIndex = tabOrder.indexOf(tab);
 
-  // 빈 배경(카드/버튼/입력이 아닌 곳)을 좌우로 스와이프하면 탭이 전환된다.
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const target = e.target as HTMLElement;
-    const ignore = !!target.closest(
+  // 빈 배경(카드/버튼/입력이 아닌 곳)을 좌우로 스와이프/드래그하면 탭이 전환된다.
+  // 터치(모바일)와 마우스(데스크톱/트랙패드 웹) 둘 다 동일하게 작동해야 하니, 좌표/무시 판단
+  // 로직을 공통 함수로 뿑아서 둘 다에서 재사용한다.
+  // 가방보관함(home, index 0) 화면에서 왼쪽에서 오른쪽으로 스와이프(dx>0)하는 건
+  // 원래 "이전 탭 없음"으로 아무 동작도 안 하던 빈 슬롯이다 - 이 자리를 팩 트리 화면
+  // 열기에 재활용해서(v68), 기존 탭전환 스와이프와 충돌 없이 깔끔하게 공존한다. 마우스만
+  // 있는 데스크톱 웹에서는 HomeScreen 헤더의 폴더 아이콘 버튼으로도 동일한 화면을 열 수 있다.
+  const handleSwipeGestureEnd = (dx: number, dy: number) => {
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const currentIndex = tabOrder.indexOf(tab);
+    if (dx > 0 && currentIndex === 0) {
+      setShowPackTree(true);
+      return;
+    }
+    if (dx < 0 && currentIndex < tabOrder.length - 1) {
+      setTab(tabOrder[currentIndex + 1]);
+    } else if (dx > 0 && currentIndex > 0) {
+      setTab(tabOrder[currentIndex - 1]);
+    }
+  };
+
+  const isSwipeIgnoredTarget = (target: EventTarget | null) =>
+    !!(target as HTMLElement)?.closest?.(
       'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], .fixed'
     );
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const ignore = isSwipeIgnoredTarget(e.target);
     const t = e.touches[0];
     swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };
   };
@@ -896,25 +966,33 @@ export default function AppShell() {
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
     const t = e.changedTouches[0];
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    const currentIndex = tabOrder.indexOf(tab);
-    if (dx < 0 && currentIndex < tabOrder.length - 1) {
-      setTab(tabOrder[currentIndex + 1]);
-    } else if (dx > 0 && currentIndex > 0) {
-      setTab(tabOrder[currentIndex - 1]);
-    }
+    handleSwipeGestureEnd(t.clientX - start.x, t.clientY - start.y);
+  };
+
+  // 데스크톱 웹(마우스)에서도 동일한 탭전환/패 트리 열기 제스처가 되도록 마우스 드래그도
+  // 동일한 로직으로 처리한다(onTouchStart/End는 모바일에서만 발생하고 마우스 이벤트는 따로 처리해야 함).
+  const handleMouseDown = (e: React.MouseEvent) => {
+    const ignore = isSwipeIgnoredTarget(e.target);
+    swipeStartRef.current = { x: e.clientX, y: e.clientY, ignore };
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || start.ignore) return;
+    handleSwipeGestureEnd(e.clientX - start.x, e.clientY - start.y);
   };
 
   return (
     <>
-      <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+      <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
         <EmailVerifyBanner />
         <div
           className="flex-1 overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
         >
           <div
             className="flex h-full"
@@ -924,23 +1002,6 @@ export default function AppShell() {
               transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
-              <PacksScreen
-                uid={user.uid}
-                packs={activePacks}
-                quickPack={quickPack}
-                onOpenPack={(pack, focusItemId) => {
-                  setEditingPack(pack);
-                  setPackFocusItemId(focusItemId ?? null);
-                }}
-                onNewPack={openNewPack}
-                onNewFolder={handleCreateFolder}
-                onRenameEntry={handleRenameLibraryEntry}
-                onMoveEntries={handleMoveLibraryEntries}
-                onOpenSettings={() => setShowSettings(true)}
-                onBulkDeletePacks={handleBulkDeletePacks}
-              />
-            </div>
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
               <HomeScreen
                 uid={user.uid}
@@ -957,15 +1018,40 @@ export default function AppShell() {
                 onNewBag={openNewBag}
                 onImportNote={openNewBagFromNote}
                 onJoinBag={handleJoinBag}
-                onOpenSettings={() => setShowSettings(true)}
+                onOpenPackTree={() => setShowPackTree(true)}
+                onOpenSettings={() => setTab("settings")}
                 onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
                 onBulkDeleteBags={handleBulkDeleteBags}
+              />
+            </div>
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
+              <SettingsScreen
+                uid={user.uid}
+                announcements={announcements}
+                dismissedAnnouncementIds={dismissedIds}
+                onDismissAnnouncement={handleDismissAnnouncement}
+                onCreateAnnouncement={handleCreateAnnouncement}
+                onUpdateAnnouncement={handleUpdateAnnouncement}
+                onDeleteAnnouncement={handleDeleteAnnouncement}
+                trashedBags={trashedBags}
+                trashedPacks={trashedPacks}
+                onRestoreBag={handleRestoreBag}
+                onPermanentDeleteBag={handlePermanentDeleteBag}
+                onRestorePack={handleRestorePack}
+                onPermanentDeletePack={handlePermanentDeletePack}
+                onBack={() => setTab("home")}
               />
             </div>
           </div>
         </div>
         <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
         <InstallPrompt />
+        {tab === "home" && (
+          <PackTreeSwipeHint
+            enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
+            onOpen={() => setShowPackTree(true)}
+          />
+        )}
       </div>
       {showQuickAdd && (
         <QuickAddModal

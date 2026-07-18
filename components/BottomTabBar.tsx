@@ -1,9 +1,12 @@
 "use client";
 
-import { IconPackage, IconBackpack, IconPlus } from "@tabler/icons-react";
+import { IconSettings, IconBackpack, IconPlus } from "@tabler/icons-react";
 
-export type TabKey = "packs" | "home";
+export type TabKey = "home" | "settings";
 
+// v68: 하단탭 3개 재구성. 왼쪽=가방보관함, 가운데="+"(빠른입력, 탭 아님, 액션 버튼 그대로 유지),
+// 오른쪽=설정. "팩" 탭은 사라지고 가방보관함 화면에서 왼쪽 끝을 오른쪽으로 스와이프하면
+// 팩 트리(PacksScreen)가 풀스크린으로 열리는 방식으로 대체됨(AppShell.tsx의 스와이프 처리 참고).
 export default function BottomTabBar({
   active,
   onChange,
@@ -11,12 +14,12 @@ export default function BottomTabBar({
 }: {
   active: TabKey;
   onChange: (tab: TabKey) => void;
-  // 중앙의 큰 원형 버튼은 더 이상 탭이 아니라 "빠른입력" 액션이다 (설정 화면이 하단바에서
-  // 빠지면서 생긴 자리에 배치). 눌러도 화면이 전환되지 않고 QuickAddModal이 뜬다.
+  // 중앙의 큰 원형 버튼은 탭이 아니라 "빠른입력" 액션이다. 눌러도 화면이 전환되지 않고
+  // QuickAddModal이 뜬다. 이번 하단탭 재구성과 무관하게 그대로 유지된다.
   onQuickAdd: () => void;
 }) {
-  // 2칸 중 pill이 위치할 칸 인덱스 (packs=0, home=1)
-  const pillIndex = active === "packs" ? 0 : 1;
+  // 2칸 중 pill이 위치할 칸 인덱스 (home=0, settings=1)
+  const pillIndex = active === "home" ? 0 : 1;
 
   return (
     <nav
@@ -27,7 +30,7 @@ export default function BottomTabBar({
         paddingBottom: "max(9px, env(safe-area-inset-bottom))",
       }}
     >
-      {/* 슬라이딩 pill 인디케이터: 팩/가방 두 탭 사이에서만 슬라이드된다 (중앙은 탭이 아니라
+      {/* 슬라이딩 pill 인디케이터: 가방/설정 두 탭 사이에서만 슬라이드된다 (중앙은 탭이 아니라
           고정된 액션 버튼이라 인디케이터 대상에서 제외). */}
       <div
         className="absolute inset-y-1.5 left-0 flex items-stretch justify-center pointer-events-none"
@@ -44,14 +47,14 @@ export default function BottomTabBar({
       </div>
 
       <button
-        onClick={() => onChange("packs")}
-        aria-label="팩 관리"
+        onClick={() => onChange("home")}
+        aria-label="가방 보관함"
         className="relative z-10 flex flex-1 items-center justify-center py-[15px] transition-transform active:scale-90"
       >
-        <IconPackage
+        <IconBackpack
           size={34}
           stroke={1.75}
-          color={active === "packs" ? "var(--accent)" : "var(--text-secondary)"}
+          color={active === "home" ? "var(--accent)" : "var(--text-secondary)"}
         />
       </button>
 
@@ -71,14 +74,14 @@ export default function BottomTabBar({
       </div>
 
       <button
-        onClick={() => onChange("home")}
-        aria-label="가방 목록"
+        onClick={() => onChange("settings")}
+        aria-label="설정"
         className="relative z-10 flex flex-1 items-center justify-center py-[15px] transition-transform active:scale-90"
       >
-        <IconBackpack
+        <IconSettings
           size={34}
           stroke={1.75}
-          color={active === "home" ? "var(--accent)" : "var(--text-secondary)"}
+          color={active === "settings" ? "var(--accent)" : "var(--text-secondary)"}
         />
       </button>
     </nav>

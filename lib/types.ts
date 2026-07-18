@@ -168,8 +168,9 @@ export interface UserProfile {
   packCardFontScale?: number;
   // 글자 크기 (없으면 "md" 기본값)
   fontScale?: "sm" | "md" | "lg";
-  // 앱 실행 시 처음 보여줄 탭 (없으면 "home" 기본값)
-  defaultTab?: "home" | "packs";
+  // v68: 하단탑이 가방보관함/설정 2개로 재개편되어 "packs" 옵션은 사라졌다(팩 트리는
+  // 이제 스와이프로 열리는 풀스크린 화면임). 앱 실행 시 처음 보여줄 탭(없으면 "home" 기본값).
+  defaultTab?: "home" | "settings";
   // "다시 보지 않기" 처리한 공지사항 id 목록
   dismissedAnnouncementIds?: string[];
   // 가방/팩 목록 정렬 기준 (없으면 "createdAt" 기본값)
@@ -182,6 +183,12 @@ export interface UserProfile {
   // 여기 없는 새 항목은 뒤쪽에 생성일자 최신순으로 자동으로 붙는다.
   bagOrder?: string[];
   packOrder?: string[];
+  // v69: 폴더 트리에서 드래그로 순서를 바꿀(또는 다른 폴더로 옴긴) 결과를 부모(parentId)별로 따로 저장한다.
+  // 키는 폴더 id, 최상위는 "root". 값은 packOrder와 동일하게 arrangeList의 order로 쓰이는
+  // id 배열(그 레벨의 형제들만 해당)이다.
+  packOrderByParent?: Record<string, string[]>;
+  // 폴더 트리에서 펼쳐져있는 폴더 id 목록(계정에 저장되어 기기 간에도 동일하게 유지된다).
+  expandedPackFolderIds?: string[];
   // 팩(짐 목록) 표시 관련 개인 설정
   packSettings?: {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)
@@ -194,6 +201,10 @@ export interface UserProfile {
     itemMaxLines?: 1 | 2 | 3;
     // 짐 더블클릭 시 클립보드 복사 토스트를 몇 초간 띄울지 (없으면 3 기본값, 3~7 사이).
     itemCopyToastSeconds?: number;
+    // v69: 가방보관함 왼쪽 가장자리에 뜨는 물방울 모양 스와이프 힌트(PackTreeSwipeHint)를
+    // 보여줄지. 없으면 true(켜짐) 기본값. 힌트를 실제로 당겨서 팩 트리를 한 번 열면
+    // 자동으로 false로 꺼지고(계정에 저장되어 기기 간 동기화), 여기서 다시 켤 수 있다.
+    packTreeHintEnabled?: boolean;
   };
   // 하단 QuickPackBar(빠른팩 미리보기)를 접어서 오른쪽 끝에 떠있는 작은 원형 버튼으로만
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)

@@ -75,13 +75,15 @@ interface AuthContextValue {
     packCardFontScale?: number;
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
-  updateDefaultTab: (defaultTab: "home" | "packs") => Promise<void>;
+  updateDefaultTab: (defaultTab: "home" | "settings") => Promise<void>;
   updateBagSortBy: (sortBy: UserProfile["bagSortBy"]) => Promise<void>;
   updatePackSortBy: (sortBy: UserProfile["packSortBy"]) => Promise<void>;
   toggleBagPinned: (bagId: string) => Promise<void>;
   togglePackPinned: (packId: string) => Promise<void>;
   updateBagOrder: (order: string[]) => Promise<void>;
   updatePackOrder: (order: string[]) => Promise<void>;
+  updatePackOrderByParent: (parentKey: string, order: string[]) => Promise<void>;
+  updateExpandedPackFolderIds: (ids: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
   updatePackDisplayState: (
@@ -190,6 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         pinnedPackIds: data?.pinnedPackIds as string[] | undefined,
         bagOrder: data?.bagOrder as string[] | undefined,
         packOrder: data?.packOrder as string[] | undefined,
+        packOrderByParent: data?.packOrderByParent as UserProfile["packOrderByParent"],
+        expandedPackFolderIds: data?.expandedPackFolderIds as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
         quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
         packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
@@ -414,7 +418,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // 앱 실행 시 처음 보여줄 탭
-  const updateDefaultTab = async (defaultTab: "home" | "packs") => {
+  const updateDefaultTab = async (defaultTab: "home" | "settings") => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), { defaultTab }, { merge: true });
   };
@@ -461,6 +465,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       { packOrder: order, packSortBy: "custom" },
       { merge: true }
     );
+  };
+
+  // v69: 팩 트리(폴더)에서 드래그로 순서를 바꿈거나 다른 폴더로 옷긴 직후 호출된다.
+  // parentKey는 폴더 id(최상위는 "root")고, order는 그 레벨의 형제 전체 id 순서다.
+  const updatePackOrderByParent = async (parentKey: string, order: string[]) => {
+    if (!user) return;
+    const next = { ...(profile?.packOrderByParent ?? {}), [parentKey]: order };
+    await setDoc(
+      doc(db, "users", user.uid),
+      { packOrderByParent: next, packSortBy: "custom" },
+      { merge: true }
+    );
+  };
+
+  // 팩 트리에서 펼쳐져있는 폴더 id 목록. 폴더를 탭할 때마다 호출되므로 빈도가 높을 수 있지만,
+  // 배열 하나 쓰는 가벼운 쓰기라 부담이 크지 않다.
+  const updateExpandedPackFolderIds = async (ids: string[]) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { expandedPackFolderIds: ids }, { merge: true });
   };
 
   // 팩(짐 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
@@ -606,6 +629,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         togglePackPinned,
         updateBagOrder,
         updatePackOrder,
+        updatePackOrderByParent,
+        updateExpandedPackFolderIds,
         updatePackSettings,
         updateQuickPackCollapsed,
         updatePackDisplayState,

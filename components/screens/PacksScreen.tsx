@@ -12,6 +12,7 @@ import {
   IconHelpCircle,
   IconX,
   IconChevronRight,
+  IconArrowLeft,
   IconPin,
   IconPinFilled,
   IconEdit,
@@ -31,9 +32,11 @@ import NotificationBell from "@/components/NotificationBell";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
+const DRAG_START_PX = 6; // 롱프레스로 "집어든" 뒤 이만큼 더 움직여야 진짜 드래그로 전환
 
 // v68: 팩 보관함이 그리드(PackTile)에서 아이폰 메모 스타일의 폴더 트리로 바뀌었다.
 // 폴더도 그냥 Pack 문서다(type: "folder", items: []) - parentId로 트리를 표현한다.
@@ -50,15 +53,18 @@ function buildRows(
   depth: number,
   expandedIds: Set<string>,
   sortBy: ListSortOption | undefined,
-  pinnedIds: string[]
+  pinnedIds: string[],
+  orderByParent: Record<string, string[]> | undefined
 ): TreeRow[] {
   const siblings = allPacks.filter((p) => (p.parentId ?? undefined) === parentId);
-  const arranged = arrangeList(siblings, { sortBy, pinnedIds });
+  const parentKey = parentId ?? "root";
+  const order = orderByParent?.[parentKey] ?? [];
+  const arranged = arrangeList(siblings, { sortBy, pinnedIds, order });
   const rows: TreeRow[] = [];
   for (const entry of arranged) {
     rows.push({ kind: "entry", entry, depth });
     if (entry.type === "folder" && expandedIds.has(entry.id)) {
-      rows.push(...buildRows(allPacks, entry.id, depth + 1, expandedIds, sortBy, pinnedIds));
+      rows.push(...buildRows(allPacks, entry.id, depth + 1, expandedIds, sortBy, pinnedIds, orderByParent));
     }
   }
   rows.push({ kind: "add", parentId, depth });
@@ -74,6 +80,7 @@ export default function PacksScreen({
   onNewFolder,
   onRenameEntry,
   onMoveEntries,
+  onBack,
   onOpenSettings,
   onBulkDeletePacks,
 }: {
@@ -89,26 +96,47 @@ export default function PacksScreen({
   onNewFolder: (parentId?: string) => void;
   // 트리 행에서 이름을 바꿀 때(폴더는 편집 화면이 없어서 이 경로가 유일한 이름 변경 수단).
   onRenameEntry: (pack: Pack, name: string) => void;
-  // 다중선택 후 "이동" 액션 - 선택된 id들을 parentId(없으면 최상위)로 옮긴다.
+  // 다중선택 후 "이동" 액션, 그리고 드래그로 다른 폴더에 떨어뜨렸을 때도 이 콜백을 쓴다.
+  // 선택된 id들을 parentId(없으면 최상위)로 옮긴다.
   onMoveEntries: (packIds: string[], parentId: string | undefined) => void;
+  // v68: 이 화면은 탭이 아니라 가방보관함에서 스와이프로 열리는 풀스크린 화면이라 뒤로가기 버튼이 필요하다.
+  onBack: () => void;
   onOpenSettings: () => void;
-  // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더면 하위 항목까지 재귀적으로).
+  // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더는 재귀적으로).
   onBulkDeletePacks: (packIds: string[]) => void;
 }) {
-  const { profile, updatePackSortBy, togglePackPinned } = useAuth();
+  const {
+    profile,
+    updatePackSortBy,
+    togglePackPinned,
+    updatePackOrderByParent,
+    updateExpandedPackFolderIds,
+  } = useAuth();
   const { show } = useToast();
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const sortBy = profile?.packSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedPackIds ?? [];
   const treePacks = packs.filter((p) => !p.isQuickPack);
   const pinnedSet = new Set(pinnedIds);
 
-  // 폴더 펼침/접힘 상태. 계정에 저장하지 않고 화면(세션) 안에서만 유지된다(v1 단순화).
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // 폴더 펼침/접힘 상태. 계정(profile.expandedPackFolderIds)에 저장되어 기기 간에도 동일하게
+  // 유지된다. profile 값을 로컬로 미러링해서 즉시 반응(낙관적 UI)하고, 다른 기기/화면에서
+  // 값이 바뀌면 따라간다(QuickPackBar의 quickPackCollapsed와 동일한 패턴).
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set(profile?.expandedPackFolderIds ?? [])
+  );
+  useEffect(() => {
+    setExpandedIds(new Set(profile?.expandedPackFolderIds ?? []));
+  }, [profile?.expandedPackFolderIds]);
+
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      updateExpandedPackFolderIds(Array.from(next)).catch(() => {
+        show("펼침 상태를 저장하지 못했어요");
+      });
       return next;
     });
   };
@@ -146,18 +174,24 @@ export default function PacksScreen({
     show("아직 준비되지 않았어요");
   };
 
-  // --- 길게 눌러 다중선택 ---------------------------------------------------
-  // 예전 그리드의 드래그 순서변경은 폴더 트리에서는 빠지고(대신 "이동" 액션으로 폴더 간
-  // 이동을 지원), 롱프레스는 오직 다중선택 시작 용도로만 쓰인다.
+  // --- 길게 눌러 다중선택 / 드래그로 순서변경·폴더 이동 ------------------------
+  // 롱프레스로 "집어든" 뒤(pickedIdRef) 그대로 놓으면 다중선택 진입(기존과 동일),
+  // 그 상태에서 더 움직이면 실제 드래그로 전환되어(dragId) 순서변경/폴더 이동이 된다.
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const justLongPressedRef = useRef(false);
+  const pickedIdRef = useRef<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showMoveSheet, setShowMoveSheet] = useState(false);
   const [renamingEntry, setRenamingEntry] = useState<Pack | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{ id: string; zone: "before" | "after" | "into" } | null>(
+    null
+  );
 
   useEffect(() => {
     if (selectMode && selectedIds.size === 0) setSelectMode(false);
@@ -189,15 +223,71 @@ export default function PacksScreen({
     setSelectedIds(new Set());
   };
 
+  // 현재 좌표 아래 어떤 행이 있는지 찾아서 드롭 타겟/영역(위/아래/안쪽)을 계산한다.
+  // 폴더 행의 세로 28~72% 구간에 놓으면 "그 폴더 안으로", 그 외(위/아래 절반)는 "그 옆에
+  // 형제로 삽입"으로 판정한다.
+  const updateDragOver = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y);
+    const rowEl = (el as HTMLElement | null)?.closest?.("[data-row-id]") as HTMLElement | null;
+    if (!rowEl) {
+      setDragOver(null);
+      return;
+    }
+    const overId = rowEl.getAttribute("data-row-id")!;
+    if (overId === dragIdRef.current) {
+      setDragOver(null);
+      return;
+    }
+    // 자기 자신의 하위 폴더 위로는 드롭할 수 없다(순환 방지).
+    if (dragIdRef.current && collectDescendantPackIds(treePacks, dragIdRef.current).includes(overId)) {
+      setDragOver(null);
+      return;
+    }
+    const rect = rowEl.getBoundingClientRect();
+    const relY = (y - rect.top) / rect.height;
+    const overEntry = treePacks.find((p) => p.id === overId);
+    const isFolder = overEntry?.type === "folder";
+    const zone: "before" | "after" | "into" =
+      isFolder && relY > 0.28 && relY < 0.72 ? "into" : relY < 0.5 ? "before" : "after";
+    setDragOver({ id: overId, zone });
+  };
+
+  // 드래그를 놓은 위치를 실제 이동/순서변경으로 반영한다.
+  const commitDrop = (draggedId: string, over: { id: string; zone: "before" | "after" | "into" }) => {
+    const dragged = treePacks.find((p) => p.id === draggedId);
+    const overEntry = treePacks.find((p) => p.id === over.id);
+    if (!dragged || !overEntry) return;
+
+    const newParentId: string | undefined =
+      over.zone === "into" && overEntry.type === "folder" ? overEntry.id : overEntry.parentId;
+
+    const siblings = treePacks.filter(
+      (p) => (p.parentId ?? undefined) === newParentId && p.id !== draggedId
+    );
+    let insertAt = over.zone === "into" ? siblings.length : siblings.findIndex((s) => s.id === over.id);
+    if (over.zone === "after") insertAt += 1;
+    if (insertAt < 0) insertAt = siblings.length;
+
+    const newSiblingIds = siblings.map((s) => s.id);
+    newSiblingIds.splice(insertAt, 0, draggedId);
+
+    if ((dragged.parentId ?? undefined) !== newParentId) {
+      onMoveEntries([draggedId], newParentId);
+    }
+    updatePackOrderByParent(newParentId ?? "root", newSiblingIds).catch(() => {
+      show("순서를 저장하지 못했어요");
+    });
+  };
+
   const handleRowPointerDown = (id: string, e: React.PointerEvent) => {
-    if (selectMode) return; // 선택 모드에서는 탭만으로 토글하므로 롱프레스가 필요 없음
+    if (selectMode) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     const x = e.clientX;
     const y = e.clientY;
     longPressStartRef.current = { id, x, y };
     clearLongPressTimer();
     longPressTimerRef.current = setTimeout(() => {
-      enterSelectMode(id);
-      justLongPressedRef.current = true;
+      pickedIdRef.current = id; // 집어든 상태 - 다음 움직임에 따라 선택/드래그가 갈린다
     }, LONG_PRESS_MS);
   };
 
@@ -206,16 +296,44 @@ export default function PacksScreen({
     if (!start) return;
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
-    if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) clearLongPressTimer();
+    if (!pickedIdRef.current) {
+      // 아직 롱프레스가 확정되기 전 - 너무 많이 움직이면 아예 취소(스크롤 등으로 판단)
+      if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) clearLongPressTimer();
+      return;
+    }
+    if (!dragIdRef.current) {
+      if (Math.hypot(dx, dy) > DRAG_START_PX) {
+        dragIdRef.current = pickedIdRef.current;
+        setDragId(pickedIdRef.current);
+      } else {
+        return;
+      }
+    }
+    updateDragOver(e.clientX, e.clientY);
   };
 
   const handleRowPointerUp = () => {
     clearLongPressTimer();
+    if (dragIdRef.current) {
+      if (dragOver) commitDrop(dragIdRef.current, dragOver);
+      dragIdRef.current = null;
+      pickedIdRef.current = null;
+      setDragId(null);
+      setDragOver(null);
+      justLongPressedRef.current = true; // 드래그 후 따라오는 클릭으로 화면이 안 열리게 함
+      return;
+    }
+    if (pickedIdRef.current) {
+      enterSelectMode(pickedIdRef.current);
+      pickedIdRef.current = null;
+      justLongPressedRef.current = true;
+    }
   };
 
   const handleRowClick = (entry: Pack) => {
-    // 롱프레스로 막 선택 모드에 들어간 직후, 손을 뗄 때 뒤따라오는 클릭 이벤트를
-    // 무시한다 - 안 그러면 방금 선택된 항목이 바로 다시 선택 해제되어버린다.
+    // 롱프레스로 막 선택 모드에 들어가거나 드래그를 마친 직후, 손을 뗄 때 뒤따라오는 클릭
+    // 이벤트를 무시한다 - 안 그러면 방금 선택된 항목이 바로 다시 해제되거나, 드래그로
+    // 옮긴 항목이 열려버리는 오작동이 생긴다.
     if (justLongPressedRef.current) {
       justLongPressedRef.current = false;
       return;
@@ -231,7 +349,7 @@ export default function PacksScreen({
     }
   };
 
-  // --- 이동(폴더 피커) -------------------------------------------------------
+  // --- 이동(다중선택 폴더 피커) -----------------------------------------------
   // 선택된 항목 본인 + 그 하위(자손) 폴더로는 이동할 수 없다(순환 방지).
   const moveBlockedIds = useMemo(() => {
     const blocked = new Set(selectedIds);
@@ -266,15 +384,15 @@ export default function PacksScreen({
 
   // --- 트리 구성 -------------------------------------------------------------
   const rows = useMemo(
-    () => buildRows(treePacks, undefined, 0, expandedIds, sortBy, pinnedIds),
-    [treePacks, expandedIds, sortBy, pinnedIds]
+    () => buildRows(treePacks, undefined, 0, expandedIds, sortBy, pinnedIds, profile?.packOrderByParent),
+    [treePacks, expandedIds, sortBy, pinnedIds, profile?.packOrderByParent]
   );
   // 다중선택 모드 중엔 "여기에 추가" 버튼 행을 숨긴다(선택에 방해되지 않도록).
   const visibleRows = selectMode ? rows.filter((r) => r.kind === "entry") : rows;
   const isEmpty = treePacks.length === 0;
 
   return (
-    <div className="relative flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden">
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-center justify-between mb-4 gap-2">
           {searchOpen ? (
@@ -300,7 +418,10 @@ export default function PacksScreen({
             </>
           ) : (
             <>
-              <div className="flex items-baseline gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <button onClick={onBack} aria-label="뒤로가기" className="-m-2 p-2 shrink-0">
+                  <IconArrowLeft size={20} stroke={1.75} />
+                </button>
                 <h1 className="text-[22px] font-bold shrink-0">팩</h1>
                 <span className="text-[12px] text-text-muted truncate">
                   폴더로 정리해서 두고두고 써요
@@ -413,6 +534,8 @@ export default function PacksScreen({
                 const dotHex = !isFolder ? getPackColorHex(entry.color) : null;
                 const ratio = !isFolder ? getProgressRatio(entry.items) : null;
                 const isSelected = selectedIds.has(entry.id);
+                const isDragSource = dragId === entry.id;
+                const isDragOver = dragOver?.id === entry.id;
                 const childCount = isFolder
                   ? treePacks.filter((p) => p.parentId === entry.id).length
                   : entry.items.length;
@@ -420,6 +543,7 @@ export default function PacksScreen({
                 return (
                   <div
                     key={entry.id}
+                    data-row-id={entry.id}
                     onPointerDown={(e) => handleRowPointerDown(entry.id, e)}
                     onPointerMove={handleRowPointerMove}
                     onPointerUp={handleRowPointerUp}
@@ -428,7 +552,17 @@ export default function PacksScreen({
                     className="flex items-center gap-2 rounded-lg px-2 py-2.5 active:bg-black/5"
                     style={{
                       paddingLeft: 8 + row.depth * 20,
-                      background: isSelected ? "var(--accent-soft)" : undefined,
+                      background:
+                        isDragOver && dragOver?.zone === "into"
+                          ? "var(--accent-soft)"
+                          : isSelected
+                            ? "var(--accent-soft)"
+                            : undefined,
+                      borderTop:
+                        isDragOver && dragOver?.zone === "before" ? "2px solid var(--accent)" : "2px solid transparent",
+                      borderBottom:
+                        isDragOver && dragOver?.zone === "after" ? "2px solid var(--accent)" : "2px solid transparent",
+                      opacity: isDragSource ? 0.35 : 1,
                       WebkitTouchCallout: "none",
                       WebkitUserSelect: "none",
                       userSelect: "none",

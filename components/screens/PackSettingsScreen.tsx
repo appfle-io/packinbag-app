@@ -16,6 +16,8 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
   // 짐 더블클릭 복사 토스트 노출 시간 (없으면 3초 기본값, 3~7초)
   const itemCopyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
+  // 스와이프 힌트 물방울 보이기 여부 (명시적으로 꺼둔 적이 없으면 기본 켜짐)
+  const packTreeHintEnabled = profile?.packSettings?.packTreeHintEnabled ?? true;
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -79,6 +81,20 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium">팩 트리 열기 버튼</p>
+            <p className="text-[11.5px] text-text-secondary mt-0.5">
+              가방보관함 왼쪽 가장자리에 팩 트리를 열 수 있는 버튼을 띄워줘요. 꺼도 왼쪽 가장자리를 오른쪽으로 스와이프하면 버튼 없이도 팩 트리가 열려요.
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={packTreeHintEnabled}
+            onChange={(v) => updatePackSettings({ packTreeHintEnabled: v })}
+            ariaLabel="팩 트리 열기 버튼"
+          />
         </div>
 
         <div className="rounded-lg border border-border bg-surface p-3">
