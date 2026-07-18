@@ -686,7 +686,7 @@ export default function PacksScreen({
 
       {/* 다중선택 모드 하단 액션바: 이름변경(1개 선택일 때만)/이동/삭제.
           bottom-24만큼 띄운 이유는 예전 그리드와 동일 - 하단탭바 중앙 "+" FAB와 겹치지 않게. */}
-      {selectMode && (
+      {selectMode && !showMoveSheet && !showBulkDeleteConfirm && !renamingEntry && (
         <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center gap-3 pointer-events-none">
           {selectedIds.size === 1 && (
             <button
