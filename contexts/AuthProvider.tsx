@@ -441,9 +441,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { pinnedBagIds: next }, { merge: true });
   };
 
+  // v69: 팩은 고정핀 개수 제한이 폐지되어 무제한이다(togglePinned에 max 생략 시 기본 2개 제한이라 Infinity를 명시적으로 넘겨야 함).
   const togglePackPinned = async (packId: string) => {
     if (!user) return;
-    const next = togglePinned(profile?.pinnedPackIds, packId);
+    const next = togglePinned(profile?.pinnedPackIds, packId, Infinity);
     await setDoc(doc(db, "users", user.uid), { pinnedPackIds: next }, { merge: true });
   };
 

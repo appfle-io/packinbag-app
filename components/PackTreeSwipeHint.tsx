@@ -8,7 +8,11 @@ import { IconPackage } from "@tabler/icons-react";
 // 통일하고, 기존에 쓰던 소포(팩) 아이콘(IconPackage)을 그대로 쓴다.
 //
 // 그냥 가만히 떠있는 버튼이 아니라, 몇 초에 한 번씩 스스로 옆으로 당겨졌다가 탄성 있게
-// 돌아오는 "이 버튼을 옆으로 당겨보세요"라는 시범 동작을 반복해서 보여준다.
+// 돌아오는 "이 버튼을 옆으로 당겨보세요"라는 시범 동작을 반복해서 보여준다. 이때 버튼
+// 오른쪽에 화살표(→)가 버튼과 정확히 같은 타이밍으로 함께 나타났다 사라진다 - 버튼이
+// 오른쪽으로 움직이는 동안 화살표도 같이 오른쪽으로 등장하고(opacity 0→1), 버튼이 다시
+// 왼쪽으로 돌아오면 화살표도 같이 사라진다(opacity 1→0). 두 애니메이션이 완전히 같은
+// duration/easing이라 항상 같은 박자로 움직인다.
 // - 탭하면 바로 팩 트리가 열린다.
 // - 옆으로 당겨서 놓아도(드래그) 충분히 당겼으면 열리고, 덜 당겼으면 고무줄처럼 통통
 //   튕기며 되돌아간다(스프링 물리 시뮬레이션).
@@ -130,29 +134,53 @@ export default function PackTreeSwipeHint({
   };
 
   return (
-    <button
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-      aria-label="팩 트리 열기"
-      className="absolute flex items-center justify-center select-none"
-      style={{
-        left: REST_LEFT + pull,
-        top: "50%",
-        width: BTN_SIZE,
-        height: BTN_SIZE,
-        borderRadius: 9999,
-        transform: "translateY(-50%)",
-        background: "var(--accent)",
-        boxShadow: "0 6px 16px -2px color-mix(in srgb, var(--accent) 55%, transparent), 0 2px 6px rgba(0,0,0,0.15)",
-        touchAction: "none",
-        cursor: "grab",
-        transition: dragging || springing ? "none" : "left 200ms ease",
-        animation: dragging || springing ? "none" : "pib-hint-demo 1.8s ease-in-out infinite",
-      }}
-    >
-      <IconPackage size={24} stroke={1.75} color="#fff" />
+    <>
+      <button
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        aria-label="팩 트리 열기"
+        className="absolute flex items-center justify-center select-none"
+        style={{
+          left: REST_LEFT + pull,
+          top: "50%",
+          width: BTN_SIZE,
+          height: BTN_SIZE,
+          borderRadius: 9999,
+          transform: "translateY(-50%)",
+          background: "var(--accent)",
+          boxShadow: "0 6px 16px -2px color-mix(in srgb, var(--accent) 55%, transparent), 0 2px 6px rgba(0,0,0,0.15)",
+          touchAction: "none",
+          cursor: "grab",
+          transition: dragging || springing ? "none" : "left 200ms ease",
+          animation: dragging || springing ? "none" : "pib-hint-demo 1.8s ease-in-out infinite",
+        }}
+      >
+        <IconPackage size={24} stroke={1.75} color="#fff" />
+      </button>
+
+      {/* 버튼이 스스로 오른쪽으로 당겨지는 시범 동작과 정확히 같은 타이밍(1.8s ease-in-out)으로
+          함께 움직이는 화살표 - 깜빡이며 갑자기 나타나지 않고, 버튼과 함께 오른쪽으로 따라나오면서
+          등장하고(opacity 0→1), 버튼이 되돌아가면 같이 사라진다(opacity 1→0). 드래그/스프링 중에는
+          아예 렌더링하지 않는다(시범 동작 전용). */}
+      {!dragging && !springing && (
+        <span
+          aria-hidden="true"
+          className="absolute select-none pointer-events-none"
+          style={{
+            left: -18,
+            top: "50%",
+            color: "var(--accent)",
+            fontSize: 18,
+            lineHeight: 1,
+            fontWeight: 600,
+            animation: "pib-hint-arrow 1.8s ease-in-out infinite",
+          }}
+        >
+          →
+        </span>
+      )}
 
       <style jsx>{`
         @keyframes pib-hint-demo {
@@ -171,7 +199,27 @@ export default function PackTreeSwipeHint({
             transform: translateY(-50%) translateX(0);
           }
         }
+        @keyframes pib-hint-arrow {
+          0%,
+          11% {
+            opacity: 0;
+            transform: translateY(-50%) translateX(0);
+          }
+          39% {
+            opacity: 1;
+            transform: translateY(-50%) translateX(22px);
+          }
+          58% {
+            opacity: 1;
+            transform: translateY(-50%) translateX(17px);
+          }
+          81%,
+          100% {
+            opacity: 0;
+            transform: translateY(-50%) translateX(0);
+          }
+        }
       `}</style>
-    </button>
+    </>
   );
 }

@@ -681,6 +681,13 @@ export default function AppShell() {
     });
   };
 
+  const handleChangePackColor = (pack: Pack, colorId: string | undefined) => {
+    saveLibraryPackRemote(user, { ...pack, color: colorId }).catch((err) => {
+      console.error("[팩인백] 색상 변경 실패:", err);
+      show(`색상 변경에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
   // 팩/폴더를 다른 폴더로(또는 최상위로) 이동한다. 트리 및 다중선택에서 "이동" 액션으로 호출된다.
   const handleMoveLibraryEntries = (packIds: string[], parentId: string | undefined) => {
     const idSet = new Set(packIds);
@@ -862,6 +869,7 @@ export default function AppShell() {
             onNewPack={openNewPack}
             onNewFolder={handleCreateFolder}
             onRenameEntry={handleRenameLibraryEntry}
+            onChangeColor={handleChangePackColor}
             onMoveEntries={handleMoveLibraryEntries}
             onBack={() => setShowPackTree(false)}
             onOpenSettings={() => {

@@ -42,10 +42,12 @@ export function sortByOption<T extends { name: string; createdAt?: string; updat
   }
 }
 
-// 고정핀(pinnedIds, 최대 2개) + 정렬기준(sortBy) + custom 순서(order)를 모두 반영해
+// 고정핀(pinnedIds) + 정렬기준(sortBy) + custom 순서(order)를 모두 반영해
 // 최종 화면에 보여줄 순서를 계산한다. 고정된 항목은 항상 맨 앞, pinnedIds에 적힌
 // 순서 그대로 보여준다. sortBy가 "custom"이면 나머지는 order(id 배열)를 따르고,
 // order에 없는(새로 생긴) 항목은 생성일자 최신순으로 뒤에 자동으로 붙는다.
+// maxPinned: 고정핀 개수 제한(없으면 2 기본값 - 가방 등 기존 기본값). v69부터 팩은
+// 무제한이라 호출부가(PacksScreen) Infinity를 넘겨준다.
 export function arrangeList<
   T extends { id: string; name: string; createdAt?: string; updatedAt?: string }
 >(
@@ -54,9 +56,10 @@ export function arrangeList<
     sortBy?: ListSortOption;
     pinnedIds?: string[];
     order?: string[];
+    maxPinned?: number;
   }
 ): T[] {
-  const pinnedIds = (opts.pinnedIds ?? []).slice(0, 2);
+  const pinnedIds = (opts.pinnedIds ?? []).slice(0, opts.maxPinned ?? 2);
   const pinnedSet = new Set(pinnedIds);
   const byId = new Map(items.map((it) => [it.id, it]));
   const pinned = pinnedIds.map((id) => byId.get(id)).filter((it): it is T => !!it);
@@ -92,10 +95,11 @@ export function moveIdInOrder(ids: string[], fromId: string, toId: string): stri
   return next;
 }
 
-// 고정핀 토글. 이미 고정돼있으면 해제, 아니면 추가(최대 2개 - 넘치면 무시하고 그대로 반환).
-export function togglePinned(pinnedIds: string[] | undefined, id: string): string[] {
+// 고정핀 토글. 이미 고정돼있으면 해제, 아니면 추가(max개를 넘으면 무시하고 그대로 반환).
+// max가 없으면 기존처럼 2개 기본값(가방). 팩은 v69부터 Infinity를 넘겨받아 무제한이다.
+export function togglePinned(pinnedIds: string[] | undefined, id: string, max: number = 2): string[] {
   const current = pinnedIds ?? [];
   if (current.includes(id)) return current.filter((p) => p !== id);
-  if (current.length >= 2) return current;
+  if (current.length >= max) return current;
   return [...current, id];
 }

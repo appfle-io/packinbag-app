@@ -12,6 +12,7 @@ import {
   IconHelpCircle,
   IconX,
   IconChevronRight,
+  IconChevronDown,
   IconArrowLeft,
   IconPin,
   IconPinFilled,
@@ -23,7 +24,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList } from "@/lib/listSort";
 import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
-import { getPackColorHex } from "@/lib/packColors";
+import PackColorDot from "@/components/PackColorDot";
 import { getProgressRatio } from "@/lib/itemStats";
 import ProgressRing from "@/components/ProgressRing";
 import SortSelect from "@/components/SortSelect";
@@ -59,7 +60,8 @@ function buildRows(
   const siblings = allPacks.filter((p) => (p.parentId ?? undefined) === parentId);
   const parentKey = parentId ?? "root";
   const order = orderByParent?.[parentKey] ?? [];
-  const arranged = arrangeList(siblings, { sortBy, pinnedIds, order });
+  // 팩은 v69부터 고정핀 개수 제한이 없어서(무제한) maxPinned로 Infinity를 넘긴다.
+  const arranged = arrangeList(siblings, { sortBy, pinnedIds, order, maxPinned: Infinity });
   const rows: TreeRow[] = [];
   for (const entry of arranged) {
     rows.push({ kind: "entry", entry, depth });
@@ -79,6 +81,7 @@ export default function PacksScreen({
   onNewPack,
   onNewFolder,
   onRenameEntry,
+  onChangeColor,
   onMoveEntries,
   onBack,
   onOpenSettings,
@@ -96,6 +99,7 @@ export default function PacksScreen({
   onNewFolder: (parentId?: string) => void;
   // 트리 행에서 이름을 바꿀 때(폴더는 편집 화면이 없어서 이 경로가 유일한 이름 변경 수단).
   onRenameEntry: (pack: Pack, name: string) => void;
+  onChangeColor: (pack: Pack, colorId: string | undefined) => void;
   // 다중선택 후 "이동" 액션, 그리고 드래그로 다른 폴더에 떨어뜨렸을 때도 이 콜백을 쓴다.
   // 선택된 id들을 parentId(없으면 최상위)로 옮긴다.
   onMoveEntries: (packIds: string[], parentId: string | undefined) => void;
@@ -138,6 +142,29 @@ export default function PacksScreen({
         show("펼침 상태를 저장하지 못했어요");
       });
       return next;
+    });
+  };
+
+  // 상단 전체펼치기/전체접기 - 가방 속(BagEditorScreen)에서 이미 쓰는 패턴을 그대로 가져온다: 버튼 하나가
+  // 상태에 따라 아이콘만 바뀜다(IconChevronDown/IconChevronRight, 단일 토글). 폴더가
+  // 하나도 없으면 의미가 없으니 그때는 버튼 자체를 숨긴다.
+  const allFolderIds = useMemo(
+    () => treePacks.filter((p) => p.type === "folder").map((p) => p.id),
+    [treePacks]
+  );
+  const allFoldersCollapsed =
+    allFolderIds.length > 0 && allFolderIds.every((id) => !expandedIds.has(id));
+  const expandAllFolders = () => {
+    const next = new Set(allFolderIds);
+    setExpandedIds(next);
+    updateExpandedPackFolderIds(Array.from(next)).catch(() => {
+      show("펼침 상태를 저장하지 못했어요");
+    });
+  };
+  const collapseAllFolders = () => {
+    setExpandedIds(new Set());
+    updateExpandedPackFolderIds([]).catch(() => {
+      show("펼침 상태를 저장하지 못했어요");
     });
   };
 
@@ -281,6 +308,9 @@ export default function PacksScreen({
 
   const handleRowPointerDown = (id: string, e: React.PointerEvent) => {
     if (selectMode) return;
+    // 핀/이름변경 등 행 안의 버튼에서 시작된 손가락은 롱프레스/드래그 대상이 아니다 -
+    // 여기서 pointerCapture를 가져가면 그 버튼의 네이티브 click이 안 뜨서(핀이 변경되지 않는) 버그가 있었다.
+    if ((e.target as HTMLElement).closest("button")) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     const x = e.clientX;
     const y = e.clientY;
@@ -453,7 +483,23 @@ export default function PacksScreen({
             </div>
           ) : (
             !isEmpty && (
-              <div className="flex justify-end mb-3">
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-1">
+                  {allFolderIds.length > 0 && (
+                    <button
+                      onClick={() =>
+                        allFoldersCollapsed ? expandAllFolders() : collapseAllFolders()
+                      }
+                      aria-label={allFoldersCollapsed ? "폴더 전체 펼치기" : "폴더 전체 접기"}
+                    >
+                      {allFoldersCollapsed ? (
+                        <IconChevronDown size={17} stroke={1.75} color="var(--text-secondary)" />
+                      ) : (
+                        <IconChevronRight size={17} stroke={1.75} color="var(--text-secondary)" />
+                      )}
+                    </button>
+                  )}
+                </div>
                 <SortSelect
                   value={sortBy}
                   onChange={(v) => updatePackSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))}
@@ -531,7 +577,6 @@ export default function PacksScreen({
 
                 const entry = row.entry;
                 const isFolder = entry.type === "folder";
-                const dotHex = !isFolder ? getPackColorHex(entry.color) : null;
                 const ratio = !isFolder ? getProgressRatio(entry.items) : null;
                 const isSelected = selectedIds.has(entry.id);
                 const isDragSource = dragId === entry.id;
@@ -589,10 +634,11 @@ export default function PacksScreen({
                           transform: expandedIds.has(entry.id) ? "rotate(90deg)" : "rotate(0deg)",
                         }}
                       />
-                    ) : dotHex ? (
-                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: dotHex }} />
                     ) : (
-                      <span className="w-[15px] shrink-0" />
+                      <PackColorDot
+                        colorId={entry.color}
+                        onChange={(colorId) => onChangeColor(entry, colorId)}
+                      />
                     )}
                     {isFolder && (
                       <IconFolder size={17} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
@@ -600,6 +646,18 @@ export default function PacksScreen({
                     <span className="text-[14px] font-medium truncate min-w-0 flex-1">{entry.name}</span>
                     {!isFolder && ratio !== null && <ProgressRing ratio={ratio} size={15} />}
                     <span className="text-[11px] text-text-muted shrink-0">{childCount}개</span>
+                    {!selectMode && isFolder && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenamingEntry(entry);
+                        }}
+                        aria-label="폴더 이름 바꾸기"
+                        className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+                      >
+                        <IconEdit size={13} stroke={1.75} color="var(--text-muted)" />
+                      </button>
+                    )}
                     {!selectMode && (
                       <button
                         onClick={(e) => {
