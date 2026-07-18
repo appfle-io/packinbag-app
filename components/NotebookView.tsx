@@ -3,6 +3,7 @@
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import NotebookPackSection from "./NotebookPackSection";
+import NotebookEditorPackSection from "./NotebookEditorPackSection";
 
 // PackGrid(팩뷰)와 동일한 props를 받는 메모장뷰. 팩을 카드 그리드가 아니라
 // "헤더 + 내용"이 위아래로 이어지는 문서형 목록으로 보여준다. 기능은 100% 동일 -
@@ -35,6 +36,8 @@ export default function NotebookView({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  onOpenNotePackEditor,
+  getNoteEditors,
   /*
   getItemReactionDoc,
   currentUid,
@@ -74,6 +77,11 @@ export default function NotebookView({
   onToggleSelectItem?: (packId: string, itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
+  // 에디터팩(자유문서형) 섬션의 "편집" 진입점 - 있으면 NotebookEditorPackSection이 렌더된다
+  // (없으면 kind==='editor' 팩도 일반 NotebookPackSection으로 폴백된다).
+  onOpenNotePackEditor?: (packId: string) => void;
+  // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다.
+  getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -83,7 +91,32 @@ export default function NotebookView({
 }) {
   return (
     <div className="flex flex-col">
-      {packs.map((pack, idx) => (
+      {packs.map((pack, idx) => {
+        if (pack.kind === "editor") {
+          return (
+            <NotebookEditorPackSection
+              key={pack.id}
+              pack={pack}
+              isLast={idx === packs.length - 1}
+              isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
+              canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
+              onRenamePack={(name) => onRenamePack(pack.id, name)}
+              onSaveToLibrary={() => onSaveToLibrary(pack.id)}
+              onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
+              onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
+              onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
+              onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
+              editors={getNoteEditors?.(pack.id) ?? []}
+              isDragOver={dragOverPackId === pack.id}
+              isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
+              onStartPackDrag={
+                onStartPackDrag ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y) : undefined
+              }
+              isPackDragSource={dragSourcePackId === pack.id}
+            />
+          );
+        }
+        return (
         <NotebookPackSection
           key={pack.id}
           pack={pack}
@@ -129,7 +162,8 @@ export default function NotebookView({
           onOpenReactionPicker={onOpenReactionPicker}
           */
         />
-      ))}
+        );
+      })}
     </div>
   );
 }

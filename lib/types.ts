@@ -29,6 +29,19 @@ export interface Pack {
   id: string;
   name: string;
   items: Item[];
+  // v70+ 에디터팩(자유문서형 팩). 없으면(예전 데이터 포함) "checklist"로 취급 - 지금까지의
+  // 구조화된 짐(Item) 배열 방식. "editor"면 items는 항상 빈 배열이고 실제 내용은 아래
+  // editorDoc(TipTap JSON 블록 문서)에 들어있다 - 아이폰 메모처럼 체크박스/제목/표가 순서대로
+  // 섞인 자유 문서. AI 자동분류(메모 가져오기/해시태그) 대상에서 제외되고, 완료율(진행률 링)
+  // 계산에서도 제외된다(items가 항상 []이라 getProgressRatio가 자연히 null을 반환함).
+  kind?: "checklist" | "editor";
+  // "editor" 팩의 실제 내용 - TipTap(ProseMirror) JSON 문서. 크기는 lib/editorDocLimits.ts의
+  // MAX_EDITOR_DOC_BYTES로 방어(Firestore 문서 1MB 제한 보호) - 그 이상은 저장 시 잘라내고
+  // 안내한다.
+  editorDoc?: object;
+  // 팩 카드(가방 속 미리보기)/팩 보관함 타일에 보여줄 일반 텍스트 요약. editorDoc을 저장할
+  // 때마다 함께 갱신된다(전체 JSON을 매번 파싱해서 보여주지 않기 위한 캐시).
+  editorPreviewText?: string;
   // v68+ 팩 보관함 폴더 기능. 없으면(예전 데이터) "pack"으로 취급한다. "folder"면 items는
   // 항상 빈 배열이고, 실제 내용물은 parentId로 이 폴더를 가리키는 다른 Pack들이다.
   type?: "pack" | "folder";

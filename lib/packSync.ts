@@ -12,7 +12,13 @@ export function isInSyncWithLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
   if (!pack.linkedLibraryPackId) return false;
   const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
   if (!source) return false;
-  return pack.name.trim() === source.name.trim() && itemsMatch(pack.items, source.items);
+  if (pack.name.trim() !== source.name.trim()) return false;
+  // 에디터팩(자유문서형)은 items가 항상 빈 배열이라 itemsMatch로는 내용 차이를
+  // 감지할 수 없으므로, editorDoc(TipTap JSON) 자체를 직접 비교한다.
+  if (pack.kind === "editor" || source.kind === "editor") {
+    return JSON.stringify(pack.editorDoc ?? null) === JSON.stringify(source.editorDoc ?? null);
+  }
+  return itemsMatch(pack.items, source.items);
 }
 
 // 이 팩이 연동된 라이브러리 원본이 지금 로그인한 사람 자신의 라이브러리에 실제로 있는지

@@ -18,6 +18,7 @@ import {
   IconPinFilled,
   IconEdit,
   IconArrowRight,
+  IconNotes,
 } from "@tabler/icons-react";
 import { Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -94,8 +95,9 @@ export default function PacksScreen({
   quickPack?: Pack;
   // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다.
   onOpenPack: (pack: Pack, focusItemId?: string) => void;
-  // parentId를 넘기면 그 폴더 바로 안에 새 팩/폴더를 만든다(없으면 최상위).
-  onNewPack: (parentId?: string) => void;
+  // parentId를 넘기면 그 폴더 바로 안에 새 팩/폴더를 만든다(없으면 최상위). kind를 "editor"로
+  // 넘기면 체크리스트 팩이 아니라 아이폰 메모처럼 자유문서형인 에디터팩을 만든다(없으면 "checklist").
+  onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
   onNewFolder: (parentId?: string) => void;
   // 트리 행에서 이름을 바꿀 때(폴더는 편집 화면이 없어서 이 경로가 유일한 이름 변경 수단).
   onRenameEntry: (pack: Pack, name: string) => void;
@@ -558,6 +560,12 @@ export default function PacksScreen({
                   <IconPlus size={14} stroke={1.75} />팩
                 </button>
                 <button
+                  onClick={() => onNewPack(undefined, "editor")}
+                  className="flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] text-text-muted border border-dashed border-border-strong"
+                >
+                  <IconNotes size={14} stroke={1.75} />메모
+                </button>
+                <button
                   onClick={() => onNewFolder(undefined)}
                   className="flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] text-text-muted border border-dashed border-border-strong"
                 >
@@ -582,6 +590,12 @@ export default function PacksScreen({
                         <IconPlus size={13} stroke={1.75} />팩
                       </button>
                       <button
+                        onClick={() => onNewPack(row.parentId, "editor")}
+                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
+                      >
+                        <IconNotes size={13} stroke={1.75} />메모
+                      </button>
+                      <button
                         onClick={() => onNewFolder(row.parentId)}
                         className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
                       >
@@ -600,6 +614,7 @@ export default function PacksScreen({
                 const childCount = isFolder
                   ? treePacks.filter((p) => p.parentId === entry.id).length
                   : entry.items.length;
+                const isEditorPack = !isFolder && entry.kind === "editor";
 
                 return (
                   <div
@@ -660,8 +675,13 @@ export default function PacksScreen({
                       <IconFolder size={17} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
                     )}
                     <span className="text-[14px] font-medium truncate min-w-0 flex-1">{entry.name}</span>
+                    {isEditorPack && (
+                      <IconNotes size={13} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+                    )}
                     {!isFolder && ratio !== null && <ProgressRing ratio={ratio} size={15} />}
-                    <span className="text-[11px] text-text-muted shrink-0">{childCount}개</span>
+                    {!isEditorPack && (
+                      <span className="text-[11px] text-text-muted shrink-0">{childCount}개</span>
+                    )}
                     {!selectMode && isFolder && (
                       <button
                         onClick={(e) => {

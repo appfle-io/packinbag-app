@@ -111,7 +111,9 @@ export default function PackImportModal({
                     {pack.name}
                   </div>
                   <div className="text-[12px] text-text-secondary truncate">
-                    {pack.items.map((i) => i.text).join(", ")}
+                    {pack.kind === "editor"
+                      ? pack.editorPreviewText || "메모 팩"
+                      : pack.items.map((i) => i.text).join(", ")}
                   </div>
                 </div>
               </label>

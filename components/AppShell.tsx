@@ -47,6 +47,7 @@ import PacksScreen from "@/components/screens/PacksScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
+import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
 import PackTreeSwipeHint from "@/components/PackTreeSwipeHint";
 import Portal from "@/components/Portal";
@@ -651,7 +652,11 @@ export default function AppShell() {
     }
   };
 
-  const openNewPack = (parentId?: string) => {
+  const openNewPack = (parentId?: string, kind?: "checklist" | "editor") => {
+    if (kind === "editor") {
+      setEditingPack({ id: uid(), name: "새 메모", items: [], parentId, kind: "editor" });
+      return;
+    }
     setEditingPack({ id: uid(), name: "새 팩", items: [], parentId });
   };
 
@@ -884,6 +889,25 @@ export default function AppShell() {
             setEditingPack(null);
             setPackFocusItemId(null);
           };
+          // 에디터팩(자유문서형 메모 팩)은 하단 시트가 아니라 노션 페이지처럼 풀스크린
+          // 전체화면으로 연다(체크리스트 팩은 그대로 바타 시트 유지).
+          if (editingPack.kind === "editor") {
+            return (
+              <Portal>
+                <div className="fixed inset-0 z-[75] flex flex-col bg-background">
+                  <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+                    <PackNoteEditorScreen
+                      pack={editingPack}
+                      readOnly={false}
+                      onBack={closePackEditor}
+                      onSave={handleSavePack}
+                      onDeletePack={() => handleDeletePack(editingPack.id)}
+                    />
+                  </div>
+                </div>
+              </Portal>
+            );
+          }
           return (
             <Portal>
               <div
@@ -1072,6 +1096,23 @@ export default function AppShell() {
           setEditingPack(null);
           setPackFocusItemId(null);
         };
+        if (editingPack.kind === "editor") {
+          return (
+            <Portal>
+              <div className="fixed inset-0 z-[75] flex flex-col bg-background">
+                <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+                  <PackNoteEditorScreen
+                    pack={editingPack}
+                    readOnly={false}
+                    onBack={closePackEditor}
+                    onSave={handleSavePack}
+                    onDeletePack={() => handleDeletePack(editingPack.id)}
+                  />
+                </div>
+              </div>
+            </Portal>
+          );
+        }
         return (
           <Portal>
             <div

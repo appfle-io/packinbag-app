@@ -3,6 +3,7 @@
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
+import EditorPackCard from "./EditorPackCard";
 
 export default function PackGrid({
   packs,
@@ -32,6 +33,8 @@ export default function PackGrid({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  onOpenNotePackEditor,
+  getNoteEditors,
   /*
   getItemReactionDoc,
   currentUid,
@@ -75,6 +78,12 @@ export default function PackGrid({
   // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 댓글 버튼이 안 보인다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
+  // 에디터팩(자유문서형) 카드의 연필 버튼 탭 - 있으면 EditorPackCard가 렌더된다(없으면
+  // kind==='editor' 팩은 일반 PackCard로 폴백된다 - 상위 화면이 아직 이 콜백을 연결하지
+  // 않았을 때도 깨지지 않게 하기 위함).
+  onOpenNotePackEditor?: (packId: string) => void;
+  // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다. 없으면 아바타가 안 보인다.
+  getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -82,7 +91,31 @@ export default function PackGrid({
   onOpenReactionPicker?: (itemId: string, itemText: string) => void;
   */
 }) {
-  const renderCard = (pack: Pack) => (
+  const renderCard = (pack: Pack) => {
+    if (pack.kind === "editor") {
+      return (
+        <EditorPackCard
+          key={pack.id}
+          pack={pack}
+          isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
+          canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
+          onRenamePack={(name) => onRenamePack(pack.id, name)}
+          onSaveToLibrary={() => onSaveToLibrary(pack.id)}
+          onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
+          onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
+          onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
+          onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
+          editors={getNoteEditors?.(pack.id) ?? []}
+          onStartPackDrag={
+            onStartPackDrag ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y) : undefined
+          }
+          isPackDragSource={dragSourcePackId === pack.id}
+          isDragOver={dragOverPackId === pack.id}
+          isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
+        />
+      );
+    }
+    return (
     <PackCard
       key={pack.id}
       pack={pack}
@@ -131,7 +164,8 @@ export default function PackGrid({
       onOpenReactionPicker={onOpenReactionPicker}
       */
     />
-  );
+    );
+  };
 
   // 팩 카드 "넓히기"는 가로폭이 아니라 짐 영역의 높이만 늘어나는 방식이라, 컬럼 span
   // 계산이 필요없다 - 그냥 흐르는 2열 그리드(items-start)로 두면 카드가 커진 행만

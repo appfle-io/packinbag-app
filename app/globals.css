@@ -310,3 +310,65 @@ body {
   animation: pib-search-highlight 1.8s ease-in-out both;
   border-radius: 10px;
 }
+
+/* 에디터팩(자유문서형 메모 팩)의 TipTap 렉더링 스타일. PackNoteEditorScreen(전체화면
+   편집)과 EditorPackCard(가방 속 읽기전용 미리보기) 둘 다 이 클래스를 쓴다. */
+.pib-note-editor .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+.pib-note-editor h1 { font-size: 22px; font-weight: 700; margin: 14px 0 6px; }
+.pib-note-editor h2 { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
+.pib-note-editor h3 { font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
+.pib-note-editor p { margin: 4px 0; line-height: 1.55; }
+.pib-note-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 6px 0;
+}
+.pib-note-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 3px 0;
+}
+.pib-note-editor ul[data-type="taskList"] li > label {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.pib-note-editor ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.pib-note-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.pib-note-editor table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.pib-note-editor td, .pib-note-editor th {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  font-size: 13px;
+  vertical-align: top;
+  position: relative;
+}
+.pib-note-editor th {
+  background: var(--surface-2);
+  font-weight: 600;
+  text-align: left;
+}
+.pib-note-editor-readonly .ProseMirror {
+  cursor: default;
+}
+.pib-note-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

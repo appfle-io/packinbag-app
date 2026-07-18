@@ -47,6 +47,8 @@ import GroupMembersModal from "@/components/GroupMembersModal";
 import AiOrganizeModal from "@/components/AiOrganizeModal";
 import ItemThreadSheet from "@/components/ItemThreadSheet";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
+import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
+import Portal from "@/components/Portal";
 import { subscribeToComments } from "@/lib/commentsService";
 import { subscribeToReactions, toggleReaction } from "@/lib/reactionsService";
 import { buildMentionMembers } from "@/lib/mentions";
@@ -59,6 +61,12 @@ import { isInSyncWithLibrary } from "@/lib/packSync";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
+import {
+  subscribeToPresence,
+  setEditingNotePack,
+  PRESENCE_STALE_MS,
+  RawPresence,
+} from "@/lib/presenceService";
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
@@ -615,14 +623,72 @@ export default function BagEditorScreen({
   // 10개 캡을 "+팩" 버튼의 disabled 속성뿐 아니라 함수 자체에도 걸어둔다 - 그래야
   // PackImportModal의 "새 팩 만들기"처럼 disabled 체크가 없는 다른 진입점에서
   // 호출해도 안전하다. 캡에 걸리면 조용히 무시하지 않고 이유를 알려준다.
-  const handleAddPack = () => {
+  const handleAddPack = (kind: "checklist" | "editor" = "checklist") => {
     if (guardReadOnly()) return;
     if (bag.packs.length >= 10) {
       show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
       return;
     }
+    if (kind === "editor") {
+      updatePacks((packs) => [
+        ...packs,
+        { id: uid(), name: "새 메모", items: [], kind: "editor" },
+      ]);
+      return;
+    }
     updatePacks((packs) => [...packs, { id: uid(), name: "새 팩", items: [] }]);
   };
+
+  // 상단 "+팩" 버튼을 누르면 바로 만들지 않고 체크리스트/메모 중 고르는 작은 시트를 띄운다.
+  const [showAddPackKindSheet, setShowAddPackKindSheet] = useState(false);
+
+  // 가방 속 에디터팩(자유문서형 메모 팩)을 전체화면 편집기(PackNoteEditorScreen)로 여는 상태.
+  // 라이브러리 쪽(AppShell/PacksScreen)과 달리, 가방 안에서는 별도 화면 전환 없이 이 화면
+  // 위에 풀스크린 오버레이로 띄우고 바로 이 가방의 자동저장 파이프라인(updatePacks)으로 반영한다.
+  const [editingNotePackId, setEditingNotePackId] = useState<string | null>(null);
+
+  const handleSaveNotePack = (updated: Pack) => {
+    updatePacks((packs) => packs.map((p) => (p.id === updated.id ? updated : p)));
+  };
+
+  // 같은 메모팩을 두 명 이상이 동시에 열어서 덮어쓰는 사고를 막기 위해, 누가 어느 메모팩을 편집
+  // 중인지 presence 문서(bags/{bagId}/presence/{uid}.editingPackId)로 공유한다. PresenceBar와는
+  // 독립적인 구독이라(가방 전체 접속표시용), 여기서는 그 중 editingPackId만 보면 된다.
+  const [notePresenceEntries, setNotePresenceEntries] = useState<RawPresence[]>([]);
+  useEffect(() => subscribeToPresence(bag.id, setNotePresenceEntries), [bag.id]);
+
+  // 지금 내가 열고 있는 메모팩 id를 presence에 알린다(닫거나 다른 팩으로 바꿀 때 자동으로 지우고
+  // 새로 알림). 다른 사람이 같은 팩을 편집 중이면(otherNoteEditor 아래) 배지로 보여준다.
+  useEffect(() => {
+    if (!editingNotePackId) return;
+    setEditingNotePack(bag.id, currentUid, editingNotePackId);
+    return () => {
+      setEditingNotePack(bag.id, currentUid, null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingNotePackId, bag.id, currentUid]);
+
+  const otherNoteEditor = editingNotePackId
+    ? notePresenceEntries.find(
+        (e) =>
+          e.uid !== currentUid &&
+          e.editingPackId === editingNotePackId &&
+          Date.now() - e.updatedAtMs < PRESENCE_STALE_MS
+      )
+    : undefined;
+
+  // 팩뷰/메모장뷰에서 각 메모팩 카드에 "지금 이 팩을 편집 중인 사람들"을 아바타로 보여주기 위한
+  // 조회 함수. 카드 목록 화면에서는 내 편집 화면(전체화면 오버레이)이 그 위를 덮고 있으므로
+  // 내 자신은 자연스럽게 제외된다(동시에 볼 수 없는 화면이기 때문). 최대 3명까지만 보여준다.
+  const getNoteEditorsForPack = (packId: string) =>
+    notePresenceEntries
+      .filter(
+        (e) =>
+          e.uid !== currentUid &&
+          e.editingPackId === packId &&
+          Date.now() - e.updatedAtMs < PRESENCE_STALE_MS
+      )
+      .slice(0, 3);
 
   const handleImport = (imported: Pack[]) => {
     if (guardReadOnly()) return;
@@ -1224,6 +1290,10 @@ export default function BagEditorScreen({
               savedAsLibraryPack: true,
               linkedLibraryUpdatedAt: source.updatedAt,
               items: source.items.map((i) => ({ ...i, id: uid() })),
+              // 에디터팩(자유문서형)은 실제 내용이 items가 아니라 editorDoc에 있으므로
+              // 이것도 함께 다시 불러와야 다시 불러오기가 실제로 동작한다(checklist 팩은 undefined가 되도 무해).
+              editorDoc: source.editorDoc,
+              editorPreviewText: source.editorPreviewText,
             }
           : p
       )
@@ -1566,7 +1636,7 @@ export default function BagEditorScreen({
               <IconPackageImport size={17} stroke={1.75} />
             </button>
             <button
-              onClick={handleAddPack}
+              onClick={() => setShowAddPackKindSheet(true)}
               disabled={bag.packs.length >= 10}
               aria-label="새 팩 추가"
               className="relative rounded-lg border border-border p-2 disabled:opacity-40"
@@ -1689,6 +1759,8 @@ export default function BagEditorScreen({
             onOpenItemThread={(packId, itemId, itemText) =>
               setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
             }
+            onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
+            getNoteEditors={getNoteEditorsForPack}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -1732,6 +1804,8 @@ export default function BagEditorScreen({
             onOpenItemThread={(packId, itemId, itemText) =>
               setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
             }
+            onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
+            getNoteEditors={getNoteEditorsForPack}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -1873,9 +1947,73 @@ export default function BagEditorScreen({
           libraryPacks={libraryPacks}
           onClose={() => setShowImport(false)}
           onImport={handleImport}
-          onCreateNew={handleAddPack}
+          onCreateNew={() => handleAddPack("checklist")}
         />
       )}
+
+      {showAddPackKindSheet && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setShowAddPackKindSheet(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
+            >
+              <span className="text-[15px] font-medium mb-1">어떤 팩을 만들까요?</span>
+              <button
+                onClick={() => {
+                  setShowAddPackKindSheet(false);
+                  handleAddPack("checklist");
+                }}
+                className="flex flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left"
+                style={{ background: "var(--surface-2)" }}
+              >
+                <span className="text-[13px] font-medium">체크리스트 팩</span>
+                <span className="text-[11px] text-text-muted">체크박스/텍스트 짐을 2열로 넣는 지금까지의 팩</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddPackKindSheet(false);
+                  handleAddPack("editor");
+                }}
+                className="flex flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left"
+                style={{ background: "var(--surface-2)" }}
+              >
+                <span className="text-[13px] font-medium">메모 팩</span>
+                <span className="text-[11px] text-text-muted">아이폰 메모처럼 자유롭게 쓰는 패(제목/체크박스/표)</span>
+              </button>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {editingNotePackId && (() => {
+        const notePack = bag.packs.find((p) => p.id === editingNotePackId);
+        if (!notePack) return null;
+        return (
+          <Portal>
+            <div className="fixed inset-0 z-[80] flex flex-col bg-background">
+              <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+                <PackNoteEditorScreen
+                  pack={notePack}
+                  readOnly={readOnly}
+                  otherEditorNickname={otherNoteEditor?.nickname ?? null}
+                  onBack={() => setEditingNotePackId(null)}
+                  onSave={handleSaveNotePack}
+                  onDeletePack={() => {
+                    setEditingNotePackId(null);
+                    handleDeletePack(notePack.id, false);
+                  }}
+                />
+              </div>
+            </div>
+          </Portal>
+        );
+      })()}
 
       {showAiOrganize && (
         <AiOrganizeModal

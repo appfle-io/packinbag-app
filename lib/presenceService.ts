@@ -24,6 +24,10 @@ export interface RawPresence {
   nickname: string;
   avatarId: string;
   updatedAtMs: number;
+  // 지금 이 사람이 편집 중인 에디터팩(자유문서형 메모 팩)의 id. 없거나 null이면 지금
+  // 어떤 팩도 편집 중이 아님(가방만 열어놓은 상태 포함). 같은 팩을 두 명 이상이 동시에
+  // 열어서 덮어쓰는 사고를 막기 위해 배지로 알려주는 용도(PackNoteEditorScreen).
+  editingPackId?: string | null;
 }
 
 export function subscribeToPresence(
@@ -43,6 +47,7 @@ export function subscribeToPresence(
           nickname: (data.nickname as string) ?? "",
           avatarId: (data.avatarId as string) ?? "cat",
           updatedAtMs: ms,
+          editingPackId: (data.editingPackId as string | null | undefined) ?? null,
         };
       });
       callback(entries);
@@ -83,4 +88,19 @@ export function joinPresence(
     window.removeEventListener("pagehide", handleUnload);
     deleteDoc(ref).catch(() => {});
   };
+}
+
+// 지금 이 사람이 편집 중인 에디터팩(자유문서형 메모 팩) id를 알려준다. packId를 null로
+// 넘기면 "지금 아무 메모팩도 편집 중이 아님"으로 지운다. joinPresence로 이미 만들어진
+// presence 문서에 merge로 필드 하나만 얹는 방식이라(문서가 아직 없으면 heartbeat가 곧
+// nickname/avatarId까지 채워준다), 가방 전체 접속 표시(PresenceBar)와 독립적으로 동작한다.
+export function setEditingNotePack(
+  bagId: string,
+  uid: string,
+  packId: string | null
+): Promise<void> {
+  const ref = doc(presenceCol(bagId), uid);
+  return setDoc(ref, { editingPackId: packId, updatedAt: serverTimestamp() }, { merge: true }).catch(
+    () => {}
+  );
 }
