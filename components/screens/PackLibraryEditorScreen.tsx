@@ -179,12 +179,12 @@ export default function PackLibraryEditorScreen({
     libraryPacks.some((p) => p.id === pack.id)
       ? libraryPacks.map((p) => (p.id === pack.id ? pack : p))
       : [pack, ...libraryPacks]
-  ).filter((p) => p.id === pack.id || !lockedPackIds?.has(p.id));
+  ).filter((p) => p.id === pack.id || (!lockedPackIds?.has(p.id) && p.kind !== "editor"));
 
   // 빠른팩 이동 목적지로 보여줄 가방 목록: 잠긴(읽기 전용) 가방과 팩이 하나도 없는
   // 가방은 제외한다.
   const displayBags = (bags ?? []).filter(
-    (b) => !lockedBagIds?.has(b.id) && b.packs.length > 0
+    (b) => !lockedBagIds?.has(b.id) && b.packs.some((p) => p.kind !== "editor")
   );
 
   // 방금 새로 추가한 짐의 id. 추가 직후 화면에 그 짐이 보이도록 스크롤을 맞추는 용도로만
@@ -792,7 +792,9 @@ export default function PackLibraryEditorScreen({
                         </button>
                       </div>
                       <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
-                        {(bag?.packs ?? []).map((p) => (
+                        {(bag?.packs ?? [])
+                          .filter((p) => p.kind !== "editor")
+                          .map((p) => (
                           <button
                             key={p.id}
                             onClick={() => commitMove({ kind: "bag", bagId: bag!.id, packId: p.id })}

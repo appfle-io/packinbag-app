@@ -150,9 +150,14 @@ export default function EditorPackCard({
 
       {!isCollapsed && (
         <>
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={onOpenEditor}
-            className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onOpenEditor();
+            }}
+            className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden cursor-pointer"
             style={{ maxHeight: "calc(228px * var(--pack-card-scale,1))", overflowY: "auto" }}
           >
             {editor?.isEmpty && (
@@ -160,8 +165,10 @@ export default function EditorPackCard({
                 탭해서 메모를 작성해보세요
               </p>
             )}
-            <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
-          </button>
+            <div style={{ pointerEvents: "none" }}>
+              <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
+            </div>
+          </div>
 
           <div className="flex items-center justify-end gap-3 pt-2.5 mt-2.5 border-t border-border shrink-0">
             {!readOnly && (

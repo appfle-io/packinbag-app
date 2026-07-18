@@ -866,10 +866,17 @@ export default function AppShell() {
           <PacksScreen
             uid={user.uid}
             packs={activePacks}
+            bags={activeBags}
             quickPack={quickPack}
             onOpenPack={(pack, focusItemId) => {
               setEditingPack(pack);
               setPackFocusItemId(focusItemId ?? null);
+            }}
+            onOpenBag={(bag, focus) => {
+              setShowPackTree(false);
+              setIsNewBag(false);
+              setEditingBag(bag);
+              setBagFocus(focus ?? null);
             }}
             onNewPack={openNewPack}
             onNewFolder={handleCreateFolder}

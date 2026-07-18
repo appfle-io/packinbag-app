@@ -58,6 +58,7 @@ import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
 import { deleteLibraryPackRemote } from "@/lib/packsService";
 import { isInSyncWithLibrary } from "@/lib/packSync";
+import { checkBagSizeForSave } from "@/lib/editorDocLimits";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
@@ -648,6 +649,17 @@ export default function BagEditorScreen({
   const [editingNotePackId, setEditingNotePackId] = useState<string | null>(null);
 
   const handleSaveNotePack = (updated: Pack) => {
+    // 메모 하나는 300KB 이하라도, 가방 하나에 큰 메모팩이 여러 개 누적되면 가방 문서 전체가
+    // Firestore 1MB 한도에 가까워질 수 있다. 저장 직전에 예상 가방 크기를 확인해서 너무 크면 막는다.
+    const projectedBag = {
+      ...bag,
+      packs: bag.packs.map((p) => (p.id === updated.id ? updated : p)),
+    };
+    const sizeError = checkBagSizeForSave(projectedBag);
+    if (sizeError) {
+      show(sizeError);
+      return;
+    }
     updatePacks((packs) => packs.map((p) => (p.id === updated.id ? updated : p)));
   };
 
@@ -776,6 +788,13 @@ export default function BagEditorScreen({
   ) => {
     if (guardReadOnly()) return;
     const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
+    // 메모팩(kind==='editor')은 items가 항상 빈 배열이어야 하는데(실제 내용은 editorDoc에 있음),
+    // 드래그로 짐을 그 카드 위에 놓으면 데이터상으로는 들어가면서 화면에는 안 보이는(잃어버린
+    // 것처럼 보이는) 버그가 생긴다. 대상 팩이 메모팩이면 이동을 막고 안내한다.
+    if (fromPackId !== toPackId && bag.packs.find((p) => p.id === toPackId)?.kind === "editor") {
+      show("메모 팩에는 짐을 넣을 수 없어요");
+      return;
+    }
     if (fromPackId === toPackId) {
       if (!overItemId || overItemId === itemId) return;
       updatePacks((packs) =>
@@ -893,6 +912,11 @@ export default function BagEditorScreen({
   // 떼면(같은 패 위에 놓거나 대상 패가 없으면) 아무것도 하지 않고 그대로 선택 상태를 유지한다.
   const handleMoveSelectedItems = (fromPackId: string, toPackId: string, itemIds: Set<string>) => {
     if (guardReadOnly()) return;
+    // 메모팩(kind==='editor')에는 짐을 놓을 수 없다 - handleMoveItem과 동일한 방어.
+    if (bag.packs.find((p) => p.id === toPackId)?.kind === "editor") {
+      show("메모 팩에는 짐을 넣을 수 없어요");
+      return;
+    }
     updatePacks((packs) => {
       const fromPack = packs.find((p) => p.id === fromPackId);
       const movingItems = fromPack?.items.filter((i) => itemIds.has(i.id)) ?? [];
@@ -1834,7 +1858,7 @@ export default function BagEditorScreen({
           }}
         >
           <PackChipBar
-            packs={bag.packs}
+            packs={bag.packs.filter((p) => p.kind !== "editor")}
             label="팩으로 옮기기"
             dropIds
             getState={(packId) => {
@@ -1947,7 +1971,7 @@ export default function BagEditorScreen({
           libraryPacks={libraryPacks}
           onClose={() => setShowImport(false)}
           onImport={handleImport}
-          onCreateNew={() => handleAddPack("checklist")}
+          onCreateNew={() => setShowAddPackKindSheet(true)}
         />
       )}
 
@@ -2030,7 +2054,7 @@ export default function BagEditorScreen({
 
       {showNotebookQuickAdd && (
         <NotebookQuickAddModal
-          packs={bag.packs}
+          packs={bag.packs.filter((p) => p.kind !== "editor")}
           onClose={() => setShowNotebookQuickAdd(false)}
           onAddToPack={(packId, data) => handleCreateItem(packId, data)}
           onCreatePack={(name, data) => handleQuickAddNewPack(name, data)}
@@ -2090,7 +2114,7 @@ export default function BagEditorScreen({
 
       {itemModal && (
         <ItemFormModal
-          packs={bag.packs}
+          packs={bag.packs.filter((p) => p.kind !== "editor")}
           selectionMode="single"
           initialSelectedPackIds={[itemModal.sourcePackId]}
           mode="edit"

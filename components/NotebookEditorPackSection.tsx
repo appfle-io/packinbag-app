@@ -200,15 +200,22 @@ export default function NotebookEditorPackSection({
       </div>
 
       {!isCollapsed && (
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onOpenEditor}
-          className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") onOpenEditor();
+          }}
+          className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden cursor-pointer"
         >
           {editor?.isEmpty && (
             <p className="text-[13px] text-text-muted py-1">탭해서 메모를 작성해보세요</p>
           )}
-          <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
-        </button>
+          <div style={{ pointerEvents: "none" }}>
+            <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
+          </div>
+        </div>
       )}
 
       {confirmDelete && (

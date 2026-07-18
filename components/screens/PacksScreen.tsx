@@ -20,7 +20,7 @@ import {
   IconArrowRight,
   IconNotes,
 } from "@tabler/icons-react";
-import { Pack, ListSortOption } from "@/lib/types";
+import { Pack, ListSortOption, Bag } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList } from "@/lib/listSort";
 import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
@@ -34,7 +34,6 @@ import NotificationBell from "@/components/NotificationBell";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
-import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
@@ -77,8 +76,10 @@ function buildRows(
 export default function PacksScreen({
   uid,
   packs,
+  bags,
   quickPack,
   onOpenPack,
+  onOpenBag,
   onNewPack,
   onNewFolder,
   onRenameEntry,
@@ -92,9 +93,13 @@ export default function PacksScreen({
   // 빠른팩은 트리가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
   uid: string;
   packs: Pack[];
+  // 가방 보관함과 동일한 범위로 검색하기 위해 넘겨받는다(가방 이름/속 팩/짐까지 검색 대상).
+  bags: Bag[];
   quickPack?: Pack;
   // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다.
   onOpenPack: (pack: Pack, focusItemId?: string) => void;
+  // 검색 결과가 가방(속 팩/짐)일 때 그 가방을 열면서 해당 팩/짐까지 이동한다.
+  onOpenBag: (bag: Bag, focus?: { packId?: string; itemId?: string }) => void;
   // parentId를 넘기면 그 폴더 바로 안에 새 팩/폴더를 만든다(없으면 최상위). kind를 "editor"로
   // 넘기면 체크리스트 팩이 아니라 아이폰 메모처럼 자유문서형인 에디터팩을 만든다(없으면 "checklist").
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
@@ -119,7 +124,25 @@ export default function PacksScreen({
     updateExpandedPackFolderIds,
   } = useAuth();
   const { show } = useToast();
-  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
+  // 패 보관함은 가방보관함에서 왼→우 스와이프로 열리므로(AppShell의 handleSwipeGestureEnd),
+  // 닫을 때는 반대로 우→왼로 쓰는 것이 즐기는 방향과 자연스럽게 이어진다. useSwipeBack(왼엣지리
+  // 오른쪽 스와이프 전용)을 그대로 쓰지 않고, 전체 화면 어디서든(드래그/버튼 제외) 왼쪽으로
+  // 밀면 뒤로가기를 직접 구현한다.
+  const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
+  const isSwipeIgnoredTarget = (target: EventTarget | null) =>
+    !!(target as HTMLElement)?.closest?.('button, a, input, textarea, [role="button"], [data-row-id], .fixed');
+  const handleRootPointerDown = (e: React.PointerEvent) => {
+    swipeStartRef.current = { x: e.clientX, y: e.clientY, ignore: isSwipeIgnoredTarget(e.target) };
+  };
+  const handleRootPointerUp = (e: React.PointerEvent) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start || start.ignore) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) onBack();
+  };
   const sortBy = profile?.packSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedPackIds ?? [];
   const treePacks = packs.filter((p) => !p.isQuickPack);
@@ -183,8 +206,8 @@ export default function PacksScreen({
   }, [treePacks, quickPack]);
 
   const { results: searchResults, truncated: searchTruncated } = useMemo(
-    () => searchLibraryPacks(searchablePacks, searchQuery),
-    [searchablePacks, searchQuery]
+    () => searchLibraryPacks(searchablePacks, searchQuery, bags),
+    [searchablePacks, searchQuery, bags]
   );
 
   const openSearch = () => {
@@ -197,7 +220,13 @@ export default function PacksScreen({
   };
   const handleResultClick = (result: PackSearchResult) => {
     closeSearch();
-    onOpenPack(result.pack, result.itemId);
+    if (result.type === "bag" && result.bag) {
+      onOpenBag(result.bag, { packId: result.packId, itemId: result.itemId });
+      return;
+    }
+    if (result.pack) {
+      onOpenPack(result.pack, result.itemId);
+    }
   };
   const handleHelpClick = () => {
     show("아직 준비되지 않았어요");
@@ -424,7 +453,11 @@ export default function PacksScreen({
   const isEmpty = treePacks.length === 0;
 
   return (
-    <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden">
+    <div
+      onPointerDown={handleRootPointerDown}
+      onPointerUp={handleRootPointerUp}
+      className="relative flex-1 flex flex-col overflow-hidden"
+    >
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-center justify-between mb-4 gap-2">
           {searchOpen ? (
@@ -435,7 +468,7 @@ export default function PacksScreen({
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="팩, 짐 검색"
+                  placeholder="팩, 짐, 가방 검색"
                   className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
                 />
                 {searchQuery && (
@@ -515,7 +548,7 @@ export default function PacksScreen({
         <div className="flex-1 overflow-y-auto px-4 pb-3">
           {searchQuery.trim() === "" ? (
             <p className="text-[13px] text-text-muted py-16 text-center">
-              팩 이름, 짐을 검색해보세요.
+              팩 이름, 짐, 가방을 검색해보세요.
             </p>
           ) : searchResults.length === 0 ? (
             <p className="text-[13px] text-text-muted py-16 text-center">
