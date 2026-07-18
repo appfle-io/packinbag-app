@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 import { IconBold, IconMessageCircle2, IconStrikethrough } from "@tabler/icons-react";
-import { BagReactionDoc, Item, ReactionEmoji } from "@/lib/types";
+import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
-import ReactionPillRow from "./ReactionPillRow";
+// import ReactionPillRow from "./ReactionPillRow";
 
 const DELETE_SWIPE_THRESHOLD = -30;
 const DELETE_SWIPE_MAX = -60;
@@ -114,10 +114,12 @@ export default function ItemRow({
   onRowTap,
   commentCount,
   onOpenThread,
+  /*
   reactionDoc,
   currentUid,
   onToggleReaction,
   onOpenReactionPicker,
+  */
 }: {
   item: Item;
   onToggle?: () => void;
@@ -139,13 +141,17 @@ export default function ItemRow({
   onRowTap?: () => void;
   // 이 짐에 달린 댓글 수(0이면 아이콘만, 있으면 숫자 배지). 없으면(undefined) 댓글
   // 버튼 자체를 숨긴다 - 다중선택 등 이 버튼이 없어야 하는 맥락에서 그냥 prop을 안 넘기면 된다.
+  // 이 짐에 달린 댓글 수(0이면 아이콘만, 있으면 숫자 배지). 없으면(undefined) 댓글
+  // 버튼 자체를 숨긴다 - 다중선택 등 이 버튼이 없어야 하는 맥락에서 그냥 prop을 안 넘기면 된다.
   commentCount?: number;
   onOpenThread?: () => void;
   // 팀즈 스타일로 짐 바로 아래 겹쳐 보여줄 이모지 리액션. 셋 다 있어야 렌더링된다.
+  /*
   reactionDoc?: BagReactionDoc;
   currentUid?: string;
   onToggleReaction?: (emoji: ReactionEmoji, currentlyReacted: boolean) => void;
   onOpenReactionPicker?: () => void;
+  */
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -655,6 +661,7 @@ export default function ItemRow({
 
       {/* 팀즈 스타일 이모지 리액션 - 짐 바로 아래에 살짝 겹쳐서 떠있는 알약들.
           탭하면 댓글 스레드에 안 들어가고 바로 이 자리에서 토글된다. */}
+      {/*
       {!editing && onToggleReaction && onOpenReactionPicker && (
         <ReactionPillRow
           reactionDoc={reactionDoc}
@@ -663,6 +670,7 @@ export default function ItemRow({
           onOpenPicker={onOpenReactionPicker}
         />
       )}
+      */}
     </div>
   );
 }

@@ -1,8 +1,7 @@
-"use client";
-
 import { IconMessages } from "@tabler/icons-react";
-import { BagComment } from "@/lib/types";
+import { BagComment, BagReactionDoc, ReactionEmoji } from "@/lib/types";
 import Avatar from "@/components/Avatar";
+import ReactionPillRow from "@/components/ReactionPillRow";
 
 // 가방 공지 메모(BagNotice) 바로 아래에 두는 "가방 대화" 미리보기. 댓글이 있으면
 // 최신순으로 최대 3개까지, 진짜 댓글처럼 아바타+닉네임+말풍선 형태로 보여준다.
@@ -14,10 +13,18 @@ export default function BagChatPreview({
   comments,
   onOpen,
   hideEmptyPrompt,
+  currentUid,
+  allReactions,
+  onToggleCommentReaction,
+  onOpenCommentReactionPicker,
 }: {
   comments: BagComment[];
   onOpen: () => void;
   hideEmptyPrompt?: boolean;
+  currentUid?: string;
+  allReactions?: BagReactionDoc[];
+  onToggleCommentReaction?: (commentId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
+  onOpenCommentReactionPicker?: (commentId: string, authorNickname: string) => void;
 }) {
   if (comments.length === 0) {
     if (hideEmptyPrompt) return null;
@@ -37,25 +44,45 @@ export default function BagChatPreview({
   const latest = sorted.slice(-3).reverse();
 
   return (
-    <button onClick={onOpen} className="block w-full text-left mb-3">
-      <div className="flex flex-col gap-0.5">
-        {latest.map((c) => (
-          <div key={c.id} className="flex items-center gap-1.5">
-            <Avatar avatarId={c.authorAvatarId} size={16} />
-            <div
-              className="min-w-0 flex-1 rounded-lg rounded-tl-sm px-2 py-1"
-              style={{ background: "var(--surface-2)" }}
-            >
-              <span className="text-[10.5px] font-medium mr-1.5" style={{ color: "var(--text-secondary)" }}>
-                {c.authorNickname}
-              </span>
-              <span className="text-[12.5px] break-words" style={{ color: "var(--foreground)" }}>
-                {c.text}
-              </span>
+    <div className="block w-full mb-3">
+      <div className="flex flex-col gap-1">
+        {latest.map((c) => {
+          const commentReactionDoc = allReactions?.find((r) => r.id === `comment_${c.id}`);
+          return (
+            <div key={c.id} className="flex flex-col gap-0 py-0.5">
+              <div className="flex items-center gap-1.5 w-full">
+                {/* 아바타와 말풍선을 감싼 영역만 클릭 시 대화창 열기 */}
+                <div onClick={onOpen} className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer">
+                  <Avatar avatarId={c.authorAvatarId} size={16} />
+                  <div
+                    className="min-w-0 flex-1 rounded-lg rounded-tl-sm px-2 py-1"
+                    style={{ background: "var(--surface-2)" }}
+                  >
+                    <span className="text-[10.5px] font-medium mr-1.5" style={{ color: "var(--text-secondary)" }}>
+                      {c.authorNickname}
+                    </span>
+                    <span className="text-[12.5px] break-words font-normal" style={{ color: "var(--foreground)" }}>
+                      {c.text}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 리액션 필 (Pill) 노출 */}
+              {currentUid && onToggleCommentReaction && onOpenCommentReactionPicker && (
+                <div className="pl-5 -mt-1">
+                  <ReactionPillRow
+                    reactionDoc={commentReactionDoc}
+                    currentUid={currentUid}
+                    onToggle={(emoji, mine) => onToggleCommentReaction(c.id, emoji, mine)}
+                    onOpenPicker={() => onOpenCommentReactionPicker(c.id, c.authorNickname)}
+                  />
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    </button>
+    </div>
   );
 }

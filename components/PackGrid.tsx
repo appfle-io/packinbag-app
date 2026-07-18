@@ -1,6 +1,6 @@
 "use client";
 
-import { BagReactionDoc, Pack, ReactionEmoji } from "@/lib/types";
+import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
 
@@ -32,10 +32,12 @@ export default function PackGrid({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  /*
   getItemReactionDoc,
   currentUid,
   onToggleItemReaction,
   onOpenReactionPicker,
+  */
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -73,10 +75,12 @@ export default function PackGrid({
   // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 댓글 버튼이 안 보인다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
+  /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
   onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
   onOpenReactionPicker?: (itemId: string, itemText: string) => void;
+  */
 }) {
   const renderCard = (pack: Pack) => (
     <PackCard
@@ -120,10 +124,12 @@ export default function PackGrid({
       onOpenItemThread={
         onOpenItemThread ? (itemId, itemText) => onOpenItemThread(pack.id, itemId, itemText) : undefined
       }
+      /*
       getItemReactionDoc={getItemReactionDoc}
       currentUid={currentUid}
       onToggleItemReaction={onToggleItemReaction}
       onOpenReactionPicker={onOpenReactionPicker}
+      */
     />
   );
 

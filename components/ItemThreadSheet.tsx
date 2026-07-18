@@ -13,8 +13,10 @@ import {
   updateCommentText,
 } from "@/lib/commentsService";
 import { subscribeToReactions, toggleReaction } from "@/lib/reactionsService";
-import ReactionBar from "@/components/ReactionBar";
+// import ReactionBar from "@/components/ReactionBar";
 import MentionInput, { MentionMember } from "@/components/MentionInput";
+import ReactionPillRow from "@/components/ReactionPillRow";
+import ReactionPickerPopover from "@/components/ReactionPickerPopover";
 import { extractMentionedUids } from "@/lib/mentions";
 
 function formatTime(iso: string) {
@@ -73,17 +75,38 @@ export default function ItemThreadSheet({
     () => allComments.filter((c) => c.targetType === targetType && c.targetId === targetId),
     [allComments, targetType, targetId]
   );
+  // 짐 단위 리액션 주석 처리
+  /*
   const reactionDoc = allReactions.find((r) => r.id === `item_${targetId}`);
+  */
+
+  // 댓글 리액션을 띄우기 위한 피커 타겟 상태와 토글 핸들러
+  const [reactionPickerCommentTarget, setReactionPickerCommentTarget] = useState<{
+    commentId: string;
+    authorNickname: string;
+  } | null>(null);
+
+  const handleToggleCommentReaction = (
+    commentId: string,
+    emoji: ReactionEmoji,
+    currentlyReacted: boolean
+  ) => {
+    toggleReaction(bagId, "comment", commentId, currentUid, emoji, currentlyReacted).catch((err) => {
+      console.error("[팩인백] 댓글 리액션 실패:", err);
+    });
+  };
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ block: "end" });
   }, [comments.length]);
 
+  /*
   const handleToggleReaction = (emoji: ReactionEmoji, currentlyReacted: boolean) => {
     toggleReaction(bagId, "item", targetId, currentUid, emoji, currentlyReacted).catch((err) => {
       console.error("[팩인백] 리액션 실패:", err);
     });
   };
+  */
 
   const handleSend = async () => {
     const text = draft.trim();
@@ -148,6 +171,7 @@ export default function ItemThreadSheet({
             </button>
           </div>
 
+          {/*
           {targetType === "item" && (
             <div className="px-4 py-3 shrink-0 border-b border-border">
               <ReactionBar
@@ -157,6 +181,7 @@ export default function ItemThreadSheet({
               />
             </div>
           )}
+          */}
 
           <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
             {comments.length === 0 ? (
@@ -208,9 +233,26 @@ export default function ItemThreadSheet({
                         </button>
                       </div>
                     ) : (
-                      <p className="text-[13px] whitespace-pre-wrap break-words" style={{ color: "var(--text-secondary)" }}>
-                        {c.text}
-                      </p>
+                      <>
+                        <p className="text-[13px] whitespace-pre-wrap break-words" style={{ color: "var(--text-secondary)" }}>
+                          {c.text}
+                        </p>
+                        {editingId !== c.id && (
+                          <div className="-mt-1">
+                            <ReactionPillRow
+                              reactionDoc={allReactions.find((r) => r.id === `comment_${c.id}`)}
+                              currentUid={currentUid}
+                              onToggle={(emoji, mine) => handleToggleCommentReaction(c.id, emoji, mine)}
+                              onOpenPicker={() =>
+                                setReactionPickerCommentTarget({
+                                  commentId: c.id,
+                                  authorNickname: c.authorNickname,
+                                })
+                              }
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   {c.authorUid === currentUid && editingId !== c.id && (
@@ -289,6 +331,18 @@ export default function ItemThreadSheet({
               console.error("[팩인백] 댓글 삭제 실패:", err);
             });
           }}
+        />
+      )}
+
+      {reactionPickerCommentTarget && (
+        <ReactionPickerPopover
+          title={`${reactionPickerCommentTarget.authorNickname}님의 댓글에 반응`}
+          reactionDoc={allReactions.find((r) => r.id === `comment_${reactionPickerCommentTarget.commentId}`)}
+          currentUid={currentUid}
+          onToggle={(emoji, currentlyReacted) => {
+            handleToggleCommentReaction(reactionPickerCommentTarget.commentId, emoji, currentlyReacted);
+          }}
+          onClose={() => setReactionPickerCommentTarget(null)}
         />
       )}
     </Portal>

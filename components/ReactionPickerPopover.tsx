@@ -23,7 +23,7 @@ export default function ReactionPickerPopover({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[75] flex items-center justify-center bg-black/40 p-6"
+        className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-6"
         onClick={onClose}
       >
         <div

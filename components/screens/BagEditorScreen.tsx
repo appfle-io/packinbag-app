@@ -173,6 +173,7 @@ export default function BagEditorScreen({
     commentCount: comments.filter((c) => c.targetType === "item" && c.targetId === itemId).length,
   });
   // 팀즈 스타일 즉시 리액션용 - 짐별 리액션 문서 조회.
+  /*
   const getItemReactionDoc = (itemId: string) => reactions.find((r) => r.id === `item_${itemId}`);
   const handleToggleItemReaction = (
     itemId: string,
@@ -187,6 +188,11 @@ export default function BagEditorScreen({
   const [reactionPickerTarget, setReactionPickerTarget] = useState<{
     itemId: string;
     itemText: string;
+  } | null>(null);
+  */
+  const [reactionPickerCommentTarget, setReactionPickerCommentTarget] = useState<{
+    commentId: string;
+    authorNickname: string;
   } | null>(null);
   // 가방 전체(bag) 대상 댓글만 모은 것 - BagChatPreview/BagQuickAddRow 에서 공통으로 쓴다.
   const bagLevelComments = comments.filter((c) => c.targetType === "bag");
@@ -1535,6 +1541,16 @@ export default function BagEditorScreen({
           comments={bagLevelComments}
           onOpen={() => setShowBagThread(true)}
           hideEmptyPrompt
+          currentUid={currentUid}
+          allReactions={reactions}
+          onToggleCommentReaction={(commentId, emoji, currentlyReacted) => {
+            toggleReaction(bag.id, "comment", commentId, currentUid, emoji, currentlyReacted).catch((err) => {
+              console.error("[팩인백] 댓글 리액션 실패:", err);
+            });
+          }}
+          onOpenCommentReactionPicker={(commentId, authorNickname) => {
+            setReactionPickerCommentTarget({ commentId, authorNickname });
+          }}
         />
 
         {!readOnly && (
@@ -1673,12 +1689,14 @@ export default function BagEditorScreen({
             onOpenItemThread={(packId, itemId, itemText) =>
               setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
             }
+            /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
             onToggleItemReaction={handleToggleItemReaction}
             onOpenReactionPicker={(itemId, itemText) =>
               setReactionPickerTarget({ itemId, itemText: itemText || "짐" })
             }
+            */
           />
         ) : (
           <PackGrid
@@ -1714,12 +1732,14 @@ export default function BagEditorScreen({
             onOpenItemThread={(packId, itemId, itemText) =>
               setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
             }
+            /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
             onToggleItemReaction={handleToggleItemReaction}
             onOpenReactionPicker={(itemId, itemText) =>
               setReactionPickerTarget({ itemId, itemText: itemText || "짐" })
             }
+            */
           />
         )}
       </div>
@@ -2053,7 +2073,7 @@ export default function BagEditorScreen({
           bagId={bag.id}
           targetType="bag"
           targetId={bag.id}
-          title="가방 대화"
+          title="댓글"
           currentUid={currentUid}
           currentNickname={nickname}
           currentAvatarId={avatarId}
@@ -2062,6 +2082,7 @@ export default function BagEditorScreen({
         />
       )}
 
+      {/*
       {reactionPickerTarget && (
         <ReactionPickerPopover
           title={reactionPickerTarget.itemText}
@@ -2071,6 +2092,21 @@ export default function BagEditorScreen({
             handleToggleItemReaction(reactionPickerTarget.itemId, emoji, currentlyReacted);
           }}
           onClose={() => setReactionPickerTarget(null)}
+        />
+      )}
+      */}
+
+      {reactionPickerCommentTarget && (
+        <ReactionPickerPopover
+          title={`${reactionPickerCommentTarget.authorNickname}님의 댓글에 반응`}
+          reactionDoc={reactions.find((r) => r.id === `comment_${reactionPickerCommentTarget.commentId}`)}
+          currentUid={currentUid}
+          onToggle={(emoji, currentlyReacted) => {
+            toggleReaction(bag.id, "comment", reactionPickerCommentTarget.commentId, currentUid, emoji, currentlyReacted).catch((err) => {
+              console.error("[팩인백] 상단 댓글 리액션 실패:", err);
+            });
+          }}
+          onClose={() => setReactionPickerCommentTarget(null)}
         />
       )}
     </div>

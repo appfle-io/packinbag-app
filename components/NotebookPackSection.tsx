@@ -14,7 +14,7 @@ import {
   IconAlignLeft,
   IconX,
 } from "@tabler/icons-react";
-import { BagReactionDoc, Pack, ReactionEmoji } from "@/lib/types";
+import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { getPackColorHex } from "@/lib/packColors";
@@ -61,10 +61,12 @@ export default function NotebookPackSection({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  /*
   getItemReactionDoc,
   currentUid,
   onToggleItemReaction,
   onOpenReactionPicker,
+  */
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -103,10 +105,12 @@ export default function NotebookPackSection({
   onToggleSelectItem?: (itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (itemId: string, itemText: string) => void;
+  /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
   onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
   onOpenReactionPicker?: (itemId: string, itemText: string) => void;
+  */
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -365,6 +369,7 @@ export default function NotebookPackSection({
                     onOpenThread={
                       onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
                     }
+                    /*
                     reactionDoc={getItemReactionDoc?.(item.id)}
                     currentUid={currentUid}
                     onToggleReaction={
@@ -375,6 +380,7 @@ export default function NotebookPackSection({
                     onOpenReactionPicker={
                       onOpenReactionPicker ? () => onOpenReactionPicker(item.id, item.text) : undefined
                     }
+                    */
                   />
                 </div>
               );

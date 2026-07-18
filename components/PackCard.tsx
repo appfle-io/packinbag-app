@@ -15,7 +15,7 @@ import {
   IconAlignLeft,
   IconX,
 } from "@tabler/icons-react";
-import { BagReactionDoc, Pack, ReactionEmoji } from "@/lib/types";
+import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { getPackColorHex } from "@/lib/packColors";
@@ -57,10 +57,12 @@ export default function PackCard({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  /*
   getItemReactionDoc,
   currentUid,
   onToggleItemReaction,
   onOpenReactionPicker,
+  */
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -108,10 +110,12 @@ export default function PackCard({
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (itemId: string, itemText: string) => void;
   // 팀즈 스타일 즉시 리액션용. 넷 다 있어야 ItemRow에 파이 열을 보여준다.
+  /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
   onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
   onOpenReactionPicker?: (itemId: string, itemText: string) => void;
+  */
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 팩 카드 하단의 체크박스/텍스트 빠른추가 인라인 입력 상태. null이면 아이콘 2개만
@@ -288,6 +292,7 @@ export default function PackCard({
                     onOpenThread={
                       onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
                     }
+                    /*
                     reactionDoc={getItemReactionDoc?.(item.id)}
                     currentUid={currentUid}
                     onToggleReaction={
@@ -298,6 +303,7 @@ export default function PackCard({
                     onOpenReactionPicker={
                       onOpenReactionPicker ? () => onOpenReactionPicker(item.id, item.text) : undefined
                     }
+                    */
                   />
                 </div>
               );

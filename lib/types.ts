@@ -346,7 +346,7 @@ export interface BagComment {
 // 짐/팩/가방에 다는 가벼운 이모지 리액션. 댓글보다 마찰이 적은 소통 수단.
 // bags/{bagId}/reactions/{targetType_targetId} 문서 하나에 그 대상의 모든
 // 이모지별 반응자를 모아서 저장한다(대상당 문서 1개, 실시간 구독 가볍게 하려는 목적).
-export type ReactionTargetType = "item" | "pack" | "bag";
+export type ReactionTargetType = "item" | "comment" | "pack" | "bag";
 
 // 프리셋 이모지 - 무한 이모지피커 대신 자주 쓸 법한 것들로 구성(10개).
 export const REACTION_EMOJIS = [
