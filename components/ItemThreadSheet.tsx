@@ -233,26 +233,25 @@ export default function ItemThreadSheet({
                         </button>
                       </div>
                     ) : (
-                      <>
-                        <p className="text-[13px] whitespace-pre-wrap break-words" style={{ color: "var(--text-secondary)" }}>
+                      <div className="flex items-end gap-2">
+                        <p className="max-w-[75%] min-w-0 shrink text-[13px] whitespace-pre-wrap break-words" style={{ color: "var(--text-secondary)" }}>
                           {c.text}
                         </p>
-                        {editingId !== c.id && (
-                          <div className="-mt-1">
-                            <ReactionPillRow
-                              reactionDoc={allReactions.find((r) => r.id === `comment_${c.id}`)}
-                              currentUid={currentUid}
-                              onToggle={(emoji, mine) => handleToggleCommentReaction(c.id, emoji, mine)}
-                              onOpenPicker={() =>
-                                setReactionPickerCommentTarget({
-                                  commentId: c.id,
-                                  authorNickname: c.authorNickname,
-                                })
-                              }
-                            />
-                          </div>
-                        )}
-                      </>
+                        <div className="shrink-0">
+                          <ReactionPillRow
+                            reactionDoc={allReactions.find((r) => r.id === `comment_${c.id}`)}
+                            currentUid={currentUid}
+                            overlap={false}
+                            onToggle={(emoji, mine) => handleToggleCommentReaction(c.id, emoji, mine)}
+                            onOpenPicker={() =>
+                              setReactionPickerCommentTarget({
+                                commentId: c.id,
+                                authorNickname: c.authorNickname,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                   {c.authorUid === currentUid && editingId !== c.id && (

@@ -4,11 +4,14 @@ import Avatar from "@/components/Avatar";
 import ReactionPillRow from "@/components/ReactionPillRow";
 
 // 가방 공지 메모(BagNotice) 바로 아래에 두는 "가방 대화" 미리보기. 댓글이 있으면
-// 최신순으로 최대 3개까지, 진짜 댓글처럼 아바타+닉네임+말풍선 형태로 보여준다.
-// 어차피 여기서는 읽기만 하고(수정은 스레드 안에서) 화면 공간을 많이 차지하면 안 되니
-// 줄 간격은 최대한 좁게 유지한다. 댓글이 하나도 없으면 아이콘만 보여준다 - 단,
-// hideEmptyPrompt가 true면 그마저도 숨긴다(BagQuickAddRow가 대신 "댓글 추가 +" 트리거를
-// 보여줄 때 씀). 탭하면 항상 가방 대화 스레드(ItemThreadSheet, targetType="bag")를 연다.
+// 최신순으로 최대 3개까지, 아바타+닉네임+내용을 전부 한 줄로 이어서 보여준다
+// (절대 두 줄로 나누지 않는다). 닉네임과 내용은 배경 하나로 뭉치지 않고, 각자
+// 다른 배경(닉네임=알약 배지, 내용=말풍선)을 가진 별개의 박스로 나눠서 한눈에
+// 구분되게 한다.
+// 리액션(+포함)은 내용 말풍선의 오른쪽 끝, 맨 아래에 배경과 겹치도록 절대배치한다 -
+// 말풍선은 내용 길이만큼만(max-w 한도 내) 폭을 차지하므로, 이 relative 컨테이너
+// 기준 right-0로 고정하면 텍스트 길이가 달라져도 항상 그 말풍선의 실제 오른쪽
+// 끝에서 걸쳐 보인다.
 export default function BagChatPreview({
   comments,
   onOpen,
@@ -45,40 +48,47 @@ export default function BagChatPreview({
 
   return (
     <div className="block w-full mb-3">
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         {latest.map((c) => {
           const commentReactionDoc = allReactions?.find((r) => r.id === `comment_${c.id}`);
+          const showReactions = !!(currentUid && onToggleCommentReaction && onOpenCommentReactionPicker);
           return (
-            <div key={c.id} className="flex flex-col gap-0 py-0.5">
-              <div className="flex items-center gap-1.5 w-full">
-                {/* 아바타와 말풍선을 감싼 영역만 클릭 시 대화창 열기 */}
-                <div onClick={onOpen} className="flex items-center gap-1.5 flex-1 min-w-0 cursor-pointer">
-                  <Avatar avatarId={c.authorAvatarId} size={16} />
-                  <div
-                    className="min-w-0 flex-1 rounded-lg rounded-tl-sm px-2 py-1"
-                    style={{ background: "var(--surface-2)" }}
+            <div key={c.id} className="flex items-center gap-1.5">
+              <Avatar avatarId={c.authorAvatarId} size={16} />
+
+              {/* 아바타 옆으로 닉네임 배지 + 내용 말풍선이 한 줄로 이어진다 (배경을
+                  서로 다르게 줘서 별개 박스로 구분되게 함) */}
+              <div onClick={onOpen} className="flex items-center gap-1.5 min-w-0 cursor-pointer">
+                <span
+                  className="shrink-0 inline-flex items-center h-5 rounded-full px-1.5 text-[10.5px] font-medium leading-none"
+                  style={{ background: "var(--surface-3, var(--border))", color: "var(--text-secondary)" }}
+                >
+                  {c.authorNickname}
+                </span>
+
+                {/* relative 컨테이너 - 말풍선 실제 크기(내용 길이만큼)를 그대로 감싸서,
+                    리액션을 이 컨테이너 기준 right-0로 고정하면 항상 말풍선 오른쪽 끝에 걸린다 */}
+                <div className="relative min-w-0 max-w-[60%] shrink mb-1.5">
+                  <span
+                    className="flex items-center h-5 min-w-0 truncate rounded-lg rounded-tl-sm px-2 text-[12.5px] font-normal leading-none"
+                    style={{ background: "var(--surface-2)", color: "var(--foreground)" }}
                   >
-                    <span className="text-[10.5px] font-medium mr-1.5" style={{ color: "var(--text-secondary)" }}>
-                      {c.authorNickname}
-                    </span>
-                    <span className="text-[12.5px] break-words font-normal" style={{ color: "var(--foreground)" }}>
-                      {c.text}
-                    </span>
-                  </div>
+                    {c.text}
+                  </span>
+
+                  {showReactions && (
+                    <div className="absolute right-0 z-[1]" style={{ bottom: -5 }}>
+                      <ReactionPillRow
+                        reactionDoc={commentReactionDoc}
+                        currentUid={currentUid!}
+                        overlap={false}
+                        onToggle={(emoji, mine) => onToggleCommentReaction!(c.id, emoji, mine)}
+                        onOpenPicker={() => onOpenCommentReactionPicker!(c.id, c.authorNickname)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* 리액션 필 (Pill) 노출 */}
-              {currentUid && onToggleCommentReaction && onOpenCommentReactionPicker && (
-                <div className="pl-5 -mt-1">
-                  <ReactionPillRow
-                    reactionDoc={commentReactionDoc}
-                    currentUid={currentUid}
-                    onToggle={(emoji, mine) => onToggleCommentReaction(c.id, emoji, mine)}
-                    onOpenPicker={() => onOpenCommentReactionPicker(c.id, c.authorNickname)}
-                  />
-                </div>
-              )}
             </div>
           );
         })}
