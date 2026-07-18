@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconBold, IconStrikethrough } from "@tabler/icons-react";
-import { Item } from "@/lib/types";
+import { IconBold, IconMessageCircle2, IconStrikethrough } from "@tabler/icons-react";
+import { BagReactionDoc, Item, ReactionEmoji } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
+import ReactionPillRow from "./ReactionPillRow";
 
 const DELETE_SWIPE_THRESHOLD = -30;
 const DELETE_SWIPE_MAX = -60;
@@ -111,6 +112,12 @@ export default function ItemRow({
   roundCheckbox,
   disabled,
   onRowTap,
+  commentCount,
+  onOpenThread,
+  reactionDoc,
+  currentUid,
+  onToggleReaction,
+  onOpenReactionPicker,
 }: {
   item: Item;
   onToggle?: () => void;
@@ -130,6 +137,15 @@ export default function ItemRow({
   roundCheckbox?: boolean;
   disabled?: boolean;
   onRowTap?: () => void;
+  // 이 짐에 달린 댓글 수(0이면 아이콘만, 있으면 숫자 배지). 없으면(undefined) 댓글
+  // 버튼 자체를 숨긴다 - 다중선택 등 이 버튼이 없어야 하는 맥락에서 그냥 prop을 안 넘기면 된다.
+  commentCount?: number;
+  onOpenThread?: () => void;
+  // 팀즈 스타일로 짐 바로 아래 겹쳐 보여줄 이모지 리액션. 셋 다 있어야 렌더링된다.
+  reactionDoc?: BagReactionDoc;
+  currentUid?: string;
+  onToggleReaction?: (emoji: ReactionEmoji, currentlyReacted: boolean) => void;
+  onOpenReactionPicker?: () => void;
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -399,215 +415,254 @@ export default function ItemRow({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-lg shrink-0 ${
-        item.type === "text" ? "col-span-full" : ""
-      }`}
+      className={`shrink-0 ${item.type === "text" ? "col-span-full" : ""}`}
     >
-      {(dragging || dragX !== 0) && dragX < 0 && (
-        <button
-          onClick={() => {
-            setDragX(0);
-            onDelete();
-          }}
-          className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
-          style={{ width: SWIPE_BUTTON_WIDTH, background: "var(--danger)", color: "#fff" }}
-        >
-          삭제
-        </button>
-      )}
-
-      {(dragging || dragX !== 0) && dragX > 0 && (
-        <button
-          onClick={() => {
-            setDragX(0);
-            openEdit();
-          }}
-          className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
-          style={{ width: SWIPE_BUTTON_WIDTH, background: "#2563eb", color: "#fff" }}
-        >
-          수정
-        </button>
-      )}
-
-      <div
-        data-item-id={item.id}
-        data-item-type={item.type}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
-        onPointerCancel={endDrag}
-        onContextMenu={(e) => {
-          if (onStartDrag) e.preventDefault();
-        }}
-        style={{
-          transform: `translateX(${dragX}px)`,
-          transition: dragging ? "none" : "transform 150ms ease",
-          background: noBackground ? "transparent" : item.type === "check" ? "var(--surface-2)" : "transparent",
-          opacity: isDragSource ? 0.35 : 1,
-          WebkitTouchCallout: "none",
-          WebkitUserSelect: onStartDrag ? "none" : undefined,
-          userSelect: onStartDrag ? "none" : undefined,
-          boxShadow: isDragOverTarget
-            ? item.type === "text"
-              ? dragOverPosition === "after"
-                ? "inset 0 -2px 0 0 var(--accent)"
-                : "inset 0 2px 0 0 var(--accent)"
-              : dragOverPosition === "after"
-              ? "inset -2px 0 0 0 var(--accent)"
-              : "inset 2px 0 0 0 var(--accent)"
-            : undefined,
-          touchAction: "none",
-        }}
-        className={`flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] ${
-          noBackground
-            ? "py-[calc(6px*var(--pack-card-scale,1))] md:py-[calc(7px*var(--pack-card-scale,1))]"
-            : "py-[calc(12px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
-        }`}
-      >
-        {item.type === "check" && (
-          <input
-            type="checkbox"
-            checked={!!item.checked}
-            onChange={onToggle}
-            onPointerDown={(e) => e.stopPropagation()}
-            className={roundCheckbox ? "shrink-0 appearance-none rounded-full" : "shrink-0 accent-[var(--accent)]"}
-            style={
-              roundCheckbox
-                ? {
-                    width: "calc(20px * var(--pack-card-scale,1))",
-                    height: "calc(20px * var(--pack-card-scale,1))",
-                    border: `1.5px solid ${item.checked ? "var(--accent)" : "var(--border-strong)"}`,
-                    background: item.checked ? "var(--accent)" : "transparent",
-                  }
-                : {
-                    width: "calc(20px * var(--pack-card-scale,1))",
-                    height: "calc(20px * var(--pack-card-scale,1))",
-                  }
-            }
-          />
+      <div className="relative overflow-hidden rounded-lg">
+        {(dragging || dragX !== 0) && dragX < 0 && (
+          <button
+            onClick={() => {
+              setDragX(0);
+              onDelete();
+            }}
+            className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+            style={{ width: SWIPE_BUTTON_WIDTH, background: "var(--danger)", color: "#fff" }}
+          >
+            삭제
+          </button>
         )}
 
-        {editing ? (
-          item.type === "text" ? (
-            <div className="min-w-0 flex-1 flex flex-col gap-2">
+        {(dragging || dragX !== 0) && dragX > 0 && (
+          <button
+            onClick={() => {
+              setDragX(0);
+              openEdit();
+            }}
+            className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+            style={{ width: SWIPE_BUTTON_WIDTH, background: "#2563eb", color: "#fff" }}
+          >
+            수정
+          </button>
+        )}
+
+        <div
+          data-item-id={item.id}
+          data-item-type={item.type}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerLeave={endDrag}
+          onPointerCancel={endDrag}
+          onContextMenu={(e) => {
+            if (onStartDrag) e.preventDefault();
+          }}
+          style={{
+            transform: `translateX(${dragX}px)`,
+            transition: dragging ? "none" : "transform 150ms ease",
+            background: noBackground ? "transparent" : item.type === "check" ? "var(--surface-2)" : "transparent",
+            opacity: isDragSource ? 0.35 : 1,
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: onStartDrag ? "none" : undefined,
+            userSelect: onStartDrag ? "none" : undefined,
+            boxShadow: isDragOverTarget
+              ? item.type === "text"
+                ? dragOverPosition === "after"
+                  ? "inset 0 -2px 0 0 var(--accent)"
+                  : "inset 0 2px 0 0 var(--accent)"
+                : dragOverPosition === "after"
+                ? "inset -2px 0 0 0 var(--accent)"
+                : "inset 2px 0 0 0 var(--accent)"
+              : undefined,
+            touchAction: "none",
+          }}
+          className={`flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] ${
+            noBackground
+              ? "py-[calc(6px*var(--pack-card-scale,1))] md:py-[calc(7px*var(--pack-card-scale,1))]"
+              : "py-[calc(12px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
+          }`}
+        >
+          {item.type === "check" && (
+            <input
+              type="checkbox"
+              checked={!!item.checked}
+              onChange={onToggle}
+              onPointerDown={(e) => e.stopPropagation()}
+              className={roundCheckbox ? "shrink-0 appearance-none rounded-full" : "shrink-0 accent-[var(--accent)]"}
+              style={
+                roundCheckbox
+                  ? {
+                      width: "calc(20px * var(--pack-card-scale,1))",
+                      height: "calc(20px * var(--pack-card-scale,1))",
+                      border: `1.5px solid ${item.checked ? "var(--accent)" : "var(--border-strong)"}`,
+                      background: item.checked ? "var(--accent)" : "transparent",
+                    }
+                  : {
+                      width: "calc(20px * var(--pack-card-scale,1))",
+                      height: "calc(20px * var(--pack-card-scale,1))",
+                    }
+              }
+            />
+          )}
+
+          {editing ? (
+            item.type === "text" ? (
+              <div className="min-w-0 flex-1 flex flex-col gap-2">
+                <input
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                  placeholder="텍스트 입력"
+                  className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
+                  style={{
+                    fontWeight: draftBold ? 700 : 400,
+                    textDecoration: draftStrike ? "line-through" : "none",
+                    color: draftColor || "var(--foreground)",
+                  }}
+                />
+                <div className="flex items-center flex-wrap gap-2 md:gap-2.5">
+                  <button
+                    type="button"
+                    onMouseDown={preventBlur}
+                    onClick={() => setDraftBold((b) => !b)}
+                    aria-label="굵게"
+                    className="flex items-center justify-center rounded shrink-0"
+                    style={{
+                      background: draftBold ? "var(--accent)" : "var(--surface)",
+                      color: draftBold ? "#fff" : "var(--text-secondary)",
+                      width: "calc(28px * var(--pack-card-scale,1))",
+                      height: "calc(28px * var(--pack-card-scale,1))",
+                    }}
+                  >
+                    <IconBold size={16} stroke={2.25} />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={preventBlur}
+                    onClick={() => setDraftStrike((s) => !s)}
+                    aria-label="취소선"
+                    className="flex items-center justify-center rounded shrink-0"
+                    style={{
+                      background: draftStrike ? "var(--accent)" : "var(--surface)",
+                      color: draftStrike ? "#fff" : "var(--text-secondary)",
+                      width: "calc(28px * var(--pack-card-scale,1))",
+                      height: "calc(28px * var(--pack-card-scale,1))",
+                    }}
+                  >
+                    <IconStrikethrough size={16} stroke={2.25} />
+                  </button>
+                  <span
+                    className="shrink-0"
+                    style={{ width: 1, height: 17, background: "var(--border)" }}
+                  />
+                  {TEXT_COLORS.map((c) => (
+                    <button
+                      key={c || "default"}
+                      type="button"
+                      onMouseDown={preventBlur}
+                      onClick={() => setDraftColor(c)}
+                      aria-label={c ? `색상 ${c}` : "기본 색상"}
+                      className="rounded-full shrink-0"
+                      style={{
+                        background: c || "var(--surface)",
+                        border:
+                          draftColor === c
+                            ? "1.5px solid var(--foreground)"
+                            : "1.5px solid var(--border-strong)",
+                        width: "calc(22px * var(--pack-card-scale,1))",
+                        height: "calc(22px * var(--pack-card-scale,1))",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
               <input
                 autoFocus
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
-                placeholder="텍스트 입력"
-                className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
-                style={{
-                  fontWeight: draftBold ? 700 : 400,
-                  textDecoration: draftStrike ? "line-through" : "none",
-                  color: draftColor || "var(--foreground)",
-                }}
+                placeholder="짐 이름"
+                className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
               />
-              <div className="flex items-center flex-wrap gap-2 md:gap-2.5">
-                <button
-                  type="button"
-                  onMouseDown={preventBlur}
-                  onClick={() => setDraftBold((b) => !b)}
-                  aria-label="굵게"
-                  className="flex items-center justify-center rounded shrink-0"
-                  style={{
-                    background: draftBold ? "var(--accent)" : "var(--surface)",
-                    color: draftBold ? "#fff" : "var(--text-secondary)",
-                    width: "calc(28px * var(--pack-card-scale,1))",
-                    height: "calc(28px * var(--pack-card-scale,1))",
-                  }}
-                >
-                  <IconBold size={16} stroke={2.25} />
-                </button>
-                <button
-                  type="button"
-                  onMouseDown={preventBlur}
-                  onClick={() => setDraftStrike((s) => !s)}
-                  aria-label="취소선"
-                  className="flex items-center justify-center rounded shrink-0"
-                  style={{
-                    background: draftStrike ? "var(--accent)" : "var(--surface)",
-                    color: draftStrike ? "#fff" : "var(--text-secondary)",
-                    width: "calc(28px * var(--pack-card-scale,1))",
-                    height: "calc(28px * var(--pack-card-scale,1))",
-                  }}
-                >
-                  <IconStrikethrough size={16} stroke={2.25} />
-                </button>
-                <span
-                  className="shrink-0"
-                  style={{ width: 1, height: 17, background: "var(--border)" }}
-                />
-                {TEXT_COLORS.map((c) => (
-                  <button
-                    key={c || "default"}
-                    type="button"
-                    onMouseDown={preventBlur}
-                    onClick={() => setDraftColor(c)}
-                    aria-label={c ? `색상 ${c}` : "기본 색상"}
-                    className="rounded-full shrink-0"
-                    style={{
-                      background: c || "var(--surface)",
-                      border:
-                        draftColor === c
-                          ? "1.5px solid var(--foreground)"
-                          : "1.5px solid var(--border-strong)",
-                      width: "calc(22px * var(--pack-card-scale,1))",
-                      height: "calc(22px * var(--pack-card-scale,1))",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+            )
           ) : (
-            <input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={(e) => e.key === "Enter" && commitEdit()}
-              placeholder="짐 이름"
-              className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
-            />
-          )
-        ) : (
-          <button
-            onClick={handleContentClick}
-            onDoubleClick={handleDoubleClick}
-            // 줄바꿈 제한(line-clamp)은 이 button 자체가 아니라 안의 span에 건다 - 이 button은 부모 div의
-            // flex 자식(flex-1)이라, -webkit-line-clamp가 요구하는 display:-webkit-box를
-            // flex 아이템에 직접 걸면 일부 브라우저(iOS WKWebView 포함)에서 줄수 제한이
-            // 무시되고 텍스트가 그대로 여러 줄 다 보여버리는 버그가 있었다. span은 flex 아이템이
-            // 아니라 문제가 없다.
-            className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
-          >
-            {item.type === "check" ? (
-              <span
-                className={lineClampClass}
-                style={{
-                  color: item.checked ? "var(--text-muted)" : "var(--foreground)",
-                  textDecoration: item.checked ? "line-through" : "none",
-                }}
-              >
-                {item.text}
-              </span>
-            ) : (
-              <span
-                className={lineClampClass}
-                style={{
-                  fontWeight: item.bold ? 700 : 400,
-                  textDecoration: item.strike ? "line-through" : "none",
-                  color: item.color || "var(--foreground)",
-                }}
-              >
-                {item.text}
-              </span>
-            )}
-          </button>
-        )}
+            <button
+              onClick={handleContentClick}
+              onDoubleClick={handleDoubleClick}
+              // 줄바꿈 제한(line-clamp)은 이 button 자체가 아니라 안의 span에 건다 - 이 button은 부모 div의
+              // flex 자식(flex-1)이라, -webkit-line-clamp가 요구하는 display:-webkit-box를
+              // flex 아이템에 직접 걸면 일부 브라우저(iOS WKWebView 포함)에서 줄수 제한이
+              // 무시되고 텍스트가 그대로 여러 줄 다 보여버리는 버그가 있었다. span은 flex 아이템이
+              // 아니라 문제가 없다.
+              className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+            >
+              {item.type === "check" ? (
+                <span
+                  className={lineClampClass}
+                  style={{
+                    color: item.checked ? "var(--text-muted)" : "var(--foreground)",
+                    textDecoration: item.checked ? "line-through" : "none",
+                  }}
+                >
+                  {item.text}
+                </span>
+              ) : (
+                <span
+                  className={lineClampClass}
+                  style={{
+                    fontWeight: item.bold ? 700 : 400,
+                    textDecoration: item.strike ? "line-through" : "none",
+                    color: item.color || "var(--foreground)",
+                  }}
+                >
+                  {item.text}
+                </span>
+              )}
+            </button>
+          )}
+
+          {!editing && onOpenThread && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setDragX(0);
+                onOpenThread();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="댓글"
+              className="relative shrink-0 flex items-center justify-center"
+              style={{ width: 22, height: 22, transform: "scale(var(--pack-card-scale,1))" }}
+            >
+              <IconMessageCircle2
+                size={16}
+                stroke={1.75}
+                color={commentCount ? "var(--accent)" : "var(--text-muted)"}
+              />
+              {!!commentCount && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-[3px] rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                  style={{ background: "var(--accent)" }}
+                >
+                  {commentCount > 9 ? "9+" : commentCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 팀즈 스타일 이모지 리액션 - 짐 바로 아래에 살짝 겹쳐서 떠있는 알약들.
+          탭하면 댓글 스레드에 안 들어가고 바로 이 자리에서 토글된다. */}
+      {!editing && onToggleReaction && onOpenReactionPicker && (
+        <ReactionPillRow
+          reactionDoc={reactionDoc}
+          currentUid={currentUid ?? ""}
+          onToggle={onToggleReaction}
+          onOpenPicker={onOpenReactionPicker}
+        />
+      )}
     </div>
   );
 }

@@ -64,6 +64,17 @@ service cloud.firestore {
         // Admin SDK를 쓰면 이 규칙을 그대로 통과한다.
         allow create: if request.auth != null && isMasterEmail();
 
+        // 댓글 멘션 알림: 같은 가방 멤버끼리에게만 서로 알림을 남길 수 있다.
+        // relatedBagId로 가리키는 가방을 조회해서 쓰는 사람(request.auth.uid)와
+        // 알림 받는 사람(uid, 경로 변수) 모두가 그 가방의 memberIds에 있어야한다.
+        allow create: if request.auth != null &&
+          request.resource.data.type == 'comment_mention' &&
+          request.resource.data.relatedBagId is string &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/bags/$(request.resource.data.relatedBagId)).data.memberIds &&
+          uid in
+            get(/databases/$(database)/documents/bags/$(request.resource.data.relatedBagId)).data.memberIds;
+
         allow delete: if false;
       }
 
@@ -208,6 +219,49 @@ service cloud.firestore {
         allow write: if request.auth != null &&
           request.auth.uid == presenceUid &&
           request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+      }
+
+      // 가방 안 댓글. 짐(item) 단위/가방(bag) 전체 단위 둘 다 이 하나의
+      // 서브컴렉션에 섞여 저장된다(targetType 필드로 구분). 그 가방 멤버만
+      // 읽고 쓸 수 있다. 작성(create)는 본인 uid로만, 수정(update)은 본인이 쓴
+      // 댓글의 text/updatedAt만, 삭제(delete)는 작성자 본인만 가능하다.
+      match /comments/{commentId} {
+        function isBagMember() {
+          return request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+        }
+
+        allow read: if isBagMember();
+
+        allow create: if isBagMember() &&
+          request.resource.data.authorUid == request.auth.uid &&
+          request.resource.data.targetType in ['item', 'bag'] &&
+          request.resource.data.targetId is string &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
+
+        allow update: if isBagMember() &&
+          resource.data.authorUid == request.auth.uid &&
+          request.resource.data.authorUid == resource.data.authorUid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt']) &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
+
+        allow delete: if isBagMember() && resource.data.authorUid == request.auth.uid;
+      }
+
+      // 짐/팩/가방에 달는 가벼운 이모지 리액션. 대상당 문서 1개에 모든 유저의
+      // 반응을 모아놓는다. 소그룹(최대 10명) 신뢰 기반 앱이라 멤버면 서로의
+      // 반응까지 자유롭게 다룰 수 있게(토글) 허용한다(정교한 배열 diff 검증 대신
+      // 이 앱의 기존 정책과 동일한 신뢰 기반 접근을 따른다).
+      match /reactions/{reactionId} {
+        function isBagMember() {
+          return request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+        }
+
+        allow read: if isBagMember();
+        allow write: if isBagMember();
       }
     }
   }

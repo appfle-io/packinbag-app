@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { IconCalendarEvent, IconX } from "@tabler/icons-react";
 import { ReminderOffset } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
+
+export interface TravelDateFieldHandle {
+  open: () => void;
+}
 
 const OFFSET_OPTIONS: { key: ReminderOffset; label: string }[] = [
   { key: 3, label: "3일 전" },
@@ -11,20 +15,23 @@ const OFFSET_OPTIONS: { key: ReminderOffset; label: string }[] = [
   { key: 0, label: "당일 아침" },
 ];
 
-// 가방 상단, BagNotice 아래에 붙는 여행일 설정. 비어있을 땐 "디데이 추가 +" 힌트만 보인다.
+// 가방 상단, 제목 아래에 붙는 여행일 설정. 비어있을 땐 "디데이 추가 +" 힌트만 보인다.
+// hideEmptyPrompt가 true면 비어있을 때 이 힌트 자체를 숨긴다(BagQuickAddRow가 대신
+// "디데이 추가 +" 트리거를 보여줄 때 씀) - 대신 ref.open()으로 외부에서 편집을 열 수 있다.
+// 마진은 이 컴포넌트가 직접 갖지 않는다(BagEditorScreen에서 BagNotice와 함께 하나의
+// 묶음으로 마진을 관리해서, 디데이만/메모만/둘다 있을 때 간격이 자연스럽게 붙는다).
 // 알림(Push) 발송 로직은 아직 없고, 날짜/알림 시점 저장까지만 담당한다.
-export default function TravelDateField({
-  travelDate,
-  reminderOffsets,
-  onChange,
-  readOnly,
-}: {
-  travelDate?: string;
-  reminderOffsets?: ReminderOffset[];
-  onChange: (travelDate: string | undefined, reminderOffsets: ReminderOffset[] | undefined) => void;
-  // true면 편집 진입을 막고 배지/날짜만 보여준다.
-  readOnly?: boolean;
-}) {
+const TravelDateField = forwardRef<
+  TravelDateFieldHandle,
+  {
+    travelDate?: string;
+    reminderOffsets?: ReminderOffset[];
+    onChange: (travelDate: string | undefined, reminderOffsets: ReminderOffset[] | undefined) => void;
+    // true면 편집 진입을 막고 배지/날짜만 보여준다.
+    readOnly?: boolean;
+    hideEmptyPrompt?: boolean;
+  }
+>(function TravelDateField({ travelDate, reminderOffsets, onChange, readOnly, hideEmptyPrompt }, ref) {
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState(travelDate ?? "");
   const [draftOffsets, setDraftOffsets] = useState<ReminderOffset[]>(reminderOffsets ?? [1]);
@@ -35,6 +42,8 @@ export default function TravelDateField({
     setDraftOffsets(reminderOffsets ?? [1]);
     setEditing(true);
   };
+
+  useImperativeHandle(ref, () => ({ open: openEditor }));
 
   const toggleOffset = (key: ReminderOffset) => {
     setDraftOffsets((prev) =>
@@ -58,7 +67,7 @@ export default function TravelDateField({
 
   if (editing) {
     return (
-      <div className="mb-3 rounded-lg border border-border bg-surface p-3 flex flex-col gap-2.5">
+      <div className="rounded-lg border border-border bg-surface p-3 flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
           <IconCalendarEvent size={15} stroke={1.75} color="var(--text-secondary)" />
           <input
@@ -113,11 +122,11 @@ export default function TravelDateField({
   }
 
   if (!travelDate) {
-    if (readOnly) return null;
+    if (readOnly || hideEmptyPrompt) return null;
     return (
       <button
         onClick={openEditor}
-        className="flex items-center gap-1 text-[12px] mb-3"
+        className="flex items-center gap-1 text-[12px]"
         style={{ color: "var(--text-muted)" }}
       >
         <IconCalendarEvent size={13} stroke={1.75} />
@@ -128,23 +137,29 @@ export default function TravelDateField({
 
   const badge = formatDDayLabel(travelDate);
 
+  // 디데이답게 - 캘린더 아이콘 + D배지 + 날짜를 한 알약(버튼)으로 꾸며서 눈에 띄게 한다.
   return (
     <button
       onClick={openEditor}
-      className="flex items-center gap-1.5 mb-3"
-      style={{ cursor: readOnly ? "default" : undefined }}
+      className="inline-flex items-center gap-1.5 rounded-full pl-2 pr-3 py-1"
+      style={{
+        background: "var(--accent-soft)",
+        border: "1px solid var(--accent)",
+        cursor: readOnly ? "default" : undefined,
+        alignSelf: "flex-start",
+      }}
     >
+      <IconCalendarEvent size={13} stroke={2} color="var(--accent-strong)" />
       {badge && (
-        <span
-          className="text-[11px] font-medium rounded-full px-2 py-0.5"
-          style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
-        >
+        <span className="text-[12px] font-bold" style={{ color: "var(--accent-strong)" }}>
           {badge}
         </span>
       )}
-      <span className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+      <span className="text-[11px]" style={{ color: "var(--accent-strong)", opacity: 0.85 }}>
         {travelDate}
       </span>
     </button>
   );
-}
+});
+
+export default TravelDateField;

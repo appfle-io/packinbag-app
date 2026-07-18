@@ -15,7 +15,7 @@ import {
   IconAlignLeft,
   IconX,
 } from "@tabler/icons-react";
-import { Pack } from "@/lib/types";
+import { BagReactionDoc, Pack, ReactionEmoji } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { getPackColorHex } from "@/lib/packColors";
@@ -55,6 +55,12 @@ export default function PackCard({
   onAddItem,
   selectedItemIds,
   onToggleSelectItem,
+  getItemThreadInfo,
+  onOpenItemThread,
+  getItemReactionDoc,
+  currentUid,
+  onToggleItemReaction,
+  onOpenReactionPicker,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -98,6 +104,14 @@ export default function PackCard({
   // 팩은 그대로 유지된다.
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (itemId: string) => void;
+  // 짐별 댓글 수 조회 함수. 없으면(undefined) ItemRow에 댓글 버튼이 안 보인다.
+  getItemThreadInfo?: (itemId: string) => { commentCount: number };
+  onOpenItemThread?: (itemId: string, itemText: string) => void;
+  // 팀즈 스타일 즉시 리액션용. 넷 다 있어야 ItemRow에 파이 열을 보여준다.
+  getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
+  currentUid?: string;
+  onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
+  onOpenReactionPicker?: (itemId: string, itemText: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 팩 카드 하단의 체크박스/텍스트 빠른추가 인라인 입력 상태. null이면 아이콘 2개만
@@ -270,6 +284,20 @@ export default function PackCard({
                     dragOverPosition={dragOverItemId === item.id ? dragOverItemPosition : null}
                     disabled={selecting}
                     onRowTap={selecting ? () => onToggleSelectItem?.(item.id) : undefined}
+                    commentCount={getItemThreadInfo?.(item.id)?.commentCount}
+                    onOpenThread={
+                      onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
+                    }
+                    reactionDoc={getItemReactionDoc?.(item.id)}
+                    currentUid={currentUid}
+                    onToggleReaction={
+                      onToggleItemReaction
+                        ? (emoji, cur) => onToggleItemReaction(item.id, emoji, cur)
+                        : undefined
+                    }
+                    onOpenReactionPicker={
+                      onOpenReactionPicker ? () => onOpenReactionPicker(item.id, item.text) : undefined
+                    }
                   />
                 </div>
               );

@@ -546,9 +546,25 @@ export default function PacksScreen({
       ) : (
         <div className="flex-1 overflow-y-auto px-4 pb-3">
           {isEmpty ? (
-            <p className="text-[13px] text-text-muted py-16 text-center">
-              아직 만든 팩이 없어요. 아래에서 팩이나 폴더를 만들어보세요.
-            </p>
+            <div className="flex flex-col items-center gap-3 py-16">
+              <p className="text-[13px] text-text-muted text-center">
+                아직 만든 팩이 없어요. 아래에서 팩이나 폴더를 만들어보세요.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNewPack(undefined)}
+                  className="flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] text-text-muted border border-dashed border-border-strong"
+                >
+                  <IconPlus size={14} stroke={1.75} />팩
+                </button>
+                <button
+                  onClick={() => onNewFolder(undefined)}
+                  className="flex items-center gap-1 rounded-lg px-3 py-2 text-[13px] text-text-muted border border-dashed border-border-strong"
+                >
+                  <IconFolderPlus size={14} stroke={1.75} />폴더
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-col gap-1">
               {visibleRows.map((row) => {

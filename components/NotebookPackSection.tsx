@@ -14,7 +14,7 @@ import {
   IconAlignLeft,
   IconX,
 } from "@tabler/icons-react";
-import { Pack } from "@/lib/types";
+import { BagReactionDoc, Pack, ReactionEmoji } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { getPackColorHex } from "@/lib/packColors";
@@ -59,6 +59,12 @@ export default function NotebookPackSection({
   onAddItem,
   selectedItemIds,
   onToggleSelectItem,
+  getItemThreadInfo,
+  onOpenItemThread,
+  getItemReactionDoc,
+  currentUid,
+  onToggleItemReaction,
+  onOpenReactionPicker,
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
@@ -95,6 +101,12 @@ export default function NotebookPackSection({
   // 이 패이 지금 다중선택 중이면 선택된 짐 id 집합, 아니면 null/undefined.
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (itemId: string) => void;
+  getItemThreadInfo?: (itemId: string) => { commentCount: number };
+  onOpenItemThread?: (itemId: string, itemText: string) => void;
+  getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
+  currentUid?: string;
+  onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
+  onOpenReactionPicker?: (itemId: string, itemText: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -349,6 +361,20 @@ export default function NotebookPackSection({
                     roundCheckbox
                     disabled={selecting}
                     onRowTap={selecting ? () => onToggleSelectItem?.(item.id) : undefined}
+                    commentCount={getItemThreadInfo?.(item.id)?.commentCount}
+                    onOpenThread={
+                      onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
+                    }
+                    reactionDoc={getItemReactionDoc?.(item.id)}
+                    currentUid={currentUid}
+                    onToggleReaction={
+                      onToggleItemReaction
+                        ? (emoji, cur) => onToggleItemReaction(item.id, emoji, cur)
+                        : undefined
+                    }
+                    onOpenReactionPicker={
+                      onOpenReactionPicker ? () => onOpenReactionPicker(item.id, item.text) : undefined
+                    }
                   />
                 </div>
               );

@@ -306,16 +306,67 @@ export interface Inquiry {
   answeredAt?: string;
 }
 
-// 범용 알림함(users/{uid}/notifications). 지금은 "내 문의에 답변 달림" 하나뿐이지만,
-// 나중에 푸시 기능이 추가되면 같은 구조에 type만 늘려가면서 쓰이도록 설계된다.
-export type NotificationType = "inquiry_answered";
+// 범용 알림함(users/{uid}/notifications). 지금은 "내 문의에 답변 달림" +
+// "댓글에서 멘션됨" 두 종류. 나중에 푸시 기능이 추가되면 같은 구조에 type만
+// 늘려가면서 쓰이도록 설계된다.
+export type NotificationType = "inquiry_answered" | "comment_mention";
 
 export interface AppNotification {
   id: string;
   type: NotificationType;
   title: string;
   body: string;
-  relatedId?: string; // 예: 해당 inquiry id
+  relatedId?: string; // 예: 해당 inquiry id, 또는 댓글 id
+  // comment_mention 타입일 때만 사용 - 어느 가방에서 멘션됐는지(딥링크/권한검증용).
+  relatedBagId?: string;
   createdAt: string;
   read: boolean;
+}
+
+// 댓글이 달리는 대상. "item"은 특정 짐(개별 항목), "bag"은 가방 전체(공지/자유 대화).
+export type CommentTargetType = "item" | "bag";
+
+// 가방 안 댓글. bags/{bagId}/comments 서브컬렉션에 저장되고, 그 가방 멤버끼리만
+// 읽고 쓸 수 있다(firestore.rules). targetType='item'이면 targetId가 짐(Item.id),
+// targetType='bag'이면 targetId는 그냥 bagId 자체(가방 전체 공지/자유 대화용).
+export interface BagComment {
+  id: string;
+  targetType: CommentTargetType;
+  targetId: string;
+  packId?: string; // targetType='item'일 때, 그 짐이 속한 팩 id (필터링/딥링크용)
+  authorUid: string;
+  authorNickname: string; // 작성 시점 스냅샷(닉네임 바뀌어도 예전 댓글은 그대로)
+  authorAvatarId: string;
+  text: string; // 최대 500자
+  mentions?: string[]; // 멘션된 멤버 uid 목록
+  createdAt: string;
+  updatedAt?: string; // 수정한 적 있으면 채워짐
+}
+
+// 짐/팩/가방에 다는 가벼운 이모지 리액션. 댓글보다 마찰이 적은 소통 수단.
+// bags/{bagId}/reactions/{targetType_targetId} 문서 하나에 그 대상의 모든
+// 이모지별 반응자를 모아서 저장한다(대상당 문서 1개, 실시간 구독 가볍게 하려는 목적).
+export type ReactionTargetType = "item" | "pack" | "bag";
+
+// 프리셋 이모지 - 무한 이모지피커 대신 자주 쓸 법한 것들로 구성(10개).
+export const REACTION_EMOJIS = [
+  "👍", // 좋아요
+  "❤️", // 사랑해요
+  "😂", // 웃겨요
+  "😮", // 놀람
+  "😢", // 슬퍼요
+  "🙏", // 감사해요/부탁해요
+  "✅", // 확인했어요
+  "❓", // 궁금해요
+  "🙋", // 제가 할게요
+  "🔥", // 핫해요
+] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+export interface BagReactionDoc {
+  id: string; // `${targetType}_${targetId}`
+  targetType: ReactionTargetType;
+  targetId: string;
+  reactions: Partial<Record<ReactionEmoji, string[]>>; // emoji -> uid 배열
+  updatedAt: string;
 }

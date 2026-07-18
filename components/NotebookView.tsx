@@ -1,6 +1,6 @@
 "use client";
 
-import { Pack } from "@/lib/types";
+import { BagReactionDoc, Pack, ReactionEmoji } from "@/lib/types";
 import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import NotebookPackSection from "./NotebookPackSection";
 
@@ -33,6 +33,12 @@ export default function NotebookView({
   selectedPackId,
   selectedItemIds,
   onToggleSelectItem,
+  getItemThreadInfo,
+  onOpenItemThread,
+  getItemReactionDoc,
+  currentUid,
+  onToggleItemReaction,
+  onOpenReactionPicker,
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -64,6 +70,12 @@ export default function NotebookView({
   selectedPackId?: string | null;
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
+  getItemThreadInfo?: (itemId: string) => { commentCount: number };
+  onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
+  getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
+  currentUid?: string;
+  onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
+  onOpenReactionPicker?: (itemId: string, itemText: string) => void;
 }) {
   return (
     <div className="flex flex-col">
@@ -102,6 +114,14 @@ export default function NotebookView({
           onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
           selectedItemIds={selectedPackId === pack.id ? selectedItemIds : null}
           onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
+          getItemThreadInfo={getItemThreadInfo}
+          onOpenItemThread={
+            onOpenItemThread ? (itemId, itemText) => onOpenItemThread(pack.id, itemId, itemText) : undefined
+          }
+          getItemReactionDoc={getItemReactionDoc}
+          currentUid={currentUid}
+          onToggleItemReaction={onToggleItemReaction}
+          onOpenReactionPicker={onOpenReactionPicker}
         />
       ))}
     </div>

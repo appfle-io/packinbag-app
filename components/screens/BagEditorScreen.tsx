@@ -26,11 +26,15 @@ import {
   IconHelpCircle,
   IconArrowBackUp,
 } from "@tabler/icons-react";
-import { Bag, Item, Pack, ReminderOffset } from "@/lib/types";
+import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import EditableText from "@/components/EditableText";
 import BagNotice from "@/components/BagNotice";
+import type { BagNoticeHandle } from "@/components/BagNotice";
+import BagChatPreview from "@/components/BagChatPreview";
+import BagQuickAddRow from "@/components/BagQuickAddRow";
 import TravelDateField from "@/components/TravelDateField";
+import type { TravelDateFieldHandle } from "@/components/TravelDateField";
 import PackGrid from "@/components/PackGrid";
 import NotebookView from "@/components/NotebookView";
 import PackChipBar from "@/components/PackChipBar";
@@ -41,6 +45,11 @@ import SaveAsDialog from "@/components/SaveAsDialog";
 import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
 import AiOrganizeModal from "@/components/AiOrganizeModal";
+import ItemThreadSheet from "@/components/ItemThreadSheet";
+import ReactionPickerPopover from "@/components/ReactionPickerPopover";
+import { subscribeToComments } from "@/lib/commentsService";
+import { subscribeToReactions, toggleReaction } from "@/lib/reactionsService";
+import { buildMentionMembers } from "@/lib/mentions";
 import NotebookQuickAddModal, { QuickAddItemData } from "@/components/NotebookQuickAddModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
@@ -151,6 +160,49 @@ export default function BagEditorScreen({
   // 화면에 그릴 때만 걸러낸다(PackCard/NotebookPackSection의 displayItems 필터링) - 저장되지 않는
   // 화면별 임시 상태라 화면을 다시 들어오면 항상 꺼진 채로 시작한다.
   const [hideChecked, setHideChecked] = useState(false);
+
+  // 짐/팩 댓글 + 리액션. 이 가방의 comments/reactions 서브컴렉션 전체를 통째로
+  // 구독하고(presence와 동일한 이유 - 복합 인덱스 없이 가벼운 구현), 화면에서는
+  // targetId별로 개수/유무만 계산해 ItemRow/PackCard에 배지로 보여준다.
+  const [comments, setComments] = useState<BagComment[]>([]);
+  const [reactions, setReactions] = useState<BagReactionDoc[]>([]);
+  useEffect(() => subscribeToComments(bag.id, setComments), [bag.id]);
+  useEffect(() => subscribeToReactions(bag.id, setReactions), [bag.id]);
+
+  const getItemThreadInfo = (itemId: string) => ({
+    commentCount: comments.filter((c) => c.targetType === "item" && c.targetId === itemId).length,
+  });
+  // 팀즈 스타일 즉시 리액션용 - 짐별 리액션 문서 조회.
+  const getItemReactionDoc = (itemId: string) => reactions.find((r) => r.id === `item_${itemId}`);
+  const handleToggleItemReaction = (
+    itemId: string,
+    emoji: ReactionEmoji,
+    currentlyReacted: boolean
+  ) => {
+    toggleReaction(bag.id, "item", itemId, currentUid, emoji, currentlyReacted).catch((err) => {
+      console.error("[팩인백] 리액션 실패:", err);
+    });
+  };
+  // 팀즈처럼 "+" 누르면 열리는 전체 프리셋 피커 대상.
+  const [reactionPickerTarget, setReactionPickerTarget] = useState<{
+    itemId: string;
+    itemText: string;
+  } | null>(null);
+  // 가방 전체(bag) 대상 댓글만 모은 것 - BagChatPreview/BagQuickAddRow 에서 공통으로 쓴다.
+  const bagLevelComments = comments.filter((c) => c.targetType === "bag");
+
+  const [openItemThread, setOpenItemThread] = useState<{
+    packId: string;
+    itemId: string;
+    itemText: string;
+  } | null>(null);
+  // 가방 전체 대화(공지성) 스레드 표시 여부.
+  const [showBagThread, setShowBagThread] = useState(false);
+  // @멘션 자동완성/스캔용 멤버 목록(본인 제외).
+  const mentionMembers = buildMentionMembers(bag.memberIds, bag.memberProfiles, currentUid);
+  // BagQuickAddRow에서 "디데이 추가"/"메모 추가"를 누르면 각 컴포넌트의 편집을 외부에서 열기 위한 ref.
+  const travelDateRef = useRef<TravelDateFieldHandle>(null);
+  const bagNoticeRef = useRef<BagNoticeHandle>(null);
 
   // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
   // 호출한 쪽에서 그대로 return해서 실제 상태 변경으로 이어지지 않게 한다. 모달이 열려있는
@@ -1368,93 +1420,122 @@ export default function BagEditorScreen({
           placeholder="새 가방"
         />
 
-        <BagNotice
-          value={bag.notice ?? ""}
-          onChange={(notice) => {
-            pushUndoSnapshot();
-            setBag((prev) => ({ ...prev, notice }));
-          }}
-          readOnly={readOnly}
+        <BagQuickAddRow
+          showFile={!readOnly && bag.images.length === 0}
+          showTravelDate={!readOnly && !bag.travelDate}
+          showNotice={!readOnly && !(bag.notice && bag.notice.trim())}
+          showComment={!readOnly && bagLevelComments.length === 0}
+          onAddFile={() => fileInputRef.current?.click()}
+          onAddTravelDate={() => travelDateRef.current?.open()}
+          onAddNotice={() => bagNoticeRef.current?.open()}
+          onAddComment={() => setShowBagThread(true)}
         />
 
-        <TravelDateField
-          travelDate={bag.travelDate}
-          reminderOffsets={bag.reminderOffsets}
-          onChange={handleChangeTravelDate}
-          readOnly={readOnly}
-        />
-
-        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4">
-          {bag.images.map((src, idx) => {
-            const isPdf = isPdfUrl(src);
-            return (
-              <div
-                key={idx}
-                className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
+        {bag.images.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4">
+            {bag.images.map((src, idx) => {
+              const isPdf = isPdfUrl(src);
+              return (
+                <div
+                  key={idx}
+                  className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
+                >
+                  {isPdf ? (
+                    <button
+                      onClick={() =>
+                        premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
+                      }
+                      className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
+                      aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
+                    >
+                      <IconFileText size={20} stroke={1.75} />
+                      <span className="text-[9px]">PDF</span>
+                      {!premium && (
+                        <span
+                          className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                          style={{ background: "rgba(0,0,0,0.55)" }}
+                        >
+                          <IconLock size={9} stroke={2} color="#fff" />
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={src}
+                      alt=""
+                      onClick={() => setLightboxIndex(idx)}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  {!readOnly && (
+                    <button
+                      onClick={() => setImageDeleteIndex(idx)}
+                      className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
+                      style={{ background: "rgba(0,0,0,0.5)" }}
+                    >
+                      <IconX size={10} stroke={2} color="#fff" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {!readOnly && bag.images.length < MAX_BAG_IMAGES && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImages}
+                className="shrink-0 h-14 w-14 rounded-lg border border-dashed border-border-strong flex items-center justify-center text-text-muted disabled:opacity-50"
+                aria-label="사진 또는 PDF 첨부"
               >
-                {isPdf ? (
-                  <button
-                    onClick={() =>
-                      premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
-                    }
-                    className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
-                    aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
-                  >
-                    <IconFileText size={20} stroke={1.75} />
-                    <span className="text-[9px]">PDF</span>
-                    {!premium && (
-                      <span
-                        className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
-                        style={{ background: "rgba(0,0,0,0.55)" }}
-                      >
-                        <IconLock size={9} stroke={2} color="#fff" />
-                      </span>
-                    )}
-                  </button>
+                {uploadingImages ? (
+                  <IconLoader2 size={18} stroke={1.75} className="animate-spin" />
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={src}
-                    alt=""
-                    onClick={() => setLightboxIndex(idx)}
-                    className="h-full w-full object-cover"
-                  />
+                  <IconPhoto size={18} stroke={1.75} />
                 )}
-                {!readOnly && (
-                  <button
-                    onClick={() => setImageDeleteIndex(idx)}
-                    className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(0,0,0,0.5)" }}
-                  >
-                    <IconX size={10} stroke={2} color="#fff" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-          {!readOnly && bag.images.length < MAX_BAG_IMAGES && (
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingImages}
-              className="shrink-0 h-14 w-14 rounded-lg border border-dashed border-border-strong flex items-center justify-center text-text-muted disabled:opacity-50"
-              aria-label="사진 또는 PDF 첨부"
-            >
-              {uploadingImages ? (
-                <IconLoader2 size={18} stroke={1.75} className="animate-spin" />
-              ) : (
-                <IconPhoto size={18} stroke={1.75} />
-              )}
-            </button>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,application/pdf,.pdf"
-            multiple
-            hidden
-            onChange={(e) => handleAddImages(e.target.files)}
+              </button>
+            )}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf,.pdf"
+          multiple
+          hidden
+          onChange={(e) => handleAddImages(e.target.files)}
+        />
+
+        <div
+          className={
+            bag.travelDate || (bag.notice && bag.notice.trim()) ? "flex flex-col gap-1.5 mb-3" : ""
+          }
+        >
+          <TravelDateField
+            ref={travelDateRef}
+            travelDate={bag.travelDate}
+            reminderOffsets={bag.reminderOffsets}
+            onChange={handleChangeTravelDate}
+            readOnly={readOnly}
+            hideEmptyPrompt
+          />
+
+          <BagNotice
+            ref={bagNoticeRef}
+            value={bag.notice ?? ""}
+            onChange={(notice) => {
+              pushUndoSnapshot();
+              setBag((prev) => ({ ...prev, notice }));
+            }}
+            readOnly={readOnly}
+            hideEmptyPrompt
           />
         </div>
+
+        <BagChatPreview
+          comments={bagLevelComments}
+          onOpen={() => setShowBagThread(true)}
+          hideEmptyPrompt
+        />
 
         {!readOnly && (
           <div
@@ -1588,6 +1669,16 @@ export default function BagEditorScreen({
             selectedPackId={selection?.packId ?? null}
             selectedItemIds={selection?.itemIds ?? null}
             onToggleSelectItem={toggleSelectItem}
+            getItemThreadInfo={getItemThreadInfo}
+            onOpenItemThread={(packId, itemId, itemText) =>
+              setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
+            }
+            getItemReactionDoc={getItemReactionDoc}
+            currentUid={currentUid}
+            onToggleItemReaction={handleToggleItemReaction}
+            onOpenReactionPicker={(itemId, itemText) =>
+              setReactionPickerTarget({ itemId, itemText: itemText || "짐" })
+            }
           />
         ) : (
           <PackGrid
@@ -1619,6 +1710,16 @@ export default function BagEditorScreen({
             selectedPackId={selection?.packId ?? null}
             selectedItemIds={selection?.itemIds ?? null}
             onToggleSelectItem={toggleSelectItem}
+            getItemThreadInfo={getItemThreadInfo}
+            onOpenItemThread={(packId, itemId, itemText) =>
+              setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
+            }
+            getItemReactionDoc={getItemReactionDoc}
+            currentUid={currentUid}
+            onToggleItemReaction={handleToggleItemReaction}
+            onOpenReactionPicker={(itemId, itemText) =>
+              setReactionPickerTarget({ itemId, itemText: itemText || "짐" })
+            }
           />
         )}
       </div>
@@ -1931,6 +2032,46 @@ export default function BagEditorScreen({
 
       {showHelp && (
         <HelpTutorialModal slides={bagEditorHelpSlides} onClose={() => setShowHelp(false)} />
+      )}
+
+      {openItemThread && (
+        <ItemThreadSheet
+          bagId={bag.id}
+          targetId={openItemThread.itemId}
+          packId={openItemThread.packId}
+          title={openItemThread.itemText}
+          currentUid={currentUid}
+          currentNickname={nickname}
+          currentAvatarId={avatarId}
+          members={mentionMembers}
+          onClose={() => setOpenItemThread(null)}
+        />
+      )}
+
+      {showBagThread && (
+        <ItemThreadSheet
+          bagId={bag.id}
+          targetType="bag"
+          targetId={bag.id}
+          title="가방 대화"
+          currentUid={currentUid}
+          currentNickname={nickname}
+          currentAvatarId={avatarId}
+          members={mentionMembers}
+          onClose={() => setShowBagThread(false)}
+        />
+      )}
+
+      {reactionPickerTarget && (
+        <ReactionPickerPopover
+          title={reactionPickerTarget.itemText}
+          reactionDoc={getItemReactionDoc(reactionPickerTarget.itemId)}
+          currentUid={currentUid}
+          onToggle={(emoji, currentlyReacted) => {
+            handleToggleItemReaction(reactionPickerTarget.itemId, emoji, currentlyReacted);
+          }}
+          onClose={() => setReactionPickerTarget(null)}
+        />
       )}
     </div>
   );
