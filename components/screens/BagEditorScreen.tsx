@@ -633,12 +633,12 @@ export default function BagEditorScreen({
     }
     if (kind === "editor") {
       updatePacks((packs) => [
-        ...packs,
         { id: uid(), name: "새 메모", items: [], kind: "editor" },
+        ...packs,
       ]);
       return;
     }
-    updatePacks((packs) => [...packs, { id: uid(), name: "새 팩", items: [] }]);
+    updatePacks((packs) => [{ id: uid(), name: "새 팩", items: [] }, ...packs]);
   };
 
   // 상단 "+팩" 버튼을 누르면 바로 만들지 않고 체크리스트/메모 중 고르는 작은 시트를 띄운다.
@@ -705,7 +705,7 @@ export default function BagEditorScreen({
 
   const handleImport = (imported: Pack[]) => {
     if (guardReadOnly()) return;
-    updatePacks((packs) => [...packs, ...imported].slice(0, 10));
+    updatePacks((packs) => [...imported, ...packs].slice(0, 10));
   };
 
   // 메모장뷰 상단 "+" 통합 추가 모달 전용. 이름까지 바로 지어 새 팩을 만들고 첫 항목까지
@@ -727,7 +727,7 @@ export default function BagEditorScreen({
         ? { checked: false }
         : { bold: data.bold, strike: data.strike, color: data.color }),
     };
-    updatePacks((packs) => [...packs, { id: newPackId, name: name.trim() || "새 팩", items: [newItem] }]);
+    updatePacks((packs) => [{ id: newPackId, name: name.trim() || "새 팩", items: [newItem] }, ...packs]);
     return newPackId;
   };
 

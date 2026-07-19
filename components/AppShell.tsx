@@ -114,7 +114,7 @@ function CreatingBagOverlay({ visible }: { visible: boolean }) {
 }
 
 export default function AppShell() {
-  const { user, profile, loading, authBusy } = useAuth();
+  const { user, profile, loading, authBusy, updatePackOrderByParent } = useAuth();
   const { show } = useToast();
 
   const [bags, setBags] = useState<Bag[]>([]);
@@ -653,6 +653,20 @@ export default function AppShell() {
     }
   };
 
+  // 팩 보관함(PacksScreen)이 "사용자 설정순(custom)"일 때만 의미가 있는 순서 배열(packOrderByParent)이다.
+  // 기본 정렬(createdAt)은 최신순이라 새로 만든 항목이 이미 자동으로 맨 위에 보이지만, custom 순서를 쓰고
+  // 있으면 아직 order에 없는(=새) 항목이 기존 정렬된 항목들 뒤에 붙어버려서(listSort.ts의 unknown
+  // 버켓), 사용자가 느끼기에는 "맨 밑에 추가된다"로 보인다. 새 항목을 만들 때마다 그 레벨(parentId)의
+  // custom order 앞에 id를 미리 끼워넣어서, custom 정렬일 때도 항상 맨 위에 보이게 한다.
+  const prependToPackOrder = (parentId: string | undefined, newId: string) => {
+    if (profile?.packSortBy !== "custom") return;
+    const parentKey = parentId ?? "root";
+    const currentOrder = profile?.packOrderByParent?.[parentKey] ?? [];
+    updatePackOrderByParent(parentKey, [newId, ...currentOrder]).catch(() => {
+      console.error("새 항목 순서 저장 실패");
+    });
+  };
+
   const openNewPack = (parentId?: string, kind?: "checklist" | "editor") => {
     if (kind === "editor") {
       setEditingPack({ id: uid(), name: "새 메모", items: [], parentId, kind: "editor" });
@@ -671,10 +685,12 @@ export default function AppShell() {
       type: "folder",
       parentId,
     };
-    saveLibraryPackRemote(user, draft).catch((err) => {
-      console.error("[팩인백] 폴더 생성 실패:", err);
-      show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
-    });
+    saveLibraryPackRemote(user, draft)
+      .then(() => prependToPackOrder(parentId, draft.id))
+      .catch((err) => {
+        console.error("[팩인백] 폴더 생성 실패:", err);
+        show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+      });
   };
 
   // 폴더/팩 이름 바꾸기(트리 행의 이름 탭 편집). 폴더는 편집 화면이 없어서
@@ -708,14 +724,21 @@ export default function AppShell() {
   };
 
   const handleSavePack = (pack: Pack) => {
-    saveLibraryPackRemote(user, pack).catch((err) => {
-      if (err instanceof PremiumLimitError) {
-        setPremiumLimitMessage(err.message);
-        return;
-      }
-      console.error("[팩인백] 팩 저장 실패:", err);
-      show(`팩 저장에 실패했어요 (${firebaseErrorCode(err)})`);
-    });
+    // 이미 라이브러리에 있는 팩을 수정하는 것인지, 지금 생성하는 새 팩(openNewPack이 draft만 만들어두고
+    // 이 저장이 처음 Firestore에 쓰이는 순간)인지를 구분해야, 새 팩일 때만 custom order 앞에 끼워넣는다.
+    const isNewEntry = !libraryPacks.some((p) => p.id === pack.id);
+    saveLibraryPackRemote(user, pack)
+      .then(() => {
+        if (isNewEntry) prependToPackOrder(pack.parentId, pack.id);
+      })
+      .catch((err) => {
+        if (err instanceof PremiumLimitError) {
+          setPremiumLimitMessage(err.message);
+          return;
+        }
+        console.error("[팩인백] 팩 저장 실패:", err);
+        show(`팩 저장에 실패했어요 (${firebaseErrorCode(err)})`);
+      });
   };
 
   // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
