@@ -5,7 +5,6 @@ import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getPackColorHex } from "@/lib/packColors";
 import { formatDDayLabel } from "@/lib/dday";
-import { useAuth } from "@/contexts/AuthProvider";
 import ProgressRing from "@/components/ProgressRing";
 
 // 설정 > 화면설정 > 가방 크기 슬라이더 값(--bag-card-scale)에 맞춰 패딩/간격/글자
@@ -30,11 +29,10 @@ export default function BagCard({
   isDragSource?: boolean;
   isDragOver?: boolean;
 }) {
-  const { profile } = useAuth();
   const allItems = bag.packs.flatMap((p) => p.items);
   const totalLabel = formatItemCountLabel(allItems, bag.images.length > 0);
   const overallRatio = getProgressRatio(allItems);
-  const ddayLabel = formatDDayLabel(bag.travelDate, profile?.ddayCountTodayAsDayOne);
+  const ddayLabel = formatDDayLabel(bag.travelDate, bag.ddayCountTodayAsDayOne);
 
   return (
     <div

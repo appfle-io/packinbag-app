@@ -4,7 +4,6 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 import { IconCalendarEvent, IconX } from "@tabler/icons-react";
 import { ReminderOffset } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
-import { useAuth } from "@/contexts/AuthProvider";
 import ToggleSwitch from "@/components/ToggleSwitch";
 
 export interface TravelDateFieldHandle {
@@ -17,7 +16,7 @@ const OFFSET_OPTIONS: { key: ReminderOffset; label: string }[] = [
   { key: 0, label: "당일 아침" },
 ];
 
-// 가방 상단, 제목 아래에 붙는 여행일 설정. 비어있을 땐 "디데이 추가 +" 힌트만 보인다.
+// 가방 상단, 제목 아래에 붙는 디데이 설정. 비어있을 땐 "디데이 추가 +" 힌트만 보인다.
 // hideEmptyPrompt가 true면 비어있을 때 이 힌트 자체를 숨긴다(BagQuickAddRow가 대신
 // "디데이 추가 +" 트리거를 보여줄 때 씀) - 대신 ref.open()으로 외부에서 편집을 열 수 있다.
 // 마진은 이 컴포넌트가 직접 갖지 않는다(BagEditorScreen에서 BagNotice와 함께 하나의
@@ -28,23 +27,31 @@ const TravelDateField = forwardRef<
   {
     travelDate?: string;
     reminderOffsets?: ReminderOffset[];
-    onChange: (travelDate: string | undefined, reminderOffsets: ReminderOffset[] | undefined) => void;
+    // D-Day가 지난 뒤(D+) 표시할 때 당일도 "1일째"로 셀지. 가방별로 따로 저장된다.
+    ddayCountTodayAsDayOne?: boolean;
+    onChange: (
+      travelDate: string | undefined,
+      reminderOffsets: ReminderOffset[] | undefined,
+      ddayCountTodayAsDayOne: boolean | undefined
+    ) => void;
     // true면 편집 진입을 막고 배지/날짜만 보여준다.
     readOnly?: boolean;
     hideEmptyPrompt?: boolean;
   }
->(function TravelDateField({ travelDate, reminderOffsets, onChange, readOnly, hideEmptyPrompt }, ref) {
-  const { profile, updateDdayCountTodayAsDayOne } = useAuth();
-  // 여행 당일도 "1일째"로 셀지 (D+ 표시 방식). 계정에 저장되어 기기 간 동일하게 적용된다.
-  const countTodayAsDayOne = !!profile?.ddayCountTodayAsDayOne;
+>(function TravelDateField(
+  { travelDate, reminderOffsets, ddayCountTodayAsDayOne, onChange, readOnly, hideEmptyPrompt },
+  ref
+) {
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState(travelDate ?? "");
   const [draftOffsets, setDraftOffsets] = useState<ReminderOffset[]>(reminderOffsets ?? [1]);
+  const [draftCountTodayAsDayOne, setDraftCountTodayAsDayOne] = useState(!!ddayCountTodayAsDayOne);
 
   const openEditor = () => {
     if (readOnly) return;
     setDraftDate(travelDate ?? "");
     setDraftOffsets(reminderOffsets ?? [1]);
+    setDraftCountTodayAsDayOne(!!ddayCountTodayAsDayOne);
     setEditing(true);
   };
 
@@ -58,15 +65,15 @@ const TravelDateField = forwardRef<
 
   const commit = () => {
     if (!draftDate) {
-      onChange(undefined, undefined);
+      onChange(undefined, undefined, undefined);
     } else {
-      onChange(draftDate, draftOffsets);
+      onChange(draftDate, draftOffsets, draftCountTodayAsDayOne);
     }
     setEditing(false);
   };
 
   const clear = () => {
-    onChange(undefined, undefined);
+    onChange(undefined, undefined, undefined);
     setEditing(false);
   };
 
@@ -82,7 +89,7 @@ const TravelDateField = forwardRef<
             className="flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
           />
           {travelDate && (
-            <button onClick={clear} aria-label="여행 날짜 삭제" className="p-1">
+            <button onClick={clear} aria-label="날짜 삭제" className="p-1">
               <IconX size={15} stroke={1.75} color="var(--text-muted)" />
             </button>
           )}
@@ -107,21 +114,23 @@ const TravelDateField = forwardRef<
           </div>
         )}
 
-        {/* 여행일이 지난 뒤 D+ 표시 방식 설정. 계정 단위로 저장되어 모든 가방에 동일하게
-            적용된다(가방마다 따로 설정하는 값이 아님). */}
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-2.5 py-2">
-          <div className="min-w-0">
-            <p className="text-[11.5px] font-medium">여행 당일도 1일째로 계산</p>
-            <p className="text-[10.5px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-              끄면 여행 다음날부터 D+1, 켜면 여행 당일부터 D+1로 세요
-            </p>
+        {/* D-Day가 지난 뒤 D+ 표시 방식 설정. 이 가방에만 적용되고(가방별 저장), 다른
+            가방이나 계정 전체에는 영향을 주지 않는다. */}
+        {draftDate && (
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-2.5 py-2">
+            <div className="min-w-0">
+              <p className="text-[11.5px] font-medium">당일도 1일째로 계산</p>
+              <p className="text-[10.5px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+                끄면 다음날부터 D+1, 켜면 당일부터 D+1로 세요
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={draftCountTodayAsDayOne}
+              onChange={setDraftCountTodayAsDayOne}
+              ariaLabel="당일도 1일째로 계산"
+            />
           </div>
-          <ToggleSwitch
-            checked={countTodayAsDayOne}
-            onChange={(v) => updateDdayCountTodayAsDayOne(v)}
-            ariaLabel="여행 당일도 1일째로 계산"
-          />
-        </div>
+        )}
 
         <div className="flex gap-2 justify-end">
           <button
@@ -156,7 +165,7 @@ const TravelDateField = forwardRef<
     );
   }
 
-  const badge = formatDDayLabel(travelDate, countTodayAsDayOne);
+  const badge = formatDDayLabel(travelDate, ddayCountTodayAsDayOne);
 
   // 디데이답게 - 캘린더 아이콘 + D배지 + 날짜를 한 알약(버튼)으로 꾸며서 눈에 띄게 한다.
   return (
