@@ -884,10 +884,6 @@ export default function AppShell() {
             onChangeColor={handleChangePackColor}
             onMoveEntries={handleMoveLibraryEntries}
             onBack={() => setShowPackTree(false)}
-            onOpenSettings={() => {
-              setShowPackTree(false);
-              setTab("settings");
-            }}
             onBulkDeletePacks={handleBulkDeletePacks}
           />
         </div>
@@ -973,8 +969,9 @@ export default function AppShell() {
   // 로직을 공통 함수로 뿑아서 둘 다에서 재사용한다.
   // 가방보관함(home, index 0) 화면에서 왼쪽에서 오른쪽으로 스와이프(dx>0)하는 건
   // 원래 "이전 탭 없음"으로 아무 동작도 안 하던 빈 슬롯이다 - 이 자리를 팩 트리 화면
-  // 열기에 재활용해서(v68), 기존 탭전환 스와이프와 충돌 없이 깔끔하게 공존한다. 마우스만
-  // 있는 데스크톱 웹에서는 HomeScreen 헤더의 폴더 아이콘 버튼으로도 동일한 화면을 열 수 있다.
+  // 열기에 재활용해서(v68), 기존 탭전환 스와이프와 충돌 없이 깔끔하게 공존한다. 마우스로도
+  // 동일하게 동작하므로(handleMouseDown/Up), 데스크톱에서도 따로 버튼 없이 이 드래그만으로 팩
+  // 트리를 열 수 있다(v70: 헤더 폴더 아이콘 삭제됨 - 이제 이 스와이프/엣지 힌트(PackTreeSwipeHint)가 유일한 진입점).
   const handleSwipeGestureEnd = (dx: number, dy: number) => {
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
     const currentIndex = tabOrder.indexOf(tab);
@@ -1057,8 +1054,6 @@ export default function AppShell() {
                 onNewBag={openNewBag}
                 onImportNote={openNewBagFromNote}
                 onJoinBag={handleJoinBag}
-                onOpenPackTree={() => setShowPackTree(true)}
-                onOpenSettings={() => setTab("settings")}
                 onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
                 onBulkDeleteBags={handleBulkDeleteBags}
               />

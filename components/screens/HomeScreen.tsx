@@ -3,14 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconPlus,
-  IconSettings,
   IconTicket,
   IconHelpCircle,
   IconTrash,
   IconCheck,
   IconSearch,
   IconX,
-  IconFolder,
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -50,8 +48,6 @@ export default function HomeScreen({
   onNewBag,
   onImportNote,
   onJoinBag,
-  onOpenPackTree,
-  onOpenSettings,
   onOpenQuickPack,
   onBulkDeleteBags,
 }: {
@@ -73,10 +69,6 @@ export default function HomeScreen({
   onNewBag: () => void;
   onImportNote: (result: NoteImportResult) => void;
   onJoinBag: (code: string) => Promise<void>;
-  // v68: 하단탑에서 "팩" 탑이 사라지면서, 팩 트리(PacksScreen)는 이 헤더 버튼으로도 열 수 있다
-  // (AppShell의 왼→우 스와이프 제스처와 동일한 화면을 연다 - 마우스/태블릿 사용자를 위한 직접적인 진입점).
-  onOpenPackTree: () => void;
-  onOpenSettings: () => void;
   onOpenQuickPack: () => void;
   // 길게 눌러 다중선택한 가방들을 한꺼번에 처리 (AppShell이 소유한 가방은 완전 삭제,
   // 공유받은(내 소유가 아닌) 가방은 나가기로 나눠서 처리한다).
@@ -300,13 +292,6 @@ export default function HomeScreen({
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <button
-                  onClick={onOpenPackTree}
-                  aria-label="팩 보관함"
-                  className="-m-2 p-2"
-                >
-                  <IconFolder size={21} stroke={1.75} color="var(--text-secondary)" />
-                </button>
-                <button
                   onClick={openSearch}
                   aria-label="검색"
                   className="-m-2 p-2"
@@ -321,13 +306,6 @@ export default function HomeScreen({
                   <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
                 <NotificationBell uid={uid} />
-                <button
-                  onClick={onOpenSettings}
-                  aria-label="설정"
-                  className="-m-2 p-2"
-                >
-                  <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
-                </button>
               </div>
             </>
           )}

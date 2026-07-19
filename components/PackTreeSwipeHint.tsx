@@ -140,7 +140,7 @@ export default function PackTreeSwipeHint({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        aria-label="팩 트리 열기"
+        aria-label="팩 보관함 열기"
         className="absolute flex items-center justify-center select-none"
         style={{
           left: REST_LEFT + pull,

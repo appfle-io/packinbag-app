@@ -1,4 +1,13 @@
-# 팩인백 기능 스펙 문서 (v69 기준)
+# 팩인백 기능 스펙 문서 (v70 기준)
+
+## v70 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **가방 보관함/팩 보관함 헤더 설정 아이콘 삭제** | 🗑️ v70 정리 | 설정(SettingsScreen)은 이미 하단탭(오른쪽, "설정")으로도 진입 가능해서 헤더 톱니바퀴 아이콘이 중복이었음. HomeScreen/PacksScreen 헤더에서 설정 아이콘 제거(`onOpenSettings` prop 삭제). `components/screens/HomeScreen.tsx`, `components/screens/PacksScreen.tsx`, `components/AppShell.tsx` |
+| **가방 보관함 헤더의 팩 보관함(폴더 아이콘) 버튼 삭제** | 🗑️ v70 정리 | 이미 같은 역할을 하는 왼쪽 엣지 스와이프 힌트 버튼(`PackTreeSwipeHint`)이 있어서 중복. 데스크톱/마우스에서도 같은 드래그 제스처(`handleMouseDown/Up`)가 동일하게 동작하므로 버튼 없이도 진입 가능. `onOpenPackTree` prop 삭제. `components/screens/HomeScreen.tsx`, `components/AppShell.tsx` |
+| **용어 통일: "팩 트리" → "팩 보관함"** | 🐛 v70 정리 | 설정 > 팩 설정의 "팩 트리 열기 버튼" 명칭/설명과, 엣지 스와이프 힌트 버튼의 aria-label을 "팩 보관함"으로 통일(사용자 노출 문구 기준). `components/screens/PackSettingsScreen.tsx`, `components/PackTreeSwipeHint.tsx` |
+| **화면설정 구조 정리: 안 쓰는 "팩 보관함 그리드" 섹션 숨김 + 재배치** | 🗑️ v70 정리 | v68부터 팩 보관함이 그리드(PackTile)에서 트리(리스트)로 바뀌면서 PackTile이 실제로는 안 쓰는 코드가 되어, "팩 보관함 그리드"(`packLibraryColorId` 등) 섹션을 화면에서 숨김. "가방 카드" → "가방 보관함"으로 명칭 변경, "가방 속 팩카드"는 "가방" 그룹에서 "팩" 그룹으로 이동(팩 카드 설정이라는 의미상 더 맞는 카테고리로 재배치). PackTile.tsx 파일 자체와 ThemeProvider의 packLibrary 관련 상태/CSS변수는 보존(appflo 요청, UI만 숨김). `components/screens/ColorSettingsScreen.tsx` |
 
 ## v69 변경 요약
 

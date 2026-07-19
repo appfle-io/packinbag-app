@@ -85,15 +85,15 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-medium">팩 트리 열기 버튼</p>
+            <p className="text-[13px] font-medium">팩 보관함 열기 버튼</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              가방보관함 왼쪽 가장자리에 팩 트리를 열 수 있는 버튼을 띄워줘요. 꺼도 왼쪽 가장자리를 오른쪽으로 스와이프하면 버튼 없이도 팩 트리가 열려요.
+              가방 보관함 왼쪽 가장자리에 팩 보관함을 열 수 있는 버튼을 띄워줘요. 꺼도 왼쪽 가장자리를 오른쪽으로 스와이프하면 버튼 없이도 팩 보관함이 열려요.
             </p>
           </div>
           <ToggleSwitch
             checked={packTreeHintEnabled}
             onChange={(v) => updatePackSettings({ packTreeHintEnabled: v })}
-            ariaLabel="팩 트리 열기 버튼"
+            ariaLabel="팩 보관함 열기 버튼"
           />
         </div>
 

@@ -5,7 +5,6 @@ import {
   IconPlus,
   IconFolderPlus,
   IconFolder,
-  IconSettings,
   IconTrash,
   IconCheck,
   IconSearch,
@@ -86,7 +85,6 @@ export default function PacksScreen({
   onChangeColor,
   onMoveEntries,
   onBack,
-  onOpenSettings,
   onBulkDeletePacks,
 }: {
   // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 트리를 그리기 전에 걸러낸다 -
@@ -112,7 +110,6 @@ export default function PacksScreen({
   onMoveEntries: (packIds: string[], parentId: string | undefined) => void;
   // v68: 이 화면은 탭이 아니라 가방보관함에서 스와이프로 열리는 풀스크린 화면이라 뒤로가기 버튼이 필요하다.
   onBack: () => void;
-  onOpenSettings: () => void;
   // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더는 재귀적으로).
   onBulkDeletePacks: (packIds: string[]) => void;
 }) {
@@ -500,9 +497,6 @@ export default function PacksScreen({
                   <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
                 <NotificationBell uid={uid} />
-                <button onClick={onOpenSettings} aria-label="설정" className="-m-2 p-2">
-                  <IconSettings size={22} stroke={1.75} color="var(--text-secondary)" />
-                </button>
               </div>
             </>
           )}

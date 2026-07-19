@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 
-type Slot = "accent" | "bag" | "packGrid" | "packLibrary";
+type Slot = "accent" | "bag" | "packGrid";
 
 const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
   { key: "sm", label: "작게", previewPx: 12 },
@@ -224,14 +224,6 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setPackCardScale,
     packCardFontScale,
     setPackCardFontScale,
-    packLibraryColorId,
-    setPackLibraryColor,
-    packLibraryCustomHex,
-    setCustomPackLibraryColor,
-    packLibraryColorOpacity,
-    setPackLibraryColorOpacity,
-    packLibraryCardScale,
-    setPackLibraryCardScale,
     baseOpacity,
     setBaseOpacity,
   } = useTheme();
@@ -351,7 +343,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         <h2 className="text-[14px] font-semibold mt-10 mb-3">가방</h2>
 
         <ColorSlotSection
-          title="가방 카드"
+          title="가방 보관함"
           description="가방 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           selectedId={bagColorId}
           customHex={bagCustomHex}
@@ -394,6 +386,8 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
             </div>
           }
         />
+
+        <h2 className="text-[14px] font-semibold mt-4 mb-3">팩</h2>
 
         <ColorSlotSection
           title="가방 속 팩카드"
@@ -447,42 +441,6 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
             </div>
           }
         />
-
-        <h2 className="text-[14px] font-semibold mt-4 mb-3">팩</h2>
-
-        <ColorSlotSection
-          title="팩 보관함 그리드"
-          description="팩 탭 목록의 타일 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
-          selectedId={packLibraryColorId}
-          customHex={packLibraryCustomHex}
-          showDefaultOption
-          onSelectPreset={setPackLibraryColor}
-          onOpenCustomPicker={() => openCustomPicker("packLibrary")}
-          opacityPct={Math.round(packLibraryColorOpacity * 100)}
-          onChangeOpacity={(pct) => setPackLibraryColorOpacity(pct / 100)}
-          scalePct={Math.round(packLibraryCardScale * 100)}
-          onChangeScale={(pct) => setPackLibraryCardScale(pct / 100)}
-          scaleLabel="글씨 크기"
-          scaleMax={170}
-          preview={
-            <div className="mt-3 flex justify-center">
-              <div
-                className="aspect-square rounded-xl border border-border shadow-sm flex flex-col p-[calc(12px*var(--pack-library-card-scale,1))] md:p-[calc(16px*var(--pack-library-card-scale,1))] w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2rem)/3)]"
-                style={{ background: "var(--pack-library-card-bg)" }}
-              >
-                <span className="text-[calc(13px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] font-medium">
-                  예시 팩
-                </span>
-                <p className="text-[calc(11px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-1.5">
-                  칫솔, 치약
-                </p>
-                <p className="text-[calc(11px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-auto">
-                  2개
-                </p>
-              </div>
-            </div>
-          }
-        />
       </div>
 
       {openPicker === "accent" && (
@@ -503,13 +461,6 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         <ColorPickerPopover
           initialHex={packGridCustomHex}
           onChange={setCustomPackGridColor}
-          onClose={() => setOpenPicker(null)}
-        />
-      )}
-      {openPicker === "packLibrary" && (
-        <ColorPickerPopover
-          initialHex={packLibraryCustomHex}
-          onChange={setCustomPackLibraryColor}
           onClose={() => setOpenPicker(null)}
         />
       )}
