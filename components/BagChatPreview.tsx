@@ -2,6 +2,7 @@ import { IconMessages } from "@tabler/icons-react";
 import { BagComment, BagReactionDoc, ReactionEmoji } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import ReactionPillRow from "@/components/ReactionPillRow";
+import MentionText from "@/components/MentionText";
 
 // 가방 공지 메모(BagNotice) 바로 아래에 두는 "가방 대화" 미리보기. 댓글이 있으면
 // 최신순으로 최대 3개까지, 아바타+닉네임+내용을 전부 한 줄로 이어서 보여준다
@@ -78,7 +79,7 @@ export default function BagChatPreview({
                     className="flex items-center h-5 min-w-0 truncate rounded-lg rounded-tl-sm px-2 text-[12.5px] font-normal leading-none"
                     style={{ background: "var(--surface-2)", color: "var(--foreground)" }}
                   >
-                    {c.text}
+                    <MentionText text={c.text} />
                   </span>
 
                   {showReactions && (

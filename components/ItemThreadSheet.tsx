@@ -15,6 +15,7 @@ import {
 import { subscribeToReactions, toggleReaction } from "@/lib/reactionsService";
 // import ReactionBar from "@/components/ReactionBar";
 import MentionInput, { MentionMember } from "@/components/MentionInput";
+import MentionText from "@/components/MentionText";
 import ReactionPillRow from "@/components/ReactionPillRow";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
 import { extractMentionedUids } from "@/lib/mentions";
@@ -235,7 +236,7 @@ export default function ItemThreadSheet({
                     ) : (
                       <div className="flex items-end gap-2">
                         <p className="max-w-[75%] min-w-0 shrink text-[13px] whitespace-pre-wrap break-words" style={{ color: "var(--text-secondary)" }}>
-                          {c.text}
+                          <MentionText text={c.text} />
                         </p>
                         <div className="shrink-0">
                           <ReactionPillRow

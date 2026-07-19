@@ -12,7 +12,6 @@ import {
   IconX,
   IconChevronRight,
   IconChevronDown,
-  IconArrowLeft,
   IconPin,
   IconPinFilled,
   IconEdit,
@@ -481,9 +480,6 @@ export default function PacksScreen({
           ) : (
             <>
               <div className="flex items-center gap-2 min-w-0">
-                <button onClick={onBack} aria-label="뒤로가기" className="-m-2 p-2 shrink-0">
-                  <IconArrowLeft size={20} stroke={1.75} />
-                </button>
                 <h1 className="text-[22px] font-bold shrink-0">팩</h1>
                 <span className="text-[12px] text-text-muted truncate">
                   폴더로 정리해서 두고두고 써요
