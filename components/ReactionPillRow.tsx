@@ -49,12 +49,12 @@ export default function ReactionPillRow({
             style={{
               background: mine ? "var(--accent-soft)" : "var(--surface)",
               border: mine ? "1px solid var(--accent)" : "1px solid var(--border)",
-              padding: "0px 4px",
+              padding: "0px 3px",
             }}
           >
-            <span style={{ fontSize: 9, lineHeight: 1.6 }}>{emoji}</span>
+            <span style={{ fontSize: 7, lineHeight: 1.6 }}>{emoji}</span>
             <span
-              className="text-[8.5px] font-medium"
+              className="text-[7px] font-medium"
               style={{ color: mine ? "var(--accent)" : "var(--text-secondary)" }}
             >
               {uids.length}
@@ -73,11 +73,11 @@ export default function ReactionPillRow({
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
-          width: 14,
-          height: 14,
+          width: 10,
+          height: 10,
         }}
       >
-        <span style={{ fontSize: 8, lineHeight: 1, color: "var(--text-muted)" }}>+</span>
+        <span style={{ fontSize: 7, lineHeight: 1, color: "var(--text-muted)" }}>+</span>
       </button>
     </div>
   );
