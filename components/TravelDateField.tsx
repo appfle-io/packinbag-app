@@ -4,6 +4,8 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 import { IconCalendarEvent, IconX } from "@tabler/icons-react";
 import { ReminderOffset } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
+import { useAuth } from "@/contexts/AuthProvider";
+import ToggleSwitch from "@/components/ToggleSwitch";
 
 export interface TravelDateFieldHandle {
   open: () => void;
@@ -32,6 +34,9 @@ const TravelDateField = forwardRef<
     hideEmptyPrompt?: boolean;
   }
 >(function TravelDateField({ travelDate, reminderOffsets, onChange, readOnly, hideEmptyPrompt }, ref) {
+  const { profile, updateDdayCountTodayAsDayOne } = useAuth();
+  // 여행 당일도 "1일째"로 셀지 (D+ 표시 방식). 계정에 저장되어 기기 간 동일하게 적용된다.
+  const countTodayAsDayOne = !!profile?.ddayCountTodayAsDayOne;
   const [editing, setEditing] = useState(false);
   const [draftDate, setDraftDate] = useState(travelDate ?? "");
   const [draftOffsets, setDraftOffsets] = useState<ReminderOffset[]>(reminderOffsets ?? [1]);
@@ -102,6 +107,22 @@ const TravelDateField = forwardRef<
           </div>
         )}
 
+        {/* 여행일이 지난 뒤 D+ 표시 방식 설정. 계정 단위로 저장되어 모든 가방에 동일하게
+            적용된다(가방마다 따로 설정하는 값이 아님). */}
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-2.5 py-2">
+          <div className="min-w-0">
+            <p className="text-[11.5px] font-medium">여행 당일도 1일째로 계산</p>
+            <p className="text-[10.5px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+              끄면 여행 다음날부터 D+1, 켜면 여행 당일부터 D+1로 세요
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={countTodayAsDayOne}
+            onChange={(v) => updateDdayCountTodayAsDayOne(v)}
+            ariaLabel="여행 당일도 1일째로 계산"
+          />
+        </div>
+
         <div className="flex gap-2 justify-end">
           <button
             onClick={() => setEditing(false)}
@@ -135,7 +156,7 @@ const TravelDateField = forwardRef<
     );
   }
 
-  const badge = formatDDayLabel(travelDate);
+  const badge = formatDDayLabel(travelDate, countTodayAsDayOne);
 
   // 디데이답게 - 캘린더 아이콘 + D배지 + 날짜를 한 알약(버튼)으로 꾸며서 눈에 띄게 한다.
   return (
