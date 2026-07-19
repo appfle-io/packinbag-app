@@ -12,5 +12,20 @@ export function isInSyncWithLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
   if (!pack.linkedLibraryPackId) return false;
   const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
   if (!source) return false;
-  return pack.name.trim() === source.name.trim() && itemsMatch(pack.items, source.items);
+  if (pack.name.trim() !== source.name.trim()) return false;
+  // 에디터팩(자유문서형)은 items가 항상 빈 배열이라 itemsMatch로는 내용 차이를
+  // 감지할 수 없으므로, editorDoc(TipTap JSON) 자체를 직접 비교한다.
+  if (pack.kind === "editor" || source.kind === "editor") {
+    return JSON.stringify(pack.editorDoc ?? null) === JSON.stringify(source.editorDoc ?? null);
+  }
+  return itemsMatch(pack.items, source.items);
+}
+
+// 이 팩이 연동된 라이브러리 원본이 지금 로그인한 사람 자신의 라이브러리에 실제로 있는지
+// 확인한다. 가방은 여러 명이 같이 쓰다 보니 linkedLibraryPackId가 다른 멤버가 저장해둔
+// 라이브러리 팩을 가리킬 수도 있는데, 그런 경우에는 다른 사람의 라이브러리 공간을 지울
+// 권한이 없으니 "함께 삭제" 옵션 자체를 보여주지 않아야 한다.
+export function canDeleteFromLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
+  if (!pack.linkedLibraryPackId) return false;
+  return libraryPacks.some((p) => p.id === pack.linkedLibraryPackId);
 }

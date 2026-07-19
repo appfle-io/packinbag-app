@@ -8,12 +8,15 @@ export default function EditableText({
   className,
   inputClassName,
   placeholder,
+  readOnly,
 }: {
   value: string;
   onChange: (value: string) => void;
   className?: string;
   inputClassName?: string;
   placeholder?: string;
+  // true = read-only mode. Used for locked bags/packs.
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -45,11 +48,16 @@ export default function EditableText({
 
   return (
     <button
-      onClick={() => {
-        setDraft(value);
-        setEditing(true);
-      }}
+      onClick={
+        readOnly
+          ? undefined
+          : () => {
+              setDraft(value);
+              setEditing(true);
+            }
+      }
       className={className}
+      style={readOnly ? { cursor: "default" } : undefined}
     >
       {value || placeholder}
     </button>

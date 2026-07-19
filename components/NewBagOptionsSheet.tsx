@@ -2,15 +2,17 @@
 
 import Portal from "@/components/Portal";
 
-import { IconEdit, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconEdit, IconLayoutGrid, IconSparkles, IconX } from "@tabler/icons-react";
 
 export default function NewBagOptionsSheet({
   onClose,
   onBlank,
+  onFromSample,
   onFromNote,
 }: {
   onClose: () => void;
   onBlank: () => void;
+  onFromSample: () => void;
   onFromNote: () => void;
 }) {
   return (
@@ -41,6 +43,27 @@ export default function NewBagOptionsSheet({
               <div className="text-[11px] text-text-muted">
                 빈 가방에서 시작해요
               </div>
+            </div>
+          </button>
+
+          <button
+            onClick={onFromSample}
+            className="flex items-center gap-3 rounded-lg bg-surface-2 p-3 text-left"
+          >
+            <IconLayoutGrid size={18} stroke={1.75} />
+            <div className="flex items-center gap-1.5">
+              <div>
+                <div className="text-[13px] font-medium">샘플로 시작하기</div>
+                <div className="text-[11px] text-text-muted">
+                  여행, 이사, 장보기 등 상황별 샘플을 바로 채워드려요
+                </div>
+              </div>
+              <span
+                className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold"
+                style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+              >
+                NEW
+              </span>
             </div>
           </button>
 

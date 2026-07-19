@@ -2,10 +2,12 @@
 
 import { IconArrowLeft } from "@tabler/icons-react";
 import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
+import { useSwipeBack } from "@/lib/useSwipeBack";
 
 export default function VersionInfoScreen({ onBack }: { onBack: () => void }) {
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
         <button onClick={onBack} aria-label="뒤로">
           <IconArrowLeft size={20} stroke={1.75} />

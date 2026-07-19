@@ -1,15 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Pack } from "@/lib/types";
-import { isInSyncWithLibrary } from "@/lib/packSync";
+import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
+import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
+import EditorPackCard from "./EditorPackCard";
 
 export default function PackGrid({
   packs,
@@ -17,18 +11,36 @@ export default function PackGrid({
   onToggleItem,
   onChangeItemText,
   onDeleteItem,
-  onAddItem,
+  onEditItem,
   onRenamePack,
-  onChangeColor,
   onToggleAll,
   onSaveToLibrary,
   onDeletePack,
+  onChangeDisplayState,
   onRefreshFromLibrary,
   onStartItemDrag,
   dragSourceItemId,
+  dragOverItemId,
+  dragOverItemPosition,
   dragOverPackId,
+  dragOverPackPosition,
   onStartPackDrag,
   dragSourcePackId,
+  hideChecked,
+  onAddItem,
+  selectedPackId,
+  selectedItemIds,
+  onToggleSelectItem,
+  getItemThreadInfo,
+  onOpenItemThread,
+  onOpenNotePackEditor,
+  getNoteEditors,
+  /*
+  getItemReactionDoc,
+  currentUid,
+  onToggleItemReaction,
+  onOpenReactionPicker,
+  */
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
@@ -40,46 +52,86 @@ export default function PackGrid({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (packId: string, itemId: string) => void;
-  onAddItem: (packId: string, type: "check" | "text") => void;
+  // 있으면 짐 수정 진입시 모달을 여는 콜백 (없으면 PackCard가 기존 인라인 편집 유지)
+  onEditItem?: (packId: string, itemId: string) => void;
   onRenamePack: (packId: string, name: string) => void;
-  onChangeColor: (packId: string, colorId: string | undefined) => void;
   onToggleAll: (packId: string, checked: boolean) => void;
   onSaveToLibrary: (packId: string) => void;
-  onDeletePack: (packId: string) => void;
+  onDeletePack: (packId: string, alsoDeleteLibrary: boolean) => void;
+  onChangeDisplayState: (packId: string, nextState: "normal" | "wide" | "collapsed") => void;
   onRefreshFromLibrary: (packId: string) => void;
   onStartItemDrag?: (packId: string, itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
+  dragOverItemId?: string | null;
+  dragOverItemPosition?: "before" | "after" | null;
   dragOverPackId?: string | null;
+  dragOverPackPosition?: "before" | "after" | null;
   onStartPackDrag?: (packId: string, name: string, clientX: number, clientY: number) => void;
   dragSourcePackId?: string | null;
+  hideChecked?: boolean;
+  onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
+  // 다중선택이 진행 중인 패의 id와 그 안에서 선택된 짐 id 집합. 없으면 다중선택
+  // 모드 자체가 아님.
+  selectedPackId?: string | null;
+  selectedItemIds?: Set<string> | null;
+  onToggleSelectItem?: (packId: string, itemId: string) => void;
+  // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 댓글 버튼이 안 보인다.
+  getItemThreadInfo?: (itemId: string) => { commentCount: number };
+  onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
+  // 에디터팩(자유문서형) 카드의 연필 버튼 탭 - 있으면 EditorPackCard가 렌더된다(없으면
+  // kind==='editor' 팩은 일반 PackCard로 폴백된다 - 상위 화면이 아직 이 콜백을 연결하지
+  // 않았을 때도 깨지지 않게 하기 위함).
+  onOpenNotePackEditor?: (packId: string) => void;
+  // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다. 없으면 아바타가 안 보인다.
+  getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
+  /*
+  getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
+  currentUid?: string;
+  onToggleItemReaction?: (itemId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
+  onOpenReactionPicker?: (itemId: string, itemText: string) => void;
+  */
 }) {
-  const pages = chunk(packs, 4);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const [activePage, setActivePage] = useState(0);
-
-  const handleScroll = () => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    setActivePage(Math.round(el.scrollLeft / el.clientWidth));
-  };
-
-  const renderCard = (pack: Pack) => (
+  const renderCard = (pack: Pack) => {
+    if (pack.kind === "editor") {
+      return (
+        <EditorPackCard
+          key={pack.id}
+          pack={pack}
+          isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
+          canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
+          onRenamePack={(name) => onRenamePack(pack.id, name)}
+          onSaveToLibrary={() => onSaveToLibrary(pack.id)}
+          onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
+          onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
+          onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
+          onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
+          editors={getNoteEditors?.(pack.id) ?? []}
+          onStartPackDrag={
+            onStartPackDrag ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y) : undefined
+          }
+          isPackDragSource={dragSourcePackId === pack.id}
+          isDragOver={dragOverPackId === pack.id}
+          isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
+        />
+      );
+    }
+    return (
     <PackCard
       key={pack.id}
       pack={pack}
       isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
+      canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
       onToggleItem={(itemId) => onToggleItem(pack.id, itemId)}
       onChangeItemText={(itemId, text, style) =>
         onChangeItemText(pack.id, itemId, text, style)
       }
       onDeleteItem={(itemId) => onDeleteItem(pack.id, itemId)}
-      onAddCheckItem={() => onAddItem(pack.id, "check")}
-      onAddTextItem={() => onAddItem(pack.id, "text")}
+      onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
       onRenamePack={(name) => onRenamePack(pack.id, name)}
-      onChangeColor={(colorId) => onChangeColor(pack.id, colorId)}
       onToggleAll={(checked) => onToggleAll(pack.id, checked)}
       onSaveToLibrary={() => onSaveToLibrary(pack.id)}
-      onDeletePack={() => onDeletePack(pack.id)}
+      onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
+      onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
       onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
       onStartItemDrag={
         onStartItemDrag
@@ -87,59 +139,41 @@ export default function PackGrid({
           : undefined
       }
       dragSourceItemId={dragSourceItemId}
+      dragOverItemId={dragOverItemId}
+      dragOverItemPosition={dragOverItemPosition}
       isDragOver={dragOverPackId === pack.id}
+      isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
       onStartPackDrag={
         onStartPackDrag
           ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y)
           : undefined
       }
       isPackDragSource={dragSourcePackId === pack.id}
+      hideChecked={hideChecked}
+      onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
+      selectedItemIds={selectedPackId === pack.id ? selectedItemIds : null}
+      onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
+      getItemThreadInfo={getItemThreadInfo}
+      onOpenItemThread={
+        onOpenItemThread ? (itemId, itemText) => onOpenItemThread(pack.id, itemId, itemText) : undefined
+      }
+      /*
+      getItemReactionDoc={getItemReactionDoc}
+      currentUid={currentUid}
+      onToggleItemReaction={onToggleItemReaction}
+      onOpenReactionPicker={onOpenReactionPicker}
+      */
     />
-  );
+    );
+  };
 
+  // 팩 카드 "넓히기"는 가로폭이 아니라 짐 영역의 높이만 늘어나는 방식이라, 컬럼 span
+  // 계산이 필요없다 - 그냥 흐르는 2열 그리드(items-start)로 두면 카드가 커진 행만
+  // 자연스럽게 높아지고, 옆 카드는 그대로 위쪽에 붙어 보인다. 예전의 4개씩 2x2
+  // 페이지네이션(가로 스크롤 스냅)은 카드 높이가 서로 달라지면 어색해져서 제거했다.
   return (
-    <>
-      {/* 데스크톱: 2x2 그리드, 4개 초과시 가로 스크롤 페이지 전환 */}
-      <div className="hidden md:block">
-        <div
-          ref={scrollerRef}
-          onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar"
-        >
-          {pages.map((page, i) => (
-            <div
-              key={i}
-              className="grid grid-cols-2 gap-4 shrink-0 w-full snap-start"
-              style={{ gridTemplateRows: "1fr 1fr", minHeight: 380 }}
-            >
-              {page.map(renderCard)}
-            </div>
-          ))}
-        </div>
-        {pages.length > 1 && (
-          <div className="flex justify-center gap-1.5 mt-3">
-            {pages.map((_, i) => (
-              <div
-                key={i}
-                className="h-1.5 w-1.5 rounded-full"
-                style={{
-                  background:
-                    i === activePage ? "var(--text-secondary)" : "var(--border-strong)",
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 모바일: 세로 스택, 페이지 스크롤 */}
-      <div className="flex flex-col gap-3 md:hidden">
-        {packs.map((pack) => (
-          <div key={pack.id} style={{ minHeight: 0 }}>
-            {renderCard(pack)}
-          </div>
-        ))}
-      </div>
-    </>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
+      {packs.map(renderCard)}
+    </div>
   );
 }

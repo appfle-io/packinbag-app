@@ -7,6 +7,7 @@ import { AVATAR_OPTIONS, randomAvatarId } from "@/lib/avatars";
 import { randomNickname } from "@/lib/nickname";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/Toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 // 구글 로그인은 비밀번호/닉네임 입력 단계가 없기 때문에, 최초 1회 로그인 직후
 // 여기서 이메일 가입과 동일하게 닉네임 + 아바타를 고르게 한다.
@@ -15,6 +16,7 @@ export default function GoogleProfileSetup() {
   const [nickname, setNickname] = useState(randomNickname);
   const [avatarId, setAvatarId] = useState(randomAvatarId);
   const [busy, setBusy] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const { show } = useToast();
 
   const handleConfirm = async () => {
@@ -81,10 +83,23 @@ export default function GoogleProfileSetup() {
           시작하기
         </button>
 
-        <button onClick={logout} className="text-[12px] text-text-secondary text-center">
+        <button onClick={() => setConfirmLogout(true)} className="text-[12px] text-text-secondary text-center">
           다른 계정으로 로그인
         </button>
       </div>
+
+      {confirmLogout && (
+        <ConfirmDialog
+          title="로그아웃 하시겠어요?"
+          confirmLabel="로그아웃"
+          tone="danger"
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={() => {
+            setConfirmLogout(false);
+            logout();
+          }}
+        />
+      )}
     </div>
   );
 }

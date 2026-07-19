@@ -28,7 +28,7 @@ export default function GroupMembersModal({
   bag: Bag;
   currentUid: string;
   onClose: () => void;
-  onLeave: () => void;
+  onLeave: () => Promise<void> | void;
   onRemoveMember: (uid: string) => Promise<void> | void;
   onRegenerateCode: () => Promise<void> | void;
 }) {
@@ -36,6 +36,8 @@ export default function GroupMembersModal({
   const [regenerating, setRegenerating] = useState(false);
   const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const { show } = useToast();
 
   const isOwner = bag.ownerId === currentUid;
@@ -60,6 +62,17 @@ export default function GroupMembersModal({
       show("초대 코드를 새로 발급했어요");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    setConfirmLeave(false);
+    setLeaving(true);
+    try {
+      await onLeave();
+    } catch {
+      // 실패 토스트는 상위(AppShell)에서 이미 표시됨
+      setLeaving(false);
     }
   };
 
@@ -155,11 +168,13 @@ export default function GroupMembersModal({
 
           {bag.memberIds.length > 1 && !isOwner && (
             <button
-              onClick={onLeave}
-              className="flex items-center gap-1.5 text-[12px] shrink-0"
+              onClick={() => setConfirmLeave(true)}
+              disabled={leaving}
+              className="flex items-center gap-1.5 text-[12px] shrink-0 disabled:opacity-50"
               style={{ color: "var(--danger)" }}
             >
-              <IconLogout size={14} stroke={1.75} />이 가방에서 나가기
+              <IconLogout size={14} stroke={1.75} />
+              {leaving ? "나가는 중..." : "이 가방에서 나가기"}
             </button>
           )}
 
@@ -194,6 +209,16 @@ export default function GroupMembersModal({
             confirmLabel="재발급"
             onCancel={() => setConfirmRegenerate(false)}
             onConfirm={handleRegenerate}
+          />
+        )}
+
+        {confirmLeave && (
+          <ConfirmDialog
+            title="이 가방에서 나갈까요?"
+            message="다시 참여하려면 초대 코드가 필요해요."
+            confirmLabel="나가기"
+            onCancel={() => setConfirmLeave(false)}
+            onConfirm={handleLeave}
           />
         )}
       </div>

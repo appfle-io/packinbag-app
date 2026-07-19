@@ -3,11 +3,35 @@ rules_version = '2';
 // 팩인백 Firestore 보안 규칙
 // - users/{uid}: 본인만 읽고 쓸 수 있음
 // - users/{uid}/libraryPacks: 팩 라이브러리는 공유되지 않는 개인 전용 공간. 본인만 접근.
+//   단, 새로 만들기(create)는 무료 개수 제한을 서버에서 검증해야 해서 클라이언트로는 막아뒀고
+//   (allow create: if false), app/api/create-library-pack(Admin SDK)에서만 만들 수 있다.
+//   기존 팩 수정(자동저장)/삭제는 여전히 클라이언트가 직접 하지만, locked:true인 팩(이용권이
+//   없거나 만료/무효화된 상태에서 라이브러리 개수 제한을 넘은 것)은 서버(app/api/
+//   sync-lock-status)만 고칠 수 있고 클라이언트 쪽 수정/삭제는 막힌다(읽기는 계속 허용).
+//   trashedAt(휴지통으로 보낸 시각)은 client가 null -> 값으로 설정(=휴지통 보내기)하는 것만
+//   허용되고, 값 -> null로 되돌리는 것(=복구)은 무료 개수 제한 검증이 필요해서 서버(app/api/
+//   restore-library-pack, Admin SDK)에서만 가능하다.
 // - bags/{bagId}: 공유 단위는 "가방"이다. memberIds에 포함된 사람만 읽고 쓸 수 있음(동시편집).
-//   생성은 본인 1인 멤버로만 가능. 참여는 초대코드를 아는 사람이 자기 uid만 추가하는 형태로만 허용.
+//   생성(create)은 무료 개수 제한을 서버에서 검증해야 해서 클라이언트로는 막아뒀고(allow
+//   create: if false), app/api/create-bag(Admin SDK)에서만 만들 수 있다. 참여는 초대코드를
+//   아는 사람이 자기 uid만 추가하는 형태로만 허용(이건 여전히 클라이언트 직접 update).
+//   가방이 locked:true(소유자가 무료 전환 후 개수 제한을 넘어선 상태)이면, "소유자" 본인의
+//   수정/삭제만 막힌다 - 다른 그룹원은 locked 여부와 무관하게 그대로 이용할 수 있다
+//   (request.auth.uid == ownerId 조건과 함께 검사). locked 필드 자체도 app/api/
+//   sync-lock-status(Admin SDK)만 쓸 수 있다.
+//   trashedByOwnerAt(소유자가 휴지통으로 보낸 시각)은 "소유자"만 null -> 값으로 설정(=휴지통
+//   보내기) 가능하고, 값 -> null로 되돌리는 것(=복구)은 무료 동시 진행 개수 제한 검증이
+//   필요해서 서버(app/api/restore-bag, Admin SDK)에서만 가능하다. 다른 그룹원은 이 필드와
+//   무관하게 계속 가방을 그대로 쓸 수 있다(소유자 화면에서만 휴지통 처리되는 정책이라,
+//   이 필드는 memberIds 수정과 별개로 소유자만 건드릴 수 있게 막아둔다).
 // - bags/{bagId}/presence: 그 가방 멤버만 자신의 접속 상태를 쓸 수 있음(실시간 접속자 표시용).
 // - inviteCodes/{code}: 코드 -> bagId 매핑. 코드를 아는 사람만 조회 가능(목록조회는 불가).
 // - announcements/{id}: 공지사항. 로그인한 사람 누구나 읽고, 마스터(운영자) 이메일만 쓸 수 있음.
+// - unlockCodes/{code}: AI 기능 무제한 이용권 코드. 코드를 아는 사람은 존재 여부만 조회(get) 가능,
+//   목록조회(list)/생성은 마스터(운영자)만 가능. 코드를 실제로 "사용 처리(claim)"하는 것은
+//   클라이언트가 아니라 서버(Admin SDK, app/api/redeem-unlock-code)만 할 수 있다 - 그래서 일반
+//   사용자에게는 update 권한이 전혀 없다. 마스터는 이미 발급된 코드를 "무효화(invalidate)"만
+//   할 수 있고, 그 외 필드(claimedBy 등)는 절대 건드릴 수 없다.
 //
 // 참고: "소그룹(최대 10명)" 신뢰 기반 사용을 가정한 1차 버전입니다.
 // bags 컬렉션 자체에 대한 규칙은 resource.data를 직접 사용하고(추가 get() 호출 없음),
@@ -16,12 +40,92 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 마스터(운영자) 이메일 판정 - 여러 match 블록에서 공통으로 쓴다.
+    function isMasterEmail() {
+      return request.auth.token.email in
+        ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+    }
+
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
 
-      match /libraryPacks/{packId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+      // 문의하기 답변 등록 시 마스터가 작성자에게 알림을 남기는 곳. 나중에 푸시
+      // 기능이 생기면 서버(Admin SDK)가 같은 구조에 다른 type을 쓰기만 하면 되도록
+      // 설계되어 있다.
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+
+        // 본인은 읽음 처리(read 필드)만 바꿀 수 있다.
+        allow update: if request.auth != null && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+        // 지금은 마스터가 다른 사람의 notifications 하위 컬렉션에 쓰는
+        // 유일한 경로(문의 답변 등록 시). 나중에 푸시용 서버 라우트가 생기면
+        // Admin SDK를 쓰면 이 규칙을 그대로 통과한다.
+        allow create: if request.auth != null && isMasterEmail();
+
+        // 댓글 멘션 알림: 같은 가방 멤버끼리에게만 서로 알림을 남길 수 있다.
+        // relatedBagId로 가리키는 가방을 조회해서 쓰는 사람(request.auth.uid)와
+        // 알림 받는 사람(uid, 경로 변수) 모두가 그 가방의 memberIds에 있어야한다.
+        allow create: if request.auth != null &&
+          request.resource.data.type == 'comment_mention' &&
+          request.resource.data.relatedBagId is string &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/bags/$(request.resource.data.relatedBagId)).data.memberIds &&
+          uid in
+            get(/databases/$(database)/documents/bags/$(request.resource.data.relatedBagId)).data.memberIds;
+
+        allow delete: if false;
       }
+
+      // 팩 라이브러리 새로 만들기(create)는 항상 막혀있어 app/api/create-library-pack에서만
+      // 가능하다(Admin SDK는 이 규칙을 그대로 통과한다). v68부터 팩 개수 제한이 폐지되어
+      // locked 필드는 더 이상 팩에 걸리지 않으므로(예전 데이터 호환 목적으로만 필드가 남아있음)
+      // 수정/삭제 조건에서 locked 검사를 제거했다.
+      match /libraryPacks/{packId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+
+        allow delete: if request.auth != null && request.auth.uid == uid;
+
+        // 일반 수정(자동저장 등) - trashedAt은 여기서 절대 건드릴 수 없다(아래 별도 규칙에서만).
+        allow update: if request.auth != null && request.auth.uid == uid &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedAt']);
+
+        // 휴지통으로 보내기: trashedAt을 null -> 값으로 바꾸는 것만 허용(다른 필드는 안 됨).
+        allow update: if request.auth != null && request.auth.uid == uid &&
+          resource.data.get('trashedAt', null) == null &&
+          request.resource.data.get('trashedAt', null) != null &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trashedAt']);
+
+        // 복구(trashedAt을 값 -> null로 되돌리기)는 firestore.rules 구조를 유지하기 위해 계속
+        // 클라이언트가 직접 할 수 없다 - app/api/restore-library-pack(Admin SDK)만 가능하다.
+
+        allow create: if false;
+      }
+    }
+
+    // 문의하기 게시판. 본인이 쓴 글은 본인만, 전체 목록/답변은 마스터(운영자)만
+    // 볼 수 있다. 답변 등록(update)도 마스터만 가능하고, status/answer/answeredAt
+    // 세 필드만 바꿀 수 있다(질문 내용 자체는 위조 불가).
+    match /inquiries/{inquiryId} {
+      allow read: if request.auth != null &&
+        (resource.data.uid == request.auth.uid || isMasterEmail());
+
+      allow create: if request.auth != null &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.category in ['bag', 'pack', 'ai', 'other'] &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 60 &&
+        request.resource.data.content is string &&
+        request.resource.data.content.size() > 0 && request.resource.data.content.size() <= 2000;
+
+      allow update: if request.auth != null && isMasterEmail() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'answeredAt']) &&
+        request.resource.data.status == 'answered' &&
+        request.resource.data.answer is string && request.resource.data.answer.size() > 0;
+
+      allow delete: if false;
     }
 
     // 초대코드 -> 가방id 매핑. 코드를 아는 사람이면 조회 가능(참여 전이라 멤버가 아니어도 됨).
@@ -39,22 +143,59 @@ service cloud.firestore {
         request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
     }
 
+    // AI 이용권 코드: 코드를 아는 사람이면 존재 여부만 조회 가능(get, 참여처럼 목록조회는 금지).
+    // 마스터(운영자)는 전체 목록 조회 + 새 코드 생성이 가능 (이용권 코드 관리 화면용).
+    match /unlockCodes/{code} {
+      allow get: if request.auth != null;
+      allow list: if request.auth != null &&
+        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+      allow create: if request.auth != null &&
+        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+
+      // 마스터가 "무효화" 버튼을 눌렀을 때만 허용: status/invalidatedAt 두 필드만 바꿀 수 있고,
+      // 반드시 'invalidated'로 바꾸는 경우만 허용한다 (claimedBy 등 위조 불가).
+      allow update: if request.auth != null &&
+        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'invalidatedAt']) &&
+        request.resource.data.status == 'invalidated';
+
+      allow delete: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;
 
-      allow create: if request.auth != null &&
-        request.resource.data.memberIds == [request.auth.uid] &&
-        request.resource.data.ownerId == request.auth.uid &&
-        request.resource.data.memberIds.size() == 1;
+      // 가방 새로 만들기(create)는 무료 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)을
+      // 서버에서 검증해야 해서 app/api/create-bag에서만 가능하다(Admin SDK는 이 규칙을
+      // 그대로 통과하므로 실제로는 그 라우트를 통해서만 생성된다). 기존 가방 수정/삭제,
+      // 초대코드로 참여하는 것은 여전히 클라이언트가 직접 한다.
+      allow create: if false;
 
-      // 이미 멤버인 사람의 일반 수정(멤버 목록을 줄이는 탈퇴 포함, memberIds 추가는 불가)
+      // 이미 멤버인 사람의 일반 수정(멤버 목록을 줄이는 탈퇴 포함, memberIds 추가는 불가).
+      // 가방이 locked:true이고 지금 수정하는 사람이 이 가방의 소유자(ownerId)라면 거부된다 -
+      // 다른 그룹원이 수정하는 건 locked 여부와 무관하게 계속 허용된다. trashedByOwnerAt은
+      // 여기서 절대 건드릴 수 없다(휴지통 보내기/복구는 아래 별도 규칙에서만 다룬다) -
+      // 안 그러면 소유자가 아닌 멤버도 가방을 휴지통으로 보낼 수 있게 되어버린다.
       allow update: if request.auth != null &&
         request.auth.uid in resource.data.memberIds &&
+        !(request.auth.uid == resource.data.ownerId && resource.data.get('locked', false) == true) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedByOwnerAt']) &&
         (
           request.resource.data.memberIds.size() <= resource.data.memberIds.size() ||
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds'])
         );
+
+      // 소유자가 이 가방을 휴지통으로 보내기: trashedByOwnerAt을 null -> 값으로 바꾸는 것만
+      // 허용하고(다른 필드는 함께 바꿀 수 없음), 반드시 소유자 본인만 할 수 있다.
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.ownerId &&
+        resource.data.get('trashedByOwnerAt', null) == null &&
+        request.resource.data.get('trashedByOwnerAt', null) != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trashedByOwnerAt']);
+
+      // 복구(trashedByOwnerAt을 값 -> null로 되돌리기)는 무료 동시 진행 개수 제한 검증이
+      // 필요해서 클라이언트가 직접 할 수 없다 - app/api/restore-bag(Admin SDK)만 가능하다.
 
       // 아직 멤버가 아닌 사용자가 초대코드로 참여할 때: 자기 uid 하나만 추가 허용
       // (memberProfiles.{uid} 스냅샷도 함께 기록할 수 있게 허용)
@@ -64,8 +205,13 @@ service cloud.firestore {
         resource.data.memberIds.size() < 10 &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberProfiles']);
 
+      // 가방 삭제(영구삭제 - 휴지통에서 "완전삭제" 버튼, 30일 경과 자동정리, 혹은 예전처럼
+      // 새로 만들다가 취소한 임시 가방 정리에 쓰인다)도 수정과 동일하게: locked:true인
+      // 가방은 소유자 본인이라면 삭제할 수 없다 - 다른 그룹원(탈퇴 대상)도 memberIds에
+      // 있는 한 이 규칙을 타니, 소유자가 아니라면 당연히 허용된다.
       allow delete: if request.auth != null &&
-        request.auth.uid in resource.data.memberIds;
+        request.auth.uid in resource.data.memberIds &&
+        !(request.auth.uid == resource.data.ownerId && resource.data.get('locked', false) == true);
 
       match /presence/{presenceUid} {
         allow read: if request.auth != null &&
@@ -73,6 +219,49 @@ service cloud.firestore {
         allow write: if request.auth != null &&
           request.auth.uid == presenceUid &&
           request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+      }
+
+      // 가방 안 댓글. 짐(item) 단위/가방(bag) 전체 단위 둘 다 이 하나의
+      // 서브컴렉션에 섞여 저장된다(targetType 필드로 구분). 그 가방 멤버만
+      // 읽고 쓸 수 있다. 작성(create)는 본인 uid로만, 수정(update)은 본인이 쓴
+      // 댓글의 text/updatedAt만, 삭제(delete)는 작성자 본인만 가능하다.
+      match /comments/{commentId} {
+        function isBagMember() {
+          return request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+        }
+
+        allow read: if isBagMember();
+
+        allow create: if isBagMember() &&
+          request.resource.data.authorUid == request.auth.uid &&
+          request.resource.data.targetType in ['item', 'bag'] &&
+          request.resource.data.targetId is string &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
+
+        allow update: if isBagMember() &&
+          resource.data.authorUid == request.auth.uid &&
+          request.resource.data.authorUid == resource.data.authorUid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt']) &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
+
+        allow delete: if isBagMember() && resource.data.authorUid == request.auth.uid;
+      }
+
+      // 짐/팩/가방에 달는 가벼운 이모지 리액션. 대상당 문서 1개에 모든 유저의
+      // 반응을 모아놓는다. 소그룹(최대 10명) 신뢰 기반 앱이라 멤버면 서로의
+      // 반응까지 자유롭게 다룰 수 있게(토글) 허용한다(정교한 배열 diff 검증 대신
+      // 이 앱의 기존 정책과 동일한 신뢰 기반 접근을 따른다).
+      match /reactions/{reactionId} {
+        function isBagMember() {
+          return request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+        }
+
+        allow read: if isBagMember();
+        allow write: if isBagMember();
       }
     }
   }

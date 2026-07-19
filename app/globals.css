@@ -17,6 +17,7 @@
   /* 가방/팩 카드 배경 톤 - 설정에서 커스텀하지 않으면 --surface와 동일 */
   --bag-card-bg: var(--surface);
   --pack-card-bg: var(--surface);
+  --pack-library-card-bg: var(--surface);
 }
 
 @theme inline {
@@ -36,14 +37,16 @@
 }
 
 [data-theme="dark"] {
-  --background: #000000;
+  /* iOS 시스템 다크와 동일한 톤: 완전 검정(#000) 대신 약간 띄운 회색을 기본 배경으로 쓰고,
+     그 위에 카드(surface)가 한 단계 더 밝게 올라가는 계층으로 바꿄 (2026-07 톤 조정) */
+  --background: #1c1c1e;
   --foreground: #f5f5f5;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
+  --surface: #2c2c2e;
+  --surface-2: #3a3a3c;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
-  --border: #38383a;
-  --border-strong: #48484a;
+  --border: #48484a;
+  --border-strong: #545456;
   --accent: #3b82f6;
   --accent-strong: #60a5fa;
   --accent-soft: #172554;
@@ -105,6 +108,12 @@
 
 .pib-note-fade {
   animation: pib-splash-rise 320ms ease both;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -181,9 +190,13 @@ body {
 }
 
 .pib-toast-pop {
-  animation:
-    pib-toast-pop-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both,
-    pib-toast-fade-out 220ms ease-in 1480ms both;
+  /* 여러 애니메이션을 하나의 animation 축약속에 몰아쓰는 대신 각 속성을 따로 쓴다 -
+     var()를 축약속성 안에 섞어 쓰는 것보다 animation-delay에 직접 쓰는 게 더 안전하다. */
+  animation-name: pib-toast-pop-in, pib-toast-fade-out;
+  animation-duration: 260ms, 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), ease-in;
+  animation-delay: 0ms, var(--toast-fade-delay, 1480ms);
+  animation-fill-mode: both, both;
 }
 
 .pib-toast-circle {
@@ -277,4 +290,87 @@ body {
   [data-font-scale="lg"] .md\:text-\[12px\] { font-size: 13.5px; }
   [data-font-scale="lg"] .md\:text-\[14px\] { font-size: 15.75px; }
   [data-font-scale="lg"] .md\:text-\[18px\] { font-size: 20.25px; }
+}
+
+/* 가방/팩 보관함 검색 결과를 클릭해서 특정 팩(또는 짐)으로 이동했을 때, 그 자리를
+   잠깐 깜빡여서 눈에 띄게 하는 하이라이트. data-pack-drop-id / data-item-id 엘리먼트에
+   이 클래스를 잠깐 붙였다가 뗀다 (BagEditorScreen/PackLibraryEditorScreen 참고).
+   background-color가 아니라 box-shadow만 쓰는 이유: 두 엘리먼트 모두 컴포넌트에서
+   background를 인라인 style로 이미 지정해두고 있어서(ItemRow/PackCard 등),
+   클래스의 background-color는 우선순위에 밀려 적용되지 않는다. 또한 outset이 아니라
+   inset box-shadow를 쓰는 이유는, 짐(ItemRow) 쪽은 바깥 wrapper에 overflow-hidden이
+   걸려있어서 outset box-shadow가 잘려 안 보이기 때문이다. */
+@keyframes pib-search-highlight {
+  0%, 20%, 40%, 60%, 100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  10%, 30%, 50% {
+    box-shadow: inset 0 0 0 3px var(--accent);
+  }
+}
+.pib-search-highlight {
+  animation: pib-search-highlight 1.8s ease-in-out both;
+  border-radius: 10px;
+}
+
+/* 에디터팩(자유문서형 메모 팩)의 TipTap 렉더링 스타일. PackNoteEditorScreen(전체화면
+   편집)과 EditorPackCard(가방 속 읽기전용 미리보기) 둘 다 이 클래스를 쓴다. */
+.pib-note-editor .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+.pib-note-editor h1 { font-size: 22px; font-weight: 700; margin: 14px 0 6px; }
+.pib-note-editor h2 { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
+.pib-note-editor h3 { font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
+.pib-note-editor p { margin: 4px 0; line-height: 1.55; }
+.pib-note-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 6px 0;
+}
+.pib-note-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 3px 0;
+}
+.pib-note-editor ul[data-type="taskList"] li > label {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.pib-note-editor ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.pib-note-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.pib-note-editor table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.pib-note-editor td, .pib-note-editor th {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  font-size: 13px;
+  vertical-align: top;
+  position: relative;
+}
+.pib-note-editor th {
+  background: var(--surface-2);
+  font-weight: 600;
+  text-align: left;
+}
+.pib-note-editor-readonly .ProseMirror {
+  cursor: default;
+}
+.pib-note-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }

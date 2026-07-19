@@ -5,6 +5,7 @@ import Portal from "@/components/Portal";
 import { useMemo, useState } from "react";
 import { IconX, IconPlus } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
+import { useToast } from "@/components/Toast";
 
 function cloneAsNewPack(pack: Pack): Pack {
   return {
@@ -24,11 +25,14 @@ export default function PackImportModal({
   libraryPacks,
   onClose,
   onImport,
+  onCreateNew,
 }: {
   libraryPacks: Pack[];
   onClose: () => void;
   onImport: (packs: Pack[]) => void;
+  onCreateNew: () => void;
 }) {
+  const { show } = useToast();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -58,6 +62,11 @@ export default function PackImportModal({
       .map(cloneAsNewPack);
     onImport(packsToImport);
     onClose();
+    show(
+      packsToImport.length > 1
+        ? `팩 ${packsToImport.length}개를 가방에 추가했어요`
+        : "팩을 가방에 추가했어요"
+    );
   };
 
   return (
@@ -102,7 +111,9 @@ export default function PackImportModal({
                     {pack.name}
                   </div>
                   <div className="text-[12px] text-text-secondary truncate">
-                    {pack.items.map((i) => i.text).join(", ")}
+                    {pack.kind === "editor"
+                      ? pack.editorPreviewText || "메모 팩"
+                      : pack.items.map((i) => i.text).join(", ")}
                   </div>
                 </div>
               </label>
@@ -114,7 +125,13 @@ export default function PackImportModal({
             )}
           </div>
 
-          <button className="flex items-center justify-center gap-1.5 text-[13px] text-text-secondary py-1">
+          <button
+            onClick={() => {
+              onCreateNew();
+              onClose();
+            }}
+            className="flex items-center justify-center gap-1.5 text-[13px] text-text-secondary py-1"
+          >
             <IconPlus size={14} stroke={1.75} />새 팩 만들기
           </button>
 
