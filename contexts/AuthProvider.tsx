@@ -86,6 +86,7 @@ interface AuthContextValue {
   updateExpandedPackFolderIds: (ids: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
+  updateDdayCountTodayAsDayOne: (value: boolean) => Promise<void>;
   updatePackDisplayState: (
     bagId: string,
     packId: string,
@@ -196,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         expandedPackFolderIds: data?.expandedPackFolderIds as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
         quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
+        ddayCountTodayAsDayOne: data?.ddayCountTodayAsDayOne as boolean | undefined,
         packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
         bagViewMode: data?.bagViewMode as UserProfile["bagViewMode"],
         defaultBagViewMode: data?.defaultBagViewMode as UserProfile["defaultBagViewMode"],
@@ -506,6 +508,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
   };
 
+  // 디데이 D+ 표시에서 여행 당일을 "1일째"로 셀지 여부. 계정에 저장해서 기기 간 동일하게 적용된다.
+  const updateDdayCountTodayAsDayOne = async (value: boolean) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { ddayCountTodayAsDayOne: value }, { merge: true });
+  };
+
   // 가방 속 팩 하나의 펼침/접힘/넓게보기 상태를 바꿔 저장한다. 그룹원과 동기화되는
   // 가방 문서가 아니라 계정(users/{uid})에만 쓰기 때문에, 같은 사용자가 다른 기기에서도
   // 그대로 보이고 다른 그룹원에게는 전혀 영향을 주지 않는다. 키는 `${bagId}:${packId}`.
@@ -634,6 +642,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateExpandedPackFolderIds,
         updatePackSettings,
         updateQuickPackCollapsed,
+        updateDdayCountTodayAsDayOne,
         updatePackDisplayState,
         updateAllPackDisplayStates,
         updateBagViewMode,
