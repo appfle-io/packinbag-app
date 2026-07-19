@@ -37,14 +37,16 @@
 }
 
 [data-theme="dark"] {
-  --background: #000000;
+  /* iOS 시스템 다크와 동일한 톤: 완전 검정(#000) 대신 약간 띄운 회색을 기본 배경으로 쓰고,
+     그 위에 카드(surface)가 한 단계 더 밝게 올라가는 계층으로 바꿄 (2026-07 톤 조정) */
+  --background: #1c1c1e;
   --foreground: #f5f5f5;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
+  --surface: #2c2c2e;
+  --surface-2: #3a3a3c;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
-  --border: #38383a;
-  --border-strong: #48484a;
+  --border: #48484a;
+  --border-strong: #545456;
   --accent: #3b82f6;
   --accent-strong: #60a5fa;
   --accent-soft: #172554;
