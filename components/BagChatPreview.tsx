@@ -53,12 +53,17 @@ export default function BagChatPreview({
           const commentReactionDoc = allReactions?.find((r) => r.id === `comment_${c.id}`);
           const showReactions = !!(currentUid && onToggleCommentReaction && onOpenCommentReactionPicker);
           return (
-            <div key={c.id} className="flex items-center gap-1.5">
+            <div key={c.id} className="flex items-center gap-1.5 w-full">
               <Avatar avatarId={c.authorAvatarId} size={16} />
 
               {/* 아바타 옆으로 닉네임 배지 + 내용 말풍선이 한 줄로 이어진다 (배경을
-                  서로 다르게 줘서 별개 박스로 구분되게 함) */}
-              <div onClick={onOpen} className="flex items-center gap-1.5 min-w-0 cursor-pointer">
+                  서로 다르게 줘서 별개 박스로 구분되게 함).
+                  flex-1이 있어야 이 줄이 실제 가용 너비를 다 차지해서,
+                  말풍선의 max-w-[60%]가 그 "가용 너비의 60%"로 정확히 계산된다.
+                  flex-1이 없으면 이 div가 콘텐츠 크기만큼만 좁게 잡히고, 그
+                  좁은 너비의 60%가 계산되어 우측에 여백이 남았는데도 일찍
+                  잘리는 문제가 생긴다. */}
+              <div onClick={onOpen} className="flex items-center gap-1.5 min-w-0 flex-1 cursor-pointer">
                 <span
                   className="shrink-0 inline-flex items-center h-5 rounded-full px-1.5 text-[10.5px] font-medium leading-none"
                   style={{ background: "var(--surface-3, var(--border))", color: "var(--text-secondary)" }}
