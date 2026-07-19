@@ -17,6 +17,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   // 짐 더블클릭 복사 토스트 노출 시간 (없으면 3초 기본값, 3~7초)
   const itemCopyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
   // 스와이프 힌트 물방울 보이기 여부 (명시적으로 꺼둔 적이 없으면 기본 켜짐)
+  // - 가방↔팩 보관함 양방향 스와이프 힌트 버튼을 이 값 하나로 같이 켜고 끈다.
   const packTreeHintEnabled = profile?.packSettings?.packTreeHintEnabled ?? true;
 
   return (
@@ -85,9 +86,9 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-medium">팩 보관함 열기 버튼</p>
+            <p className="text-[13px] font-medium">가방 보관함 ↔ 팩 보관함 이동 버튼</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              가방 보관함 왼쪽 가장자리에 팩 보관함을 열 수 있는 버튼을 띄워줘요. 꺼도 왼쪽 가장자리를 오른쪽으로 스와이프하면 버튼 없이도 팩 보관함이 열려요.
+              가방 보관함 왼쪽, 팩 보관함 오른쪽 가장자리에 서로 오갈 수 있는 버튼을 띄워줘요. 꺼도 가장자리를 스와이프하면 버튼 없이도 화면을 오갈 수 있어요.
             </p>
           </div>
           <ToggleSwitch

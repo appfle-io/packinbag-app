@@ -50,6 +50,7 @@ import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScree
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
 import PackTreeSwipeHint from "@/components/PackTreeSwipeHint";
+import BagListSwipeHint from "@/components/BagListSwipeHint";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
@@ -862,7 +863,7 @@ export default function AppShell() {
   if (showPackTree) {
     return (
       <>
-        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+        <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
           <PacksScreen
             uid={user.uid}
             packs={activePacks}
@@ -885,6 +886,10 @@ export default function AppShell() {
             onMoveEntries={handleMoveLibraryEntries}
             onBack={() => setShowPackTree(false)}
             onBulkDeletePacks={handleBulkDeletePacks}
+          />
+          <BagListSwipeHint
+            enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
+            onOpen={() => setShowPackTree(false)}
           />
         </div>
         {editingPack && (() => {
