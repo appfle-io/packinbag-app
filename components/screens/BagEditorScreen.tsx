@@ -25,6 +25,7 @@ import {
   IconEyeOff,
   IconHelpCircle,
   IconArrowBackUp,
+  IconArrowForwardUp,
 } from "@tabler/icons-react";
 import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -101,6 +102,7 @@ export default function BagEditorScreen({
   onSave,
   onDeleteBag,
   onSaveAsLibraryPack,
+  onTrashPackFromBag,
   onLeaveBag,
   onRemoveMember,
   onRegenerateInviteCode,
@@ -121,6 +123,9 @@ export default function BagEditorScreen({
   onSave: (bag: Bag) => void;
   onDeleteBag: (bag: Bag) => void;
   onSaveAsLibraryPack: (pack: Pack) => void;
+  // 가방 안에서 팩을 삭제했을 때, 완전히 없애는 대신 팩 라이브러리 휴지통에 사본을
+  // 남겨서(설정 > 휴지통) 복구할 수 있게 한다. AppShell이 트래시 라우트 호출까지 처리한다.
+  onTrashPackFromBag: (pack: Pack, sourceBagId: string, sourceBagName: string) => void;
   onLeaveBag: (bagId: string) => Promise<void>;
   onRemoveMember: (bagId: string, memberUid: string) => Promise<void>;
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
@@ -277,15 +282,22 @@ export default function BagEditorScreen({
     setBag((prev) => ({ ...prev, packs: updater(prev.packs) }));
   };
 
-  // Undo stack (covers everything except file/image uploads). Each mutating action
-  // pushes the bag state from just before it here; pressing undo pops the last one
-  // and restores it as-is.
+  // Undo/redo 스택 (파일/이미지 업로드 제외 전부 커버). 변경이 생길 때마다 그 직전
+  // bag 상태를 undo 스택에 쌓아둔다. undo를 누르면 그 스냅샷으로 되돌리면서 방금까지의
+  // bag 상태를 redo 스택에 옮겨두고, redo를 누르면 반대로 되돌린다. undo 이후에 새로운
+  // 변경이 생기면(pushUndoSnapshot 호출) redo 스택은 더 이상 유효하지 않으므로 비운다.
   const historyRef = useRef<Bag[]>([]);
   const [historyLen, setHistoryLen] = useState(0);
+  const redoRef = useRef<Bag[]>([]);
+  const [redoLen, setRedoLen] = useState(0);
 
   const pushUndoSnapshot = () => {
     historyRef.current = [...historyRef.current, bag];
     setHistoryLen(historyRef.current.length);
+    if (redoRef.current.length > 0) {
+      redoRef.current = [];
+      setRedoLen(0);
+    }
   };
 
   const handleUndo = () => {
@@ -295,7 +307,21 @@ export default function BagEditorScreen({
     const last = prevHistory[prevHistory.length - 1];
     historyRef.current = prevHistory.slice(0, -1);
     setHistoryLen(historyRef.current.length);
+    redoRef.current = [...redoRef.current, bag];
+    setRedoLen(redoRef.current.length);
     setBag(last);
+  };
+
+  const handleRedo = () => {
+    if (guardReadOnly()) return;
+    const prevRedo = redoRef.current;
+    if (prevRedo.length === 0) return;
+    const next = prevRedo[prevRedo.length - 1];
+    redoRef.current = prevRedo.slice(0, -1);
+    setRedoLen(redoRef.current.length);
+    historyRef.current = [...historyRef.current, bag];
+    setHistoryLen(historyRef.current.length);
+    setBag(next);
   };
 
   // isNew는 "새 가방 -> 최초 저장 완료" 시점에 false로 바뀌는데, 이 화면은 그때
@@ -405,10 +431,12 @@ export default function BagEditorScreen({
       if (!remoteBag) return;
       if (isDirtyRef.current) return;
       isApplyingRemoteRef.current = true;
-      // Remote update just arrived - clear the local undo stack since it no longer
-      // matches the bag state we're about to show.
+      // Remote update just arrived - clear the local undo/redo stacks since they no
+      // longer match the bag state we're about to show.
       historyRef.current = [];
       setHistoryLen(0);
+      redoRef.current = [];
+      setRedoLen(0);
       setBag(remoteBag);
     });
     return unsub;
@@ -496,13 +524,17 @@ export default function BagEditorScreen({
 
   const handleDeleteItem = (packId: string, itemId: string) => {
     if (guardReadOnly()) return;
-    let removedItem: Item | undefined;
-    let removedIndex = -1;
+    // removedItem/removedIndex는 setBag의 업데이터 함수 안에서 계산하지 않는다 - 같은
+    // 이벤트 핸들러 안에서 그 앞에 다른 state 업데이트(pushUndoSnapshot의 setHistoryLen)가
+    // 먼저 일어나면 React가 이 setBag 업데이터를 동기적으로(eager) 실행해주지 않을 수
+    // 있어서, 바로 다음 줄에서 읽으면 값이 비어있는 경우가 생긴다. 그래서 현재 bag.packs
+    // 에서 직접 미리 계산해둔다.
+    const targetPack = bag.packs.find((p) => p.id === packId);
+    const removedIndex = targetPack?.items.findIndex((i) => i.id === itemId) ?? -1;
+    const removedItem = removedIndex >= 0 ? targetPack!.items[removedIndex] : undefined;
     updatePacks((packs) =>
       packs.map((p) => {
         if (p.id !== packId) return p;
-        removedIndex = p.items.findIndex((i) => i.id === itemId);
-        removedItem = p.items[removedIndex];
         const items = p.items.filter((i) => i.id !== itemId);
         const updated = { ...p, items };
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
@@ -633,12 +665,12 @@ export default function BagEditorScreen({
     }
     if (kind === "editor") {
       updatePacks((packs) => [
-        { id: uid(), name: "새 메모", items: [], kind: "editor" },
         ...packs,
+        { id: uid(), name: "새 메모", items: [], kind: "editor" },
       ]);
       return;
     }
-    updatePacks((packs) => [{ id: uid(), name: "새 팩", items: [] }, ...packs]);
+    updatePacks((packs) => [...packs, { id: uid(), name: "새 팩", items: [] }]);
   };
 
   // 상단 "+팩" 버튼을 누르면 바로 만들지 않고 체크리스트/메모 중 고르는 작은 시트를 띄운다.
@@ -705,7 +737,7 @@ export default function BagEditorScreen({
 
   const handleImport = (imported: Pack[]) => {
     if (guardReadOnly()) return;
-    updatePacks((packs) => [...imported, ...packs].slice(0, 10));
+    updatePacks((packs) => [...packs, ...imported].slice(0, 10));
   };
 
   // 메모장뷰 상단 "+" 통합 추가 모달 전용. 이름까지 바로 지어 새 팩을 만들고 첫 항목까지
@@ -727,7 +759,7 @@ export default function BagEditorScreen({
         ? { checked: false }
         : { bold: data.bold, strike: data.strike, color: data.color }),
     };
-    updatePacks((packs) => [{ id: newPackId, name: name.trim() || "새 팩", items: [newItem] }, ...packs]);
+    updatePacks((packs) => [...packs, { id: newPackId, name: name.trim() || "새 팩", items: [newItem] }]);
     return newPackId;
   };
 
@@ -741,7 +773,14 @@ export default function BagEditorScreen({
         show("라이브러리에서는 삭제하지 못했어요");
       });
     }
-    show(alsoDeleteLibrary ? "팩을 가방과 라이브러리에서 모두 삭제했어요" : "팩을 가방에서 삭제했어요");
+    // 가방에서 지운 팩은 완전히 사라지는 게 아니라 팩 라이브러리 휴지통으로 사본이
+    // 옮겨간다(어느 가방에서 지웠는지도 함께 기록돼서 휴지통에서 바로 보인다).
+    // "라이브러리에서도 삭제" 옵션은 이미 연동돼있던 별도의 라이브러리 팩(위에서 처리)만
+    // 대상으로 하고, 이 휴지통 사본과는 무관하다.
+    if (pack) {
+      onTrashPackFromBag(pack, bag.id, bag.name);
+    }
+    show(alsoDeleteLibrary ? "팩을 가방과 라이브러리에서 모두 삭제했어요" : "팩을 휴지통으로 옮겼어요");
   };
 
   // 팩 카드 개별 토글(넓히기/접기)에서 호출되는 경우와, 상단 전체 컨트롤(접기/기본/펼치기)에서
@@ -1003,11 +1042,15 @@ export default function BagEditorScreen({
     if (guardReadOnly()) return;
     if (!selection || selection.itemIds.size === 0) return;
     const { packId, itemIds } = selection;
-    let removedItems: Item[] = [];
+    // removedItems는 setBag 업데이터 안에서 계산하지 않는다 - handleDeleteItem과 같은
+    // 이유로, 그 앞의 pushUndoSnapshot(setHistoryLen)이 React의 동기(eager) 실행을
+    // 막아버리면 바로 다음 줄에서 읽을 때 빈 배열(초기값)만 보이는 경우가 있었다
+    // ("0개 삭제했어요" 버그). 그래서 현재 bag.packs에서 직접 미리 계산해둔다.
+    const targetPack = bag.packs.find((p) => p.id === packId);
+    const removedItems: Item[] = targetPack?.items.filter((i) => itemIds.has(i.id)) ?? [];
     updatePacks((packs) =>
       packs.map((p) => {
         if (p.id !== packId) return p;
-        removedItems = p.items.filter((i) => itemIds.has(i.id));
         const items = p.items.filter((i) => !itemIds.has(i.id));
         const updated = { ...p, items };
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
@@ -1222,26 +1265,6 @@ export default function BagEditorScreen({
       setSaveConfirmTarget(packId);
       return;
     }
-    const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
-    if (!source) {
-      // 연결된 라이브러리 원본이 삭제/휴지통으로 이동해 더 이상 없음 - 연결이 끊긴 것으로 보고
-      // 평범한 독립 팩으로 되돌려서(linkedLibraryPackId 등 제거) "새로 저장" 흐름을 탄다 -
-      // 덮어쓸 대상이 없는데 덮어쓰기 옵션을 보여줄 수는 없다.
-      updatePacks((packs) =>
-        packs.map((p) =>
-          p.id === packId
-            ? {
-                ...p,
-                linkedLibraryPackId: undefined,
-                linkedLibraryUpdatedAt: undefined,
-                savedAsLibraryPack: undefined,
-              }
-            : p
-        )
-      );
-      setSaveConfirmTarget(packId);
-      return;
-    }
     // 캐시된 값(savedAsLibraryPack)이 아니라 지금 이 순간의 라이브러리 기준으로 다시 비교한다.
     // 다른 가방/기기에서 같은 라이브러리 팩을 먼저 바꿔놨을 수도 있기 때문에, 화면에 남아있는
     // 예전 상태만 믿으면 "변경사항 없음"을 잘못 판단할 수 있다.
@@ -1251,7 +1274,9 @@ export default function BagEditorScreen({
     }
     // 저장된 적 있는데 지금 보니 라이브러리랑 다름 -> 그게 "내가 방금 고쳐서"인지
     // "다른 가방이 먼저 라이브러리를 바꿔놔서"인지 구분해서, 후자면 덮어쓰기를 막는다.
+    const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
     const conflict =
+      !!source &&
       !!pack.linkedLibraryUpdatedAt &&
       !!source.updatedAt &&
       source.updatedAt > pack.linkedLibraryUpdatedAt;
@@ -1321,21 +1346,7 @@ export default function BagEditorScreen({
     if (!pack?.linkedLibraryPackId) return;
     const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
     if (!source) {
-      // 원본이 삭제/휴지통으로 이동해 더 이상 없음 - 연결된 대상이 사라졌기에(linkedLibraryPackId 등 제거)
-      // 평범한 독립 팩으로 되돌린다 - 이후 이 팩은 새로고침/덮어쓰기 없이 그냥 저장만 묻는다.
-      updatePacks((packs) =>
-        packs.map((p) =>
-          p.id === packId
-            ? {
-                ...p,
-                linkedLibraryPackId: undefined,
-                linkedLibraryUpdatedAt: undefined,
-                savedAsLibraryPack: undefined,
-              }
-            : p
-        )
-      );
-      show("연결된 원본 팩을 찾을 수 없어 연결이 사라졌어요");
+      show("원본 팩을 찾을 수 없어요");
       return;
     }
     updatePacks((packs) =>
@@ -1473,14 +1484,25 @@ export default function BagEditorScreen({
             <IconHelpCircle size={20} stroke={1.75} color="var(--text-secondary)" />
           </button>
         </div>
-        {!readOnly && historyLen > 0 && (
-          <button
-            onClick={handleUndo}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -m-2.5 p-2.5"
-            aria-label="undo"
-          >
-            <IconArrowBackUp size={20} stroke={1.75} color="var(--text-secondary)" />
-          </button>
+        {!readOnly && (historyLen > 0 || redoLen > 0) && (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
+            <button
+              onClick={handleUndo}
+              disabled={historyLen === 0}
+              className="-m-2.5 p-2.5 disabled:opacity-30"
+              aria-label="undo"
+            >
+              <IconArrowBackUp size={20} stroke={1.75} color="var(--text-secondary)" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={redoLen === 0}
+              className="-m-2.5 p-2.5 disabled:opacity-30"
+              aria-label="redo"
+            >
+              <IconArrowForwardUp size={20} stroke={1.75} color="var(--text-secondary)" />
+            </button>
+          </div>
         )}
         <div className="flex items-center gap-2">
           {!isNew && (

@@ -364,18 +364,10 @@ export default function PackCard({
               {!quickAddType && (
                 <div className="flex items-center gap-3 ml-auto">
                   {pack.linkedLibraryPackId && (
-                    <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기" className="relative">
+                    <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
                       <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                         <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
                       </span>
-                      {!isSyncedWithLibrary && (
-                        <span
-                          className="absolute -top-1 -right-1 h-3 w-3 rounded-full flex items-center justify-center text-[8px] font-bold leading-none text-white"
-                          style={{ background: "var(--danger)" }}
-                        >
-                          !
-                        </span>
-                      )}
                     </button>
                   )}
                   <button onClick={onSaveToLibrary} aria-label="팩 저장">
@@ -407,7 +399,7 @@ export default function PackCard({
       {confirmDelete && (
         <ConfirmDialog
           title="이 팩을 가방에서 삭제할까요?"
-          message="팩에 담긴 짐도 함께 사라져요."
+          message="휴지통으로 옮겨져서 설정 > 휴지통에서 복구할 수 있어요."
           checkboxLabel={
             canDeleteFromLibrary ? "라이브러리에 저장된 원본도 함께 삭제" : undefined
           }

@@ -82,6 +82,12 @@ export interface Pack {
   // 제한 검증이 필요해서 클라이언트가 직접 지울 수 없고(firestore.rules) app/api/
   // restore-library-pack만 가능하다.
   trashedAt?: string;
+  // 가방 "안"에서 삭제된 팩이 휴지통으로 올 때만 채워지는 출처 정보(가방 id/이름 스냅샷).
+  // 라이브러리 화면에서 직접 휴지통으로 보낸 팩/폴더는 이 필드가 없다. 이름 스냅샷을
+  // 같이 저장해두는 이유는 원본 가방이 그 사이에 이름이 바뀌거나 완전히 삭제될 수도
+  // 있어서, 휴지통 화면에서 "어디서 삭제됐는지"를 항상 정확히 보여주기 위함이다.
+  trashSourceBagId?: string;
+  trashSourceBagName?: string;
 }
 
 // 가방 멤버의 표시용 정보 (닉네임/아바타). users/{uid} 문서는 본인만 읽을 수 있어서

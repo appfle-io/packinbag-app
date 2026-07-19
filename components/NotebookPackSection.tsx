@@ -240,17 +240,9 @@ export default function NotebookPackSection({
           <button
             onClick={() => setShowMenu((v) => !v)}
             aria-label="팩 메뉴"
-            className="relative flex items-center justify-center"
+            className="flex items-center justify-center"
           >
             <IconDotsVertical size={16} stroke={1.75} color="var(--text-secondary)" />
-            {pack.linkedLibraryPackId && !isSyncedWithLibrary && (
-              <span
-                className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full flex items-center justify-center text-[8px] font-bold leading-none text-white"
-                style={{ background: "var(--danger)" }}
-              >
-                !
-              </span>
-            )}
           </button>
           {showMenu && (
             <>
@@ -400,7 +392,7 @@ export default function NotebookPackSection({
       {confirmDelete && (
         <ConfirmDialog
           title="이 팩을 가방에서 삭제할까요?"
-          message="팩에 담긴 짐도 함께 사라져요."
+          message="휴지통으로 옮겨져서 설정 > 휴지통에서 복구할 수 있어요."
           checkboxLabel={
             canDeleteFromLibrary ? "라이브러리에 저장된 원본도 함께 삭제" : undefined
           }

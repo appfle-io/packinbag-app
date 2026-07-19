@@ -101,6 +101,31 @@ export async function restoreLibraryPackRemote(user: User, packId: string) {
   }
 }
 
+// 가방 "안"에서 팩을 삭제했을 때, 완전히 없애는 대신 팩 라이브러리의 휴지통으로 복사해
+// 넣는다(원본 가방 배열에서 지우는 것은 호출하는 쪽이 별도로 처리). libraryPacks의
+// client-side create가 막혀있어(firestore.rules) app/api/trash-bag-pack(Admin SDK)을 거친다.
+export async function trashBagPackRemote(
+  user: User,
+  pack: Pack,
+  sourceBagId: string,
+  sourceBagName: string
+) {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/trash-bag-pack", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ pack, sourceBagId, sourceBagName }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = (data?.error as string | undefined) ?? "휴지통으로 옮기지 못했어요";
+    throw new Error(message);
+  }
+}
+
 // 실시간 구독 없이 한 번만 조회 (회원탈퇴 등 일괄 처리용)
 export async function getLibraryPacksOnce(uid: string): Promise<Pack[]> {
   const snap = await getDocs(packsCol(uid));

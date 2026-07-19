@@ -403,7 +403,7 @@ export default function PackNoteEditorScreen({
       {confirmDelete && (
         <ConfirmDialog
           title="이 팩을 삭제할까요?"
-          message="메모 내용이 함께 사라져요."
+          message="휴지통으로 옮겨져서 설정 > 휴지통에서 복구할 수 있어요."
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => {
             setConfirmDelete(false);

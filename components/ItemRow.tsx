@@ -220,10 +220,19 @@ export default function ItemRow({
     if (disabled) {
       // 다중선택 모드 중에도 롱프레스만은 감지한다(스와이프는 여전히 막은 채로) -
       // 이미 선택된 항목이면 그룹 이동 시작용으로, 아니면 선택 추가용으로 부모가 판단한다.
+      // 이 행 자체가 touch-action: none이라 브라우저가 세로 스크롤을 대신 해주지
+      // 않으므로, 아래 handlePointerMove의 disabled 분기에서 수동 스크롤을 처리할 수
+      // 있도록 관련 ref들도 여기서 같이 초기화해둔다 (안 하면 다중선택 모드에서 해당
+      // 팩만 스크롤이 안 되는 문제가 있었다).
+      startX.current = e.clientX;
+      startY.current = e.clientY;
+      lastY.current = e.clientY;
+      lastMoveTimeRef.current = e.timeStamp;
+      velocityRef.current = 0;
+      scrollingRef.current = false;
+      scrollParentRef.current = undefined;
+      longPressTriggered.current = false;
       if (onStartDrag) {
-        startX.current = e.clientX;
-        startY.current = e.clientY;
-        longPressTriggered.current = false;
         const x = e.clientX;
         const y = e.clientY;
         longPressTimer.current = window.setTimeout(() => {
@@ -275,8 +284,38 @@ export default function ItemRow({
       if (longPressTriggered.current) return;
       const dx = e.clientX - startX.current;
       const dy = e.clientY - startY.current;
-      if (Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX) {
-        clearLongPressTimer();
+      const movedEnough =
+        Math.abs(dx) > LONG_PRESS_MOVE_CANCEL_PX || Math.abs(dy) > LONG_PRESS_MOVE_CANCEL_PX;
+      if (movedEnough) clearLongPressTimer();
+
+      // 다중선택 모드에서도 이 행은 touch-action: none이라 브라우저 스크롤이 안 붙는다.
+      // 아래는 일반(비선택) 모드의 스크롤 처리와 동일한 로직으로, 세로 움직임을 감지해서
+      // 가장 가까운 스크롤 부모를 수동으로 스크롤시켜준다.
+      if (scrollingRef.current) {
+        if (scrollParentRef.current === undefined) {
+          scrollParentRef.current = getScrollParent(e.currentTarget as HTMLElement);
+        }
+        const parent = scrollParentRef.current;
+        if (parent) {
+          const deltaY = e.clientY - lastY.current;
+          parent.scrollTop -= deltaY;
+          trackScrollVelocity(e.clientY, e.timeStamp, deltaY);
+        }
+        return;
+      }
+
+      if (movedEnough && Math.abs(dy) >= Math.abs(dx)) {
+        scrollingRef.current = true;
+        if (scrollParentRef.current === undefined) {
+          scrollParentRef.current = getScrollParent(e.currentTarget as HTMLElement);
+        }
+        const parent = scrollParentRef.current;
+        if (parent) {
+          cancelMomentumScroll(parent);
+          const deltaY = e.clientY - lastY.current;
+          parent.scrollTop -= deltaY;
+          trackScrollVelocity(e.clientY, e.timeStamp, deltaY);
+        }
       }
       return;
     }

@@ -24,9 +24,8 @@ import {
   trashLibraryEntryRecursive,
   restoreLibraryEntryRecursive,
   deleteLibraryEntryRecursive,
-  collectDescendantPackIds,
+  trashBagPackRemote,
 } from "@/lib/packsService";
-import { findLinkedBagPackRefs } from "@/lib/packSync";
 import {
   subscribeToAnnouncements,
   createAnnouncementRemote,
@@ -52,7 +51,6 @@ import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScree
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
 import PackTreeSwipeHint from "@/components/PackTreeSwipeHint";
-import BagListSwipeHint from "@/components/BagListSwipeHint";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
@@ -116,7 +114,7 @@ function CreatingBagOverlay({ visible }: { visible: boolean }) {
 }
 
 export default function AppShell() {
-  const { user, profile, loading, authBusy, updatePackOrderByParent } = useAuth();
+  const { user, profile, loading, authBusy } = useAuth();
   const { show } = useToast();
 
   const [bags, setBags] = useState<Bag[]>([]);
@@ -623,6 +621,16 @@ export default function AppShell() {
     });
   };
 
+  // 가방 안에서 팩을 삭제하면(BagEditorScreen의 handleDeletePack) 완전히 사라지는 대신
+  // 팩 라이브러리의 휴지통으로 사본을 하나 남겨서 설정 > 휴지통에서 복구할 수 있게 한다.
+  // 실패해도 가방 쪽 삭제 자체는 이미 끝난 상태라 토스트로만 안내한다.
+  const handleTrashPackFromBag = (pack: Pack, sourceBagId: string, sourceBagName: string) => {
+    trashBagPackRemote(user, pack, sourceBagId, sourceBagName).catch((err) => {
+      console.error("[팩인백] 가방 팩 휴지통 이동 실패:", err);
+      show(`휴지통으로 옮기지 못했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
   const handleCreateAnnouncement = async (
     data: Omit<Announcement, "id" | "createdAt">
   ) => {
@@ -655,20 +663,6 @@ export default function AppShell() {
     }
   };
 
-  // 팩 보관함(PacksScreen)이 "사용자 설정순(custom)"일 때만 의미가 있는 순서 배열(packOrderByParent)이다.
-  // 기본 정렬(createdAt)은 최신순이라 새로 만든 항목이 이미 자동으로 맨 위에 보이지만, custom 순서를 쓰고
-  // 있으면 아직 order에 없는(=새) 항목이 기존 정렬된 항목들 뒤에 붙어버려서(listSort.ts의 unknown
-  // 버켓), 사용자가 느끼기에는 "맨 밑에 추가된다"로 보인다. 새 항목을 만들 때마다 그 레벨(parentId)의
-  // custom order 앞에 id를 미리 끼워넣어서, custom 정렬일 때도 항상 맨 위에 보이게 한다.
-  const prependToPackOrder = (parentId: string | undefined, newId: string) => {
-    if (profile?.packSortBy !== "custom") return;
-    const parentKey = parentId ?? "root";
-    const currentOrder = profile?.packOrderByParent?.[parentKey] ?? [];
-    updatePackOrderByParent(parentKey, [newId, ...currentOrder]).catch(() => {
-      console.error("새 항목 순서 저장 실패");
-    });
-  };
-
   const openNewPack = (parentId?: string, kind?: "checklist" | "editor") => {
     if (kind === "editor") {
       setEditingPack({ id: uid(), name: "새 메모", items: [], parentId, kind: "editor" });
@@ -687,12 +681,10 @@ export default function AppShell() {
       type: "folder",
       parentId,
     };
-    saveLibraryPackRemote(user, draft)
-      .then(() => prependToPackOrder(parentId, draft.id))
-      .catch((err) => {
-        console.error("[팩인백] 폴더 생성 실패:", err);
-        show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
-      });
+    saveLibraryPackRemote(user, draft).catch((err) => {
+      console.error("[팩인백] 폴더 생성 실패:", err);
+      show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
   };
 
   // 폴더/팩 이름 바꾸기(트리 행의 이름 탭 편집). 폴더는 편집 화면이 없어서
@@ -726,68 +718,22 @@ export default function AppShell() {
   };
 
   const handleSavePack = (pack: Pack) => {
-    // 이미 라이브러리에 있는 팩을 수정하는 것인지, 지금 생성하는 새 팩(openNewPack이 draft만 만들어두고
-    // 이 저장이 처음 Firestore에 쓰이는 순간)인지를 구분해야, 새 팩일 때만 custom order 앞에 끼워넣는다.
-    const isNewEntry = !libraryPacks.some((p) => p.id === pack.id);
-    saveLibraryPackRemote(user, pack)
-      .then(() => {
-        if (isNewEntry) prependToPackOrder(pack.parentId, pack.id);
-      })
-      .catch((err) => {
-        if (err instanceof PremiumLimitError) {
-          setPremiumLimitMessage(err.message);
-          return;
-        }
-        console.error("[팩인백] 팩 저장 실패:", err);
-        show(`팩 저장에 실패했어요 (${firebaseErrorCode(err)})`);
-      });
+    saveLibraryPackRemote(user, pack).catch((err) => {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
+      console.error("[팩인백] 팩 저장 실패:", err);
+      show(`팩 저장에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
   };
 
   // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
   // 삭제)와는 다른 함수다 - 이건 라이브러리 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
-  // 라이브러리 팩을 삭제(휴지통 이동)할 때, 가방 속에 그 팩과 연결된(linkedLibraryPackId) 사본이
-  // 있으면 alsoDeleteFromBags 값에 따라 처리한다: true면 그 사본들을 가방에서도 함께 지우고,
-  // false(기본)면 지우지 않는 대신 연결 필드를 지워서(linkedLibraryPackId 등) 평범한 독립 팩으로
-  // 남긴다 - 이렇게 해야 원본이 없는데 "다시 불러오기"/"덮어쓰기"를 시도해서 오류가 나는 상황을
-  // 애초에 만들지 않는다.
-  const applyLibraryPackDeletionToBags = async (
-    libraryPackIds: Set<string>,
-    alsoDeleteFromBags: boolean
-  ) => {
-    const refs = findLinkedBagPackRefs(bags, libraryPackIds);
-    if (refs.length === 0) return;
-    const bagIdsToUpdate = Array.from(new Set(refs.map((r) => r.bagId)));
-    await Promise.all(
-      bagIdsToUpdate.map((bagId) => {
-        const bag = bags.find((b) => b.id === bagId);
-        if (!bag) return Promise.resolve();
-        const packIdsInThisBag = new Set(
-          refs.filter((r) => r.bagId === bagId).map((r) => r.packId)
-        );
-        const updatedPacks = alsoDeleteFromBags
-          ? bag.packs.filter((p) => !packIdsInThisBag.has(p.id))
-          : bag.packs.map((p) =>
-              packIdsInThisBag.has(p.id)
-                ? {
-                    ...p,
-                    linkedLibraryPackId: undefined,
-                    linkedLibraryUpdatedAt: undefined,
-                    savedAsLibraryPack: undefined,
-                  }
-                : p
-            );
-        return saveBagRemote({ ...bag, packs: updatedPacks }).catch((err) => {
-          console.error("[팩인백] 가방 속 연결된 팩 처리 실패:", err);
-        });
-      })
-    );
-  };
-
-  const handleDeletePack = (packId: string, alsoDeleteFromBags?: boolean) => {
+  const handleDeletePack = (packId: string) => {
     setEditingPack(null);
-    applyLibraryPackDeletionToBags(new Set([packId]), !!alsoDeleteFromBags)
-      .then(() => trashLibraryEntryRecursive(user.uid, activePacks, packId))
+    trashLibraryEntryRecursive(user.uid, activePacks, packId)
       .then(() => show("팩을 휴지통으로 보냈어요"))
       .catch((err) => {
         console.error("[팩인백] 팩 휴지통 이동 실패:", err);
@@ -797,13 +743,8 @@ export default function AppShell() {
 
   // 팩 보관함에서 길게 눌러 다중선택한 팩/폴더를 한꺼번에 휴지통으로 보낸다. 폴더를 선택했으면
   // 아이폰 메모처럼 하위 팩/폴더까지 모두 함께 보낸다(trashLibraryEntryRecursive).
-  const handleBulkDeletePacks = async (packIds: string[], alsoDeleteFromBags?: boolean) => {
+  const handleBulkDeletePacks = async (packIds: string[]) => {
     try {
-      // 폴더가 섞여 있을 수 있으니 하위 팩 id까지 포함해서 연결 여부를 확인해야 한다.
-      const allIds = new Set(
-        packIds.flatMap((id) => [id, ...collectDescendantPackIds(activePacks, id)])
-      );
-      await applyLibraryPackDeletionToBags(allIds, !!alsoDeleteFromBags);
       await Promise.all(packIds.map((id) => trashLibraryEntryRecursive(user.uid, activePacks, id)));
       show(`${packIds.length}개를 휴지통으로 보냈어요`);
     } catch (err) {
@@ -906,6 +847,7 @@ export default function AppShell() {
             onSave={handleSaveBag}
             onDeleteBag={handleDeleteBag}
             onSaveAsLibraryPack={handleSaveAsLibraryPack}
+            onTrashPackFromBag={handleTrashPackFromBag}
             onLeaveBag={handleLeaveBag}
             onRemoveMember={handleRemoveMember}
             onRegenerateInviteCode={handleRegenerateInviteCode}
@@ -932,7 +874,7 @@ export default function AppShell() {
   if (showPackTree) {
     return (
       <>
-        <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
           <PacksScreen
             uid={user.uid}
             packs={activePacks}
@@ -955,10 +897,6 @@ export default function AppShell() {
             onMoveEntries={handleMoveLibraryEntries}
             onBack={() => setShowPackTree(false)}
             onBulkDeletePacks={handleBulkDeletePacks}
-          />
-          <BagListSwipeHint
-            enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
-            onOpen={() => setShowPackTree(false)}
           />
         </div>
         {editingPack && (() => {

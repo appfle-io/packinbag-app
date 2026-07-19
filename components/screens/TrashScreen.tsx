@@ -121,6 +121,9 @@ export default function TrashScreen({
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium truncate">{pack.name}</p>
                         <p className="text-[11px] text-text-muted">
+                          {pack.trashSourceBagName
+                            ? `"${pack.trashSourceBagName}" 가방에서 삭제됨 · `
+                            : ""}
                           {daysUntilPurge(pack.trashedAt)}일 후 자동삭제
                         </p>
                       </div>
