@@ -1222,6 +1222,26 @@ export default function BagEditorScreen({
       setSaveConfirmTarget(packId);
       return;
     }
+    const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
+    if (!source) {
+      // 연결된 라이브러리 원본이 삭제/휴지통으로 이동해 더 이상 없음 - 연결이 끊긴 것으로 보고
+      // 평범한 독립 팩으로 되돌려서(linkedLibraryPackId 등 제거) "새로 저장" 흐름을 탄다 -
+      // 덮어쓸 대상이 없는데 덮어쓰기 옵션을 보여줄 수는 없다.
+      updatePacks((packs) =>
+        packs.map((p) =>
+          p.id === packId
+            ? {
+                ...p,
+                linkedLibraryPackId: undefined,
+                linkedLibraryUpdatedAt: undefined,
+                savedAsLibraryPack: undefined,
+              }
+            : p
+        )
+      );
+      setSaveConfirmTarget(packId);
+      return;
+    }
     // 캐시된 값(savedAsLibraryPack)이 아니라 지금 이 순간의 라이브러리 기준으로 다시 비교한다.
     // 다른 가방/기기에서 같은 라이브러리 팩을 먼저 바꿔놨을 수도 있기 때문에, 화면에 남아있는
     // 예전 상태만 믿으면 "변경사항 없음"을 잘못 판단할 수 있다.
@@ -1231,9 +1251,7 @@ export default function BagEditorScreen({
     }
     // 저장된 적 있는데 지금 보니 라이브러리랑 다름 -> 그게 "내가 방금 고쳐서"인지
     // "다른 가방이 먼저 라이브러리를 바꿔놔서"인지 구분해서, 후자면 덮어쓰기를 막는다.
-    const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
     const conflict =
-      !!source &&
       !!pack.linkedLibraryUpdatedAt &&
       !!source.updatedAt &&
       source.updatedAt > pack.linkedLibraryUpdatedAt;
@@ -1303,7 +1321,21 @@ export default function BagEditorScreen({
     if (!pack?.linkedLibraryPackId) return;
     const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
     if (!source) {
-      show("원본 팩을 찾을 수 없어요");
+      // 원본이 삭제/휴지통으로 이동해 더 이상 없음 - 연결된 대상이 사라졌기에(linkedLibraryPackId 등 제거)
+      // 평범한 독립 팩으로 되돌린다 - 이후 이 팩은 새로고침/덮어쓰기 없이 그냥 저장만 묻는다.
+      updatePacks((packs) =>
+        packs.map((p) =>
+          p.id === packId
+            ? {
+                ...p,
+                linkedLibraryPackId: undefined,
+                linkedLibraryUpdatedAt: undefined,
+                savedAsLibraryPack: undefined,
+              }
+            : p
+        )
+      );
+      show("연결된 원본 팩을 찾을 수 없어 연결이 사라졌어요");
       return;
     }
     updatePacks((packs) =>

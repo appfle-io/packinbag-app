@@ -1,4 +1,4 @@
-import { Item, Pack } from "@/lib/types";
+import { Item, Pack, Bag } from "@/lib/types";
 
 export function itemsMatch(a: Item[], b: Item[]) {
   if (a.length !== b.length) return false;
@@ -28,4 +28,22 @@ export function isInSyncWithLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
 export function canDeleteFromLibrary(pack: Pack, libraryPacks: Pack[]): boolean {
   if (!pack.linkedLibraryPackId) return false;
   return libraryPacks.some((p) => p.id === pack.linkedLibraryPackId);
+}
+
+// 라이브러리 팩(libraryPackIds)을 가리키는 linkedLibraryPackId를 가진 가방 속 팩들을 모두 찾는다.
+// 라이브러리에서 팩을 삭제(휴지통 이동)할 때, 연결된 가방 속 사본을 함께 지울지/연결만 끊을지
+// 물어보기 위해 쓴다(폴더 삭제 시는 하위 팩 id까지 모두 넘겨야 한다).
+export function findLinkedBagPackRefs(
+  bags: Bag[],
+  libraryPackIds: Set<string>
+): { bagId: string; packId: string }[] {
+  const refs: { bagId: string; packId: string }[] = [];
+  for (const bag of bags) {
+    for (const p of bag.packs) {
+      if (p.linkedLibraryPackId && libraryPackIds.has(p.linkedLibraryPackId)) {
+        refs.push({ bagId: bag.id, packId: p.id });
+      }
+    }
+  }
+  return refs;
 }

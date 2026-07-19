@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconArrowLeft,
   IconTrash,
@@ -13,6 +13,7 @@ import {
 import { Bag, Item, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
+import { findLinkedBagPackRefs } from "@/lib/packSync";
 import EditableText from "@/components/EditableText";
 import ItemRow from "@/components/ItemRow";
 import ItemFormModal, { ItemFormSaveData } from "@/components/ItemFormModal";
@@ -74,7 +75,8 @@ export default function PackLibraryEditorScreen({
   onSave: (pack: Pack) => void;
   // 지금 편집 중인 팩이 아닌 "다른" 팩에 짐을 추가/복사할 때 그 팩을 즉시 원격저장.
   onSaveOtherPack: (pack: Pack) => void;
-  onDelete: (packId: string) => void;
+  // alsoDeleteFromBags가 true면 가방 속 연결된 사본도 함께 삭제해달라는 뜻(아래 삭제 확인창의 체크박스).
+  onDelete: (packId: string, alsoDeleteFromBags?: boolean) => void;
   // 빠른팩에서 짐을 특정 가방의 특정 팩으로 이동할 때 호출. (되돌리기는 아래 콜백)
   onAddItemsToBagPack?: (bagId: string, packId: string, items: Item[]) => void;
   onRemoveItemsFromBagPack?: (bagId: string, packId: string, itemIds: Set<string>) => void;
@@ -89,6 +91,12 @@ export default function PackLibraryEditorScreen({
 }) {
   const [pack, setPack] = useState<Pack>(initialPack);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // 이 팩이 가방 속 어느 팩이랑이라도 연결되어 있는지 확인해서, 삭제 확인창에
+  // "가방 속 사본도 함께 삭제" 체크박스를 보여줄지 결정한다.
+  const linkedBagPackCount = useMemo(
+    () => findLinkedBagPackRefs(bags ?? [], new Set([pack.id])).length,
+    [bags, pack.id]
+  );
   // "추가" 버튼으로 열리는 짐 추가/수정 모달의 상태. edit일 때 item은 항상 지금 이
   // 팩(pack) 안에 있는 짐이다 - 다른 팩의 짐을 여기서 수정하는 경우는 없다.
   const [itemModal, setItemModal] = useState<
@@ -892,14 +900,21 @@ export default function PackLibraryEditorScreen({
       {confirmDelete && (
         <ConfirmDialog
           title="이 팩을 휴지통으로 보낼까요?"
-          message="설정 > 휴지통에서 30일간 보관되며, 그 안에 복구할 수 있어요. 이미 가방에 불러온 팩에는 영향 없어요."
+          message={
+            linkedBagPackCount > 0
+              ? `설정 > 휴지통에서 30일간 보관되며, 그 안에 복구할 수 있어요. 가방 속에 연결된 사본이 ${linkedBagPackCount}개 있어요 - 함께 삭제하지 않으면 그 사본은 그대로 남고 연결만 끊어져요.`
+              : "설정 > 휴지통에서 30일간 보관되며, 그 안에 복구할 수 있어요. 이미 가방에 불러온 팩에는 영향 없어요."
+          }
+          checkboxLabel={
+            linkedBagPackCount > 0 ? `가방 속 연결된 사본도 함께 삭제 (${linkedBagPackCount}개)` : undefined
+          }
           confirmLabel="휴지통으로"
           tone="accent"
           onCancel={() => setConfirmDelete(false)}
-          onConfirm={() => {
+          onConfirm={(alsoDeleteFromBags) => {
             setConfirmDelete(false);
             deletingRef.current = true;
-            onDelete(pack.id);
+            onDelete(pack.id, alsoDeleteFromBags);
           }}
         />
       )}

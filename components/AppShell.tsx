@@ -24,7 +24,9 @@ import {
   trashLibraryEntryRecursive,
   restoreLibraryEntryRecursive,
   deleteLibraryEntryRecursive,
+  collectDescendantPackIds,
 } from "@/lib/packsService";
+import { findLinkedBagPackRefs } from "@/lib/packSync";
 import {
   subscribeToAnnouncements,
   createAnnouncementRemote,
@@ -744,9 +746,48 @@ export default function AppShell() {
   // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
   // 삭제)와는 다른 함수다 - 이건 라이브러리 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
-  const handleDeletePack = (packId: string) => {
+  // 라이브러리 팩을 삭제(휴지통 이동)할 때, 가방 속에 그 팩과 연결된(linkedLibraryPackId) 사본이
+  // 있으면 alsoDeleteFromBags 값에 따라 처리한다: true면 그 사본들을 가방에서도 함께 지우고,
+  // false(기본)면 지우지 않는 대신 연결 필드를 지워서(linkedLibraryPackId 등) 평범한 독립 팩으로
+  // 남긴다 - 이렇게 해야 원본이 없는데 "다시 불러오기"/"덮어쓰기"를 시도해서 오류가 나는 상황을
+  // 애초에 만들지 않는다.
+  const applyLibraryPackDeletionToBags = async (
+    libraryPackIds: Set<string>,
+    alsoDeleteFromBags: boolean
+  ) => {
+    const refs = findLinkedBagPackRefs(bags, libraryPackIds);
+    if (refs.length === 0) return;
+    const bagIdsToUpdate = Array.from(new Set(refs.map((r) => r.bagId)));
+    await Promise.all(
+      bagIdsToUpdate.map((bagId) => {
+        const bag = bags.find((b) => b.id === bagId);
+        if (!bag) return Promise.resolve();
+        const packIdsInThisBag = new Set(
+          refs.filter((r) => r.bagId === bagId).map((r) => r.packId)
+        );
+        const updatedPacks = alsoDeleteFromBags
+          ? bag.packs.filter((p) => !packIdsInThisBag.has(p.id))
+          : bag.packs.map((p) =>
+              packIdsInThisBag.has(p.id)
+                ? {
+                    ...p,
+                    linkedLibraryPackId: undefined,
+                    linkedLibraryUpdatedAt: undefined,
+                    savedAsLibraryPack: undefined,
+                  }
+                : p
+            );
+        return saveBagRemote({ ...bag, packs: updatedPacks }).catch((err) => {
+          console.error("[팩인백] 가방 속 연결된 팩 처리 실패:", err);
+        });
+      })
+    );
+  };
+
+  const handleDeletePack = (packId: string, alsoDeleteFromBags?: boolean) => {
     setEditingPack(null);
-    trashLibraryEntryRecursive(user.uid, activePacks, packId)
+    applyLibraryPackDeletionToBags(new Set([packId]), !!alsoDeleteFromBags)
+      .then(() => trashLibraryEntryRecursive(user.uid, activePacks, packId))
       .then(() => show("팩을 휴지통으로 보냈어요"))
       .catch((err) => {
         console.error("[팩인백] 팩 휴지통 이동 실패:", err);
@@ -756,8 +797,13 @@ export default function AppShell() {
 
   // 팩 보관함에서 길게 눌러 다중선택한 팩/폴더를 한꺼번에 휴지통으로 보낸다. 폴더를 선택했으면
   // 아이폰 메모처럼 하위 팩/폴더까지 모두 함께 보낸다(trashLibraryEntryRecursive).
-  const handleBulkDeletePacks = async (packIds: string[]) => {
+  const handleBulkDeletePacks = async (packIds: string[], alsoDeleteFromBags?: boolean) => {
     try {
+      // 폴더가 섞여 있을 수 있으니 하위 팩 id까지 포함해서 연결 여부를 확인해야 한다.
+      const allIds = new Set(
+        packIds.flatMap((id) => [id, ...collectDescendantPackIds(activePacks, id)])
+      );
+      await applyLibraryPackDeletionToBags(allIds, !!alsoDeleteFromBags);
       await Promise.all(packIds.map((id) => trashLibraryEntryRecursive(user.uid, activePacks, id)));
       show(`${packIds.length}개를 휴지통으로 보냈어요`);
     } catch (err) {

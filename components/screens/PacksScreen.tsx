@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList } from "@/lib/listSort";
 import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
+import { findLinkedBagPackRefs } from "@/lib/packSync";
 import PackColorDot from "@/components/PackColorDot";
 import { getProgressRatio } from "@/lib/itemStats";
 import ProgressRing from "@/components/ProgressRing";
@@ -109,8 +110,9 @@ export default function PacksScreen({
   onMoveEntries: (packIds: string[], parentId: string | undefined) => void;
   // v68: 이 화면은 탭이 아니라 가방보관함에서 스와이프로 열리는 풀스크린 화면이라 뒤로가기 버튼이 필요하다.
   onBack: () => void;
-  // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더는 재귀적으로).
-  onBulkDeletePacks: (packIds: string[]) => void;
+  // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더는 재귀적으로). alsoDeleteFromBags가
+  // true면 가방 속에 연결된 사본도 함께 삭제해달라는 뜻(아래 확인창의 체크박스).
+  onBulkDeletePacks: (packIds: string[], alsoDeleteFromBags?: boolean) => void;
 }) {
   const {
     profile,
@@ -405,6 +407,17 @@ export default function PacksScreen({
       onOpenPack(entry);
     }
   };
+
+  // 선택된 항목들(폴더면 하위 팩까지 포함)이 가방 속 어느 팩과라도 연결되어 있는지 확인해서,
+  // 삭제 확인창에 "가방 속 사본도 함께 삭제" 체크박스를 보여줄지 결정한다.
+  const linkedBagPackCount = useMemo(() => {
+    const ids = new Set<string>();
+    selectedIds.forEach((id) => {
+      ids.add(id);
+      collectDescendantPackIds(treePacks, id).forEach((d) => ids.add(d));
+    });
+    return findLinkedBagPackRefs(bags, ids).length;
+  }, [selectedIds, treePacks, bags]);
 
   // --- 이동(다중선택 폴더 피커) -----------------------------------------------
   // 선택된 항목 본인 + 그 하위(자손) 폴더로는 이동할 수 없다(순환 방지).
@@ -782,13 +795,20 @@ export default function PacksScreen({
       {showBulkDeleteConfirm && (
         <ConfirmDialog
           title={`${selectedIds.size}개를 삭제할까요?`}
-          message="폴더를 삭제하면 그 안의 팩/폴더도 함께 휴지통으로 이동해요. 삭제된 항목은 되돌릴 수 없어요(휴지통에서 복구 가능). 이미 가방에 불러와진 사본에는 영향이 없어요."
+          message={
+            linkedBagPackCount > 0
+              ? `폴더를 삭제하면 그 안의 팩/폴더도 함께 휴지통으로 이동해요. 삭제된 항목은 되돌릴 수 없어요(휴지통에서 복구 가능). 가방 속에 연결된 사본이 ${linkedBagPackCount}개 있어요 - 함께 삭제하지 않으면 그 사본은 그대로 남고 연결만 끊어져요.`
+              : "폴더를 삭제하면 그 안의 팩/폴더도 함께 휴지통으로 이동해요. 삭제된 항목은 되돌릴 수 없어요(휴지통에서 복구 가능). 이미 가방에 불러와진 사본에는 영향이 없어요."
+          }
+          checkboxLabel={
+            linkedBagPackCount > 0 ? `가방 속 연결된 팩도 함께 삭제 (${linkedBagPackCount}개)` : undefined
+          }
           onCancel={() => setShowBulkDeleteConfirm(false)}
-          onConfirm={() => {
+          onConfirm={(alsoDeleteFromBags) => {
             const ids = Array.from(selectedIds);
             setShowBulkDeleteConfirm(false);
             cancelSelectMode();
-            onBulkDeletePacks(ids);
+            onBulkDeletePacks(ids, alsoDeleteFromBags);
           }}
         />
       )}

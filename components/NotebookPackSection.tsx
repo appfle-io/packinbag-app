@@ -240,9 +240,17 @@ export default function NotebookPackSection({
           <button
             onClick={() => setShowMenu((v) => !v)}
             aria-label="팩 메뉴"
-            className="flex items-center justify-center"
+            className="relative flex items-center justify-center"
           >
             <IconDotsVertical size={16} stroke={1.75} color="var(--text-secondary)" />
+            {pack.linkedLibraryPackId && !isSyncedWithLibrary && (
+              <span
+                className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full flex items-center justify-center text-[8px] font-bold leading-none text-white"
+                style={{ background: "var(--danger)" }}
+              >
+                !
+              </span>
+            )}
           </button>
           {showMenu && (
             <>
