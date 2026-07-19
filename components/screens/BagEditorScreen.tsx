@@ -264,11 +264,12 @@ export default function BagEditorScreen({
 
   const handleChangeTravelDate = (
     travelDate: string | undefined,
-    reminderOffsets: ReminderOffset[] | undefined
+    reminderOffsets: ReminderOffset[] | undefined,
+    ddayCountTodayAsDayOne: boolean | undefined
   ) => {
     if (guardReadOnly()) return;
     pushUndoSnapshot();
-    setBag((prev) => ({ ...prev, travelDate, reminderOffsets }));
+    setBag((prev) => ({ ...prev, travelDate, reminderOffsets, ddayCountTodayAsDayOne }));
   };
 
   const updatePacks = (updater: (packs: Pack[]) => Pack[]) => {
@@ -1614,6 +1615,7 @@ export default function BagEditorScreen({
             ref={travelDateRef}
             travelDate={bag.travelDate}
             reminderOffsets={bag.reminderOffsets}
+            ddayCountTodayAsDayOne={bag.ddayCountTodayAsDayOne}
             onChange={handleChangeTravelDate}
             readOnly={readOnly}
             hideEmptyPrompt
