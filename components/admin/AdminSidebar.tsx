@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,6 +11,8 @@ import {
   IconSpeakerphone,
   IconHistory,
   IconLogout,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 
@@ -22,6 +25,8 @@ const MENU = [
   { href: "/admin/audit-log", label: "활동 로그", icon: IconHistory },
 ];
 
+const COLLAPSE_STORAGE_KEY = "admin-sidebar-collapsed";
+
 export default function AdminSidebar({
   email,
   nickname,
@@ -31,15 +36,45 @@ export default function AdminSidebar({
 }) {
   const pathname = usePathname();
   const { logout } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
+
+  // 새로고침해도 접힘 상태가 유지되도록 localStorage에서 복원.
+  useEffect(() => {
+    const saved = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);
+    if (saved === "1") setCollapsed(true);
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(COLLAPSE_STORAGE_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
 
   return (
     <aside
-      className="w-56 shrink-0 flex flex-col border-r"
-      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      className="shrink-0 flex flex-col border-r transition-[width] duration-150"
+      style={{ borderColor: "var(--border)", background: "var(--surface)", width: collapsed ? 64 : 224 }}
     >
-      <div className="px-4 py-4 border-b" style={{ borderColor: "var(--border)" }}>
-        <p className="text-[14px] font-semibold">팩인백 관리자</p>
-        <p className="text-[11px] text-text-muted truncate mt-0.5">{nickname ?? email}</p>
+      <div
+        className="px-4 py-4 border-b flex items-center justify-between gap-2"
+        style={{ borderColor: "var(--border)" }}
+      >
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold whitespace-nowrap">팩인백 관리자</p>
+            <p className="text-[11px] text-text-muted truncate mt-0.5">{nickname ?? email}</p>
+          </div>
+        )}
+        <button
+          onClick={toggleCollapsed}
+          className="shrink-0 rounded-lg p-1.5 text-text-secondary hover:bg-surface-2"
+          title={collapsed ? "펼치기" : "접기"}
+          aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"}
+        >
+          {collapsed ? <IconChevronRight size={16} stroke={1.75} /> : <IconChevronLeft size={16} stroke={1.75} />}
+        </button>
       </div>
 
       <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5">
@@ -50,14 +85,16 @@ export default function AdminSidebar({
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px]"
+              title={collapsed ? item.label : undefined}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] whitespace-nowrap overflow-hidden"
               style={{
                 background: active ? "var(--accent)" : "transparent",
                 color: active ? "#fff" : "var(--foreground)",
+                justifyContent: collapsed ? "center" : "flex-start",
               }}
             >
-              <Icon size={17} stroke={1.75} />
-              {item.label}
+              <Icon size={17} stroke={1.75} className="shrink-0" />
+              {!collapsed && item.label}
             </Link>
           );
         })}
@@ -66,10 +103,12 @@ export default function AdminSidebar({
       <div className="px-2 py-3 border-t" style={{ borderColor: "var(--border)" }}>
         <button
           onClick={() => logout()}
-          className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-text-secondary"
+          title={collapsed ? "로그아웃" : undefined}
+          className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-text-secondary whitespace-nowrap overflow-hidden"
+          style={{ justifyContent: collapsed ? "center" : "flex-start" }}
         >
-          <IconLogout size={17} stroke={1.75} />
-          로그아웃
+          <IconLogout size={17} stroke={1.75} className="shrink-0" />
+          {!collapsed && "로그아웃"}
         </button>
       </div>
     </aside>
