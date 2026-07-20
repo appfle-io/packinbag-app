@@ -1,4 +1,10 @@
-# 팩인백 기능 스펙 문서 (v70 기준)
+# 팩인백 기능 스펙 문서 (v71 기준)
+
+## v71 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **관리자 대시보드 - 파이차트 + 전일/전주 대비 증감** | 🆕 v71 신규 | 대시보드(`app/admin/page.tsx`)의 각 통계 카드에 recharts 파이차트(가방 상태, 팩 구성, 짐 완료율, 이용권 코드 상태)와 전일/전주 대비 증감 뱃지(초록 +, 빨강 -)를 추가. 증감 계산을 위해 매일 KST 00:05에 Vercel Cron(`vercel.json`)이 `/api/admin/stats/snapshot`을 호출해서 그 시점 통계를 `adminStatsSnapshots/{YYYY-MM-DD}` 문서로 저장(사실상 전날 마감 스냅샷). `/api/admin/stats`가 오늘 값과 어제/일주일 전 스냅샷을 비교해서 `trend.vsYesterday`/`trend.vsLastWeek`로 내려줌. 스냅샷이 없는 날(cron 첫 실행 전/실패)은 해당 뱃지가 "-"로 표시됨. 통계 집계 로직은 `lib/adminStats.ts`로 분리해서 두 라우트가 공유. **배포 시 Vercel 프로젝트 환경변수에 `CRON_SECRET` 설정 필요**(`.env.local.example` 참고) |
 
 ## v70 변경 요약
 
