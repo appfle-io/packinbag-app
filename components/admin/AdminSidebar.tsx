@@ -55,7 +55,7 @@ export default function AdminSidebar({
 
   return (
     <aside
-      className="shrink-0 flex flex-col border-r transition-[width] duration-150"
+      className="sticky top-0 h-dvh shrink-0 flex flex-col border-r transition-[width] duration-150"
       style={{ borderColor: "var(--border)", background: "var(--surface)", width: collapsed ? 64 : 224 }}
     >
       <div
@@ -78,7 +78,7 @@ export default function AdminSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
         {MENU.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;

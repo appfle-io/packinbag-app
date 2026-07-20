@@ -16,7 +16,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, logout } = useAuth();
 
   if (loading) {
-    return <div className="min-h-screen" style={{ background: "var(--background)" }} />;
+    return <div className="min-h-dvh" style={{ background: "var(--background)" }} />;
   }
 
   if (!user) {
@@ -26,7 +26,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
   if (!isMasterEmail(user.email)) {
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center gap-3 p-6 text-center"
+        className="min-h-dvh flex flex-col items-center justify-center gap-3 p-6 text-center"
         style={{ background: "var(--background)" }}
       >
         <p className="text-[15px] font-medium">관리자 권한이 없어요</p>
@@ -44,7 +44,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--background)" }}>
+    <div className="min-h-dvh flex" style={{ background: "var(--background)" }}>
       <AdminSidebar email={user.email} nickname={profile?.nickname ?? null} />
       {/* pb-24: 스크롤을 끝까지 내렸을 때 마지막 콘텐츠(카드/표 등)가 화면 하단에 딱 붙어서
           잘려 보이는 문제 방지. 모든 admin 화면(children)이 이 main을 공유하므로 여기 한 곳만
