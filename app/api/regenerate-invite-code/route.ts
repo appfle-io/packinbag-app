@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { recordAuditLog } from "@/lib/auditLog";
 import { Bag } from "@/lib/types";
 
 // 초대코드 재발급을 서버에서만 처리하도록 만든 라우트.
@@ -86,6 +87,14 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] 초대코드 재발급 실패(서버):", err);
     return NextResponse.json({ error: "초대코드 재발급에 실패했어요" }, { status: 500 });
   }
+
+  await recordAuditLog({
+    uid,
+    action: "invite_code_regenerate",
+    targetType: "bag",
+    targetId: bagId,
+    meta: { bagName: bag.name, oldCode: oldCode ?? null, newCode },
+  });
 
   return NextResponse.json({ inviteCode: newCode });
 }

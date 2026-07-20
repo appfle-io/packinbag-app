@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { recordAuditLog } from "@/lib/auditLog";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 
@@ -71,6 +72,14 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] 가방 팩 휴지통 이동 실패(서버):", err);
     return NextResponse.json({ error: "휴지통으로 옮기지 못했어요" }, { status: 500 });
   }
+
+  await recordAuditLog({
+    uid,
+    action: "bag_trash",
+    targetType: "bag",
+    targetId: sourceBagId,
+    meta: { bagName: sourceBagName, packName: pack.name, packId: pack.id },
+  });
 
   return NextResponse.json({ pack: trashedPack });
 }

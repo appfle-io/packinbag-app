@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { recordAuditLog } from "@/lib/auditLog";
 import { Pack } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -61,6 +62,14 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] 팩 복구 실패(서버):", err);
     return NextResponse.json({ error: "팩 복구에 실패했어요" }, { status: 500 });
   }
+
+  await recordAuditLog({
+    uid,
+    action: "library_pack_restore",
+    targetType: "libraryPack",
+    targetId: packId,
+    meta: { packName: pack.name },
+  });
 
   return NextResponse.json({ ok: true });
 }

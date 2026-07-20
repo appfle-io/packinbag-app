@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
+import { recordAuditLog } from "@/lib/auditLog";
 import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
 import { Bag } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
@@ -81,6 +82,15 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] 가방 복구 실패(서버):", err);
     return NextResponse.json({ error: "가방 복구에 실패했어요" }, { status: 500 });
   }
+
+  await recordAuditLog({
+    uid,
+    email,
+    action: "bag_restore",
+    targetType: "bag",
+    targetId: bagId,
+    meta: { bagName: bag.name },
+  });
 
   return NextResponse.json({ ok: true });
 }

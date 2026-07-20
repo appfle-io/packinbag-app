@@ -162,6 +162,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // CS(고객지원) 대응용 감사 로그. 삭제/복구/이용권 사용 등 주요 이벤트를 서버(Admin SDK,
+    // lib/auditLog.ts)에서만 기록한다. 클라이언트는 절대 쓸 수 없고(위조 방지), 관리자 화면은
+    // app/api/admin/audit-logs(Admin SDK) 라우트를 통해서만 조회한다 - 아래 read 규칙은
+    // 그 라우트가 아니라 혹시 모를 직접 클라이언트 조회를 대비한 이중 방어용이다.
+    match /auditLogs/{logId} {
+      allow read: if request.auth != null && isMasterEmail();
+      allow write: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;

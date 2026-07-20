@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { recordAuditLog } from "@/lib/auditLog";
 import { UNLOCK_CODE_LENGTH } from "@/lib/aiUsageConfig";
 
 // 이용권 코드 "사용 처리(claim)"를 서버에서만 하도록 만든 라우트.
@@ -122,6 +123,15 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] 이용권 코드 사용 처리 실패:", err);
     return NextResponse.json({ error: "코드 확인에 실패했어요. 잠시 후 다시 시도해주세요" }, { status: 500 });
   }
+
+  await recordAuditLog({
+    uid,
+    email,
+    action: "unlock_code_redeem",
+    targetType: "unlockCode",
+    targetId: code,
+    meta: { expiresAt: expiresAtIso },
+  });
 
   return NextResponse.json({ success: true, expiresAt: expiresAtIso });
 }
