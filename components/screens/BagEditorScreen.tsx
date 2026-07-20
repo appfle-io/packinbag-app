@@ -23,7 +23,6 @@ import {
   IconPackage,
   IconEye,
   IconEyeOff,
-  IconHelpCircle,
   IconArrowBackUp,
   IconArrowForwardUp,
 } from "@tabler/icons-react";
@@ -72,8 +71,6 @@ import {
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
-import HelpTutorialModal from "@/components/HelpTutorialModal";
-import { bagEditorHelpSlides } from "@/lib/helpTutorial/bagEditorSlides";
 import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
@@ -147,7 +144,6 @@ export default function BagEditorScreen({
   const [confirmLeaveUnsaved, setConfirmLeaveUnsaved] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
   // PDF 미리보기/업로드는 프리미엄 전용 기능(2026-07 추가). 실제 차단은
@@ -1516,13 +1512,6 @@ export default function BagEditorScreen({
           <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
             <IconArrowLeft size={22} stroke={1.75} />
           </button>
-          <button
-            onClick={() => setShowHelp(true)}
-            className="-m-2.5 p-2.5"
-            aria-label="사용법 도움말"
-          >
-            <IconHelpCircle size={20} stroke={1.75} color="var(--text-secondary)" />
-          </button>
         </div>
         {!readOnly && (historyLen > 0 || redoLen > 0) && (
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -2304,10 +2293,6 @@ export default function BagEditorScreen({
             show("이용권 코드가 적용됐어요! PDF 기능을 다시 시도해주세요");
           }}
         />
-      )}
-
-      {showHelp && (
-        <HelpTutorialModal slides={bagEditorHelpSlides} onClose={() => setShowHelp(false)} />
       )}
 
       {openItemThread && (

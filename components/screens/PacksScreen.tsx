@@ -8,7 +8,6 @@ import {
   IconTrash,
   IconCheck,
   IconSearch,
-  IconHelpCircle,
   IconX,
   IconChevronRight,
   IconChevronDown,
@@ -222,9 +221,6 @@ export default function PacksScreen({
     if (result.pack) {
       onOpenPack(result.pack, result.itemId);
     }
-  };
-  const handleHelpClick = () => {
-    show("아직 준비되지 않았어요");
   };
 
   // --- 길게 눌러 다중선택 / 드래그로 순서변경·폴더 이동 ------------------------
@@ -509,9 +505,6 @@ export default function PacksScreen({
               <div className="flex items-center gap-4 shrink-0">
                 <button onClick={openSearch} aria-label="검색" className="-m-2 p-2">
                   <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
-                </button>
-                <button onClick={handleHelpClick} aria-label="사용법 도움말" className="-m-2 p-2">
-                  <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
                 <NotificationBell uid={uid} />
               </div>

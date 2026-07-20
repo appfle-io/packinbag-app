@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconPlus,
   IconTicket,
-  IconHelpCircle,
   IconTrash,
   IconCheck,
   IconSearch,
@@ -22,9 +21,7 @@ import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
-import HelpTutorialModal from "@/components/HelpTutorialModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { homeHelpSlides } from "@/lib/helpTutorial/homeSlides";
 import { useToast } from "@/components/Toast";
 
 // 길게 누른(롱프레스) 걸로 판정하는 시간. 이보다 짧게 떼면 그냥 탭(가방 열기)으로 처리한다.
@@ -78,7 +75,6 @@ export default function HomeScreen({
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   const { profile, updateBagSortBy, toggleBagPinned, updateBagOrder } = useAuth();
   const { show } = useToast();
   const sortBy = profile?.bagSortBy ?? "createdAt";
@@ -297,13 +293,6 @@ export default function HomeScreen({
                   className="-m-2 p-2"
                 >
                   <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
-                </button>
-                <button
-                  onClick={() => setShowHelp(true)}
-                  aria-label="사용법 도움말"
-                  className="-m-2 p-2"
-                >
-                  <IconHelpCircle size={21} stroke={1.75} color="var(--text-secondary)" />
                 </button>
                 <NotificationBell uid={uid} />
               </div>
@@ -533,10 +522,6 @@ export default function HomeScreen({
             onImportNote(result);
           }}
         />
-      )}
-
-      {showHelp && (
-        <HelpTutorialModal slides={homeHelpSlides} onClose={() => setShowHelp(false)} />
       )}
 
       {showBulkDeleteConfirm && (

@@ -101,7 +101,10 @@ export default function AdminSidebar({
         })}
       </nav>
 
-      <div className="px-2 py-3 border-t flex flex-col gap-0.5" style={{ borderColor: "var(--border)" }}>
+      <div
+        className="px-2 py-3 border-t flex flex-col gap-0.5"
+        style={{ borderColor: "var(--border)", paddingBottom: "max(12px, calc(env(safe-area-inset-bottom) + 8px))" }}
+      >
         <Link
           href="/"
           title={collapsed ? "앱으로 돌아가기" : undefined}
