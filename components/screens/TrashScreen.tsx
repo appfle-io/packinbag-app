@@ -7,7 +7,7 @@ import { daysUntilPurge, TRASH_RETENTION_DAYS } from "@/lib/premiumLimits";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
-// 설정 > 휴지통. 소유한 가방 중 내가 휴지통으로 보낸 것과, 라이브러리에서 휴지통으로 보낸
+// 설정 > 휴지통. 소유한 가방 중 내가 휴지통으로 보낸 것과, 보관함에서 휴지통으로 보낸
 // 팩을 여기서만 볼 수 있다(정상 목록에서는 숨겨져 있음). 항목마다 복구/완전삭제 버튼이
 // 있고, 아무 조치도 하지 않으면 TRASH_RETENTION_DAYS(30일)이 지난 뒤 다음 접속 시점에
 // AppShell이 자동으로 완전삭제한다(components/AppShell.tsx의 자동정리 effect 참고).

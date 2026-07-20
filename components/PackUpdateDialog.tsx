@@ -32,7 +32,7 @@ export default function PackUpdateDialog({
               </p>
             ) : (
               <p className="text-[12px] text-text-secondary">
-                라이브러리에 저장된 팩과 내용이 달라요.
+                보관함에 저장된 팩과 내용이 달라요.
               </p>
             )}
           </div>

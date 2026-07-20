@@ -5,7 +5,7 @@ import { recordAuditLog } from "@/lib/auditLog";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 
-// 가방 "안"에서 팩을 삭제했을 때, 그 팩을 완전히 없애버리는 대신 팩 라이브러리의
+// 가방 "안"에서 팩을 삭제했을 때, 그 팩을 완전히 없애버리는 대신 팩 보관함의
 // 휴지통(trashedAt)으로 복사해 넣는 라우트. firestore.rules에서 libraryPacks의
 // client-side create를 막아뒀기 때문에(allow create: if false), 새 문서 생성은
 // app/api/create-library-pack과 마찬가지로 이 라우트(Admin SDK)를 거쳐야 한다.

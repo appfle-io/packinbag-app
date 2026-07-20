@@ -11,5 +11,5 @@ export const bagEditorHelpSlides: HelpSlide[] = [
   { src: "/help/bag-editor/slide4.png", alt: "팩 카드 헤더 (순서변경 / 완료개수 / 크게보기 / 접기·펼치기)" },
   { src: "/help/bag-editor/slide5.png", alt: "길게 눌러서 드래그하기 (팩 순서·이동 / 짐 순서 바꾸기)" },
   { src: "/help/bag-editor/slide6.png", alt: "짐(항목) 체크 / 수정 / 삭제" },
-  { src: "/help/bag-editor/slide7.png", alt: "팩 카드 하단 (라이브러리 저장 / 팩 삭제)" },
+  { src: "/help/bag-editor/slide7.png", alt: "팩 카드 하단 (보관함 저장 / 팩 삭제)" },
 ];

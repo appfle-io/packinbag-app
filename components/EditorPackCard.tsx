@@ -25,7 +25,7 @@ import Avatar from "./Avatar";
 // 읽기전용으로 렌더해서 체크박스/제목/표가 그대로 보이게 한다. 실제 수정은 연필
 // 아이콘으로 전체화면 편집기(PackNoteEditorScreen)를 열어야 한다 - 노션 페이지
 // 진입하듯 별도 화면에서 편집하고, 이 카드 자체는 보기 전용 미리보기 역할만 한다.
-// 라이브러리 저장/새로고침/삭제(+함께삭제) 등 팩 자체를 다루는 기능은 PackCard와 동일하게 제공한다.
+// 보관함 저장/새로고침/삭제(+함께삭제) 등 팩 자체를 다루는 기능은 PackCard와 동일하게 제공한다.
 export default function EditorPackCard({
   pack,
   isSyncedWithLibrary,
@@ -207,7 +207,7 @@ export default function EditorPackCard({
           title="이 팩을 가방에서 삭제할까요?"
           message="메모 내용도 함께 사라져요."
           checkboxLabel={
-            canDeleteFromLibrary ? "라이브러리에 저장된 원본도 함께 삭제" : undefined
+            canDeleteFromLibrary ? "보관함에 저장된 원본도 함께 삭제" : undefined
           }
           onCancel={() => setConfirmDelete(false)}
           onConfirm={(alsoDeleteLibrary) => {

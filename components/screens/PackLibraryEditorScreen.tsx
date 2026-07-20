@@ -26,7 +26,7 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 // 팩 편집 화면: 짐 추가/수정은 하단 "추가" 버튼으로 중앙 모달(ItemFormModal)을 열어서
 // 처리한다. 가방 속 팩 편집과 다른 점은, 상단 팩 선택이 라디오형(하나만)이 아니라
-// 체크박스형(여러 개)이라는 것 - 라이브러리에 있는 다른 팩도 함께 체크하면 그 팩들에도
+// 체크박스형(여러 개)이라는 것 - 보관함에 있는 다른 팩도 함께 체크하면 그 팩들에도
 // 동시에 짐이 추가/복사된다. 이미 추가된 짐은 기존과 동일하게 오른쪽 스와이프=수정
 // (역시 이 모달을 열도록 변경), 왼쪽 스와이프=삭제로 조작한다.
 //
@@ -56,11 +56,11 @@ export default function PackLibraryEditorScreen({
   variant = "fullscreen",
 }: {
   initialPack: Pack;
-  // 팩 선택 모달 상단에 보여줄 라이브러리 전체 팩 목록. 지금 편집 중인 팩이
+  // 팩 선택 모달 상단에 보여줄 보관함 전체 팩 목록. 지금 편집 중인 팩이
   // 아직 한 번도 저장되지 않았다면(방금 "새 팩 만들기") 이 목록에 없을 수 있어서
   // displayPacks 계산에서 별도로 합쳐준다.
   libraryPacks: Pack[];
-  // 무료 전환으로 잠긴 다른 라이브러리 팩 id 목록. "다른 팩에도 같이 추가" 체크박스
+  // 무료 전환으로 잠긴 다른 보관함 팩 id 목록. "다른 팩에도 같이 추가" 체크박스
   // 목록에서 이 팩들은 제외한다 - 지금 열려있는 팩(unlocked 상태라 이 화면이 열림)을
   // 편집하는 김에 잠긴 팩에 몰래 짐을 추가하는 것을 막기 위함.
   lockedPackIds?: Set<string>;
@@ -476,7 +476,7 @@ export default function PackLibraryEditorScreen({
 
   // 짐을 추가/삭제/수정/순서변경하거나 팩 이름·색상을 바꿀 때마다(=pack 상태가 바뀔 때마다)
   // 0.5초 후 자동으로 저장한다. 상단의 별도 "저장" 버튼 없이도 항상 최신 상태가
-  // 라이브러리에 반영되도록 하는 것이 목적. 처음 화면이 열릴 때(아직 아무것도 안 바꼈을 때)는
+  // 보관함에 반영되도록 하는 것이 목적. 처음 화면이 열릴 때(아직 아무것도 안 바꼈을 때)는
   // 저장하지 않는다. readOnly면 위의 모든 setPack 진입점이 guardReadOnly로 막혀있어서
   // pack 상태 자체가 변하지 않으므로, 이 effect도 자연히 실행되지 않는다.
   const [justSaved, setJustSaved] = useState(false);
@@ -835,10 +835,10 @@ export default function PackLibraryEditorScreen({
                   </div>
                   <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
                     <div className="flex flex-col gap-1">
-                      <p className="text-[11px] text-text-muted px-1">라이브러리 팩</p>
+                      <p className="text-[11px] text-text-muted px-1">보관함 팩</p>
                       {displayPacks.filter((p) => p.id !== pack.id).length === 0 ? (
                         <p className="text-[12px] text-text-muted py-2 px-1">
-                          이동할 수 있는 라이브러리 팩이 없어요.
+                          이동할 수 있는 보관함 팩이 없어요.
                         </p>
                       ) : (
                         displayPacks

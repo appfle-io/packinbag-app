@@ -623,7 +623,7 @@ export default function AppShell() {
   };
 
   // 가방 안에서 팩을 삭제하면(BagEditorScreen의 handleDeletePack) 완전히 사라지는 대신
-  // 팩 라이브러리의 휴지통으로 사본을 하나 남겨서 설정 > 휴지통에서 복구할 수 있게 한다.
+  // 팩 보관함의 휴지통으로 사본을 하나 남겨서 설정 > 휴지통에서 복구할 수 있게 한다.
   // 실패해도 가방 쪽 삭제 자체는 이미 끝난 상태라 토스트로만 안내한다.
   const handleTrashPackFromBag = (pack: Pack, sourceBagId: string, sourceBagName: string) => {
     trashBagPackRemote(user, pack, sourceBagId, sourceBagName).catch((err) => {
@@ -730,7 +730,7 @@ export default function AppShell() {
   };
 
   // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
-  // 삭제)와는 다른 함수다 - 이건 라이브러리 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
+  // 삭제)와는 다른 함수다 - 이건 보관함 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
   const handleDeletePack = (packId: string) => {
     setEditingPack(null);

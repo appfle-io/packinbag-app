@@ -6,8 +6,8 @@
 //
 // 가방은 2개만 만든다(여행/업무) - FREE_MAX_ACTIVE_BAGS(3)를 가입 즉시 다 채워버리면
 // 가입하자마자 자기 가방을 못 만드는 상황이 생겨서, 여유 1개를 남겨둔다.
-// 라이브러리 팩은 2개(FREE_MAX_LIBRARY_PACKS=3, 여유 1개) 만들고 그 중 하나를
-// 여행 가방 안에 실제로 "가져온" 상태로 넣어서 라이브러리 연동/북마크 흐름을 보여준다.
+// 보관함 팩은 2개(FREE_MAX_LIBRARY_PACKS=3, 여유 1개) 만들고 그 중 하나를
+// 여행 가방 안에 실제로 "가져온" 상태로 넣어서 보관함 연동/북마크 흐름을 보여준다.
 
 import type { User } from "firebase/auth";
 import { Bag, Item, Pack } from "@/lib/types";
@@ -36,7 +36,7 @@ export async function seedSampleDataForNewUser(
 ) {
   const now = new Date().toISOString();
 
-  // 1) 팩 라이브러리 샘플 2개 - 여행 가방 안에서 "가져와 연동"된 형태로 함께 보여준다.
+  // 1) 팩 보관함 샘플 2개 - 여행 가방 안에서 "가져와 연동"된 형태로 함께 보여준다.
   const libraryTravelPack: Pack = {
     id: uid(),
     name: "여행 필수 준비물",
@@ -70,7 +70,7 @@ export async function seedSampleDataForNewUser(
   await saveLibraryPackRemote(user, libraryTravelPack);
   await saveLibraryPackRemote(user, libraryStayPack);
 
-  // 2) 여행 가방 - 위 라이브러리 팩 2개를 실제로 "가져온" 상태로 넣어서 연동을 보여준다.
+  // 2) 여행 가방 - 위 보관함 팩 2개를 실제로 "가져온" 상태로 넣어서 연동을 보여준다.
   //    첫 팩의 첫 두 짐은 스와이프 제스처 안내용 샘플.
   const travelBag: Bag = {
     id: uid(),

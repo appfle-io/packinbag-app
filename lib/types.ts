@@ -48,15 +48,15 @@ export interface Pack {
   // 이 팩/폴더가 속한 상위 폴더의 id. 없으면(undefined) 팩 보관함 최상위. 아이폰 메모처럼
   // 폴더 안에 폴더를 계속 만들 수 있어 깊이 제한이 없다.
   parentId?: string;
-  // 이 팩이 이미 라이브러리에 저장된 적이 있는지 (북마크 채움 여부)
+  // 이 팩이 이미 보관함에 저장된 적이 있는지 (북마크 채움 여부)
   savedAsLibraryPack?: boolean;
-  // 이 팩이 어떤 라이브러리 팩과 연결돼있는지 (새로고침 대상)
+  // 이 팩이 어떤 보관함 팩과 연결돼있는지 (새로고침 대상)
   linkedLibraryPackId?: string;
-  // 마지막으로 라이브러리와 동기화(저장/덮어쓰기/새로고침)했던 시점의 라이브러리 팩 updatedAt.
-  // 저장 시점에 라이브러리 쪽 updatedAt이 이 값보다 더 최신이면 "다른 가방/기기에서
+  // 마지막으로 보관함과 동기화(저장/덮어쓰기/새로고침)했던 시점의 보관함 팩 updatedAt.
+  // 저장 시점에 보관함 쪽 updatedAt이 이 값보다 더 최신이면 "다른 가방/기기에서
   // 먼저 바뀐 것"으로 판단해 덮어쓰기 대신 새롭게 저장을 유도한다.
   linkedLibraryUpdatedAt?: string;
-  createdAt?: string; // 라이브러리 팩 정렬(생성일자)용. 최초 저장 시점에 서버에서 채워짐
+  createdAt?: string; // 보관함 팩 정렬(생성일자)용. 최초 저장 시점에 서버에서 채워짐
   updatedAt?: string;
   // 팩 카드/태그에 보여줄 색상 프리셋 id (lib/packColors.ts 참고). 없으면 무색.
   color?: string;
@@ -67,16 +67,16 @@ export interface Pack {
   displayState?: "normal" | "wide" | "collapsed";
   // true면 이 팩은 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩("빠른팩")이다.
   // 사용자당 최대 1개, id는 항상 QUICK_PACK_ID(lib/premiumLimits.ts) 고정값을 쓴다.
-  // 무료 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)과 잠금 대상 계산에서 항상 제외되고,
+  // 무료 보관함 개수 제한(FREE_MAX_LIBRARY_PACKS)과 잠금 대상 계산에서 항상 제외되고,
   // 아이템이 0개가 되면 화면에서는 숨겨지지만(HIDE) 문서 자체는 삭제되지 않는다 -
   // 다음에 다시 빠른입력하면 그대로 재사용된다.
   isQuickPack?: boolean;
-  // 이용권이 없거나 만료/무효화된 사람이 라이브러리 개수 제한(FREE_MAX_LIBRARY_PACKS)을
+  // 이용권이 없거나 만료/무효화된 사람이 보관함 개수 제한(FREE_MAX_LIBRARY_PACKS)을
   // 넘겨서 갖고 있던 팩 중 "최신 N개"에 들지 못한 것에 true로 표시된다. 서버(app/api/sync-lock-status)만
   // 이 필드를 쓸 수 있고(firestore.rules에서 클라이언트 수정/삭제를 막음), 잠긴 팩은 보기만
   // 가능하고 수정/삭제는 막힌다. 다시 이용권을 등록하면 서버가 자동으로 false로 되돌려준다.
   locked?: boolean;
-  // 휴지통으로 보낸 시각(ISO). 있으면 팩 라이브러리 목록에서 숨겨지고 설정 > 휴지통에만
+  // 휴지통으로 보낸 시각(ISO). 있으면 팩 보관함 목록에서 숨겨지고 설정 > 휴지통에만
   // 보인다. 30일(TRASH_RETENTION_DAYS)이 지나면 클라이언트가 다음에 열릴 때 자동으로
   // 영구삭제된다(별도 서버 배치 없이 클라이언트가 열릴 때 검사). 복구(지우기)는 무료 개수
   // 제한 검증이 필요해서 클라이언트가 직접 지울 수 없고(firestore.rules) app/api/
@@ -103,8 +103,8 @@ export interface BagMemberProfile {
 export type ReminderOffset = 0 | 1 | 3;
 
 // 가방이 곧 공유 단위. 가방마다 초대코드가 있고, 그 코드로 들어온 사람만
-// 이 가방을 보고 동시에 편집할 수 있다. 팩 라이브러리는 공유되지 않는다 -
-// 다른 사람이 이 가방에 불러온 팩이 마음에 들면 북마크로 "내" 라이브러리에
+// 이 가방을 보고 동시에 편집할 수 있다. 팩 보관함은 공유되지 않는다 -
+// 다른 사람이 이 가방에 불러온 팩이 마음에 들면 북마크로 "내" 보관함에
 // 따로 복사해서 저장해야 한다 (가방 안의 팩과는 이후 연동되지 않음).
 export interface Bag {
   id: string;
@@ -179,9 +179,9 @@ export interface UserProfile {
   // 기본 투명도 (0~1, 없으면 1 = 완전 불투명): 하단 탭바, 필터 버튼, 짐(체크/텍스트) 배경,
   // 설정 메뉴 미선택 버튼 배경 등 --surface-2를 쓰는 모든 요소에 공통 적용됨
   baseOpacity?: number;
-  // 가방 카드 / 팩 카드(가방 속) / 팩 라이브러리 타일 크기 배율 (없으면 1 = 100%).
+  // 가방 카드 / 팩 카드(가방 속) / 팩 보관함 타일 크기 배율 (없으면 1 = 100%).
   // 카드 안 여백·아이콘을 배율 적용 (팩 카드는 글자 크기가 아래 packCardFontScale로
-  // 분리되어 있고, 가방 카드/팩 라이브러리 타일은 기존처럼 글자도 함께 배율 적용됨)
+  // 분리되어 있고, 가방 카드/팩 보관함 타일은 기존처럼 글자도 함께 배율 적용됨)
   bagCardScale?: number;
   packCardScale?: number;
   packLibraryCardScale?: number;

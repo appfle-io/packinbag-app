@@ -7,7 +7,7 @@
 //
 // 나중에 앱스토어/플레이스토어에 인앱결제(1회성 구매)가 추가되면, 이 파일의
 // isPremiumUser 안에 "구매 여부" 조건만 추가하면 된다 - 이 함수를 쓰는 모든 화면
-// (팩 라이브러리 개수 제한, 동시 진행 가방 개수 제한, 커스텀 색상 등)이 자동으로
+// (팩 보관함 개수 제한, 동시 진행 가방 개수 제한, 커스텀 색상 등)이 자동으로
 // 같은 기준을 따르게 된다.
 //
 // 주의: 개수 제한 자체(새로 만들 때 막는 것)는 app/api/create-bag, app/api/create-library-pack이
@@ -87,5 +87,5 @@ export function computeLockedBagIds(bags: Bag[], ownerUid: string): Set<string> 
   return new Set(owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id));
 }
 
-// v68: 팩 라이브러리 개수 제한은 폐지됨(폴더 기능 도입과 함께 무제한으로 변경).
+// v68: 팩 보관함 개수 제한은 폐지됨(폴더 기능 도입과 함께 무제한으로 변경).
 // 가방 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)은 기존 정책 그대로 유지된다.

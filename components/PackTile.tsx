@@ -19,7 +19,7 @@ export default function PackTile({
   onClick: () => void;
   // true면 무료 전환으로 잠긴 팩. 탭하면 여전히 열리지만(읽기 전용) 자물쇠 표시를 보여준다.
   locked?: boolean;
-  // 고정핀 처리된 팩인지 (최대 2개, 팩 라이브러리 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
+  // 고정핀 처리된 팩인지 (최대 2개, 팩 보관함 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
   pinned?: boolean;
   onTogglePin?: () => void;
   isDragSource?: boolean;

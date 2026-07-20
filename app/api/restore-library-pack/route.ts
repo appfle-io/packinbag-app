@@ -5,7 +5,7 @@ import { recordAuditLog } from "@/lib/auditLog";
 import { Pack } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
 
-// 휴지통에 있는 라이브러리 팩/폴더를 복구(trashedAt 제거)하는 라우트.
+// 휴지통에 있는 보관함 팩/폴더를 복구(trashedAt 제거)하는 라우트.
 //
 // 왜 서버가 필요한가: firestore.rules에서 trashedAt을 값 -> null로 되돌리는 것 자체를
 // 클라이언트가 못 하게 막아둬서(개수 제한 검증 목적으로 만들어졌던 제약이지만, 팩 개수

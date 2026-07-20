@@ -2,11 +2,11 @@ rules_version = '2';
 
 // 팩인백 Firestore 보안 규칙
 // - users/{uid}: 본인만 읽고 쓸 수 있음
-// - users/{uid}/libraryPacks: 팩 라이브러리는 공유되지 않는 개인 전용 공간. 본인만 접근.
+// - users/{uid}/libraryPacks: 팩 보관함은 공유되지 않는 개인 전용 공간. 본인만 접근.
 //   단, 새로 만들기(create)는 무료 개수 제한을 서버에서 검증해야 해서 클라이언트로는 막아뒀고
 //   (allow create: if false), app/api/create-library-pack(Admin SDK)에서만 만들 수 있다.
 //   기존 팩 수정(자동저장)/삭제는 여전히 클라이언트가 직접 하지만, locked:true인 팩(이용권이
-//   없거나 만료/무효화된 상태에서 라이브러리 개수 제한을 넘은 것)은 서버(app/api/
+//   없거나 만료/무효화된 상태에서 보관함 개수 제한을 넘은 것)은 서버(app/api/
 //   sync-lock-status)만 고칠 수 있고 클라이언트 쪽 수정/삭제는 막힌다(읽기는 계속 허용).
 //   trashedAt(휴지통으로 보낸 시각)은 client가 null -> 값으로 설정(=휴지통 보내기)하는 것만
 //   허용되고, 값 -> null로 되돌리는 것(=복구)은 무료 개수 제한 검증이 필요해서 서버(app/api/
@@ -78,7 +78,7 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // 팩 라이브러리 새로 만들기(create)는 항상 막혀있어 app/api/create-library-pack에서만
+      // 팩 보관함 새로 만들기(create)는 항상 막혀있어 app/api/create-library-pack에서만
       // 가능하다(Admin SDK는 이 규칙을 그대로 통과한다). v68부터 팩 개수 제한이 폐지되어
       // locked 필드는 더 이상 팩에 걸리지 않으므로(예전 데이터 호환 목적으로만 필드가 남아있음)
       // 수정/삭제 조건에서 locked 검사를 제거했다.

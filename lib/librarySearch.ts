@@ -108,7 +108,7 @@ export interface PackSearchResult {
   label: string;
   // 짐 매칭/메모 내용 매칭일 때 어디서 찾았는지 보여줌
   subtitle?: string;
-  // type이 'pack'|'item'일 때만 있다(라이브러리 팩 결과).
+  // type이 'pack'|'item'일 때만 있다(팩 보관함 결과).
   pack?: Pack;
   itemId?: string;
   // type이 'bag'일 때만 있다(가방 결과) - HomeScreen과 동일한 방식으로 열 수 있게 그대로 넘겨준다.

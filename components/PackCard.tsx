@@ -66,8 +66,8 @@ export default function PackCard({
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
-  // linkedLibraryPackId가 "내" 라이브러리에 실제로 있을 때만 true - 이때만 삭제
-  // 다이얼로그에 "라이브러리도 함께 삭제" 옵션을 보여줄 수 있다.
+  // linkedLibraryPackId가 "내" 보관함에 실제로 있을 때만 true - 이때만 삭제
+  // 다이얼로그에 "보관함도 함께 삭제" 옵션을 보여줄 수 있다.
   canDeleteFromLibrary?: boolean;
   onToggleItem: (itemId: string) => void;
   onChangeItemText: (
@@ -82,7 +82,7 @@ export default function PackCard({
   onToggleAll: (checked: boolean) => void;
   onSaveToLibrary: () => void;
   onRefreshFromLibrary: () => void;
-  // alsoDeleteLibrary가 true면 연동된 라이브러리 원본도 함께 삭제해달라는 뜻.
+  // alsoDeleteLibrary가 true면 연동된 보관함 원본도 함께 삭제해달라는 뜻.
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
   // 카드 자체의 펼치기/접기 토글 (nextState는 "wide" | "collapsed" | "normal")
   onChangeDisplayState?: (nextState: "normal" | "wide" | "collapsed") => void;
@@ -401,7 +401,7 @@ export default function PackCard({
           title="이 팩을 가방에서 삭제할까요?"
           message="휴지통으로 옮겨져서 설정 > 휴지통에서 복구할 수 있어요."
           checkboxLabel={
-            canDeleteFromLibrary ? "라이브러리에 저장된 원본도 함께 삭제" : undefined
+            canDeleteFromLibrary ? "보관함에 저장된 원본도 함께 삭제" : undefined
           }
           onCancel={() => setConfirmDelete(false)}
           onConfirm={(alsoDeleteLibrary) => {

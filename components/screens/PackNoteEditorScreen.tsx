@@ -49,7 +49,7 @@ export default function PackNoteEditorScreen({
   pack: Pack;
   readOnly?: boolean;
   // 지금 다른 사람이 같은 가방에서 이 팩을 편집 중이면 그 사람 닉네임(없거나 null이면 다른
-  // 편집자 없음). 가방 속에서만 의미가 있어서(라이브러리 단독 편집은 공유되지 않으므로)
+  // 편집자 없음). 가방 속에서만 의미가 있어서(보관함 단독 편집은 공유되지 않으므로)
   // BagEditorScreen에서만 넘겨준다.
   otherEditorNickname?: string | null;
   onBack: () => void;

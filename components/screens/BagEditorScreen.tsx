@@ -123,7 +123,7 @@ export default function BagEditorScreen({
   onSave: (bag: Bag) => void;
   onDeleteBag: (bag: Bag) => void;
   onSaveAsLibraryPack: (pack: Pack) => void;
-  // 가방 안에서 팩을 삭제했을 때, 완전히 없애는 대신 팩 라이브러리 휴지통에 사본을
+  // 가방 안에서 팩을 삭제했을 때, 완전히 없애는 대신 팩 보관함 휴지통에 사본을
   // 남겨서(설정 > 휴지통) 복구할 수 있게 한다. AppShell이 트래시 라우트 호출까지 처리한다.
   onTrashPackFromBag: (pack: Pack, sourceBagId: string, sourceBagName: string) => void;
   onLeaveBag: (bagId: string) => Promise<void>;
@@ -769,18 +769,18 @@ export default function BagEditorScreen({
     updatePacks((packs) => packs.filter((p) => p.id !== packId));
     if (alsoDeleteLibrary && pack?.linkedLibraryPackId) {
       deleteLibraryPackRemote(currentUid, pack.linkedLibraryPackId).catch((err) => {
-        console.error("[팩인백] 라이브러리 팩 삭제 실패:", err);
-        show("라이브러리에서는 삭제하지 못했어요");
+        console.error("[팩인백] 보관함 팩 삭제 실패:", err);
+        show("보관함에서는 삭제하지 못했어요");
       });
     }
-    // 가방에서 지운 팩은 완전히 사라지는 게 아니라 팩 라이브러리 휴지통으로 사본이
+    // 가방에서 지운 팩은 완전히 사라지는 게 아니라 팩 보관함 휴지통으로 사본이
     // 옮겨간다(어느 가방에서 지웠는지도 함께 기록돼서 휴지통에서 바로 보인다).
-    // "라이브러리에서도 삭제" 옵션은 이미 연동돼있던 별도의 라이브러리 팩(위에서 처리)만
+    // "보관함에서도 삭제" 옵션은 이미 연동돼있던 별도의 보관함 팩(위에서 처리)만
     // 대상으로 하고, 이 휴지통 사본과는 무관하다.
     if (pack) {
       onTrashPackFromBag(pack, bag.id, bag.name);
     }
-    show(alsoDeleteLibrary ? "팩을 가방과 라이브러리에서 모두 삭제했어요" : "팩을 휴지통으로 옮겼어요");
+    show(alsoDeleteLibrary ? "팩을 가방과 보관함에서 모두 삭제했어요" : "팩을 휴지통으로 옮겼어요");
   };
 
   // 팩 카드 개별 토글(넓히기/접기)에서 호출되는 경우와, 상단 전체 컨트롤(접기/기본/펼치기)에서
@@ -1265,15 +1265,15 @@ export default function BagEditorScreen({
       setSaveConfirmTarget(packId);
       return;
     }
-    // 캐시된 값(savedAsLibraryPack)이 아니라 지금 이 순간의 라이브러리 기준으로 다시 비교한다.
-    // 다른 가방/기기에서 같은 라이브러리 팩을 먼저 바꿔놨을 수도 있기 때문에, 화면에 남아있는
+    // 캐시된 값(savedAsLibraryPack)이 아니라 지금 이 순간의 보관함 기준으로 다시 비교한다.
+    // 다른 가방/기기에서 같은 보관함 팩을 먼저 바꿔놨을 수도 있기 때문에, 화면에 남아있는
     // 예전 상태만 믿으면 "변경사항 없음"을 잘못 판단할 수 있다.
     if (isInSyncWithLibrary(pack, libraryPacks)) {
       show("변경사항이 없어요");
       return;
     }
-    // 저장된 적 있는데 지금 보니 라이브러리랑 다름 -> 그게 "내가 방금 고쳐서"인지
-    // "다른 가방이 먼저 라이브러리를 바꿔놔서"인지 구분해서, 후자면 덮어쓰기를 막는다.
+    // 저장된 적 있는데 지금 보니 보관함이랑 다름 -> 그게 "내가 방금 고쳐서"인지
+    // "다른 가방이 먼저 보관함을 바꿔놔서"인지 구분해서, 후자면 덮어쓰기를 막는다.
     const source = libraryPacks.find((p) => p.id === pack.linkedLibraryPackId);
     const conflict =
       !!source &&
@@ -2155,8 +2155,8 @@ export default function BagEditorScreen({
 
       {refreshConfirmTarget && (
         <ConfirmDialog
-          title="팩을 라이브러리 최신본으로 불러올까요?"
-          message="지금 이 팩에 있는 내용은 라이브러리 버전으로 덮어써지고 사라져요."
+          title="팩을 보관함 최신본으로 불러올까요?"
+          message="지금 이 팩에 있는 내용은 보관함 버전으로 덮어써지고 사라져요."
           confirmLabel="불러오기"
           tone="accent"
           onCancel={() => setRefreshConfirmTarget(null)}
