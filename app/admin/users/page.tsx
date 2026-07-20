@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { adminApiFetch, AdminApiError } from "@/lib/adminApiClient";
 
 interface BagSummary {
@@ -101,21 +102,22 @@ function BagRow({ bag }: { bag: BagSummary }) {
   );
 }
 
-export default function AdminUsersPage() {
-  const [email, setEmail] = useState("");
+function AdminUsersInner() {
+  const searchParams = useSearchParams();
+  const emailFromQuery = searchParams.get("email");
+  const [email, setEmail] = useState(emailFromQuery ?? "");
   const [result, setResult] = useState<UserLookupResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
+  const runSearch = async (targetEmail: string) => {
+    if (!targetEmail.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const data = await adminApiFetch<UserLookupResult>(
-        `/api/admin/user-lookup?email=${encodeURIComponent(email.trim())}`
+        `/api/admin/user-lookup?email=${encodeURIComponent(targetEmail.trim())}`
       );
       setResult(data);
     } catch (err) {
@@ -123,6 +125,20 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 대시보드 유저 목록 모달에서 특정 유저를 눌러 /admin/users?email=... 로 넘어온 경우,
+  // 이메일 입력창에 채워주고 바로 조회까지 실행해준다.
+  useEffect(() => {
+    if (emailFromQuery) {
+      runSearch(emailFromQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emailFromQuery]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch(email);
   };
 
   return (
@@ -253,5 +269,13 @@ export default function AdminUsersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminUsersPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-[13px] text-text-muted">불러오는 중...</div>}>
+      <AdminUsersInner />
+    </Suspense>
   );
 }

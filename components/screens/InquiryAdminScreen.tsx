@@ -17,9 +17,15 @@ function formatDate(iso: string) {
 }
 
 // 설정 > 문의 관리 (운영자 전용). 전체 문의 목록(미답변 필터) + 답변 작성.
-export default function InquiryAdminScreen({ onBack }: { onBack: () => void }) {
+export default function InquiryAdminScreen({
+  onBack,
+  initialUnansweredOnly = false,
+}: {
+  onBack: () => void;
+  initialUnansweredOnly?: boolean;
+}) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [unansweredOnly, setUnansweredOnly] = useState(false);
+  const [unansweredOnly, setUnansweredOnly] = useState(initialUnansweredOnly);
   const [selected, setSelected] = useState<Inquiry | null>(null);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);

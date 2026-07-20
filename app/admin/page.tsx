@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { IconChevronRight } from "@tabler/icons-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { adminApiFetch, AdminApiError } from "@/lib/adminApiClient";
+import UserListModal from "@/components/admin/UserListModal";
 
 interface StatsShape {
   users: { total: number; newLast7Days: number };
@@ -20,6 +23,10 @@ interface AdminStats extends StatsShape {
     vsLastWeek: StatsShape | null;
   };
 }
+
+// 대시보드에서 열 수 있는 모달 종류. 유저 목록(전체/최근 7일)만 모달로 보여주고,
+// 이용권/문의는 각 관리 화면으로 필터를 붙여서 이동시킨다(아래 StatCard onClick 참고).
+type ModalKind = "allUsers" | "newUsers" | null;
 
 // ---- 증감 뱃지 ----
 function TrendBadge({ label, value }: { label: string; value: number | null | undefined }) {
@@ -46,20 +53,38 @@ function StatCard({
   sub,
   trendYesterday,
   trendLastWeek,
+  onClick,
 }: {
   label: string;
   value: string | number;
   sub?: string;
   trendYesterday?: number | null;
   trendLastWeek?: number | null;
+  onClick?: () => void;
 }) {
   const showTrend = trendYesterday !== undefined || trendLastWeek !== undefined;
+  const clickable = !!onClick;
   return (
     <div
-      className="rounded-xl p-4 flex flex-col gap-1"
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") onClick?.();
+            }
+          : undefined
+      }
+      className={`rounded-xl p-4 flex flex-col gap-1 transition-colors ${
+        clickable ? "cursor-pointer hover:bg-surface-2" : ""
+      }`}
       style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
-      <p className="text-[12px] text-text-secondary">{label}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[12px] text-text-secondary">{label}</p>
+        {clickable && <IconChevronRight size={13} stroke={2} className="text-text-muted shrink-0" />}
+      </div>
       <p className="text-[24px] font-semibold">{value.toLocaleString?.() ?? value}</p>
       {sub && <p className="text-[11px] text-text-muted">{sub}</p>}
       {showTrend && (
@@ -128,9 +153,11 @@ function StatPie({ title, data }: { title: string; data: PieDatum[] }) {
 }
 
 export default function AdminDashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState<ModalKind>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,8 +203,13 @@ export default function AdminDashboardPage() {
               value={stats.users.total}
               trendYesterday={y?.users.total}
               trendLastWeek={w?.users.total}
+              onClick={() => setModal("allUsers")}
             />
-            <StatCard label="최근 7일 신규 가입" value={stats.users.newLast7Days} />
+            <StatCard
+              label="최근 7일 신규 가입"
+              value={stats.users.newLast7Days}
+              onClick={() => setModal("newUsers")}
+            />
           </Section>
 
           <Section title="가방">
@@ -241,10 +273,23 @@ export default function AdminDashboardPage() {
               value={stats.premium.activeCodes}
               trendYesterday={y?.premium.activeCodes}
               trendLastWeek={w?.premium.activeCodes}
+              onClick={() => router.push("/admin/unlock-codes?status=active")}
             />
-            <StatCard label="미배포" value={stats.premium.unusedCodes} />
-            <StatCard label="만료됨" value={stats.premium.expiredCodes} />
-            <StatCard label="무효화됨" value={stats.premium.invalidatedCodes} />
+            <StatCard
+              label="미배포"
+              value={stats.premium.unusedCodes}
+              onClick={() => router.push("/admin/unlock-codes?status=unused")}
+            />
+            <StatCard
+              label="만료됨"
+              value={stats.premium.expiredCodes}
+              onClick={() => router.push("/admin/unlock-codes?status=expired")}
+            />
+            <StatCard
+              label="무효화됨"
+              value={stats.premium.invalidatedCodes}
+              onClick={() => router.push("/admin/unlock-codes?status=invalidated")}
+            />
           </Section>
 
           <Section title="문의">
@@ -253,12 +298,14 @@ export default function AdminDashboardPage() {
               value={stats.inquiries.total}
               trendYesterday={y?.inquiries.total}
               trendLastWeek={w?.inquiries.total}
+              onClick={() => router.push("/admin/inquiries")}
             />
             <StatCard
               label="미답변"
               value={stats.inquiries.pending}
               trendYesterday={y?.inquiries.pending}
               trendLastWeek={w?.inquiries.pending}
+              onClick={() => router.push("/admin/inquiries?status=pending")}
             />
           </Section>
 
@@ -299,6 +346,13 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </>
+      )}
+
+      {modal === "allUsers" && (
+        <UserListModal title="총 가입자" newOnly={false} onClose={() => setModal(null)} />
+      )}
+      {modal === "newUsers" && (
+        <UserListModal title="최근 7일 신규 가입" newOnly={true} onClose={() => setModal(null)} />
       )}
     </div>
   );

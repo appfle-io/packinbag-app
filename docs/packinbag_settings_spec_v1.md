@@ -1,4 +1,11 @@
-# 팩인백 기능 스펙 문서 (v71 기준)
+# 팩인백 기능 스펙 문서 (v72 기준)
+
+## v72 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **관리자 사이드바 접기/펼치기 + 화면 하단 여백** | 🆕 v72 신규 | `AdminSidebar.tsx` 상단에 접기/펼치기 토글 버튼 추가(224px ↔ 64px, 접으면 아이콘만+title 툴팁, localStorage에 상태 저장). `AdminGate.tsx`의 공유 스크롤 컨테이너(`<main>`)에 `pb-24` 추가해서 대시보드 등에서 스크롤 끝까지 내렸을 때 마지막 콘텐츠가 화면 하단에 붙어 잘려 보이던 문제 해결(모든 admin 화면이 이 main을 공유하므로 한 곳만 고치면 전체 적용됨). 단, 문의/이용권 관리 화면은 내부적으로 `h-screen`을 따로 쓰고 있어서 이 pb는 적용 안 됨 |
+| **대시보드 카드 클릭 → 모달/화면 이동** | 🆕 v72 신규 | 대시보드(`app/admin/page.tsx`)의 통계 카드를 클릭 가능하게 만듦. "총 가입자"/"최근 7일 신규 가입"은 페이징 유저 목록 모달(`components/admin/UserListModal.tsx`, 신규 API `app/api/admin/users-list`)을 띄우고, 모달에서 유저를 누르면 `/admin/users?email=...`로 이동해 자동 검색됨(`AdminUsersPage`에 쿼리 파라미터 자동조회 추가). 이용권 카드(활성/미배포/만료/무효화)는 `/admin/unlock-codes?status=...`로 이동해 해당 상태로 필터링된 채 열림(`UnlockCodeAdminScreen`에 상태 필터 칩 UI 추가). 문의 카드(총 문의/미답변)는 `/admin/inquiries`(`?status=pending`)로 이동(`InquiryAdminScreen`의 기존 미답변 토글을 쿼리 파라미터로 초기화). 클릭 가능한 카드는 우측에 화살표 아이콘으로 표시 |
 
 ## v71 변경 요약
 

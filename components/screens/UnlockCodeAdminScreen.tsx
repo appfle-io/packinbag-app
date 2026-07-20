@@ -32,10 +32,27 @@ function durationLabel(entry: UnlockCodeEntry): string {
   return UNLOCK_DURATION_LABELS[entry.durationType];
 }
 
-export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }) {
+type StatusFilter = "all" | "unused" | "active" | "expired" | "invalidated";
+
+const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
+  all: "전체",
+  unused: "미배포",
+  active: "사용중",
+  expired: "만료",
+  invalidated: "무효화",
+};
+
+export default function UnlockCodeAdminScreen({
+  onBack,
+  initialStatusFilter = "all",
+}: {
+  onBack: () => void;
+  initialStatusFilter?: StatusFilter;
+}) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(() => onBack());
   const { show } = useToast();
   const [codes, setCodes] = useState<UnlockCodeEntry[]>([]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
   const [count, setCount] = useState("1");
@@ -117,14 +134,21 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
     }
   };
 
+  const showUnused = statusFilter === "all" || statusFilter === "unused";
+  const showByPerson = statusFilter !== "unused";
+
   const unusedCodes = useMemo(() => codes.filter((c) => c.status === "unused"), [codes]);
 
   // 사용된(claimed/invalidated) 코드를 사용한 사람(이메일) 기준으로 묶기.
   // 한 사람이 코드를 여러 개 썼을 수 있으므로(무효화/만료 후 재발급) person -> 코드 목록(1:N).
+  // statusFilter가 active/expired/invalidated면 그 상태의 코드만 걸러서 그룹핑한다.
   const byPerson = useMemo(() => {
     const groups = new Map<string, UnlockCodeEntry[]>();
     for (const c of codes) {
       if (c.status === "unused") continue;
+      if (statusFilter !== "all" && statusFilter !== "unused" && unlockCodeDisplayStatus(c) !== statusFilter) {
+        continue;
+      }
       const key = c.claimedByEmail ?? "(알 수 없음)";
       const list = groups.get(key) ?? [];
       list.push(c);
@@ -137,7 +161,7 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
     });
     entries.sort((a, b) => b.latest.localeCompare(a.latest));
     return entries;
-  }, [codes]);
+  }, [codes, statusFilter]);
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
@@ -146,6 +170,23 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
           <IconArrowLeft size={22} stroke={1.75} />
         </button>
         <span className="text-[16px] font-medium">이용권 코드 관리</span>
+      </div>
+
+      <div className="flex gap-1.5 px-4 pb-2 flex-wrap shrink-0">
+        {(Object.keys(STATUS_FILTER_LABELS) as StatusFilter[]).map((opt) => (
+          <button
+            key={opt}
+            onClick={() => setStatusFilter(opt)}
+            className="rounded-full px-3 py-1.5 text-[12px] font-medium"
+            style={
+              statusFilter === opt
+                ? { background: "var(--accent)", color: "#fff" }
+                : { background: "var(--surface-2)", color: "var(--text-secondary)" }
+            }
+          >
+            {STATUS_FILTER_LABELS[opt]}
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
@@ -233,117 +274,125 @@ export default function UnlockCodeAdminScreen({ onBack }: { onBack: () => void }
           <p className="text-[13px] text-text-muted py-6 text-center">불러오는 중...</p>
         ) : (
           <>
-            <p className="text-[12px] font-medium text-text-secondary mb-2">
-              미배포 코드 ({unusedCodes.length})
-            </p>
-            {unusedCodes.length === 0 ? (
-              <p className="text-[13px] text-text-muted py-4 text-center mb-6">
-                아직 나눠주지 않은 코드가 없어요
-              </p>
-            ) : (
-              <div className="rounded-lg border border-border overflow-hidden mb-6">
-                {unusedCodes.map((c, idx) => (
-                  <div
-                    key={c.code}
-                    className="flex items-center justify-between p-3"
-                    style={{
-                      borderBottom: idx < unusedCodes.length - 1 ? "1px solid var(--border)" : undefined,
-                    }}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
-                          style={{ background: "var(--border)", color: "var(--text-muted)" }}
+            {showUnused && (
+              <>
+                <p className="text-[12px] font-medium text-text-secondary mb-2">
+                  미배포 코드 ({unusedCodes.length})
+                </p>
+                {unusedCodes.length === 0 ? (
+                  <p className="text-[13px] text-text-muted py-4 text-center mb-6">
+                    아직 나눠주지 않은 코드가 없어요
+                  </p>
+                ) : (
+                  <div className="rounded-lg border border-border overflow-hidden mb-6">
+                    {unusedCodes.map((c, idx) => (
+                      <div
+                        key={c.code}
+                        className="flex items-center justify-between p-3"
+                        style={{
+                          borderBottom: idx < unusedCodes.length - 1 ? "1px solid var(--border)" : undefined,
+                        }}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                              style={{ background: "var(--border)", color: "var(--text-muted)" }}
+                            >
+                              {durationLabel(c)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-text-muted truncate">{c.note || "메모 없음"}</p>
+                        </div>
+                        <button
+                          onClick={() => handleCopy(c.code)}
+                          aria-label="코드 복사"
+                          className="-m-2 p-2 shrink-0"
                         >
-                          {durationLabel(c)}
-                        </span>
+                          <IconCopy size={16} stroke={1.75} color="var(--text-muted)" />
+                        </button>
                       </div>
-                      <p className="text-[11px] text-text-muted truncate">{c.note || "메모 없음"}</p>
-                    </div>
-                    <button
-                      onClick={() => handleCopy(c.code)}
-                      aria-label="코드 복사"
-                      className="-m-2 p-2 shrink-0"
-                    >
-                      <IconCopy size={16} stroke={1.75} color="var(--text-muted)" />
-                    </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
 
-            <p className="text-[12px] font-medium text-text-secondary mb-2">
-              사용자별 사용 현황 ({byPerson.length}명)
-            </p>
-            {byPerson.length === 0 ? (
-              <p className="text-[13px] text-text-muted py-4 text-center">
-                아직 사용된 코드가 없어요
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {byPerson.map((person) => (
-                  <div key={person.email} className="rounded-lg border border-border overflow-hidden">
-                    <div className="px-3 py-2 bg-surface-2">
-                      <p className="text-[13px] font-medium truncate">{person.email}</p>
-                    </div>
-                    {person.codes.map((c, idx) => {
-                      const displayStatus = unlockCodeDisplayStatus(c);
-                      const badgeStyle =
-                        displayStatus === "active"
-                          ? { background: "var(--accent)", color: "#fff" }
-                          : { background: "var(--border)", color: "var(--text-muted)" };
-                      const badgeText =
-                        displayStatus === "active"
-                          ? "사용중"
-                          : displayStatus === "expired"
-                          ? "만료됨"
-                          : "무효화됨";
-                      return (
-                        <div
-                          key={c.code}
-                          className="flex items-center justify-between p-3"
-                          style={{
-                            borderBottom:
-                              idx < person.codes.length - 1 ? "1px solid var(--border)" : undefined,
-                          }}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={badgeStyle}>
-                                {badgeText}
-                              </span>
-                              <span
-                                className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
-                                style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
-                              >
-                                {durationLabel(c)}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-text-muted truncate">
-                              {c.note || "메모 없음"} · {formatDate(c.claimedAt)} 사용
-                              {c.expiresAt && ` · ${formatDate(c.expiresAt)} 만료`}
-                              {displayStatus === "invalidated" && ` · ${formatDate(c.invalidatedAt)} 무효화`}
-                            </p>
-                          </div>
-                          {displayStatus === "active" && (
-                            <button
-                              onClick={() => setConfirmInvalidateCode(c.code)}
-                              disabled={invalidatingCode === c.code}
-                              aria-label="코드 무효화"
-                              className="-m-2 p-2 shrink-0 disabled:opacity-50 flex items-center gap-1"
-                            >
-                              <IconBan size={16} stroke={1.75} color="var(--danger)" />
-                            </button>
-                          )}
+            {showByPerson && (
+              <>
+                <p className="text-[12px] font-medium text-text-secondary mb-2">
+                  사용자별 사용 현황 ({byPerson.length}명)
+                </p>
+                {byPerson.length === 0 ? (
+                  <p className="text-[13px] text-text-muted py-4 text-center">
+                    아직 사용된 코드가 없어요
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {byPerson.map((person) => (
+                      <div key={person.email} className="rounded-lg border border-border overflow-hidden">
+                        <div className="px-3 py-2 bg-surface-2">
+                          <p className="text-[13px] font-medium truncate">{person.email}</p>
                         </div>
-                      );
-                    })}
+                        {person.codes.map((c, idx) => {
+                          const displayStatus = unlockCodeDisplayStatus(c);
+                          const badgeStyle =
+                            displayStatus === "active"
+                              ? { background: "var(--accent)", color: "#fff" }
+                              : { background: "var(--border)", color: "var(--text-muted)" };
+                          const badgeText =
+                            displayStatus === "active"
+                              ? "사용중"
+                              : displayStatus === "expired"
+                              ? "만료됨"
+                              : "무효화됨";
+                          return (
+                            <div
+                              key={c.code}
+                              className="flex items-center justify-between p-3"
+                              style={{
+                                borderBottom:
+                                  idx < person.codes.length - 1 ? "1px solid var(--border)" : undefined,
+                              }}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-[13px] font-medium tracking-widest">{c.code}</p>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={badgeStyle}>
+                                    {badgeText}
+                                  </span>
+                                  <span
+                                    className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+                                    style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
+                                  >
+                                    {durationLabel(c)}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-text-muted truncate">
+                                  {c.note || "메모 없음"} · {formatDate(c.claimedAt)} 사용
+                                  {c.expiresAt && ` · ${formatDate(c.expiresAt)} 만료`}
+                                  {displayStatus === "invalidated" && ` · ${formatDate(c.invalidatedAt)} 무효화`}
+                                </p>
+                              </div>
+                              {displayStatus === "active" && (
+                                <button
+                                  onClick={() => setConfirmInvalidateCode(c.code)}
+                                  disabled={invalidatingCode === c.code}
+                                  aria-label="코드 무효화"
+                                  className="-m-2 p-2 shrink-0 disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  <IconBan size={16} stroke={1.75} color="var(--danger)" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </>
         )}
