@@ -31,8 +31,7 @@ export default function NotebookView({
   dragSourcePackId,
   hideChecked,
   onAddItem,
-  selectedPackId,
-  selectedItemIds,
+  selectedItemsByPack,
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
@@ -72,8 +71,9 @@ export default function NotebookView({
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
   onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
-  selectedPackId?: string | null;
-  selectedItemIds?: Set<string> | null;
+  // 다중선택 중이면 packId -> 그 팩에서 선택된 짐 id 집합 전체 맵. null/undefined면
+  // 다중선택 모드 자체가 아님(PackGrid와 동일한 규약).
+  selectedItemsByPack?: Record<string, Set<string>> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
@@ -89,6 +89,8 @@ export default function NotebookView({
   onOpenReactionPicker?: (itemId: string, itemText: string) => void;
   */
 }) {
+  const selectionModeActive = !!selectedItemsByPack;
+
   return (
     <div className="flex flex-col">
       {packs.map((pack, idx) => {
@@ -149,7 +151,7 @@ export default function NotebookView({
           isPackDragSource={dragSourcePackId === pack.id}
           hideChecked={hideChecked}
           onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
-          selectedItemIds={selectedPackId === pack.id ? selectedItemIds : null}
+          selectedItemIds={selectionModeActive ? selectedItemsByPack![pack.id] ?? new Set<string>() : null}
           onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
           getItemThreadInfo={getItemThreadInfo}
           onOpenItemThread={

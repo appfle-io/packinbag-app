@@ -177,8 +177,14 @@ export default function ItemRow({
 
   // 짐을 더블클릭하면 내용을 클립보드에 복사하고, 무슨 내용이 복사됐는지 토스트로 알려준다.
   // 다중선택 모드(disabled) 중에는 복사 대신 선택 토글이 우선이므로 더블클릭 복사를 막는다.
-  const handleDoubleClick = () => {
-    if (disabled) return;
+  // preventDefault를 호출하는 이유: 그냥 return만 하면 JS 동작(복사)만 막힐 뿐, 브라우저가
+  // 더블클릭 시 기본으로 수행하는 텍스트 선택(하이라이트)은 그대로 일어난다 - 선택 모드 중에
+  // 짐 텍스트가 계속 하이라이트되어 보이는 게 어색했던 문제.
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (disabled) {
+      e.preventDefault();
+      return;
+    }
     if (!item.text) return;
     navigator.clipboard
       .writeText(item.text)
@@ -197,6 +203,13 @@ export default function ItemRow({
   const longPressTriggered = useRef(false);
   const scrollParentRef = useRef<HTMLElement | null | undefined>(undefined);
   const scrollingRef = useRef(false);
+  // React fires onPointerMove for hover too, even with no mouse button pressed.
+  // In selection mode (disabled) there's no `dragging` state to gate on, so track
+  // whether a button/touch is actually down in this ref (set true in handlePointerDown,
+  // false in endDrag). Without this, once every pack becomes disabled=true (selection mode
+  // active), moving the mouse with no button pressed over any row would still run the
+  // manual-scroll logic below and make the list scroll as if following the cursor.
+  const pointerActiveRef = useRef(false);
   // 스크롤 중 손가락 속도(px/ms)를 추적해서, 손을 뗄 때 모멘텀 스크롤에 넘겨준다.
   const velocityRef = useRef(0);
   const lastMoveTimeRef = useRef(0);
@@ -232,6 +245,7 @@ export default function ItemRow({
       scrollingRef.current = false;
       scrollParentRef.current = undefined;
       longPressTriggered.current = false;
+      pointerActiveRef.current = true;
       if (onStartDrag) {
         const x = e.clientX;
         const y = e.clientY;
@@ -252,6 +266,7 @@ export default function ItemRow({
     longPressTriggered.current = false;
     scrollingRef.current = false;
     scrollParentRef.current = undefined;
+    pointerActiveRef.current = true;
     // 새 제스처가 시작되면 이전 스와이프 여부 플래그를 초기화한다.
     swipedRef.current = false;
 
@@ -281,7 +296,7 @@ export default function ItemRow({
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (disabled) {
-      if (longPressTriggered.current) return;
+      if (!pointerActiveRef.current || longPressTriggered.current) return;
       const dx = e.clientX - startX.current;
       const dy = e.clientY - startY.current;
       const movedEnough =
@@ -380,6 +395,7 @@ export default function ItemRow({
 
   const endDrag = () => {
     clearLongPressTimer();
+    pointerActiveRef.current = false;
     const wasScrolling = scrollingRef.current;
     const parent = scrollParentRef.current;
     scrollingRef.current = false;

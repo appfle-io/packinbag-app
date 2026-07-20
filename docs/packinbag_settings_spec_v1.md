@@ -1,4 +1,12 @@
-# 팩인백 기능 스펙 문서 (v72 기준)
+# 팩인백 기능 스펙 문서 (v73 기준)
+
+## v73 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **메모장뷰 팩 헤더 빠른추가 버튼을 ⋯ 메뉴로 이동** | 🆕 v73 변경 | `NotebookPackSection.tsx`에서 빠른추가(체크박스/텍스트) 아이콘을 헤더에서 없애고 팩 메뉴(⋯) 안으로 이동 |
+| **다중선택 모드에서 다른 팩의 짐도 선택 가능** | 🆕 v73 변경 | 팩뷰/메모장뷰의 다중선택 상태를 팩 하나만 담당하던 `{ packId, itemIds }`에서 여러 팩을 동시에 담는 `Record<packId, Set<itemId>>` 구조로 교체. 이제 다른 팩으로 롱프레스해도 그 팩의 짐도 선택 가능하고, 선택된 여러 팩의 짐을 한 번에 다른 팩으로 이동/삭제 가능. `BagEditorScreen.tsx`(selection/groupDrag 상태 구조), `PackGrid.tsx`/`NotebookView.tsx`(`selectedItemsByPack` 프롭 교체) |
+| **다중선택 모드 중 더블클릭 텍스트 선택 방지** | 🐛 v73 수정 | 선택 모드(disabled) 중에도 더블클릭하면 브라우저 기본 텍스트 선택(하이라이트)이 일어나던 문제 - `e.preventDefault()` 추가. `ItemRow.tsx` |
 
 ## v72 변경 요약
 

@@ -28,8 +28,7 @@ export default function PackGrid({
   dragSourcePackId,
   hideChecked,
   onAddItem,
-  selectedPackId,
-  selectedItemIds,
+  selectedItemsByPack,
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
@@ -70,10 +69,11 @@ export default function PackGrid({
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
   onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
-  // 다중선택이 진행 중인 패의 id와 그 안에서 선택된 짐 id 집합. 없으면 다중선택
-  // 모드 자체가 아님.
-  selectedPackId?: string | null;
-  selectedItemIds?: Set<string> | null;
+  // 다중선택 중이면 packId -> 그 팩에서 선택된 짐 id 집합 전체 맵. null/undefined면
+  // 다중선택 모드 자체가 아님. 특정 팩이 아직 하나도 선택되지 않았어도 모드가 켜져
+  // 있으면 그 팩도 "선택 가능" 상태로 보여줘야 하므로(다른 팩으로 선택을 넘길 수
+  // 있게), 각 카드에는 이 맵에 없는 팩도 빈 Set을 내려준다(아래 renderCard 참고).
+  selectedItemsByPack?: Record<string, Set<string>> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
   // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 댓글 버튼이 안 보인다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
@@ -91,6 +91,10 @@ export default function PackGrid({
   onOpenReactionPicker?: (itemId: string, itemText: string) => void;
   */
 }) {
+  // 다중선택 모드 전체 여부. selectedItemsByPack이 존재하면(빈 객체라도) 모드가 켜진
+  // 것으로 본다 - 실제 on/off 판단은 BagEditorScreen에서 null 여부로 관리한다.
+  const selectionModeActive = !!selectedItemsByPack;
+
   const renderCard = (pack: Pack) => {
     if (pack.kind === "editor") {
       return (
@@ -151,7 +155,7 @@ export default function PackGrid({
       isPackDragSource={dragSourcePackId === pack.id}
       hideChecked={hideChecked}
       onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
-      selectedItemIds={selectedPackId === pack.id ? selectedItemIds : null}
+      selectedItemIds={selectionModeActive ? selectedItemsByPack![pack.id] ?? new Set<string>() : null}
       onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
       getItemThreadInfo={getItemThreadInfo}
       onOpenItemThread={

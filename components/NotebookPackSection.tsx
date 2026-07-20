@@ -210,32 +210,6 @@ export default function NotebookPackSection({
         {ratio !== null && (
           <span className="shrink-0 text-[12px] text-text-secondary">{pack.items.length}개</span>
         )}
-        {onAddItem && (
-          <>
-            <button
-              onClick={() => setQuickAddType((t) => (t === "check" ? null : "check"))}
-              aria-label="체크박스 항목 빠르게 추가"
-              className="shrink-0"
-            >
-              <IconSquareCheck
-                size={15}
-                stroke={1.75}
-                color={quickAddType === "check" ? "var(--accent)" : "var(--text-secondary)"}
-              />
-            </button>
-            <button
-              onClick={() => setQuickAddType((t) => (t === "text" ? null : "text"))}
-              aria-label="텍스트 항목 빠르게 추가"
-              className="shrink-0"
-            >
-              <IconAlignLeft
-                size={15}
-                stroke={1.75}
-                color={quickAddType === "text" ? "var(--accent)" : "var(--text-secondary)"}
-              />
-            </button>
-          </>
-        )}
         <div className="relative shrink-0">
           <button
             onClick={() => setShowMenu((v) => !v)}
@@ -254,6 +228,30 @@ export default function NotebookPackSection({
                 }`}
                 style={{ background: "var(--surface)", minWidth: 140 }}
               >
+                {onAddItem && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setQuickAddType("check");
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                    >
+                      <IconSquareCheck size={15} stroke={1.75} />
+                      체크박스 항목 추가
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setQuickAddType("text");
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                    >
+                      <IconAlignLeft size={15} stroke={1.75} />
+                      텍스트 항목 추가
+                    </button>
+                  </>
+                )}
                 {pack.linkedLibraryPackId && (
                   <button
                     onClick={() => {

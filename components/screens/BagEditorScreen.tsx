@@ -906,8 +906,15 @@ export default function BagEditorScreen({
     clientY: number
   ) => {
     if (guardReadOnly()) return;
-    if (selection && selection.packId === packId && selection.itemIds.has(itemId)) {
-      const next = { packId, itemIds: selection.itemIds, x: clientX, y: clientY, overPackId: null, overItemId: null, overItemPosition: null };
+    if (selection && selection[packId]?.has(itemId)) {
+      const next = {
+        itemsByPack: selection,
+        x: clientX,
+        y: clientY,
+        overPackId: null,
+        overItemId: null,
+        overItemPosition: null,
+      };
       groupDragRef.current = next;
       setGroupDrag(next);
       return;
@@ -917,19 +924,23 @@ export default function BagEditorScreen({
 
   // 짐 다중선택 상태: 한 번에 한 팩만 대상으로 한다(다른 팩을 롱프레스하면 그 팩으로
   // 선택이 넘어간다). null이면 선택 모드가 아님.
-  const [selection, setSelection] = useState<{ packId: string; itemIds: Set<string> } | null>(
-    null
-  );
+  const [selection, setSelection] = useState<Record<string, Set<string>> | null>(null);
+
+  const totalSelectedCount = (sel: Record<string, Set<string>> | null) =>
+    sel ? Object.values(sel).reduce((sum, ids) => sum + ids.size, 0) : 0;
 
   const toggleSelectItem = (packId: string, itemId: string) => {
     setSelection((prev) => {
-      if (!prev || prev.packId !== packId) {
-        return { packId, itemIds: new Set([itemId]) };
+      const next: Record<string, Set<string>> = {};
+      if (prev) {
+        for (const [pid, ids] of Object.entries(prev)) next[pid] = new Set(ids);
       }
-      const next = new Set(prev.itemIds);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
-      return next.size === 0 ? null : { packId, itemIds: next };
+      const set = next[packId] ? new Set(next[packId]) : new Set<string>();
+      if (set.has(itemId)) set.delete(itemId);
+      else set.add(itemId);
+      if (set.size === 0) delete next[packId];
+      else next[packId] = set;
+      return totalSelectedCount(next) === 0 ? null : next;
     });
   };
 
@@ -938,8 +949,7 @@ export default function BagEditorScreen({
   // 팀뷰에서 "이미 선택된 짐을 다시 길게 누름" 시 시작되는 그룹 이동 드래그 상태.
   // 다른 패 위에 놓으면 선택된 짐 전체가 그 패으로 옮겨간다.
   const [groupDrag, setGroupDrag] = useState<{
-    packId: string;
-    itemIds: Set<string>;
+    itemsByPack: Record<string, Set<string>>;
     x: number;
     y: number;
     overPackId: string | null;
@@ -950,20 +960,27 @@ export default function BagEditorScreen({
 
   // 선택된 짐들을 다른 패으로 통채 옮긴다(순서는 맨 뒤에 추가). 남은 자리에서 손을
   // 떼면(같은 패 위에 놓거나 대상 패가 없으면) 아무것도 하지 않고 그대로 선택 상태를 유지한다.
-  const handleMoveSelectedItems = (fromPackId: string, toPackId: string, itemIds: Set<string>) => {
+  const handleMoveSelectedItems = (itemsByPack: Record<string, Set<string>>, toPackId: string) => {
     if (guardReadOnly()) return;
     // 메모팩(kind==='editor')에는 짐을 놓을 수 없다 - handleMoveItem과 동일한 방어.
     if (bag.packs.find((p) => p.id === toPackId)?.kind === "editor") {
       show("메모 팩에는 짐을 넣을 수 없어요");
       return;
     }
+    let movedCount = 0;
     updatePacks((packs) => {
-      const fromPack = packs.find((p) => p.id === fromPackId);
-      const movingItems = fromPack?.items.filter((i) => itemIds.has(i.id)) ?? [];
+      const movingItems: Item[] = [];
+      for (const [packId, ids] of Object.entries(itemsByPack)) {
+        if (packId === toPackId || ids.size === 0) continue;
+        const fromPack = packs.find((p) => p.id === packId);
+        if (fromPack) movingItems.push(...fromPack.items.filter((i) => ids.has(i.id)));
+      }
       if (movingItems.length === 0) return packs;
+      movedCount = movingItems.length;
       return packs.map((p) => {
-        if (p.id === fromPackId) {
-          const updated = { ...p, items: p.items.filter((i) => !itemIds.has(i.id)) };
+        const ids = itemsByPack[p.id];
+        if (p.id !== toPackId && ids && ids.size > 0) {
+          const updated = { ...p, items: p.items.filter((i) => !ids.has(i.id)) };
           return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
         }
         if (p.id === toPackId) {
@@ -973,7 +990,7 @@ export default function BagEditorScreen({
         return p;
       });
     });
-    show(`${itemIds.size}개를 옮겼어요`);
+    if (movedCount > 0) show(`${movedCount}개를 옮겼어요`);
     setSelection(null);
   };
 
@@ -1011,18 +1028,20 @@ export default function BagEditorScreen({
       if (!d) return;
       groupDragRef.current = null;
       setGroupDrag(null);
-      if (d.overPackId && d.overPackId !== d.packId) {
-        handleMoveSelectedItems(d.packId, d.overPackId, d.itemIds);
-        return;
-      }
-      // 선택된 짐이 때 개뿐이고 같은 패 안의 다른 짐 위에 놓았을 때만 순서변경으로 처리한다.
-      if (d.itemIds.size === 1 && d.overPackId === d.packId && d.overItemId) {
-        const itemId = [...d.itemIds][0];
+      if (!d.overPackId) return;
+      const entries = Object.entries(d.itemsByPack).filter(([, ids]) => ids.size > 0);
+      const totalSelected = entries.reduce((sum, [, ids]) => sum + ids.size, 0);
+      // 선택된 짐이 딱 한 개이고, 그 짐의 원래 패 위에 그대로 놓았다면 같은 패 안에서의 순서변경으로 처리한다.
+      if (totalSelected === 1 && entries.length === 1 && entries[0][0] === d.overPackId && d.overItemId) {
+        const [packId, ids] = entries[0];
+        const itemId = [...ids][0];
         if (d.overItemId !== itemId) {
-          handleMoveItem(d.packId, d.packId, itemId, d.overItemId, d.overItemPosition === "after");
+          handleMoveItem(packId, packId, itemId, d.overItemId, d.overItemPosition === "after");
           setSelection(null);
         }
+        return;
       }
+      handleMoveSelectedItems(d.itemsByPack, d.overPackId);
     };
 
     window.addEventListener("pointermove", handleMove);
@@ -1040,30 +1059,37 @@ export default function BagEditorScreen({
   // 확인창 없이 바로 삭제하고 "되돌리기" 토스트로 복구 기회를 준다.
   const commitDeleteSelected = () => {
     if (guardReadOnly()) return;
-    if (!selection || selection.itemIds.size === 0) return;
-    const { packId, itemIds } = selection;
+    if (!selection) return;
+    const entries = Object.entries(selection).filter(([, ids]) => ids.size > 0);
+    if (entries.length === 0) return;
     // removedItems는 setBag 업데이터 안에서 계산하지 않는다 - handleDeleteItem과 같은
     // 이유로, 그 앞의 pushUndoSnapshot(setHistoryLen)이 React의 동기(eager) 실행을
     // 막아버리면 바로 다음 줄에서 읽을 때 빈 배열(초기값)만 보이는 경우가 있었다
     // ("0개 삭제했어요" 버그). 그래서 현재 bag.packs에서 직접 미리 계산해둔다.
-    const targetPack = bag.packs.find((p) => p.id === packId);
-    const removedItems: Item[] = targetPack?.items.filter((i) => itemIds.has(i.id)) ?? [];
+    const removedByPack: Record<string, Item[]> = {};
+    for (const [packId, ids] of entries) {
+      const targetPack = bag.packs.find((p) => p.id === packId);
+      removedByPack[packId] = targetPack?.items.filter((i) => ids.has(i.id)) ?? [];
+    }
     updatePacks((packs) =>
       packs.map((p) => {
-        if (p.id !== packId) return p;
-        const items = p.items.filter((i) => !itemIds.has(i.id));
+        const ids = selection[p.id];
+        if (!ids || ids.size === 0) return p;
+        const items = p.items.filter((i) => !ids.has(i.id));
         const updated = { ...p, items };
         return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
       })
     );
     setSelection(null);
-    show(`${removedItems.length}개를 삭제했어요`, {
+    const totalRemoved = Object.values(removedByPack).reduce((sum, arr) => sum + arr.length, 0);
+    show(`${totalRemoved}개를 삭제했어요`, {
       actionLabel: "되돌리기",
       onAction: () => {
         updatePacks((packs) =>
           packs.map((p) => {
-            if (p.id !== packId) return p;
-            const items = [...p.items, ...removedItems];
+            const removed = removedByPack[p.id];
+            if (!removed || removed.length === 0) return p;
+            const items = [...p.items, ...removed];
             const updated = { ...p, items };
             return { ...updated, savedAsLibraryPack: isInSyncWithLibrary(updated, libraryPacks) };
           })
@@ -1469,6 +1495,20 @@ export default function BagEditorScreen({
     });
   };
 
+  // groupDrag now tracks selections across multiple packs (itemsByPack). Precompute the
+  // total selected count (used by the floating badge) and, when exactly one item across
+  // all packs is being dragged, that item's id (used to highlight it) so render doesn't
+  // redo this work in multiple places below.
+  const groupDragTotalCount = groupDrag
+    ? Object.values(groupDrag.itemsByPack).reduce((sum, ids) => sum + ids.size, 0)
+    : 0;
+  const groupDragSingleItemId = groupDrag
+    ? (() => {
+        const nonEmpty = Object.values(groupDrag.itemsByPack).filter((s) => s.size > 0);
+        return nonEmpty.length === 1 && nonEmpty[0].size === 1 ? [...nonEmpty[0]][0] : null;
+      })()
+    : null;
+
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="relative flex items-center justify-between p-4 pb-2 shrink-0">
@@ -1823,17 +1863,16 @@ export default function BagEditorScreen({
               setRefreshConfirmTarget(packId);
             }}
             onStartItemDrag={handleStartItemDrag}
-            dragSourceItemId={groupDrag && groupDrag.itemIds.size === 1 ? [...groupDrag.itemIds][0] : drag?.itemId ?? null}
-            dragOverItemId={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemId : drag?.overItemId ?? null}
-            dragOverItemPosition={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemPosition : drag?.overItemPosition ?? null}
+            dragSourceItemId={groupDragSingleItemId ?? drag?.itemId ?? null}
+            dragOverItemId={groupDragSingleItemId ? groupDrag?.overItemId ?? null : drag?.overItemId ?? null}
+            dragOverItemPosition={groupDragSingleItemId ? groupDrag?.overItemPosition ?? null : drag?.overItemPosition ?? null}
             dragOverPackId={drag?.overPackId ?? groupDrag?.overPackId ?? packDrag?.overPackId ?? null}
             dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
             hideChecked={hideChecked}
             onAddItem={(packId, data) => handleCreateItem(packId, data)}
-            selectedPackId={selection?.packId ?? null}
-            selectedItemIds={selection?.itemIds ?? null}
+            selectedItemsByPack={selection}
             onToggleSelectItem={toggleSelectItem}
             getItemThreadInfo={getItemThreadInfo}
             onOpenItemThread={(packId, itemId, itemText) =>
@@ -1868,17 +1907,16 @@ export default function BagEditorScreen({
               setRefreshConfirmTarget(packId);
             }}
             onStartItemDrag={handleStartItemDrag}
-            dragSourceItemId={groupDrag && groupDrag.itemIds.size === 1 ? [...groupDrag.itemIds][0] : drag?.itemId ?? null}
-            dragOverItemId={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemId : drag?.overItemId ?? null}
-            dragOverItemPosition={groupDrag && groupDrag.itemIds.size === 1 ? groupDrag.overItemPosition : drag?.overItemPosition ?? null}
+            dragSourceItemId={groupDragSingleItemId ?? drag?.itemId ?? null}
+            dragOverItemId={groupDragSingleItemId ? groupDrag?.overItemId ?? null : drag?.overItemId ?? null}
+            dragOverItemPosition={groupDragSingleItemId ? groupDrag?.overItemPosition ?? null : drag?.overItemPosition ?? null}
             dragOverPackId={drag?.overPackId ?? groupDrag?.overPackId ?? packDrag?.overPackId ?? null}
             dragOverPackPosition={drag?.overItemId ? null : packDrag?.overPackPosition ?? null}
             onStartPackDrag={handleStartPackDrag}
             dragSourcePackId={packDrag?.packId ?? null}
             hideChecked={hideChecked}
             onAddItem={(packId, data) => handleCreateItem(packId, data)}
-            selectedPackId={selection?.packId ?? null}
-            selectedItemIds={selection?.itemIds ?? null}
+            selectedItemsByPack={selection}
             onToggleSelectItem={toggleSelectItem}
             getItemThreadInfo={getItemThreadInfo}
             onOpenItemThread={(packId, itemId, itemText) =>
@@ -1926,7 +1964,7 @@ export default function BagEditorScreen({
                   : "normal";
               }
               if (groupDrag) {
-                return packId === groupDrag.packId
+                return groupDrag.itemsByPack[packId] && groupDrag.itemsByPack[packId].size > 0
                   ? "source"
                   : packId === groupDrag.overPackId
                   ? "selected"
@@ -1969,7 +2007,7 @@ export default function BagEditorScreen({
             whiteSpace: "nowrap",
           }}
         >
-          {groupDrag.itemIds.size}개 이동 중
+          {groupDragTotalCount}개 이동 중
         </div>
       )}
 
@@ -2003,7 +2041,7 @@ export default function BagEditorScreen({
           }}
         >
           <span className="text-[13px] font-medium mr-auto">
-            {selection.itemIds.size}개 선택됨
+            {totalSelectedCount(selection)}개 선택됨
           </span>
           <button
             onClick={cancelSelection}
