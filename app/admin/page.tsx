@@ -106,7 +106,7 @@ function StatPie({ title, data }: { title: string; data: PieDatum[] }) {
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number, name: string) => [`${value.toLocaleString()}개`, name]}
+                formatter={(value, name) => [`${Number(value ?? 0).toLocaleString()}개`, String(name)]}
                 contentStyle={{ fontSize: 12, borderRadius: 8 }}
               />
             </PieChart>
