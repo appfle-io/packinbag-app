@@ -433,7 +433,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { packSortBy: sortBy }, { merge: true });
   };
 
-  // 고정핀 토글(최대 2개까지). 이미 고정된 걸 다시 누르면 해제되고, 2개가 다 찬 상태에서
+  // 고정핀 토글(최대 3개까지). 이미 고정된 걸 다시 누르면 해제되고, 3개가 다 찬 상태에서
   // 새로 고정하려 하면 togglePinned이 조용히 무시한다.
   const toggleBagPinned = async (bagId: string) => {
     if (!user) return;

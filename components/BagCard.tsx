@@ -23,7 +23,7 @@ export default function BagCard({
   onClick: () => void;
   // true면 무료 전환으로 잠긴 가방. 탭하면 여전히 열리지만(읽기 전용) 자물쇠 표시를 보여준다.
   locked?: boolean;
-  // 고정핀 처리된 가방인지 (최대 2개, 홈 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
+  // 고정핀 처리된 가방인지 (최대 3개, 홈 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
   pinned?: boolean;
   onTogglePin?: () => void;
   isDragSource?: boolean;
