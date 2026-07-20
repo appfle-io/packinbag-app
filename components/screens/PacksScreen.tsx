@@ -68,7 +68,6 @@ function buildRows(
       rows.push(...buildRows(allPacks, entry.id, depth + 1, expandedIds, sortBy, pinnedIds, orderByParent));
     }
   }
-  rows.push({ kind: "add", parentId, depth });
   return rows;
 }
 
@@ -452,6 +451,17 @@ export default function PacksScreen({
     cancelSelectMode();
   };
 
+  // --- 추가 선택 시트(팩/메모/폴더) --------------------------------------------
+  // v70: 레벨마다 흩어져 있던 팩/메모/폴더 3개 버튼을 없애고, 최상단은 접기/펼치기
+  // 아이콘 옆 + 아이콘, 폴더는 각 행의 + 아이콘 하나로 통일해서 이 시트를 띄운다.
+  const [addChooserOpen, setAddChooserOpen] = useState(false);
+  const [addChooserParentId, setAddChooserParentId] = useState<string | undefined>(undefined);
+  const openAddChooser = (parentId: string | undefined) => {
+    setAddChooserParentId(parentId);
+    setAddChooserOpen(true);
+  };
+  const closeAddChooser = () => setAddChooserOpen(false);
+
   // --- 트리 구성 -------------------------------------------------------------
   const rows = useMemo(
     () => buildRows(treePacks, undefined, 0, expandedIds, sortBy, pinnedIds, profile?.packOrderByParent),
@@ -522,13 +532,14 @@ export default function PacksScreen({
           ) : (
             !isEmpty && (
               <div className="flex items-center justify-between mb-3 gap-2">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   {allFolderIds.length > 0 && (
                     <button
                       onClick={() =>
                         allFoldersCollapsed ? expandAllFolders() : collapseAllFolders()
                       }
                       aria-label={allFoldersCollapsed ? "폴더 전체 펼치기" : "폴더 전체 접기"}
+                      className="flex items-center justify-center rounded-md border border-border-strong p-1"
                     >
                       {allFoldersCollapsed ? (
                         <IconChevronDown size={17} stroke={1.75} color="var(--text-secondary)" />
@@ -537,6 +548,13 @@ export default function PacksScreen({
                       )}
                     </button>
                   )}
+                  <button
+                    onClick={() => openAddChooser(undefined)}
+                    aria-label="최상위에 추가"
+                    className="flex items-center justify-center rounded-md border border-dashed border-border-strong p-1"
+                  >
+                    <IconPlus size={17} stroke={1.75} color="var(--text-secondary)" />
+                  </button>
                 </div>
                 <SortSelect
                   value={sortBy}
@@ -610,36 +628,9 @@ export default function PacksScreen({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0">
               {visibleRows.map((row) => {
-                if (row.kind === "add") {
-                  return (
-                    <div
-                      key={`add-${row.parentId ?? "root"}`}
-                      className="flex items-center gap-2 py-1"
-                      style={{ paddingLeft: 8 + row.depth * 20 }}
-                    >
-                      <button
-                        onClick={() => onNewPack(row.parentId)}
-                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
-                      >
-                        <IconPlus size={13} stroke={1.75} />팩
-                      </button>
-                      <button
-                        onClick={() => onNewPack(row.parentId, "editor")}
-                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
-                      >
-                        <IconNotes size={13} stroke={1.75} />메모
-                      </button>
-                      <button
-                        onClick={() => onNewFolder(row.parentId)}
-                        className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] text-text-muted border border-dashed border-border-strong"
-                      >
-                        <IconFolderPlus size={13} stroke={1.75} />폴더
-                      </button>
-                    </div>
-                  );
-                }
+                if (row.kind === "add") return null;
 
                 const entry = row.entry;
                 const isFolder = entry.type === "folder";
@@ -661,7 +652,7 @@ export default function PacksScreen({
                     onPointerUp={handleRowPointerUp}
                     onPointerCancel={handleRowPointerUp}
                     onClick={() => handleRowClick(entry)}
-                    className="flex items-center gap-2 rounded-lg px-2 py-2.5 active:bg-black/5"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 active:bg-black/5"
                     style={{
                       paddingLeft: 8 + row.depth * 20,
                       background:
@@ -722,12 +713,12 @@ export default function PacksScreen({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setRenamingEntry(entry);
+                          openAddChooser(entry.id);
                         }}
-                        aria-label="폴더 이름 바꾸기"
-                        className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+                        aria-label="이 폴더에 추가"
+                        className="shrink-0 -m-2 p-2 mx-1.5 flex items-center justify-center rounded-full active:bg-black/5"
                       >
-                        <IconEdit size={13} stroke={1.75} color="var(--text-muted)" />
+                        <IconPlus size={14} stroke={1.75} color="var(--text-muted)" />
                       </button>
                     )}
                     {!selectMode && (
@@ -855,6 +846,64 @@ export default function PacksScreen({
                     이동할 수 있는 다른 폴더가 없어요.
                   </p>
                 )}
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {addChooserOpen && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={closeAddChooser}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[15px] font-medium">무엇을 추가할까요?</span>
+                <button onClick={closeAddChooser} aria-label="닫기">
+                  <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    onNewPack(addChooserParentId);
+                    closeAddChooser();
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconPlus size={16} stroke={1.75} color="var(--text-secondary)" />
+                  <span className="text-[13px] font-medium">팩 (체크리스트)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onNewPack(addChooserParentId, "editor");
+                    closeAddChooser();
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconNotes size={16} stroke={1.75} color="var(--text-secondary)" />
+                  <span className="text-[13px] font-medium">메모</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onNewFolder(addChooserParentId);
+                    closeAddChooser();
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconFolderPlus size={16} stroke={1.75} color="var(--text-secondary)" />
+                  <span className="text-[13px] font-medium">폴더</span>
+                </button>
               </div>
             </div>
           </div>
