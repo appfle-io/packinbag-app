@@ -182,7 +182,7 @@ export default function AdminDashboardPage() {
   const w = stats?.trend?.vsLastWeek ?? null;
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-8 max-w-5xl">
       <h1 className="text-[20px] font-semibold mb-1">대시보드</h1>
       <p className="text-[13px] text-text-secondary mb-6">
         팩인백 전체 현황을 한눈에 확인할 수 있어요.
