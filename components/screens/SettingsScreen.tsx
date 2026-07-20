@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   IconMail,
   IconChevronRight,
@@ -8,6 +9,7 @@ import {
   IconHelpCircle,
   IconSparkles,
   IconArrowLeft,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -24,14 +26,11 @@ import Avatar from "@/components/Avatar";
 import ProfileEditScreen from "@/components/screens/ProfileEditScreen";
 import VersionInfoScreen from "@/components/screens/VersionInfoScreen";
 import LicensesScreen from "@/components/screens/LicensesScreen";
-import AnnouncementAdminScreen from "@/components/screens/AnnouncementAdminScreen";
-import UnlockCodeAdminScreen from "@/components/screens/UnlockCodeAdminScreen";
 import PackSettingsScreen from "@/components/screens/PackSettingsScreen";
 import BagSettingsScreen from "@/components/screens/BagSettingsScreen";
 import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
 import TrashScreen from "@/components/screens/TrashScreen";
 import InquiryScreen from "@/components/screens/InquiryScreen";
-import InquiryAdminScreen from "@/components/screens/InquiryAdminScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
@@ -55,14 +54,11 @@ type SettingsView =
   | "profile"
   | "version"
   | "licenses"
-  | "announcementAdmin"
   | "packSettings"
   | "bagSettings"
   | "colorSettings"
-  | "unlockCodeAdmin"
   | "trash"
-  | "inquiries"
-  | "inquiryAdmin";
+  | "inquiries";
 
 // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더의 톱니바퀴 아이콘으로 열고
 // 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
@@ -71,9 +67,6 @@ export default function SettingsScreen({
   announcements,
   dismissedAnnouncementIds,
   onDismissAnnouncement,
-  onCreateAnnouncement,
-  onUpdateAnnouncement,
-  onDeleteAnnouncement,
   trashedBags,
   trashedPacks,
   onRestoreBag,
@@ -148,24 +141,6 @@ export default function SettingsScreen({
         onBack={() => setView("main")}
       />
     );
-  }
-  if (view === "inquiryAdmin") {
-    return <InquiryAdminScreen onBack={() => setView("main")} />;
-  }
-  if (view === "announcementAdmin") {
-    return (
-      <AnnouncementAdminScreen
-        announcements={announcements}
-        uid={uid}
-        onBack={() => setView("main")}
-        onCreate={onCreateAnnouncement}
-        onUpdate={onUpdateAnnouncement}
-        onDelete={onDeleteAnnouncement}
-      />
-    );
-  }
-  if (view === "unlockCodeAdmin") {
-    return <UnlockCodeAdminScreen onBack={() => setView("main")} />;
   }
 
   const startTab = profile?.defaultTab ?? "home";
@@ -377,33 +352,16 @@ export default function SettingsScreen({
 
         {isMaster && (
           <div className="rounded-lg border border-border overflow-hidden">
-            <button
-              onClick={() => setView("announcementAdmin")}
-              className="w-full flex items-center justify-between p-3 border-b border-border"
-            >
-              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                공지사항 관리 (운영자)
-              </span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
-            <button
-              onClick={() => setView("unlockCodeAdmin")}
-              className="w-full flex items-center justify-between p-3 border-b border-border"
-            >
-              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                이용권 코드 관리 (운영자)
-              </span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
-            <button
-              onClick={() => setView("inquiryAdmin")}
+            <Link
+              href="/admin"
               className="w-full flex items-center justify-between p-3"
             >
-              <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                문의 관리 (운영자)
+              <span className="flex items-center gap-2 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                <IconExternalLink size={16} stroke={1.75} />
+                관리자 사이트로 이동
               </span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
+            </Link>
           </div>
         )}
       </div>

@@ -13,6 +13,7 @@ import {
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
+  IconArrowBackUp,
 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 
@@ -100,7 +101,16 @@ export default function AdminSidebar({
         })}
       </nav>
 
-      <div className="px-2 py-3 border-t" style={{ borderColor: "var(--border)" }}>
+      <div className="px-2 py-3 border-t flex flex-col gap-0.5" style={{ borderColor: "var(--border)" }}>
+        <Link
+          href="/"
+          title={collapsed ? "앱으로 돌아가기" : undefined}
+          className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-text-secondary whitespace-nowrap overflow-hidden"
+          style={{ justifyContent: collapsed ? "center" : "flex-start" }}
+        >
+          <IconArrowBackUp size={17} stroke={1.75} className="shrink-0" />
+          {!collapsed && "앱으로 돌아가기"}
+        </Link>
         <button
           onClick={() => logout()}
           title={collapsed ? "로그아웃" : undefined}
