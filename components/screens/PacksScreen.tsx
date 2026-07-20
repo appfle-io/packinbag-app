@@ -25,8 +25,6 @@ import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import PackColorDot from "@/components/PackColorDot";
-import { getProgressRatio } from "@/lib/itemStats";
-import ProgressRing from "@/components/ProgressRing";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
 import NotificationBell from "@/components/NotificationBell";
@@ -634,7 +632,6 @@ export default function PacksScreen({
 
                 const entry = row.entry;
                 const isFolder = entry.type === "folder";
-                const ratio = !isFolder ? getProgressRatio(entry.items) : null;
                 const isSelected = selectedIds.has(entry.id);
                 const isDragSource = dragId === entry.id;
                 const isDragOver = dragOver?.id === entry.id;
@@ -705,7 +702,6 @@ export default function PacksScreen({
                     {isEditorPack && (
                       <IconNotes size={13} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
                     )}
-                    {!isFolder && ratio !== null && <ProgressRing ratio={ratio} size={15} />}
                     {!isEditorPack && (
                       <span className="text-[11px] text-text-muted shrink-0">{childCount}개</span>
                     )}
