@@ -43,7 +43,7 @@ async function ensureInitialized() {
       // iOS 네이티브 로그인은 앱의 Bundle ID(com.appfle.packinbag)를 자동으로 쓰므로
       // 이 clientId는 주로 웹/Android 경로에서 쓰인다. 비워두면 iOS 네이티브 로그인
       // 자체는 동작할 수 있으나, 정확한 값은 실제 Apple Developer 설정 후 채워야 한다.
-      clientId: "TODO_APPLE_SERVICE_ID",
+      clientId: "com.appfle.packinbag.signin",
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
