@@ -12,10 +12,12 @@ import {
   deleteUser,
   EmailAuthProvider,
   GoogleAuthProvider,
+  OAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
+  signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -23,6 +25,7 @@ import {
   updateProfile,
   User,
 } from "firebase/auth";
+import { isNativePlatform, nativeAppleIdToken, nativeGoogleIdToken } from "@/lib/nativeAuth";
 import {
   doc,
   onSnapshot,
@@ -52,6 +55,7 @@ interface AuthContextValue {
   ) => Promise<boolean>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   completeProfile: (nickname: string, avatarId: string) => Promise<void>;
   updateNickname: (nickname: string) => Promise<void>;
   updateAvatar: (avatarId: string) => Promise<void>;
@@ -348,10 +352,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (isNativePlatform()) {
+      // WKWebView 안에서는 구글이 signInWithPopup을 정책적으로 막기 때문에,
+      // 네이티브 앱에서는 OS 네이티브 로그인 창(플러그인)에서 idToken만 받아와서
+      // Firebase에는 그 idToken으로만 로그인한다. (APP_STORE_GUIDE.md 0.5번)
+      const idToken = await nativeGoogleIdToken();
+      const credential = GoogleAuthProvider.credential(idToken);
+      const cred = await signInWithCredential(auth, credential);
+      await ensureUserDoc(cred.user);
+      return;
+    }
     const provider = new GoogleAuthProvider();
     // 이전에 로그인했던 계정으로 자동 로그인되지 않고, 누를때마다 구글 계정 선택
     // 화면을 다시 보여줘서 다른 계정으로 바꿔 로그인할 수 있게 한다.
     provider.setCustomParameters({ prompt: "select_account" });
+    const cred = await signInWithPopup(auth, provider);
+    await ensureUserDoc(cred.user);
+  };
+
+  // 애플 로그인. 구글 로그인을 제공하면서 애플 로그인을 제공하지 않으면 심사 가이드라인
+  // 4.8 위반으로 거절될 수 있어서 추가한다 (APP_STORE_GUIDE.md 9번 참고).
+  const signInWithApple = async () => {
+    if (isNativePlatform()) {
+      const { idToken, rawNonce } = await nativeAppleIdToken();
+      const provider = new OAuthProvider("apple.com");
+      const credential = provider.credential({ idToken, rawNonce });
+      const cred = await signInWithCredential(auth, credential);
+      await ensureUserDoc(cred.user);
+      return;
+    }
+    // 웹에서는 Firebase 콘솔 > Authentication > Sign-in method에서 Apple을
+    // 공급자로 먼저 추가해둬야 동작한다 (아직 미설정이면 auth/operation-not-allowed 에러).
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
     const cred = await signInWithPopup(auth, provider);
     await ensureUserDoc(cred.user);
   };
@@ -618,6 +652,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUpWithEmail,
         signInWithEmail,
         signInWithGoogle,
+        signInWithApple,
         completeProfile,
         updateNickname,
         updateAvatar,

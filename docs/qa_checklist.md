@@ -304,3 +304,22 @@
 - I-11 (2026-07-19) HomeScreen/PacksScreen 헤더의 설정 아이콘 삭제(이미 하단탭 설정 탭과 중복이었음) — 알림종(NotificationBell)은 그대로 남아있으니 이슈 6번의 위치 충돌(설정 아이콘 가림) 자체가 이제 무의미해짐
   - 🔍 실기기에서 두 화면 헤더가 자연스럽게 보이는지(아이콘 간격), 하단탭 설정으로 진입이 잘 되는지 확인 필요
 
+---
+
+## 앱스토어 제출 준비 (2026-07-21 시작)
+
+- S-01 개인정보처리방침(`/privacy`) 시행일/문의처/AI(Gemini) 데이터 처리 고지 채움 ✅
+- S-02 공개 고객지원 페이지(`/support`) 신규 추가 — 로그인 불필요, `FAQ_ITEMS` 재사용.
+  App Store Connect "지원 URL"에 `https://packinbag.vercel.app/support` 등록 예정
+- S-03 `capacitor.config.ts`의 placeholder `server.url`을 `https://packinbag.vercel.app`로 교체 ✅
+- S-04 **App Store 심사용 테스트 계정** (심사 노트에 그대로 기입)
+  - 이메일: `appfle.io+review@gmail.com` (Gmail `+` 별칭, 실제 appfle.io@gmail.com으로 수신됨)
+  - 비밀번호: `review123!`
+  - 이메일 인증 완료 여부 및 "샘플로 시작하기"로 샘플 가방 채우기 🔍 확인 필요
+  - ⚠️ 리뷰어 전용 하드코딩 우회 로직은 절대 넣지 않기로 결정 (가이드라인 2.3.1 위반 리스크) — 정상 가입 계정 + 심사 노트 방식으로 진행
+- S-05 Google/Apple 로그인 분기 코드 사전 준비 ✅ (2026-07-21, 맥 없이 진행)
+  - `lib/nativeAuth.ts` 신규 생성, `contexts/AuthProvider.tsx`의 `signInWithGoogle` 분기 처리 + `signInWithApple` 신규 추가, `AuthScreen.tsx`에 Apple 버튼 추가
+  - `package.json`에 `@capgo/capacitor-social-login` 의존성 추가 — **커밋하기 전에 반드시 `npm install` 한 번 돌려서 `package-lock.json` 갱신해서 같이 올리기**
+  - 미채움 값 3개 (`lib/nativeAuth.ts`의 `webClientId`/`iOSClientId`/Apple `clientId`) — Google Cloud Console/Apple Developer Portal/Firebase Console은 웹 대시보드라 맥 없이도 미리 채울 수 있음 (다음 단계)
+  - `npx cap add ios` 이후 `PrivacyInfo.xcprivacy`, 스크린샷, Xcode 서명/빌드/업로드는 여전히 맥 필요 — `APP_STORE_GUIDE.md` 참고
+

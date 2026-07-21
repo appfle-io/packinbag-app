@@ -15,6 +15,7 @@ export default function AuthScreen() {
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
+    signInWithApple,
     resendVerificationByCredential,
     sendPasswordReset,
   } = useAuth();
@@ -117,6 +118,18 @@ export default function AuthScreen() {
     setBusy(true);
     try {
       await signInWithGoogle();
+    } catch (err) {
+      setError(friendlyAuthError(err instanceof Error ? err.message : ""));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleApple = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await signInWithApple();
     } catch (err) {
       setError(friendlyAuthError(err instanceof Error ? err.message : ""));
     } finally {
@@ -312,6 +325,14 @@ export default function AuthScreen() {
           className="rounded-lg border border-border py-2.5 text-[13px] disabled:opacity-50"
         >
           Google로 계속하기
+        </button>
+
+        <button
+          onClick={handleApple}
+          disabled={busy}
+          className="rounded-lg border border-border py-2.5 text-[13px] disabled:opacity-50"
+        >
+          Apple로 계속하기
         </button>
 
         <button
