@@ -66,17 +66,54 @@ export async function nativeGoogleIdToken(): Promise<string> {
   return idToken;
 }
 
-// 반환값: Firebase의 OAuthProvider('apple.com').credential({ idToken })에 넘길 수 있는 idToken
+// 애플 로그인용 nonce 유틸. 모달로 생성한 무작위 문자열(raw nonce)을 SHA256으로 해시해서
+// 네이티브 요청(request.nonce)에 넣고, Firebase에는 해시하기 전 원본(rawNonce)을 그대로
+// 넘겨야 한다(Firebase가 내부에서 다시 해시해서 idToken의 nonce 클레임과 대조함).
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function randomNonce(length = 32): string {
+  const charset =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._";
+  const randomValues = crypto.getRandomValues(new Uint8Array(length));
+  let result = "";
+  randomValues.forEach((v) => {
+    result += charset[v % charset.length];
+  });
+  return result;
+}
+
+// 반환값: Firebase의 OAuthProvider('apple.com').credential({ idToken, rawNonce })에 넘길 수 있는 값.
+//
+// ⚠️ @capgo/capacitor-social-login 6.x iOS 네이티브 코드(AppleProvider.swift)에 두 가지 문제가 있다:
+// 1) request.nonce에 우리가 준 값을 해시 없이 그대로 넣어버린다 -> 우리가 미리 직접 해시해서
+//    넘겨야 하고, 해시 전 원본(rawNonce)을 Firebase에 따로 넘겨줘야 한다.
+// 2) 응답의 idToken 필드에는 진짜 JWT(identityToken)가 아니라 authorizationCode가 잘못 들어간다.
+//    진짜 JWT는 accessToken.token 필드에 들어있다(Swift 소스 확인함) - 그래서 그걸 우선 쓴다.
 export async function nativeAppleIdToken(): Promise<{ idToken: string; rawNonce?: string }> {
   await ensureInitialized();
+  const rawNonce = randomNonce();
+  const hashedNonce = await sha256Hex(rawNonce);
   const res = await SocialLogin.login({
     provider: "apple",
-    options: { scopes: ["email", "name"] },
+    options: { scopes: ["email", "name"], nonce: hashedNonce },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
-  const result = (res as { result?: { idToken?: string; nonce?: string } })?.result;
-  if (!result?.idToken) {
+  const result = (
+    res as {
+      result?: { idToken?: string; accessToken?: { token?: string } };
+    }
+  )?.result;
+  // 플러그인 버그로 authorizationCode가 idToken 자리에 들어서서, 진짜 JWT인
+  // accessToken.token을 우선적으로 쓴다 (향후 패키지가 수정되면 idToken 필드로 돌아올 수 있으니 fallback은 유지).
+  const idToken = result?.accessToken?.token || result?.idToken;
+  if (!idToken) {
     throw new Error("애플 로그인에서 idToken을 받지 못했어요");
   }
-  return { idToken: result.idToken, rawNonce: result.nonce };
+  return { idToken, rawNonce };
 }
