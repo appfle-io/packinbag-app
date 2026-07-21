@@ -3,10 +3,10 @@
 // 막기 때문에(APP_STORE_GUIDE.md 0.5번 참고), 네이티브에서는 @capgo/capacitor-social-login
 // 플러그인으로 OS 네이티브 로그인 창을 띄우고 idToken만 받아서 Firebase에 넘겨야 한다.
 //
-// ⚠️ 아직 실제 클라이언트 ID를 안 채워서, 지금 상태로는 웹에서는 100% 정상 동작하고
-// (isNativePlatform()이 false라 이 파일의 네이티브 분기를 안 타므로) 네이티브 앱에서
-// 실행하면 초기화 단계에서 바로 에러가 난다. 아래 TODO 3곳을 실제 값으로 채운 뒤
-// 네이티브 빌드에서 테스트해야 한다.
+// ⚠️ Google 쪽 2개(webClientId, iOSClientId)는 채워졌고, Apple 쪽 clientId만 Apple Developer
+// Program 승인 후 채워야 한다. 이 상태에서도 웹에서는 100% 정상 동작하고
+// (isNativePlatform()이 false라 이 파일의 네이티브 분기를 안 타므로) 네이티브 앱에서만
+// Apple 로그인 시 에러가 난다. Apple clientId를 채운 뒤 네이티브 빌드에서 테스트해야 한다.
 //
 // ⚠️ SocialLogin.initialize/login의 정확한 옵션 타입은 패키지를 실제로 설치해서
 // Xcode 연동 테스트를 해봐야 확실히 맞출 수 있어서, 지금은 `as never` 캐스팅으로
@@ -32,10 +32,10 @@ async function ensureInitialized() {
       // TODO(맥 작업 시): Google Cloud Console에서 만든 "웹 클라이언트 ID"를 넣는다.
       // (Firebase 콘솔 > Authentication > Sign-in method > Google > 웹 SDK 구성에서
       //  이미 만들어진 웹 클라이언트 ID를 그대로 재사용하면 됨 - 새로 만들 필요 없음)
-      webClientId: "TODO_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com",
+      webClientId: "510272302140-imuo8to374dntglgdu61e1a7e2bap55g.apps.googleusercontent.com",
       // TODO(맥 작업 시): Xcode에서 GoogleService-Info.plist를 추가하면 거기 있는
       // REVERSED_CLIENT_ID의 원래 값(CLIENT_ID)을 넣는다.
-      iOSClientId: "TODO_IOS_CLIENT_ID.apps.googleusercontent.com",
+      iOSClientId: "510272302140-fng4e9vd6e5h10s7sim87ua7bchhiajr.apps.googleusercontent.com",
       mode: "online",
     },
     apple: {
