@@ -58,6 +58,13 @@
   border-color: var(--border);
 }
 
+/* 네이티브 iOS(Capacitor WKWebView)에서 capacitor.config.ts의 contentInset을 "never"로
+   꺼둠고, 상단 노치/상태바 안전영역을 앱이 직접 이 클래스로 처리한다. 웹/PWA에서는
+   safe-area-inset-top이 0이라 평소 padding(0px)과 동일하게 동작해서 영향 없음. */
+.pib-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
 @keyframes pib-splash-pop {
   0% {
     transform: scale(0.4);

@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: "always",
+    contentInset: "never",
     // Firebase Auth 팝업(구글 로그인 등)이 새 창으로 뜨는 걸 앱 안에서 자연스럽게 처리하기 위한 설정
     allowsLinkPreview: false,
   },

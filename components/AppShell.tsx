@@ -834,7 +834,7 @@ export default function AppShell() {
     const isEditingBagLocked = lockedBagIds.has(editingBag.id);
     return (
       <>
-        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top">
           <BagEditorScreen
             initialBag={editingBag}
             libraryPacks={realPacksOnly}
@@ -875,7 +875,7 @@ export default function AppShell() {
   if (showPackTree) {
     return (
       <>
-        <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+        <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top">
           <PacksScreen
             uid={user.uid}
             packs={activePacks}
@@ -1038,7 +1038,7 @@ export default function AppShell() {
 
   return (
     <>
-      <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
+      <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top">
         <EmailVerifyBanner />
         <div
           className="flex-1 overflow-hidden"
