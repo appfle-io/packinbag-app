@@ -87,6 +87,10 @@ function ColorSlotSection({
   scale2Max,
   preview,
   defaultOpen,
+  // description 문구 바로 아래, 투명도/크기 슬라이더들 위에 끼워넣을 추가 컨트롤.
+  // 가방 보관함 섹션의 "카드 크기(작게/보통/크게)" 토글처럼, 이 섹션에 속하지만
+  // 프리셋 색상 선택과는 성격이 다른 컨트롤을 같은 접이식 카드 안에 묶을 때 쓴다.
+  extraContent,
 }: {
   title: string;
   description: string;
@@ -107,6 +111,7 @@ function ColorSlotSection({
   scale2Max?: number;
   preview?: ReactNode;
   defaultOpen?: boolean;
+  extraContent?: ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
@@ -164,6 +169,8 @@ function ColorSlotSection({
           </div>
         </div>
         <p className="text-[11px] text-text-muted mt-2.5">{description}</p>
+
+        {extraContent}
 
         {opacityPct !== undefined && onChangeOpacity && (
           <PercentSlider
@@ -349,32 +356,33 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
         <h2 className="text-[14px] font-semibold mt-10 mb-3">가방</h2>
 
-        <div className="mb-4">
-          <p className="text-[12px] text-text-secondary mb-2">카드 크기</p>
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            {bagCardSizes.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => updateBagCardSize(key).catch(() => {})}
-                className="flex-1 py-2 text-[13px]"
-                style={{
-                  background: (profile?.bagCardSize ?? "medium") === key ? "var(--accent)" : "var(--surface-2)",
-                  color: (profile?.bagCardSize ?? "medium") === key ? "#fff" : "var(--foreground)",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="text-[11px] text-text-muted mt-2">
-            작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
-            줄어 카드가 커져요 (아래 글씨 크기와는 별개예요)
-          </p>
-        </div>
-
         <ColorSlotSection
           title="가방 보관함"
           description="가방 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
+          extraContent={
+            <div className="mt-3">
+              <p className="text-[11px] text-text-secondary mb-2">카드 크기</p>
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                {bagCardSizes.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => updateBagCardSize(key).catch(() => {})}
+                    className="flex-1 py-2 text-[13px]"
+                    style={{
+                      background: (profile?.bagCardSize ?? "medium") === key ? "var(--accent)" : "var(--surface-2)",
+                      color: (profile?.bagCardSize ?? "medium") === key ? "#fff" : "var(--foreground)",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-text-muted mt-2">
+                작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
+                줄어 카드가 커져요 (아래 글씨 크기와는 별개예요)
+              </p>
+            </div>
+          }
           selectedId={bagColorId}
           customHex={bagCustomHex}
           showDefaultOption
@@ -421,7 +429,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
         <ColorSlotSection
           title="가방 속 팩카드"
-          description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요. 아래 두 슬라이더로 카드 크기와 글씨 크기를 각각 따로 조절할 수 있어요"
+          description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요. '카드 크기'는 카드 여백·짐 목록 높이·아이콘/체크박스 크기를 조절하고(글자 크기는 안 바뀌어요), '글씨 크기'는 제목·짐 텍스트·개수 표시의 글자만 따로 커지거나 작아져요"
           selectedId={packGridColorId}
           customHex={packGridCustomHex}
           showDefaultOption
