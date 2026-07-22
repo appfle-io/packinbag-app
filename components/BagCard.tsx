@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLock, IconPin, IconPinFilled } from "@tabler/icons-react";
+import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getPackColorHex } from "@/lib/packColors";
@@ -16,6 +16,8 @@ export default function BagCard({
   locked,
   pinned,
   onTogglePin,
+  archived,
+  onToggleArchive,
   isDragSource,
   isDragOver,
 }: {
@@ -26,6 +28,10 @@ export default function BagCard({
   // 고정핀 처리된 가방인지 (최대 3개, 홈 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
   pinned?: boolean;
   onTogglePin?: () => void;
+  // 보관 처리된 가방인지 ("진행중"/"보관" 탭으로 나눠 보여줄 때 씀). 삭제가 아니라 그냥
+  // 메인 목록에서 숨겨두는 것뿐이라 언제든 되돌릴 수 있다.
+  archived?: boolean;
+  onToggleArchive?: () => void;
   isDragSource?: boolean;
   isDragOver?: boolean;
 }) {
@@ -70,23 +76,43 @@ export default function BagCard({
         <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0 flex-1">
           {bag.name}
         </span>
-        {onTogglePin && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onTogglePin();
-            }}
-            aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
-            // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
-            // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
-            className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
-          >
-            {pinned ? (
-              <IconPinFilled size={14} stroke={1.75} color="var(--accent)" />
-            ) : (
-              <IconPin size={14} stroke={1.75} color="var(--text-muted)" />
+        {(onTogglePin || onToggleArchive) && (
+          <div className="shrink-0 flex items-center gap-4">
+            {onToggleArchive && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleArchive();
+                }}
+                aria-label={archived ? "보관 해제" : "보관하기"}
+                className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+              >
+                {archived ? (
+                  <IconArchiveOff size={14} stroke={1.75} color="var(--accent)" />
+                ) : (
+                  <IconArchive size={14} stroke={1.75} color="var(--text-muted)" />
+                )}
+              </button>
             )}
-          </button>
+            {onTogglePin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin();
+                }}
+                aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
+                // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
+                // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
+                className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+              >
+                {pinned ? (
+                  <IconPinFilled size={14} stroke={1.75} color="var(--accent)" />
+                ) : (
+                  <IconPin size={14} stroke={1.75} color="var(--text-muted)" />
+                )}
+              </button>
+            )}
+          </div>
         )}
       </div>
       {ddayLabel && (

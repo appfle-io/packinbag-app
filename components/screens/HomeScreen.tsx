@@ -8,11 +8,13 @@ import {
   IconCheck,
   IconSearch,
   IconX,
+  IconArchive,
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
 import { searchBags, BagSearchResult } from "@/lib/librarySearch";
+import { daysUntil } from "@/lib/dday";
 import BagCard from "@/components/BagCard";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
@@ -28,6 +30,8 @@ import { useToast } from "@/components/Toast";
 const LONG_PRESS_MS = 400;
 // 롱프레스 판정 전에 이 픽셀 이상 움직이면 스크롤 의도로 보고 롱프레스를 취소한다.
 const MOVE_CANCEL_PX = 10;
+// 여행일(D-Day)이 이만큼(일) 지나면 "보관함으로 옮길까요?" 배너로 제안한다.
+const ARCHIVE_SUGGEST_DAYS_PAST = 7;
 
 // 검색 결과를 눌렀을 때 어디로 이동할지 알려주는 정보. packId가 있으면 해당 팩까지
 // 자동 스크롤 + 하이라이트하고, itemId까지 있으면 짐 자체를 하이라이트한다
@@ -75,12 +79,39 @@ export default function HomeScreen({
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
-  const { profile, updateBagSortBy, toggleBagPinned, updateBagOrder } = useAuth();
+  const { profile, updateBagSortBy, toggleBagPinned, toggleBagArchived, archiveBags, dismissArchiveSuggestions, updateBagOrder } =
+    useAuth();
   const { show } = useToast();
   const sortBy = profile?.bagSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedBagIds ?? [];
-  const arrangedBags = arrangeList(bags, { sortBy, pinnedIds, order: profile?.bagOrder });
+  // "보관" 처리된 가방은 삭제가 아니라 그냥 메인 목록("진행중" 탭)에서 숨기고 "보관" 탭으로
+  // 옮긴다 - 다 쓴 가방이 계속 홈 화면에 쌓이는 걸 정리하기 위한 용도.
+  const archivedSet = new Set(profile?.archivedBagIds ?? []);
+  const [bagFilter, setBagFilter] = useState<"active" | "archived">("active");
+  const activeBagsAll = bags.filter((b) => !archivedSet.has(b.id));
+  const archivedBagsAll = bags.filter((b) => archivedSet.has(b.id));
+  const visibleBags = bagFilter === "archived" ? archivedBagsAll : activeBagsAll;
+  const arrangedBags = arrangeList(visibleBags, { sortBy, pinnedIds, order: profile?.bagOrder });
+  // 설정 > 화면설정 > 가방 > 카드 크기. "작게"를 고르면 한 화면에 더 많은 가방이 보이도록
+  // 그리드 열이 늘어나고, "크게"를 고르면 열이 줄어 카드 하나하나가 커진다.
+  const bagCardSize = profile?.bagCardSize ?? "medium";
+  const bagGridColsClass =
+    bagCardSize === "small"
+      ? "grid-cols-3 sm:grid-cols-4"
+      : bagCardSize === "large"
+      ? "grid-cols-1 sm:grid-cols-2"
+      : "grid-cols-2 sm:grid-cols-3";
   const pinnedSet = new Set(pinnedIds);
+
+  // 여행일이 오래 지났는데 아직 "진행중"에 남아있는(=보관 안 한) 가방들 - 한 번 닫기(dismiss)
+  // 처리한 가방은 다시 물어보지 않는다.
+  const dismissedSuggestionSet = new Set(profile?.archiveSuggestionDismissedIds ?? []);
+  const archiveSuggestions = activeBagsAll.filter(
+    (b) =>
+      !!b.travelDate &&
+      daysUntil(b.travelDate) <= -ARCHIVE_SUGGEST_DAYS_PAST &&
+      !dismissedSuggestionSet.has(b.id)
+  );
 
   // --- 검색 --------------------------------------------------------------
   // 검색 아이콘을 누르면 헤더의 제목/설명 자리가 입력창으로 바뀌고 자동 포커스된다.
@@ -325,6 +356,29 @@ export default function HomeScreen({
               )}
             </div>
           ))}
+
+        {!searchOpen && !selectMode && (archivedBagsAll.length > 0 || bagFilter === "archived") && (
+          <div className="flex rounded-lg border border-border overflow-hidden mb-3">
+            {(
+              [
+                { key: "active" as const, label: `진행중 (${activeBagsAll.length})` },
+                { key: "archived" as const, label: `보관 (${archivedBagsAll.length})` },
+              ]
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setBagFilter(key)}
+                className="flex-1 py-1.5 text-[12px]"
+                style={{
+                  background: bagFilter === key ? "var(--accent)" : "var(--surface-2)",
+                  color: bagFilter === key ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {searchOpen ? (
@@ -363,21 +417,62 @@ export default function HomeScreen({
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-4 pb-3">
-          {bags.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-24">
-              <button
-                onClick={() => setShowNewBagOptions(true)}
-                className="h-14 w-14 rounded-full flex items-center justify-center"
-                style={{ background: "var(--accent)" }}
-              >
-                <IconPlus size={26} stroke={1.75} color="#fff" />
-              </button>
-              <span className="text-[13px] text-text-muted">
-                새 가방 만들기
-              </span>
+          {!selectMode && bagFilter === "active" && archiveSuggestions.length > 0 && (
+            <div className="mb-3 rounded-lg border border-border bg-surface-2 p-3 flex items-start gap-2.5">
+              <IconArchive size={18} stroke={1.75} color="var(--text-secondary)" className="shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium">
+                  지난 여행 {archiveSuggestions.length}개, 보관함으로 옮길까요?
+                </p>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  여행일이 한참 지난 가방들이에요. 보관해도 삭제되는 건 아니라 언제든 되돌릴 수 있어요
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={() =>
+                      archiveBags(archiveSuggestions.map((b) => b.id)).catch(() =>
+                        show("보관 처리하지 못했어요")
+                      )
+                    }
+                    className="rounded-lg px-2.5 py-1.5 text-[12px] font-medium"
+                    style={{ background: "var(--accent)", color: "#fff" }}
+                  >
+                    보관하기
+                  </button>
+                  <button
+                    onClick={() =>
+                      dismissArchiveSuggestions(archiveSuggestions.map((b) => b.id)).catch(() => {})
+                    }
+                    className="rounded-lg px-2.5 py-1.5 text-[12px] text-text-secondary"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
             </div>
+          )}
+
+          {visibleBags.length === 0 ? (
+            bagFilter === "archived" ? (
+              <p className="text-[13px] text-text-muted py-24 text-center">
+                보관한 가방이 없어요.
+              </p>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 py-24">
+                <button
+                  onClick={() => setShowNewBagOptions(true)}
+                  className="h-14 w-14 rounded-full flex items-center justify-center"
+                  style={{ background: "var(--accent)" }}
+                >
+                  <IconPlus size={26} stroke={1.75} color="#fff" />
+                </button>
+                <span className="text-[13px] text-text-muted">
+                  새 가방 만들기
+                </span>
+              </div>
+            )
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+            <div className={`grid ${bagGridColsClass} gap-3 md:gap-4`}>
               {arrangedBags.map((bag) => (
                 <div
                   key={bag.id}
@@ -400,9 +495,15 @@ export default function HomeScreen({
                     locked={lockedBagIds?.has(bag.id)}
                     pinned={pinnedSet.has(bag.id)}
                     onTogglePin={
-                      selectMode
+                      selectMode || bagFilter === "archived"
                         ? undefined
                         : () => toggleBagPinned(bag.id).catch(() => show("고정 상태를 저장하지 못했어요"))
+                    }
+                    archived={bagFilter === "archived"}
+                    onToggleArchive={
+                      selectMode
+                        ? undefined
+                        : () => toggleBagArchived(bag.id).catch(() => show("보관 상태를 저장하지 못했어요"))
                     }
                     isDragSource={reorderDrag?.id === bag.id}
                     isDragOver={reorderDrag?.overId === bag.id}
@@ -424,7 +525,7 @@ export default function HomeScreen({
                   )}
                 </div>
               ))}
-              {!selectMode && (
+              {!selectMode && bagFilter === "active" && (
                 <button
                   onClick={() => setShowNewBagOptions(true)}
                   className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"

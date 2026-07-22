@@ -81,8 +81,12 @@ interface AuthContextValue {
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
   updateDefaultTab: (defaultTab: "home" | "settings" | "packs") => Promise<void>;
   updateBagSortBy: (sortBy: UserProfile["bagSortBy"]) => Promise<void>;
+  updateBagCardSize: (size: UserProfile["bagCardSize"]) => Promise<void>;
   updatePackSortBy: (sortBy: UserProfile["packSortBy"]) => Promise<void>;
   toggleBagPinned: (bagId: string) => Promise<void>;
+  toggleBagArchived: (bagId: string) => Promise<void>;
+  archiveBags: (bagIds: string[]) => Promise<void>;
+  dismissArchiveSuggestions: (bagIds: string[]) => Promise<void>;
   togglePackPinned: (packId: string) => Promise<void>;
   updateBagOrder: (order: string[]) => Promise<void>;
   updatePackOrder: (order: string[]) => Promise<void>;
@@ -191,9 +195,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         defaultTab: data?.defaultTab as UserProfile["defaultTab"],
         dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
         bagSortBy: data?.bagSortBy as UserProfile["bagSortBy"],
+        bagCardSize: data?.bagCardSize as UserProfile["bagCardSize"],
         packSortBy: data?.packSortBy as UserProfile["packSortBy"],
         pinnedBagIds: data?.pinnedBagIds as string[] | undefined,
         pinnedPackIds: data?.pinnedPackIds as string[] | undefined,
+        archivedBagIds: data?.archivedBagIds as string[] | undefined,
+        archiveSuggestionDismissedIds: data?.archiveSuggestionDismissedIds as string[] | undefined,
         bagOrder: data?.bagOrder as string[] | undefined,
         packOrder: data?.packOrder as string[] | undefined,
         packOrderByParent: data?.packOrderByParent as UserProfile["packOrderByParent"],
@@ -462,6 +469,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { bagSortBy: sortBy }, { merge: true });
   };
 
+  const updateBagCardSize = async (size: UserProfile["bagCardSize"]) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { bagCardSize: size }, { merge: true });
+  };
+
   const updatePackSortBy = async (sortBy: UserProfile["packSortBy"]) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), { packSortBy: sortBy }, { merge: true });
@@ -473,6 +485,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const next = togglePinned(profile?.pinnedBagIds, bagId);
     await setDoc(doc(db, "users", user.uid), { pinnedBagIds: next }, { merge: true });
+  };
+
+  // 보관 토글 (개수 제한 없음 - togglePinned은 이름과 달리 그냥 "배열에 넣고 빼기" 범용
+  // 유틸이라 재사용한다. max에 Infinity를 넘겨 제한을 없앤다).
+  const toggleBagArchived = async (bagId: string) => {
+    if (!user) return;
+    const next = togglePinned(profile?.archivedBagIds, bagId, Infinity);
+    await setDoc(doc(db, "users", user.uid), { archivedBagIds: next }, { merge: true });
+  };
+
+  // "지난 여행 보관함으로 옮길까요?" 배너에서 여러 개를 한 번에 보관 처리할 때 쓴다.
+  // toggleBagArchived를 여러 번 연달아 부르면 각 호출이 같은(갱신되지 않은) profile
+  // 스냅샷을 기준으로 next를 계산해서 마지막 호출 것만 반영되는 문제가 있어, 병합을
+  // 한 번에 계산해서 한 번만 쓴다.
+  const archiveBags = async (bagIds: string[]) => {
+    if (!user || bagIds.length === 0) return;
+    const current = profile?.archivedBagIds ?? [];
+    const next = Array.from(new Set([...current, ...bagIds]));
+    await setDoc(doc(db, "users", user.uid), { archivedBagIds: next }, { merge: true });
+  };
+
+  // 보관 제안 배너를 "닫기"로 넘긴 가방들은 다음에 다시 물어보지 않는다.
+  const dismissArchiveSuggestions = async (bagIds: string[]) => {
+    if (!user || bagIds.length === 0) return;
+    const current = profile?.archiveSuggestionDismissedIds ?? [];
+    const next = Array.from(new Set([...current, ...bagIds]));
+    await setDoc(doc(db, "users", user.uid), { archiveSuggestionDismissedIds: next }, { merge: true });
   };
 
   // v69: 팩은 고정핀 개수 제한이 폐지되어 무제한이다(togglePinned에 max 생략 시 기본 2개 제한이라 Infinity를 명시적으로 넘겨야 함).
@@ -660,8 +699,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateFontScale,
         updateDefaultTab,
         updateBagSortBy,
+        updateBagCardSize,
         updatePackSortBy,
         toggleBagPinned,
+        toggleBagArchived,
+        archiveBags,
+        dismissArchiveSuggestions,
         togglePackPinned,
         updateBagOrder,
         updatePackOrder,

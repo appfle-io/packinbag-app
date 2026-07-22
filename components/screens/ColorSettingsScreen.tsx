@@ -9,6 +9,7 @@ import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
 import PercentSlider from "@/components/PercentSlider";
 import { useAuth } from "@/contexts/AuthProvider";
+import type { UserProfile } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 
@@ -18,6 +19,12 @@ const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
   { key: "sm", label: "작게", previewPx: 12 },
   { key: "md", label: "보통", previewPx: 13 },
   { key: "lg", label: "크게", previewPx: 14.5 },
+];
+
+const bagCardSizes: { key: NonNullable<UserProfile["bagCardSize"]>; label: string }[] = [
+  { key: "small", label: "작게" },
+  { key: "medium", label: "보통" },
+  { key: "large", label: "크게" },
 ];
 
 // 투명도 변화를 눈으로 비교할 수 있도록 미리보기 뒤에 깔아주는 좌우 2색 배경.
@@ -231,7 +238,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
   const [fontScaleOpen, setFontScaleOpen] = useState(true);
   const [baseOpacityOpen, setBaseOpacityOpen] = useState(true);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
-  const { user, profile } = useAuth();
+  const { user, profile, updateBagCardSize } = useAuth();
   const [showColorLimitModal, setShowColorLimitModal] = useState(false);
 
   // 헥사코드 직접입력(커스텀 색상 피커)은 프리미엄 전용 기능. 무료 사용자는 프리셋
@@ -341,6 +348,29 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
         </div>
 
         <h2 className="text-[14px] font-semibold mt-10 mb-3">가방</h2>
+
+        <div className="mb-4">
+          <p className="text-[12px] text-text-secondary mb-2">카드 크기</p>
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            {bagCardSizes.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => updateBagCardSize(key).catch(() => {})}
+                className="flex-1 py-2 text-[13px]"
+                style={{
+                  background: (profile?.bagCardSize ?? "medium") === key ? "var(--accent)" : "var(--surface-2)",
+                  color: (profile?.bagCardSize ?? "medium") === key ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-text-muted mt-2">
+            작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
+            줄어 카드가 커져요 (아래 글씨 크기와는 별개예요)
+          </p>
+        </div>
 
         <ColorSlotSection
           title="가방 보관함"

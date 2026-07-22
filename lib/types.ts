@@ -183,6 +183,11 @@ export interface UserProfile {
   // 카드 안 여백·아이콘을 배율 적용 (팩 카드는 글자 크기가 아래 packCardFontScale로
   // 분리되어 있고, 가방 카드/팩 보관함 타일은 기존처럼 글자도 함께 배율 적용됨)
   bagCardScale?: number;
+  // 가방 보관함 그리드 열 개수(카드 크기) - "작게"를 고르면 한 화면에 더 많은 가방이
+  // 보이도록 열이 늘어나고, "크게"를 고르면 열이 줄어 카드 하나하나가 커진다. 위
+  // bagCardScale(글씨 크기)과는 별개로 작동한다 - 그건 카드 안 여백/글자 배율만
+  // 조절하고, 이건 그리드 자체의 열 개수를 바꾼다. 없으면 "medium"(기존 2열) 기본값.
+  bagCardSize?: "small" | "medium" | "large";
   packCardScale?: number;
   packLibraryCardScale?: number;
   // 가방 속 팩 카드 안 글자 크기 배율 (없으면 1 = 100%). packCardScale(카드 크기)과
@@ -202,6 +207,14 @@ export interface UserProfile {
   // 고정핀 처리한 가방/팩 id (각각 최대 2개, 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
   pinnedBagIds?: string[];
   pinnedPackIds?: string[];
+  // "보관" 처리한 가방 id (삭제와 다름 - 그냥 홈 목록의 "진행중" 탭에서 숨기고 "보관" 탭으로
+  // 옮긴다. 개수 제한 없음, 언제든 되돌릴 수 있음). 휴지통(trashedByOwnerAt)과 달리 소유자가
+  // 아니어도(공유받은 가방도) 각자 자기 화면에서만 보관 처리할 수 있다 - 그래서 가방 문서가
+  // 아니라 이 프로필에 저장한다.
+  archivedBagIds?: string[];
+  // 여행일(D-Day)이 한참 지난 가방을 "보관함으로 옮길까요?" 배너로 제안했을 때, 사용자가
+  // "닫기"로 넘긴 가방 id 목록. 한 번 넘긴 가방은 계속 다시 물어보지 않는다.
+  archiveSuggestionDismissedIds?: string[];
   // "custom"(사용자설정순) 정렬일 때 쓰는 직접 지정한 순서(id 배열, 고정된 항목 제외).
   // 여기 없는 새 항목은 뒤쪽에 생성일자 최신순으로 자동으로 붙는다.
   bagOrder?: string[];

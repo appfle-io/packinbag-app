@@ -353,6 +353,29 @@ body {
   color: var(--text-muted);
   text-decoration: line-through;
 }
+/* 일반 글머리기호("- " 입력) / 번호매기기("1. " 입력) 목록. Tailwind preflight가 모든
+   ul/ol의 list-style/padding을 지워버려서, TipTap이 실제로는 정상적으로 <ul>/<ol>을
+   만들어도(입력 규칙은 StarterKit에 기본 내장) 화면에는 글머리표/번호가 안 보이고 들여쓰기도
+   없이 밋밋한 문단처럼 보였다 - taskList와 별개로 이 둘도 스타일을 복원해줘야 한다. */
+.pib-note-editor ul:not([data-type="taskList"]) {
+  list-style: disc;
+  padding-left: 22px;
+  margin: 6px 0;
+}
+.pib-note-editor ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) {
+  list-style: circle;
+}
+.pib-note-editor ol {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 6px 0;
+}
+.pib-note-editor li {
+  margin: 2px 0;
+}
+.pib-note-editor li > p {
+  margin: 0;
+}
 .pib-note-editor table {
   border-collapse: collapse;
   margin: 8px 0;
