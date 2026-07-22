@@ -485,10 +485,20 @@ export default function ItemRow({
               setDragX(0);
               onDelete();
             }}
-            className="absolute right-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
-            style={{ width: SWIPE_BUTTON_WIDTH, background: "var(--danger)", color: "#fff" }}
+            className="absolute right-0 top-0 h-full flex items-center justify-end overflow-hidden text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+            style={{
+              // 밀린 만큼만 보이도록 실제 드래그 거리에 비례해서 너비를 키운다
+              // (버튼 크기(SWIPE_BUTTON_WIDTH)만큼 다 밀어야 전체가 노출됨). 버튼이
+              // 오른쪽에 고정된 채 왼쪽으로 넓어지므로, 안의 라벨도 오른쪽 기준으로
+              // 고정해서(justify-end) 밀린 만큼 왼쪽부터 드러나 보이게 한다.
+              width: Math.min(SWIPE_BUTTON_WIDTH, Math.abs(dragX)),
+              background: "var(--danger)",
+              color: "#fff",
+            }}
           >
-            삭제
+            <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center">
+              삭제
+            </span>
           </button>
         )}
 
@@ -498,10 +508,18 @@ export default function ItemRow({
               setDragX(0);
               openEdit();
             }}
-            className="absolute left-0 top-0 h-full flex items-center justify-center text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
-            style={{ width: SWIPE_BUTTON_WIDTH, background: "#2563eb", color: "#fff" }}
+            className="absolute left-0 top-0 h-full flex items-center justify-start overflow-hidden text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+            style={{
+              // 버튼이 왼쪽에 고정된 채 오른쪽으로 넓어지므로, 라벨도 왼쪽 기준으로
+              // 고정해서(justify-start) 밀린 만큼 오른쪽부터 드러나 보이게 한다.
+              width: Math.min(SWIPE_BUTTON_WIDTH, Math.abs(dragX)),
+              background: "#2563eb",
+              color: "#fff",
+            }}
           >
-            수정
+            <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center">
+              수정
+            </span>
           </button>
         )}
 

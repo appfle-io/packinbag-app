@@ -52,7 +52,8 @@ import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
 import PackTreeSwipeHint from "@/components/PackTreeSwipeHint";
 import BagListSwipeHint from "@/components/BagListSwipeHint";
-import Portal from "@/components/Portal";
+import SlideScreen from "@/components/SlideScreen";
+import SlideUpSheet from "@/components/SlideUpSheet";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
@@ -127,6 +128,29 @@ export default function AppShell() {
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
+  // editingBag/editingPack(에디터형)은 뒤로가기 시 즉시 null이 되는데, SlideScreen이 슬라이드
+  // 아웃 애니메이션을 재생하는 동안에도 내용이 유지되도록 "마지막으로 열려있던 값"을 따로
+  // 캐싱해둔다 (null이 되는 순간 화면 내용까지 같이 사라지면 슬라이드 아웃이 빈 화면으로 보임).
+  const [displayedBag, setDisplayedBag] = useState<Bag | null>(null);
+  useEffect(() => {
+    if (!editingBag) return;
+    // editingBag은 onBack에서 바로 null이 되는 외부 상태라, 닫힘 애니메이션 동안 화면
+    // 내용이 유지되도록 마지막 값을 그대로 미러링해두는 의도된 동기화다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDisplayedBag(editingBag);
+  }, [editingBag]);
+  const [displayedEditorPack, setDisplayedEditorPack] = useState<Pack | null>(null);
+  useEffect(() => {
+    if (!editingPack || editingPack.kind !== "editor") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDisplayedEditorPack(editingPack);
+  }, [editingPack]);
+  const [displayedSheetPack, setDisplayedSheetPack] = useState<Pack | null>(null);
+  useEffect(() => {
+    if (!editingPack || editingPack.kind === "editor") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDisplayedSheetPack(editingPack);
+  }, [editingPack]);
   // 가방 보관함/팩 보관함 상단 검색 결과를 눌러서 들어왔을 때만 채워진다. 각각
   // BagEditorScreen(focusTarget)/PackLibraryEditorScreen(focusItemId)에 그대로 넘겨서 해당
   // 팩(+짐)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
@@ -155,14 +179,20 @@ export default function AppShell() {
 
 
   // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭 전환).
-  // v68에서 하단탑이 가방보관함/설정 2개로 바뀌면서 "packs"는 더 이상 유효한 탭이 아니다 -
-  // 예전에 "팩 보관함"을 시작 화면으로 저장해둔 사용자는 이 값이 그대로 Firestore에 남아있을 수 있으므로,
-  // "home"/"settings"가 아닌 값이면 무시하고 기본값(home)을 쓴다.
+  // "packs"(팩 보관함)는 실제 하단탭이 아니라 가방보관함 탭 위에 여는 오버레이라서,
+  // 탭 자체는 home으로 두고 showPackTree만 같이 켜준다.
   // Firestore(외부 시스템)에서 온 값을 반영하는 의도된 동기화라 set-state-in-effect 규칙은 비활성화한다.
   useEffect(() => {
     if (!profile || appliedDefaultTabRef.current) return;
     if (!profile.defaultTab) return;
     appliedDefaultTabRef.current = true;
+    if (profile.defaultTab === "packs") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab("home");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowPackTree(true);
+      return;
+    }
     if (profile.defaultTab !== "home" && profile.defaultTab !== "settings") return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTab(profile.defaultTab);
@@ -830,154 +860,6 @@ export default function AppShell() {
     });
   };
 
-  if (editingBag) {
-    const isEditingBagLocked = lockedBagIds.has(editingBag.id);
-    return (
-      <>
-        <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top">
-          <BagEditorScreen
-            initialBag={editingBag}
-            libraryPacks={realPacksOnly}
-            uid={user.uid}
-            nickname={profile.nickname}
-            avatarId={profile.avatarId}
-            isNew={isNewBag}
-            readOnly={isEditingBagLocked}
-            onRequestUnlock={requestUnlockForBag}
-            onBack={handleBackFromEditor}
-            onSave={handleSaveBag}
-            onDeleteBag={handleDeleteBag}
-            onSaveAsLibraryPack={handleSaveAsLibraryPack}
-            onTrashPackFromBag={handleTrashPackFromBag}
-            onLeaveBag={handleLeaveBag}
-            onRemoveMember={handleRemoveMember}
-            onRegenerateInviteCode={handleRegenerateInviteCode}
-            focusTarget={bagFocus}
-            onFocusHandled={() => setBagFocus(null)}
-          />
-        </div>
-        <SplashScreen visible={showSplash} />
-        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-        {premiumLimitMessage && (
-          <PremiumLimitModal
-            message={premiumLimitMessage}
-            onClose={() => setPremiumLimitMessage(null)}
-            onUnlocked={() => {
-              setPremiumLimitMessage(null);
-              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
-            }}
-          />
-        )}
-      </>
-    );
-  }
-
-  if (showPackTree) {
-    return (
-      <>
-        <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top">
-          <PacksScreen
-            uid={user.uid}
-            packs={activePacks}
-            bags={activeBags}
-            quickPack={quickPack}
-            onOpenPack={(pack, focusItemId) => {
-              setEditingPack(pack);
-              setPackFocusItemId(focusItemId ?? null);
-            }}
-            onOpenBag={(bag, focus) => {
-              setShowPackTree(false);
-              setIsNewBag(false);
-              setEditingBag(bag);
-              setBagFocus(focus ?? null);
-            }}
-            onNewPack={openNewPack}
-            onNewFolder={handleCreateFolder}
-            onRenameEntry={handleRenameLibraryEntry}
-            onChangeColor={handleChangePackColor}
-            onMoveEntries={handleMoveLibraryEntries}
-            onBack={() => setShowPackTree(false)}
-            onBulkDeletePacks={handleBulkDeletePacks}
-          />
-          <BagListSwipeHint
-            enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
-            onOpen={() => setShowPackTree(false)}
-          />
-        </div>
-        {editingPack && (() => {
-          const closePackEditor = () => {
-            setEditingPack(null);
-            setPackFocusItemId(null);
-          };
-          // 에디터팩(자유문서형 메모 팩)은 하단 시트가 아니라 노션 페이지처럼 풀스크린
-          // 전체화면으로 연다(체크리스트 팩은 그대로 바타 시트 유지).
-          if (editingPack.kind === "editor") {
-            return (
-              <Portal>
-                <div className="fixed inset-0 z-[75] flex flex-col bg-background">
-                  <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
-                    <PackNoteEditorScreen
-                      pack={editingPack}
-                      readOnly={false}
-                      onBack={closePackEditor}
-                      onSave={handleSavePack}
-                      onDeletePack={() => handleDeletePack(editingPack.id)}
-                    />
-                  </div>
-                </div>
-              </Portal>
-            );
-          }
-          return (
-            <Portal>
-              <div
-                className="fixed inset-0 z-[75] flex items-end justify-center"
-                style={{ background: "rgba(0,0,0,0.45)" }}
-                onClick={closePackEditor}
-              >
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
-                  style={{ maxHeight: "85vh" }}
-                >
-                  <PackLibraryEditorScreen
-                    variant="sheet"
-                    initialPack={editingPack}
-                    libraryPacks={realPacksOnly}
-                    bags={activeBags}
-                    lockedBagIds={lockedBagIds}
-                    readOnly={false}
-                    onRequestUnlock={requestUnlockForPack}
-                    onBack={closePackEditor}
-                    onSave={handleSavePack}
-                    onSaveOtherPack={handleSavePack}
-                    onDelete={handleDeletePack}
-                    onAddItemsToBagPack={handleAddItemsToBagPack}
-                    onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-                    focusItemId={packFocusItemId}
-                    onFocusHandled={() => setPackFocusItemId(null)}
-                  />
-                </div>
-              </div>
-            </Portal>
-          );
-        })()}
-        <SplashScreen visible={showSplash} />
-        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-        {premiumLimitMessage && (
-          <PremiumLimitModal
-            message={premiumLimitMessage}
-            onClose={() => setPremiumLimitMessage(null)}
-            onUnlocked={() => {
-              setPremiumLimitMessage(null);
-              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
-            }}
-          />
-        )}
-      </>
-    );
-  }
-
   const tabOrder: TabKey[] = ["home", "settings"];
   const tabIndex = tabOrder.indexOf(tab);
 
@@ -1097,75 +979,139 @@ export default function AppShell() {
         </div>
         <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
         <InstallPrompt />
-        {tab === "home" && (
+        {tab === "home" && !showPackTree && !editingBag && !editingPack && (
           <PackTreeSwipeHint
             enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
             onOpen={() => setShowPackTree(true)}
           />
         )}
       </div>
+
+      {/* 팩보관함(PacksScreen) - 가방보관함 탭 위에 오른쪽에서 슬라이드-인 되는 오버레이.
+          bags/packs는 항상 준비돼있는 데이터라 editingBag과 달리 별도 캐싱 없이 그대로 써도 된다. */}
+      <SlideScreen
+        active={showPackTree}
+        zIndex={60}
+        from="left"
+        innerClassName="relative flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top"
+      >
+        <PacksScreen
+          uid={user.uid}
+          packs={activePacks}
+          bags={activeBags}
+          quickPack={quickPack}
+          onOpenPack={(pack, focusItemId) => {
+            setEditingPack(pack);
+            setPackFocusItemId(focusItemId ?? null);
+          }}
+          onOpenBag={(bag, focus) => {
+            setShowPackTree(false);
+            setIsNewBag(false);
+            setEditingBag(bag);
+            setBagFocus(focus ?? null);
+          }}
+          onNewPack={openNewPack}
+          onNewFolder={handleCreateFolder}
+          onRenameEntry={handleRenameLibraryEntry}
+          onChangeColor={handleChangePackColor}
+          onMoveEntries={handleMoveLibraryEntries}
+          onBack={() => setShowPackTree(false)}
+          onBulkDeletePacks={handleBulkDeletePacks}
+        />
+        <BagListSwipeHint
+          enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
+          onOpen={() => setShowPackTree(false)}
+        />
+      </SlideScreen>
+
+      {/* 가방 편집기 - 팩보관함보다 한 단계 더 위(zIndex 65)에서 슬라이드-인. editingBag이
+          onBack에서 바로 null이 되므로, 닫히는 애니메이션 동안엔 캐싱해둔 displayedBag로 그린다. */}
+      <SlideScreen active={!!editingBag} zIndex={65}>
+        {displayedBag &&
+          (() => {
+            const isEditingBagLocked = lockedBagIds.has(displayedBag.id);
+            return (
+              <BagEditorScreen
+                initialBag={displayedBag}
+                libraryPacks={realPacksOnly}
+                uid={user.uid}
+                nickname={profile.nickname}
+                avatarId={profile.avatarId}
+                isNew={isNewBag}
+                readOnly={isEditingBagLocked}
+                onRequestUnlock={requestUnlockForBag}
+                onBack={handleBackFromEditor}
+                onSave={handleSaveBag}
+                onDeleteBag={handleDeleteBag}
+                onSaveAsLibraryPack={handleSaveAsLibraryPack}
+                onTrashPackFromBag={handleTrashPackFromBag}
+                onLeaveBag={handleLeaveBag}
+                onRemoveMember={handleRemoveMember}
+                onRegenerateInviteCode={handleRegenerateInviteCode}
+                focusTarget={bagFocus}
+                onFocusHandled={() => setBagFocus(null)}
+              />
+            );
+          })()}
+      </SlideScreen>
+
       {showQuickAdd && (
         <QuickAddModal
           onClose={() => setShowQuickAdd(false)}
           onAdd={handleQuickAddItem}
         />
       )}
-      {editingPack && (() => {
-        const closePackEditor = () => {
+
+      {/* 팩 에디터 - 에디터형(자유문서형 메모 팩)은 노션 페이지처럼 풀스크린으로 오른쪽에서
+          슬라이드-인, 체크리스트형은 기존대로 하단 시트로 아래에서 슬라이드-업. 두 경우 모두
+          editingPack이 onBack에서 바로 null이 되므로 각자 캐싱해둔 값으로 그린다. */}
+      <SlideScreen active={!!editingPack && editingPack.kind === "editor"} zIndex={70}>
+        {displayedEditorPack && (
+          <PackNoteEditorScreen
+            pack={displayedEditorPack}
+            readOnly={false}
+            onBack={() => {
+              setEditingPack(null);
+              setPackFocusItemId(null);
+            }}
+            onSave={handleSavePack}
+            onDeletePack={() => handleDeletePack(displayedEditorPack.id)}
+          />
+        )}
+      </SlideScreen>
+
+      <SlideUpSheet
+        active={!!editingPack && editingPack.kind !== "editor"}
+        zIndex={75}
+        onBackdropClick={() => {
           setEditingPack(null);
           setPackFocusItemId(null);
-        };
-        if (editingPack.kind === "editor") {
-          return (
-            <Portal>
-              <div className="fixed inset-0 z-[75] flex flex-col bg-background">
-                <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
-                  <PackNoteEditorScreen
-                    pack={editingPack}
-                    readOnly={false}
-                    onBack={closePackEditor}
-                    onSave={handleSavePack}
-                    onDeletePack={() => handleDeletePack(editingPack.id)}
-                  />
-                </div>
-              </div>
-            </Portal>
-          );
-        }
-        return (
-          <Portal>
-            <div
-              className="fixed inset-0 z-[75] flex items-end justify-center"
-              style={{ background: "rgba(0,0,0,0.45)" }}
-              onClick={closePackEditor}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
-                style={{ maxHeight: "85vh" }}
-              >
-                <PackLibraryEditorScreen
-                  variant="sheet"
-                  initialPack={editingPack}
-                  libraryPacks={realPacksOnly}
-                  bags={activeBags}
-                  lockedBagIds={lockedBagIds}
-                  readOnly={false}
-                  onRequestUnlock={requestUnlockForPack}
-                  onBack={closePackEditor}
-                  onSave={handleSavePack}
-                  onSaveOtherPack={handleSavePack}
-                  onDelete={handleDeletePack}
-                  onAddItemsToBagPack={handleAddItemsToBagPack}
-                  onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-                  focusItemId={packFocusItemId}
-                  onFocusHandled={() => setPackFocusItemId(null)}
-                />
-              </div>
-            </div>
-          </Portal>
-        );
-      })()}
+        }}
+      >
+        {displayedSheetPack && (
+          <PackLibraryEditorScreen
+            variant="sheet"
+            initialPack={displayedSheetPack}
+            libraryPacks={realPacksOnly}
+            bags={activeBags}
+            lockedBagIds={lockedBagIds}
+            readOnly={false}
+            onRequestUnlock={requestUnlockForPack}
+            onBack={() => {
+              setEditingPack(null);
+              setPackFocusItemId(null);
+            }}
+            onSave={handleSavePack}
+            onSaveOtherPack={handleSavePack}
+            onDelete={handleDeletePack}
+            onAddItemsToBagPack={handleAddItemsToBagPack}
+            onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+            focusItemId={packFocusItemId}
+            onFocusHandled={() => setPackFocusItemId(null)}
+          />
+        )}
+      </SlideUpSheet>
+
       {showAnnouncementPopup && activeUndismissed.length > 0 && (
         <AnnouncementPopupStack
           announcements={activeUndismissed}

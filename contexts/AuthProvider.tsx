@@ -79,7 +79,7 @@ interface AuthContextValue {
     packCardFontScale?: number;
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
-  updateDefaultTab: (defaultTab: "home" | "settings") => Promise<void>;
+  updateDefaultTab: (defaultTab: "home" | "settings" | "packs") => Promise<void>;
   updateBagSortBy: (sortBy: UserProfile["bagSortBy"]) => Promise<void>;
   updatePackSortBy: (sortBy: UserProfile["packSortBy"]) => Promise<void>;
   toggleBagPinned: (bagId: string) => Promise<void>;
@@ -452,7 +452,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // 앱 실행 시 처음 보여줄 탭
-  const updateDefaultTab = async (defaultTab: "home" | "settings") => {
+  const updateDefaultTab = async (defaultTab: "home" | "settings" | "packs") => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), { defaultTab }, { merge: true });
   };

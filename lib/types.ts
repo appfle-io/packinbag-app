@@ -193,7 +193,7 @@ export interface UserProfile {
   fontScale?: "sm" | "md" | "lg";
   // v68: 하단탑이 가방보관함/설정 2개로 재개편되어 "packs" 옵션은 사라졌다(팩 트리는
   // 이제 스와이프로 열리는 풀스크린 화면임). 앱 실행 시 처음 보여줄 탭(없으면 "home" 기본값).
-  defaultTab?: "home" | "settings";
+  defaultTab?: "home" | "settings" | "packs";
   // "다시 보지 않기" 처리한 공지사항 id 목록
   dismissedAnnouncementIds?: string[];
   // 가방/팩 목록 정렬 기준 (없으면 "createdAt" 기본값)

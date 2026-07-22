@@ -36,7 +36,7 @@ import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
 import NotificationBell from "@/components/NotificationBell";
 import { useToast } from "@/components/Toast";
-import { useSwipeBack } from "@/lib/useSwipeBack";
+import SlideScreen from "@/components/SlideScreen";
 
 const modes: { key: ThemeMode; label: string }[] = [
   { key: "system", label: "시스템" },
@@ -44,9 +44,9 @@ const modes: { key: ThemeMode; label: string }[] = [
   { key: "dark", label: "다크" },
 ];
 
-const startTabs: { key: "home" | "settings"; label: string }[] = [
-  { key: "home", label: "가방 목록" },
-  { key: "settings", label: "설정" },
+const startTabs: { key: "home" | "packs"; label: string }[] = [
+  { key: "home", label: "가방보관함" },
+  { key: "packs", label: "팩 보관함" },
 ];
 
 type SettingsView =
@@ -98,50 +98,11 @@ export default function SettingsScreen({
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [showUnlockCode, setShowUnlockCode] = useState(false);
-  // "main" 화면에서 스와이프로 뒤로가면 이 화면 자체(onBack)를 닫는다. 하위 화면(프로필
-  // 수정, 화면설정 등)은 각자 자기 onBack(=setView("main"))으로 스와이프백을 따로 건다.
-  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
-
-  if (view === "profile") {
-    return <ProfileEditScreen onBack={() => setView("main")} />;
-  }
-  if (view === "version") {
-    return <VersionInfoScreen onBack={() => setView("main")} />;
-  }
-  if (view === "licenses") {
-    return <LicensesScreen onBack={() => setView("main")} />;
-  }
-  if (view === "packSettings") {
-    return <PackSettingsScreen onBack={() => setView("main")} />;
-  }
-  if (view === "bagSettings") {
-    return <BagSettingsScreen onBack={() => setView("main")} />;
-  }
-  if (view === "colorSettings") {
-    return <ColorSettingsScreen onBack={() => setView("main")} />;
-  }
-  if (view === "trash") {
-    return (
-      <TrashScreen
-        bags={trashedBags}
-        packs={trashedPacks}
-        onBack={() => setView("main")}
-        onRestoreBag={onRestoreBag}
-        onPermanentDeleteBag={onPermanentDeleteBag}
-        onRestorePack={onRestorePack}
-        onPermanentDeletePack={onPermanentDeletePack}
-      />
-    );
-  }
-  if (view === "inquiries") {
-    return (
-      <InquiryScreen
-        uid={uid}
-        nickname={profile?.nickname ?? ""}
-        onBack={() => setView("main")}
-      />
-    );
-  }
+  // v68부터 설정은 하단탭이라, 이 화면(main)에서 스와이프로 뒤로가는 것(설정->가방보관함)은
+  // AppShell이 탭 전환 스와이프로 이미 처리한다. 여기서 또 useSwipeBack을 걸면 같은 제스처가
+  // 두 군데서 겹쳐 처리돼서(설정->홈으로 바뀐 뒤, 그 홈 상태 기준으로 AppShell 스와이프가
+  // 한 번 더 반응해 팩보관함까지 열려버리는 문제가 있었다) - 그래서 main엔 걸지 않는다.
+  // 하위 화면(프로필 수정, 화면설정 등)은 진짜 스택 화면이라 각자 자기 onBack으로 따로 건다.
 
   const startTab = profile?.defaultTab ?? "home";
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
@@ -151,7 +112,7 @@ export default function SettingsScreen({
   const trashCount = trashedBags.length + trashedPacks.length;
 
   return (
-    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
         <button onClick={onBack} className="-m-2.5 p-2.5" aria-label="뒤로가기">
           <IconArrowLeft size={20} stroke={1.75} />
@@ -395,6 +356,43 @@ export default function SettingsScreen({
           }}
         />
       )}
+
+      <SlideScreen active={view === "profile"}>
+        <ProfileEditScreen onBack={() => setView("main")} />
+      </SlideScreen>
+      <SlideScreen active={view === "version"}>
+        <VersionInfoScreen onBack={() => setView("main")} />
+      </SlideScreen>
+      <SlideScreen active={view === "licenses"}>
+        <LicensesScreen onBack={() => setView("main")} />
+      </SlideScreen>
+      <SlideScreen active={view === "packSettings"}>
+        <PackSettingsScreen onBack={() => setView("main")} />
+      </SlideScreen>
+      <SlideScreen active={view === "bagSettings"}>
+        <BagSettingsScreen onBack={() => setView("main")} />
+      </SlideScreen>
+      <SlideScreen active={view === "colorSettings"}>
+        <ColorSettingsScreen onBack={() => setView("main")} />
+      </SlideScreen>
+      <SlideScreen active={view === "trash"}>
+        <TrashScreen
+          bags={trashedBags}
+          packs={trashedPacks}
+          onBack={() => setView("main")}
+          onRestoreBag={onRestoreBag}
+          onPermanentDeleteBag={onPermanentDeleteBag}
+          onRestorePack={onRestorePack}
+          onPermanentDeletePack={onPermanentDeletePack}
+        />
+      </SlideScreen>
+      <SlideScreen active={view === "inquiries"}>
+        <InquiryScreen
+          uid={uid}
+          nickname={profile?.nickname ?? ""}
+          onBack={() => setView("main")}
+        />
+      </SlideScreen>
     </div>
   );
 }

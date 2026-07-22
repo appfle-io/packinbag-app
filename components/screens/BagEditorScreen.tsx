@@ -49,6 +49,7 @@ import ItemThreadSheet from "@/components/ItemThreadSheet";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import Portal from "@/components/Portal";
+import SlideScreen from "@/components/SlideScreen";
 import { subscribeToComments } from "@/lib/commentsService";
 import { subscribeToReactions, toggleReaction } from "@/lib/reactionsService";
 import { buildMentionMembers } from "@/lib/mentions";
@@ -676,6 +677,15 @@ export default function BagEditorScreen({
   // 라이브러리 쪽(AppShell/PacksScreen)과 달리, 가방 안에서는 별도 화면 전환 없이 이 화면
   // 위에 풀스크린 오버레이로 띄우고 바로 이 가방의 자동저장 파이프라인(updatePacks)으로 반영한다.
   const [editingNotePackId, setEditingNotePackId] = useState<string | null>(null);
+  // editingNotePackId는 닫을 때 바로 null이 되므로, 슬라이드 아웃 애니메이션이 끝날 때까지
+  // 어느 팩을 보여주고 있었는지 기억해두기 위한 캐시.
+  const [displayedNotePackId, setDisplayedNotePackId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editingNotePackId) return;
+    // 외부(사용자 조작) 상태를 그대로 미러링하는 의도된 동기화다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDisplayedNotePackId(editingNotePackId);
+  }, [editingNotePackId]);
 
   const handleSaveNotePack = (updated: Pack) => {
     // 메모 하나는 300KB 이하라도, 가방 하나에 큰 메모팩이 여러 개 누적되면 가방 문서 전체가
@@ -2098,29 +2108,25 @@ export default function BagEditorScreen({
         </Portal>
       )}
 
-      {editingNotePackId && (() => {
-        const notePack = bag.packs.find((p) => p.id === editingNotePackId);
-        if (!notePack) return null;
-        return (
-          <Portal>
-            <div className="fixed inset-0 z-[80] flex flex-col bg-background">
-              <div className="flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background">
-                <PackNoteEditorScreen
-                  pack={notePack}
-                  readOnly={readOnly}
-                  otherEditorNickname={otherNoteEditor?.nickname ?? null}
-                  onBack={() => setEditingNotePackId(null)}
-                  onSave={handleSaveNotePack}
-                  onDeletePack={() => {
-                    setEditingNotePackId(null);
-                    handleDeletePack(notePack.id, false);
-                  }}
-                />
-              </div>
-            </div>
-          </Portal>
-        );
-      })()}
+      <SlideScreen active={!!editingNotePackId} zIndex={80}>
+        {(() => {
+          const notePack = bag.packs.find((p) => p.id === displayedNotePackId);
+          if (!notePack) return null;
+          return (
+            <PackNoteEditorScreen
+              pack={notePack}
+              readOnly={readOnly}
+              otherEditorNickname={otherNoteEditor?.nickname ?? null}
+              onBack={() => setEditingNotePackId(null)}
+              onSave={handleSaveNotePack}
+              onDeletePack={() => {
+                setEditingNotePackId(null);
+                handleDeletePack(notePack.id, false);
+              }}
+            />
+          );
+        })()}
+      </SlideScreen>
 
       {showAiOrganize && (
         <AiOrganizeModal
