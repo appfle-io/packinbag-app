@@ -18,6 +18,8 @@ import {
   IconPalette,
   IconX,
   IconUsers,
+  IconMinus,
+  IconPlus,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
@@ -62,10 +64,17 @@ export default function PackNoteEditorScreen({
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  // 다른 사람이 같은 메모를 편집 중이라는 배지를 보고 내가 직접 읽기전용으로 전환했는지.
-  // 덮어쓰는 사고를 막기 위해 사용자가 직접 선택하는 것이지, 강제로 막지는 않는다.
-  const [viewOnlyOverride, setViewOnlyOverride] = useState(false);
-  const effectiveReadOnly = !!readOnly || viewOnlyOverride;
+  // 다른 사람이 같은 메모를 지금 편집 중이면 무조건 읽기전용으로 전환한다(선택 아님) -
+  // 동시에 고치면 한쪽 내용이 덮어쓰이는 사고를 막기 위함이다. 그 사람이 편집을 끝내는 순간
+  // (otherEditorNickname이 null이 되는 순간) 자동으로 다시 편집 가능해진다.
+  const effectiveReadOnly = !!readOnly || !!otherEditorNickname;
+  // 메모팩 전용 글자 크기(3~20px, 없으면 10 기본값). 팩 자체에 저장되는 값이라, 저장하면
+  // 같이 보는 모든 사람에게(가방 속 미리보기 카드 포함) 동일하게 반영된다.
+  const [editorFontSize, setEditorFontSize] = useState(pack.editorFontSize ?? 10);
+  const editorFontSizeRef = useRef(editorFontSize);
+  useEffect(() => {
+    editorFontSizeRef.current = editorFontSize;
+  }, [editorFontSize]);
   // 문서가 너무 커져서 지금 상태로는 저장이 막혔는지. true인 동안은 자동저장을 건너뛰고
   // 배너로 알려서, 사용자가 내용을 줄여야 한다는 걸 바로 알 수 있게 한다(타이핑한 내용
   // 자체는 화면에 그대로 남아있어 잃어버리지 않는다).
@@ -84,12 +93,31 @@ export default function PackNoteEditorScreen({
     immediatelyRender: false,
   });
 
-  // readOnly는 고정값이지만 viewOnlyOverride는 화면을 열어둔 채 바뀌는 값이라(같은 편집자
-  // 배지를 보고 직접 읽기전용으로 전환하는 경우), useEditor 생성 시점의 editable 값만으로는
+  // readOnly는 고정값이지만 otherEditorNickname은 화면을 열어둔 채 바뀌는 값이라(다른 사람이
+  // 편집을 시작/종료하는 순간), useEditor 생성 시점의 editable 값만으로는
   // 반영되지 않아서 editor.setEditable로 직접 동기화한다.
   useEffect(() => {
     editor?.setEditable(!effectiveReadOnly);
   }, [editor, effectiveReadOnly]);
+
+  // 다른 사람이 지금 편집 중이라 내가 강제 읽기전용으로 보고 있는 동안에는, 그 사람이
+  // 저장할 때마다 부모(BagEditorScreen)의 실시간 구독을 통해 내려오는 최신
+  // pack.editorDoc을 그대로 에디터에 반영해 "라이브"로 보이게 한다. setContent의
+  // 두 번째 인자(emitUpdate=false)로 이 반영이 다시 자동저장 흐름을 타지 않게 막는다
+  // (내 편집이 아니라 수신한 값을 그대로 보여주는 것일 뿐이므로).
+  const lastSyncedDocRef = useRef(pack.editorDoc);
+  useEffect(() => {
+    if (!editor || !otherEditorNickname) return;
+    if (pack.editorDoc === lastSyncedDocRef.current) return;
+    lastSyncedDocRef.current = pack.editorDoc;
+    editor.commands.setContent(pack.editorDoc ?? "", false);
+  }, [editor, otherEditorNickname, pack.editorDoc]);
+
+  // 글자 크기도 같은 이유로, 다른 사람이 편집 중일 때는 그 사람이 고른 크기로 실시간 동기화한다.
+  useEffect(() => {
+    if (!otherEditorNickname || pack.editorFontSize === undefined) return;
+    setEditorFontSize(pack.editorFontSize);
+  }, [otherEditorNickname, pack.editorFontSize]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
@@ -107,6 +135,7 @@ export default function PackNoteEditorScreen({
       ...packRef.current,
       name: nameRef.current,
       editorDoc: doc,
+      editorFontSize: editorFontSizeRef.current,
       editorPreviewText: extractPlainTextPreview(doc),
       updatedAt: new Date().toISOString(),
     };
@@ -143,7 +172,19 @@ export default function PackNoteEditorScreen({
     commitSave(editor?.getJSON());
   };
 
-  // 화면을 나갈 때 디바운스 대기 중인 변경이 있으면 그 즉시 반영한다. viewOnlyOverride가 마운트
+  // 글자 크기 -/+ 버튼. 3~20px 범위로 제한하고, 바뀌는 즉시 저장한다(문서 내용 자체는
+  // 안 바뀌므로 사이즈 걱정 없이 바로 반영). ref를 먼저 갱신해두고 commitSave를 호출해야
+  // setState의 비동기적 반영 시점과 무관하게 이번 값이 그대로 저장된다.
+  const changeFontSize = (delta: number) => {
+    if (effectiveReadOnly) return;
+    const next = Math.min(20, Math.max(3, editorFontSizeRef.current + delta));
+    if (next === editorFontSizeRef.current) return;
+    editorFontSizeRef.current = next;
+    setEditorFontSize(next);
+    commitSave(editor?.getJSON());
+  };
+
+  // 화면을 나갈 때 디바운스 대기 중인 변경이 있으면 그 즉시 반영한다. otherEditorNickname이 마운트
   // 이후에도 바뀌는 값이라 effectiveReadOnly를 ref로도 따로 추적해서(이 effect의 클로저가
   // 마운트 시점의 값을 고정해서 들고 있는 문제를 피한다).
   const effectiveReadOnlyRef = useRef(effectiveReadOnly);
@@ -209,37 +250,13 @@ export default function PackNoteEditorScreen({
         )}
       </div>
 
-      {otherEditorNickname && !viewOnlyOverride && (
+      {otherEditorNickname && (
         <div
-          className="mx-4 mb-2 flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[12px] shrink-0"
+          className="mx-4 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] shrink-0"
           style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
         >
-          <span className="flex items-center gap-1.5">
-            <IconUsers size={14} stroke={1.75} className="shrink-0" />
-            {otherEditorNickname}님이 지금 이 메모를 편집 중이에요
-          </span>
-          <button
-            onClick={() => setViewOnlyOverride(true)}
-            className="shrink-0 font-medium underline underline-offset-2"
-          >
-            읽기전용으로 보기
-          </button>
-        </div>
-      )}
-
-      {viewOnlyOverride && !readOnly && (
-        <div
-          className="mx-4 mb-2 flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[12px] shrink-0"
-          style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
-        >
-          <span>지금 읽기전용으로 보고 있어요</span>
-          <button
-            onClick={() => setViewOnlyOverride(false)}
-            className="shrink-0 font-medium underline underline-offset-2"
-            style={{ color: "var(--accent)" }}
-          >
-            다시 편집하기
-          </button>
+          <IconUsers size={14} stroke={1.75} className="shrink-0" />
+          <span>{otherEditorNickname}님이 지금 편집 중이라 읽기전용으로 보고 있어요 · 수정 내용이 라이브로 반영돼요</span>
         </div>
       )}
 
@@ -344,13 +361,34 @@ export default function PackNoteEditorScreen({
               </ToolbarButton>
             </>
           )}
+          <div className="flex items-center gap-0.5 shrink-0 ml-1">
+            <button
+              onClick={() => changeFontSize(-1)}
+              aria-label="글자 크기 줄이기"
+              disabled={editorFontSize <= 3}
+              className="rounded-lg p-1.5 disabled:opacity-30"
+            >
+              <IconMinus size={14} stroke={1.75} />
+            </button>
+            <span className="text-[11px] w-6 text-center tabular-nums" style={{ color: "var(--text-secondary)" }}>
+              {editorFontSize}
+            </span>
+            <button
+              onClick={() => changeFontSize(1)}
+              aria-label="글자 크기 키우기"
+              disabled={editorFontSize >= 20}
+              className="rounded-lg p-1.5 disabled:opacity-30"
+            >
+              <IconPlus size={14} stroke={1.75} />
+            </button>
+          </div>
           <span className="ml-auto shrink-0 text-[10px] pl-2" style={{ color: percentOfLimit > 90 ? "var(--danger)" : "var(--text-muted)" }}>
             {percentOfLimit}%
           </span>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-4 py-3" style={{ fontSize: `${editorFontSize}px` }}>
         <EditorContent editor={editor} className="pib-note-editor" />
       </div>
 

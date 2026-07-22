@@ -429,7 +429,17 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
 
         <ColorSlotSection
           title="가방 속 팩카드"
-          description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요. '카드 크기'는 카드 여백·짐 목록 높이·아이콘/체크박스 크기를 조절하고(글자 크기는 안 바뀌어요), '글씨 크기'는 제목·짐 텍스트·개수 표시의 글자만 따로 커지거나 작아져요"
+          description="가방 안 팩 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요."
+          extraContent={
+            <ul className="mt-2 space-y-1 text-[11px] text-text-muted list-none">
+              <li>
+                <span className="font-medium text-text-secondary">카드 크기</span> — 카드 여백·짐 목록 높이·아이콘/체크박스 크기를 조절해요 (글자 크기는 안 바뀌어요)
+              </li>
+              <li>
+                <span className="font-medium text-text-secondary">글씨 크기</span> — 제목·짐 텍스트·개수 표시의 글자만 따로 커지거나 작아져요
+              </li>
+            </ul>
+          }
           selectedId={packGridColorId}
           customHex={packGridCustomHex}
           showDefaultOption

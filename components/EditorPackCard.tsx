@@ -165,7 +165,7 @@ export default function EditorPackCard({
                 탭해서 메모를 작성해보세요
               </p>
             )}
-            <div style={{ pointerEvents: "none" }}>
+            <div style={{ pointerEvents: "none", fontSize: `${pack.editorFontSize ?? 10}px` }}>
               <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
             </div>
           </div>
