@@ -23,6 +23,12 @@ export function useSwipeBack<T extends HTMLElement>(onBack: () => void, enabled:
     const el = ref.current;
     if (!el) return;
 
+    // AppShell의 홈↔설정 탭전환 스와이프(onTouchStart/End)가 이 화면을 감싸는 바까쪽 div 안에서 같이 일어나는
+    // 경우(설정 하위화면들이 해당), 하나의 스와이프 제스처가 이 훅과 AppShell 둘 다 반응해서
+    // 한 번에 두 단계 뒤로가는 버그가 있었다. AppShell의 isSwipeIgnoredTarget이 이 마커를
+    // 보고 지나치게 해서 중복 처리를 막는다.
+    el.setAttribute("data-own-swipe-back", "true");
+
     let tracking = false;
     let startX = 0;
     let startY = 0;

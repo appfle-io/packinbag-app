@@ -937,9 +937,13 @@ export default function AppShell() {
     }
   };
 
+  // [data-own-swipe-back]은 useSwipeBack 훅이 자기 루트 요소에 직접 붙이는 마커다. 설정 하위화면처럼
+  // 이 탭전환 스와이프 컨테이너 안에서 자체 useSwipeBack을 따로 가진 화면은, 그 화면이
+  // 이미 자기 스와이프를 처리했으니 여기서 또 반응하면 한 번에 두 단계(하위화면 닫기 +
+  // 탭 전환) 뒤로가는 버그가 생긴다.
   const isSwipeIgnoredTarget = (target: EventTarget | null) =>
     !!(target as HTMLElement)?.closest?.(
-      'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], .fixed'
+      'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], [data-own-swipe-back], .fixed'
     );
 
   const handleTouchStart = (e: React.TouchEvent) => {

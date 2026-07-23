@@ -688,6 +688,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 가방 속 팩 하나의 펼침/접힘/넓게보기 상태를 바꿔 저장한다. 그룹원과 동기화되는
   // 가방 문서가 아니라 계정(users/{uid})에만 쓰기 때문에, 같은 사용자가 다른 기기에서도
   // 그대로 보이고 다른 그룹원에게는 전혀 영향을 주지 않는다. 키는 `${bagId}:${packId}`.
+  // 낙관적(optimistic) 로컬 반영: Firestore 왕복(onSnapshot)을 기다리지 않고 로컬 rawProfile을
+  // 먼저 갱신한다. 안 그러면 handleChangeDisplayState에서 이 두 함수를 연달아 호출할 때(예:
+  // "가방 열 때 팩 접어서 보기" 오버라이드를 끄는 순간과 동시에) 화면 오버라이드는 즉시 꺼지는데
+  // 서버 값은 아직 반영 전이라, 그 사이(네트워크 왕복 시간) 잠깐 잘못된 기본값(collapsed 대신
+  // normal)으로 보이는 깜빡임 버그가 있었다.
   const updatePackDisplayState = async (
     bagId: string,
     packId: string,
@@ -695,6 +700,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     if (!user) return;
     const next = { ...(profile?.packDisplayStates ?? {}), [`${bagId}:${packId}`]: state };
+    setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
     await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
   };
 
@@ -707,6 +713,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const next = { ...(profile?.packDisplayStates ?? {}) };
     for (const packId of packIds) next[`${bagId}:${packId}`] = state;
+    setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
     await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
   };
 
