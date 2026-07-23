@@ -68,13 +68,6 @@ export default function PackNoteEditorScreen({
   // 동시에 고치면 한쪽 내용이 덮어쓰이는 사고를 막기 위함이다. 그 사람이 편집을 끝내는 순간
   // (otherEditorNickname이 null이 되는 순간) 자동으로 다시 편집 가능해진다.
   const effectiveReadOnly = !!readOnly || !!otherEditorNickname;
-  // 메모팩 전용 글자 크기(3~20px, 없으면 10 기본값). 팩 자체에 저장되는 값이라, 저장하면
-  // 같이 보는 모든 사람에게(가방 속 미리보기 카드 포함) 동일하게 반영된다.
-  const [editorFontSize, setEditorFontSize] = useState(pack.editorFontSize ?? 10);
-  const editorFontSizeRef = useRef(editorFontSize);
-  useEffect(() => {
-    editorFontSizeRef.current = editorFontSize;
-  }, [editorFontSize]);
   // 문서가 너무 커져서 지금 상태로는 저장이 막혔는지. true인 동안은 자동저장을 건너뛰고
   // 배너로 알려서, 사용자가 내용을 줄여야 한다는 걸 바로 알 수 있게 한다(타이핑한 내용
   // 자체는 화면에 그대로 남아있어 잃어버리지 않는다).
@@ -113,12 +106,6 @@ export default function PackNoteEditorScreen({
     editor.commands.setContent(pack.editorDoc ?? "", false);
   }, [editor, otherEditorNickname, pack.editorDoc]);
 
-  // 글자 크기도 같은 이유로, 다른 사람이 편집 중일 때는 그 사람이 고른 크기로 실시간 동기화한다.
-  useEffect(() => {
-    if (!otherEditorNickname || pack.editorFontSize === undefined) return;
-    setEditorFontSize(pack.editorFontSize);
-  }, [otherEditorNickname, pack.editorFontSize]);
-
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
 
@@ -135,7 +122,6 @@ export default function PackNoteEditorScreen({
       ...packRef.current,
       name: nameRef.current,
       editorDoc: doc,
-      editorFontSize: editorFontSizeRef.current,
       editorPreviewText: extractPlainTextPreview(doc),
       updatedAt: new Date().toISOString(),
     };
@@ -172,16 +158,19 @@ export default function PackNoteEditorScreen({
     commitSave(editor?.getJSON());
   };
 
-  // 글자 크기 -/+ 버튼. 3~20px 범위로 제한하고, 바뀌는 즉시 저장한다(문서 내용 자체는
-  // 안 바뀌므로 사이즈 걱정 없이 바로 반영). ref를 먼저 갱신해두고 commitSave를 호출해야
-  // setState의 비동기적 반영 시점과 무관하게 이번 값이 그대로 저장된다.
+  // 글자 크기 -/+ 버튼. 지금 선택(또는 커서 위치)의 fontSize 마크 속성만 바꿔서, 문서 전체가 아니라
+  // 드래그로 선택한 텍스트(또는 이제부터 입력할 텍스트)만 크기가 바뀌게 한다. 3~20px 범위로
+  // 제한하고, 마크가 없으면(서식 안 적용) 10px를 기준으로 보고 거기서 가감을 조절한다.
+  const getCurrentFontSize = (): number => {
+    const raw = editor?.getAttributes("textStyle")?.fontSize as string | undefined;
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(parsed) ? parsed : 10;
+  };
+
   const changeFontSize = (delta: number) => {
-    if (effectiveReadOnly) return;
-    const next = Math.min(20, Math.max(3, editorFontSizeRef.current + delta));
-    if (next === editorFontSizeRef.current) return;
-    editorFontSizeRef.current = next;
-    setEditorFontSize(next);
-    commitSave(editor?.getJSON());
+    if (effectiveReadOnly || !editor) return;
+    const next = Math.min(20, Math.max(3, getCurrentFontSize() + delta));
+    editor.chain().focus().setFontSize(`${next}px`).run();
   };
 
   // 화면을 나갈 때 디바운스 대기 중인 변경이 있으면 그 즉시 반영한다. otherEditorNickname이 마운트
@@ -243,6 +232,14 @@ export default function PackNoteEditorScreen({
             inputClassName="text-[17px] font-medium min-w-0 flex-1"
           />
         </div>
+        {!effectiveReadOnly && (
+          <span
+            className="shrink-0 text-[10px]"
+            style={{ color: percentOfLimit > 90 ? "var(--danger)" : "var(--text-muted)" }}
+          >
+            {percentOfLimit}%
+          </span>
+        )}
         {onDeletePack && !effectiveReadOnly && (
           <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제" className="-m-2.5 p-2.5 shrink-0">
             <IconTrash size={19} stroke={1.75} color="var(--danger)" />
@@ -365,30 +362,27 @@ export default function PackNoteEditorScreen({
             <button
               onClick={() => changeFontSize(-1)}
               aria-label="글자 크기 줄이기"
-              disabled={editorFontSize <= 3}
+              disabled={getCurrentFontSize() <= 3}
               className="rounded-lg p-1.5 disabled:opacity-30"
             >
               <IconMinus size={14} stroke={1.75} />
             </button>
             <span className="text-[11px] w-6 text-center tabular-nums" style={{ color: "var(--text-secondary)" }}>
-              {editorFontSize}
+              {getCurrentFontSize()}
             </span>
             <button
               onClick={() => changeFontSize(1)}
               aria-label="글자 크기 키우기"
-              disabled={editorFontSize >= 20}
+              disabled={getCurrentFontSize() >= 20}
               className="rounded-lg p-1.5 disabled:opacity-30"
             >
               <IconPlus size={14} stroke={1.75} />
             </button>
           </div>
-          <span className="ml-auto shrink-0 text-[10px] pl-2" style={{ color: percentOfLimit > 90 ? "var(--danger)" : "var(--text-muted)" }}>
-            {percentOfLimit}%
-          </span>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-3" style={{ fontSize: `${editorFontSize}px` }}>
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         <EditorContent editor={editor} className="pib-note-editor" />
       </div>
 

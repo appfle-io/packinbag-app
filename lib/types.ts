@@ -39,11 +39,6 @@ export interface Pack {
   // MAX_EDITOR_DOC_BYTES로 방어(Firestore 문서 1MB 제한 보호) - 그 이상은 저장 시 잘라내고
   // 안내한다.
   editorDoc?: object;
-  // 메모팩(kind==='editor') 전용 글자 크기(px, 3~20, 없으면 10 기본값). 제목(h1/h2)은 고정 크기를 유지하고 본문만 이 값을
-  // 따른다(app/globals.css .pib-note-editor h1/h2는 절대px라 컨테이너 font-size와 무관하게 고정됨). 개인 설정이 아니라
-  // 팩(Pack) 자체에 저장되는 값이라, 함께 보는 모든 사람에게 동일하게 보인다(EditorPackCard/NotebookEditorPackSection
-  // 미리보기에도 동일하게 적용).
-  editorFontSize?: number;
   // 팩 카드(가방 속 미리보기)/팩 보관함 타일에 보여줄 일반 텍스트 요약. editorDoc을 저장할
   // 때마다 함께 갱신된다(전체 JSON을 매번 파싱해서 보여주지 않기 위한 캐시).
   editorPreviewText?: string;

@@ -12,6 +12,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextStyle from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
+import { FontSize } from "./fontSizeExtension";
 
 export function getNoteEditorExtensions(placeholder?: string) {
   return [
@@ -27,8 +28,11 @@ export function getNoteEditorExtensions(placeholder?: string) {
     TableHeader,
     TableCell,
     // Color는 TextStyle 마크 위에 style="color:..."를 얹는 방식이라 TextStyle이 먼저 필요하다.
+    // FontSize도 동일하게 TextStyle 위에 style="font-size:..."를 얹는다(lib/fontSizeExtension.ts) -
+    // 둘 다 전체 문서가 아니라 지금 선택(또는 커서 위치부터 새로 입력할)한 텍스트에만 적용된다.
     TextStyle,
     Color,
+    FontSize,
     Underline,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];
