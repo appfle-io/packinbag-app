@@ -333,10 +333,9 @@ export default function NotebookPackSection({
               return (
                 <div
                   key={item.id}
-                  style={{
-                    flex: "0 1 170px",
-                    minWidth: 120,
-                    ...(selecting
+                  className="grow-0 shrink basis-[170px] min-w-[120px] md:basis-[340px] md:min-w-[220px]"
+                  style={
+                    selecting
                       ? {
                           boxShadow: isSelected
                             ? "0 0 0 2px var(--accent)"
@@ -344,8 +343,8 @@ export default function NotebookPackSection({
                           borderRadius: 8,
                           background: isSelected ? "var(--accent-soft)" : undefined,
                         }
-                      : null),
-                  }}
+                      : undefined
+                  }
                 >
                   <ItemRow
                     item={item}

@@ -37,6 +37,7 @@ export default function NotebookView({
   onOpenItemThread,
   onOpenNotePackEditor,
   getNoteEditors,
+  premium,
   /*
   getItemReactionDoc,
   currentUid,
@@ -82,6 +83,7 @@ export default function NotebookView({
   onOpenNotePackEditor?: (packId: string) => void;
   // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다.
   getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
+  premium?: boolean;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -109,6 +111,7 @@ export default function NotebookView({
               onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
               onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
               editors={getNoteEditors?.(pack.id) ?? []}
+              premium={premium}
               isDragOver={dragOverPackId === pack.id}
               isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
               onStartPackDrag={

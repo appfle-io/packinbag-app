@@ -12,13 +12,19 @@ import {
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
   IconRefresh,
+  IconFileText,
+  IconLock,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
+import { isPdfUrl } from "@/lib/fileUrlUtils";
 import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./Avatar";
+import ImageLightbox from "./ImageLightbox";
+import PdfPreviewModal from "./PdfPreviewModal";
+import PremiumLimitModal from "./PremiumLimitModal";
 
 // "checklist" 팩의 PackCard와 짝이 되는 "editor" 팩(자유문서형 메모 팩)용 카드.
 // 짐(Item) 그리드 대신, 접혀있을 땐 미리보기 텍스트 한두 줄만, 펼치면 TipTap을
@@ -42,6 +48,7 @@ export default function EditorPackCard({
   isDragOver,
   readOnly,
   editors,
+  premium,
 }: {
   pack: Pack;
   isSyncedWithLibrary?: boolean;
@@ -59,11 +66,18 @@ export default function EditorPackCard({
   readOnly?: boolean;
   // 지금 이 팩을 편집 중인 다른 사람들(최대 3명). 있으면 연필 아이콘 왼쪽에 아바타로 보여준다.
   editors?: { uid: string; nickname: string; avatarId: string }[];
+  // 이 팩에 첨부된 사진/PDF(pack.images)를 눌렀을 때 PDF 미리보기를 프리미엄 전용으로
+  // 막을지 판단하는 값. BagEditorScreen이 계산해둔 premium을 그대로 넘겨받는다.
+  premium?: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
   const accentHex = getPackColorHex(pack.color);
   const displayState = pack.displayState ?? "normal";
   const isCollapsed = displayState === "collapsed";
+  const packImages = pack.images ?? [];
 
   // 펼쳐졌을 때만 읽기전용 에디터를 만든다(접힌 상태에서는 미리보기 텍스트만 보여주면
   // 되니 무거운 TipTap 인스턴스를 만들 필요가 없다).
@@ -150,6 +164,52 @@ export default function EditorPackCard({
 
       {!isCollapsed && (
         <>
+          {packImages.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2 shrink-0">
+              {packImages.map((src, idx) => {
+                const isPdf = isPdfUrl(src);
+                return (
+                  <div
+                    key={idx}
+                    className="relative shrink-0 h-12 w-12 rounded-lg overflow-hidden bg-surface-2"
+                  >
+                    {isPdf ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true);
+                        }}
+                        className="relative h-full w-full flex items-center justify-center text-text-secondary"
+                        aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
+                      >
+                        <IconFileText size={17} stroke={1.75} />
+                        {!premium && (
+                          <span
+                            className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full flex items-center justify-center"
+                            style={{ background: "rgba(0,0,0,0.55)" }}
+                          >
+                            <IconLock size={7} stroke={2} color="#fff" />
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={src}
+                        alt=""
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxIndex(idx);
+                        }}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div
             role="button"
             tabIndex={0}
@@ -214,6 +274,27 @@ export default function EditorPackCard({
             setConfirmDelete(false);
             onDeletePack(canDeleteFromLibrary ? alsoDeleteLibrary : false);
           }}
+        />
+      )}
+
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={packImages}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
+
+      {pdfPreviewUrl && (
+        <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />
+      )}
+
+      {showPdfPremiumModal && (
+        <PremiumLimitModal
+          message="PDF 첨부/미리보기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          onClose={() => setShowPdfPremiumModal(false)}
+          onUnlocked={() => setShowPdfPremiumModal(false)}
         />
       )}
     </div>

@@ -34,6 +34,7 @@ export default function PackGrid({
   onOpenItemThread,
   onOpenNotePackEditor,
   getNoteEditors,
+  premium,
   /*
   getItemReactionDoc,
   currentUid,
@@ -84,6 +85,7 @@ export default function PackGrid({
   onOpenNotePackEditor?: (packId: string) => void;
   // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다. 없으면 아바타가 안 보인다.
   getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
+  premium?: boolean;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -110,6 +112,7 @@ export default function PackGrid({
           onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
           onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
           editors={getNoteEditors?.(pack.id) ?? []}
+          premium={premium}
           onStartPackDrag={
             onStartPackDrag ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y) : undefined
           }

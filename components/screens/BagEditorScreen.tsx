@@ -75,6 +75,7 @@ import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
+import { isPdfUrl } from "@/lib/fileUrlUtils";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -82,12 +83,6 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 // PDF is not compressed like images (compressImageFile skips non-image files and returns
 // them as-is), so it can be uploaded at full size. Keep a size cap here to avoid huge files.
 const MAX_BAG_PDF_BYTES = 3 * 1024 * 1024;
-
-// Firebase Storage download URLs keep the original filename (with extension) right before the
-// "?" query string (see lib/storageService.ts), so we can tell PDFs apart from images by that.
-function isPdfUrl(url: string): boolean {
-  return url.split("?")[0].toLowerCase().endsWith(".pdf");
-}
 
 export default function BagEditorScreen({
   initialBag,
@@ -1915,6 +1910,7 @@ export default function BagEditorScreen({
             }
             onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
             getNoteEditors={getNoteEditorsForPack}
+            premium={premium}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -1959,6 +1955,7 @@ export default function BagEditorScreen({
             }
             onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
             getNoteEditors={getNoteEditorsForPack}
+            premium={premium}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -2144,7 +2141,7 @@ export default function BagEditorScreen({
         </Portal>
       )}
 
-      <SlideScreen active={!!editingNotePackId} zIndex={80} onBackdropClick={() => setEditingNotePackId(null)}>
+      <SlideScreen active={!!editingNotePackId} zIndex={80} onBackdropClick={() => setEditingNotePackId(null)} desktopTransition="fade">
         {(() => {
           const notePack = bag.packs.find((p) => p.id === displayedNotePackId);
           if (!notePack) return null;
@@ -2159,6 +2156,8 @@ export default function BagEditorScreen({
                 setEditingNotePackId(null);
                 handleDeletePack(notePack.id, false);
               }}
+              bagId={bag.id}
+              premium={premium}
             />
           );
         })()}

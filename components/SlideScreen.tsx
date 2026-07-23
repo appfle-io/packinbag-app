@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Portal from "@/components/Portal";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 
 // 스택으로 쌓이는 풀스크린 화면(가방 편집기, 팩 트리, 설정 하위화면 등)을 오른쪽에서
 // 슬라이드-인/아웃 시키는 공용 래퍼. 기존엔 부모가 `if (editingBag) return <..>` 식으로
@@ -23,6 +24,7 @@ export default function SlideScreen({
   innerClassName = "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top",
   from = "right",
   onBackdropClick,
+  desktopTransition = "slide",
 }: {
   active: boolean;
   children: React.ReactNode;
@@ -37,7 +39,14 @@ export default function SlideScreen({
   from?: "right" | "left";
   // 백드롭 클릭 시 닫기 동작이 필요하면만 넘긴다(없으면 순수 시각적 백드롭만).
   onBackdropClick?: () => void;
+  // "slide"(기본)는 기존처럼 좌우 방향으로 밀어들어온다/나간다 - 엣지 스와이프나 버튼 탭처럼
+  // 좌우 제스처가 있는 화면에 어울린다. "fade"는 PC 웹(useIsDesktop)에서만 사이드 슬라이드 대신
+  // 살짝 확대+페이드로 전환한다(터치/모바일에서는 여전히 slide) - 마우스 클릭으로만 열고 닫는
+  // 화면(가방 속 메모팩 등)에 쓰면 PC에서 좌우로 밀리는 게 부자연스러운 문제를 해결한다.
+  desktopTransition?: "slide" | "fade";
 }) {
+  const isDesktop = useIsDesktop();
+  const useFade = desktopTransition === "fade" && isDesktop;
   // active=false가 되어도 곧바로 사라지지 않고, 닫힘 트랜지션이 끝난 뒤에야 실제로
   // 렌더링을 멈춘다 (그래야 슬라이드 아웃되는 모습이 보인다).
   const [shouldRender, setShouldRender] = useState(active);
@@ -92,11 +101,20 @@ export default function SlideScreen({
         />
         <div
           className={innerClassName}
-          style={{
-            transform: entered ? "translateX(0%)" : offscreen,
-            transition: `transform ${TRANSITION_MS}ms ${EASING}`,
-            willChange: "transform",
-          }}
+          style={
+            useFade
+              ? {
+                  transform: entered ? "scale(1)" : "scale(0.97)",
+                  opacity: entered ? 1 : 0,
+                  transition: `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS}ms ${EASING}`,
+                  willChange: "transform, opacity",
+                }
+              : {
+                  transform: entered ? "translateX(0%)" : offscreen,
+                  transition: `transform ${TRANSITION_MS}ms ${EASING}`,
+                  willChange: "transform",
+                }
+          }
         >
           {children}
         </div>

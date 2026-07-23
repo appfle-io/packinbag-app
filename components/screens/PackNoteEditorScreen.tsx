@@ -20,6 +20,10 @@ import {
   IconUsers,
   IconMinus,
   IconPlus,
+  IconPaperclip,
+  IconFileText,
+  IconLock,
+  IconLoader2,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
@@ -30,12 +34,22 @@ import {
   extractPlainTextPreview,
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
+import { MAX_PACK_IMAGES } from "@/lib/premiumLimits";
+import { isPdfUrl } from "@/lib/fileUrlUtils";
+import { uploadPackImage, deletePackImage } from "@/lib/storageService";
 import EditableText from "@/components/EditableText";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
+import ImageLightbox from "@/components/ImageLightbox";
+import PdfPreviewModal from "@/components/PdfPreviewModal";
+import PremiumLimitModal from "@/components/PremiumLimitModal";
+import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
+// PDF는 이미지처럼 압축되지 않고 원본 크기 그대로 올라가므로, 큰 파일을 막기 위해
+// 따로 크기 상한을 둔다 (BagEditorScreen의 MAX_BAG_PDF_BYTES와 동일한 기준).
+const MAX_PACK_PDF_BYTES = 3 * 1024 * 1024;
 
 // 아이폰 메모처럼 자유롭게 제목/체크박스/표를 섞어 쓰는 "에디터팩" 전체화면 편집기.
 // 노션 페이지처럼 팩을 탭하면 이 화면으로 진입한다(팩 보관함/가방 속 EditorPackCard 둘 다
@@ -47,6 +61,8 @@ export default function PackNoteEditorScreen({
   onBack,
   onSave,
   onDeletePack,
+  bagId,
+  premium,
 }: {
   pack: Pack;
   readOnly?: boolean;
@@ -59,11 +75,26 @@ export default function PackNoteEditorScreen({
   // 있으면 헤더에 삭제 버튼을 보여준다(팩 보관함에서 열었을 때만 - 가방 속에서는 카드
   // 자체의 삭제 버튼을 쓰므로 넘기지 않는다).
   onDeletePack?: () => void;
+  // 있으면 "가방 안에서 열린 메모팩"이라는 뜻 - 툴바 파일첨부(사진/PDF) 기능이 이 값이
+  // 있을 때만 노출된다(보관함의 단독 편집 화면에는 이 기능이 없다). 업로드 경로
+  // (bags/{bagId}/packs/{packId}/...)와 storage.rules 멤버십 검증에 다 쓰인다.
+  bagId?: string;
+  // 지금 이 사용자가 프리미엄인지 - PDF 첨부/미리보기는 프리미엄 전용이라 BagEditorScreen이
+  // 계산해둔 premium을 그대로 넘겨받는다.
+  premium?: boolean;
 }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
+  const { show } = useToast();
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  // 툴바 파일첨부(사진/PDF) 관련 상태 - BagEditorScreen의 가방 이미지 기능과 동일한 패턴.
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // 다른 사람이 같은 메모를 지금 편집 중이면 무조건 읽기전용으로 전환한다(선택 아님) -
   // 동시에 고치면 한쪽 내용이 덮어쓰이는 사고를 막기 위함이다. 그 사람이 편집을 끝내는 순간
   // (otherEditorNickname이 null이 되는 순간) 자동으로 다시 편집 가능해진다.
@@ -194,21 +225,75 @@ export default function PackNoteEditorScreen({
   const bytes = editor ? getEditorDocByteSize(editor.getJSON()) : 0;
   const percentOfLimit = Math.min(100, Math.round((bytes / MAX_EDITOR_DOC_BYTES) * 100));
 
+  // 툴바 파일첨부(사진/PDF) - BagEditorScreen의 가방 이미지 기능과 완전히 동일한 로직
+  // (무료/유료 차이, PDF 프리미엄 전용, 크기 제한)을 그대로 옮겨온 것. 가방 안에서 열린
+  // 메모팩(bagId가 있을 때)에서만 동작한다. packRef.current를 기준으로 계산해서, 이름/문서
+  // 변경과 이미지 변경이 서로의 최신 상태를 덮어쓰지 않게 한다.
+  const packImages = pack.images ?? [];
+
+  const handleAddAttachments = async (files: FileList | null) => {
+    if (effectiveReadOnly || !bagId) return;
+    if (!files || files.length === 0) return;
+    const currentImages = packRef.current.images ?? [];
+    const selected = Array.from(files).slice(0, MAX_PACK_IMAGES - currentImages.length);
+
+    const isPdfFile = (f: File) =>
+      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
+    const pdfFiles = selected.filter(isPdfFile);
+    const toUpload = premium ? selected : selected.filter((f) => !isPdfFile(f));
+    if (pdfFiles.length > 0 && !premium) {
+      setShowPdfPremiumModal(true);
+    }
+    if (toUpload.length === 0) return;
+
+    const oversizedPdf = toUpload.find((f) => isPdfFile(f) && f.size > MAX_PACK_PDF_BYTES);
+    if (oversizedPdf) {
+      show("PDF 파일은 3MB 이하만 첨부할 수 있어요");
+      return;
+    }
+
+    setUploadingImages(true);
+    try {
+      const urls = await Promise.all(
+        toUpload.map((f) => uploadPackImage(bagId, packRef.current.id, f))
+      );
+      const updated: Pack = { ...packRef.current, images: [...currentImages, ...urls] };
+      packRef.current = updated;
+      onSave(updated);
+    } catch {
+      show("파일 업로드에 실패했어요");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeAttachment = (idx: number) => {
+    if (effectiveReadOnly) return;
+    const images = packRef.current.images ?? [];
+    const url = images[idx];
+    const updated: Pack = { ...packRef.current, images: images.filter((_, i) => i !== idx) };
+    packRef.current = updated;
+    onSave(updated);
+    deletePackImage(url);
+  };
+
   const ToolbarButton = ({
     onClick,
     active,
     label,
+    disabled,
     children,
   }: {
     onClick: () => void;
     active?: boolean;
     label: string;
+    disabled?: boolean;
     children: React.ReactNode;
   }) => (
     <button
       onClick={onClick}
       aria-label={label}
-      disabled={effectiveReadOnly}
+      disabled={effectiveReadOnly || disabled}
       className="rounded-lg p-2 disabled:opacity-30"
       style={{ background: active ? "var(--accent-soft)" : "transparent" }}
     >
@@ -247,6 +332,69 @@ export default function PackNoteEditorScreen({
         )}
       </div>
 
+      {bagId && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf,.pdf"
+          multiple
+          hidden
+          onChange={(e) => handleAddAttachments(e.target.files)}
+        />
+      )}
+
+      {bagId && packImages.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 mb-3 shrink-0">
+          {packImages.map((src, idx) => {
+            const isPdf = isPdfUrl(src);
+            return (
+              <div
+                key={idx}
+                className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
+              >
+                {isPdf ? (
+                  <button
+                    onClick={() =>
+                      premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
+                    }
+                    className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
+                    aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
+                  >
+                    <IconFileText size={20} stroke={1.75} />
+                    <span className="text-[9px]">PDF</span>
+                    {!premium && (
+                      <span
+                        className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.55)" }}
+                      >
+                        <IconLock size={9} stroke={2} color="#fff" />
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={src}
+                    alt=""
+                    onClick={() => setLightboxIndex(idx)}
+                    className="h-full w-full object-cover"
+                  />
+                )}
+                {!effectiveReadOnly && (
+                  <button
+                    onClick={() => setImageDeleteIndex(idx)}
+                    className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
+                    style={{ background: "rgba(0,0,0,0.5)" }}
+                  >
+                    <IconX size={10} stroke={2} color="#fff" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {otherEditorNickname && (
         <div
           className="mx-4 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] shrink-0"
@@ -269,6 +417,28 @@ export default function PackNoteEditorScreen({
 
       {!effectiveReadOnly && (
         <div className="flex items-center gap-1 px-3 pb-2 shrink-0 overflow-x-auto no-scrollbar border-b border-border">
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={() => changeFontSize(-1)}
+              aria-label="글자 크기 줄이기"
+              disabled={getCurrentFontSize() <= 3}
+              className="rounded-lg p-1.5 disabled:opacity-30"
+            >
+              <IconMinus size={14} stroke={1.75} />
+            </button>
+            <span className="text-[11px] w-6 text-center tabular-nums" style={{ color: "var(--text-secondary)" }}>
+              {getCurrentFontSize()}
+            </span>
+            <button
+              onClick={() => changeFontSize(1)}
+              aria-label="글자 크기 키우기"
+              disabled={getCurrentFontSize() >= 20}
+              className="rounded-lg p-1.5 disabled:opacity-30"
+            >
+              <IconPlus size={14} stroke={1.75} />
+            </button>
+          </div>
+          <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
           <ToolbarButton
             onClick={() => editor?.chain().focus().toggleBold().run()}
             active={editor?.isActive("bold")}
@@ -339,6 +509,19 @@ export default function PackNoteEditorScreen({
           >
             <IconTable size={17} stroke={1.75} />
           </ToolbarButton>
+          {bagId && (
+            <ToolbarButton
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImages || packImages.length >= MAX_PACK_IMAGES}
+              label="사진 또는 PDF 첨부"
+            >
+              {uploadingImages ? (
+                <IconLoader2 size={17} stroke={1.75} className="animate-spin" />
+              ) : (
+                <IconPaperclip size={17} stroke={1.75} />
+              )}
+            </ToolbarButton>
+          )}
           {editor?.isActive("table") && (
             <>
               <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} label="행 추가">
@@ -358,27 +541,6 @@ export default function PackNoteEditorScreen({
               </ToolbarButton>
             </>
           )}
-          <div className="flex items-center gap-0.5 shrink-0 ml-1">
-            <button
-              onClick={() => changeFontSize(-1)}
-              aria-label="글자 크기 줄이기"
-              disabled={getCurrentFontSize() <= 3}
-              className="rounded-lg p-1.5 disabled:opacity-30"
-            >
-              <IconMinus size={14} stroke={1.75} />
-            </button>
-            <span className="text-[11px] w-6 text-center tabular-nums" style={{ color: "var(--text-secondary)" }}>
-              {getCurrentFontSize()}
-            </span>
-            <button
-              onClick={() => changeFontSize(1)}
-              aria-label="글자 크기 키우기"
-              disabled={getCurrentFontSize() >= 20}
-              className="rounded-lg p-1.5 disabled:opacity-30"
-            >
-              <IconPlus size={14} stroke={1.75} />
-            </button>
-          </div>
         </div>
       )}
 
@@ -440,6 +602,43 @@ export default function PackNoteEditorScreen({
           onConfirm={() => {
             setConfirmDelete(false);
             onDeletePack?.();
+          }}
+        />
+      )}
+
+      {imageDeleteIndex !== null && (
+        <ConfirmDialog
+          title="이 파일을 삭제할까요?"
+          message="삭제하면 되돌릴 수 없어요."
+          onCancel={() => setImageDeleteIndex(null)}
+          onConfirm={() => {
+            const idx = imageDeleteIndex;
+            setImageDeleteIndex(null);
+            removeAttachment(idx);
+          }}
+        />
+      )}
+
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={packImages}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
+
+      {pdfPreviewUrl && (
+        <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />
+      )}
+
+      {showPdfPremiumModal && (
+        <PremiumLimitModal
+          message="PDF 첨부/미리보기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          onClose={() => setShowPdfPremiumModal(false)}
+          onUnlocked={() => {
+            setShowPdfPremiumModal(false);
+            show("이용권 코드가 적용됐어요! PDF 기능을 다시 시도해주세요");
           }}
         />
       )}
