@@ -65,6 +65,8 @@ import {
   isTrashExpired,
 } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
+import { useIsDesktop } from "@/lib/useIsDesktop";
+import DesktopShell from "@/components/DesktopShell";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -118,6 +120,7 @@ function CreatingBagOverlay({ visible }: { visible: boolean }) {
 export default function AppShell() {
   const { user, profile, loading, authBusy } = useAuth();
   const { show } = useToast();
+  const isDesktop = useIsDesktop();
 
   const [bags, setBags] = useState<Bag[]>([]);
   const [libraryPacks, setLibraryPacks] = useState<Pack[]>([]);
@@ -420,6 +423,10 @@ export default function AppShell() {
         avatarId: profile.avatarId!,
       });
       setEditingBag(created);
+      // 데스크탑 레이아웃(DesktopShell)이 방금 만든 가방을 바로 선택해서 열 수 있도록
+      // 반환한다. 모바일 쪽 호출부(HomeScreen onNewBag: () => void)는 반환값을 그냥
+      // 무시하므로 기존 흐름에는 영향이 없다.
+      return created;
     } catch (err) {
       setIsNewBag(false);
       if (err instanceof PremiumLimitError) {
@@ -485,6 +492,7 @@ export default function AppShell() {
       });
       setEditingBag(created);
       show("가방을 채웠어요. 자동으로 저장되니 확인만 해주세요");
+      return created;
     } catch (err) {
       setIsNewBag(false);
       if (err instanceof PremiumLimitError) {
@@ -859,6 +867,50 @@ export default function AppShell() {
       show(`빠른입력 저장에 실패했어요 (${firebaseErrorCode(err)})`);
     });
   };
+
+  if (isDesktop) {
+    return (
+      <DesktopShell
+        user={user}
+        profile={profile}
+        bags={activeBags}
+        libraryPacks={activePacks}
+        quickPack={quickPack}
+        lockedBagIds={lockedBagIds}
+        requestUnlockForBag={requestUnlockForBag}
+        requestUnlockForPack={requestUnlockForPack}
+        onNewBag={openNewBag}
+        onSaveBag={handleSaveBag}
+        onDeleteBag={handleDeleteBag}
+        onSaveAsLibraryPack={handleSaveAsLibraryPack}
+        onTrashPackFromBag={handleTrashPackFromBag}
+        onLeaveBag={handleLeaveBag}
+        onRemoveMember={handleRemoveMember}
+        onRegenerateInviteCode={handleRegenerateInviteCode}
+        onAddItemsToBagPack={handleAddItemsToBagPack}
+        onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+        onNewPack={openNewPack}
+        onNewFolder={handleCreateFolder}
+        onChangePackColor={handleChangePackColor}
+        onRenamePackEntry={handleRenameLibraryEntry}
+        onMovePackEntries={handleMoveLibraryEntries}
+        onSavePack={handleSavePack}
+        onDeletePack={handleDeletePack}
+        announcements={announcements}
+        dismissedAnnouncementIds={dismissedIds}
+        onDismissAnnouncement={handleDismissAnnouncement}
+        onCreateAnnouncement={handleCreateAnnouncement}
+        onUpdateAnnouncement={handleUpdateAnnouncement}
+        onDeleteAnnouncement={handleDeleteAnnouncement}
+        trashedBags={trashedBags}
+        trashedPacks={trashedPacks}
+        onRestoreBag={handleRestoreBag}
+        onPermanentDeleteBag={handlePermanentDeleteBag}
+        onRestorePack={handleRestorePack}
+        onPermanentDeletePack={handlePermanentDeletePack}
+      />
+    );
+  }
 
   const tabOrder: TabKey[] = ["home", "settings"];
   const tabIndex = tabOrder.indexOf(tab);

@@ -66,7 +66,7 @@ export default function NotificationBell({ uid }: { uid: string }) {
       {open && (
         <Portal>
           <div
-            className="fixed inset-0 z-[85] flex items-start justify-end p-4"
+            className="fixed inset-0 z-[85] flex items-start justify-center p-4"
             style={{
               background: "rgba(0,0,0,0.3)",
               paddingTop: "max(60px, calc(env(safe-area-inset-top) + 56px))",
@@ -75,7 +75,7 @@ export default function NotificationBell({ uid }: { uid: string }) {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-xs rounded-2xl bg-surface p-3 flex flex-col gap-2 shadow-lg"
+              className="w-full max-w-sm rounded-2xl bg-surface p-3 flex flex-col gap-2 shadow-lg"
               style={{ maxHeight: "70vh" }}
             >
               <div className="flex items-center justify-between shrink-0 px-1">

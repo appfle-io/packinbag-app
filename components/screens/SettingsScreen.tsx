@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   IconMail,
@@ -60,6 +60,43 @@ type SettingsView =
   | "trash"
   | "inquiries";
 
+// 데스크탑 모달 안에서는 하위화면이 SlideScreen(포털로 전체 화면을 덤는 오버레이)이 아니라
+// 이 모달 박스 안에만 머무는 전환이어야 한다 - 그래서 포털을 쓰지 않고 가장 가까운
+// 부모(SettingsScreen 자체의 relative 컴테이너)에 그대로 생기는 absolute 오버레이로 구현한다.
+// SlideScreen과 동일한 진입/퇴장 애니메이션 로직을 그대로 따른다.
+const CONTAINED_TRANSITION_MS = 260;
+
+function ContainedSlide({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const [shouldRender, setShouldRender] = useState(active);
+  const [entered, setEntered] = useState(false);
+
+  useEffect(() => {
+    if (active) {
+      setShouldRender(true);
+      const raf = requestAnimationFrame(() => setEntered(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setEntered(false);
+    const t = window.setTimeout(() => setShouldRender(false), CONTAINED_TRANSITION_MS);
+    return () => window.clearTimeout(t);
+  }, [active]);
+
+  if (!shouldRender) return null;
+
+  return (
+    <div
+      className="absolute inset-0 flex flex-col overflow-hidden"
+      style={{
+        background: "var(--background)",
+        transform: entered ? "translateX(0%)" : "translateX(100%)",
+        transition: `transform ${CONTAINED_TRANSITION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // 설정은 더 이상 하단 탭이 아니라, 팩/가방 화면 헤더의 톱니바퀴 아이콘으로 열고
 // 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
 export default function SettingsScreen({
@@ -74,6 +111,8 @@ export default function SettingsScreen({
   onRestorePack,
   onPermanentDeletePack,
   onBack,
+  hideNotificationBell,
+  embedded,
 }: {
   uid: string;
   announcements: Announcement[];
@@ -90,6 +129,8 @@ export default function SettingsScreen({
   onRestorePack: (packId: string) => void;
   onPermanentDeletePack: (packId: string) => void;
   onBack: () => void;
+  hideNotificationBell?: boolean;
+  embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
   const { profile, updateDefaultTab } = useAuth();
@@ -111,14 +152,18 @@ export default function SettingsScreen({
   const aiUsedCount = currentAiUsageCount(profile);
   const trashCount = trashedBags.length + trashedPacks.length;
 
+  // 데스크탑 모달 안에서는 ContainedSlide(모달 박스 안에만 머무는 전환)를, 모바일에서는 기존처럼
+  // SlideScreen(전체 화면 포털 오버레이)을 쓴다.
+  const Slide = embedded ? ContainedSlide : SlideScreen;
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="relative flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
         <button onClick={onBack} className="-m-2.5 p-2.5" aria-label="뒤로가기">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
         <h1 className="text-[18px] font-medium flex-1">설정</h1>
-        <NotificationBell uid={uid} />
+        {!hideNotificationBell && <NotificationBell uid={uid} />}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
@@ -357,25 +402,25 @@ export default function SettingsScreen({
         />
       )}
 
-      <SlideScreen active={view === "profile"}>
+      <Slide active={view === "profile"}>
         <ProfileEditScreen onBack={() => setView("main")} />
-      </SlideScreen>
-      <SlideScreen active={view === "version"}>
+      </Slide>
+      <Slide active={view === "version"}>
         <VersionInfoScreen onBack={() => setView("main")} />
-      </SlideScreen>
-      <SlideScreen active={view === "licenses"}>
+      </Slide>
+      <Slide active={view === "licenses"}>
         <LicensesScreen onBack={() => setView("main")} />
-      </SlideScreen>
-      <SlideScreen active={view === "packSettings"}>
+      </Slide>
+      <Slide active={view === "packSettings"}>
         <PackSettingsScreen onBack={() => setView("main")} />
-      </SlideScreen>
-      <SlideScreen active={view === "bagSettings"}>
+      </Slide>
+      <Slide active={view === "bagSettings"}>
         <BagSettingsScreen onBack={() => setView("main")} />
-      </SlideScreen>
-      <SlideScreen active={view === "colorSettings"}>
+      </Slide>
+      <Slide active={view === "colorSettings"}>
         <ColorSettingsScreen onBack={() => setView("main")} />
-      </SlideScreen>
-      <SlideScreen active={view === "trash"}>
+      </Slide>
+      <Slide active={view === "trash"}>
         <TrashScreen
           bags={trashedBags}
           packs={trashedPacks}
@@ -385,14 +430,14 @@ export default function SettingsScreen({
           onRestorePack={onRestorePack}
           onPermanentDeletePack={onPermanentDeletePack}
         />
-      </SlideScreen>
-      <SlideScreen active={view === "inquiries"}>
+      </Slide>
+      <Slide active={view === "inquiries"}>
         <InquiryScreen
           uid={uid}
           nickname={profile?.nickname ?? ""}
           onBack={() => setView("main")}
         />
-      </SlideScreen>
+      </Slide>
     </div>
   );
 }

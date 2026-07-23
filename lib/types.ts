@@ -142,6 +142,20 @@ export interface Bag {
   trashedByOwnerAt?: string;
 }
 
+// 가방 보관함 폴더. 팩 폴더(Pack, type:"folder")와 달리 가방은 여러 명이 함께 쓰는
+// 공유 문서라서, 폴더 구조 자체를 가방 문서에 넣으면 내 정리 방식이 다른 그룹원 화면에도
+// 그대로 보여버리는 문제가 생긴다. 그래서 가방 폴더는 아예 별도의 가벼운 개인 메타데이터로,
+// 가방 문서(bags/{bagId})를 전혀 건드리지 않고 계정(UserProfile.bagFolders/
+// bagFolderAssignments)에만 저장한다 - 같은 가방을 보는 다른 멤버는 각자 자기 화면에서
+// 원하는 대로 다르게 정리해도 서로 전혀 영향을 주지 않는다.
+export interface BagFolder {
+  id: string;
+  name: string;
+  // 상위 폴더 id. 없으면(undefined) 가방보관함 최상위. 폴더 안에 폴더를 계속 만들 수 있다.
+  parentId?: string;
+  createdAt: string;
+}
+
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태의 참고용 주석은
 // 파일 아래쪽 ImportedBagResult 근처에 있다.
 
@@ -225,6 +239,16 @@ export interface UserProfile {
   packOrderByParent?: Record<string, string[]>;
   // 폴더 트리에서 펼쳐져있는 폴더 id 목록(계정에 저장되어 기기 간에도 동일하게 유지된다).
   expandedPackFolderIds?: string[];
+  // 가방보관함 폴더 - 폴더 자체의 메타데이터(id -> {name, parentId}). BagFolder 주석 참고 -
+  // 가방 문서와 무관한 완전히 개인적인 정리 정보다.
+  bagFolders?: Record<string, BagFolder>;
+  // 가방 id -> 그 가방이 속한 폴더 id. 키 자체가 없으면(또는 undefined) 최상위.
+  bagFolderAssignments?: Record<string, string>;
+  // 가방보관함 폴더 트리에서 드래그로 순서를 바꾸거나 다른 폴더로 옮긴 결과를 부모(폴더 id,
+  // 최상위는 "root")별로 저장한다. packOrderByParent와 동일한 규약.
+  bagOrderByParent?: Record<string, string[]>;
+  // 가방보관함 폴더 트리에서 펼쳐져있는 폴더 id 목록.
+  expandedBagFolderIds?: string[];
   // 팩(짐 목록) 표시 관련 개인 설정
   packSettings?: {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)

@@ -176,7 +176,7 @@ export default function PackGrid({
   // 자연스럽게 높아지고, 옆 카드는 그대로 위쪽에 붙어 보인다. 예전의 4개씩 2x2
   // 페이지네이션(가로 스크롤 스냅)은 카드 높이가 서로 달라지면 어색해져서 제거했다.
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 items-start">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-4 items-start">
       {packs.map(renderCard)}
     </div>
   );

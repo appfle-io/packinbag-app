@@ -9,8 +9,12 @@ import {
   IconSearch,
   IconX,
   IconArchive,
+  IconFolder,
+  IconChevronDown,
+  IconArrowRight,
+  IconEdit,
 } from "@tabler/icons-react";
-import { Bag, Pack } from "@/lib/types";
+import { Bag, BagFolder, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
 import { searchBags, BagSearchResult } from "@/lib/librarySearch";
@@ -24,6 +28,7 @@ import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 
 // 길게 누른(롱프레스) 걸로 판정하는 시간. 이보다 짧게 떼면 그냥 탭(가방 열기)으로 처리한다.
@@ -32,6 +37,37 @@ const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
 // 여행일(D-Day)이 이만큼(일) 지나면 "보관함으로 옮길까요?" 배너로 제안한다.
 const ARCHIVE_SUGGEST_DAYS_PAST = 7;
+
+// 폴더 네비게이터(상단 드롭다운)에서 "폴더 없음"을 고를 때 쓰는 키. 실제 폴더 id와
+// 겹칠 수 없는 문자열이라 안전하다.
+const UNFILED_KEY = "__unfiled__";
+
+interface FolderNavRow {
+  folder: BagFolder;
+  depth: number;
+  count: number;
+}
+
+// 가방보관함 폴더 네비게이터용 트리(평평하게 들여쓰기 뒤, 탐색 목적이라 모든 단계를 항상 펼친 채로 보여준다).
+function buildFolderNavRows(
+  folders: Record<string, BagFolder>,
+  assignments: Record<string, string>,
+  bags: Bag[]
+): FolderNavRow[] {
+  const countFor = (id: string) => bags.filter((b) => assignments[b.id] === id).length;
+  const rows: FolderNavRow[] = [];
+  const walk = (parentId: string | undefined, depth: number) => {
+    Object.values(folders)
+      .filter((f) => (f.parentId ?? undefined) === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"))
+      .forEach((f) => {
+        rows.push({ folder: f, depth, count: countFor(f.id) });
+        walk(f.id, depth + 1);
+      });
+  };
+  walk(undefined, 0);
+  return rows;
+}
 
 // 검색 결과를 눌렀을 때 어디로 이동할지 알려주는 정보. packId가 있으면 해당 팩까지
 // 자동 스크롤 + 하이라이트하고, itemId까지 있으면 짐 자체를 하이라이트한다
@@ -79,18 +115,69 @@ export default function HomeScreen({
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
-  const { profile, updateBagSortBy, toggleBagPinned, toggleBagArchived, archiveBags, dismissArchiveSuggestions, updateBagOrder } =
-    useAuth();
+  const {
+    profile,
+    updateBagSortBy,
+    toggleBagPinned,
+    toggleBagArchived,
+    archiveBags,
+    dismissArchiveSuggestions,
+    updateBagOrder,
+    createBagFolder,
+    renameBagFolder,
+    deleteBagFolder,
+    moveBagsToFolder,
+  } = useAuth();
   const { show } = useToast();
   const sortBy = profile?.bagSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedBagIds ?? [];
   // "보관" 처리된 가방은 삭제가 아니라 그냥 메인 목록("진행중" 탭)에서 숨기고 "보관" 탭으로
   // 옮긴다 - 다 쓴 가방이 계속 홈 화면에 쌓이는 걸 정리하기 위한 용도.
   const archivedSet = new Set(profile?.archivedBagIds ?? []);
+
+  // 가방보관함 폴더(개인 메타데이터, 가방 문서 자체와는 무관 - BagFolder 주석 참고).
+  const bagFolders = profile?.bagFolders ?? {};
+  const bagFolderAssignments = profile?.bagFolderAssignments ?? {};
+  const [folderNavOpen, setFolderNavOpen] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [showMoveSheet, setShowMoveSheet] = useState(false);
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renameFolderDraft, setRenameFolderDraft] = useState("");
+  const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
+
+  // 선택된 폴더가 삭제되는 등으로 사라지면 자동으로 "전체"로 되돌아간다.
+  useEffect(() => {
+    if (
+      selectedFolderId &&
+      selectedFolderId !== UNFILED_KEY &&
+      !bagFolders[selectedFolderId]
+    ) {
+      setSelectedFolderId(undefined);
+    }
+  }, [selectedFolderId, bagFolders]);
+
+  const folderNavRows = useMemo(
+    () => buildFolderNavRows(bagFolders, bagFolderAssignments, bags),
+    [bagFolders, bagFolderAssignments, bags]
+  );
+
+  const selectedFolderLabel = !selectedFolderId
+    ? "전체"
+    : selectedFolderId === UNFILED_KEY
+    ? "폴더 없음"
+    : bagFolders[selectedFolderId]?.name ?? "전체";
+
   const [bagFilter, setBagFilter] = useState<"active" | "archived">("active");
   const activeBagsAll = bags.filter((b) => !archivedSet.has(b.id));
   const archivedBagsAll = bags.filter((b) => archivedSet.has(b.id));
-  const visibleBags = bagFilter === "archived" ? archivedBagsAll : activeBagsAll;
+  const baseBags = bagFilter === "archived" ? archivedBagsAll : activeBagsAll;
+  const visibleBags = !selectedFolderId
+    ? baseBags
+    : selectedFolderId === UNFILED_KEY
+    ? baseBags.filter((b) => !bagFolderAssignments[b.id])
+    : baseBags.filter((b) => bagFolderAssignments[b.id] === selectedFolderId);
   const arrangedBags = arrangeList(visibleBags, { sortBy, pinnedIds, order: profile?.bagOrder });
   // 설정 > 화면설정 > 가방 > 카드 크기. "작게"를 고르면 한 화면에 더 많은 가방이 보이도록
   // 그리드 열이 늘어나고, "크게"를 고르면 열이 줄어 카드 하나하나가 커진다.
@@ -102,6 +189,21 @@ export default function HomeScreen({
       ? "grid-cols-1 sm:grid-cols-2"
       : "grid-cols-2 sm:grid-cols-3";
   const pinnedSet = new Set(pinnedIds);
+
+  const commitCreateFolder = () => {
+    const name = newFolderName.trim();
+    if (name) createBagFolder(name).catch(() => show("폴더를 만들지 못했어요"));
+    setNewFolderName("");
+    setCreatingFolder(false);
+  };
+
+  const commitRenameFolder = () => {
+    const name = renameFolderDraft.trim();
+    if (renamingFolderId && name) {
+      renameBagFolder(renamingFolderId, name).catch(() => show("이름을 바꾸지 못했어요"));
+    }
+    setRenamingFolderId(null);
+  };
 
   // 여행일이 오래 지났는데 아직 "진행중"에 남아있는(=보관 안 한) 가방들 - 한 번 닫기(dismiss)
   // 처리한 가방은 다시 물어보지 않는다.
@@ -351,32 +453,174 @@ export default function HomeScreen({
                 <IconTicket size={14} stroke={1.75} />
                 코드로 참여
               </button>
-              {bags.length > 0 && (
-                <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {(archivedBagsAll.length > 0 || bagFilter === "archived") && (
+                  <div
+                    className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5"
+                    style={{ background: "var(--surface-2)" }}
+                  >
+                    <IconArchive size={13} stroke={1.75} color="var(--text-secondary)" />
+                    <select
+                      value={bagFilter}
+                      onChange={(e) => setBagFilter(e.target.value as "active" | "archived")}
+                      aria-label="진행중/보관"
+                      className="bg-transparent text-[12px] pr-1 outline-none"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      <option value="active">진행중 ({activeBagsAll.length})</option>
+                      <option value="archived">보관 ({archivedBagsAll.length})</option>
+                    </select>
+                  </div>
+                )}
+                {bags.length > 0 && (
+                  <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+                )}
+              </div>
             </div>
           ))}
 
-        {!searchOpen && !selectMode && (archivedBagsAll.length > 0 || bagFilter === "archived") && (
-          <div className="flex rounded-lg border border-border overflow-hidden mb-3">
-            {(
-              [
-                { key: "active" as const, label: `진행중 (${activeBagsAll.length})` },
-                { key: "archived" as const, label: `보관 (${archivedBagsAll.length})` },
-              ]
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setBagFilter(key)}
-                className="flex-1 py-1.5 text-[12px]"
+        {!searchOpen && !selectMode && (
+          <div className="mb-3">
+            <button
+              onClick={() => setFolderNavOpen((v) => !v)}
+              className="w-full flex items-center justify-between rounded-lg border border-border px-3 py-2"
+              style={{ background: "var(--surface-2)" }}
+            >
+              <span className="flex items-center gap-1.5 text-[13px] font-medium min-w-0">
+                <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
+                <span className="truncate">{selectedFolderLabel}</span>
+              </span>
+              <IconChevronDown
+                size={16}
+                stroke={1.75}
+                color="var(--text-muted)"
+                className="shrink-0"
                 style={{
-                  background: bagFilter === key ? "var(--accent)" : "var(--surface-2)",
-                  color: bagFilter === key ? "#fff" : "var(--foreground)",
+                  transform: folderNavOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 150ms ease",
                 }}
+              />
+            </button>
+            {folderNavOpen && (
+              <div
+                className="mt-1.5 rounded-lg border border-border overflow-hidden"
+                style={{ background: "var(--surface)", maxHeight: 260, overflowY: "auto" }}
               >
-                {label}
-              </button>
-            ))}
+                <button
+                  onClick={() => {
+                    setSelectedFolderId(undefined);
+                    setFolderNavOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-[13px] border-b border-border"
+                  style={{ background: !selectedFolderId ? "var(--accent-soft)" : undefined }}
+                >
+                  <span>전체</span>
+                  <span className="text-[11px] text-text-muted">{baseBags.length}개</span>
+                </button>
+                {folderNavRows.map(({ folder, depth, count }) => {
+                  const isRenaming = renamingFolderId === folder.id;
+                  return (
+                    <div
+                      key={folder.id}
+                      className="group w-full flex items-center justify-between px-3 py-2.5 text-[13px] border-b border-border"
+                      style={{
+                        paddingLeft: 12 + depth * 16,
+                        background: selectedFolderId === folder.id ? "var(--accent-soft)" : undefined,
+                      }}
+                    >
+                      {isRenaming ? (
+                        <input
+                          autoFocus
+                          value={renameFolderDraft}
+                          onChange={(e) => setRenameFolderDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRenameFolder();
+                            if (e.key === "Escape") setRenamingFolderId(null);
+                          }}
+                          onBlur={commitRenameFolder}
+                          className="min-w-0 flex-1 rounded border border-border bg-surface px-1.5 py-0.5 text-[13px] outline-none"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setSelectedFolderId(folder.id);
+                            setFolderNavOpen(false);
+                          }}
+                          className="flex items-center gap-1.5 truncate min-w-0 flex-1 text-left"
+                        >
+                          <IconFolder size={13} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
+                          <span className="truncate">{folder.name}</span>
+                        </button>
+                      )}
+                      {!isRenaming && (
+                        <span className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] text-text-muted">{count}개</span>
+                          <button
+                            onClick={() => {
+                              setRenamingFolderId(folder.id);
+                              setRenameFolderDraft(folder.name);
+                            }}
+                            aria-label="폴더 이름 바꾸기"
+                            className="-m-1 p-1"
+                          >
+                            <IconEdit size={13} stroke={1.75} color="var(--text-muted)" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteFolderId(folder.id)}
+                            aria-label="폴더 삭제"
+                            className="-m-1 p-1"
+                          >
+                            <IconTrash size={13} stroke={1.75} color="var(--danger)" />
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => {
+                    setSelectedFolderId(UNFILED_KEY);
+                    setFolderNavOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-[13px] border-b border-border"
+                  style={{ background: selectedFolderId === UNFILED_KEY ? "var(--accent-soft)" : undefined }}
+                >
+                  <span>폴더 없음</span>
+                  <span className="text-[11px] text-text-muted">
+                    {baseBags.filter((b) => !bagFolderAssignments[b.id]).length}개
+                  </span>
+                </button>
+                {creatingFolder ? (
+                  <div className="flex items-center gap-1.5 px-3 py-2">
+                    <input
+                      autoFocus
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitCreateFolder();
+                        if (e.key === "Escape") {
+                          setCreatingFolder(false);
+                          setNewFolderName("");
+                        }
+                      }}
+                      onBlur={commitCreateFolder}
+                      placeholder="폴더 이름"
+                      className="min-w-0 flex-1 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none"
+                      style={{ background: "var(--surface-2)" }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setCreatingFolder(true)}
+                    className="w-full flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    <IconPlus size={14} stroke={1.75} />
+                    새 폴더
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -563,7 +807,16 @@ export default function HomeScreen({
           "+" 버튼과 겹쳐 보인다. 그 FAB 위로 확실히 떨어지도록 여유를 뒀다.
       */}
       {selectMode && (
-        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center pointer-events-none">
+        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center gap-3 pointer-events-none">
+          <button
+            onClick={() => selectedIds.size > 0 && setShowMoveSheet(true)}
+            disabled={selectedIds.size === 0}
+            aria-label="선택한 가방 폴더로 이동"
+            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90 disabled:opacity-40"
+            style={{ background: "var(--accent)" }}
+          >
+            <IconArrowRight size={22} stroke={1.75} color="#fff" />
+          </button>
           <button
             onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
             disabled={selectedIds.size === 0}
@@ -637,6 +890,69 @@ export default function HomeScreen({
             setShowBulkDeleteConfirm(false);
             cancelSelectMode();
             onBulkDeleteBags(ids);
+          }}
+        />
+      )}
+
+      {showMoveSheet && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[97] flex items-end justify-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setShowMoveSheet(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))", maxHeight: "70vh", overflowY: "auto" }}
+            >
+              <span className="text-[15px] font-medium mb-1">이동할 곳</span>
+              <button
+                onClick={() => {
+                  moveBagsToFolder(Array.from(selectedIds), undefined).catch(() => show("이동하지 못했어요"));
+                  setShowMoveSheet(false);
+                  cancelSelectMode();
+                }}
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                style={{ background: "var(--surface-2)" }}
+              >
+                <span className="text-[13px] font-medium">가방보관함 (최상위)</span>
+              </button>
+              {folderNavRows.map(({ folder, depth }) => (
+                <button
+                  key={folder.id}
+                  onClick={() => {
+                    moveBagsToFolder(Array.from(selectedIds), folder.id).catch(() => show("이동하지 못했어요"));
+                    setShowMoveSheet(false);
+                    cancelSelectMode();
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left"
+                  style={{ background: "var(--surface-2)", paddingLeft: 12 + depth * 16 }}
+                >
+                  <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" />
+                  <span className="text-[13px] font-medium truncate">{folder.name}</span>
+                </button>
+              ))}
+              {folderNavRows.length === 0 && (
+                <p className="text-[12px] text-text-muted py-2 px-1">만든 폴더가 없어요. 위 드롭다운에서 먼저 만들어보세요.</p>
+              )}
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {confirmDeleteFolderId && (
+        <ConfirmDialog
+          title="이 폴더를 삭제할까요?"
+          message="폴더 안 가방은 삭제되지 않고 한 단계 위(최상위 또는 상위 폴더)로 이동해요."
+          confirmLabel="삭제"
+          tone="danger"
+          onCancel={() => setConfirmDeleteFolderId(null)}
+          onConfirm={() => {
+            const id = confirmDeleteFolderId;
+            setConfirmDeleteFolderId(null);
+            if (selectedFolderId === id) setSelectedFolderId(undefined);
+            deleteBagFolder(id).catch(() => show("폴더를 삭제하지 못했어요"));
           }}
         />
       )}

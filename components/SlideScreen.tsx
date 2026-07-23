@@ -22,6 +22,7 @@ export default function SlideScreen({
   zIndex = 60,
   innerClassName = "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top",
   from = "right",
+  onBackdropClick,
 }: {
   active: boolean;
   children: React.ReactNode;
@@ -34,6 +35,8 @@ export default function SlideScreen({
   // 자연스럽다. 반대로 팩보관함은 여는 제스처 자체가 "왼쪽에서 오른쪽으로" 화면을 당겨서
   // 여는 방향이라, 왼쪽에서 들어와야 방향이 맞는다.
   from?: "right" | "left";
+  // 백드롭 클릭 시 닫기 동작이 필요하면만 넘긴다(없으면 순수 시각적 백드롭만).
+  onBackdropClick?: () => void;
 }) {
   // active=false가 되어도 곧바로 사라지지 않고, 닫힘 트랜지션이 끝난 뒤에야 실제로
   // 렌더링을 멈춘다 (그래야 슬라이드 아웃되는 모습이 보인다).
@@ -75,6 +78,18 @@ export default function SlideScreen({
   return (
     <Portal>
       <div style={{ position: "fixed", inset: 0, overflow: "hidden", zIndex }}>
+        <div
+          aria-hidden
+          onClick={onBackdropClick}
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            opacity: entered ? 1 : 0,
+            transition: `opacity ${TRANSITION_MS}ms ${EASING}`,
+            pointerEvents: onBackdropClick ? "auto" : "none",
+          }}
+        />
         <div
           className={innerClassName}
           style={{

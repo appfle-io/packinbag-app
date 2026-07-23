@@ -800,6 +800,12 @@ export default function BagEditorScreen({
     nextState: "normal" | "wide" | "collapsed"
   ) => {
     if (guardReadOnly()) return;
+    if (collapseOverrideActive) {
+      const otherPackIds = bag.packs.map((p) => p.id).filter((id) => id !== packId);
+      if (otherPackIds.length > 0) {
+        updateAllPackDisplayStates(bag.id, otherPackIds, "collapsed").catch(() => {});
+      }
+    }
     setCollapseOverrideActive(false);
     updatePackDisplayState(bag.id, packId, nextState).catch((err) => {
       console.error("[팩인백] 팩 표시 상태 저장 실패:", err);
@@ -2108,7 +2114,7 @@ export default function BagEditorScreen({
         </Portal>
       )}
 
-      <SlideScreen active={!!editingNotePackId} zIndex={80}>
+      <SlideScreen active={!!editingNotePackId} zIndex={80} onBackdropClick={() => setEditingNotePackId(null)}>
         {(() => {
           const notePack = bag.packs.find((p) => p.id === displayedNotePackId);
           if (!notePack) return null;

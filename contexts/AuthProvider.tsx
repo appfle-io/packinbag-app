@@ -31,9 +31,12 @@ import {
   onSnapshot,
   serverTimestamp,
   setDoc,
+  updateDoc,
+  deleteField,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
+import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned } from "@/lib/listSort";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
@@ -92,6 +95,14 @@ interface AuthContextValue {
   updatePackOrder: (order: string[]) => Promise<void>;
   updatePackOrderByParent: (parentKey: string, order: string[]) => Promise<void>;
   updateExpandedPackFolderIds: (ids: string[]) => Promise<void>;
+  createBagFolder: (name: string, parentId?: string) => Promise<string>;
+  renameBagFolder: (folderId: string, name: string) => Promise<void>;
+  deleteBagFolder: (folderId: string) => Promise<void>;
+  moveBagFolder: (folderId: string, parentId: string | undefined) => Promise<void>;
+  moveBagToFolder: (bagId: string, folderId: string | undefined) => Promise<void>;
+  moveBagsToFolder: (bagIds: string[], folderId: string | undefined) => Promise<void>;
+  updateBagOrderByParent: (parentKey: string, order: string[]) => Promise<void>;
+  updateExpandedBagFolderIds: (ids: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
   updatePackDisplayState: (
@@ -205,6 +216,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         packOrder: data?.packOrder as string[] | undefined,
         packOrderByParent: data?.packOrderByParent as UserProfile["packOrderByParent"],
         expandedPackFolderIds: data?.expandedPackFolderIds as string[] | undefined,
+        bagFolders: data?.bagFolders as UserProfile["bagFolders"],
+        bagFolderAssignments: data?.bagFolderAssignments as UserProfile["bagFolderAssignments"],
+        bagOrderByParent: data?.bagOrderByParent as UserProfile["bagOrderByParent"],
+        expandedBagFolderIds: data?.expandedBagFolderIds as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
         quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
         packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
@@ -560,6 +575,97 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { expandedPackFolderIds: ids }, { merge: true });
   };
 
+  // --- 가방보관함 폴더 (개인 메타데이터, 가방 문서 미수) -----------------------------
+  const createBagFolder = async (name: string, parentId?: string): Promise<string> => {
+    if (!user) return "";
+    const id = `bagfolder-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const next = {
+      ...(profile?.bagFolders ?? {}),
+      [id]: { id, name, parentId, createdAt: new Date().toISOString() },
+    };
+    await setDoc(doc(db, "users", user.uid), stripUndefined({ bagFolders: next }), { merge: true });
+    return id;
+  };
+
+  const renameBagFolder = async (folderId: string, name: string) => {
+    if (!user) return;
+    const current = profile?.bagFolders ?? {};
+    if (!current[folderId]) return;
+    const next = { ...current, [folderId]: { ...current[folderId], name } };
+    await setDoc(doc(db, "users", user.uid), stripUndefined({ bagFolders: next }), { merge: true });
+  };
+
+  // 폴더 삭제 - 가방 문서는 전혀 건드리지 않고, 그 안의 가방/하위폴더는 이 폴더의 상위
+  // (없으면 최상위)로 한 단계씨 올라간다(아이폰 메모처럼).
+  const deleteBagFolder = async (folderId: string) => {
+    if (!user) return;
+    const folders = profile?.bagFolders ?? {};
+    const target = folders[folderId];
+    if (!target) return;
+    const newParentId = target.parentId;
+
+    const updates: Record<string, unknown> = {
+      [`bagFolders.${folderId}`]: deleteField(),
+    };
+    for (const [key, f] of Object.entries(folders)) {
+      if (key === folderId) continue;
+      if (f.parentId === folderId) {
+        updates[`bagFolders.${key}.parentId`] = newParentId ? newParentId : deleteField();
+      }
+    }
+    const assignments = profile?.bagFolderAssignments ?? {};
+    for (const [bagId, fId] of Object.entries(assignments)) {
+      if (fId !== folderId) continue;
+      updates[`bagFolderAssignments.${bagId}`] = newParentId ? newParentId : deleteField();
+    }
+    await updateDoc(doc(db, "users", user.uid), updates);
+  };
+
+  // 폴더를 다른 폴더 안으로(또는 최상위로) 옮기기.
+  const moveBagFolder = async (folderId: string, parentId: string | undefined) => {
+    if (!user) return;
+    const folders = profile?.bagFolders ?? {};
+    if (!folders[folderId]) return;
+    await updateDoc(doc(db, "users", user.uid), {
+      [`bagFolders.${folderId}.parentId`]: parentId ? parentId : deleteField(),
+    });
+  };
+
+  // 가방을 폴더로(또는 최상위로) 옮기기 - 가방 문서는 전혀 건드리지 않는다.
+  const moveBagToFolder = async (bagId: string, folderId: string | undefined) => {
+    if (!user) return;
+    await updateDoc(doc(db, "users", user.uid), {
+      [`bagFolderAssignments.${bagId}`]: folderId ? folderId : deleteField(),
+    });
+  };
+
+  // 다중선택해서 한꺼번에 여러 가방을 폴더로 옥길 때 쓰는 버전 - moveBagToFolder를 루프로 여러 번
+  // 불러오면 각 호출이 같은(갱신안된) profile 스냵샷을 기준으로 계산해서 먹히는 문제가 있어,
+  // 병합을 한 번에 계산해서 한 번만 쓴다.
+  const moveBagsToFolder = async (bagIds: string[], folderId: string | undefined) => {
+    if (!user || bagIds.length === 0) return;
+    const updates: Record<string, unknown> = {};
+    for (const bagId of bagIds) {
+      updates[`bagFolderAssignments.${bagId}`] = folderId ? folderId : deleteField();
+    }
+    await updateDoc(doc(db, "users", user.uid), updates);
+  };
+
+  const updateBagOrderByParent = async (parentKey: string, order: string[]) => {
+    if (!user) return;
+    const next = { ...(profile?.bagOrderByParent ?? {}), [parentKey]: order };
+    await setDoc(
+      doc(db, "users", user.uid),
+      { bagOrderByParent: next, bagSortBy: "custom" },
+      { merge: true }
+    );
+  };
+
+  const updateExpandedBagFolderIds = async (ids: string[]) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { expandedBagFolderIds: ids }, { merge: true });
+  };
+
   // 팩(짐 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
   const updatePackSettings = async (
     settings: Partial<NonNullable<UserProfile["packSettings"]>>
@@ -710,6 +816,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatePackOrder,
         updatePackOrderByParent,
         updateExpandedPackFolderIds,
+        createBagFolder,
+        renameBagFolder,
+        deleteBagFolder,
+        moveBagFolder,
+        moveBagToFolder,
+        moveBagsToFolder,
+        updateBagOrderByParent,
+        updateExpandedBagFolderIds,
         updatePackSettings,
         updateQuickPackCollapsed,
         updatePackDisplayState,
