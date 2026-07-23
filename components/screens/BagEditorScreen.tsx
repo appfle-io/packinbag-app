@@ -23,6 +23,8 @@ import {
   IconPackage,
   IconEye,
   IconEyeOff,
+  IconSquareCheck,
+  IconSquare,
   IconArrowBackUp,
   IconArrowForwardUp,
 } from "@tabler/icons-react";
@@ -1421,6 +1423,19 @@ export default function BagEditorScreen({
     );
   };
 
+  // 상단 툴바 체크박스 전체선택/해제 버튼용 - 패/메모장뷰 구분 없이 이 가방 안 모든 패(메모패 제외)의
+  // 체크형 짐을 한번에 다 켜거나 끄는다. 현재 모든 체크형 짐이 다 켜져있으면(allBagChecked)
+  // 다음 클릭에는 전체해제, 아니면 전체선택한다.
+  const handleToggleAllInBag = (checked: boolean) => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) =>
+      packs.map((p) => ({
+        ...p,
+        items: p.items.map((i) => (i.type === "check" ? { ...i, checked } : i)),
+      }))
+    );
+  };
+
   const handleAddImages = async (files: FileList | null) => {
     if (guardReadOnly()) return;
     if (!files || files.length === 0) return;
@@ -1494,6 +1509,11 @@ export default function BagEditorScreen({
   const allPacksWide =
     effectivePacks.length > 0 &&
     effectivePacks.every((p) => (p.displayState ?? "normal") === "wide");
+
+  // 상단 체크박스 전체선택/해제 버튼의 현재 상태 판단용 - 이 가방 안 모든 패의 체크형 짐을 모아서,
+  // 하나라도 있고 다 켜져있으면만 true(체크할 것이 아예 없으면 false).
+  const allBagCheckItems = bag.packs.flatMap((p) => p.items).filter((i) => i.type === "check");
+  const allBagChecked = allBagCheckItems.length > 0 && allBagCheckItems.every((i) => i.checked);
 
   // 이 가방을 카드(팩뷰)로 볼지 내용이 이어지는 문서형(메모장뷰)으로 볼지. 이 가방만의
   // 개별 오버라이드(profile.bagViewMode[bag.id])가 있으면 그것을, 없으면 설정 > 가방설정의
@@ -1791,6 +1811,16 @@ export default function BagEditorScreen({
             </button>
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
+                <button
+                  onClick={() => handleToggleAllInBag(!allBagChecked)}
+                  aria-label={allBagChecked ? "가방 전체 체크 해제" : "가방 전체 체크"}
+                >
+                  {allBagChecked ? (
+                    <IconSquareCheck size={17} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconSquare size={17} stroke={1.75} color="var(--text-secondary)" />
+                  )}
+                </button>
                 <button
                   onClick={() => setHideChecked((v) => !v)}
                   aria-label={hideChecked ? "완료 항목 다시 보이기" : "완료 항목 숨기기"}

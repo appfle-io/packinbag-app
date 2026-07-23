@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -313,6 +314,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!rawProfile) return null;
     return { ...rawProfile, unlockCodeLiveStatus: unlockLiveStatus };
   }, [rawProfile, unlockLiveStatus]);
+
+  const packDisplayStatesRef = useRef<NonNullable<UserProfile["packDisplayStates"]>>({});
+  useEffect(() => {
+    packDisplayStatesRef.current = profile?.packDisplayStates ?? {};
+  }, [profile?.packDisplayStates]);
 
   const signUpWithEmail = async (
     email: string,
@@ -699,7 +705,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     state: "normal" | "wide" | "collapsed"
   ) => {
     if (!user) return;
-    const next = { ...(profile?.packDisplayStates ?? {}), [`${bagId}:${packId}`]: state };
+    const next = { ...packDisplayStatesRef.current, [`${bagId}:${packId}`]: state };
+    packDisplayStatesRef.current = next;
     setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
     await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
   };
@@ -711,8 +718,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     state: "normal" | "wide" | "collapsed"
   ) => {
     if (!user) return;
-    const next = { ...(profile?.packDisplayStates ?? {}) };
+    const next = { ...packDisplayStatesRef.current };
     for (const packId of packIds) next[`${bagId}:${packId}`] = state;
+    packDisplayStatesRef.current = next;
     setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
     await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
   };
