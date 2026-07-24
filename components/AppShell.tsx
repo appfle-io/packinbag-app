@@ -342,6 +342,27 @@ export default function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, announcements]);
 
+  // URL의 ?invite=CODE 쿼리 파라미터를 통한 공유 가방 자동 초대 수락
+  useEffect(() => {
+    if (typeof window === "undefined" || !user || !profile?.nickname) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get("invite");
+    if (inviteCode && inviteCode.trim()) {
+      const code = inviteCode.trim().toUpperCase();
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+
+      handleJoinBag(code)
+        .then(() => {
+          show("초대 링크로 가방에 참여했어요!");
+        })
+        .catch(() => {
+          show("유효하지 않거나 만료된 초대 링크예요.");
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, profile?.nickname]);
+
   const handleDismissAnnouncement = (id: string) => {
     if (!user) return;
     dismissAnnouncementRemote(user.uid, id).catch((err) => {
@@ -528,7 +549,12 @@ export default function AppShell() {
     setEditingBag(null);
     setIsNewBag(false);
     trashBagRemote(bag.id)
-      .then(() => show("가방을 휴지통으로 보냈어요"))
+      .then(() =>
+        show("가방을 휴지통으로 보냈어요", {
+          actionLabel: "실행취소",
+          onAction: () => handleRestoreBag(bag.id),
+        })
+      )
       .catch((err) => {
         console.error("[팩인백] 가방 휴지통 이동 실패:", err);
         show(`가방을 휴지통으로 보내지 못했어요 (${firebaseErrorCode(err)})`);

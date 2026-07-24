@@ -16,6 +16,7 @@ import {
   IconTrash,
   IconArrowRight,
   IconNotes,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -27,6 +28,7 @@ import PackColorDot from "@/components/PackColorDot";
 import Portal from "@/components/Portal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotificationBell from "@/components/NotificationBell";
+import PackTemplateGalleryModal from "@/components/PackTemplateGalleryModal";
 
 // 팩 보관함 트리 한 줄. PacksScreen(모바일 풀스크린 트리)의 buildRows와 동일한 규칙으로
 // 재귀 펼치되, 여기서는 "추가하기" 자리를 별도 행으로 만들지 않고 각 레벨/폴더 옆에
@@ -205,6 +207,7 @@ export default function DesktopSidebar({
   };
 
   const { show } = useToast();
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [activeDragData, setActiveDragData] = useState<{
     type: "bag" | "bag-folder" | "pack" | "pack-folder";
     id: string;
@@ -766,6 +769,16 @@ export default function DesktopSidebar({
           <span className="text-[11px] font-semibold text-text-muted">팩 보관함</span>
           <div className="flex items-center gap-0.5">
             <button
+              onClick={() => setShowTemplateGallery(true)}
+              aria-label="추천 템플릿 둘러보기"
+              title="추천 템플릿 둘러보기"
+              className="-m-1.5 p-1.5 rounded-md hover:bg-black/5 flex items-center gap-1 text-[11px] font-medium"
+              style={{ color: "var(--accent)" }}
+            >
+              <IconSparkles size={14} stroke={1.75} />
+              <span>템플릿</span>
+            </button>
+            <button
               onClick={() => onNewFolder(undefined)}
               aria-label="새 폴더"
               className="-m-1.5 p-1.5 rounded-md hover:bg-black/5"
@@ -1110,6 +1123,18 @@ export default function DesktopSidebar({
           onConfirm={() => {
             onDeletePackEntry(confirmDeletePackId);
             setConfirmDeletePackId(null);
+          }}
+        />
+      )}
+
+      {showTemplateGallery && (
+        <PackTemplateGalleryModal
+          userPacks={treePacks}
+          onClose={() => setShowTemplateGallery(false)}
+          onImportToLibrary={(newPack) => {
+            onNewPack(undefined);
+            // 팩 보관함 추가
+            onRenamePackEntry(newPack, newPack.name);
           }}
         />
       )}

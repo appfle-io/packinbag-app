@@ -16,6 +16,7 @@ import {
   IconEdit,
   IconArrowRight,
   IconNotes,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { Pack, ListSortOption, Bag } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -30,6 +31,7 @@ import NotificationBell from "@/components/NotificationBell";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
+import PackTemplateGalleryModal, { registerPackAsTemplate } from "@/components/PackTemplateGalleryModal";
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
@@ -148,6 +150,7 @@ export default function PacksScreen({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(profile?.expandedPackFolderIds ?? [])
   );
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   useEffect(() => {
     setExpandedIds(new Set(profile?.expandedPackFolderIds ?? []));
   }, [profile?.expandedPackFolderIds]);
@@ -545,6 +548,13 @@ export default function PacksScreen({
                     className="flex items-center justify-center rounded-md border border-dashed border-border-strong p-1"
                   >
                     <IconPlus size={17} stroke={1.75} color="var(--text-secondary)" />
+                  </button>
+                  <button
+                    onClick={() => setShowTemplateGallery(true)}
+                    className="flex items-center gap-1 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[12px] font-semibold text-accent"
+                  >
+                    <IconSparkles size={15} stroke={1.75} />
+                    <span>템플릿</span>
                   </button>
                 </div>
                 <SortSelect
@@ -950,6 +960,17 @@ export default function PacksScreen({
             </div>
           </div>
         </Portal>
+      )}
+
+      {showTemplateGallery && (
+        <PackTemplateGalleryModal
+          userPacks={treePacks}
+          onClose={() => setShowTemplateGallery(false)}
+          onImportToLibrary={(newPack) => {
+            onNewPack(undefined);
+            onRenameEntry(newPack, newPack.name);
+          }}
+        />
       )}
     </div>
   );

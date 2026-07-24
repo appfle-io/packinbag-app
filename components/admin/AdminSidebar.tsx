@@ -16,6 +16,7 @@ import {
   IconArrowBackUp,
   IconMenu2,
   IconX,
+  IconSparkles,
 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import Portal from "@/components/Portal";
@@ -26,6 +27,7 @@ const MENU = [
   { href: "/admin/inquiries", label: "문의 관리", icon: IconMessageQuestion },
   { href: "/admin/unlock-codes", label: "이용권 코드 관리", icon: IconKey },
   { href: "/admin/announcements", label: "공지사항 관리", icon: IconSpeakerphone },
+  { href: "/admin/templates", label: "템플릿 심사 관리", icon: IconSparkles },
   { href: "/admin/audit-log", label: "활동 로그", icon: IconHistory },
 ];
 

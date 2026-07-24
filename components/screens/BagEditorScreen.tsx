@@ -64,6 +64,8 @@ import { deleteLibraryPackRemote } from "@/lib/packsService";
 import { isInSyncWithLibrary } from "@/lib/packSync";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
+import { collectDescendantPackIds } from "@/lib/packsService";
+import { resolveCityInfo, fetchWeatherForCity, fetchAiTravelPlaces, WeatherInfo } from "@/lib/weatherService";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import {
@@ -133,6 +135,7 @@ export default function BagEditorScreen({
   onFocusHandled?: () => void;
 }) {
   const isDesktop = useIsDesktop();
+  const { user } = useAuth();
   const [bag, setBag] = useState<Bag>(initialBag);
   // 이 가방을 내가 만들었는지(소유자)인지 여부. 소유자가 아니면(그룹원으로 참여한
   // 공유 가방) 트래시 버튼의 동작이 "삭제"가 아니라 "나가기"로 바뀐다 - 공유 문서를
@@ -221,6 +224,68 @@ export default function BagEditorScreen({
   // BagQuickAddRow에서 "디데이 추가"/"메모 추가"를 누르면 각 컴포넌트의 편집을 외부에서 열기 위한 ref.
   const travelDateRef = useRef<TravelDateFieldHandle>(null);
   const bagNoticeRef = useRef<BagNoticeHandle>(null);
+
+  // 가방 제목에 포함된 도시 날씨 감지 및 추천 명소 상태
+  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
+  const [aiPlaces, setAiPlaces] = useState<{ text: string; icon: string }[] | null>(null);
+  const [loadingAiPlaces, setLoadingAiPlaces] = useState(false);
+
+  useEffect(() => {
+    setAiPlaces(null);
+    const timer = setTimeout(() => {
+      resolveCityInfo(bag.name).then((cityMatch) => {
+        if (cityMatch) {
+          fetchWeatherForCity(cityMatch.lat, cityMatch.lon, cityMatch.name).then((info) => {
+            setWeatherInfo(info);
+          });
+        } else {
+          setWeatherInfo(null);
+        }
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [bag.name]);
+
+  useEffect(() => {
+    if (!weatherInfo || !bag.aiWeatherMode || !user) {
+      setAiPlaces(null);
+      return;
+    }
+    setLoadingAiPlaces(true);
+    setAiPlaces(null);
+    user.getIdToken().then((idToken) => {
+      if (!idToken) {
+        setLoadingAiPlaces(false);
+        return;
+      }
+      fetchAiTravelPlaces(bag.name, weatherInfo.city, idToken)
+        .then((places) => setAiPlaces(places))
+        .finally(() => setLoadingAiPlaces(false));
+    });
+  }, [bag.aiWeatherMode, bag.name, weatherInfo, user]);
+
+  const handleToggleAiWeatherMode = () => {
+    if (guardReadOnly()) return;
+    if (!premium) {
+      onRequestUnlock();
+      return;
+    }
+    const nextMode = !bag.aiWeatherMode;
+    setBag((prev) => ({ ...prev, aiWeatherMode: nextMode }));
+    show(nextMode ? "AI 추천 여행지 모드를 켰어요! 🗺️" : "기본 날씨 모드로 변경했어요.");
+  };
+
+  const handleAddRecommendedItem = (itemText: string) => {
+    if (guardReadOnly()) return;
+    let targetPackId = bag.packs[0]?.id;
+    if (!targetPackId) {
+      targetPackId = handleAddPack("checklist") ?? undefined;
+    }
+    if (targetPackId) {
+      handleCreateItem(targetPackId, { type: "check", text: itemText });
+      show(`'${itemText}' 항목을 팩에 담았어요!`);
+    }
+  };
 
   // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
   // 호출한 쪽에서 그대로 return해서 실제 상태 변경으로 이어지지 않게 한다. 모달이 열려있는
@@ -1625,6 +1690,55 @@ export default function BagEditorScreen({
         className="flex-1 overflow-y-auto px-4 pb-6"
         style={showQuickAddBar ? { paddingBottom: 140 } : undefined}
       >
+        {weatherInfo && (
+          <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex flex-col gap-2 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary">
+                <span>📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
+                <span className="text-[12px] text-text-muted">
+                  ({weatherInfo.tempMin}°C ~ {weatherInfo.tempMax}°C)
+                </span>
+              </div>
+              <button
+                onClick={handleToggleAiWeatherMode}
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11.5px] font-semibold transition-all shrink-0"
+                style={{
+                  background: bag.aiWeatherMode ? "var(--accent)" : "var(--surface)",
+                  color: bag.aiWeatherMode ? "#fff" : "var(--text-secondary)",
+                  borderColor: bag.aiWeatherMode ? "var(--accent)" : "var(--border)",
+                }}
+              >
+                <span>🗺️ AI 명소추천</span>
+                <span className="text-[10px] font-bold px-1 rounded bg-black/10">
+                  {bag.aiWeatherMode ? "ON" : "OFF"}
+                </span>
+              </button>
+            </div>
+
+            {bag.aiWeatherMode && (
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pt-1 border-t border-accent/15">
+                <span className="text-[11.5px] font-medium text-text-muted shrink-0">🗺️ 추천 명소:</span>
+                {loadingAiPlaces ? (
+                  <span className="text-[11.5px] text-text-muted animate-pulse">
+                    AI가 {weatherInfo.city}의 인기 핫플 명소를 찾고 있어요...
+                  </span>
+                ) : (
+                  (aiPlaces || []).map((place, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleAddRecommendedItem(`${place.icon} ${place.text}`)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface border border-border text-[12px] hover:border-accent hover:text-accent transition-all shrink-0 shadow-sm"
+                    >
+                      <span>{place.icon}</span>
+                      <span>{place.text}</span>
+                      <span className="text-[10px] text-accent font-bold pl-0.5">+ 추가</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {readOnly && (
           <button
             onClick={onRequestUnlock}

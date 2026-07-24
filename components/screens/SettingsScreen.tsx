@@ -10,8 +10,15 @@ import {
   IconSparkles,
   IconArrowLeft,
   IconExternalLink,
+  IconShieldCheck,
 } from "@tabler/icons-react";
+import dynamic from "next/dynamic";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
+
+const TemplateInspectLogsModal = dynamic(
+  () => import("@/components/TemplateInspectLogsModal"),
+  { ssr: false }
+);
 import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
@@ -133,9 +140,10 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { profile, updateDefaultTab } = useAuth();
+  const { user, profile, updateDefaultTab } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
+  const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [showUnlockCode, setShowUnlockCode] = useState(false);
@@ -274,6 +282,22 @@ export default function SettingsScreen({
             )}
           </div>
         </div>
+
+        {isMasterEmail(user?.email) && (
+          <div className="mb-6">
+            <p className="text-[12px] font-semibold text-accent mb-2">👑 관리자 전용 메뉴</p>
+            <button
+              onClick={() => setShowInspectLogsModal(true)}
+              className="w-full rounded-lg border border-accent/40 bg-accent/5 flex items-center justify-between p-3"
+            >
+              <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
+                <IconShieldCheck size={17} color="var(--accent)" />
+                템플릿 공유 등록 모니터링
+              </span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+            </button>
+          </div>
+        )}
 
         <div className="mb-6">
           <button
@@ -438,6 +462,10 @@ export default function SettingsScreen({
           onBack={() => setView("main")}
         />
       </Slide>
+
+      {showInspectLogsModal && (
+        <TemplateInspectLogsModal onClose={() => setShowInspectLogsModal(false)} />
+      )}
     </div>
   );
 }

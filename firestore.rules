@@ -171,6 +171,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // AI 템플릿 심사 및 모니터링 로그. 마스터(운영자)만 전체 목록을 읽고 삭제할 수 있다.
+    // 생성(create)은 백엔드 API (app/api/inspect-template/route.ts, Admin SDK)에서만 수행한다.
+    match /templateInspectLogs/{logId} {
+      allow read, delete: if request.auth != null && isMasterEmail();
+      allow write, create: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;
