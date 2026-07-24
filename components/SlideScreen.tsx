@@ -14,8 +14,8 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 // 순간 함께 null이 되어버리는 경우엔, 부모 쪽에서 "마지막으로 열려있던 값"을 따로
 // 캐싱해서 자식에 계속 넘겨줘야 한다 (닫힘 애니메이션 도중에도 내용이 유지되도록).
 // AppShell.tsx의 displayedBag/displayedPack 패턴 참고.
-const TRANSITION_MS = 260;
-const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+const TRANSITION_MS = 250;
+const EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
 
 export default function SlideScreen({
   active,

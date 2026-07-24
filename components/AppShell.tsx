@@ -923,8 +923,13 @@ export default function AppShell() {
   // 열기에 재활용해서(v68), 기존 탭전환 스와이프와 충돌 없이 깔끔하게 공존한다. 마우스로도
   // 동일하게 동작하므로(handleMouseDown/Up), 데스크톱에서도 따로 버튼 없이 이 드래그만으로 팩
   // 트리를 열 수 있다(v70: 헤더 폴더 아이콘 삭제됨 - 이제 이 스와이프/엣지 힌트(PackTreeSwipeHint)가 유일한 진입점).
-  const handleSwipeGestureEnd = (dx: number, dy: number) => {
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  const handleSwipeGestureEnd = (dx: number, dy: number, isMouse = false) => {
+    // 세로 이동(dy)이 45px 이상이거나, 가로/세로 비율이 1.7 미만이면 세로 스크롤로 간주
+    if (Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 1.7) return;
+    // 마우스 드래그는 클릭 오발동 방지를 위해 더 높은 임계값(75px) 적용
+    const minThreshold = isMouse ? 75 : 60;
+    if (Math.abs(dx) < minThreshold) return;
+
     const currentIndex = tabOrder.indexOf(tab);
     if (dx > 0 && currentIndex === 0) {
       setShowPackTree(true);
@@ -941,9 +946,10 @@ export default function AppShell() {
   // 이 탭전환 스와이프 컨테이너 안에서 자체 useSwipeBack을 따로 가진 화면은, 그 화면이
   // 이미 자기 스와이프를 처리했으니 여기서 또 반응하면 한 번에 두 단계(하위화면 닫기 +
   // 탭 전환) 뒤로가는 버그가 생긴다.
+  // 롱프레스/카드 드래그존([data-bag-drop-id], [data-pack-drop-id] 등)도 완벽하게 보호한다.
   const isSwipeIgnoredTarget = (target: EventTarget | null) =>
     !!(target as HTMLElement)?.closest?.(
-      'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], [data-own-swipe-back], .fixed'
+      'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], [data-own-swipe-back], [data-dragging], .fixed'
     );
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -957,7 +963,7 @@ export default function AppShell() {
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
     const t = e.changedTouches[0];
-    handleSwipeGestureEnd(t.clientX - start.x, t.clientY - start.y);
+    handleSwipeGestureEnd(t.clientX - start.x, t.clientY - start.y, false);
   };
 
   // 데스크톱 웹(마우스)에서도 동일한 탭전환/패 트리 열기 제스처가 되도록 마우스 드래그도
@@ -971,7 +977,7 @@ export default function AppShell() {
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
-    handleSwipeGestureEnd(e.clientX - start.x, e.clientY - start.y);
+    handleSwipeGestureEnd(e.clientX - start.x, e.clientY - start.y, true);
   };
 
   return (

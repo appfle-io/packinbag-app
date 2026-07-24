@@ -79,6 +79,7 @@ import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
 import { isPdfUrl } from "@/lib/fileUrlUtils";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { isNativePlatform } from "@/lib/nativeAuth";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -131,6 +132,7 @@ export default function BagEditorScreen({
   focusTarget?: { packId?: string; itemId?: string } | null;
   onFocusHandled?: () => void;
 }) {
+  const isDesktop = useIsDesktop();
   const [bag, setBag] = useState<Bag>(initialBag);
   // 이 가방을 내가 만들었는지(소유자)인지 여부. 소유자가 아니면(그룹원으로 참여한
   // 공유 가방) 트래시 버튼의 동작이 "삭제"가 아니라 "나가기"로 바뀐다 - 공유 문서를
@@ -1542,11 +1544,11 @@ export default function BagEditorScreen({
       })()
     : null;
 
-  // 하단 빠른입력바(BagQuickAddBar)는 웹(브라우저)에서만 보여준다 - 네이티브 앱(Capacitor)은
-  // 이미 모바일 화면이라 여백이 좋거나 키보드가 그 위를 덮을 수도 있어 제외한다.
+  // 하단 빠른입력바(BagQuickAddBar)는 데스크톱 웹(PC 화면 폭, 1024px 이상)에서만 보여준다 -
+  // 모바일 웹 및 네이티브 앱(Capacitor)은 이미 모바일 화면이라 여백이 좁거나 키보드가 그 위를 덮을 수 있어 제외한다.
   // 읽기전용(readOnly) 가방이나 다중선택 모드(selection) 중에도 잠시 숨긴다 - 특히
-  // 다중선택은 화면 맨 아래에 같은 자리에 선택개수/취소/삭제 액션바가 대신 띄리므로 겹치면 안 된다.
-  const showQuickAddBar = !readOnly && !selection && !isNativePlatform();
+  // 다중선택은 화면 맨 아래에 같은 자리에 선택개수/취소/삭제 액션바가 대신 띄우므로 겹치면 안 된다.
+  const showQuickAddBar = !readOnly && !selection && !isNativePlatform() && isDesktop;
   const quickAddPacks = bag.packs.filter((p) => p.kind !== "editor");
 
   return (
