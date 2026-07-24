@@ -21,6 +21,8 @@ import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
+import { saveBagRemote } from "@/lib/bagsService";
+import { useToast } from "@/components/Toast";
 import PackColorDot from "@/components/PackColorDot";
 import Portal from "@/components/Portal";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -202,6 +204,158 @@ export default function DesktopSidebar({
     });
   };
 
+  const { show } = useToast();
+  const [activeDragData, setActiveDragData] = useState<{
+    type: "bag" | "bag-folder" | "pack" | "pack-folder";
+    id: string;
+  } | null>(null);
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+
+  const handleDragStart = (
+    e: React.DragEvent,
+    type: "bag" | "bag-folder" | "pack" | "pack-folder",
+    id: string
+  ) => {
+    e.dataTransfer.setData("application/json", JSON.stringify({ type, id }));
+    e.dataTransfer.effectAllowed = "move";
+    setActiveDragData({ type, id });
+  };
+
+  const handleDragEnd = () => {
+    setActiveDragData(null);
+    setDropTargetKey(null);
+  };
+
+  const canDropOnTarget = (
+    targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root",
+    targetId?: string
+  ): boolean => {
+    if (!activeDragData) return false;
+
+    // 1) 가방 / 가방폴더 드래그 중
+    if (activeDragData.type === "bag" || activeDragData.type === "bag-folder") {
+      // 팩보관함(pack-folder, pack-root)으로는 절대 이동 불가능! (가방 ➡️ 팩보관함 이동 금지)
+      if (targetType === "pack-folder" || targetType === "pack-root") return false;
+      if (targetType === "bag") return false; // 가방에 가방을 넣지 못함
+      if (targetType === "bag-folder") {
+        if (activeDragData.type === "bag-folder") {
+          if (activeDragData.id === targetId) return false;
+          const descendants = collectDescendantBagFolderIds(bagFolders, activeDragData.id);
+          if (descendants.includes(targetId!)) return false;
+        }
+        return true;
+      }
+      if (targetType === "bag-root") return true;
+    }
+
+    // 2) 팩 드래그 중
+    if (activeDragData.type === "pack") {
+      if (targetType === "bag") return true; // ★ 팩 ➡️ 가방 이동 가능 (가방에 팩 담기)
+      if (targetType === "bag-folder") return false; // ★ 폴더 하위로는 안 됨 (가방속이 아니니까)
+      if (targetType === "bag-root") return false;
+      if (targetType === "pack-folder") {
+        if (activeDragData.id === targetId) return false;
+        return true;
+      }
+      if (targetType === "pack-root") return true;
+    }
+
+    // 3) 팩 폴더 드래그 중
+    if (activeDragData.type === "pack-folder") {
+      if (targetType === "bag" || targetType === "bag-folder" || targetType === "bag-root") return false;
+      if (targetType === "pack-folder") {
+        if (activeDragData.id === targetId) return false;
+        const descendants = collectDescendantPackIds(treePacks, activeDragData.id);
+        if (descendants.includes(targetId!)) return false;
+        return true;
+      }
+      if (targetType === "pack-root") return true;
+    }
+
+    return false;
+  };
+
+  const handleDropOnTarget = async (
+    targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root",
+    targetId?: string
+  ) => {
+    setDropTargetKey(null);
+    if (!activeDragData) return;
+
+    // ★ 팩 ➡️ 가방 위 드롭 (가방에 팩 추가 - 팩보관함과 링크 연동)
+    if (activeDragData.type === "pack" && targetType === "bag" && targetId) {
+      const pack = treePacks.find((p) => p.id === activeDragData.id);
+      const targetBag = bags.find((b) => b.id === targetId);
+      if (pack && targetBag) {
+        if (targetBag.packs.length >= 10) {
+          show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+          setActiveDragData(null);
+          return;
+        }
+
+        const newPack: Pack = {
+          ...pack,
+          id: `pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          savedAsLibraryPack: true,
+          linkedLibraryPackId: pack.id,
+          linkedLibraryUpdatedAt: pack.updatedAt,
+          items: pack.items.map((i) => ({
+            ...i,
+            id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          })),
+        };
+        const updatedBag: Bag = {
+          ...targetBag,
+          packs: [...targetBag.packs, newPack],
+          updatedAt: new Date().toISOString(),
+        };
+        try {
+          await saveBagRemote(updatedBag);
+          show(`'${pack.name}' 팩을 '${targetBag.name}' 가방에 연동하여 담았어요`);
+        } catch (err) {
+          console.error("[팩인백] 팩 가방 추가 실패:", err);
+          show("팩을 가방에 담지 못했어요.");
+        }
+      }
+      setActiveDragData(null);
+      return;
+    }
+
+    // 가방 ➡️ 가방 폴더 / 최상위
+    if (activeDragData.type === "bag") {
+      if (targetType === "bag-folder" && targetId) {
+        moveBagToFolder(activeDragData.id, targetId).catch(() => {});
+      } else if (targetType === "bag-root") {
+        moveBagToFolder(activeDragData.id, undefined).catch(() => {});
+      }
+      setActiveDragData(null);
+      return;
+    }
+
+    // 가방 폴더 ➡️ 가방 폴더 / 최상위
+    if (activeDragData.type === "bag-folder") {
+      if (targetType === "bag-folder" && targetId) {
+        moveBagFolder(activeDragData.id, targetId).catch(() => {});
+      } else if (targetType === "bag-root") {
+        moveBagFolder(activeDragData.id, undefined).catch(() => {});
+      }
+      setActiveDragData(null);
+      return;
+    }
+
+    // 팩 / 팩 폴더 ➡️ 팩 폴더 / 최상위
+    if (activeDragData.type === "pack" || activeDragData.type === "pack-folder") {
+      const itemIds = [activeDragData.id];
+      if (targetType === "pack-folder" && targetId) {
+        onMovePackEntries(itemIds, targetId);
+      } else if (targetType === "pack-root") {
+        onMovePackEntries(itemIds, undefined);
+      }
+      setActiveDragData(null);
+      return;
+    }
+  };
+
   const treePacks = useMemo(() => libraryPacks.filter((p) => !p.isQuickPack), [libraryPacks]);
   const bagFolders = profile?.bagFolders ?? {};
   const bagFolderAssignments = profile?.bagFolderAssignments ?? {};
@@ -371,7 +525,27 @@ export default function DesktopSidebar({
             </button>
           </div>
         </div>
-        <div className="flex flex-col gap-0.5 mb-3">
+        <div
+          className="flex flex-col gap-0.5 mb-3 rounded-lg transition-colors p-1"
+          style={{
+            border: dropTargetKey === "bag-root" ? "2px dashed var(--accent)" : "2px solid transparent",
+            background: dropTargetKey === "bag-root" ? "var(--accent-soft)" : undefined,
+          }}
+          onDragOver={(e) => {
+            if (canDropOnTarget("bag-root")) {
+              e.preventDefault();
+              setDropTargetKey("bag-root");
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            if (dropTargetKey === "bag-root") setDropTargetKey(null);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleDropOnTarget("bag-root");
+          }}
+        >
           {q ? (
             // 검색 중에는 폴더 구조를 무시하고 이름이 맞는 가방만 평평하게 보여준다.
             filteredBags.length === 0 ? (
@@ -379,12 +553,35 @@ export default function DesktopSidebar({
             ) : (
               filteredBags.map((bag) => {
                 const isSelected = selection?.kind === "bag" && selection.bagId === bag.id && !selection.focusPackId;
+                const isDropTarget = dropTargetKey === `bag:${bag.id}`;
                 return (
                   <div
                     key={bag.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, "bag", bag.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => {
+                      if (canDropOnTarget("bag", bag.id)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropTargetKey(`bag:${bag.id}`);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      if (dropTargetKey === `bag:${bag.id}`) setDropTargetKey(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDropOnTarget("bag", bag.id);
+                    }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer"
-                    style={{ background: isSelected ? "var(--accent-soft)" : undefined }}
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                    style={{
+                      border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
+                      background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
+                    }}
                   >
                     <span className="w-[14px] shrink-0" />
                     <IconBackpack size={16} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
@@ -401,11 +598,35 @@ export default function DesktopSidebar({
                 const folder = row.folder;
                 const isExpanded = expandedBagFolderIds.has(folder.id);
                 const isRenaming = renamingFolderId === folder.id;
+                const isDropTarget = dropTargetKey === `bag-folder:${folder.id}`;
                 return (
                   <div
                     key={folder.id}
-                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer"
-                    style={{ paddingLeft: 8 + row.depth * 18 }}
+                    draggable={!isRenaming}
+                    onDragStart={(e) => handleDragStart(e, "bag-folder", folder.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => {
+                      if (canDropOnTarget("bag-folder", folder.id)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropTargetKey(`bag-folder:${folder.id}`);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      if (dropTargetKey === `bag-folder:${folder.id}`) setDropTargetKey(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDropOnTarget("bag-folder", folder.id);
+                    }}
+                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                    style={{
+                      paddingLeft: 8 + row.depth * 18,
+                      border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
+                      background: isDropTarget ? "var(--accent-soft)" : undefined,
+                    }}
                     onClick={() => !isRenaming && toggleBagFolderExpanded(folder.id)}
                   >
                     <IconChevronRight
@@ -451,13 +672,34 @@ export default function DesktopSidebar({
               const bag = row.bag;
               const isSelected = selection?.kind === "bag" && selection.bagId === bag.id && !selection.focusPackId;
               const isExpanded = expandedBagIds.has(bag.id);
+              const isDropTarget = dropTargetKey === `bag:${bag.id}`;
               return (
                 <div key={bag.id}>
                   <div
-                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, "bag", bag.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => {
+                      if (canDropOnTarget("bag", bag.id)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropTargetKey(`bag:${bag.id}`);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      if (dropTargetKey === `bag:${bag.id}`) setDropTargetKey(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDropOnTarget("bag", bag.id);
+                    }}
+                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
                     style={{
                       paddingLeft: 8 + row.depth * 18,
-                      background: isSelected ? "var(--accent-soft)" : undefined,
+                      border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
+                      background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
                     }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
                   >
@@ -539,7 +781,27 @@ export default function DesktopSidebar({
             </button>
           </div>
         </div>
-        <div className="flex flex-col gap-0.5">
+        <div
+          className="flex flex-col gap-0.5 rounded-lg transition-colors p-1"
+          style={{
+            border: dropTargetKey === "pack-root" ? "2px dashed var(--accent)" : "2px solid transparent",
+            background: dropTargetKey === "pack-root" ? "var(--accent-soft)" : undefined,
+          }}
+          onDragOver={(e) => {
+            if (canDropOnTarget("pack-root")) {
+              e.preventDefault();
+              setDropTargetKey("pack-root");
+            }
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            if (dropTargetKey === "pack-root") setDropTargetKey(null);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleDropOnTarget("pack-root");
+          }}
+        >
           {packRows.length === 0 ? (
             <p className="px-2 py-2 text-[12px] text-text-muted">아직 만든 팩이 없어요.</p>
           ) : (
@@ -547,17 +809,40 @@ export default function DesktopSidebar({
               const isFolder = entry.type === "folder";
               const isSelected = selection?.kind === "pack" && selection.packId === entry.id;
               const isRenaming = renamingPackId === entry.id;
+              const isDropTarget = dropTargetKey === `pack-folder:${entry.id}`;
               return (
                 <div
                   key={entry.id}
+                  draggable={!isRenaming}
+                  onDragStart={(e) => handleDragStart(e, isFolder ? "pack-folder" : "pack", entry.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => {
+                    if (isFolder && canDropOnTarget("pack-folder", entry.id)) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDropTargetKey(`pack-folder:${entry.id}`);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    if (dropTargetKey === `pack-folder:${entry.id}`) setDropTargetKey(null);
+                  }}
+                  onDrop={(e) => {
+                    if (isFolder) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDropOnTarget("pack-folder", entry.id);
+                    }
+                  }}
                   onClick={() =>
                     isRenaming ? undefined : isFolder ? togglePackExpanded(entry.id) : onSelect({ kind: "pack", packId: entry.id })
                   }
-                  className="group flex items-center gap-1.5 rounded-lg py-1.5 cursor-pointer"
+                  className="group flex items-center gap-1.5 rounded-lg py-1.5 cursor-pointer transition-all"
                   style={{
                     paddingLeft: 8 + depth * 18,
                     paddingRight: 8,
-                    background: isSelected ? "var(--accent-soft)" : undefined,
+                    border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
+                    background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
                   }}
                 >
                   {isFolder ? (

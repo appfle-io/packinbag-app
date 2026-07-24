@@ -364,10 +364,20 @@ export default function PackCard({
               {!quickAddType && (
                 <div className="flex items-center gap-3 ml-auto">
                   {pack.linkedLibraryPackId && (
-                    <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
+                    <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기" className="relative">
                       <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                        <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
+                        <IconRefresh
+                          size={18}
+                          stroke={!isSyncedWithLibrary ? 2.2 : 1.75}
+                          color={!isSyncedWithLibrary ? "var(--danger)" : "var(--text-secondary)"}
+                        />
                       </span>
+                      {!isSyncedWithLibrary && (
+                        <span
+                          className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full animate-pulse"
+                          style={{ background: "var(--danger)" }}
+                        />
+                      )}
                     </button>
                   )}
                   <button onClick={onSaveToLibrary} aria-label="팩 저장">
