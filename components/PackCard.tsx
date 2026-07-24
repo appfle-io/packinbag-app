@@ -262,8 +262,8 @@ export default function PackCard({
                     selecting
                       ? {
                           boxShadow: isSelected
-                            ? "0 0 0 2px var(--accent)"
-                            : "0 0 0 2px transparent",
+                            ? "inset 0 0 0 2px var(--accent)"
+                            : "inset 0 0 0 2px transparent",
                           borderRadius: 8,
                           background: isSelected ? "var(--accent-soft)" : undefined,
                         }

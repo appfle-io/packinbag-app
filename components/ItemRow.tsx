@@ -464,6 +464,15 @@ export default function ItemRow({
       swipedRef.current = false;
       return;
     }
+    // 마우스(웹)에서 롱프레스로 onStartDrag(다중선택 진입/그룹드래그 시작)가 이미
+    // 실행된 뒤에도, 손을 뗄 때 브라우저가 같은 엘리먼트에 click을 한 번 더 발생시킨다
+    // (터치와 달리 마우스는 롱프레스 후에도 click이 억제되지 않음). 이 click이 그대로
+    // onRowTap(선택 토글)으로 이어지면, 방금 롱프레스로 선택된 짐이 바로 다시 선택
+    // 해제되면서 다중선택 모드에 들어가자마자 풀려버리는 문제가 있었다.
+    if (longPressTriggered.current) {
+      longPressTriggered.current = false;
+      return;
+    }
     if (onRowTap) {
       const now = Date.now();
       if (now - lastTapTimeRef.current < RAPID_TAP_GUARD_MS) return;

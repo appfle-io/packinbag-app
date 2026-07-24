@@ -35,6 +35,7 @@ import BagNotice from "@/components/BagNotice";
 import type { BagNoticeHandle } from "@/components/BagNotice";
 import BagChatPreview from "@/components/BagChatPreview";
 import BagQuickAddRow from "@/components/BagQuickAddRow";
+import BagQuickAddBar from "@/components/BagQuickAddBar";
 import TravelDateField from "@/components/TravelDateField";
 import type { TravelDateFieldHandle } from "@/components/TravelDateField";
 import PackGrid from "@/components/PackGrid";
@@ -77,6 +78,7 @@ import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
 import { isPdfUrl } from "@/lib/fileUrlUtils";
 import { useSwipeBack } from "@/lib/useSwipeBack";
+import { isNativePlatform } from "@/lib/nativeAuth";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -651,20 +653,24 @@ export default function BagEditorScreen({
   // 10개 캡을 "+팩" 버튼의 disabled 속성뿐 아니라 함수 자체에도 걸어둔다 - 그래야
   // PackImportModal의 "새 팩 만들기"처럼 disabled 체크가 없는 다른 진입점에서
   // 호출해도 안전하다. 캡에 걸리면 조용히 무시하지 않고 이유를 알려준다.
-  const handleAddPack = (kind: "checklist" | "editor" = "checklist") => {
-    if (guardReadOnly()) return;
+  // 새로 만든 팩의 id를 동기적으로 돌려준다 - 하단 빠른입력바(BagQuickAddBar)의 "+ 새 팩"
+  // 칩이 만들자마자 그 팩을 바로 선택 상태로 넘겨받기 위해 필요하다(캡에 걸리면 null).
+  const handleAddPack = (kind: "checklist" | "editor" = "checklist"): string | null => {
+    if (guardReadOnly()) return null;
     if (bag.packs.length >= 10) {
       show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
-      return;
+      return null;
     }
+    const newPackId = uid();
     if (kind === "editor") {
       updatePacks((packs) => [
         ...packs,
-        { id: uid(), name: "새 메모", items: [], kind: "editor" },
+        { id: newPackId, name: "새 메모", items: [], kind: "editor" },
       ]);
-      return;
+      return newPackId;
     }
-    updatePacks((packs) => [...packs, { id: uid(), name: "새 팩", items: [] }]);
+    updatePacks((packs) => [...packs, { id: newPackId, name: "새 팩", items: [] }]);
+    return newPackId;
   };
 
   // 상단 "+팩" 버튼을 누르면 바로 만들지 않고 체크리스트/메모 중 고르는 작은 시트를 띄운다.
@@ -1536,8 +1542,15 @@ export default function BagEditorScreen({
       })()
     : null;
 
+  // 하단 빠른입력바(BagQuickAddBar)는 웹(브라우저)에서만 보여준다 - 네이티브 앱(Capacitor)은
+  // 이미 모바일 화면이라 여백이 좋거나 키보드가 그 위를 덮을 수도 있어 제외한다.
+  // 읽기전용(readOnly) 가방이나 다중선택 모드(selection) 중에도 잠시 숨긴다 - 특히
+  // 다중선택은 화면 맨 아래에 같은 자리에 선택개수/취소/삭제 액션바가 대신 띄리므로 겹치면 안 된다.
+  const showQuickAddBar = !readOnly && !selection && !isNativePlatform();
+  const quickAddPacks = bag.packs.filter((p) => p.kind !== "editor");
+
   return (
-    <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
+    <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden">
       <div className="relative flex items-center justify-between p-4 pb-2 shrink-0">
         <div className="flex items-center gap-6">
           <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
@@ -1606,7 +1619,10 @@ export default function BagEditorScreen({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div
+        className="flex-1 overflow-y-auto px-4 pb-6"
+        style={showQuickAddBar ? { paddingBottom: 140 } : undefined}
+      >
         {readOnly && (
           <button
             onClick={onRequestUnlock}
@@ -1971,6 +1987,14 @@ export default function BagEditorScreen({
       {/* 짐을 롱프레스로 들어올린 동안, 화면 상단에 모든 팩 이름을 칩으로 띄워둔다.
           화면 밖(스크롤해야 보이는) 팩으로도 스크롤 없이 바로 옮길 수 있게 하기 위함 -
           기존 [data-pack-drop-id] 드롭존 판정 로직(위 handleMove)을 그대로 재사용한다. */}
+      {showQuickAddBar && (
+        <BagQuickAddBar
+          packs={quickAddPacks}
+          onAddItem={(packId, data) => handleCreateItem(packId, data)}
+          onCreatePack={() => handleAddPack("checklist")}
+        />
+      )}
+
       {(drag || groupDrag) && (
         <div
           className="fixed inset-x-0 top-0 z-[94] px-3"
