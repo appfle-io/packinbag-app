@@ -1,5 +1,19 @@
 # 팩인백 기능 스펙 문서 (v73 기준)
 
+## 인프라 변경: 커스텀 도메인 전환 (2026-07-24)
+
+| 항목 | 내용 |
+|---|---|
+| **대표 도메인 구매** | `seeuson.com` (Namecheap에서 구매, WhoisGuard 프라이버시 적용) |
+| **서비스 서브도메인 연결** | `packinbag.seeuson.com` → Vercel packinbag 프로젝트에 연결 (CNAME 방식, `packinbag.vercel.app`은 계속 유효하게 살려둠) |
+| **capacitor.config.ts** | `server.url`을 `https://packinbag.vercel.app` → `https://packinbag.seeuson.com`으로 변경. **다음 Xcode 빌드 시 반영됨** (아직 iOS 빌드 안 함) |
+| **Firebase Authorized Domains** | `packinbag.seeuson.com` 추가 완료 |
+| **Google OAuth (Web client)** | Authorized JavaScript origins / Redirect URIs에 `https://packinbag.seeuson.com` 추가 완료 |
+| **Firebase Auth 이메일 커스텀 도메인** | `seeuson.com` 도메인으로 SPF/DKIM(TXT+CNAME 4개) 인증 완료 및 적용. 발신 주소가 `noreply@packinbag-f1983.firebaseapp.com` → **`noreply@seeuson.com`**으로 변경됨 |
+| **이메일 템플릿 언어** | Firebase Authentication → Templates 좌측 하단 "템플릿 언어"를 한국어로 변경 (개별 템플릿 문구를 일일이 번역해서 붙여넣을 필요 없이, 이 설정 하나로 기본 템플릿이 한국어로 전환됨) |
+| **참고 파일** | `packinbag_private_config.js` 맨 아래 참고용 배포 주소 메모도 새 도메인으로 갱신 |
+| **여러 앱 확장 계획** | `seeuson.com`을 여러 앱의 대표 도메인으로 쓰고, 앱마다 서브도메인(`앱이름.seeuson.com`)으로 구분할 예정. 이메일 발신 도메인은 앱별로 나누지 않고 `seeuson.com` 하나로 통일 |
+
 ## v73 변경 요약
 
 | 기능 | 상태 | 비고 |

@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
   appName: "팩인백",
   webDir: "public", // server.url을 쓰는 동안은 실제로 사용되지 않는 더미 폴더입니다.
   server: {
-    url: "https://packinbag.vercel.app",
+    url: "https://packinbag.seeuson.com",
     cleartext: false,
   },
   ios: {
