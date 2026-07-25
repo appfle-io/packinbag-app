@@ -65,7 +65,13 @@ import { isInSyncWithLibrary } from "@/lib/packSync";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { collectDescendantPackIds } from "@/lib/packsService";
-import { resolveCityInfo, fetchWeatherForCity, fetchAiTravelPlaces, WeatherInfo } from "@/lib/weatherService";
+import {
+  resolveCityInfo,
+  fetchWeatherForCity,
+  fetchAiTravelPlaces,
+  WeatherInfo,
+  TravelRecommendation,
+} from "@/lib/weatherService";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import {
@@ -84,6 +90,13 @@ import { isNativePlatform } from "@/lib/nativeAuth";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// AI 추천 카드에 붙이는 카테고리 배지 라벨.
+const RECOMMENDATION_CATEGORY_LABEL: Record<string, string> = {
+  attraction: "명소",
+  food: "맛집",
+  specialty: "특산물",
+};
 
 // PDF is not compressed like images (compressImageFile skips non-image files and returns
 // them as-is), so it can be uploaded at full size. Keep a size cap here to avoid huge files.
@@ -227,53 +240,62 @@ export default function BagEditorScreen({
 
   // 가방 제목에 포함된 도시 날씨 감지 및 추천 명소 상태
   const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
-  const [aiPlaces, setAiPlaces] = useState<{ text: string; icon: string }[] | null>(null);
+  const [aiPlaces, setAiPlaces] = useState<TravelRecommendation[] | null>(null);
   const [loadingAiPlaces, setLoadingAiPlaces] = useState(false);
+  // 응답이 뒤섞이는(레이스) 것을 막기 위해, 요청마다 순번을 매기고 가장 최신 요청의 응답만 반영한다.
+  const weatherRequestSeqRef = useRef(0);
+  const aiRequestSeqRef = useRef(0);
 
+  // 날씨/AI 추천은 프리미엄 전용 기능이라(무료회원은 가방 이름을 바꿔도 지오코딩/날씨 API조차 호출하지 않는다).
   useEffect(() => {
-    setAiPlaces(null);
+    if (!premium) {
+      setWeatherInfo(null);
+      return;
+    }
+    const seq = ++weatherRequestSeqRef.current;
     const timer = setTimeout(() => {
       resolveCityInfo(bag.name).then((cityMatch) => {
+        if (weatherRequestSeqRef.current !== seq) return; // 그 사이 더 최신 요청이 있으면 무시
         if (cityMatch) {
           fetchWeatherForCity(cityMatch.lat, cityMatch.lon, cityMatch.name).then((info) => {
+            if (weatherRequestSeqRef.current !== seq) return;
             setWeatherInfo(info);
           });
         } else {
           setWeatherInfo(null);
         }
       });
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [bag.name]);
+  }, [bag.name, premium]);
+
+  // AI 추천은 가방 제목 전체가 아니라 인식된 도시명(weatherInfo.city)에만 의존한다 - 제목을 조금 고쳤을
+  // 뿐(도시는 그대로)이면 재요청하지 않아 불필요한 Gemini 호출을 줄인다(서버의 도시명 캐시와 함께 이중으로 비용 방어).
+  const weatherCity = weatherInfo?.city ?? null;
 
   useEffect(() => {
-    if (!weatherInfo || !bag.aiWeatherMode || !user) {
+    if (!premium || !weatherCity || !user) {
       setAiPlaces(null);
       return;
     }
+    const seq = ++aiRequestSeqRef.current;
     setLoadingAiPlaces(true);
-    setAiPlaces(null);
     user.getIdToken().then((idToken) => {
       if (!idToken) {
-        setLoadingAiPlaces(false);
+        if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
         return;
       }
-      fetchAiTravelPlaces(bag.name, weatherInfo.city, idToken)
-        .then((places) => setAiPlaces(places))
-        .finally(() => setLoadingAiPlaces(false));
+      fetchAiTravelPlaces(weatherCity, idToken)
+        .then((places) => {
+          if (aiRequestSeqRef.current !== seq) return;
+          setAiPlaces(places);
+        })
+        .finally(() => {
+          if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
+        });
     });
-  }, [bag.aiWeatherMode, bag.name, weatherInfo, user]);
-
-  const handleToggleAiWeatherMode = () => {
-    if (guardReadOnly()) return;
-    if (!premium) {
-      onRequestUnlock();
-      return;
-    }
-    const nextMode = !bag.aiWeatherMode;
-    setBag((prev) => ({ ...prev, aiWeatherMode: nextMode }));
-    show(nextMode ? "AI 추천 여행지 모드를 켰어요! 🗺️" : "기본 날씨 모드로 변경했어요.");
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [premium, weatherCity, user]);
 
   const handleAddRecommendedItem = (itemText: string) => {
     if (guardReadOnly()) return;
@@ -1692,53 +1714,50 @@ export default function BagEditorScreen({
         className="flex-1 overflow-y-auto px-4 pb-6"
         style={showQuickAddBar ? { paddingBottom: 140 } : undefined}
       >
-        {weatherInfo && (
+        {/* 날씨+AI 추천은 프리미엄 전용 기능 - 무료회원은 카드 자체가 렌더링되지 않는다(weatherInfo가 항상 null). */}
+        {premium && weatherInfo && (
           <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex flex-col gap-2 shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary">
-                <span>📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
-                <span className="text-[12px] text-text-muted">
-                  ({weatherInfo.tempMin}°C ~ {weatherInfo.tempMax}°C)
-                </span>
-              </div>
-              <button
-                onClick={handleToggleAiWeatherMode}
-                className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11.5px] font-semibold transition-all shrink-0"
-                style={{
-                  background: bag.aiWeatherMode ? "var(--accent)" : "var(--surface)",
-                  color: bag.aiWeatherMode ? "#fff" : "var(--text-secondary)",
-                  borderColor: bag.aiWeatherMode ? "var(--accent)" : "var(--border)",
-                }}
-              >
-                <span>🗺️ AI 명소추천</span>
-                <span className="text-[10px] font-bold px-1 rounded bg-black/10">
-                  {bag.aiWeatherMode ? "ON" : "OFF"}
-                </span>
-              </button>
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary">
+              <span>📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
+              <span className="text-[12px] text-text-muted">
+                ({weatherInfo.tempMin}°C ~ {weatherInfo.tempMax}°C)
+              </span>
             </div>
 
-            {bag.aiWeatherMode && (
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pt-1 border-t border-accent/15">
-                <span className="text-[11.5px] font-medium text-text-muted shrink-0">🗺️ 추천 명소:</span>
-                {loadingAiPlaces ? (
-                  <span className="text-[11.5px] text-text-muted animate-pulse">
-                    AI가 {weatherInfo.city}의 인기 핫플 명소를 찾고 있어요...
-                  </span>
-                ) : (
-                  (aiPlaces || []).map((place, idx) => (
+            <div className="flex flex-col gap-1.5 pt-1 border-t border-accent/15">
+              <span className="text-[11.5px] font-medium text-text-muted">
+                🗺️ AI 추천 · 명소 / 맛집 / 특산물
+              </span>
+              {loadingAiPlaces ? (
+                <span className="text-[11.5px] text-text-muted animate-pulse">
+                  AI가 {weatherInfo.city}의 명소·맛집·특산물을 찾고 있어요...
+                </span>
+              ) : (aiPlaces || []).length === 0 ? (
+                <span className="text-[11.5px] text-text-muted">아직 추천을 불러오지 못했어요</span>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {(aiPlaces || []).map((place, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleAddRecommendedItem(`${place.icon} ${place.text}`)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface border border-border text-[12px] hover:border-accent hover:text-accent transition-all shrink-0 shadow-sm"
+                      className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg bg-surface border border-border text-left hover:border-accent transition-all"
                     >
-                      <span>{place.icon}</span>
-                      <span>{place.text}</span>
-                      <span className="text-[10px] text-accent font-bold pl-0.5">+ 추가</span>
+                      <span className="text-[15px] shrink-0 leading-5">{place.icon}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[12.5px] font-medium truncate">{place.text}</span>
+                          <span className="text-[9.5px] font-semibold px-1 py-0.5 rounded shrink-0" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>
+                            {RECOMMENDATION_CATEGORY_LABEL[place.category] ?? place.category}
+                          </span>
+                        </span>
+                        <span className="block text-[11px] text-text-muted truncate">{place.desc}</span>
+                      </span>
+                      <span className="text-[10px] text-accent font-bold shrink-0 pt-0.5">+ 추가</span>
                     </button>
-                  ))
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
         {readOnly && (

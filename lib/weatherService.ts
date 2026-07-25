@@ -21,7 +21,10 @@ export async function resolveCityInfo(text: string): Promise<{ lat: number; lon:
   if (clean.length < 2) return null;
 
   // 띄어쓰기 및 특수문자 기준 단어 추출 (2글자 이상)
-  const words = clean.split(/[\s,./_~!?()-]+/).filter((w) => w.length >= 2);
+  const words = clean
+    .split(/[\s,./_~!?()-]+/)
+    .filter((w) => w.length >= 2)
+    .sort((a, b) => b.length - a.length);
 
   for (const word of words) {
     try {
@@ -102,11 +105,21 @@ export async function fetchWeatherForCity(lat: number, lon: number, cityName: st
   }
 }
 
+export type TravelRecommendationCategory = "attraction" | "food" | "specialty";
+
+export interface TravelRecommendation {
+  category: TravelRecommendationCategory;
+  text: string;
+  desc: string;
+  icon: string;
+}
+
+// 도시명 기준으로만 추천을 받는다(가방 제목 전체가 아니라) - 서버(app/api/ai-travel-places)가
+// 도시명으로 캐시하기 때문에, 같은 도시면 가방 제목이 바뀌어도 같은 결과를 재사용할 수 있다.
 export async function fetchAiTravelPlaces(
-  bagName: string,
   cityName: string,
   idToken: string
-): Promise<{ text: string; icon: string }[]> {
+): Promise<TravelRecommendation[]> {
   try {
     const res = await fetch("/api/ai-travel-places", {
       method: "POST",
@@ -115,7 +128,6 @@ export async function fetchAiTravelPlaces(
         Authorization: `Bearer ${idToken}`,
       },
       body: JSON.stringify({
-        bagName,
         cityName,
       }),
     });
