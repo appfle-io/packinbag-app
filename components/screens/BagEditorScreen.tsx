@@ -1613,7 +1613,9 @@ export default function BagEditorScreen({
   // 모바일 웹 및 네이티브 앱(Capacitor)은 이미 모바일 화면이라 여백이 좁거나 키보드가 그 위를 덮을 수 있어 제외한다.
   // 읽기전용(readOnly) 가방이나 다중선택 모드(selection) 중에도 잠시 숨긴다 - 특히
   // 다중선택은 화면 맨 아래에 같은 자리에 선택개수/취소/삭제 액션바가 대신 띄우므로 겹치면 안 된다.
-  const showQuickAddBar = !readOnly && !selection && !isNativePlatform() && isDesktop;
+  // 메모패(editingNotePackId)이 열린 동안에도 바가 그대로 남아있던 버그 - 메모패 에디터가
+  // 이 화면 위에 풀스크린 오버레이로 띄는데, 바는 이 화면의 자식이라 따로 가려지지 않았다.
+  const showQuickAddBar = !readOnly && !selection && !isNativePlatform() && isDesktop && !editingNotePackId;
   const quickAddPacks = bag.packs.filter((p) => p.kind !== "editor");
 
   return (
