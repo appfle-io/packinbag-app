@@ -41,6 +41,9 @@ export default function BagCard({
   const ddayLabel = formatDDayLabel(bag.travelDate, bag.ddayCountTodayAsDayOne);
 
   return (
+    // 바깥 래퍼: 실제 화면에 보이진 않고, 그리드가 준 폭(칸 너비)을 컨테이너 쿼리로
+    // 안쪽 카드에 전달하는 역할만 한다. 높이는 안쪽 카드 높이에 맞춰 자동으로 정해진다.
+    <div className="[container-type:inline-size]">
     <div
       role="button"
       tabIndex={0}
@@ -48,7 +51,11 @@ export default function BagCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
-      className="relative aspect-square rounded-xl border border-border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer"
+      // 예전엔 aspect-square로 항상 정사각형 고정이었는데, 그러면 글씨를 줄였을 때 카드
+      // 안에 여백만 남는 문제가 있었다. 이제는 '가방 카드크기(가로폭)'을 최대 높이로만
+      // 쓰고(max-h-[100cqw] = 내 폭만큼), 내용이 적으면 카드가 그만큼 낮아지고, 내용이
+      // 많으면 이 최대 높이에서 세로 스크롤이 생기게 한다.
+      className="relative max-h-[100cqw] overflow-y-auto rounded-xl border border-border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer"
       style={{
         background: "var(--bag-card-bg)",
         opacity: isDragSource ? 0.4 : locked ? 0.6 : 1,
@@ -167,6 +174,7 @@ export default function BagCard({
         )}
         {totalLabel && <span className="font-medium">{totalLabel}</span>}
       </span>
+    </div>
     </div>
   );
 }

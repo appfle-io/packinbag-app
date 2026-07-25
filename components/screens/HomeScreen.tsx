@@ -42,6 +42,14 @@ const ARCHIVE_SUGGEST_DAYS_PAST = 7;
 // 겹칠 수 없는 문자열이라 안전하다.
 const UNFILED_KEY = "__unfiled__";
 
+// 가방보관함 필터(진행중/보관) - 앱을 마지막으로 봤던 것을 기억해둘 용도의 localStorage 키.
+// 홈스크린(모바일 전용 화면)에서만 쓰이므로 이 기능도 자연스럽게 모바일에만 적용된다.
+const BAG_FILTER_STORAGE_KEY = "packinbag:homeBagFilter";
+
+// 가방보관함 폴더 트리 선택(전체/폴더 없음/특정 폴더) 기억용 localStorage 키. 위 필터와 같이
+// HomeScreen(모바일 전용)에서만 쓰이므로 자연스럽게 모바일에만 적용된다.
+const SELECTED_FOLDER_STORAGE_KEY = "packinbag:homeSelectedFolder";
+
 interface FolderNavRow {
   folder: BagFolder;
   depth: number;
@@ -139,7 +147,11 @@ export default function HomeScreen({
   const bagFolders = profile?.bagFolders ?? {};
   const bagFolderAssignments = profile?.bagFolderAssignments ?? {};
   const [folderNavOpen, setFolderNavOpen] = useState(false);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(() => {
+    // 폴더 트리 선택도 위 필터와 같은 이유로 이 기기에만 남는 localStorage로 기억한다.
+    if (typeof window === "undefined") return undefined;
+    return window.localStorage.getItem(SELECTED_FOLDER_STORAGE_KEY) || undefined;
+  });
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [showMoveSheet, setShowMoveSheet] = useState(false);
@@ -158,6 +170,15 @@ export default function HomeScreen({
     }
   }, [selectedFolderId, bagFolders]);
 
+  // 다음 진입 시에도 마지막으로 본 폴더를 그대로 이어볼 수 있게 저장한다.
+  useEffect(() => {
+    if (selectedFolderId) {
+      window.localStorage.setItem(SELECTED_FOLDER_STORAGE_KEY, selectedFolderId);
+    } else {
+      window.localStorage.removeItem(SELECTED_FOLDER_STORAGE_KEY);
+    }
+  }, [selectedFolderId]);
+
   const folderNavRows = useMemo(
     () => buildFolderNavRows(bagFolders, bagFolderAssignments, bags),
     [bagFolders, bagFolderAssignments, bags]
@@ -169,7 +190,15 @@ export default function HomeScreen({
     ? "폴더 없음"
     : bagFolders[selectedFolderId]?.name ?? "전체";
 
-  const [bagFilter, setBagFilter] = useState<"active" | "archived">("active");
+  const [bagFilter, setBagFilter] = useState<"active" | "archived">(() => {
+    // 모바일에서만 쓰는 화면(HomeScreen)이라 이 저장은 자연스럽게 모바일 전용이다.
+    // 계정에 동기화하지 않고 이 기기(브라우저)에만 남는 값이라 localStorage를 쓴다.
+    if (typeof window === "undefined") return "active";
+    return window.localStorage.getItem(BAG_FILTER_STORAGE_KEY) === "archived" ? "archived" : "active";
+  });
+  useEffect(() => {
+    window.localStorage.setItem(BAG_FILTER_STORAGE_KEY, bagFilter);
+  }, [bagFilter]);
   const activeBagsAll = bags.filter((b) => !archivedSet.has(b.id));
   const archivedBagsAll = bags.filter((b) => archivedSet.has(b.id));
   const baseBags = bagFilter === "archived" ? archivedBagsAll : activeBagsAll;
