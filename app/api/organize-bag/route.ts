@@ -235,8 +235,10 @@ export async function POST(req: NextRequest) {
     // Gemini가 성공적으로 응답했고 JSON으로 파싱까지 됐을 때만 무료 사용자의
     // 오늘 사용 횟수를 실제로 차감한다.
     if (!quota.unlimited) {
-      const consumed = await consumeAiQuota(quota.uid);
-      quota.usedCount = consumed.usedCount;
+      // consumeAiQuota는 실제 반환값이 없다(성공하면 그냥 +1 증가시키는 부수효과만 있음).
+      // 응답에 실어보낼 최신 사용량은 여기서 로컬로 +1 해서 맞춘다.
+      await consumeAiQuota(quota.uid);
+      quota.usedCount += 1;
     }
 
     const result = sanitizeResult(parsed, validCount);

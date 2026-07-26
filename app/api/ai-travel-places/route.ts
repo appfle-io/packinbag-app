@@ -79,6 +79,11 @@ export async function POST(req: NextRequest) {
 
     const cityNameRaw = (body as { cityName?: unknown })?.cityName;
     const cityName = typeof cityNameRaw === "string" ? cityNameRaw.trim().slice(0, 30) : "";
+    // 클라이언트가 새로고침 버튼을 누르면 true로 보낸다 - 이때는 캐시가 있어도
+    // 무시하고 Gemini를 새로 불러서(매번 다른 추천이 나오도록) 결과를 만들고, 그 결과로
+    // 캐시도 덮어쓴다(이후 일반 진입은 TTL 동안 이 새 추천을 받게 됨).
+    const forceRaw = (body as { force?: unknown })?.force;
+    const force = forceRaw === true;
 
     if (!cityName) {
       return NextResponse.json({ places: [] });
@@ -88,7 +93,8 @@ export async function POST(req: NextRequest) {
     const db = adminDb();
 
     // 1. 캐시 확인 - 같은 도시면 Gemini 호출 없이 바로 반환 (비용 절감 + 응답 속도 개선)
-    if (db) {
+    // force이면 이 단계를 통째로 건넌뛰고 바로 Gemini를 호출한다.
+    if (db && !force) {
       try {
         const cacheSnap = await db.collection("aiPlacesCache").doc(cityKey).get();
         if (cacheSnap.exists) {
@@ -156,7 +162,9 @@ export async function POST(req: NextRequest) {
             },
             body: JSON.stringify({
               contents: [{ role: "user", parts: [{ text: promptText }] }],
-              generationConfig: { responseMimeType: "application/json" },
+              // temperature를 약간 올려서(기본값보다) 같은 도시라도 호출마다 조금씩 다른 추천이 나오게 한다
+              // (새로고침으로 force 호출했을 때 매번 또 같은 6개만 나오는 것을 방지).
+              generationConfig: { responseMimeType: "application/json", temperature: 1.1 },
             }),
           }
         );

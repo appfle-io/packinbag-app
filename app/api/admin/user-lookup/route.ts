@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { requireMasterUser, AdminForbiddenError, ServerAuthError } from "@/lib/adminApiAuth";
 import { Bag, Pack } from "@/lib/types";
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
 
     const userData = userSnap.data() ?? {};
 
-    const ownedBagIds = new Set(ownedBagsSnap.docs.map((d) => d.id));
+    const ownedBagIds = new Set(ownedBagsSnap.docs.map((d: QueryDocumentSnapshot) => d.id));
     const summarizeBag = (id: string, bag: Bag) => {
       const packs = (bag.packs ?? []).filter((p) => (p as Pack).type !== "folder");
       const itemCount = packs.reduce((sum, p) => sum + ((p as Pack).items?.length ?? 0), 0);
@@ -65,13 +66,13 @@ export async function GET(req: NextRequest) {
       };
     };
 
-    const ownedBags = ownedBagsSnap.docs.map((d) => summarizeBag(d.id, d.data() as Bag));
+    const ownedBags = ownedBagsSnap.docs.map((d: QueryDocumentSnapshot) => summarizeBag(d.id, d.data() as Bag));
     // memberBagsSnap에는 본인 소유 가방도 포함되어 있으니, 소유가 아닌 것만 "참여중인 가방"으로 분류
     const memberOfBags = memberBagsSnap.docs
-      .filter((d) => !ownedBagIds.has(d.id))
-      .map((d) => summarizeBag(d.id, d.data() as Bag));
+      .filter((d: QueryDocumentSnapshot) => !ownedBagIds.has(d.id))
+      .map((d: QueryDocumentSnapshot) => summarizeBag(d.id, d.data() as Bag));
 
-    const libraryPacks = libraryPacksSnap.docs.map((d) => {
+    const libraryPacks = libraryPacksSnap.docs.map((d: QueryDocumentSnapshot) => {
       const p = d.data() as Pack;
       return {
         id: d.id,

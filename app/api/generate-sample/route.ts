@@ -200,8 +200,10 @@ export async function POST(req: NextRequest) {
     // 무료 사용자의 오늘 사용 횟수를 실제로 차감한다. 503/429로 끝내 실패했거나
     // 파싱이 안 된 경우는 위에서 이미 return 되어 여기 도달하지 않는다.
     if (!quota.unlimited) {
-      const consumed = await consumeAiQuota(quota.uid);
-      quota.usedCount = consumed.usedCount;
+      // consumeAiQuota는 실제 반환값이 없다(성공하면 그냥 +1 증가시키는 부수효과만 있음).
+      // 응답에 실어보낼 최신 사용량은 여기서 로컬로 +1 해서 맞춘다.
+      await consumeAiQuota(quota.uid);
+      quota.usedCount += 1;
     }
 
     const result = sanitizeResult(parsed);

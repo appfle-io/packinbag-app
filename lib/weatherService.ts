@@ -118,7 +118,8 @@ export interface TravelRecommendation {
 // 도시명으로 캐시하기 때문에, 같은 도시면 가방 제목이 바뀌어도 같은 결과를 재사용할 수 있다.
 export async function fetchAiTravelPlaces(
   cityName: string,
-  idToken: string
+  idToken: string,
+  options?: { force?: boolean }
 ): Promise<TravelRecommendation[]> {
   try {
     const res = await fetch("/api/ai-travel-places", {
@@ -129,6 +130,7 @@ export async function fetchAiTravelPlaces(
       },
       body: JSON.stringify({
         cityName,
+        force: !!options?.force,
       }),
     });
     if (!res.ok) return [];

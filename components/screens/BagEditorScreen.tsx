@@ -27,6 +27,7 @@ import {
   IconSquare,
   IconArrowBackUp,
   IconArrowForwardUp,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -97,6 +98,11 @@ const RECOMMENDATION_CATEGORY_LABEL: Record<string, string> = {
   food: "맛집",
   specialty: "특산물",
 };
+
+// 도시별 AI 추천 결과 클라이언트 캐시. 컴포넌트 state가 아니라 모듈 스코프에 둬서,
+// 가방 화면을 나갔다 다시 들어와도(리마운트돼도) 캐시가 살아있어 재호출하지 않는다.
+// 브라우저를 새로고침하면(모듈이 다시 초기화되므로) 자연스럽게 비워져서 다시 호출된다.
+const aiPlacesClientCache = new Map<string, TravelRecommendation[]>();
 
 // PDF is not compressed like images (compressImageFile skips non-image files and returns
 // them as-is), so it can be uploaded at full size. Keep a size cap here to avoid huge files.
@@ -278,6 +284,14 @@ export default function BagEditorScreen({
       setAiPlaces(null);
       return;
     }
+    // 이미 같은 도시로 받아둔 캐시가 있으면(같은 가방을 나갔다 들어왔거나 다른 가방에서
+    // 같은 도시로 재진입) 바로 그걸 쓰고 다시 호출하지 않는다. 새로고침 버튼
+    // (handleRefreshAiPlaces)을 눌렀을 때만 이 캐시를 무시하고 새로 요청한다.
+    const cached = aiPlacesClientCache.get(weatherCity);
+    if (cached) {
+      setAiPlaces(cached);
+      return;
+    }
     const seq = ++aiRequestSeqRef.current;
     setLoadingAiPlaces(true);
     user.getIdToken().then((idToken) => {
@@ -289,6 +303,7 @@ export default function BagEditorScreen({
         .then((places) => {
           if (aiRequestSeqRef.current !== seq) return;
           setAiPlaces(places);
+          if (places.length > 0) aiPlacesClientCache.set(weatherCity, places);
         })
         .finally(() => {
           if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
@@ -297,9 +312,32 @@ export default function BagEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [premium, weatherCity, user]);
 
+  // 새로고침 버튼 전용 - 클라이언트 캐시뿐만 아니라 서버 쪽 도시 캐시도 force 플래그로 건너뛰고
+  // Gemini를 새로 불러서(app/api/ai-travel-places의 force 처리 + temperature 상향) 매번 다른 추천이 나오게 한다.
+  const handleRefreshAiPlaces = () => {
+    if (!weatherCity || !user || loadingAiPlaces) return;
+    const seq = ++aiRequestSeqRef.current;
+    setLoadingAiPlaces(true);
+    user.getIdToken().then((idToken) => {
+      if (!idToken) {
+        if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
+        return;
+      }
+      fetchAiTravelPlaces(weatherCity, idToken, { force: true })
+        .then((places) => {
+          if (aiRequestSeqRef.current !== seq) return;
+          setAiPlaces(places);
+          if (places.length > 0) aiPlacesClientCache.set(weatherCity, places);
+        })
+        .finally(() => {
+          if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
+        });
+    });
+  };
+
   const handleAddRecommendedItem = (itemText: string) => {
     if (guardReadOnly()) return;
-    let targetPackId = bag.packs[0]?.id;
+    let targetPackId: string | undefined = bag.packs[0]?.id;
     if (!targetPackId) {
       targetPackId = handleAddPack("checklist") ?? undefined;
     }
@@ -1730,9 +1768,19 @@ export default function BagEditorScreen({
             </div>
 
             <div className="flex flex-col gap-1.5 pt-1 border-t border-accent/15">
-              <span className="text-[11.5px] font-medium text-text-muted">
-                🗺️ AI 추천 · 명소 / 맛집 / 특산물
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px] font-medium text-text-muted">
+                  🗺️ AI 추천 · 명소 / 맛집 / 특산물
+                </span>
+                <button
+                  onClick={handleRefreshAiPlaces}
+                  disabled={loadingAiPlaces}
+                  aria-label="AI 추천 새로고침"
+                  className="-m-1.5 p-1.5 disabled:opacity-30"
+                >
+                  <IconRefresh size={14} stroke={1.75} className={loadingAiPlaces ? "animate-spin" : undefined} color="var(--text-secondary)" />
+                </button>
+              </div>
               {loadingAiPlaces ? (
                 <span className="text-[11.5px] text-text-muted animate-pulse">
                   AI가 {weatherInfo.city}의 명소·맛집·특산물을 찾고 있어요...

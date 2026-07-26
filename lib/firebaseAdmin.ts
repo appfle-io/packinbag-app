@@ -2,8 +2,8 @@
 // 인증하기 때문에, 클라이언트가 우회할 수 없는 진짜 서버 권한으로 Firestore/Auth에 접근한다.
 
 import { cert, getApps, initializeApp } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getAuth, Auth } from "firebase-admin/auth";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
 
 export function adminApp() {
   const apps = getApps();
@@ -37,14 +37,14 @@ export function adminApp() {
   }
 }
 
-export function adminAuth(): any {
+export function adminAuth(): Auth {
   const app = adminApp();
-  if (!app) return null;
+  if (!app) return null as unknown as Auth;
   return getAuth(app);
 }
 
-export function adminDb(): any {
+export function adminDb(): Firestore {
   const app = adminApp();
-  if (!app) return null;
+  if (!app) return null as unknown as Firestore;
   return getFirestore(app);
 }
