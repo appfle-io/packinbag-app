@@ -11,6 +11,7 @@ import {
   IconRefresh,
   IconUserMinus,
   IconCrown,
+  IconArrowsExchange,
 } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import Avatar from "@/components/Avatar";
@@ -24,6 +25,7 @@ export default function GroupMembersModal({
   onLeave,
   onRemoveMember,
   onRegenerateCode,
+  onTransferOwnership,
 }: {
   bag: Bag;
   currentUid: string;
@@ -31,12 +33,15 @@ export default function GroupMembersModal({
   onLeave: () => Promise<void> | void;
   onRemoveMember: (uid: string) => Promise<void> | void;
   onRegenerateCode: () => Promise<void> | void;
+  onTransferOwnership: (targetUid: string) => Promise<void> | void;
 }) {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmTransferUid, setConfirmTransferUid] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const { show } = useToast();
 
@@ -73,6 +78,21 @@ export default function GroupMembersModal({
     } catch {
       // 실패 토스트는 상위(AppShell)에서 이미 표시됨
       setLeaving(false);
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!confirmTransferUid) return;
+    const targetUid = confirmTransferUid;
+    setConfirmTransferUid(null);
+    setTransferring(true);
+    try {
+      await onTransferOwnership(targetUid);
+      show("그룹장을 넘겼어요");
+    } catch {
+      // 실패 토스트는 상위(AppShell)에서 이미 표시됨
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -119,6 +139,17 @@ export default function GroupMembersModal({
                     )}
                   </p>
                 </div>
+                {isOwner && uid !== currentUid && (
+                  <button
+                    onClick={() => setConfirmTransferUid(uid)}
+                    disabled={transferring}
+                    aria-label="그룹장 위임"
+                    className="p-1.5 disabled:opacity-40"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    <IconArrowsExchange size={16} stroke={1.75} />
+                  </button>
+                )}
                 {isOwner && uid !== currentUid && (
                   <button
                     onClick={() => setConfirmRemoveUid(uid)}
@@ -219,6 +250,19 @@ export default function GroupMembersModal({
             confirmLabel="나가기"
             onCancel={() => setConfirmLeave(false)}
             onConfirm={handleLeave}
+          />
+        )}
+
+        {confirmTransferUid && (
+          <ConfirmDialog
+            title="그룹장을 넘길까요?"
+            message={`${
+              bag.memberProfiles?.[confirmTransferUid]?.nickname ?? "이 사람"
+            }이(가) 새 그룹장이 되고, 나는 일반 그룹원이 돼요. 삭제/멤버 관리 권한도 함께 넘어가요.`}
+            confirmLabel="위임"
+            tone="accent"
+            onCancel={() => setConfirmTransferUid(null)}
+            onConfirm={handleTransfer}
           />
         )}
       </div>

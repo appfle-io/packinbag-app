@@ -15,6 +15,7 @@ import {
   leaveBagRemote,
   removeMemberRemote,
   regenerateInviteCodeRemote,
+  transferBagOwnershipRemote,
   updateMemberProfileSnapshot,
 } from "@/lib/bagsService";
 import {
@@ -662,6 +663,16 @@ export default function AppShell() {
     }
   };
 
+  const handleTransferOwnership = async (bagId: string, targetUid: string) => {
+    try {
+      await transferBagOwnershipRemote(user, bagId, targetUid);
+    } catch (err) {
+      console.error("[팩인백] 그룹장 위임 실패:", err);
+      show(`그룹장 위임에 실패했어요 (${firebaseErrorCode(err)})`);
+      throw err;
+    }
+  };
+
   const handleJoinBag = async (code: string) => {
     try {
       await joinBagByCode(user.uid, code, {
@@ -913,6 +924,7 @@ export default function AppShell() {
         onLeaveBag={handleLeaveBag}
         onRemoveMember={handleRemoveMember}
         onRegenerateInviteCode={handleRegenerateInviteCode}
+        onTransferOwnership={handleTransferOwnership}
         onAddItemsToBagPack={handleAddItemsToBagPack}
         onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
         onNewPack={openNewPack}
@@ -1136,6 +1148,7 @@ export default function AppShell() {
                 onLeaveBag={handleLeaveBag}
                 onRemoveMember={handleRemoveMember}
                 onRegenerateInviteCode={handleRegenerateInviteCode}
+                onTransferOwnership={handleTransferOwnership}
                 focusTarget={bagFocus}
                 onFocusHandled={() => setBagFocus(null)}
               />

@@ -188,15 +188,15 @@ service cloud.firestore {
       // 초대코드로 참여하는 것은 여전히 클라이언트가 직접 한다.
       allow create: if false;
 
-      // 이미 멤버인 사람의 일반 수정(멤버 목록을 줄이는 탈퇴 포함, memberIds 추가는 불가).
-      // 가방이 locked:true이고 지금 수정하는 사람이 이 가방의 소유자(ownerId)라면 거부된다 -
-      // 다른 그룹원이 수정하는 건 locked 여부와 무관하게 계속 허용된다. trashedByOwnerAt은
-      // 여기서 절대 건드릴 수 없다(휴지통 보내기/복구는 아래 별도 규칙에서만 다룬다) -
-      // 안 그러면 소유자가 아닌 멤버도 가방을 휴지통으로 보낼 수 있게 되어버린다.
+      // 이미 멤버인 사람의 일반 수정(멤버 목록을 줄이는 탈퇴 포함, memberIds 추가는 불가). 가방이 locked:true이고 지금 수정하는 사람이 이 가방의 소유자(ownerId)라면 거부된다 -
+      // 다른 그룹원이 수정하는 건 locked 여부와 무관하게 계속 허용된다. trashedByOwnerAt과 ownerId는
+      // 여기서 절대 건드릴 수 없다 - 휴지통 보내기/복구는 아래 별도 규칙에서만 다루고, 그룹장 위임은
+      // app/api/transfer-bag-ownership(Admin SDK)만 할 수 있다 - 안 그러면 소유자가 아닌 멤버도 이 일반
+      // 수정 규칙을 타고 ownerId를 임의로 바꿀 수 있게 되어버린다.
       allow update: if request.auth != null &&
         request.auth.uid in resource.data.memberIds &&
         !(request.auth.uid == resource.data.ownerId && resource.data.get('locked', false) == true) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedByOwnerAt']) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedByOwnerAt', 'ownerId']) &&
         (
           request.resource.data.memberIds.size() <= resource.data.memberIds.size() ||
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds'])

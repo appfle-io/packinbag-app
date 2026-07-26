@@ -232,3 +232,26 @@ export async function regenerateInviteCodeRemote(user: User, bag: Bag): Promise<
   }
   return data.inviteCode as string;
 }
+
+// 그룹장(소유자) 위임. ownerId를 바꾸는 건 firestore.rules로 안전하게 클라이언트에 열어주기
+// 까다로워서(누가 "지금 소유자"인지, 대상이 진짜 멤버인지 등 검증이 필요) 반드시
+// app/api/transfer-bag-ownership(Admin SDK)을 거친다.
+export async function transferBagOwnershipRemote(
+  user: User,
+  bagId: string,
+  targetUid: string
+): Promise<void> {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/transfer-bag-ownership", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bagId, targetUid }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data?.error as string | undefined) ?? "그룹장 위임에 실패했어요");
+  }
+}

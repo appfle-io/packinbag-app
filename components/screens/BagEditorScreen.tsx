@@ -125,6 +125,7 @@ export default function BagEditorScreen({
   onLeaveBag,
   onRemoveMember,
   onRegenerateInviteCode,
+  onTransferOwnership,
   focusTarget,
   onFocusHandled,
 }: {
@@ -148,6 +149,7 @@ export default function BagEditorScreen({
   onLeaveBag: (bagId: string) => Promise<void>;
   onRemoveMember: (bagId: string, memberUid: string) => Promise<void>;
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
+  onTransferOwnership: (bagId: string, targetUid: string) => Promise<void>;
   // 검색 결과를 눌러서 들어왔을 때만 넘어온다. 있으면 그 팩(+짐)까지 자동 스크롤하고
   // 잠깐 하이라이트한다 (AppShell이 HomeScreen 검색 결과 클릭을 중계).
   focusTarget?: { packId?: string; itemId?: string } | null;
@@ -248,6 +250,7 @@ export default function BagEditorScreen({
   const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
   const [aiPlaces, setAiPlaces] = useState<TravelRecommendation[] | null>(null);
   const [loadingAiPlaces, setLoadingAiPlaces] = useState(false);
+  const [aiPlacesCollapsed, setAiPlacesCollapsed] = useState(true);
   // 응답이 뒤섞이는(레이스) 것을 막기 위해, 요청마다 순번을 매기고 가장 최신 요청의 응답만 반영한다.
   const weatherRequestSeqRef = useRef(0);
   const aiRequestSeqRef = useRef(0);
@@ -388,6 +391,12 @@ export default function BagEditorScreen({
     if (guardReadOnly()) return;
     const newCode = await onRegenerateInviteCode(bag);
     setBag((prev) => ({ ...prev, inviteCode: newCode }));
+  };
+
+  const handleTransferOwnership = async (targetUid: string) => {
+    if (guardReadOnly()) return;
+    await onTransferOwnership(bag.id, targetUid);
+    setBag((prev) => ({ ...prev, ownerId: targetUid }));
   };
 
   const handleChangeTravelDate = (
@@ -1768,20 +1777,33 @@ export default function BagEditorScreen({
             </div>
 
             <div className="flex flex-col gap-1.5 pt-1 border-t border-accent/15">
-              <div className="flex items-center justify-between">
+              <div
+                onClick={() => setAiPlacesCollapsed((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 -mx-1 px-1 py-1.5 rounded-lg cursor-pointer select-none"
+              >
                 <span className="text-[11.5px] font-medium text-text-muted">
                   🗺️ AI 추천 · 명소 / 맛집 / 특산물
                 </span>
-                <button
-                  onClick={handleRefreshAiPlaces}
-                  disabled={loadingAiPlaces}
-                  aria-label="AI 추천 새로고침"
-                  className="-m-1.5 p-1.5 disabled:opacity-30"
-                >
-                  <IconRefresh size={14} stroke={1.75} className={loadingAiPlaces ? "animate-spin" : undefined} color="var(--text-secondary)" />
-                </button>
+                <span className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRefreshAiPlaces();
+                    }}
+                    disabled={loadingAiPlaces}
+                    aria-label="AI 추천 새로고침"
+                    className="-m-1.5 p-1.5 disabled:opacity-30"
+                  >
+                    <IconRefresh size={14} stroke={1.75} className={loadingAiPlaces ? "animate-spin" : undefined} color="var(--text-secondary)" />
+                  </button>
+                  {aiPlacesCollapsed ? (
+                    <IconChevronDown size={15} stroke={1.75} color="var(--text-secondary)" />
+                  ) : (
+                    <IconChevronRight size={15} stroke={1.75} color="var(--text-secondary)" />
+                  )}
+                </span>
               </div>
-              {loadingAiPlaces ? (
+              {aiPlacesCollapsed ? null : loadingAiPlaces ? (
                 <span className="text-[11.5px] text-text-muted animate-pulse">
                   AI가 {weatherInfo.city}의 명소·맛집·특산물을 찾고 있어요...
                 </span>
@@ -2487,6 +2509,7 @@ export default function BagEditorScreen({
           onLeave={handleLeave}
           onRemoveMember={handleRemoveMember}
           onRegenerateCode={handleRegenerateCode}
+          onTransferOwnership={handleTransferOwnership}
         />
       )}
 

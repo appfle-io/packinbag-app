@@ -32,6 +32,7 @@ export default function DesktopShell({
   onLeaveBag,
   onRemoveMember,
   onRegenerateInviteCode,
+  onTransferOwnership,
   onAddItemsToBagPack,
   onRemoveItemsFromBagPack,
   onNewPack,
@@ -71,6 +72,7 @@ export default function DesktopShell({
   onLeaveBag: (bagId: string) => Promise<void>;
   onRemoveMember: (bagId: string, memberUid: string) => Promise<void>;
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
+  onTransferOwnership: (bagId: string, targetUid: string) => Promise<void>;
   onAddItemsToBagPack: (bagId: string, packId: string, items: Item[]) => void;
   onRemoveItemsFromBagPack: (bagId: string, packId: string, itemIds: Set<string>) => void;
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
@@ -179,6 +181,7 @@ export default function DesktopShell({
             onLeaveBag={onLeaveBag}
             onRemoveMember={onRemoveMember}
             onRegenerateInviteCode={onRegenerateInviteCode}
+            onTransferOwnership={onTransferOwnership}
             focusTarget={selection.focusPackId ? { packId: selection.focusPackId } : null}
             onFocusHandled={() => {}}
           />
