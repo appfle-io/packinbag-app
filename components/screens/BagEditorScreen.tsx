@@ -1643,31 +1643,36 @@ export default function BagEditorScreen({
   return (
     <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden">
       <div className="relative flex items-center justify-between p-4 pb-2 shrink-0">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
             <IconArrowLeft size={22} stroke={1.75} />
           </button>
+          {/* 예전엔 이 되돌리기/다시하기 묶음을 헤더 정중앙에 절대좌표(absolute)로 띄웠는데,
+              화면이 좁은 모바일에서 오른쪽 아이콘 그룹(그룹원 관리 등) 중 가장 왼쪽
+              아이콘과 클릭 영역이 겹쳐서 탭이 씹히는 버그가 있었다(레이아웃 흐름
+              밖이라 flex 정렬에는 안 잡히지만 클릭은 그대로 가로챔). 뒤로가기 옆
+              일반 flex 흐름으로 옮겨서 겹칠 여지 자체를 없앤다. */}
+          {!readOnly && (historyLen > 0 || redoLen > 0) && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleUndo}
+                disabled={historyLen === 0}
+                className="-m-2.5 p-2.5 disabled:opacity-30"
+                aria-label="undo"
+              >
+                <IconArrowBackUp size={20} stroke={1.75} color="var(--text-secondary)" />
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={redoLen === 0}
+                className="-m-2.5 p-2.5 disabled:opacity-30"
+                aria-label="redo"
+              >
+                <IconArrowForwardUp size={20} stroke={1.75} color="var(--text-secondary)" />
+              </button>
+            </div>
+          )}
         </div>
-        {!readOnly && (historyLen > 0 || redoLen > 0) && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
-            <button
-              onClick={handleUndo}
-              disabled={historyLen === 0}
-              className="-m-2.5 p-2.5 disabled:opacity-30"
-              aria-label="undo"
-            >
-              <IconArrowBackUp size={20} stroke={1.75} color="var(--text-secondary)" />
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={redoLen === 0}
-              className="-m-2.5 p-2.5 disabled:opacity-30"
-              aria-label="redo"
-            >
-              <IconArrowForwardUp size={20} stroke={1.75} color="var(--text-secondary)" />
-            </button>
-          </div>
-        )}
         <div className="flex items-center gap-2">
           {!isNew && (
             <>
