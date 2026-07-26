@@ -9,6 +9,12 @@ export interface WeatherInfo {
   recommendations: { text: string; icon: string }[];
 }
 
+// 라틴 알파벳만으로 이루어진 단어인지 확인. app/api/geocode/route.ts와 동일한 기준 -
+// 실제 짧은 영문 지명(Nice, Bath 등)은 대부분 4글자 이상이라, 그보다 짧은 영문 단어는
+// 이니셜/약어/상태라벨(DO, ING, AI, DB 등)일 확률이 훨씬 높다. 한글 등 다른 스크립트는
+// "부산", "제주"처럼 2글자 지명이 흔해서 기존 기준(2글자)을 그대로 유지한다.
+const isPureAsciiWord = (s: string) => /^[A-Za-z]+$/.test(s);
+
 /**
  * 100% 하드코딩 0개 지오코딩 서비스
  * 서버 전용 /api/geocode (Google Geocoding & Nominatim)를 호출하여
@@ -20,10 +26,12 @@ export async function resolveCityInfo(text: string): Promise<{ lat: number; lon:
   const clean = text.trim();
   if (clean.length < 2) return null;
 
-  // 띄어쓰기 및 특수문자 기준 단어 추출 (2글자 이상)
+  // 띄어쓰기 및 특수문자 기준 단어 추출. 영문 단어는 4글자 이상, 그 외(한글 등)는
+  // 2글자 이상만 지오코딩 후보로 인정한다(2026-07: "DO" 같은 칸반 상태라벨이 실제
+  // 지명과 우연히 매칭되는 오탐 방지).
   const words = clean
     .split(/[\s,./_~!?()-]+/)
-    .filter((w) => w.length >= 2)
+    .filter((w) => (isPureAsciiWord(w) ? w.length >= 4 : w.length >= 2))
     .sort((a, b) => b.length - a.length);
 
   for (const word of words) {
