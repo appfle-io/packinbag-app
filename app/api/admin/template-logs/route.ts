@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { isMasterEmail } from "@/lib/masterEmails";
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       .limit(100)
       .get();
 
-    const logs = snapshot.docs.map((d) => ({
+    const logs = snapshot.docs.map((d: QueryDocumentSnapshot) => ({
       id: d.id,
       ...d.data(),
     }));
