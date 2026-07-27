@@ -37,10 +37,10 @@ export function getNoteEditorExtensions(placeholder?: string) {
     Underline,
     // 링크 마크. openOnClick은 false로 둘 - TipTap 기본 동작은 편집 중에도 클릭하면
     // 바로 탐색해버려서 커서를 원하는 위치에 놓기 어려울 수 있음. 대신
-    // PackNoteEditorScreen.tsx가 <a> 태그 클릭을 직접 감지해서 openExternalLink()로 열어준다.
-    // autolink/linkOnPaste는 켜둘 - 타이핑이나 짧은 URL 붙여넣기는 TipTap이 자동으로
-    // 링크로 만들어주고(직접 축약 대상(30자 이상)은 PackNoteEditorScreen의 handlePaste가
-    // 따로 가로채서 자체 짧은 링크로 교체한다).
+    // PackNoteEditorScreen.tsx가 <a> 태그 클릭을 직접 감지해서 열기/짧은 URL로 변경 선택
+    // 시트를 띄우거나 바로 openExternalLink()로 연다. autolink/linkOnPaste는 켜둘 -
+    // 타이핑이나 URL 붙여넣기는 TipTap이 자동으로 링크로 만들어준다(축약은 붙여넣기
+    // 시점이 아니라 링크를 탭했을 때 사용자가 직접 선택해야만 일어난다).
     Link.configure({
       openOnClick: false,
       autolink: true,

@@ -1,3 +1,15 @@
+# 팩인백 기능 스펙 문서 (v78 기준)
+
+## v78 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **붙여넣기 즉시 자동 축약 폐지 → 링크 탭해서 선택하는 방식으로 전환** | 🔄 v78 변경 | 짐/메모/메모팩에 URL을 붙여넣으면 바로 축약되던 기능(v74~v77)을 제거하고, 대신 기존 링크를 탭/클릭했을 때 "링크 열기" / "짧은 URL로 변경" 둘 중 고르는 선택 시트로 바꾸다. 프리미엄+토글 ON이 아니거나 이미 축약된(/s/{code}) 링크면 선택지 없이 바로 열린다. 붙여넣기(onPaste) 가로채기 코드는 `ItemRow`/`ItemFormModal`/`BagNotice`/`PackNoteEditorScreen`(TipTap handlePaste 포함) 모두에서 제거됨 |
+| **`LinkActionMenu` 신규 (공통 선택 시트)** | 🆕 v78 신규 | `components/LinkActionMenu.tsx` — Portal 기반 바텀시트, "링크 열기"/"짧은 URL로 변경" 두 버튼을 항상 함께 보여준다(호출하는 쪽이 축약 가능할 때만 열어서). `ItemRow`의 짐 텍스트(LinkifiedText), `BagNotice`의 가방 메모(LinkifiedText), `PackNoteEditorScreen`의 메모팩 링크 클릭 세 곳에서 공통으로 재사용 |
+| **`LinkifiedText` 개편: 단순 표시용 → 상태/동작 보유** | 🔄 v78 변경 | 링크를 누르면 바로 열리던 것을, `user`/`shortenEnabled`/`onReplace` prop을 받아 내부에서 `LinkActionMenu` 열기여부를 직접 판단하고, "짧은 URL로 변경" 선택 시 `createShortLink` 호출 후 `onReplace(원본, 짧은URL)`로 부모의 저장 로직(`onChangeText`/`onChange`)까지 연결되도록 바꾸다. `ItemRow`/`BagNotice`에서 해당 콜백 연결 추가됨 |
+| **`lib/shortLinkService.ts` 정리** | 🔄 v78 변경 | 더 이상 쓰이지 않는 `shouldShortenPastedText`/`handleShortenablePaste`(붙여넣기 가로채기용) 제거. 대신 `isAlreadyShortLink(url)` 신규 추가 — 자체 짧은 URL(/s/{code})인지 판단해서 이미 축약된 링크는 선택 시트 없이 바로 열리게 한다(무한 축약 방지) |
+| **`PackNoteEditorScreen.tsx`의 직접 붙여넣기 가로채기(handlePaste)/editorRef 제거** | 🗑️ v78 정리 | 더 이상 붙여넣기 시점에 개입하지 않으므로 비동기 교체용 ref가 필요 없어졌다 - 링크 클릭 시 즉석에서(동기) `editor` 변수를 그대로 쓰게 단순화됨. TipTap Link 확장(autolink/linkOnPaste)은 그대로 유지되어 타이핑/붙여넣기로 생긴 URL은 여전히 TipTap이 자동 링크 마크로 만들어준다 |
+
 # 팩인백 기능 스펙 문서 (v77 기준)
 
 ## v77 변경 요약

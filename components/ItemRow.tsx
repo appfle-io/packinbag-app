@@ -5,7 +5,7 @@ import { IconBold, IconMessageCircle2, IconStrikethrough } from "@tabler/icons-r
 import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
-import { handleShortenablePaste, isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
+import { isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
 import LinkifiedText from "./LinkifiedText";
 // import ReactionPillRow from "./ReactionPillRow";
 
@@ -603,19 +603,6 @@ export default function ItemRow({
                   onChange={(e) => setDraft(e.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={(e) => e.key === "Enter" && commitEdit()}
-                  onPaste={(e) => {
-                    const handled = handleShortenablePaste({
-                      clipboardText: e.clipboardData.getData("text"),
-                      currentValue: draft,
-                      selectionStart: e.currentTarget.selectionStart ?? draft.length,
-                      selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
-                      user,
-                      enabled: shortUrlFeatureEnabled,
-                      setValue: setDraft,
-                      onShortened: () => showToast("링크를 짧게 줄였어요"),
-                    });
-                    if (handled) e.preventDefault();
-                  }}
                   placeholder="텍스트 입력"
                   className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
                   style={{
@@ -687,19 +674,6 @@ export default function ItemRow({
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
-                onPaste={(e) => {
-                  const handled = handleShortenablePaste({
-                    clipboardText: e.clipboardData.getData("text"),
-                    currentValue: draft,
-                    selectionStart: e.currentTarget.selectionStart ?? draft.length,
-                    selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
-                    user,
-                    enabled: shortUrlFeatureEnabled,
-                    setValue: setDraft,
-                    onShortened: () => showToast("링크를 짧게 줄였어요"),
-                  });
-                  if (handled) e.preventDefault();
-                }}
                 placeholder="짐 이름"
                 className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
               />
@@ -730,7 +704,16 @@ export default function ItemRow({
                     textDecoration: item.checked ? "line-through" : "none",
                   }}
                 >
-                  <LinkifiedText text={item.text} />
+                  <LinkifiedText
+                    text={item.text}
+                    user={user}
+                    shortenEnabled={shortUrlFeatureEnabled}
+                    onReplace={(original, shortUrl) => {
+                      if (!item.text.includes(original)) return;
+                      onChangeText(item.text.replace(original, shortUrl));
+                      showToast("링크를 짧게 줄였어요");
+                    }}
+                  />
                 </span>
               ) : (
                 <span
@@ -741,7 +724,20 @@ export default function ItemRow({
                     color: item.color || "var(--foreground)",
                   }}
                 >
-                  <LinkifiedText text={item.text} />
+                  <LinkifiedText
+                    text={item.text}
+                    user={user}
+                    shortenEnabled={shortUrlFeatureEnabled}
+                    onReplace={(original, shortUrl) => {
+                      if (!item.text.includes(original)) return;
+                      onChangeText(item.text.replace(original, shortUrl), {
+                        bold: item.bold,
+                        strike: item.strike,
+                        color: item.color,
+                      });
+                      showToast("링크를 짧게 줄였어요");
+                    }}
+                  />
                 </span>
               )}
             </div>
