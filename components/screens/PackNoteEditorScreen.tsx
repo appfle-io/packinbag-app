@@ -27,6 +27,10 @@ import {
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
+import { useAuth } from "@/contexts/AuthProvider";
+import { shouldShortenPastedText, createShortLink } from "@/lib/shortLinkService";
+import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
+import { openExternalLink } from "@/lib/openExternalLink";
 import { PACK_COLORS } from "@/lib/packColors";
 import {
   MAX_EDITOR_DOC_BYTES,
@@ -85,6 +89,7 @@ export default function PackNoteEditorScreen({
 }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
+  const { user } = useAuth();
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -110,12 +115,48 @@ export default function PackNoteEditorScreen({
     nameRef.current = name;
   }, [name]);
 
+  // 붙여넣은 텍스트가 축약할 만한 긴 URL이면 기본 붙여넣기(+TipTap의 linkOnPaste)를 막고,
+  // 원본 URL을 링크 마크와 함께 먼저 삽입한 다음 백그라운드에서 축약(app/api/shorten-url)해서
+  // 그 자리를 짧은 링크로 교체한다(실패하면 원본 URL 그대로 유지). 읽기전용 미리보기
+  // (EditorPackCard)는 이 옵션을 쓰지 않아 붙여넣기가 일어나지 않는다.
   const editor = useEditor({
     extensions: getNoteEditorExtensions("메모를 입력해보세요"),
     content: pack.editorDoc ?? "",
     editable: !effectiveReadOnly,
     immediatelyRender: false,
+    editorProps: {
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData("text/plain") ?? "";
+        if (!user || !shouldShortenPastedText(text)) return false;
+        const longUrl = text.trim();
+        const { state, dispatch } = view;
+        const { from, to } = state.selection;
+        const linkMarkType = state.schema.marks.link;
+        let tr = state.tr.insertText(longUrl, from, to);
+        if (linkMarkType) {
+          tr = tr.addMark(from, from + longUrl.length, linkMarkType.create({ href: longUrl }));
+        }
+        dispatch(tr);
+
+        createShortLink(user, longUrl)
+          .then((shortUrl) => {
+            replaceLinkTextInEditor(editorRef.current, longUrl, shortUrl);
+            show("링크를 짧게 줄였어요");
+          })
+          .catch((err) => {
+            console.error("[팩인백] 메모 링크 축약 실패:", err);
+          });
+
+        return true;
+      },
+    },
   });
+  // handlePaste 클로저는 editor 생성 시점 값을 참조하므로, 비동기 교체(replaceLinkTextInEditor)
+  // 시점에 항상 최신 editor 인스턴스를 쓸 수 있도록 ref로도 따로 보관해둔다.
+  const editorRef = useRef<typeof editor | null>(null);
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   // readOnly는 고정값이지만 otherEditorNickname은 화면을 열어둔 채 바뀌는 값이라(다른 사람이
   // 편집을 시작/종료하는 순간), useEditor 생성 시점의 editable 값만으로는
@@ -544,7 +585,19 @@ export default function PackNoteEditorScreen({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-3"
+        onClick={(e) => {
+          // 링크(Link 마크)는 openOnClick: false로 둘어서 TipTap이 직접 탐색하지 않는다 -
+          // 여기서 <a> 태그 클릭을 직접 감지해서 openExternalLink()로 연다(웹/네이티브 공통).
+          const anchor = (e.target as HTMLElement).closest("a");
+          if (!anchor) return;
+          const href = anchor.getAttribute("href");
+          if (!href) return;
+          e.preventDefault();
+          openExternalLink(href);
+        }}
+      >
         <EditorContent editor={editor} className="pib-note-editor" />
       </div>
 

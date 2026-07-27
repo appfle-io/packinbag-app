@@ -5,6 +5,8 @@ import { IconBold, IconMessageCircle2, IconStrikethrough } from "@tabler/icons-r
 import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
+import { handleShortenablePaste } from "@/lib/shortLinkService";
+import LinkifiedText from "./LinkifiedText";
 // import ReactionPillRow from "./ReactionPillRow";
 
 const DELETE_SWIPE_THRESHOLD = -30;
@@ -160,7 +162,7 @@ export default function ItemRow({
   const [draftBold, setDraftBold] = useState(!!item.bold);
   const [draftStrike, setDraftStrike] = useState(!!item.strike);
   const [draftColor, setDraftColor] = useState(item.color || "");
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { show: showToast } = useToast();
   // 설정 > 팩 설정에서 고르는 짐 최대 표시 줄 수(1~3, 없으면 1줄 기본값)와
   // 더블클릭 복사 토스트 노출 시간(3~7초, 없으면 3초 기본값). 모든 짐에 공통 적용된다.
@@ -600,6 +602,18 @@ export default function ItemRow({
                   onChange={(e) => setDraft(e.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                  onPaste={(e) => {
+                    const handled = handleShortenablePaste({
+                      clipboardText: e.clipboardData.getData("text"),
+                      currentValue: draft,
+                      selectionStart: e.currentTarget.selectionStart ?? draft.length,
+                      selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
+                      user,
+                      setValue: setDraft,
+                      onShortened: () => showToast("링크를 짧게 줄였어요"),
+                    });
+                    if (handled) e.preventDefault();
+                  }}
                   placeholder="텍스트 입력"
                   className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
                   style={{
@@ -671,20 +685,39 @@ export default function ItemRow({
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                onPaste={(e) => {
+                  const handled = handleShortenablePaste({
+                    clipboardText: e.clipboardData.getData("text"),
+                    currentValue: draft,
+                    selectionStart: e.currentTarget.selectionStart ?? draft.length,
+                    selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
+                    user,
+                    setValue: setDraft,
+                    onShortened: () => showToast("링크를 짧게 줄였어요"),
+                  });
+                  if (handled) e.preventDefault();
+                }}
                 placeholder="짐 이름"
                 className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
               />
             )
           ) : (
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={handleContentClick}
               onDoubleClick={handleDoubleClick}
-              // 줄바꿈 제한(line-clamp)은 이 button 자체가 아니라 안의 span에 건다 - 이 button은 부모 div의
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") handleContentClick();
+              }}
+              // 줄바꿈 제한(line-clamp)은 이 요소 자체가 아니라 안의 span에 건다 - 부모 div의
               // flex 자식(flex-1)이라, -webkit-line-clamp가 요구하는 display:-webkit-box를
               // flex 아이템에 직접 걸면 일부 브라우저(iOS WKWebView 포함)에서 줄수 제한이
               // 무시되고 텍스트가 그대로 여러 줄 다 보여버리는 버그가 있었다. span은 flex 아이템이
-              // 아니라 문제가 없다.
-              className="min-w-0 flex-1 text-left text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+              // 아니라 문제가 없다. 링크 클릭 시 부모의 탭 동작(수정 진입/선택 토글)이 같이
+              // 실행되지 않아야 해서(LinkifiedText 안의 <a>가 stopPropagation함), button 대신
+              // div+role="button"으로 바꿨다 (<a>를 <button> 안에 중첩하는 건 유효하지 않은 HTML).
+              className="min-w-0 flex-1 text-left cursor-pointer text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
             >
               {item.type === "check" ? (
                 <span
@@ -694,7 +727,7 @@ export default function ItemRow({
                     textDecoration: item.checked ? "line-through" : "none",
                   }}
                 >
-                  {item.text}
+                  <LinkifiedText text={item.text} />
                 </span>
               ) : (
                 <span
@@ -705,10 +738,10 @@ export default function ItemRow({
                     color: item.color || "var(--foreground)",
                   }}
                 >
-                  {item.text}
+                  <LinkifiedText text={item.text} />
                 </span>
               )}
-            </button>
+            </div>
           )}
 
           {!editing && onOpenThread && (

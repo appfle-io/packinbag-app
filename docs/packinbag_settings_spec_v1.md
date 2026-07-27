@@ -1,4 +1,21 @@
-# 팩인백 기능 스펙 문서 (v73 기준)
+# 팩인백 기능 스펙 문서 (v75 기준)
+
+## v75 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **짐/메모/메모팩 안 링크 탭해서 열기 (웹+앱 공통)** | 🆕 v75 신규 | 짐 텍스트(ItemRow)와 가방 메모(BagNotice) 안의 http(s) URL을 탐지해 파란 밑줄 링크로 렌더링하고(`components/LinkifiedText.tsx`), 탭하면 `openExternalLink()`(`lib/openExternalLink.ts`)로 연다. 새 탭(웹) / Capacitor 기본 외부 네비게이션 정책(다른 호스트로 가는 링크는 시스템 브라우저로 자동 핸드오프)를 그대로 활용해서 별도 네이티브 플러그인(@capacitor/browser) 없이도 웹/앱 동일하게 동작. 링크를 누르면 부모(짐 행 탭/메모 편집 진입)의 클릭 동작이 같이 실행되지 않아야 해서, 기존 `<button>`(ItemRow 짐 내용 표시 / BagNotice 표시)을 `<div role="button">`로 바꿈(`<a>`를 `<button>` 안에 중첩하는 건 유효하지 않은 HTML) |
+| **메모팩(에디터팩/TipTap)에도 URL 자동 축약 + 링크 열기 적용** | 🆕 v75 신규 | `@tiptap/extension-link` 신규 설치(package.json, **`npm install` 직접 실행 필요**). `lib/noteEditorExtensions.ts`에 Link 확장 추가(openOnClick: false, autolink/linkOnPaste: true). `PackNoteEditorScreen.tsx`의 `useEditor` `editorProps.handlePaste`가 30자 이상 URL 붙여넣기를 가로채서 원본 URL을 링크 마크와 함께 먼저 삽입한 다음, 백그라운드에서 축약(app/api/shorten-url)해서 그 자리를 짧은 링크로 교체(`lib/noteEditorLinkPaste.ts`의 `replaceLinkTextInEditor`, ProseMirror 문서 내 텍스트 검색/치환). 짧은 URL(30자 미만)은 TipTap의 기본 `linkOnPaste`가 그대로 링크로 만들어줌. 링크 클릭은 에디터 영역 클릭 핸들러가 `<a>` 태그를 감지해서 `openExternalLink()`로 연다. 읽기전용 미리보기(EditorPackCard)는 전체 영역이 `pointer-events: none`이라 링크 클릭이 안 먹히고 항상 편집화면을 연다(기존 동작 그대로). `app/globals.css`의 `.pib-note-editor a` 스타일(강조색 밑줄) 추가 |
+| **패키지 설치 필요** | ⚠️ 대기 | `package.json`에 `@tiptap/extension-link` 추가만 해둔 상태라, 실제 설치(`npm install`)는 사용자가 직접 로컬/회사 각 기기에서 진행해야 함 |
+
+# 팩인백 기능 스펙 문서 (v74 기준)
+
+## v74 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **짐/메모 텍스트에 붙여넣은 긴 URL 자동 축약(짧은 링크)** | 🆕 v74 신규 | 짐(ItemRow 인라인 편집/ItemFormModal)과 가방 메모(BagNotice) 입력칸에 30자 이상의 http(s) URL 하나만 붙여넣으면 자동으로 `/s/{7자리 코드}` 형태의 자체 짧은 링크로 교체된다. 원본 URL은 붙여넣기 즉시 먼저 들어가고(입력 막힘 없음), 백그라운드에서 축약 완료되면 그 자리를 짧은 링크로 교체(실패하면 원본 URL 그대로 유지). `lib/shortLinkService.ts`(판단/호출 로직), `app/api/shorten-url/route.ts`(생성, Admin SDK), `app/s/[code]/route.ts`(리다이렉트). Firestore `shortLinks/{code}` 컬렉션은 client read/write 전부 차단(Admin SDK만 접근) |
+| **firestore.rules 변경분** | ⚠️ 대기 | `shortLinks` 컬렉션 규칙 추가(`allow read, write: if false`). Firebase 콘솔에서 재게시 필요 |
 
 ## 인프라 변경: 커스텀 도메인 전환 (2026-07-24)
 

@@ -394,6 +394,11 @@ body {
   font-weight: 600;
   text-align: left;
 }
+.pib-note-editor a {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
 .pib-note-editor-readonly .ProseMirror {
   cursor: default;
 }

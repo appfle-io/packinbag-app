@@ -12,6 +12,9 @@ import Portal from "@/components/Portal";
 import PackChipBar from "@/components/PackChipBar";
 import { ItemType, Pack } from "@/lib/types";
 import { TEXT_COLORS } from "@/components/ItemRow";
+import { useAuth } from "@/contexts/AuthProvider";
+import { useToast } from "@/components/Toast";
+import { handleShortenablePaste } from "@/lib/shortLinkService";
 
 export interface ItemFormSaveData {
   type: ItemType;
@@ -82,6 +85,8 @@ export default function ItemFormModal({
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
 }) {
+  const { user } = useAuth();
+  const { show: showToast } = useToast();
   const [selectedPackIds, setSelectedPackIds] = useState<string[]>(initialSelectedPackIds);
   const [type, setType] = useState<ItemType>(initialType);
   const [text, setText] = useState(initialText);
@@ -196,6 +201,18 @@ export default function ItemFormModal({
               rows={3}
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onPaste={(e) => {
+                const handled = handleShortenablePaste({
+                  clipboardText: e.clipboardData.getData("text"),
+                  currentValue: text,
+                  selectionStart: e.currentTarget.selectionStart ?? text.length,
+                  selectionEnd: e.currentTarget.selectionEnd ?? text.length,
+                  user,
+                  setValue: setText,
+                  onShortened: () => showToast("링크를 짧게 줄였어요"),
+                });
+                if (handled) e.preventDefault();
+              }}
               placeholder={type === "check" ? "짐 이름" : "텍스트 입력"}
               className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
               style={{

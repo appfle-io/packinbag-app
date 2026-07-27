@@ -12,6 +12,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextStyle from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
 import { FontSize } from "./fontSizeExtension";
 
 export function getNoteEditorExtensions(placeholder?: string) {
@@ -34,6 +35,18 @@ export function getNoteEditorExtensions(placeholder?: string) {
     Color,
     FontSize,
     Underline,
+    // 링크 마크. openOnClick은 false로 둘 - TipTap 기본 동작은 편집 중에도 클릭하면
+    // 바로 탐색해버려서 커서를 원하는 위치에 놓기 어려울 수 있음. 대신
+    // PackNoteEditorScreen.tsx가 <a> 태그 클릭을 직접 감지해서 openExternalLink()로 열어준다.
+    // autolink/linkOnPaste는 켜둘 - 타이핑이나 짧은 URL 붙여넣기는 TipTap이 자동으로
+    // 링크로 만들어주고(직접 축약 대상(30자 이상)은 PackNoteEditorScreen의 handlePaste가
+    // 따로 가로채서 자체 짧은 링크로 교체한다).
+    Link.configure({
+      openOnClick: false,
+      autolink: true,
+      linkOnPaste: true,
+      HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
+    }),
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
   ];
 }

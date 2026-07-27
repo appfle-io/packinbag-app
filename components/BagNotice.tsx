@@ -2,6 +2,10 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { IconNotes } from "@tabler/icons-react";
+import { useAuth } from "@/contexts/AuthProvider";
+import { useToast } from "@/components/Toast";
+import { handleShortenablePaste } from "@/lib/shortLinkService";
+import LinkifiedText from "@/components/LinkifiedText";
 
 export interface BagNoticeHandle {
   open: () => void;
@@ -23,6 +27,8 @@ const BagNotice = forwardRef<
     hideEmptyPrompt?: boolean;
   }
 >(function BagNotice({ value, onChange, readOnly, hideEmptyPrompt }, ref) {
+  const { user } = useAuth();
+  const { show: showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -58,6 +64,18 @@ const BagNotice = forwardRef<
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => e.currentTarget.select()}
+        onPaste={(e) => {
+          const handled = handleShortenablePaste({
+            clipboardText: e.clipboardData.getData("text"),
+            currentValue: draft,
+            selectionStart: e.currentTarget.selectionStart ?? draft.length,
+            selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
+            user,
+            setValue: setDraft,
+            onShortened: () => showToast("링크를 짧게 줄였어요"),
+          });
+          if (handled) e.preventDefault();
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -89,8 +107,13 @@ const BagNotice = forwardRef<
     );
   }
 
+  // 링크 클릭 시 부모의 편집 진입 동작이 같이 실행되면 안 되므로(LinkifiedText 안의
+  // <a>가 클릭 이벤트를 stopPropagation함), <button> 대신 div+role="button"을 쓴다
+  // (<a>를 <button> 안에 중첩하는 건 유효하지 않은 HTML이라 여기서도 ItemRow와 동일하게 바꿨다).
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={readOnly ? -1 : 0}
       onClick={
         readOnly
           ? undefined
@@ -99,11 +122,18 @@ const BagNotice = forwardRef<
               setEditing(true);
             }
       }
+      onKeyDown={(e) => {
+        if (readOnly) return;
+        if (e.key === "Enter" || e.key === " ") {
+          setDraft(value);
+          setEditing(true);
+        }
+      }}
       className="block w-full text-left text-[13px] leading-relaxed whitespace-pre-wrap"
-      style={{ color: "var(--text-secondary)", cursor: readOnly ? "default" : undefined }}
+      style={{ color: "var(--text-secondary)", cursor: readOnly ? "default" : "pointer" }}
     >
-      {value}
-    </button>
+      <LinkifiedText text={value} />
+    </div>
   );
 });
 

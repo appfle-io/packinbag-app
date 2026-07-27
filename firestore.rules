@@ -178,6 +178,14 @@ service cloud.firestore {
       allow write, create: if false;
     }
 
+    // 짐/메모에 붙여넣은 긴 URL을 축약해서 저장하는 컬렉션. 코드를 추측해서 남의 링크를
+    // 조회하거나(get), 아무나 링크를 등록/변조하는 것을 막기 위해 client read/write를 전부
+    // 막아둔다 - 생성은 app/api/shorten-url, 리다이렉트 조회는 app/s/[code]/route.ts에서
+    // 전부 Admin SDK로만 처리한다(Admin SDK는 이 규칙을 그대로 통과한다).
+    match /shortLinks/{code} {
+      allow read, write: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;
