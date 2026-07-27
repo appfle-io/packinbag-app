@@ -652,7 +652,7 @@ export default function PacksScreen({
                     onPointerUp={handleRowPointerUp}
                     onPointerCancel={handleRowPointerUp}
                     onClick={() => handleRowClick(entry)}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 active:bg-black/5"
+                    className="flex items-center gap-2 rounded-lg px-2 py-1 active:bg-black/5"
                     style={{
                       paddingLeft: 8 + row.depth * 20,
                       background:
