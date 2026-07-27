@@ -30,6 +30,15 @@ export function isPremiumUser(
   return isUnlimitedAiUser(email, profile);
 }
 
+// 설정 > AI 기능 하위 "지역 추천" 토글 + 프리미엄 여부를 함께 판정한다. 둘 다 충족해야만
+// 가방 제목을 바꿀 때 지역명을 인식해 날씨/맛집/관광지를 추천해준다(BagEditorScreen).
+export function isRegionRecommendFeatureEnabled(
+  email: string | null | undefined,
+  profile: UserProfile | null
+): boolean {
+  return isPremiumUser(email, profile) && !!profile?.regionRecommendEnabled;
+}
+
 // 무료 사용자가 동시에 가질 수 있는(진행 중인) 가방 최대 개수 (프리미엄은 무제한)
 export const FREE_MAX_ACTIVE_BAGS = 3;
 

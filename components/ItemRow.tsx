@@ -5,7 +5,7 @@ import { IconBold, IconMessageCircle2, IconStrikethrough } from "@tabler/icons-r
 import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
-import { handleShortenablePaste } from "@/lib/shortLinkService";
+import { handleShortenablePaste, isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
 import LinkifiedText from "./LinkifiedText";
 // import ReactionPillRow from "./ReactionPillRow";
 
@@ -164,6 +164,7 @@ export default function ItemRow({
   const [draftColor, setDraftColor] = useState(item.color || "");
   const { profile, user } = useAuth();
   const { show: showToast } = useToast();
+  const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   // 설정 > 팩 설정에서 고르는 짐 최대 표시 줄 수(1~3, 없으면 1줄 기본값)와
   // 더블클릭 복사 토스트 노출 시간(3~7초, 없으면 3초 기본값). 모든 짐에 공통 적용된다.
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
@@ -609,6 +610,7 @@ export default function ItemRow({
                       selectionStart: e.currentTarget.selectionStart ?? draft.length,
                       selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
                       user,
+                      enabled: shortUrlFeatureEnabled,
                       setValue: setDraft,
                       onShortened: () => showToast("링크를 짧게 줄였어요"),
                     });
@@ -692,6 +694,7 @@ export default function ItemRow({
                     selectionStart: e.currentTarget.selectionStart ?? draft.length,
                     selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
                     user,
+                    enabled: shortUrlFeatureEnabled,
                     setValue: setDraft,
                     onShortened: () => showToast("링크를 짧게 줄였어요"),
                   });

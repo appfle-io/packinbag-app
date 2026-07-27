@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { IconNotes } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { handleShortenablePaste } from "@/lib/shortLinkService";
+import { handleShortenablePaste, isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
 import LinkifiedText from "@/components/LinkifiedText";
 
 export interface BagNoticeHandle {
@@ -27,8 +27,9 @@ const BagNotice = forwardRef<
     hideEmptyPrompt?: boolean;
   }
 >(function BagNotice({ value, onChange, readOnly, hideEmptyPrompt }, ref) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { show: showToast } = useToast();
+  const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -71,6 +72,7 @@ const BagNotice = forwardRef<
             selectionStart: e.currentTarget.selectionStart ?? draft.length,
             selectionEnd: e.currentTarget.selectionEnd ?? draft.length,
             user,
+            enabled: shortUrlFeatureEnabled,
             setValue: setDraft,
             onShortened: () => showToast("링크를 짧게 줄였어요"),
           });

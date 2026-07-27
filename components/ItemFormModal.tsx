@@ -14,7 +14,7 @@ import { ItemType, Pack } from "@/lib/types";
 import { TEXT_COLORS } from "@/components/ItemRow";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { handleShortenablePaste } from "@/lib/shortLinkService";
+import { handleShortenablePaste, isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
 
 export interface ItemFormSaveData {
   type: ItemType;
@@ -85,8 +85,9 @@ export default function ItemFormModal({
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
 }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { show: showToast } = useToast();
+  const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   const [selectedPackIds, setSelectedPackIds] = useState<string[]>(initialSelectedPackIds);
   const [type, setType] = useState<ItemType>(initialType);
   const [text, setText] = useState(initialText);
@@ -208,6 +209,7 @@ export default function ItemFormModal({
                   selectionStart: e.currentTarget.selectionStart ?? text.length,
                   selectionEnd: e.currentTarget.selectionEnd ?? text.length,
                   user,
+                  enabled: shortUrlFeatureEnabled,
                   setValue: setText,
                   onShortened: () => showToast("링크를 짧게 줄였어요"),
                 });

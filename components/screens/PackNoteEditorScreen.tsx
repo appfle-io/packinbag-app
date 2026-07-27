@@ -28,7 +28,7 @@ import {
 import { Pack } from "@/lib/types";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { useAuth } from "@/contexts/AuthProvider";
-import { shouldShortenPastedText, createShortLink } from "@/lib/shortLinkService";
+import { shouldShortenPastedText, createShortLink, isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
 import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
 import { openExternalLink } from "@/lib/openExternalLink";
 import { PACK_COLORS } from "@/lib/packColors";
@@ -89,7 +89,8 @@ export default function PackNoteEditorScreen({
 }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -127,7 +128,7 @@ export default function PackNoteEditorScreen({
     editorProps: {
       handlePaste: (view, event) => {
         const text = event.clipboardData?.getData("text/plain") ?? "";
-        if (!user || !shouldShortenPastedText(text)) return false;
+        if (!shortUrlFeatureEnabled || !user || !shouldShortenPastedText(text)) return false;
         const longUrl = text.trim();
         const { state, dispatch } = view;
         const { from, to } = state.selection;

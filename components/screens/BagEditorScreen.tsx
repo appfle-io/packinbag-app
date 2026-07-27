@@ -84,7 +84,7 @@ import {
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
-import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
+import { MAX_BAG_IMAGES, isPremiumUser, isRegionRecommendFeatureEnabled } from "@/lib/premiumLimits";
 import { isPdfUrl } from "@/lib/fileUrlUtils";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { isNativePlatform } from "@/lib/nativeAuth";
@@ -182,6 +182,9 @@ export default function BagEditorScreen({
   const { show } = useToast();
   const { profile, updatePackDisplayState, updateAllPackDisplayStates, updateBagViewMode } = useAuth();
   const premium = isPremiumUser(profile?.email, profile ?? null);
+  // 날씨/맛집/관광지 추천은 프리미엄이어도 설정 > AI 기능 하위 "지역 추천" 토글을
+  // 따로 켜야만 동작한다(기본값 OFF).
+  const regionRecommendActive = isRegionRecommendFeatureEnabled(profile?.email, profile ?? null);
 
   // 설정 > 팩 설정 > "가방 열 때 팩 접어서 보기"가 켜져 있으면, 이 화면에 처음 들어온
   // 순간에만 모든 팩을 접힌 상태로 보여준다. 저장된 Pack.displayState는 전혀 건드리지
@@ -255,9 +258,10 @@ export default function BagEditorScreen({
   const weatherRequestSeqRef = useRef(0);
   const aiRequestSeqRef = useRef(0);
 
-  // 날씨/AI 추천은 프리미엄 전용 기능이라(무료회원은 가방 이름을 바꿔도 지오코딩/날씨 API조차 호출하지 않는다).
+  // 날씨/AI 추천은 프리미엄 + 설정 토글(regionRecommendActive) 둘 다 켜져있어야 동작한다(기본값 OFF라서,
+  // 새로 켜지 전까지는 무료회원과 동일하게 지오코딩/날씨 API조차 호출하지 않는다).
   useEffect(() => {
-    if (!premium) {
+    if (!regionRecommendActive) {
       setWeatherInfo(null);
       return;
     }
@@ -276,14 +280,14 @@ export default function BagEditorScreen({
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [bag.name, premium]);
+  }, [bag.name, regionRecommendActive]);
 
   // AI 추천은 가방 제목 전체가 아니라 인식된 도시명(weatherInfo.city)에만 의존한다 - 제목을 조금 고쳤을
   // 뿐(도시는 그대로)이면 재요청하지 않아 불필요한 Gemini 호출을 줄인다(서버의 도시명 캐시와 함께 이중으로 비용 방어).
   const weatherCity = weatherInfo?.city ?? null;
 
   useEffect(() => {
-    if (!premium || !weatherCity || !user) {
+    if (!regionRecommendActive || !weatherCity || !user) {
       setAiPlaces(null);
       return;
     }
@@ -313,7 +317,7 @@ export default function BagEditorScreen({
         });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premium, weatherCity, user]);
+  }, [regionRecommendActive, weatherCity, user]);
 
   // 새로고침 버튼 전용 - 클라이언트 캐시뿐만 아니라 서버 쪽 도시 캐시도 force 플래그로 건너뛰고
   // Gemini를 새로 불러서(app/api/ai-travel-places의 force 처리 + temperature 상향) 매번 다른 추천이 나오게 한다.
@@ -1788,8 +1792,9 @@ export default function BagEditorScreen({
         className="flex-1 overflow-y-auto px-4 pb-6"
         style={showQuickAddBar ? { paddingBottom: 140 } : undefined}
       >
-        {/* 날씨+AI 추천은 프리미엄 전용 기능 - 무료회원은 카드 자체가 렌더링되지 않는다(weatherInfo가 항상 null). */}
-        {premium && weatherInfo && (
+        {/* 날씨+AI 추천은 프리미엄이면서 설정 > AI 기능 > 지역 추천을 켠 사람에게만 보인다(regionRecommendActive가
+            false면 weatherInfo가 항상 null이라 이 카드 자체가 렌더링되지 않는다). */}
+        {regionRecommendActive && weatherInfo && (
           <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex flex-col gap-2 shrink-0">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary">
               <span>📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>

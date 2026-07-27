@@ -1,3 +1,21 @@
+# 팩인백 기능 스펙 문서 (v77 기준)
+
+## v77 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **"짧은 URL 사용하기" 토글을 설정 최상단 → AI 기능 하위로 이동** | 🔄 v77 변경 | v76에서 설정 최상단에 넣었던 토글을 "AI 기능" 섹션 안으로 이동(이용자 사용량 행 바로 아래). 무료 회원은 토글 자체가 disabled(readonly, 항상 OFF)로 보이고 탭해도 반응하지 않으며, 프리미엄으로 전환하려면 같은 섹션의 "이용권 코드 입력" 버튼을 따로 누르면 된다(토글 자체에 구매 유도 다이얼로그 연결 제거). `components/ToggleSwitch.tsx`에 `disabled` prop 신규 추가(버튼 자체 disabled + opacity 낮춤) |
+| **지역 추천 토글 신규 (프리미엄 전용)** | 🆕 v77 신규 | 같은 AI 기능 섹션에 "지역 추천" 토글 추가. 가방 제목을 바꿀 때 제목에 지역명이 들어있으면 날씨/맛집/관광지를 추천하는 기존 기능(BagEditorScreen)을 이 토글로 감싼다. 기존에는 단순 "프리미엄이면 무조건 보임"이었으나, 이제는 프리미엄 + 이 토글 둘 다 켜야만 동작(기본값 OFF). `UserProfile.regionRecommendEnabled`(lib/types.ts) 신규 필드 + `AuthProvider.updateRegionRecommendEnabled`. `lib/premiumLimits.ts`의 `isRegionRecommendFeatureEnabled(email, profile)`가 isPremiumUser && regionRecommendEnabled 둘 다 판정. `BagEditorScreen.tsx`의 날씨/AI추천 useEffect 2개 + 카드 렌더링 조건이 모두 `premium` 대신 이 값을 보도록 교체됨 |
+| **프리미엄 → 무료 전환 시 두 토글 자동 OFF** | 🆕 v77 신규 | 이용권 만료/무효화 등으로 프리미엄이 아닌 상태로 돌아오는 순간, 켜져 있던 `shortUrlEnabled`/`regionRecommendEnabled`가 있으면 자동으로 둘 다 false로 다시 쓰인다. `AuthProvider.tsx`의 `profile` 변경 시마다 재검사하는 자가치유 방식으로 구현(직전 세션 값을 기억해둘 필요 없이, 앱을 닫았다 켜는 사이에 이용권이 만료된 경우도 놓치지 않음) |
+
+# 팩인백 기능 스펙 문서 (v76 기준)
+
+## v76 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **설정 최상단 "짧은 URL 사용하기" 토글 (프리미엄 전용)** | 🆕 v76 신규 | 가방/팩 하위 설정 메뉴가 아니라 설정 화면 최상단(프로필 카드 바로 아래)에 ON/OFF 토글 추가. 짐/메모/메모팩 URL 자동축약 기능(v74~v75)이 이제 기본값 OFF + 프리미엄 전용으로 바뀌었다. `UserProfile.shortUrlEnabled`(lib/types.ts) 신규 필드 + `AuthProvider.updateShortUrlEnabled`. `lib/shortLinkService.ts`의 `isShortUrlFeatureEnabled(email, profile)`가 isPremiumUser && shortUrlEnabled 둘 다 충족해야만 true - ItemRow/ItemFormModal/BagNotice/PackNoteEditorScreen 네 곳 모두 이 값을 handleShortenablePaste(또는 TipTap handlePaste)의 enabled 파라미터로 넘겨야만 축약이 동작한다. 프리미엄이 아닌 상태에서 토글을 누르면 기존 이용권 코드 입력 다이얼로그(UnlockCodeDialog)가 대신 열린다(AI 기능 섹션과 동일한 패턴) |
+
 # 팩인백 기능 스펙 문서 (v75 기준)
 
 ## v75 변경 요약

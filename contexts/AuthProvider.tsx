@@ -37,6 +37,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
+import { isPremiumUser } from "@/lib/premiumLimits";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned } from "@/lib/listSort";
 import { deleteAllUserData } from "@/lib/accountService";
@@ -106,6 +107,8 @@ interface AuthContextValue {
   updateExpandedBagFolderIds: (ids: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
+  updateShortUrlEnabled: (enabled: boolean) => Promise<void>;
+  updateRegionRecommendEnabled: (enabled: boolean) => Promise<void>;
   updatePackDisplayState: (
     bagId: string,
     packId: string,
@@ -227,6 +230,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bagViewMode: data?.bagViewMode as UserProfile["bagViewMode"],
         defaultBagViewMode: data?.defaultBagViewMode as UserProfile["defaultBagViewMode"],
         aiUsage: data?.aiUsage as UserProfile["aiUsage"],
+        shortUrlEnabled: data?.shortUrlEnabled as boolean | undefined,
+        regionRecommendEnabled: data?.regionRecommendEnabled as boolean | undefined,
         unlockCode: data?.unlockCode as string | undefined,
         unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
       });
@@ -319,6 +324,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     packDisplayStatesRef.current = profile?.packDisplayStates ?? {};
   }, [profile?.packDisplayStates]);
+
+  // 프리미엄 전용 토글(짧은 URL 사용하기/지역 추천)은 이용권이 만료/무효화되어 프리미엄이
+  // 아닌 상태로 돌아오는 순간, 켜져있던 값이 그대로 남아있으면 자동으로 꺼준다.
+  // "직전 세션에서 true였다가 false로 바뀌는 순간"만 감지하는 대신, profile이 갱신될 때마다
+  // "지금 프리미엄이 아닌데도 켜져있는" 상태를 매번 검사해서 고치는 자가치유 방식으로 구현했다 -
+  // 앱을 닫았다 켜는 사이에 이용권이 만료되어(다음 세션에서는 "전환"을 못 보는) 경우도 놓치지 않는다.
+  useEffect(() => {
+    if (!user || !profile) return;
+    if (isPremiumUser(profile.email, profile)) return;
+    if (!profile.shortUrlEnabled && !profile.regionRecommendEnabled) return;
+    setDoc(
+      doc(db, "users", user.uid),
+      { shortUrlEnabled: false, regionRecommendEnabled: false },
+      { merge: true }
+    ).catch((err) => {
+      console.error("[팩인백] 프리미엄 전용 기능 자동 비활성화 실패:", err);
+    });
+  }, [user, profile]);
 
   const signUpWithEmail = async (
     email: string,
@@ -691,6 +714,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
   };
 
+  // 설정 > AI 기능 하위 "짧은 URL 사용하기" 토글. 프리미엄 판정은 화면(SettingsScreen)에서 하고, 여기서는
+  // 값만 그대로 저장한다(다른 설정값들과 동일한 패턴).
+  const updateShortUrlEnabled = async (enabled: boolean) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { shortUrlEnabled: enabled }, { merge: true });
+  };
+
+  // 설정 > AI 기능 하위 "지역 추천" 토글. 위와 동일한 패턴.
+  const updateRegionRecommendEnabled = async (enabled: boolean) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { regionRecommendEnabled: enabled }, { merge: true });
+  };
+
   // 가방 속 팩 하나의 펼침/접힘/넓게보기 상태를 바꿔 저장한다. 그룹원과 동기화되는
   // 가방 문서가 아니라 계정(users/{uid})에만 쓰기 때문에, 같은 사용자가 다른 기기에서도
   // 그대로 보이고 다른 그룹원에게는 전혀 영향을 주지 않는다. 키는 `${bagId}:${packId}`.
@@ -841,6 +877,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateExpandedBagFolderIds,
         updatePackSettings,
         updateQuickPackCollapsed,
+        updateShortUrlEnabled,
+        updateRegionRecommendEnabled,
         updatePackDisplayState,
         updateAllPackDisplayStates,
         updateBagViewMode,

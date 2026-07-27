@@ -295,6 +295,15 @@ export interface UserProfile {
     date: string; // YYYY-MM-DD (KST)
     count: number;
   };
+  // 설정 > AI 기능 하위 "짧은 URL 사용하기" 토글. 프리미엄 전용 기능이라 isPremiumUser(lib/premiumLimits.ts)로
+  // 판정된 사용자가 이 값을 켜야만 짐/메모/메모팩에 붙여넣은 긴 URL이 자동으로 짧은
+  // 링크(자체 /s/{code})로 축약된다. 없으면(또는 프리미엄이 아니면) false로 취급.
+  shortUrlEnabled?: boolean;
+  // 설정 > AI 기능 하위 "지역 추천" 토글. 프리미엄 전용 기능이라 isPremiumUser로 판정된
+  // 사용자가 이 값을 켜야만, 가방 제목을 바꿀 때 제목에 들어간 지역명을 인식해 날씨/맛집/관광지를
+  // 추천해준다(BagEditorScreen). 없으면(또는 프리미엄이 아니면) false로 취급 - 지오코딩/날씨/AI
+  // API를 호출하지 않는다.
+  regionRecommendEnabled?: boolean;
   // 이용권 코드를 입력해서 무제한 인증을 받은 경우, 그 코드 값(있으면 무제한).
   // 나중에 유료회원 필드(isPremium 등)가 추가되면 그쪽도 함께 무제한 조건에 포함시킬 예정.
   unlockCode?: string;

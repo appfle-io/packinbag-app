@@ -11,6 +11,8 @@ import {
   IconArrowLeft,
   IconExternalLink,
   IconShieldCheck,
+  IconLink,
+  IconMapPin,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
@@ -23,6 +25,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
 import { isMasterEmail } from "@/lib/masterEmails";
+import { isPremiumUser } from "@/lib/premiumLimits";
 import { APP_VERSION } from "@/lib/changelog";
 import {
   AI_FREE_DAILY_LIMIT,
@@ -42,6 +45,7 @@ import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
 import NotificationBell from "@/components/NotificationBell";
+import ToggleSwitch from "@/components/ToggleSwitch";
 import { useToast } from "@/components/Toast";
 import SlideScreen from "@/components/SlideScreen";
 
@@ -140,7 +144,7 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { user, profile, updateDefaultTab } = useAuth();
+  const { user, profile, updateDefaultTab, updateShortUrlEnabled, updateRegionRecommendEnabled } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -157,6 +161,7 @@ export default function SettingsScreen({
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const isMaster = isMasterEmail(profile?.email);
   const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
+  const premium = isPremiumUser(profile?.email, profile);
   const aiUsedCount = currentAiUsageCount(profile);
   const trashCount = trashedBags.length + trashedPacks.length;
 
@@ -263,23 +268,79 @@ export default function SettingsScreen({
 
         <div className="mb-6">
           <p className="text-[12px] text-text-secondary mb-2">AI 기능</p>
-          <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
-              <span className="text-[13px]">
-                {aiUnlimited
-                  ? "무제한 이용 중"
-                  : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
-              </span>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
+                <span className="text-[13px]">
+                  {aiUnlimited
+                    ? "무제한 이용 중"
+                    : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
+                </span>
+              </div>
+              {!aiUnlimited && (
+                <button
+                  onClick={() => setShowUnlockCode(true)}
+                  className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
+                >
+                  이용권 코드 입력
+                </button>
+              )}
             </div>
-            {!aiUnlimited && (
-              <button
-                onClick={() => setShowUnlockCode(true)}
-                className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
-              >
-                이용권 코드 입력
-              </button>
-            )}
+
+            <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <IconLink size={15} stroke={1.75} color="var(--accent)" className="shrink-0" />
+                  <span className="text-[13px] font-medium">짧은 URL 사용하기</span>
+                  {!premium && (
+                    <span
+                      className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                    >
+                      프리미엄
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-muted mt-1">
+                  짐이나 메모에 긴 링크를 붙여넣으면 자동으로 짧은 URL로 바꿔드려요.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={premium && !!profile?.shortUrlEnabled}
+                disabled={!premium}
+                onChange={(next) => updateShortUrlEnabled(next).catch(() => show("변경사항을 저장하지 못했어요"))}
+                ariaLabel="짧은 URL 사용하기"
+              />
+            </div>
+
+            <div className="p-3 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <IconMapPin size={15} stroke={1.75} color="var(--accent)" className="shrink-0" />
+                  <span className="text-[13px] font-medium">지역 추천</span>
+                  {!premium && (
+                    <span
+                      className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                    >
+                      프리미엄
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-text-muted mt-1">
+                  가방 제목을 바꿀 때 제목에 지역명이 들어있으면 날씨/맛집/관광지를 추천해드려요.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={premium && !!profile?.regionRecommendEnabled}
+                disabled={!premium}
+                onChange={(next) =>
+                  updateRegionRecommendEnabled(next).catch(() => show("변경사항을 저장하지 못했어요"))
+                }
+                ariaLabel="지역 추천"
+              />
+            </div>
           </div>
         </div>
 
