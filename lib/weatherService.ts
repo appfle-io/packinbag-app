@@ -16,10 +16,9 @@ export interface WeatherInfo {
 const isPureAsciiWord = (s: string) => /^[A-Za-z]+$/.test(s);
 
 /**
- * 100% 하드코딩 0개 지오코딩 서비스
- * 서버 전용 /api/geocode (Google Geocoding & Nominatim)를 호출하여
- * 사용자가 입력한 전 세계 어떤 한글/영문 지명이든 100% 자동 인식해 위도/경도를 찾아냅니다.
- * 사전 맵이나 하드코딩 배열이 단 1개도 존재하지 않습니다.
+ * 지오코딩 서비스 - 서버 전용 /api/geocode(Google Geocoding & Nominatim)를 호출하여
+ * 사용자가 입력한 전 세계 어떤 한글/영문 지명이든 자동으로 위도/경도를 찾아낸다.
+ * 사전 맵이나 하드코딩된 지명 목록은 존재하지 않는다.
  */
 export async function resolveCityInfo(text: string): Promise<{ lat: number; lon: number; name: string } | null> {
   if (!text) return null;
@@ -29,10 +28,15 @@ export async function resolveCityInfo(text: string): Promise<{ lat: number; lon:
   // 띄어쓰기 및 특수문자 기준 단어 추출. 영문 단어는 4글자 이상, 그 외(한글 등)는
   // 2글자 이상만 지오코딩 후보로 인정한다(2026-07: "DO" 같은 칸반 상태라벨이 실제
   // 지명과 우연히 매칭되는 오탐 방지).
+  // MAX_CANDIDATE_WORDS: 가방 이름이 아주 길어서 후보 단어가 많아져도(예: 문장형 이름),
+  // 이름이 바뀔 때마다 순차 지오코딩 API 호출이 무한정 늘지 않도록 가장 긴 단어부터
+  // 최대 4개까지만 시도한다(2026-07 비용 점검에서 추가).
+  const MAX_CANDIDATE_WORDS = 4;
   const words = clean
     .split(/[\s,./_~!?()-]+/)
     .filter((w) => (isPureAsciiWord(w) ? w.length >= 4 : w.length >= 2))
-    .sort((a, b) => b.length - a.length);
+    .sort((a, b) => b.length - a.length)
+    .slice(0, MAX_CANDIDATE_WORDS);
 
   for (const word of words) {
     try {
