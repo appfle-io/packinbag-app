@@ -338,16 +338,30 @@ export default function BagEditorScreen({
     });
   };
 
+  // AI 추천 명소/맛집/특산물을 "+ 추가"하면 항상 이 이름의 전용 팩에 모은다 - 사용자가
+  // 임의의 첫 번째 팩에 섞여 들어가서 어디 담겼는지 헷갈리는 문제를 없애기 위함(2026-07).
+  // 이미 있으면 그 팩에 이어서 담고, 없으면 팩 목록 맨 위에 새로 만든다.
+  const AI_RECOMMEND_PACK_NAME = "AI추천";
+
   const handleAddRecommendedItem = (itemText: string) => {
     if (guardReadOnly()) return;
-    let targetPackId: string | undefined = bag.packs[0]?.id;
-    if (!targetPackId) {
-      targetPackId = handleAddPack("checklist") ?? undefined;
+    const newItem: Item = { id: uid(), type: "check", text: itemText, checked: false };
+    const existing = bag.packs.find((p) => p.kind !== "editor" && p.name === AI_RECOMMEND_PACK_NAME);
+    if (existing) {
+      updatePacks((packs) =>
+        packs.map((p) => (p.id === existing.id ? { ...p, items: [...p.items, newItem] } : p))
+      );
+    } else {
+      if (bag.packs.length >= 10) {
+        show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+        return;
+      }
+      updatePacks((packs) => [
+        { id: uid(), name: AI_RECOMMEND_PACK_NAME, items: [newItem] },
+        ...packs,
+      ]);
     }
-    if (targetPackId) {
-      handleCreateItem(targetPackId, { type: "check", text: itemText });
-      show(`'${itemText}' 항목을 팩에 담았어요!`);
-    }
+    show(`'${itemText}'를 'AI추천' 팩에 담았어요!`);
   };
 
   // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
@@ -798,14 +812,16 @@ export default function BagEditorScreen({
       return null;
     }
     const newPackId = uid();
+    // 2026-07: 새 팩은 맨 아래가 아니라 맨 위에 추가한다 - 방금 만든 팩을 아래로 스크롤해서
+    // 찾아야 하는 불편을 없애기 위함(팩뷰/메모장뷰 모두 이 packs 배열 순서를 그대로 따른다).
     if (kind === "editor") {
       updatePacks((packs) => [
-        ...packs,
         { id: newPackId, name: "새 메모", items: [], kind: "editor" },
+        ...packs,
       ]);
       return newPackId;
     }
-    updatePacks((packs) => [...packs, { id: newPackId, name: "새 팩", items: [] }]);
+    updatePacks((packs) => [{ id: newPackId, name: "새 팩", items: [] }, ...packs]);
     return newPackId;
   };
 
@@ -882,7 +898,9 @@ export default function BagEditorScreen({
 
   const handleImport = (imported: Pack[]) => {
     if (guardReadOnly()) return;
-    updatePacks((packs) => [...packs, ...imported].slice(0, 10));
+    // 2026-07: 새 팩을 만들 때(handleAddPack/handleQuickAddNewPack)와 동일하게, 보관함에서
+    // 불러온 팩도 맨 위에 넣는다. 10개 캡에 걸리면 기존 팩(뒤쪽, 오래된 것)부터 잘린다.
+    updatePacks((packs) => [...imported, ...packs].slice(0, 10));
   };
 
   // 메모장뷰 상단 "+" 통합 추가 모달 전용. 이름까지 바로 지어 새 팩을 만들고 첫 항목까지
@@ -904,7 +922,11 @@ export default function BagEditorScreen({
         ? { checked: false }
         : { bold: data.bold, strike: data.strike, color: data.color }),
     };
-    updatePacks((packs) => [...packs, { id: newPackId, name: name.trim() || "새 팩", items: [newItem] }]);
+    // 2026-07: handleAddPack과 동일하게 새 팩을 맨 위에 추가한다.
+    updatePacks((packs) => [
+      { id: newPackId, name: name.trim() || "새 팩", items: [newItem] },
+      ...packs,
+    ]);
     return newPackId;
   };
 
