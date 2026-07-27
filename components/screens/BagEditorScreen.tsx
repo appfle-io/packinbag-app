@@ -1411,7 +1411,9 @@ export default function BagEditorScreen({
     clientY: number
   ) => {
     if (guardReadOnly()) return;
-    setPackDrag({ packId, name, x: clientX, y: clientY, overPackId: null, overPackPosition: null });
+    const next = { packId, name, x: clientX, y: clientY, overPackId: null, overPackPosition: null };
+    packDragRef.current = next;
+    setPackDrag(next);
   };
 
   // insertAfter가 true면 toPackId "다음"에, 아니면 "앞"에 삽입한다(짐 순서변경과 같은
@@ -1431,6 +1433,8 @@ export default function BagEditorScreen({
     show("팩 순서를 바꿨어요");
   };
 
+  const packDragRef = useRef<typeof packDrag>(null);
+
   useEffect(() => {
     if (!packDrag) return;
 
@@ -1443,18 +1447,28 @@ export default function BagEditorScreen({
         const rect = packEl.getBoundingClientRect();
         overPackPosition = e.clientY - rect.top < rect.height / 2 ? "before" : "after";
       }
-      setPackDrag((d) =>
-        d ? { ...d, x: e.clientX, y: e.clientY, overPackId, overPackPosition } : d
-      );
+      setPackDrag((d) => {
+        if (!d) return d;
+        const next = { ...d, x: e.clientX, y: e.clientY, overPackId, overPackPosition };
+        packDragRef.current = next;
+        return next;
+      });
     };
 
+    // 예전에는 손을 뗀 순간(handleUp) 안에서 setPackDrag의 함수형 업데이트(d => {...})
+    // 안에서 바로 handleReorderPack(setBag + 토스트 show)을 호출해서, "BagEditorScreen을
+    // 렌더링하는 도중에 ToastProvider 상태를 바꾼다"는 React 경고가 났다(setState
+    // 업데이터 함수 안에서 다른 컴포넌트의 setState를 호출하는 건 안전하지 않다).
+    // 짐/그룹 드래그와 동일하게 packDragRef로 최신 값을 따로 보관해두는 방식으로 수정해서,
+    // handleUp에선 setPackDrag(null)을 그대로 호출하고 handleReorderPack은 업데이트와
+    // 무관한 별도 문장으로 따로 호출한다.
     const handleUp = () => {
-      setPackDrag((d) => {
-        if (d && d.overPackId && d.overPackId !== d.packId) {
-          handleReorderPack(d.packId, d.overPackId, d.overPackPosition === "after");
-        }
-        return null;
-      });
+      const d = packDragRef.current;
+      packDragRef.current = null;
+      setPackDrag(null);
+      if (d && d.overPackId && d.overPackId !== d.packId) {
+        handleReorderPack(d.packId, d.overPackId, d.overPackPosition === "after");
+      }
     };
 
     window.addEventListener("pointermove", handleMove);
