@@ -89,6 +89,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "링크 생성에 실패했어요" }, { status: 500 });
   }
 
-  const origin = req.nextUrl.origin;
+  // 짧은 URL은 기본 도메인(packinbag.seeuson.com)보다 더 짧은 전용 도메인(short.seeuson.com 등)을
+  // 쓰고 싶을 수 있어서, 환경변수 SHORT_URL_BASE_URL(Vercel 환경변수)이 있으면 그것을, 없으면
+  // 요청이 들어온 도메인(req.nextUrl.origin)을 쓴다. Vercel 프로젝트에 그 도메인을 별도 도메인으로
+  // 추가해두면 이 값을 그대로 따라간다.
+  const configuredBase = process.env.SHORT_URL_BASE_URL?.trim().replace(/\/+$/, "");
+  const origin = configuredBase || req.nextUrl.origin;
   return NextResponse.json({ code, shortUrl: `${origin}/s/${code}` });
 }
