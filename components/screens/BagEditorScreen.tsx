@@ -1075,6 +1075,18 @@ export default function BagEditorScreen({
 
   const dragRef = useRef<typeof drag>(null);
 
+  // 짐을 처음(아직 선택 안 된 상태에서) 롱프레스하면 곧바로 선택모드로 들어가는 대신,
+  // 일단 "집어든" 상태로만 기록해두고 다음 움직임을 지켜본다 - 그대로 움직이면(아래
+  // pendingSingleItemDrag 이펙트에서 판정) 다중선택 없이 이 짐 하나만 바로 드래그로
+  // 옮기고, 움직임 없이 손을 떼면 기존처럼 다중선택 모드로 들어간다. 이미 선택된 짐을
+  // 다시 롱프레스한 경우(아래 if문)는 그대로 곧바로 그룹 드래그를 시작한다.
+  const pendingSingleItemDragRef = useRef<{
+    packId: string;
+    itemId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const handleStartItemDrag = (
     packId: string,
     itemId: string,
@@ -1096,7 +1108,7 @@ export default function BagEditorScreen({
       setGroupDrag(next);
       return;
     }
-    toggleSelectItem(packId, itemId);
+    pendingSingleItemDragRef.current = { packId, itemId, x: clientX, y: clientY };
   };
 
   // 짐 다중선택 상태: 한 번에 한 팩만 대상으로 한다(다른 팩을 롱프레스하면 그 팩으로
@@ -1221,6 +1233,46 @@ export default function BagEditorScreen({
       handleMoveSelectedItems(d.itemsByPack, d.overPackId);
     };
 
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // pendingSingleItemDragRef(위 handleStartItemDrag)의 판정을 담당한다 - 이 정도
+  // (PICK_MOVE_PX) 이상 움직이면 다중선택 없이 이 짐 하나만 즉시 드래그(groupDrag,
+  // 항목 1개)로 전환하고, 움직임 없이 손을 떼면 그제서야 다중선택 모드로 들어간다.
+  useEffect(() => {
+    const PICK_MOVE_PX = 8;
+    const handleMove = (e: PointerEvent) => {
+      const pending = pendingSingleItemDragRef.current;
+      if (!pending) return;
+      const dx = e.clientX - pending.x;
+      const dy = e.clientY - pending.y;
+      if (Math.hypot(dx, dy) <= PICK_MOVE_PX) return;
+      pendingSingleItemDragRef.current = null;
+      const next = {
+        itemsByPack: { [pending.packId]: new Set([pending.itemId]) },
+        x: e.clientX,
+        y: e.clientY,
+        overPackId: null,
+        overItemId: null,
+        overItemPosition: null,
+      };
+      groupDragRef.current = next;
+      setGroupDrag(next);
+    };
+    const handleUp = () => {
+      const pending = pendingSingleItemDragRef.current;
+      if (!pending) return;
+      pendingSingleItemDragRef.current = null;
+      toggleSelectItem(pending.packId, pending.itemId);
+    };
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
     window.addEventListener("pointercancel", handleUp);

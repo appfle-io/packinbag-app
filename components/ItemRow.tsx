@@ -24,7 +24,7 @@ const SWIPE_INTENT_RATIO = 1.6;
 // 짐을 다른 팩으로 옮기거나 순서를 바꿀 때 쓰는 롱프레스 드래그 설정.
 // 이 시간(ms) 이상 큰 움직임 없이 누르고 있으면 드래그 모드로 진입하고,
 // 그전에 손가락이 옆으로 움직이면(스와이프 의도로 판단) 롱프레스를 취소한다.
-const LONG_PRESS_MS = 420;
+const LONG_PRESS_MS = 300;
 const LONG_PRESS_MOVE_CANCEL_PX = 8;
 
 // 롱프레스 드래그 판정 중에 위/아래로 크게 움직이면 "스크롤하려는 의도"로 보고,
