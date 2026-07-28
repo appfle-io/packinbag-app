@@ -262,7 +262,7 @@ export default function PackImportModal({
                     onChange={() => togglePack(entry.id)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
                   />
-                  <PackColorDot colorId={entry.color} onChange={() => {}} className="mt-1" />
+                  <PackColorDot colorId={entry.color} onChange={() => {}} />
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium mb-0.5 truncate">
                       {entry.name}

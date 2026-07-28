@@ -9,6 +9,8 @@ import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScree
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import DesktopQuickPackChatView from "@/components/DesktopQuickPackChatView";
+import { useToast } from "@/components/Toast";
+import Portal from "@/components/Portal";
 
 // PC 웹 전용 레이아웃. 좌측 트리(가방/팩 보관함)에서 클릭한 항목을 우측 패널에 그대로
 // 인라인으로 그린다 - 모바일에서 풀스크린으로 슬라이드-인 되던 BagEditorScreen/
@@ -95,6 +97,7 @@ export default function DesktopShell({
   onRestorePack: (packId: string) => Promise<void>;
   onPermanentDeletePack: (packId: string) => Promise<void>;
 }) {
+  const { show } = useToast();
   const [selection, setSelection] = useState<DesktopSelection | null>(null);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   // 설정은 우측 패널 전체를 바꾸지 않고 모달로 띄운다 - 지금 보고 있던 가방/팝이 그대로 뒤에 남아있고, 닫으면 다시 그 화면으로 돌아온다.

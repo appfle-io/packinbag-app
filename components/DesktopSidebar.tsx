@@ -130,6 +130,7 @@ export default function DesktopSidebar({
   onRenamePackEntry,
   onMovePackEntries,
   onDeletePackEntry,
+  onDropQuickPackItems,
   settingsActive,
 }: {
   uid: string;
