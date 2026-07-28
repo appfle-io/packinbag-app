@@ -131,7 +131,7 @@ export interface TravelRecommendation {
 export async function fetchAiTravelPlaces(
   cityName: string,
   idToken: string,
-  options?: { force?: boolean }
+  options?: { force?: boolean; excludeTexts?: string[] }
 ): Promise<TravelRecommendation[]> {
   try {
     const res = await fetch("/api/ai-travel-places", {
@@ -143,6 +143,7 @@ export async function fetchAiTravelPlaces(
       body: JSON.stringify({
         cityName,
         force: !!options?.force,
+        excludeTexts: options?.excludeTexts ?? [],
       }),
     });
     if (!res.ok) return [];

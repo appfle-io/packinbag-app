@@ -85,6 +85,12 @@ export async function POST(req: NextRequest) {
     const forceRaw = (body as { force?: unknown })?.force;
     const force = forceRaw === true;
 
+    const excludeTextsRaw = (body as { excludeTexts?: unknown })?.excludeTexts;
+    const excludeTexts = Array.isArray(excludeTextsRaw)
+      ? excludeTextsRaw.filter((t): t is string => typeof t === "string").slice(0, 30)
+      : [];
+    const excludeSet = new Set(excludeTexts.map((t) => t.trim()));
+
     if (!cityName) {
       return NextResponse.json({ places: [] });
     }
@@ -143,6 +149,7 @@ export async function POST(req: NextRequest) {
   ]
 }
 
+${excludeTexts.length > 0 ? `\n이미 추천해서 사용자가 담은 항목이라 절대 다시 추천하면 안 되는 목록: ${excludeTexts.join(", ")}\n위 목록과 겹치지 않는 새로운 항목으로만 추천하세요.\n` : ""}
 부연설명 없이 위 형식의 순수 JSON만 응답하세요.`;
 
     const MAX_RETRIES = 2;
@@ -173,6 +180,9 @@ export async function POST(req: NextRequest) {
           const data = await res.json();
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
           finalPlaces = parseRecommendations(rawText);
+          if (excludeSet.size > 0) {
+            finalPlaces = finalPlaces.filter((p) => !excludeSet.has(p.text.trim()));
+          }
           if (finalPlaces.length > 0) {
             console.log(`[팩인백] Gemini API 호출 성공! 도시: ${cityName}, 추천 개수: ${finalPlaces.length}`);
             break;
@@ -198,7 +208,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. 캐시 저장 - 다음 요청부터는(같은 도시, TTL 이내) Gemini 호출 없이 바로 반환된다.
-    if (db && finalPlaces.length > 0) {
+    if (db && finalPlaces.length > 0 && excludeSet.size === 0) {
       try {
         await db.collection("aiPlacesCache").doc(cityKey).set({
           cityName,

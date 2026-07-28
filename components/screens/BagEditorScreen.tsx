@@ -325,12 +325,20 @@ export default function BagEditorScreen({
     if (!weatherCity || !user || loadingAiPlaces) return;
     const seq = ++aiRequestSeqRef.current;
     setLoadingAiPlaces(true);
+    // 이미 'AI추천' 팩에 담아둔 항목은 새로고침해도 다시 나오지 않도록, 아이콘
+    // 접두사를 뗀 텍스트만 뽑아서 제외 목록으로 서버에 넘긴다.
+    const existingRecommendPack = bag.packs.find(
+      (p) => p.kind !== "editor" && p.name === AI_RECOMMEND_PACK_NAME
+    );
+    const excludeTexts = (existingRecommendPack?.items ?? []).map((i) =>
+      i.text.replace(/^\S+\s+/, "").trim()
+    );
     user.getIdToken().then((idToken) => {
       if (!idToken) {
         if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
         return;
       }
-      fetchAiTravelPlaces(weatherCity, idToken, { force: true })
+      fetchAiTravelPlaces(weatherCity, idToken, { force: true, excludeTexts })
         .then((places) => {
           if (aiRequestSeqRef.current !== seq) return;
           setAiPlaces(places);
