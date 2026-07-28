@@ -1879,7 +1879,7 @@ export default function BagEditorScreen({
                 <span className="text-[11.5px] font-medium text-text-muted">
                   🗺️ AI 추천 · 명소 / 맛집 / 특산물
                 </span>
-                <span className="flex items-center gap-2 shrink-0">
+                <span className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1891,11 +1891,17 @@ export default function BagEditorScreen({
                   >
                     <IconRefresh size={14} stroke={1.75} className={loadingAiPlaces ? "animate-spin" : undefined} color="var(--text-secondary)" />
                   </button>
-                  {aiPlacesCollapsed ? (
-                    <IconChevronDown size={15} stroke={1.75} color="var(--text-secondary)" />
-                  ) : (
-                    <IconChevronRight size={15} stroke={1.75} color="var(--text-secondary)" />
-                  )}
+                  <span
+                    className="flex items-center gap-0.5 rounded-full pl-2.5 pr-1.5 py-1 text-[11px] font-medium"
+                    style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                  >
+                    {aiPlacesCollapsed ? "펼치기" : "접기"}
+                    {aiPlacesCollapsed ? (
+                      <IconChevronDown size={13} stroke={2.25} />
+                    ) : (
+                      <IconChevronRight size={13} stroke={2.25} />
+                    )}
+                  </span>
                 </span>
               </div>
               {aiPlacesCollapsed ? null : loadingAiPlaces ? (

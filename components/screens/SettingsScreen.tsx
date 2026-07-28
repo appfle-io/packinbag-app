@@ -144,7 +144,7 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { user, profile, updateDefaultTab, updateShortUrlEnabled, updateRegionRecommendEnabled } = useAuth();
+  const { profile, updateDefaultTab, updateShortUrlEnabled, updateRegionRecommendEnabled } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -344,22 +344,6 @@ export default function SettingsScreen({
           </div>
         </div>
 
-        {isMasterEmail(user?.email) && (
-          <div className="mb-6">
-            <p className="text-[12px] font-semibold text-accent mb-2">👑 관리자 전용 메뉴</p>
-            <button
-              onClick={() => setShowInspectLogsModal(true)}
-              className="w-full rounded-lg border border-accent/40 bg-accent/5 flex items-center justify-between p-3"
-            >
-              <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
-                <IconShieldCheck size={17} color="var(--accent)" />
-                템플릿 공유 등록 모니터링
-              </span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
-            </button>
-          </div>
-        )}
-
         <div className="mb-6">
           <button
             onClick={() => setView("trash")}
@@ -442,17 +426,30 @@ export default function SettingsScreen({
         </div>
 
         {isMaster && (
-          <div className="rounded-lg border border-border overflow-hidden">
-            <Link
-              href="/admin"
-              className="w-full flex items-center justify-between p-3"
-            >
-              <span className="flex items-center gap-2 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                <IconExternalLink size={16} stroke={1.75} />
-                관리자 사이트로 이동
-              </span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </Link>
+          <div className="mb-2">
+            <p className="text-[12px] font-semibold text-accent mb-2">👑 관리자 전용 메뉴</p>
+            <div className="rounded-lg border border-accent/40 bg-accent/5 overflow-hidden">
+              <button
+                onClick={() => setShowInspectLogsModal(true)}
+                className="w-full flex items-center justify-between p-3 border-b border-accent/20"
+              >
+                <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
+                  <IconShieldCheck size={17} color="var(--accent)" />
+                  템플릿 공유 등록 모니터링
+                </span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+              </button>
+              <Link
+                href="/admin"
+                className="w-full flex items-center justify-between p-3"
+              >
+                <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
+                  <IconExternalLink size={16} stroke={1.75} color="var(--accent)" />
+                  관리자 사이트로 이동
+                </span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+              </Link>
+            </div>
           </div>
         )}
       </div>
