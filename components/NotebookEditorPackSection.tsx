@@ -139,6 +139,7 @@ export default function NotebookEditorPackSection({
           value={pack.name}
           onChange={onRenamePack}
           readOnly={readOnly}
+          onDoubleClick={() => onChangeDisplayState?.(isCollapsed ? "normal" : "collapsed")}
           className="text-[15px] font-semibold truncate text-left min-w-0 flex-1"
           inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />

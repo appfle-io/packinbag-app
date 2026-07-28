@@ -60,7 +60,6 @@ export default function NotebookPackSection({
   selectedItemIds,
   onToggleSelectItem,
   getItemThreadInfo,
-  onOpenItemThread,
   ddayCountTodayAsDayOne,
   /*
   getItemReactionDoc,
@@ -105,7 +104,6 @@ export default function NotebookPackSection({
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
-  onOpenItemThread?: (itemId: string, itemText: string) => void;
   // 이 가방의 D-day 계산 기준. 짐 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   /*
@@ -198,6 +196,7 @@ export default function NotebookPackSection({
         <SwipeRenameField
           value={pack.name}
           onChange={onRenamePack}
+          onDoubleClick={() => onChangeDisplayState?.(isCollapsed ? "normal" : "collapsed")}
           className="text-[15px] font-semibold truncate text-left min-w-0 flex-1"
           inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />
@@ -368,9 +367,6 @@ export default function NotebookPackSection({
                     disabled={selecting}
                     onRowTap={selecting ? () => onToggleSelectItem?.(item.id) : undefined}
                     commentCount={getItemThreadInfo?.(item.id)?.commentCount}
-                    onOpenThread={
-                      onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
-                    }
                     ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
                     /*
                     reactionDoc={getItemReactionDoc?.(item.id)}

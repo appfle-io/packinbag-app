@@ -14,8 +14,6 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const alwaysCollapseOnEntry = profile?.packSettings?.alwaysCollapseOnEntry ?? false;
   // 짐 최대 표시 줄 수 (없으면 1줄 기본값)
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
-  // 짐 더블클릭 복사 토스트 노출 시간 (없으면 3초 기본값)
-  const itemCopyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
   // 스와이프 힌트 물방울 보이기 여부 (명시적으로 꺼둔 적이 없으면 기본 켜짐)
   // - 가방↔팩 보관함 양방향 스와이프 힌트 버튼을 이 값 하나로 같이 켜고 끈다.
   const packTreeHintEnabled = profile?.packSettings?.packTreeHintEnabled ?? true;
@@ -155,28 +153,6 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
             onChange={(v) => updatePackSettings({ packTreeHintEnabled: v })}
             ariaLabel="팩 보관함 열기 버튼"
           />
-        </div>
-
-        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium">짐 더블클릭 복사 알림 노출 시간</p>
-            <p className="text-[11.5px] text-text-secondary mt-0.5">
-              짐을 더블클릭하면 내용이 클립보드에 복사돼요. 복사된 내용을 알려주는 알림을 몇 초간 보여줄지 골라요
-            </p>
-          </div>
-          <select
-            value={String(itemCopyToastSeconds)}
-            onChange={(e) => updatePackSettings({ itemCopyToastSeconds: Number(e.target.value) })}
-            aria-label="짐 더블클릭 복사 알림 노출 시간"
-            className={selectClassName}
-            style={selectStyle}
-          >
-            {[2, 3, 4, 5, 6, 7].map((sec) => (
-              <option key={sec} value={sec}>
-                {sec}초
-              </option>
-            ))}
-          </select>
         </div>
       </div>
     </div>

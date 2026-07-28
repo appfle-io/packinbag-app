@@ -31,7 +31,6 @@ export default function PackGrid({
   selectedItemsByPack,
   onToggleSelectItem,
   getItemThreadInfo,
-  onOpenItemThread,
   onOpenNotePackEditor,
   getNoteEditors,
   premium,
@@ -77,9 +76,8 @@ export default function PackGrid({
   // 있게), 각 카드에는 이 맵에 없는 팩도 빈 Set을 내려준다(아래 renderCard 참고).
   selectedItemsByPack?: Record<string, Set<string>> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
-  // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 댓글 버튼이 안 보인다.
+  // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 밑줄 표시가 안 붙는다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
-  onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
   // 에디터팩(자유문서형) 카드의 연필 버튼 탭 - 있으면 EditorPackCard가 렌더된다(없으면
   // kind==='editor' 팩은 일반 PackCard로 폴백된다 - 상위 화면이 아직 이 콜백을 연결하지
   // 않았을 때도 깨지지 않게 하기 위함).
@@ -164,9 +162,6 @@ export default function PackGrid({
       selectedItemIds={selectionModeActive ? selectedItemsByPack![pack.id] ?? new Set<string>() : null}
       onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
       getItemThreadInfo={getItemThreadInfo}
-      onOpenItemThread={
-        onOpenItemThread ? (itemId, itemText) => onOpenItemThread(pack.id, itemId, itemText) : undefined
-      }
       ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
       /*
       getItemReactionDoc={getItemReactionDoc}

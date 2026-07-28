@@ -34,7 +34,6 @@ export default function NotebookView({
   selectedItemsByPack,
   onToggleSelectItem,
   getItemThreadInfo,
-  onOpenItemThread,
   onOpenNotePackEditor,
   getNoteEditors,
   premium,
@@ -78,7 +77,6 @@ export default function NotebookView({
   selectedItemsByPack?: Record<string, Set<string>> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
-  onOpenItemThread?: (packId: string, itemId: string, itemText: string) => void;
   // 에디터팩(자유문서형) 섬션의 "편집" 진입점 - 있으면 NotebookEditorPackSection이 렌더된다
   // (없으면 kind==='editor' 팩도 일반 NotebookPackSection으로 폴백된다).
   onOpenNotePackEditor?: (packId: string) => void;
@@ -160,9 +158,6 @@ export default function NotebookView({
           selectedItemIds={selectionModeActive ? selectedItemsByPack![pack.id] ?? new Set<string>() : null}
           onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
           getItemThreadInfo={getItemThreadInfo}
-          onOpenItemThread={
-            onOpenItemThread ? (itemId, itemText) => onOpenItemThread(pack.id, itemId, itemText) : undefined
-          }
           ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
           /*
           getItemReactionDoc={getItemReactionDoc}

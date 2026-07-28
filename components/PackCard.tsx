@@ -56,7 +56,6 @@ export default function PackCard({
   selectedItemIds,
   onToggleSelectItem,
   getItemThreadInfo,
-  onOpenItemThread,
   ddayCountTodayAsDayOne,
   /*
   getItemReactionDoc,
@@ -107,9 +106,8 @@ export default function PackCard({
   // 팩은 그대로 유지된다.
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (itemId: string) => void;
-  // 짐별 댓글 수 조회 함수. 없으면(undefined) ItemRow에 댓글 버튼이 안 보인다.
+  // 짐별 댓글 수 조회 함수. 없으면(undefined) 밑줄 표시가 안 붙는다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
-  onOpenItemThread?: (itemId: string, itemText: string) => void;
   // 이 가방의 D-day 계산 기준. 짐 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   // 팀즈 스타일 즉시 리액션용. 넷 다 있어야 ItemRow에 파이 열을 보여준다.
@@ -194,6 +192,11 @@ export default function PackCard({
           <SwipeRenameField
             value={pack.name}
             onChange={onRenamePack}
+            onDoubleClick={
+              onChangeDisplayState
+                ? () => onChangeDisplayState(isCollapsed ? "normal" : "collapsed")
+                : undefined
+            }
             className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
             inputClassName="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
@@ -292,9 +295,6 @@ export default function PackCard({
                     disabled={selecting}
                     onRowTap={selecting ? () => onToggleSelectItem?.(item.id) : undefined}
                     commentCount={getItemThreadInfo?.(item.id)?.commentCount}
-                    onOpenThread={
-                      onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
-                    }
                     ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
                     /*
                     reactionDoc={getItemReactionDoc?.(item.id)}

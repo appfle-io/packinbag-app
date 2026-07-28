@@ -42,7 +42,7 @@ import type { TravelDateFieldHandle } from "@/components/TravelDateField";
 import PackGrid from "@/components/PackGrid";
 import NotebookView from "@/components/NotebookView";
 import PackChipBar from "@/components/PackChipBar";
-import ItemFormModal from "@/components/ItemFormModal";
+import ItemEditModal from "@/components/ItemEditModal";
 import PackImportModal from "@/components/PackImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import SaveAsDialog from "@/components/SaveAsDialog";
@@ -239,12 +239,8 @@ export default function BagEditorScreen({
   // 가방 전체(bag) 대상 댓글만 모은 것 - BagChatPreview/BagQuickAddRow 에서 공통으로 쓴다.
   const bagLevelComments = comments.filter((c) => c.targetType === "bag");
 
-  const [openItemThread, setOpenItemThread] = useState<{
-    packId: string;
-    itemId: string;
-    itemText: string;
-  } | null>(null);
-  // 가방 전체 대화(공지성) 스레드 표시 여부.
+  // 가방 전체 대화(공지성) 스레드 표시 여부. 짐별 댓글은 이제 별도 스레드 모달 없이
+  // 수정 모달(ItemEditModal) 안에 함께 떠서 따로 열기 상태가 필요 없다.
   const [showBagThread, setShowBagThread] = useState(false);
   // @멘션 자동완성/스캔용 멤버 목록(본인 제외).
   const mentionMembers = buildMentionMembers(bag.memberIds, bag.memberProfiles, currentUid);
@@ -2260,9 +2256,6 @@ export default function BagEditorScreen({
             selectedItemsByPack={selection}
             onToggleSelectItem={toggleSelectItem}
             getItemThreadInfo={getItemThreadInfo}
-            onOpenItemThread={(packId, itemId, itemText) =>
-              setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
-            }
             onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
             getNoteEditors={getNoteEditorsForPack}
             premium={premium}
@@ -2306,9 +2299,6 @@ export default function BagEditorScreen({
             selectedItemsByPack={selection}
             onToggleSelectItem={toggleSelectItem}
             getItemThreadInfo={getItemThreadInfo}
-            onOpenItemThread={(packId, itemId, itemText) =>
-              setOpenItemThread({ packId, itemId, itemText: itemText || "짐" })
-            }
             onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
             getNoteEditors={getNoteEditorsForPack}
             premium={premium}
@@ -2634,7 +2624,7 @@ export default function BagEditorScreen({
       )}
 
       {itemModal && (
-        <ItemFormModal
+        <ItemEditModal
           packs={bag.packs.filter((p) => p.kind !== "editor")}
           selectionMode="single"
           initialSelectedPackIds={[itemModal.sourcePackId]}
@@ -2650,6 +2640,15 @@ export default function BagEditorScreen({
             const targetPackId = targetPackIds[0];
             handleUpdateItem(itemModal.sourcePackId, itemModal.item.id, targetPackId, data);
             setItemModal(null);
+          }}
+          thread={{
+            bagId: bag.id,
+            targetId: itemModal.item.id,
+            packId: itemModal.sourcePackId,
+            currentUid,
+            currentNickname: nickname,
+            currentAvatarId: avatarId,
+            members: mentionMembers,
           }}
         />
       )}
@@ -2732,20 +2731,6 @@ export default function BagEditorScreen({
             setShowPdfPremiumModal(false);
             show("이용권 코드가 적용됐어요! PDF 기능을 다시 시도해주세요");
           }}
-        />
-      )}
-
-      {openItemThread && (
-        <ItemThreadSheet
-          bagId={bag.id}
-          targetId={openItemThread.itemId}
-          packId={openItemThread.packId}
-          title={openItemThread.itemText}
-          currentUid={currentUid}
-          currentNickname={nickname}
-          currentAvatarId={avatarId}
-          members={mentionMembers}
-          onClose={() => setOpenItemThread(null)}
         />
       )}
 

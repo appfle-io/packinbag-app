@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconBold, IconMessageCircle2, IconStrikethrough } from "@tabler/icons-react";
+import { IconBold, IconStrikethrough } from "@tabler/icons-react";
 import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
@@ -12,8 +12,6 @@ import LinkifiedText from "./LinkifiedText";
 
 const DELETE_SWIPE_THRESHOLD = -30;
 const DELETE_SWIPE_MAX = -60;
-const EDIT_SWIPE_THRESHOLD = 30;
-const EDIT_SWIPE_MAX = 60;
 const SWIPE_BUTTON_WIDTH = 60;
 
 // 스와이프로 판정되려면 필요한 최소 가로 이동거리 / 세로 대비 배율.
@@ -116,7 +114,6 @@ export default function ItemRow({
   disabled,
   onRowTap,
   commentCount,
-  onOpenThread,
   ddayCountTodayAsDayOne,
   /*
   reactionDoc,
@@ -143,12 +140,9 @@ export default function ItemRow({
   roundCheckbox?: boolean;
   disabled?: boolean;
   onRowTap?: () => void;
-  // 이 짐에 달린 댓글 수(0이면 아이콘만, 있으면 숫자 배지). 없으면(undefined) 댓글
-  // 버튼 자체를 숨긴다 - 다중선택 등 이 버튼이 없어야 하는 맥락에서 그냥 prop을 안 넘기면 된다.
-  // 이 짐에 달린 댓글 수(0이면 아이콘만, 있으면 숫자 배지). 없으면(undefined) 댓글
-  // 버튼 자체를 숨긴다 - 다중선택 등 이 버튼이 없어야 하는 맥락에서 그냥 prop을 안 넘기면 된다.
+  // 이 짐에 달린 댓글 수. 있으면 짐 내용에 밑줄(underline)이 붙는다(hasComment). 댓글 자체는 더블탭으로
+  // 열리는 통합 모달(ItemEditModal) 안에서 보고 쓴다 - 이 컴포넌트에는 댓글 열기 버튼이 따로 없다.
   commentCount?: number;
-  onOpenThread?: () => void;
   // 이 짐이 속한 가방의 D-day 계산 기준(당일도 "1일째"로 세는지). 짐 단위
   // 마감일(item.dueDate) 뱃지가 가방 상단 D-day와 같은 기준으로 보이도록 받는다.
   ddayCountTodayAsDayOne?: boolean;
@@ -170,10 +164,10 @@ export default function ItemRow({
   const { profile, user } = useAuth();
   const { show: showToast } = useToast();
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
-  // 설정 > 팩 설정에서 고르는 짐 최대 표시 줄 수(1~3, 없으면 1줄 기본값)와
-  // 더블클릭 복사 토스트 노출 시간(3~7초, 없으면 3초 기본값). 모든 짐에 공통 적용된다.
+  // 설정 > 팩 설정에서 고르는 짐 최대 표시 줄 수(1~3, 없으면 1줄 기본값). 모든 짐에 공통 적용된다.
+  // (예전엔 더블클릭 복사 토스트 노출 시간 설정도 여기 있었는데, 더블클릭이 복사 대신
+  // 수정 모달을 열도록 바뀌면서 그 설정 값은 더 이상 쓰이지 않는다.)
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
-  const copyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
   const lineClampClass =
     itemMaxLines === 3 ? "line-clamp-3" : itemMaxLines === 2 ? "line-clamp-2" : "line-clamp-1";
   // 짐 마감일 뱃지 라벨. dueDate가 없으면 null이라 아래에서 자연히 숨겨진다.
@@ -193,15 +187,20 @@ export default function ItemRow({
     ? "var(--accent)"
     : "var(--text-muted)";
 
+  // 댓글이 달려있는지는 짐 내용 밑줄(underline)로만 조용히 표시한다 - 아이콘/배지를 따로 둘지 않으니
+  // 플렉스 폭을 전혀 침범하지 않고(텍스트 잘림 문제 없음), 취소선(strike)과도 함께 보일 수 있다.
+  const hasComment = !editing && !!commentCount;
+
   // 다중선택 모드 중엔 같은 짐을 빠르게 두 번 누르면(더블클릭 속도) 두 번째 탭을 무시한다 -
   // 안 그러면 선택->선택해제가 순식간에 일어나 다중선택 모드가 풀리면서, 동시에 아래
-  // handleDoubleClick(복사)까지 겹쳐 실행되는 문제가 있었다.
+  // handleDoubleClick(수정 모달 열기)까지 겹쳐 실행되는 문제가 있었다.
   const lastTapTimeRef = useRef(0);
   const RAPID_TAP_GUARD_MS = 350;
 
-  // 짐을 더블클릭하면 내용을 클립보드에 복사하고, 무슨 내용이 복사됐는지 토스트로 알려준다.
-  // 다중선택 모드(disabled) 중에는 복사 대신 선택 토글이 우선이므로 더블클릭 복사를 막는다.
-  // preventDefault를 호출하는 이유: 그냥 return만 하면 JS 동작(복사)만 막힐 뿐, 브라우저가
+  // 짐을 더블클릭하면 수정 모달(또는 인라인 편집)을 연다. 예전엔 클립보드 복사였는데,
+  // 스와이프에서 수정 버튼 자리가 댓글로 바뀌면서 수정 진입 동선이 더블탭으로 옮겨왔다.
+  // 다중선택 모드(disabled) 중에는 편집 대신 선택 토글이 우선이므로 막는다.
+  // preventDefault를 호출하는 이유: 그냥 return만 하면 JS 동작만 막힐 뿐, 브라우저가
   // 더블클릭 시 기본으로 수행하는 텍스트 선택(하이라이트)은 그대로 일어난다 - 선택 모드 중에
   // 짐 텍스트가 계속 하이라이트되어 보이는 게 어색했던 문제.
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -209,15 +208,7 @@ export default function ItemRow({
       e.preventDefault();
       return;
     }
-    if (!item.text) return;
-    navigator.clipboard
-      .writeText(item.text)
-      .then(() => {
-        showToast(`"${item.text}" 복사됨`, { durationMs: copyToastSeconds * 1000 });
-      })
-      .catch(() => {
-        showToast("복사 실패", { durationMs: copyToastSeconds * 1000 });
-      });
+    openEdit();
   };
   const startX = useRef(0);
   const startY = useRef(0);
@@ -413,7 +404,9 @@ export default function ItemRow({
     // click이 열려있는 버튼을 즉시 닫아버리는 것을 막기 위함).
     swipedRef.current = true;
 
-    const next = Math.min(EDIT_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
+    // 오른쪽 스와이프는 더 이상 쓰이지 않는다(수정/댓글은 더블탭 통합 모달로 이동) -
+    // 오른쪽으로는 0까지만, 왼쪽(삭제)으로는 그대로 허용한다.
+    const next = Math.min(0, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
     setDragX(next);
   };
 
@@ -432,7 +425,6 @@ export default function ItemRow({
     setDragging(false);
     setDragX((current) => {
       if (current <= DELETE_SWIPE_THRESHOLD) return DELETE_SWIPE_MAX;
-      if (current >= EDIT_SWIPE_THRESHOLD) return EDIT_SWIPE_MAX;
       return 0;
     });
   };
@@ -531,27 +523,6 @@ export default function ItemRow({
           >
             <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center">
               삭제
-            </span>
-          </button>
-        )}
-
-        {(dragging || dragX !== 0) && dragX > 0 && (
-          <button
-            onClick={() => {
-              setDragX(0);
-              openEdit();
-            }}
-            className="absolute left-0 top-0 h-full flex items-center justify-start overflow-hidden text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
-            style={{
-              // 버튼이 왼쪽에 고정된 채 오른쪽으로 넓어지므로, 라벨도 왼쪽 기준으로
-              // 고정해서(justify-start) 밀린 만큼 오른쪽부터 드러나 보이게 한다.
-              width: Math.min(SWIPE_BUTTON_WIDTH, Math.abs(dragX)),
-              background: "#2563eb",
-              color: "#fff",
-            }}
-          >
-            <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center">
-              수정
             </span>
           </button>
         )}
@@ -722,7 +693,9 @@ export default function ItemRow({
                   className={lineClampClass}
                   style={{
                     color: item.checked ? "var(--text-muted)" : "var(--foreground)",
-                    textDecoration: item.checked ? "line-through" : "none",
+                    textDecoration: [item.checked && "line-through", hasComment && "underline"]
+                      .filter(Boolean)
+                      .join(" ") || "none",
                   }}
                 >
                   <LinkifiedText
@@ -741,7 +714,9 @@ export default function ItemRow({
                   className={lineClampClass}
                   style={{
                     fontWeight: item.bold ? 700 : 400,
-                    textDecoration: item.strike ? "line-through" : "none",
+                    textDecoration: [item.strike && "line-through", hasComment && "underline"]
+                      .filter(Boolean)
+                      .join(" ") || "none",
                     color: item.color || "var(--foreground)",
                   }}
                 >
@@ -774,34 +749,12 @@ export default function ItemRow({
             </span>
           )}
 
-          {!editing && onOpenThread && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDragX(0);
-                onOpenThread();
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-              aria-label="댓글"
-              className="relative shrink-0 flex items-center justify-center"
-              style={{ width: 22, height: 22, transform: "scale(var(--pack-card-scale,1))" }}
-            >
-              <IconMessageCircle2
-                size={16}
-                stroke={1.75}
-                color={commentCount ? "var(--accent)" : "var(--text-muted)"}
-              />
-              {!!commentCount && (
-                <span
-                  className="absolute -top-1 -right-1 min-w-[13px] h-[13px] px-[3px] rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                  style={{ background: "var(--accent)" }}
-                >
-                  {commentCount > 9 ? "9+" : commentCount}
-                </span>
-              )}
-            </button>
-          )}
         </div>
+
+        {/* 예전엔 이 자리에 댓글 아이콘+숫자배지 버튼이 있었는데, 폭이 넓은 짐(dueDate 배지까지 겹치면)은
+            텍스트가 많이 잘려 보이는 문제가 있었다. 댓글은 이제 오른쪽 스와이프(위 버튼)로 열고,
+            댓글이 있다는 표시는 별도 아이콘 없이 위의 짐 내용 span에 밑줄(underline)을 추가하는 것으로
+            대신한다(hasComment 변수) - 플렉스 폭을 전혀 침범하지 않아 텍스트 잘림 없이 내용을 그대로 보여준다. */}
       </div>
 
       {/* 팀즈 스타일 이모지 리액션 - 짐 바로 아래에 살짝 겹쳐서 떠있는 알약들.

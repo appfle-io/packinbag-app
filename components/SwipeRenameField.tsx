@@ -18,12 +18,15 @@ export default function SwipeRenameField({
   className,
   inputClassName,
   readOnly,
+  onDoubleClick,
 }: {
   value: string;
   onChange: (value: string) => void;
   className?: string;
   inputClassName?: string;
   readOnly?: boolean;
+  // 있으면 이름 영역을 더블탭했을 때 호출된다(팩 카드/심플뷰에서 팩/섹션 접기상태 토글용).
+  onDoubleClick?: () => void;
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -141,7 +144,11 @@ export default function SwipeRenameField({
       >
         <button
           onClick={() => dragX !== 0 && setDragX(0)}
-          className={className}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            onDoubleClick?.();
+          }}
+          className={`w-full ${className ?? ""}`}
           style={{ cursor: readOnly ? "default" : undefined }}
         >
           {value}

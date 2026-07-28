@@ -127,6 +127,11 @@ export default function EditorPackCard({
             value={pack.name}
             onChange={onRenamePack}
             readOnly={readOnly}
+            onDoubleClick={
+              onChangeDisplayState
+                ? () => onChangeDisplayState(isCollapsed ? "normal" : "collapsed")
+                : undefined
+            }
             className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
             inputClassName="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
