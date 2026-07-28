@@ -99,6 +99,15 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] AI 할당량 확인 실패:", err);
     return NextResponse.json({ error: "AI 사용량 확인에 실패했어요" }, { status: 500 });
   }
+  if (!quota.unlimited) {
+    return NextResponse.json(
+      {
+        error: "AI로 정리하기는 프리미엄 전용 기능이에요. 설정 > 이용권 코드에서 코드를 입력하면 바로 쓸 수 있어요",
+        premiumRequired: true,
+      },
+      { status: 403 }
+    );
+  }
   if (!quota.allowed) {
     return NextResponse.json(
       {

@@ -12,7 +12,6 @@ import {
   IconExternalLink,
   IconShieldCheck,
   IconLink,
-  IconMapPin,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
@@ -144,7 +143,7 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { profile, updateDefaultTab, updateShortUrlEnabled, updateRegionRecommendEnabled } = useAuth();
+  const { profile, updateDefaultTab, updateShortUrlEnabled } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -288,7 +287,7 @@ export default function SettingsScreen({
               )}
             </div>
 
-            <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
+            <div className="p-3 flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <IconLink size={15} stroke={1.75} color="var(--accent)" className="shrink-0" />
@@ -311,34 +310,6 @@ export default function SettingsScreen({
                 disabled={!premium}
                 onChange={(next) => updateShortUrlEnabled(next).catch(() => show("변경사항을 저장하지 못했어요"))}
                 ariaLabel="짧은 URL 사용하기"
-              />
-            </div>
-
-            <div className="p-3 flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <IconMapPin size={15} stroke={1.75} color="var(--accent)" className="shrink-0" />
-                  <span className="text-[13px] font-medium">지역 추천</span>
-                  {!premium && (
-                    <span
-                      className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
-                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                    >
-                      프리미엄
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-text-muted mt-1">
-                  가방 제목을 바꿀 때 제목에 지역명이 들어있으면 날씨/맛집/관광지를 추천해드려요.
-                </p>
-              </div>
-              <ToggleSwitch
-                checked={premium && !!profile?.regionRecommendEnabled}
-                disabled={!premium}
-                onChange={(next) =>
-                  updateRegionRecommendEnabled(next).catch(() => show("변경사항을 저장하지 못했어요"))
-                }
-                ariaLabel="지역 추천"
               />
             </div>
           </div>

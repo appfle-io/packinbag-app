@@ -49,6 +49,7 @@ import SaveAsDialog from "@/components/SaveAsDialog";
 import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
 import AiOrganizeModal from "@/components/AiOrganizeModal";
+import AiFeatureMenu from "@/components/AiFeatureMenu";
 import ItemThreadSheet from "@/components/ItemThreadSheet";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
@@ -84,7 +85,7 @@ import {
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
-import { MAX_BAG_IMAGES, isPremiumUser, isRegionRecommendFeatureEnabled } from "@/lib/premiumLimits";
+import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
 import { isPdfUrl } from "@/lib/fileUrlUtils";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { isNativePlatform } from "@/lib/nativeAuth";
@@ -182,9 +183,11 @@ export default function BagEditorScreen({
   const { show } = useToast();
   const { profile, updatePackDisplayState, updateAllPackDisplayStates, updateBagViewMode } = useAuth();
   const premium = isPremiumUser(profile?.email, profile ?? null);
-  // 날씨/맛집/관광지 추천은 프리미엄이어도 설정 > AI 기능 하위 "지역 추천" 토글을
-  // 따로 켜야만 동작한다(기본값 OFF).
-  const regionRecommendActive = isRegionRecommendFeatureEnabled(profile?.email, profile ?? null);
+  // AI 기능(정리/추천) 통합 메뉴 - 상단 "AI" 버튼을 누르면 이 메뉴가 뜨고, 여기서 어떤 기능을
+  // 쓸지 고른다(2026-07). AI 추천은 프리미엄 전용이라 무료회원이 고르면 showAiPremiumModal로
+  // 이용권 구매를 유도한다.
+  const [showAiFeatureMenu, setShowAiFeatureMenu] = useState(false);
+  const [showAiPremiumModal, setShowAiPremiumModal] = useState(false);
 
   // 설정 > 팩 설정 > "가방 열 때 팩 접어서 보기"가 켜져 있으면, 이 화면에 처음 들어온
   // 순간에만 모든 팩을 접힌 상태로 보여준다. 저장된 Pack.displayState는 전혀 건드리지
@@ -254,70 +257,68 @@ export default function BagEditorScreen({
   const [aiPlaces, setAiPlaces] = useState<TravelRecommendation[] | null>(null);
   const [loadingAiPlaces, setLoadingAiPlaces] = useState(false);
   const [aiPlacesCollapsed, setAiPlacesCollapsed] = useState(true);
+  // 지역 인식(지오코딩+날씨) 자체가 진행 중인지 - AI 추천을 누른 직후, 명소/맛집 목록이 뜨기 전
+  // 단계에서 로딩임을 보여주기 위함(loadingAiPlaces는 그 다음 단계인 명소 목록 로딩용).
+  const [resolvingWeather, setResolvingWeather] = useState(false);
   // 응답이 뒤섞이는(레이스) 것을 막기 위해, 요청마다 순번을 매기고 가장 최신 요청의 응답만 반영한다.
   const weatherRequestSeqRef = useRef(0);
   const aiRequestSeqRef = useRef(0);
-
-  // 날씨/AI 추천은 프리미엄 + 설정 토글(regionRecommendActive) 둘 다 켜져있어야 동작한다(기본값 OFF라서,
-  // 새로 켜지 전까지는 무료회원과 동일하게 지오코딩/날씨 API조차 호출하지 않는다).
-  useEffect(() => {
-    if (!regionRecommendActive) {
-      setWeatherInfo(null);
-      return;
-    }
-    const seq = ++weatherRequestSeqRef.current;
-    const timer = setTimeout(() => {
-      resolveCityInfo(bag.name).then((cityMatch) => {
-        if (weatherRequestSeqRef.current !== seq) return; // 그 사이 더 최신 요청이 있으면 무시
-        if (cityMatch) {
-          fetchWeatherForCity(cityMatch.lat, cityMatch.lon, cityMatch.name).then((info) => {
-            if (weatherRequestSeqRef.current !== seq) return;
-            setWeatherInfo(info);
-          });
-        } else {
-          setWeatherInfo(null);
-        }
-      });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [bag.name, regionRecommendActive]);
 
   // AI 추천은 가방 제목 전체가 아니라 인식된 도시명(weatherInfo.city)에만 의존한다 - 제목을 조금 고쳤을
   // 뿐(도시는 그대로)이면 재요청하지 않아 불필요한 Gemini 호출을 줄인다(서버의 도시명 캐시와 함께 이중으로 비용 방어).
   const weatherCity = weatherInfo?.city ?? null;
 
-  useEffect(() => {
-    if (!regionRecommendActive || !weatherCity || !user) {
-      setAiPlaces(null);
-      return;
-    }
-    // 이미 같은 도시로 받아둔 캐시가 있으면(같은 가방을 나갔다 들어왔거나 다른 가방에서
-    // 같은 도시로 재진입) 바로 그걸 쓰고 다시 호출하지 않는다. 새로고침 버튼
-    // (handleRefreshAiPlaces)을 눌렀을 때만 이 캐시를 무시하고 새로 요청한다.
-    const cached = aiPlacesClientCache.get(weatherCity);
-    if (cached) {
-      setAiPlaces(cached);
-      return;
-    }
-    const seq = ++aiRequestSeqRef.current;
-    setLoadingAiPlaces(true);
-    user.getIdToken().then((idToken) => {
-      if (!idToken) {
-        if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
+  // 2026-07: 예전엔 가방 제목이 바뀔 때마다 자동으로(디바운스 후) 지오코딩을 시도했는데, "2026.07"
+  // 같은 날짜/버전 숫자가 실제 지명으로 우연히 매칭되어(예: 프랑스) 엉뚱한 추천이 뜨는 오탐이 있었다.
+  // 그래서 지금은 상단 "AI 기능" 메뉴에서 "AI 추천"을 직접 골랐을 때만 이 함수가 실행된다(자동 실행 없음).
+  const runAiRecommend = () => {
+    if (!user) return;
+    setResolvingWeather(true);
+    setAiPlacesCollapsed(false);
+    const weatherSeq = ++weatherRequestSeqRef.current;
+    resolveCityInfo(bag.name).then((cityMatch) => {
+      if (weatherRequestSeqRef.current !== weatherSeq) return;
+      if (!cityMatch) {
+        setResolvingWeather(false);
+        setWeatherInfo(null);
+        setAiPlaces(null);
+        show("가방 제목에서 여행지를 찾지 못했어요. 도시나 국가 이름을 넣어보세요");
         return;
       }
-      fetchAiTravelPlaces(weatherCity, idToken)
-        .then((places) => {
-          if (aiRequestSeqRef.current !== seq) return;
-          setAiPlaces(places);
-          if (places.length > 0) aiPlacesClientCache.set(weatherCity, places);
-        })
-        .finally(() => {
-          if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
+      fetchWeatherForCity(cityMatch.lat, cityMatch.lon, cityMatch.name).then((info) => {
+        if (weatherRequestSeqRef.current !== weatherSeq) return;
+        setResolvingWeather(false);
+        setWeatherInfo(info);
+        if (!info) {
+          setAiPlaces(null);
+          return;
+        }
+
+        const cached = aiPlacesClientCache.get(info.city);
+        if (cached) {
+          setAiPlaces(cached);
+          return;
+        }
+        const aiSeq = ++aiRequestSeqRef.current;
+        setLoadingAiPlaces(true);
+        user.getIdToken().then((idToken) => {
+          if (!idToken) {
+            if (aiRequestSeqRef.current === aiSeq) setLoadingAiPlaces(false);
+            return;
+          }
+          fetchAiTravelPlaces(info.city, idToken)
+            .then((places) => {
+              if (aiRequestSeqRef.current !== aiSeq) return;
+              setAiPlaces(places);
+              if (places.length > 0) aiPlacesClientCache.set(info.city, places);
+            })
+            .finally(() => {
+              if (aiRequestSeqRef.current === aiSeq) setLoadingAiPlaces(false);
+            });
         });
+      });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionRecommendActive, weatherCity, user]);
+  };
 
   // 새로고침 버튼 전용 - 클라이언트 캐시뿐만 아니라 서버 쪽 도시 캐시도 force 플래그로 건너뛰고
   // Gemini를 새로 불러서(app/api/ai-travel-places의 force 처리 + temperature 상향) 매번 다른 추천이 나오게 한다.
@@ -1850,10 +1851,9 @@ export default function BagEditorScreen({
           )}
           {!readOnly && (
             <button
-              onClick={() => setShowAiOrganize(true)}
-              disabled={bag.packs.flatMap((p) => p.items).length < 2}
-              aria-label="AI로 정리"
-              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 disabled:opacity-30"
+              onClick={() => setShowAiFeatureMenu(true)}
+              aria-label="AI 기능"
+              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5"
             >
               <span className="text-[13px] font-semibold leading-none" style={{ color: "var(--accent)" }}>
                 AI
@@ -1868,15 +1868,33 @@ export default function BagEditorScreen({
         className="flex-1 overflow-y-auto px-4 pb-6"
         style={showQuickAddBar ? { paddingBottom: 140 } : undefined}
       >
-        {/* 날씨+AI 추천은 프리미엄이면서 설정 > AI 기능 > 지역 추천을 켠 사람에게만 보인다(regionRecommendActive가
-            false면 weatherInfo가 항상 null이라 이 카드 자체가 렌더링되지 않는다). */}
-        {regionRecommendActive && weatherInfo && (
+        {/* AI 추천은 상단 "AI" 버튼 > "AI 추천"을 직접 선택했을 때만 뜬다(2026-07부터 제목 변경 시
+            자동 실행은 하지 않음 - 숫자만으로 된 제목이 엉뚱한 나라로 오탐되는 문제 때문). */}
+        {premium && resolvingWeather && (
+          <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex items-center gap-2 shrink-0">
+            <IconSparkles size={15} stroke={1.75} color="var(--accent)" className="animate-pulse" />
+            <span className="text-[12.5px] text-text-secondary">가방 제목에서 여행지를 찾고 있어요...</span>
+          </div>
+        )}
+        {premium && !resolvingWeather && weatherInfo && (
           <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex flex-col gap-2 shrink-0">
-            <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary">
-              <span>📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
-              <span className="text-[12px] text-text-muted">
-                ({weatherInfo.tempMin}°C ~ {weatherInfo.tempMax}°C)
-              </span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary min-w-0">
+                <span className="truncate">📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
+                <span className="text-[12px] text-text-muted shrink-0">
+                  ({weatherInfo.tempMin}°C ~ {weatherInfo.tempMax}°C)
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setWeatherInfo(null);
+                  setAiPlaces(null);
+                }}
+                aria-label="AI 추천 닫기"
+                className="-m-1 p-1 shrink-0"
+              >
+                <IconX size={14} stroke={1.75} color="var(--text-muted)" />
+              </button>
             </div>
 
             <div className="flex flex-col gap-1.5 pt-1 border-t border-accent/15">
@@ -2509,6 +2527,38 @@ export default function BagEditorScreen({
           );
         })()}
       </SlideScreen>
+
+      {showAiFeatureMenu && (
+        <AiFeatureMenu
+          premium={premium}
+          onClose={() => setShowAiFeatureMenu(false)}
+          onSelectOrganize={() => {
+            if (!premium) {
+              setShowAiPremiumModal(true);
+              return;
+            }
+            setShowAiOrganize(true);
+          }}
+          onSelectRecommend={() => {
+            if (!premium) {
+              setShowAiPremiumModal(true);
+              return;
+            }
+            runAiRecommend();
+          }}
+        />
+      )}
+
+      {showAiPremiumModal && (
+        <PremiumLimitModal
+          message="AI 정리·AI 추천은 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          onClose={() => setShowAiPremiumModal(false)}
+          onUnlocked={() => {
+            setShowAiPremiumModal(false);
+            show("이용권 코드가 적용됐어요! 'AI' 버튼을 다시 눌러보세요");
+          }}
+        />
+      )}
 
       {showAiOrganize && (
         <AiOrganizeModal

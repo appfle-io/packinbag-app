@@ -15,6 +15,11 @@ export interface WeatherInfo {
 // "부산", "제주"처럼 2글자 지명이 흔해서 기존 기준(2글자)을 그대로 유지한다.
 const isPureAsciiWord = (s: string) => /^[A-Za-z]+$/.test(s);
 
+// 순수 숫자(또는 숫자+구두점만)로 된 토큰인지 확인. "2026", "07" 같은 날짜/버전 조각이
+// Google 지오코딩에서 우편번호/지역코드 등으로 우연히 매칭돼 엉뚱한 나라(예: 프랑스)가
+// 추천되는 오탐을 막기 위해, 지명 후보에서 아예 제외한다(2026-07 버그 수정).
+const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
+
 /**
  * 지오코딩 서비스 - 서버 전용 /api/geocode(Google Geocoding & Nominatim)를 호출하여
  * 사용자가 입력한 전 세계 어떤 한글/영문 지명이든 자동으로 위도/경도를 찾아낸다.
@@ -34,6 +39,7 @@ export async function resolveCityInfo(text: string): Promise<{ lat: number; lon:
   const MAX_CANDIDATE_WORDS = 4;
   const words = clean
     .split(/[\s,./_~!?()-]+/)
+    .filter((w) => !isNumericOnly(w))
     .filter((w) => (isPureAsciiWord(w) ? w.length >= 4 : w.length >= 2))
     .sort((a, b) => b.length - a.length)
     .slice(0, MAX_CANDIDATE_WORDS);

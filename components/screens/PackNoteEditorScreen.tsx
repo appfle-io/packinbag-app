@@ -201,17 +201,20 @@ export default function PackNoteEditorScreen({
   };
 
   // 글자 크기 -/+ 버튼. 지금 선택(또는 커서 위치)의 fontSize 마크 속성만 바꿔서, 문서 전체가 아니라
-  // 드래그로 선택한 텍스트(또는 이제부터 입력할 텍스트)만 크기가 바뀌게 한다. 3~20px 범위로
-  // 제한하고, 마크가 없으면(서식 안 적용) 10px를 기준으로 보고 거기서 가감을 조절한다.
+  // 드래그로 선택한 텍스트(또는 이제부터 입력할 텍스트)만 크기가 바뀌게 한다. 8~28px 범위로
+  // 제한하고, 마크가 없으면(서식 안 적용) 실제로 렌더링되는 기본 크기인 16px을 기준으로 보고
+  // 거기서 가감을 조절한다 (기존엔 10px을 기준으로 잘못 가정해서, 서식 없는 글에 처음 +를
+  // 누르면 실제로 보이던 16px에서 11px로 갑자기 작아져 보이는 버그가 있었음).
+  const DEFAULT_FONT_SIZE = 16;
   const getCurrentFontSize = (): number => {
     const raw = editor?.getAttributes("textStyle")?.fontSize as string | undefined;
     const parsed = raw ? parseInt(raw, 10) : NaN;
-    return Number.isFinite(parsed) ? parsed : 10;
+    return Number.isFinite(parsed) ? parsed : DEFAULT_FONT_SIZE;
   };
 
   const changeFontSize = (delta: number) => {
     if (effectiveReadOnly || !editor) return;
-    const next = Math.min(20, Math.max(3, getCurrentFontSize() + delta));
+    const next = Math.min(28, Math.max(8, getCurrentFontSize() + delta));
     editor.chain().focus().setFontSize(`${next}px`).run();
   };
 
@@ -432,7 +435,7 @@ export default function PackNoteEditorScreen({
             <button
               onClick={() => changeFontSize(-1)}
               aria-label="글자 크기 줄이기"
-              disabled={getCurrentFontSize() <= 3}
+              disabled={getCurrentFontSize() <= 8}
               className="rounded-lg p-1.5 disabled:opacity-30"
             >
               <IconMinus size={14} stroke={1.75} />
@@ -443,7 +446,7 @@ export default function PackNoteEditorScreen({
             <button
               onClick={() => changeFontSize(1)}
               aria-label="글자 크기 키우기"
-              disabled={getCurrentFontSize() >= 20}
+              disabled={getCurrentFontSize() >= 28}
               className="rounded-lg p-1.5 disabled:opacity-30"
             >
               <IconPlus size={14} stroke={1.75} />

@@ -48,9 +48,18 @@ const NOMINATIM_MIN_IMPORTANCE = 0.42;
 // 시도한다. 한글/기타 스크립트는 "부산", "제주"처럼 2글자 지명이 흔해서 기존 기준(2글자)을 유지.
 const isPureAsciiWord = (s: string) => /^[A-Za-z]+$/.test(s);
 
+// 2026-07: 가방 이름에 있던 "2026", "07" 같은 날짜/버전 숫자 조각이 Google 지오코딩에서
+// 우편번호/지역코드 등으로 우연히 매칭되어(예: 프랑스 어느 행정구역) 엉뚱한 나라의 날씨/AI
+// 추천이 뜨는 오탐이 발견됨 -> 순수 숫자로만 이루어진 쿼리는 지명 후보로 보지 않고 즉시 차단.
+const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("query")?.trim() ?? "";
+
+  if (isNumericOnly(query)) {
+    return NextResponse.json({ result: null });
+  }
 
   const minLen = isPureAsciiWord(query) ? 4 : 2;
   if (!query || query.length < minLen) {

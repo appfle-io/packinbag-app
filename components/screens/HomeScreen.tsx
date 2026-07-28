@@ -130,7 +130,7 @@ export default function HomeScreen({
     toggleBagArchived,
     archiveBags,
     dismissArchiveSuggestions,
-    updateBagOrder,
+    updateBagOrderByParent,
     createBagFolder,
     renameBagFolder,
     deleteBagFolder,
@@ -207,7 +207,17 @@ export default function HomeScreen({
     : selectedFolderId === UNFILED_KEY
     ? baseBags.filter((b) => !bagFolderAssignments[b.id])
     : baseBags.filter((b) => bagFolderAssignments[b.id] === selectedFolderId);
-  const arrangedBags = arrangeList(visibleBags, { sortBy, pinnedIds, order: profile?.bagOrder });
+  // 폴더별 순서 저장 키. "전체"(selectedFolderId 없음, 여러 폴더 가방이 한꺼번에 보이는 뷰)에서는
+  // 어느 폴더의 순서를 바꿔야 할지 모호해서 undefined로 두고(드래그 순서변경 자체를 막는다 -
+  // 아래 handleCardPointerDown 참고), "폴더 없음"/특정 폴더를 보고 있을 때만 그 폴더 범위의
+  // bagOrderByParent를 읽고 쓴다(데스크톱 DesktopSidebar와 동일한 저장 방식 - 2026-07).
+  const folderScopeKey =
+    selectedFolderId === undefined ? undefined : selectedFolderId === UNFILED_KEY ? "root" : selectedFolderId;
+  const arrangedBags = arrangeList(visibleBags, {
+    sortBy,
+    pinnedIds,
+    order: folderScopeKey !== undefined ? profile?.bagOrderByParent?.[folderScopeKey] ?? [] : profile?.bagOrder,
+  });
   // 설정 > 화면설정 > 가방 > 카드 크기. "작게"를 고르면 한 화면에 더 많은 가방이 보이도록
   // 그리드 열이 늘어나고, "크게"를 고르면 열이 줄어 카드 하나하나가 커진다.
   const bagCardSize = profile?.bagCardSize ?? "medium";
@@ -273,17 +283,23 @@ export default function HomeScreen({
     onOpenBag(result.bag, { packId: result.packId, itemId: result.itemId });
   };
 
-  // --- 길게 눌러서 순서 바꾸기 / 다중선택 ------------------------------------
-  // 고정된 가방은 드래그 대상에서 제외한다(항상 맨 앞에 고정). 놓는 순간 지금 화면에
-  // 보이던 순서를 그대로 bagOrder로 저장하고 정렬기준을 "custom"으로 전환한다
-  // (updateBagOrder가 이 둘을 한 번에 처리).
+  // --- 길게 눌러서 순서 바꾸기 / 폴더로 이동 / 다중선택 --------------------------
+  // 롱프레스로 집어든 뒤 다른 가방 카드 위에 놓으면 순서변경(같은 폴더 범위 안에서만),
+  // 화면 상단에 뜨는 폴더 칩 위에 놓으면 그 폴더로 이동(어느 뷰에서든, 고정 여부와 무관하게
+  // 가능) - 데스크톱/모바일 팩보관함(PacksScreen)과 동일하게 "순서변경"과 "폴더 이동"을
+  // 하나의 드래그 제스처로 처리한다(2026-07). 놓는 순간 지금 보고 있는 폴더 범위(folderScopeKey)의
+  // 순서를 bagOrderByParent에 저장하고 정렬기준을 "custom"으로 전환한다.
   //
-  // 길게 누르고 "그대로 뗀" 경우(실제로 다른 카드 위로 옮기지 않은 경우)는 다중선택
-  // 모드 진입으로 취급한다. 즉 같은 롱프레스 제스처가 "움직이면 순서변경", "가만히
+  // 길게 누르고 "그대로 뗀" 경우(실제로 다른 카드/폴더 위로 옮기지 않은 경우)는 다중선택
+  // 모드 진입으로 취급한다. 즉 같은 롱프레스 제스처가 "움직이면 순서변경/이동", "가만히
   // 있다 떼면 다중선택 시작"으로 나뉜다 - 그래서 두 기능이 서로 충돌하지 않는다.
-  const [reorderDrag, setReorderDrag] = useState<{ id: string; x: number; y: number; overId: string | null } | null>(
-    null
-  );
+  const [reorderDrag, setReorderDrag] = useState<{
+    id: string;
+    x: number;
+    y: number;
+    overId: string | null;
+    overFolderId: string | null; // "root" | 폴더id | null. 폴더 칩 위에 있을 때만 값이 있다.
+  } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartRef = useRef<{ id: string; x: number; y: number } | null>(null);
   const justDraggedRef = useRef(false);
@@ -330,13 +346,9 @@ export default function HomeScreen({
     longPressStartRef.current = { id: bagId, x, y };
     clearLongPressTimer();
     longPressTimerRef.current = setTimeout(() => {
-      if (pinnedSet.has(bagId)) {
-        // 고정된 카드는 순서를 바꿀 수 없지만, 길게 눌러 다중선택 모드로 들어가는 건 허용한다.
-        enterSelectMode(bagId);
-        justDraggedRef.current = true;
-      } else {
-        setReorderDrag({ id: bagId, x, y, overId: null });
-      }
+      // 고정 카드나 "전체" 뷰라도 폴더로 이동은 항상 허용한다(순서변경만 막힌다) - 그래서
+      // 일단 항상 드래그를 시작하고, 실제로 무엇이 되는지는 놓는 순간(handleUp)에 결정한다.
+      setReorderDrag({ id: bagId, x, y, overId: null, overFolderId: null });
     }, LONG_PRESS_MS);
   };
 
@@ -357,19 +369,37 @@ export default function HomeScreen({
 
     const handleMove = (e: PointerEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      const cardEl = el?.closest("[data-bag-drop-id]") as HTMLElement | null;
+      const folderChipEl = el?.closest("[data-bag-folder-drop-id]") as HTMLElement | null;
+      const overFolderId = folderChipEl?.getAttribute("data-bag-folder-drop-id") ?? null;
+      // 폴더 칩 위에 있는 동안은 카드 재정렬 타겟은 무시한다(둘이 동시에 유효할 일은 없지만
+      // 명확성을 위해).
+      const cardEl = overFolderId
+        ? null
+        : (el?.closest("[data-bag-drop-id]") as HTMLElement | null);
       const overId = cardEl?.getAttribute("data-bag-drop-id") ?? null;
-      setReorderDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overId } : d));
+      setReorderDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, overId, overFolderId } : d));
     };
 
     const handleUp = () => {
       setReorderDrag((d) => {
         if (d) {
-          if (d.overId && d.overId !== d.id && !pinnedSet.has(d.overId)) {
-            // 실제로 다른 카드 위로 옮겨서 놓은 경우 -> 순서 변경
+          if (d.overFolderId) {
+            // 폴더 칩 위에 놓은 경우 -> 그 폴더로 이동(순서는 건드리지 않음).
+            const targetFolderId = d.overFolderId === "root" ? undefined : d.overFolderId;
+            moveBagsToFolder([d.id], targetFolderId).catch(() => show("이동하지 못했어요"));
+          } else if (
+            d.overId &&
+            d.overId !== d.id &&
+            !pinnedSet.has(d.id) &&
+            !pinnedSet.has(d.overId) &&
+            folderScopeKey !== undefined
+          ) {
+            // 실제로 다른 카드 위로 옮겨서 놓은 경우 -> 지금 보고 있는 폴더 범위(folderScopeKey)의
+            // 순서만 저장한다 - 예전엔 이 폴더에 보이는 가방만 담긴 배열로 전체 bagOrder를
+            // 덮어써서, 다른 폴더에 있던 가방들의 순서가 사라지는 버그가 있었다(2026-07 수정).
             const currentIds = arrangedBags.filter((b) => !pinnedSet.has(b.id)).map((b) => b.id);
             const nextOrder = moveIdInOrder(currentIds, d.id, d.overId);
-            updateBagOrder(nextOrder).catch(() => show("순서를 저장하지 못했어요"));
+            updateBagOrderByParent(folderScopeKey, nextOrder).catch(() => show("순서를 저장하지 못했어요"));
           } else {
             // 움직이지 않고 그대로 뗀 경우 -> 다중선택 모드로 진입
             enterSelectMode(d.id);
@@ -390,6 +420,7 @@ export default function HomeScreen({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reorderDrag !== null]);
+
 
   // 선택된 가방 중 내가 소유한 것과 공유받은(소유하지 않은) 것을 나눈다. 삭제 확인창
   // 문구를 여기에 맞춰 다르게 보여준다 - 공유받은 가방은 실제로는 "나가기"로 처리되기
@@ -811,6 +842,41 @@ export default function HomeScreen({
         </div>
       )}
 
+      {reorderDrag && (
+        <Portal>
+          <div
+            className="fixed left-0 right-0 top-0 z-[96] pib-safe-top flex gap-1.5 overflow-x-auto no-scrollbar px-3 py-2"
+            style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}
+          >
+            <span
+              data-bag-folder-drop-id="root"
+              className="shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium"
+              style={{
+                borderColor: reorderDrag.overFolderId === "root" ? "var(--accent)" : "var(--border)",
+                background: reorderDrag.overFolderId === "root" ? "var(--accent-soft)" : "var(--surface-2)",
+              }}
+            >
+              <IconFolder size={13} stroke={1.75} />
+              가방보관함(최상위)
+            </span>
+            {folderNavRows.map(({ folder }) => (
+              <span
+                key={folder.id}
+                data-bag-folder-drop-id={folder.id}
+                className="shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium"
+                style={{
+                  borderColor: reorderDrag.overFolderId === folder.id ? "var(--accent)" : "var(--border)",
+                  background: reorderDrag.overFolderId === folder.id ? "var(--accent-soft)" : "var(--surface-2)",
+                }}
+              >
+                <IconFolder size={13} stroke={1.75} />
+                {folder.name}
+              </span>
+            ))}
+          </div>
+        </Portal>
+      )}
+
       <QuickPackBar pack={quickPack} onClick={onOpenQuickPack} />
 
       {reorderDrag && (
@@ -824,7 +890,7 @@ export default function HomeScreen({
             color: "#fff",
           }}
         >
-          {bags.find((b) => b.id === reorderDrag.id)?.name || "가방"}
+          {reorderDrag.overFolderId ? "여기로 이동" : bags.find((b) => b.id === reorderDrag.id)?.name || "가방"}
         </div>
       )}
 
