@@ -198,7 +198,7 @@ export default function BagEditorScreen({
     !!profile?.packSettings?.alwaysCollapseOnEntry
   );
 
-  // 팩뷰/메모장뷰 상관없이 상단 토글로 켜고 끄는 "완료(체크된) 항목 숨기기". 데이터는 그대로 두고
+  // 팩뷰/심플뷰 상관없이 상단 토글로 켜고 끄는 "완료(체크된) 항목 숨기기". 데이터는 그대로 두고
   // 화면에 그릴 때만 걸러낸다(PackCard/NotebookPackSection의 displayItems 필터링) - 저장되지 않는
   // 화면별 임시 상태라 화면을 다시 들어오면 항상 꺼진 채로 시작한다.
   const [hideChecked, setHideChecked] = useState(false);
@@ -828,7 +828,7 @@ export default function BagEditorScreen({
     }
     const newPackId = uid();
     // 2026-07: 새 팩은 맨 아래가 아니라 맨 위에 추가한다 - 방금 만든 팩을 아래로 스크롤해서
-    // 찾아야 하는 불편을 없애기 위함(팩뷰/메모장뷰 모두 이 packs 배열 순서를 그대로 따른다).
+    // 찾아야 하는 불편을 없애기 위함(팩뷰/심플뷰 모두 이 packs 배열 순서를 그대로 따른다).
     if (kind === "editor") {
       updatePacks((packs) => [
         { id: newPackId, name: "새 메모", items: [], kind: "editor" },
@@ -898,7 +898,7 @@ export default function BagEditorScreen({
       )
     : undefined;
 
-  // 팩뷰/메모장뷰에서 각 메모팩 카드에 "지금 이 팩을 편집 중인 사람들"을 아바타로 보여주기 위한
+  // 팩뷰/심플뷰에서 각 메모팩 카드에 "지금 이 팩을 편집 중인 사람들"을 아바타로 보여주기 위한
   // 조회 함수. 카드 목록 화면에서는 내 편집 화면(전체화면 오버레이)이 그 위를 덮고 있으므로
   // 내 자신은 자연스럽게 제외된다(동시에 볼 수 없는 화면이기 때문). 최대 3명까지만 보여준다.
   const getNoteEditorsForPack = (packId: string) =>
@@ -918,7 +918,7 @@ export default function BagEditorScreen({
     updatePacks((packs) => [...imported, ...packs].slice(0, 10));
   };
 
-  // 메모장뷰 상단 "+" 통합 추가 모달 전용. 이름까지 바로 지어 새 팩을 만들고 첫 항목까지
+  // 심플뷰 상단 "+" 통합 추가 모달 전용. 이름까지 바로 지어 새 팩을 만들고 첫 항목까지
   // 넣은 다음, 그 팩 id를 그대로 돌려줌으로써 모달이 연속입력을 이어갈 때 새로 만든
   // 그 팩으로 계속 추가할 수 있게 한다. handleAddPack과 동일한 10개 캡 검사를 적용하고,
   // 실패하면 null을 돌려서 모달 쓰는 쪽에서 그대로 안내하게 한다.
@@ -1663,7 +1663,7 @@ export default function BagEditorScreen({
     );
   };
 
-  // 상단 툴바 체크박스 전체선택/해제 버튼용 - 패/메모장뷰 구분 없이 이 가방 안 모든 패(메모패 제외)의
+  // 상단 툴바 체크박스 전체선택/해제 버튼용 - 패/심플뷰 구분 없이 이 가방 안 모든 패(메모패 제외)의
   // 체크형 짐을 한번에 다 켜거나 끄는다. 현재 모든 체크형 짐이 다 켜져있으면(allBagChecked)
   // 다음 클릭에는 전체해제, 아니면 전체선택한다.
   const handleToggleAllInBag = (checked: boolean) => {
@@ -1755,7 +1755,7 @@ export default function BagEditorScreen({
   const allBagCheckItems = bag.packs.flatMap((p) => p.items).filter((i) => i.type === "check");
   const allBagChecked = allBagCheckItems.length > 0 && allBagCheckItems.every((i) => i.checked);
 
-  // 이 가방을 카드(팩뷰)로 볼지 내용이 이어지는 문서형(메모장뷰)으로 볼지. 이 가방만의
+  // 이 가방을 카드(팩뷰)로 볼지 내용이 이어지는 문서형(심플뷰)으로 볼지. 이 가방만의
   // 개별 오버라이드(profile.bagViewMode[bag.id])가 있으면 그것을, 없으면 설정 > 가방설정의
   // 전역 기본값(defaultBagViewMode)을 따른다. 그룹원과는 동기화되지 않는 사용자별 설정이라,
   // 같은 가방을 보는 다른 그룹원은 각자 원하는 보기 방식으로 볼 수 있다.
@@ -2147,11 +2147,11 @@ export default function BagEditorScreen({
             <button
               onClick={handleToggleViewMode}
               className="rounded-lg border border-border px-3 py-1.5 text-[12px] flex items-center gap-1"
-              aria-label={viewMode === "pack" ? "메모장뷰로 보기" : "팩뷰로 보기"}
+              aria-label={viewMode === "pack" ? "심플뷰로 보기" : "팩뷰로 보기"}
             >
               {viewMode === "pack" ? (
                 <>
-                  <IconNotes size={13} stroke={1.75} />메모장뷰
+                  <IconNotes size={13} stroke={1.75} />심플뷰
                 </>
               ) : (
                 <>

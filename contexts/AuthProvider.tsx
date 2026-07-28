@@ -764,7 +764,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
   };
 
-  // 이 가방만의 보기 방식(팩뷰/메모장뷰) 개별 오버라이드. 이것도 사용자별 설정이라
+  // 이 가방만의 보기 방식(팩뷰/심플뷰) 개별 오버라이드. 이것도 사용자별 설정이라
   // 같은 가방을 보는 다른 그룹원은 각자 원하는 보기 방식으로 자유롭게 볼 수 있다.
   const updateBagViewMode = async (bagId: string, mode: "pack" | "notebook") => {
     if (!user) return;

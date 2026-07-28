@@ -26,7 +26,7 @@ import ImageLightbox from "./ImageLightbox";
 import PdfPreviewModal from "./PdfPreviewModal";
 import PremiumLimitModal from "./PremiumLimitModal";
 
-// 메모장뷰(NotebookView)에서 "editor" 팩(자유문서형 메모 팩)을 보여주는 섹션.
+// 심플뷰(NotebookView)에서 "editor" 팩(자유문서형 메모 팩)을 보여주는 섹션.
 // NotebookPackSection과 헤더 구조(접기 토글/드래그핸들/색점/이름/⋯메뉴)는 동일하게
 // 맞추되, 짐 그리드 대신 TipTap을 읽기전용으로 렌더한 내용을 보여준다. 탭하면
 // 전체화면 편집기(PackNoteEditorScreen)로 들어간다 - EditorPackCard(팩뷰)와 동일한 패턴.

@@ -5,7 +5,7 @@ import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import NotebookPackSection from "./NotebookPackSection";
 import NotebookEditorPackSection from "./NotebookEditorPackSection";
 
-// PackGrid(팩뷰)와 동일한 props를 받는 메모장뷰. 팩을 카드 그리드가 아니라
+// PackGrid(팩뷰)와 동일한 props를 받는 심플뷰. 팩을 카드 그리드가 아니라
 // "헤더 + 내용"이 위아래로 이어지는 문서형 목록으로 보여준다. 기능은 100% 동일 -
 // 드래그로 팩간 이동/순서변경, 스와이프 수정·삭제, 저장/새로고침/삭제 모두 동작한다.
 export default function NotebookView({

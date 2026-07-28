@@ -28,7 +28,7 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
           <div className="min-w-0">
             <p className="text-[13px] font-medium">가방 기본 보기</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              팩뷰는 지금처럼 카드 형태로, 메모장뷰는 팩을 헤더+내용이 이어지는 문서 형태로 보여줘요.
+              팩뷰는 지금처럼 카드 형태로, 심플뷰는 팩을 헤더+내용이 이어지는 문서 형태로 보여줘요.
             </p>
           </div>
           <select
@@ -39,7 +39,7 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
             style={{ background: "var(--surface-2)", color: "var(--foreground)" }}
           >
             <option value="pack">팩뷰</option>
-            <option value="notebook">메모장뷰</option>
+            <option value="notebook">심플뷰</option>
           </select>
         </div>
       </div>

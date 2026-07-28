@@ -24,7 +24,7 @@ import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import ProgressRing from "./ProgressRing";
 
-// 메모장뷰(가방 속 팩을 "헤더 + 내용"이 이어지는 문서형 레이아웃으로 보여주는 방식)의
+// 심플뷰(가방 속 팩을 "헤더 + 내용"이 이어지는 문서형 레이아웃으로 보여주는 방식)의
 // 팩 하나. PackCard와 기능은 100% 동일하지만(드래그이동/스와이프수정삭제/저장/새로고침/
 // 삭제/전체선택 등), 아이폰 메모장 체크리스트에 가깝게 보이도록 다음을 다르게 한다:
 // - 카드 박스 대신 얇은 구분선을 가진 섹션
@@ -85,7 +85,7 @@ export default function NotebookPackSection({
   onSaveToLibrary: () => void;
   onRefreshFromLibrary: () => void;
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
-  // 메모장뷰는 "wide" 개념이 없다(문서가 이어지는 형태라 넓게보기가 의미없음) -
+  // 심플뷰는 "wide" 개념이 없다(문서가 이어지는 형태라 넓게보기가 의미없음) -
   // "collapsed"인지 아닌지(=섹션 접기/펼치기, 노션처럼)만 쓴다.
   onChangeDisplayState?: (nextState: "normal" | "collapsed") => void;
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
