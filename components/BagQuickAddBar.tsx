@@ -65,7 +65,7 @@ export default function BagQuickAddBar({
 
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-[82] border-t border-border"
+      className="absolute inset-x-0 bottom-0 z-[20] border-t border-border"
       style={{
         background: "var(--surface)",
         paddingBottom: "max(12px, calc(env(safe-area-inset-bottom) + 8px))",

@@ -1,3 +1,15 @@
+# 팩인백 기능 스펙 문서 (v79 기준)
+
+## v79 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **짐 단위 마감일(D-day) 표시 신설** | 🆕 v79 신설 | `Item.dueDate`(YYYY-MM-DD, 옵트인) 추가. 업무용 체크리스트에서 개별 항목별 마감일을 지정할 수 있게 됨. 계산(당일 포함 여부)은 가방 상단 D-day의 `ddayCountTodayAsDayOne`을 그대로 재사용해서 세는 기준을 하나로 통일. `lib/dday.ts`에 `formatItemDueLabel()`/`getDueUrgency()` 헬퍼 추가 |
+| **짐 수정 모달(ItemFormModal)에 마감일 입력 필드 추가** | 🆕 v79 신설 | `<input type="date">` 하나만 추가(TravelDateField와 동일 패턴). 기존 짐 수정 진입 경로(오른쪽 스와이프 → 수정 버튼 → 모달)는 그대로 유지 |
+| **리스트에 마감일 뱃지 표시(ItemRow)** | 🆕 v79 신설 | 짐 오른쪽 끝에 텍스트만(색상 있는 뱃지 형태 아님)으로 표시. 지난 경우 danger 색상, 임박(오늘/내일)은 accent 색상, 그 외는 muted 색상 |
+| **설정 > 팩 설정에 짐 마감일 표시 방식 토글 신설** | 🆕 v79 신설 | `UserProfile.packSettings.dueDateDisplayMode`(없으면 "dday" 기본값). D-day 표기(D-3/D+1) 또는 실제 날짜(7/30) 중 고를 수 있음. 기존 짐 최대 표시 줄 수(itemMaxLines)와 같은 세그먼트 컨트롤 UI 패턴 재사용 |
+| **팩을 보관함과 오갈 때 dueDate는 항상 제외** | 🆕 v79 신설 | 팩을 보관함에 저장/덮어쓰거나 가방으로 불러올 때(`PackImportModal.cloneAsNewPack`, `BagEditorScreen`의 `commitSaveToLibrary`/`commitOverwriteToLibrary`/`handleRefreshFromLibrary`) 항상 dueDate를 지운다. 템플릿을 재사용할 때 지난 날짜가 그대로 딸려오는 문제를 막기 위함 |
+
 # 팩인백 기능 스펙 문서 (v78 기준)
 
 ## v78 변경 요약
