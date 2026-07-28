@@ -10,6 +10,7 @@ import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import DesktopQuickPackChatView from "@/components/DesktopQuickPackChatView";
 import { useToast } from "@/components/Toast";
+import Portal from "@/components/Portal";
 
 // PC 웹 전용 레이아웃. 좌측 트리(가방/팩 보관함)에서 클릭한 항목을 우측 패널에 그대로
 // 인라인으로 그린다 - 모바일에서 풀스크린으로 슬라이드-인 되던 BagEditorScreen/
