@@ -41,6 +41,12 @@ export default function PackTreeSwipeHint({
   enabled: boolean;
   onOpen: () => void;
 }) {
+  // 2026-07: 가방보관함 화면의 폴더 선택 드롭다운처럼 이 버튼과 같은 좌상단 영역에 뜨는
+  // 다른 UI가 있으면 항상 그 UI가 위에 보여야 한다(안 그러면 이 버튼이 그 위를 덮어서
+  // 시각적으로 가릴 뿐 아니라, 그 자리를 탭했을 때 이 버튼의 클릭이 먼저 먹혀버려서
+  // 드롭다운 항목을 못 누르는 더 큰 문제가 있었다). z-index를 낮게 명시해서 다른 화면
+  // 콘텐츠(z-index를 가진 드롭다운/시트 등)에 항상 뒤로 밀리게 한다.
+  const HINT_Z_INDEX = 15;
   const [pull, setPull] = useState(0); // 드래그로 인한 추가 이동 거리(감쇠 적용됨)
   const [dragging, setDragging] = useState(false);
   const [springing, setSpringing] = useState(false);
@@ -149,6 +155,7 @@ export default function PackTreeSwipeHint({
           height: BTN_SIZE,
           borderRadius: 9999,
           transform: "translateY(-50%)",
+          zIndex: HINT_Z_INDEX,
           background: "var(--accent)",
           boxShadow: "0 6px 16px -2px color-mix(in srgb, var(--accent) 55%, transparent), 0 2px 6px rgba(0,0,0,0.15)",
           touchAction: "none",
@@ -171,6 +178,7 @@ export default function PackTreeSwipeHint({
           style={{
             left: -18,
             top: "50%",
+            zIndex: HINT_Z_INDEX,
             color: "var(--accent)",
             fontSize: 18,
             lineHeight: 1,

@@ -147,6 +147,24 @@ export default function HomeScreen({
   const bagFolders = profile?.bagFolders ?? {};
   const bagFolderAssignments = profile?.bagFolderAssignments ?? {};
   const [folderNavOpen, setFolderNavOpen] = useState(false);
+  // 2026-07: 이 드롭다운은 예전엔 그냥 토글 버튼 아래에 일반 흐름으로 그려졌는데, 화면
+  // 전환(스와이프 탭)을 위한 바깥 컨테이너가 별도의 CSS 쌓임 맥락(stacking context)을
+  // 만들어서, 그 안에서 z-index를 아무리 올려도 그 바깥에 있는 PackTreeSwipeHint
+  // 힌트버블 위로 절대 올라갈 수 없는 문제가 있었다(z-index는 같은 쌓임 맥락 안에서만
+  // 비교된다). 그래서 이 드롭다운도 다른 오버레이(showMoveSheet 등)처럼 Portal로
+  // document.body 최상단에 직접 그려서 그 문제를 원천적으로 피한다 - 열리는 순간
+  // 토글 버튼의 실제 화면 좌표를 재서 그 아래에 고정 위치로 띄운다.
+  const folderNavBtnRef = useRef<HTMLButtonElement>(null);
+  const [folderNavRect, setFolderNavRect] = useState<{ top: number; left: number; width: number } | null>(
+    null
+  );
+  const toggleFolderNav = () => {
+    if (!folderNavOpen && folderNavBtnRef.current) {
+      const r = folderNavBtnRef.current.getBoundingClientRect();
+      setFolderNavRect({ top: r.bottom + 6, left: r.left, width: r.width });
+    }
+    setFolderNavOpen((v) => !v);
+  };
   const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(() => {
     // 폴더 트리 선택도 위 필터와 같은 이유로 이 기기에만 남는 localStorage로 기억한다.
     if (typeof window === "undefined") return undefined;
@@ -542,7 +560,8 @@ export default function HomeScreen({
         {!searchOpen && !selectMode && (
           <div className="mb-3">
             <button
-              onClick={() => setFolderNavOpen((v) => !v)}
+              ref={folderNavBtnRef}
+              onClick={toggleFolderNav}
               className="w-full flex items-center justify-between rounded-lg border border-border px-3 py-2"
               style={{ background: "var(--surface-2)" }}
             >
@@ -561,11 +580,21 @@ export default function HomeScreen({
                 }}
               />
             </button>
-            {folderNavOpen && (
-              <div
-                className="mt-1.5 rounded-lg border border-border overflow-hidden"
-                style={{ background: "var(--surface)", maxHeight: 260, overflowY: "auto" }}
-              >
+            {folderNavOpen && folderNavRect && (
+              <Portal>
+                <div className="fixed inset-0 z-[90]" onClick={() => setFolderNavOpen(false)}>
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="fixed rounded-lg border border-border overflow-hidden shadow-lg"
+                    style={{
+                      top: folderNavRect.top,
+                      left: folderNavRect.left,
+                      width: folderNavRect.width,
+                      background: "var(--surface)",
+                      maxHeight: 260,
+                      overflowY: "auto",
+                    }}
+                  >
                 <button
                   onClick={() => {
                     setSelectedFolderId(undefined);
@@ -679,7 +708,9 @@ export default function HomeScreen({
                     새 폴더
                   </button>
                 )}
-              </div>
+                  </div>
+                </div>
+              </Portal>
             )}
           </div>
         )}
