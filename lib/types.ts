@@ -23,6 +23,12 @@ export interface Item {
   bold?: boolean;
   strike?: boolean;
   color?: string; // hex, 없으면 기본 텍스트 색상
+  // 짐 단위 마감일(YYYY-MM-DD, 옵트인 - 업무용 체크리스트 등에서 개별 항목별 기한이
+  // 필요할 때 씀). 가방 상단 D-day(Bag.travelDate)와는 별개고, 계산 방식(당일 포함
+  // 여부)은 그 가방의 Bag.ddayCountTodayAsDayOne을 그대로 따른다(앱 전체에서 D-day
+  // 세는 규칙을 하나로 통일). 팩을 보관함에 저장하거나 보관함에서 다시 불러올 때는
+  // (다음에 재사용할 때 지난 날짜가 그대로 딸려오는 것을 막기 위해) 항상 제외된다.
+  dueDate?: string;
 }
 
 export interface Pack {
@@ -273,6 +279,9 @@ export interface UserProfile {
     // 보여줄지. 없으면 true(켜짐) 기본값. 힌트를 실제로 당겨서 팩 트리를 한 번 열면
     // 자동으로 false로 꺼지고(계정에 저장되어 기기 간 동기화), 여기서 다시 켤 수 있다.
     packTreeHintEnabled?: boolean;
+    // 짐 마감일(Item.dueDate)을 리스트에서 어떤 형식으로 보여줄지 (없으면 "dday" 기본값).
+    // "dday"면 D-3/D+1 같은 D-day 표기, "date"면 7/30 같은 실제 날짜로 보여준다.
+    dueDateDisplayMode?: "dday" | "date";
   };
   // 하단 QuickPackBar(빠른팩 미리보기)를 접어서 오른쪽 끝에 떠있는 작은 원형 버튼으로만
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)

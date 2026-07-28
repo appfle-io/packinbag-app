@@ -35,6 +35,7 @@ export default function PackGrid({
   onOpenNotePackEditor,
   getNoteEditors,
   premium,
+  ddayCountTodayAsDayOne,
   /*
   getItemReactionDoc,
   currentUid,
@@ -86,6 +87,8 @@ export default function PackGrid({
   // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다. 없으면 아바타가 안 보인다.
   getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
   premium?: boolean;
+  // 이 가방의 D-day 계산 기준. 각 짐의 마감일 뱃지 표시에 그대로 전달된다.
+  ddayCountTodayAsDayOne?: boolean;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -164,6 +167,7 @@ export default function PackGrid({
       onOpenItemThread={
         onOpenItemThread ? (itemId, itemText) => onOpenItemThread(pack.id, itemId, itemText) : undefined
       }
+      ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
       /*
       getItemReactionDoc={getItemReactionDoc}
       currentUid={currentUid}

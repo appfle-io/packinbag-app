@@ -724,7 +724,7 @@ export default function BagEditorScreen({
 
   const handleCreateItem = (
     targetPackId: string,
-    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string }
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string }
   ) => {
     if (guardReadOnly()) return;
     updatePacks((packs) =>
@@ -734,6 +734,7 @@ export default function BagEditorScreen({
           id: uid(),
           type: data.type,
           text: data.text,
+          dueDate: data.dueDate,
           ...(data.type === "check"
             ? { checked: false }
             : { bold: data.bold, strike: data.strike, color: data.color }),
@@ -752,7 +753,7 @@ export default function BagEditorScreen({
     sourcePackId: string,
     itemId: string,
     targetPackId: string,
-    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string }
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string }
   ) => {
     if (guardReadOnly()) return;
     updatePacks((packs) => {
@@ -764,6 +765,7 @@ export default function BagEditorScreen({
         id: original.id,
         type: data.type,
         text: data.text,
+        dueDate: data.dueDate,
         ...(data.type === "check"
           ? { checked: original.type === "check" ? original.checked : false }
           : { bold: data.bold, strike: data.strike, color: data.color }),
@@ -1507,7 +1509,7 @@ export default function BagEditorScreen({
       savedAsLibraryPack: undefined,
       linkedLibraryPackId: undefined,
       linkedLibraryUpdatedAt: undefined,
-      items: pack.items.map((i) => ({ ...i, id: uid() })),
+      items: pack.items.map((i) => ({ ...i, id: uid(), dueDate: undefined })),
     });
     updatePacks((packs) =>
       packs.map((p) =>
@@ -1597,7 +1599,7 @@ export default function BagEditorScreen({
       savedAsLibraryPack: undefined,
       linkedLibraryPackId: undefined,
       linkedLibraryUpdatedAt: undefined,
-      items: pack.items.map((i) => ({ ...i })),
+      items: pack.items.map((i) => ({ ...i, dueDate: undefined })),
     });
     updatePacks((packs) =>
       packs.map((p) =>
@@ -1626,7 +1628,7 @@ export default function BagEditorScreen({
               name: source.name,
               savedAsLibraryPack: true,
               linkedLibraryUpdatedAt: source.updatedAt,
-              items: source.items.map((i) => ({ ...i, id: uid() })),
+              items: source.items.map((i) => ({ ...i, id: uid(), dueDate: undefined })),
               // 에디터팩(자유문서형)은 실제 내용이 items가 아니라 editorDoc에 있으므로
               // 이것도 함께 다시 불러와야 다시 불러오기가 실제로 동작한다(checklist 팩은 undefined가 되도 무해).
               editorDoc: source.editorDoc,
@@ -2232,6 +2234,7 @@ export default function BagEditorScreen({
             onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
             getNoteEditors={getNoteEditorsForPack}
             premium={premium}
+            ddayCountTodayAsDayOne={bag.ddayCountTodayAsDayOne}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -2277,6 +2280,7 @@ export default function BagEditorScreen({
             onOpenNotePackEditor={(packId) => setEditingNotePackId(packId)}
             getNoteEditors={getNoteEditorsForPack}
             premium={premium}
+            ddayCountTodayAsDayOne={bag.ddayCountTodayAsDayOne}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -2576,6 +2580,7 @@ export default function BagEditorScreen({
           initialBold={!!itemModal.item.bold}
           initialStrike={!!itemModal.item.strike}
           initialColor={itemModal.item.color || ""}
+          initialDueDate={itemModal.item.dueDate}
           onClose={() => setItemModal(null)}
           onSave={(targetPackIds, data) => {
             const targetPackId = targetPackIds[0];

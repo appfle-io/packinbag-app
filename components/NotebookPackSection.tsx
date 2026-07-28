@@ -61,6 +61,7 @@ export default function NotebookPackSection({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  ddayCountTodayAsDayOne,
   /*
   getItemReactionDoc,
   currentUid,
@@ -105,6 +106,8 @@ export default function NotebookPackSection({
   onToggleSelectItem?: (itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (itemId: string, itemText: string) => void;
+  // 이 가방의 D-day 계산 기준. 짐 마감일 뱃지 표시에 그대로 전달된다.
+  ddayCountTodayAsDayOne?: boolean;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -368,6 +371,7 @@ export default function NotebookPackSection({
                     onOpenThread={
                       onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
                     }
+                    ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
                     /*
                     reactionDoc={getItemReactionDoc?.(item.id)}
                     currentUid={currentUid}

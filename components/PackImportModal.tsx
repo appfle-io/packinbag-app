@@ -17,6 +17,7 @@ function cloneAsNewPack(pack: Pack): Pack {
     items: pack.items.map((item) => ({
       ...item,
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      dueDate: undefined,
     })),
   };
 }

@@ -20,6 +20,9 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   // - 가방↔팩 보관함 양방향 스와이프 힌트 버튼을 이 값 하나로 같이 켜고 끈다.
   const packTreeHintEnabled = profile?.packSettings?.packTreeHintEnabled ?? true;
 
+  // 짐 마감일 표시 방식 (없으면 "dday" 기본값)
+  const dueDateDisplayMode = profile?.packSettings?.dueDateDisplayMode ?? "dday";
+
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
@@ -79,6 +82,31 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
                 }}
               >
                 {n}줄{n === 1 ? " (기본)" : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <p className="text-[13px] font-medium">짐 마감일 표시 방식</p>
+          <p className="text-[11.5px] text-text-secondary mt-0.5">
+            짐별로 마감일을 설정해둔 경우, 리스트에서 D-day로 보여줄지 실제 날짜로 보여줄지 골라요
+          </p>
+          <div className="mt-2.5 flex rounded-lg border border-border overflow-hidden">
+            {([
+              { key: "dday" as const, label: "D-day (D-3)" },
+              { key: "date" as const, label: "실제 날짜 (7/30)" },
+            ]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => updatePackSettings({ dueDateDisplayMode: key })}
+                className="flex-1 py-2 text-[13px]"
+                style={{
+                  background: dueDateDisplayMode === key ? "var(--accent)" : "var(--surface-2)",
+                  color: dueDateDisplayMode === key ? "#fff" : "var(--foreground)",
+                }}
+              >
+                {label}
               </button>
             ))}
           </div>

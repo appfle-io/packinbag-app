@@ -7,6 +7,7 @@ import {
   IconAlignLeft,
   IconBold,
   IconStrikethrough,
+  IconCalendarEvent,
 } from "@tabler/icons-react";
 import Portal from "@/components/Portal";
 import PackChipBar from "@/components/PackChipBar";
@@ -19,6 +20,7 @@ export interface ItemFormSaveData {
   bold?: boolean;
   strike?: boolean;
   color?: string;
+  dueDate?: string;
 }
 
 // 모바일 키보드가 올라오면 iOS는 레이아웃 뷰포트는 그대로 두고 비주얼 뷰포트만
@@ -67,6 +69,7 @@ export default function ItemFormModal({
   initialBold = false,
   initialStrike = false,
   initialColor = "",
+  initialDueDate,
   onClose,
   onSave,
 }: {
@@ -79,6 +82,7 @@ export default function ItemFormModal({
   initialBold?: boolean;
   initialStrike?: boolean;
   initialColor?: string;
+  initialDueDate?: string;
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
 }) {
@@ -88,6 +92,7 @@ export default function ItemFormModal({
   const [bold, setBold] = useState(initialBold);
   const [strike, setStrike] = useState(initialStrike);
   const [color, setColor] = useState(initialColor);
+  const [dueDate, setDueDate] = useState(initialDueDate ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { height: viewportHeight, offsetTop: viewportOffsetTop } = useVisualViewport();
 
@@ -110,6 +115,7 @@ export default function ItemFormModal({
     onSave(selectedPackIds, {
       type,
       text,
+      dueDate: dueDate || undefined,
       ...(type === "text" ? { bold, strike, color: color || undefined } : {}),
     });
     // "추가" 모드일 때만 저장 후 모달을 닫지 않고 텍스트/서식만 초기화해서 연달아
@@ -121,6 +127,7 @@ export default function ItemFormModal({
       setBold(false);
       setStrike(false);
       setColor("");
+      setDueDate("");
       textareaRef.current?.focus();
     }
   };
@@ -265,6 +272,21 @@ export default function ItemFormModal({
               ))}
             </div>
           )}
+
+          <div className="flex items-center gap-2">
+            <IconCalendarEvent size={15} stroke={1.75} color="var(--text-secondary)" />
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
+            />
+            {dueDate && (
+              <button onClick={() => setDueDate("")} aria-label="마감일 삭제" className="p-1">
+                <IconX size={14} stroke={1.75} color="var(--text-muted)" />
+              </button>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <button

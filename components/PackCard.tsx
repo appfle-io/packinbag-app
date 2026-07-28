@@ -57,6 +57,7 @@ export default function PackCard({
   onToggleSelectItem,
   getItemThreadInfo,
   onOpenItemThread,
+  ddayCountTodayAsDayOne,
   /*
   getItemReactionDoc,
   currentUid,
@@ -109,6 +110,8 @@ export default function PackCard({
   // 짐별 댓글 수 조회 함수. 없으면(undefined) ItemRow에 댓글 버튼이 안 보인다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   onOpenItemThread?: (itemId: string, itemText: string) => void;
+  // 이 가방의 D-day 계산 기준. 짐 마감일 뱃지 표시에 그대로 전달된다.
+  ddayCountTodayAsDayOne?: boolean;
   // 팀즈 스타일 즉시 리액션용. 넷 다 있어야 ItemRow에 파이 열을 보여준다.
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
@@ -292,6 +295,7 @@ export default function PackCard({
                     onOpenThread={
                       onOpenItemThread ? () => onOpenItemThread(item.id, item.text) : undefined
                     }
+                    ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
                     /*
                     reactionDoc={getItemReactionDoc?.(item.id)}
                     currentUid={currentUid}

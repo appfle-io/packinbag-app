@@ -6,6 +6,7 @@ import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
 import { isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
+import { formatItemDueLabel, getDueUrgency } from "@/lib/dday";
 import LinkifiedText from "./LinkifiedText";
 // import ReactionPillRow from "./ReactionPillRow";
 
@@ -116,6 +117,7 @@ export default function ItemRow({
   onRowTap,
   commentCount,
   onOpenThread,
+  ddayCountTodayAsDayOne,
   /*
   reactionDoc,
   currentUid,
@@ -147,6 +149,9 @@ export default function ItemRow({
   // 버튼 자체를 숨긴다 - 다중선택 등 이 버튼이 없어야 하는 맥락에서 그냥 prop을 안 넘기면 된다.
   commentCount?: number;
   onOpenThread?: () => void;
+  // 이 짐이 속한 가방의 D-day 계산 기준(당일도 "1일째"로 세는지). 짐 단위
+  // 마감일(item.dueDate) 뱃지가 가방 상단 D-day와 같은 기준으로 보이도록 받는다.
+  ddayCountTodayAsDayOne?: boolean;
   // 팀즈 스타일로 짐 바로 아래 겹쳐 보여줄 이모지 리액션. 셋 다 있어야 렌더링된다.
   /*
   reactionDoc?: BagReactionDoc;
@@ -171,6 +176,16 @@ export default function ItemRow({
   const copyToastSeconds = profile?.packSettings?.itemCopyToastSeconds ?? 3;
   const lineClampClass =
     itemMaxLines === 3 ? "line-clamp-3" : itemMaxLines === 2 ? "line-clamp-2" : "line-clamp-1";
+  // 짐 마감일 뱃지 라벨. dueDate가 없으면 null이라 아래에서 자연히 숨겨진다.
+  const dueDisplayMode = profile?.packSettings?.dueDateDisplayMode ?? "dday";
+  const dueLabel = formatItemDueLabel(item.dueDate, dueDisplayMode, ddayCountTodayAsDayOne);
+  const dueUrgency = getDueUrgency(item.dueDate);
+  const dueLabelColor =
+    dueUrgency === "overdue"
+      ? "var(--danger)"
+      : dueUrgency === "soon"
+      ? "var(--accent)"
+      : "var(--text-muted)";
 
   // 다중선택 모드 중엔 같은 짐을 빠르게 두 번 누르면(더블클릭 속도) 두 번째 탭을 무시한다 -
   // 안 그러면 선택->선택해제가 순식간에 일어나 다중선택 모드가 풀리면서, 동시에 아래
@@ -741,6 +756,16 @@ export default function ItemRow({
                 </span>
               )}
             </div>
+          )}
+
+          {!editing && dueLabel && (
+            <span
+              onPointerDown={(e) => e.stopPropagation()}
+              className="shrink-0 text-[calc(12px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+              style={{ color: dueLabelColor, whiteSpace: "nowrap" }}
+            >
+              {dueLabel}
+            </span>
           )}
 
           {!editing && onOpenThread && (
