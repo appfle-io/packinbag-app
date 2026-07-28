@@ -118,6 +118,25 @@ function CreatingBagOverlay({ visible }: { visible: boolean }) {
   );
 }
 
+function CreatingPackOverlay({ visible }: { visible: boolean }) {
+  return (
+    <div
+      className="fixed inset-0 z-[210] flex flex-col items-center justify-center gap-3"
+      style={{
+        background: "var(--background)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 200ms ease",
+        pointerEvents: visible ? "auto" : "none",
+      }}
+    >
+      <IconLoader2 size={28} stroke={1.75} color="var(--text-muted)" className="animate-spin" />
+      <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+        팩을 만들고 있어요
+      </span>
+    </div>
+  );
+}
+
 export default function AppShell() {
   const { user, profile, loading, authBusy } = useAuth();
   const { show } = useToast();
@@ -132,6 +151,7 @@ export default function AppShell() {
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
+  const [creatingPack, setCreatingPack] = useState(false);
   // editingBag/editingPack(에디터형)은 뒤로가기 시 즉시 null이 되는데, SlideScreen이 슬라이드
   // 아웃 애니메이션을 재생하는 동안에도 내용이 유지되도록 "마지막으로 열려있던 값"을 따로
   // 캐싱해둔다 (null이 되는 순간 화면 내용까지 같이 사라지면 슬라이드 아웃이 빈 화면으로 보임).
@@ -739,17 +759,30 @@ export default function AppShell() {
     }
   };
 
-  const openNewPack = (parentId?: string, kind?: "checklist" | "editor") => {
-    if (kind === "editor") {
-      setEditingPack({ id: uid(), name: "새 메모", items: [], parentId, kind: "editor" });
-      return;
+  const openNewPack = async (parentId?: string, kind?: "checklist" | "editor") => {
+    const draft: Pack = {
+      id: uid(),
+      name: kind === "editor" ? "새 메모" : "새 팩",
+      items: [],
+      parentId,
+      ...(kind ? { kind } : {}),
+    };
+    setEditingPack(draft);
+    setCreatingPack(true);
+    try {
+      await saveLibraryPackRemote(user, draft);
+      return draft;
+    } catch (err) {
+      console.error("[팩인백] 팩 생성 실패:", err);
+      show(`팩 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+    } finally {
+      setCreatingPack(false);
     }
-    setEditingPack({ id: uid(), name: "새 팩", items: [], parentId });
   };
 
   // v68: 폴더는 팩 편집 화면(items가 없음)을 열 필요 없이 바로 생성된다. 생성 직후에는
   // 팩 트리 화면에서 이름을 편집 상태로 보여줘서 곧바로 이름을 바꿀(EditableText) 수 있게 해준다.
-  const handleCreateFolder = (parentId?: string) => {
+  const handleCreateFolder = async (parentId?: string) => {
     const draft: Pack = {
       id: uid(),
       name: "새 폴더",
@@ -757,10 +790,15 @@ export default function AppShell() {
       type: "folder",
       parentId,
     };
-    saveLibraryPackRemote(user, draft).catch((err) => {
+    setCreatingPack(true);
+    try {
+      await saveLibraryPackRemote(user, draft);
+    } catch (err) {
       console.error("[팩인백] 폴더 생성 실패:", err);
       show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
-    });
+    } finally {
+      setCreatingPack(false);
+    }
   };
 
   // 폴더/팩 이름 바꾸기(트리 행의 이름 탭 편집). 폴더는 편집 화면이 없어서
@@ -1133,7 +1171,7 @@ export default function AppShell() {
             return (
               <BagEditorScreen
                 initialBag={displayedBag}
-                libraryPacks={realPacksOnly}
+                libraryPacks={activePacks}
                 uid={user.uid}
                 nickname={profile.nickname}
                 avatarId={profile.avatarId}
@@ -1233,6 +1271,7 @@ export default function AppShell() {
       <SplashScreen visible={showSplash} />
       <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
       <CreatingBagOverlay visible={creatingBag} />
+      <CreatingPackOverlay visible={creatingPack} />
     </>
   );
 }

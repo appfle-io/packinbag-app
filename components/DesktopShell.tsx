@@ -8,7 +8,7 @@ import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
-import Portal from "@/components/Portal";
+import DesktopQuickPackChatView from "@/components/DesktopQuickPackChatView";
 
 // PC 웹 전용 레이아웃. 좌측 트리(가방/팩 보관함)에서 클릭한 항목을 우측 패널에 그대로
 // 인라인으로 그린다 - 모바일에서 풀스크린으로 슬라이드-인 되던 BagEditorScreen/
@@ -75,7 +75,7 @@ export default function DesktopShell({
   onTransferOwnership: (bagId: string, targetUid: string) => Promise<void>;
   onAddItemsToBagPack: (bagId: string, packId: string, items: Item[]) => void;
   onRemoveItemsFromBagPack: (bagId: string, packId: string, itemIds: Set<string>) => void;
-  onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
+  onNewPack: (parentId?: string, kind?: "checklist" | "editor") => Promise<Pack | void> | Pack | void;
   onNewFolder: (parentId?: string) => void;
   onChangePackColor: (pack: Pack, colorId: string | undefined) => void;
   onRenamePackEntry: (pack: Pack, name: string) => void;
@@ -121,7 +121,11 @@ export default function DesktopShell({
   };
 
   const handleNewPack = (parentId?: string, kind?: "checklist" | "editor") => {
-    onNewPack(parentId, kind);
+    Promise.resolve(onNewPack(parentId, kind)).then((created) => {
+      if (created) {
+        setSelection({ kind: "pack", packId: created.id });
+      }
+    });
   };
 
   // 사이드바의 "설정 · 휴지통" 행을 누르면 selection(좌측 트리 선택)을 건드리지 않고
@@ -132,6 +136,82 @@ export default function DesktopShell({
       return;
     }
     setSelection(sel);
+  };
+
+  const handleDropQuickPackItems = (
+    targetType: "bag" | "pack",
+    targetId: string,
+    items: Item[]
+  ) => {
+    if (targetType === "bag") {
+      const bag = bags.find((b) => b.id === targetId);
+      if (bag) {
+        let targetPack = bag.packs.find((p) => p.kind !== "editor");
+        if (targetPack) {
+          onAddItemsToBagPack(bag.id, targetPack.id, items);
+          if (quickPack) {
+            const itemIds = new Set(items.map((i) => i.id));
+            onSavePack({
+              ...quickPack,
+              items: quickPack.items.filter((i) => !itemIds.has(i.id)),
+            });
+          }
+          show(`'${bag.name}' > '${targetPack.name}' 가방으로 짐 ${items.length}개를 이동했어요!`);
+        } else {
+          const newPack: Pack = {
+            id: `pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: "새 팩",
+            items: items,
+          };
+          const updatedBag: Bag = {
+            ...bag,
+            packs: [...bag.packs, newPack],
+            updatedAt: new Date().toISOString(),
+          };
+          onSaveBag(updatedBag);
+          if (quickPack) {
+            const itemIds = new Set(items.map((i) => i.id));
+            onSavePack({
+              ...quickPack,
+              items: quickPack.items.filter((i) => !itemIds.has(i.id)),
+            });
+          }
+          show(`'${bag.name}' 가방으로 짐 ${items.length}개를 이동했어요!`);
+        }
+      }
+    } else if (targetType === "pack") {
+      const pack = libraryPacks.find((p) => p.id === targetId);
+      if (pack) {
+        if (pack.type === "folder") {
+          const childPacks = libraryPacks.filter((p) => p.parentId === pack.id && p.type !== "folder");
+          if (childPacks.length > 0) {
+            const targetChild = childPacks[0];
+            onSavePack({
+              ...targetChild,
+              items: [...targetChild.items, ...items],
+            });
+            show(`'${pack.name}' > '${targetChild.name}' 팩 보관함으로 짐 ${items.length}개를 이동했어요!`);
+          } else {
+            show(`'${pack.name}' 폴더는 비어있어요. 팩을 하나 만든 후 담아주세요.`);
+            return;
+          }
+        } else {
+          onSavePack({
+            ...pack,
+            items: [...pack.items, ...items],
+          });
+          show(`'${pack.name}' 팩 보관함으로 짐 ${items.length}개를 이동했어요!`);
+        }
+
+        if (quickPack) {
+          const itemIds = new Set(items.map((i) => i.id));
+          onSavePack({
+            ...quickPack,
+            items: quickPack.items.filter((i) => !itemIds.has(i.id)),
+          });
+        }
+      }
+    }
   };
 
   return (
@@ -149,21 +229,26 @@ export default function DesktopShell({
         onRenamePackEntry={onRenamePackEntry}
         onMovePackEntries={onMovePackEntries}
         onDeletePackEntry={onDeletePack}
+        onDropQuickPackItems={handleDropQuickPackItems}
         settingsActive={settingsOpen}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {!selection && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-[14px] text-text-muted">왼쪽에서 가방이나 팩을 선택해주세요</p>
-          </div>
+          <DesktopQuickPackChatView
+            quickPack={quickPack}
+            bags={bags}
+            libraryPacks={libraryPacks}
+            onSavePack={onSavePack}
+            onAddItemsToBagPack={onAddItemsToBagPack}
+          />
         )}
 
         {selection?.kind === "bag" && selectedBag && (
           <BagEditorScreen
             key={selectedBag.id}
             initialBag={selectedBag}
-            libraryPacks={libraryPacks.filter((p) => p.type !== "folder")}
+            libraryPacks={libraryPacks}
             uid={user.uid}
             nickname={profile.nickname ?? ""}
             avatarId={profile.avatarId ?? ""}
@@ -230,7 +315,7 @@ export default function DesktopShell({
       {settingsOpen && (
         <Portal>
           <div
-            className="fixed inset-0 z-[40] flex items-center justify-center"
+            className="fixed inset-0 z-[100] flex items-center justify-center"
             style={{ background: "rgba(0,0,0,0.45)" }}
             onClick={() => setSettingsOpen(false)}
           >
