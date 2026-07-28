@@ -208,13 +208,17 @@ export interface UserProfile {
   // 설정 메뉴 미선택 버튼 배경 등 --surface-2를 쓰는 모든 요소에 공통 적용됨
   baseOpacity?: number;
   // 가방 카드 / 팩 카드(가방 속) / 팩 보관함 타일 크기 배율 (없으면 1 = 100%).
-  // 카드 안 여백·아이콘을 배율 적용 (팩 카드는 글자 크기가 아래 packCardFontScale로
-  // 분리되어 있고, 가방 카드/팩 보관함 타일은 기존처럼 글자도 함께 배율 적용됨)
+  // 카드 안 여백·아이콘만 배율 적용한다 - 글자 크기는 아래 bagCardFontScale로 완전히
+  // 분리되어 있다 (팩 카드/팩 보관함 타일도 이미 packCardFontScale로 분리된 것과 동일한 구조).
   bagCardScale?: number;
+  // 가방 카드 안 글자 크기 배율 (없으면 1 = 100%). bagCardScale(카드 여백/아이콘 크기)과
+  // 분리되어 독립적으로 조절 가능 - 제목·D-day 뱃지·팩 미리보기·진행률 옆 개수 등
+  // 글자 크기는 이 값을 따른다 (앱 전체 글자 크기 설정과도 곱해짐)
+  bagCardFontScale?: number;
   // 가방 보관함 그리드 열 개수(카드 크기) - "작게"를 고르면 한 화면에 더 많은 가방이
   // 보이도록 열이 늘어나고, "크게"를 고르면 열이 줄어 카드 하나하나가 커진다. 위
-  // bagCardScale(글씨 크기)과는 별개로 작동한다 - 그건 카드 안 여백/글자 배율만
-  // 조절하고, 이건 그리드 자체의 열 개수를 바꾼다. 없으면 "medium"(기존 2열) 기본값.
+  // bagCardScale/bagCardFontScale(카드 여백/글자 크기)과는 완전히 별개로 작동한다 -
+  // 이건 그리드 자체의 열 개수를 바꾼다. 없으면 "medium"(기존 2열) 기본값.
   bagCardSize?: "small" | "medium" | "large";
   packCardScale?: number;
   packLibraryCardScale?: number;
@@ -282,6 +286,11 @@ export interface UserProfile {
     // 짐 마감일(Item.dueDate)을 리스트에서 어떤 형식으로 보여줄지 (없으면 "dday" 기본값).
     // "dday"면 D-3/D+1 같은 D-day 표기, "date"면 7/30 같은 실제 날짜로 보여준다.
     dueDateDisplayMode?: "dday" | "date";
+    // 마감일이 다가올수록 뱃지 색상을 점점 진하게(muted → 새빨간색) 보여줄지. 없으면 true(기본값 켜짐).
+    dueDateIntensifyEnabled?: boolean;
+    // 위 옵션이 켜져 있을 때, 며칠 전(오늘 기준 며칠 남았을 때)부터 색상이 진해지기 시작하는지.
+    // 없으면 7(1주일전) 기본값.
+    dueDateIntensifyDays?: number;
   };
   // 하단 QuickPackBar(빠른팩 미리보기)를 접어서 오른쪽 끝에 떠있는 작은 원형 버튼으로만
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)

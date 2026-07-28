@@ -79,6 +79,7 @@ interface AuthContextValue {
     packLibraryColorOpacity?: number;
     baseOpacity?: number;
     bagCardScale?: number;
+    bagCardFontScale?: number;
     packCardScale?: number;
     packLibraryCardScale?: number;
     packCardFontScale?: number;
@@ -203,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         packLibraryColorOpacity: data?.packLibraryColorOpacity as number | undefined,
         baseOpacity: data?.baseOpacity as number | undefined,
         bagCardScale: data?.bagCardScale as number | undefined,
+        bagCardFontScale: data?.bagCardFontScale as number | undefined,
         packCardScale: data?.packCardScale as number | undefined,
         packLibraryCardScale: data?.packLibraryCardScale as number | undefined,
         packCardFontScale: data?.packCardFontScale as number | undefined,
@@ -488,6 +490,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     packLibraryColorOpacity?: number;
     baseOpacity?: number;
     bagCardScale?: number;
+    bagCardFontScale?: number;
     packCardScale?: number;
     packLibraryCardScale?: number;
     packCardFontScale?: number;

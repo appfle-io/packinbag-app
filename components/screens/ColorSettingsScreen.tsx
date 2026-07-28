@@ -15,11 +15,17 @@ import PremiumLimitModal from "@/components/PremiumLimitModal";
 
 type Slot = "accent" | "bag" | "packGrid";
 
+// 각 버튼이 실제로 그 크기로 보이는 시각적 미리보기 - 눌러보기 전에 얼마나
+// 커지고 작아지는지 바로 눈으로 확인할 수 있다.
 const fontScales: { key: FontScale; label: string; previewPx: number }[] = [
   { key: "sm", label: "작게", previewPx: 12 },
   { key: "md", label: "보통", previewPx: 13 },
   { key: "lg", label: "크게", previewPx: 14.5 },
 ];
+
+// 라벨 옆에 붙는 작은 드롭다운 공통 스타일 (팩 설정/가방 설정 화면과 동일한 패턴)
+const selectClassName = "shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none";
+const selectStyle: CSSProperties = { background: "var(--surface-2)", color: "var(--foreground)" };
 
 const bagCardSizes: { key: NonNullable<UserProfile["bagCardSize"]>; label: string }[] = [
   { key: "small", label: "작게" },
@@ -79,8 +85,8 @@ function ColorSlotSection({
   onChangeScale,
   scaleLabel,
   scaleMax,
-  // 팩카드처럼 "카드 크기"와 별도로 "글씨 크기"를 독립적으로 조절해야 하는 섹션에서만
-  // 쓰는 두 번째 슬라이더. 없으면 렌더링하지 않는다.
+  // 카드 크기와 별도로 "글씨 크기"를 독립적으로 조절해야 하는 섹션에서만 쓰는
+  // 두 번째 슬라이더. 없으면 렌더링하지 않는다.
   scale2Pct,
   onChangeScale2,
   scale2Label,
@@ -88,7 +94,7 @@ function ColorSlotSection({
   preview,
   defaultOpen,
   // description 문구 바로 아래, 투명도/크기 슬라이더들 위에 끼워넣을 추가 컨트롤.
-  // 가방 보관함 섹션의 "카드 크기(작게/보통/크게)" 토글처럼, 이 섹션에 속하지만
+  // 가방 보관함 섹션의 "그리드 밀도(작게/보통/크게)" 선택박스처럼, 이 섹션에 속하지만
   // 프리셋 색상 선택과는 성격이 다른 컨트롤을 같은 접이식 카드 안에 묶을 때 쓴다.
   extraContent,
 }: {
@@ -228,6 +234,8 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setBagColorOpacity,
     bagCardScale,
     setBagCardScale,
+    bagCardFontScale,
+    setBagCardFontScale,
     packGridColorId,
     setPackGridColor,
     packGridCustomHex,
@@ -360,27 +368,27 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           title="가방 보관함"
           description="가방 카드의 배경 톤을 바꿔요. 왼쪽 점선 원을 고르면 기본 배경으로 돌아가요"
           extraContent={
-            <div className="mt-3">
-              <p className="text-[11px] text-text-secondary mb-2">카드 크기</p>
-              <div className="flex rounded-lg border border-border overflow-hidden">
-                {bagCardSizes.map(({ key, label }) => (
-                  <button
-                    key={key}
-                    onClick={() => updateBagCardSize(key).catch(() => {})}
-                    className="flex-1 py-2 text-[13px]"
-                    style={{
-                      background: (profile?.bagCardSize ?? "medium") === key ? "var(--accent)" : "var(--surface-2)",
-                      color: (profile?.bagCardSize ?? "medium") === key ? "#fff" : "var(--foreground)",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] text-text-secondary">그리드 밀도</p>
+                <p className="text-[11px] text-text-muted mt-1">
+                  작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
+                  줄어 카드 자체가 커져요 (아래 카드 크기/글씨 크기 슬라이더와는 별개예요)
+                </p>
               </div>
-              <p className="text-[11px] text-text-muted mt-2">
-                작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
-                줄어 카드가 커져요 (아래 글씨 크기와는 별개예요)
-              </p>
+              <select
+                value={profile?.bagCardSize ?? "medium"}
+                onChange={(e) => updateBagCardSize(e.target.value as NonNullable<UserProfile["bagCardSize"]>).catch(() => {})}
+                aria-label="가방 보관함 그리드 밀도"
+                className={selectClassName}
+                style={selectStyle}
+              >
+                {bagCardSizes.map(({ key, label }) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
           }
           selectedId={bagColorId}
@@ -392,8 +400,12 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setBagColorOpacity(pct / 100)}
           scalePct={Math.round(bagCardScale * 100)}
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
-          scaleLabel="글씨 크기"
-          scaleMax={170}
+          scaleLabel="카드 크기"
+          scaleMax={130}
+          scale2Pct={Math.round(bagCardFontScale * 100)}
+          onChangeScale2={(pct) => setBagCardFontScale(pct / 100)}
+          scale2Label="글씨 크기"
+          scale2Max={120}
           preview={
             <div className="mt-3 flex justify-center">
               {/* 실제 홈 화면의 grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 그리드에서
@@ -404,20 +416,20 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
                 style={{ background: "var(--bag-card-bg)" }}
               >
                 <div className="flex items-start justify-between gap-1.5 shrink-0">
-                  <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium">
+                  <span className="text-[calc(13px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium">
                     예시 가방
                   </span>
                   <span
-                    className="text-[calc(10px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5 shrink-0"
+                    className="text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5 shrink-0"
                     style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
                   >
                     D-3
                   </span>
                 </div>
-                <p className="text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-1.5">
+                <p className="text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-1.5">
                   전자기기, 세면도구
                 </p>
-                <p className="text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-auto">
+                <p className="text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-auto">
                   0/12
                 </p>
               </div>

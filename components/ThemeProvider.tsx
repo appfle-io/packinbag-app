@@ -21,6 +21,8 @@ const BAG_OPACITY_KEY = "packinbag-bag-color-opacity";
 const PACK_GRID_OPACITY_KEY = "packinbag-pack-grid-color-opacity";
 const PACK_LIBRARY_OPACITY_KEY = "packinbag-pack-library-color-opacity";
 const BAG_SCALE_KEY = "packinbag-bag-card-scale";
+// 가방 카드 안 글자 크기 배율 (카드 크기 슬라이더와 분리된 별도 설정)
+const BAG_CARD_FONT_SCALE_KEY = "packinbag-bag-card-font-scale";
 const PACK_SCALE_KEY = "packinbag-pack-card-scale";
 const PACK_LIBRARY_SCALE_KEY = "packinbag-pack-library-card-scale";
 // 가방 속 팩카드 안 글자 크기 배율 (카드 크기 슬라이더와 분리된 별도 설정)
@@ -36,7 +38,7 @@ export const DEFAULT_CARD_COLOR_ID = "default";
 const DEFAULT_OPACITY = 1;
 const DEFAULT_CARD_SCALE = 1;
 // 가방 속 팩카드 글자 크기(packCardFontScale)만 예외로 기준점을 다르게 잡는다. 기존에는
-// 스라이더 "100%"가 실제 저장값 1.0을 그대로 쓰면서 체감상 너무 컴는 문제(체감상
+// 슬라이더 "100%"가 실제 저장값 1.0을 그대로 쓰면서 체감상 너무 큰 문제(체감상
 // 120% 정도)가 있어서, 실제 저장값 = 표시값(%) * BASE 공식으로 기준점을 낮춰놓는다
 // (ColorSettingsScreen에서 슬라이더 매핑에 쓴다). 이렇게 하면 새 기본값(0.8)이 예전의
 // "80%" 설정과 동일한 실제 글자 크기를 내면서, 새 슬라이더는 "100%"로 표시된다.
@@ -149,19 +151,22 @@ function applyCardColor(
   root.setProperty(cssVar, `color-mix(in srgb, ${baseColor} ${pct}%, transparent)`);
 }
 
-// 가방 카드 / 팩 카드 / 팩 라이브러리 타일 크기 배율 + 가방 속 팩카드 글자 크기 배율을
+// 가방 카드 / 팩 카드 / 팩 라이브러리 타일 크기 배율 + 가방 카드/팩카드 글자 크기 배율을
 // CSS 변수로 반영 (라이트/다크 무관, 그냥 숫자). 각 컴포넌트(BagCard/PackCard/PackTile/
 // ItemRow)에서 padding·아이콘·글자 크기를 calc(기본값 * var(--xxx-scale)) 형태로 계산할 때 쓴다.
-// 팩카드만 예외로, 글자 크기는 --pack-card-scale이 아니라 --pack-card-font-scale을
-// 따로 곱해서 "카드 크기"와 "글자 크기"를 독립적으로 조절할 수 있게 한다.
+// 가방 카드와 팩 카드 둘 다, 글자 크기는 카드 크기(--bag-card-scale/--pack-card-scale)가
+// 아니라 별도의 --bag-card-font-scale/--pack-card-font-scale을 따로 곱해서 "카드 크기"와
+// "글자 크기"를 완전히 독립적으로 조절할 수 있게 한다.
 function applyCardScale(
   bagScale: number,
+  bagFontScale: number,
   packScale: number,
   packLibraryScale: number,
   packCardFontScale: number
 ) {
   const root = document.documentElement.style;
   root.setProperty("--bag-card-scale", String(bagScale));
+  root.setProperty("--bag-card-font-scale", String(bagFontScale));
   root.setProperty("--pack-card-scale", String(packScale));
   root.setProperty("--pack-library-card-scale", String(packLibraryScale));
   root.setProperty("--pack-card-font-scale", String(packCardFontScale));
@@ -197,6 +202,8 @@ const ThemeContext = createContext<{
   setBagColorOpacity: (opacity: number) => void;
   bagCardScale: number;
   setBagCardScale: (scale: number) => void;
+  bagCardFontScale: number;
+  setBagCardFontScale: (scale: number) => void;
   packGridColorId: string;
   setPackGridColor: (id: string) => void;
   packGridCustomHex: string;
@@ -234,6 +241,8 @@ const ThemeContext = createContext<{
   setBagColorOpacity: () => {},
   bagCardScale: DEFAULT_CARD_SCALE,
   setBagCardScale: () => {},
+  bagCardFontScale: DEFAULT_CARD_SCALE,
+  setBagCardFontScale: () => {},
   packGridColorId: DEFAULT_CARD_COLOR_ID,
   setPackGridColor: () => {},
   packGridCustomHex: DEFAULT_CUSTOM,
@@ -292,6 +301,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [bagCardScale, setBagCardScaleState] = useState<number>(() => {
     if (typeof window === "undefined") return DEFAULT_CARD_SCALE;
     const raw = window.localStorage.getItem(BAG_SCALE_KEY);
+    return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
+  });
+  const [bagCardFontScale, setBagCardFontScaleState] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_CARD_SCALE;
+    const raw = window.localStorage.getItem(BAG_CARD_FONT_SCALE_KEY);
     return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
   });
   const [packGridColorId, setPackGridColorState] = useState<string>(() => {
@@ -381,8 +395,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [fontScale]);
 
   useEffect(() => {
-    applyCardScale(bagCardScale, packCardScale, packLibraryCardScale, packCardFontScale);
-  }, [bagCardScale, packCardScale, packLibraryCardScale, packCardFontScale]);
+    applyCardScale(bagCardScale, bagCardFontScale, packCardScale, packLibraryCardScale, packCardFontScale);
+  }, [bagCardScale, bagCardFontScale, packCardScale, packLibraryCardScale, packCardFontScale]);
 
   useEffect(() => {
     if (mode !== "system") return;
@@ -408,6 +422,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       customBagColorHex: remoteBagCustom,
       bagColorOpacity: remoteBagOpacity,
       bagCardScale: remoteBagScale,
+      bagCardFontScale: remoteBagCardFontScale,
       packGridColorId: remotePackGridColorId,
       customPackGridColorHex: remotePackGridCustom,
       packGridColorOpacity: remotePackGridOpacity,
@@ -428,6 +443,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       !remotePackLibraryColorId &&
       remoteBagOpacity === undefined &&
       remoteBagScale === undefined &&
+      remoteBagCardFontScale === undefined &&
       remotePackGridOpacity === undefined &&
       remotePackScale === undefined &&
       remotePackCardFontScale === undefined &&
@@ -469,6 +485,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (remoteBagScale !== undefined) {
       setBagCardScaleState(remoteBagScale);
       window.localStorage.setItem(BAG_SCALE_KEY, String(remoteBagScale));
+    }
+    if (remoteBagCardFontScale !== undefined) {
+      setBagCardFontScaleState(remoteBagCardFontScale);
+      window.localStorage.setItem(BAG_CARD_FONT_SCALE_KEY, String(remoteBagCardFontScale));
     }
     if (remotePackGridColorId) {
       setPackGridColorState(remotePackGridColorId);
@@ -568,8 +588,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setBagCardScale = (scale: number) => {
     setBagCardScaleState(scale);
     window.localStorage.setItem(BAG_SCALE_KEY, String(scale));
-    applyCardScale(scale, packCardScale, packLibraryCardScale, packCardFontScale);
+    applyCardScale(scale, bagCardFontScale, packCardScale, packLibraryCardScale, packCardFontScale);
     updateThemePrefs({ bagCardScale: scale }).catch(() => {});
+  };
+
+  const setBagCardFontScale = (scale: number) => {
+    setBagCardFontScaleState(scale);
+    window.localStorage.setItem(BAG_CARD_FONT_SCALE_KEY, String(scale));
+    applyCardScale(bagCardScale, scale, packCardScale, packLibraryCardScale, packCardFontScale);
+    updateThemePrefs({ bagCardFontScale: scale }).catch(() => {});
   };
 
   const setPackGridColor = (id: string) => {
@@ -598,14 +625,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setPackCardScale = (scale: number) => {
     setPackCardScaleState(scale);
     window.localStorage.setItem(PACK_SCALE_KEY, String(scale));
-    applyCardScale(bagCardScale, scale, packLibraryCardScale, packCardFontScale);
+    applyCardScale(bagCardScale, bagCardFontScale, scale, packLibraryCardScale, packCardFontScale);
     updateThemePrefs({ packCardScale: scale }).catch(() => {});
   };
 
   const setPackCardFontScale = (scale: number) => {
     setPackCardFontScaleState(scale);
     window.localStorage.setItem(PACK_CARD_FONT_SCALE_KEY, String(scale));
-    applyCardScale(bagCardScale, packCardScale, packLibraryCardScale, scale);
+    applyCardScale(bagCardScale, bagCardFontScale, packCardScale, packLibraryCardScale, scale);
     updateThemePrefs({ packCardFontScale: scale }).catch(() => {});
   };
 
@@ -635,7 +662,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setPackLibraryCardScale = (scale: number) => {
     setPackLibraryCardScaleState(scale);
     window.localStorage.setItem(PACK_LIBRARY_SCALE_KEY, String(scale));
-    applyCardScale(bagCardScale, packCardScale, scale, packCardFontScale);
+    applyCardScale(bagCardScale, bagCardFontScale, packCardScale, scale, packCardFontScale);
     updateThemePrefs({ packLibraryCardScale: scale }).catch(() => {});
   };
 
@@ -665,6 +692,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setBagColorOpacity,
         bagCardScale,
         setBagCardScale,
+        bagCardFontScale,
+        setBagCardFontScale,
         packGridColorId,
         setPackGridColor,
         packGridCustomHex,

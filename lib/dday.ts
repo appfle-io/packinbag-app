@@ -55,3 +55,17 @@ export function getDueUrgency(dueDate: string | undefined): "overdue" | "soon" |
   if (diff <= 1) return "soon";
   return "normal";
 }
+
+// "마감일 다가올수록 색상 진하게" 옵션용. startDays일 전인 날짜(0%, 아직 먼 날)에서
+// 당일/지난 날까지(100%, 새빨간색)로 선형 매핑을 만든다. UI에서는 이 값을
+// `color-mix(in srgb, var(--danger) N%, var(--text-muted))`에 그대로 대입해서 다크모드를 무난히 처리한다.
+export function getDueIntensifyPercent(
+  dueDate: string | undefined,
+  startDays: number = 7
+): number {
+  if (!dueDate) return 0;
+  const diff = daysUntil(dueDate);
+  if (diff <= 0) return 100; // 당일 또는 지난 건 항상 최대치
+  if (diff >= startDays) return 0;
+  return Math.round(((startDays - diff) / startDays) * 100);
+}

@@ -7,9 +7,10 @@ import { getPackColorHex } from "@/lib/packColors";
 import { formatDDayLabel } from "@/lib/dday";
 import ProgressRing from "@/components/ProgressRing";
 
-// 설정 > 화면설정 > 가방 크기 슬라이더 값(--bag-card-scale)에 맞춰 패딩/간격/글자
-// 크기를 함께 조절한다. 글자는 --font-scale-factor(설정 > 글자 크기)까지 같이 곱해서,
-// "가방 크기"와 "글자 크기" 두 설정이 자연스럽게 겹쳐 적용되도록 한다.
+// 설정 > 화면설정 > 가방 카드 크기 슬라이더 값(--bag-card-scale)에 맞춰 패딩/간격/아이콘을
+// 조절하고, 가방 글씨 크기 슬라이더 값(--bag-card-font-scale)에 맞춰 글자 크기를 조절한다 -
+// 카드 크기와 글자 크기가 서로 독립적으로 조절된다. 글자는 --font-scale-factor(설정 > 글자
+// 크기)까지 같이 곱해서, 앱 전체 글자 크기 설정과도 자연스럽게 겹쳐 적용되도록 한다.
 export default function BagCard({
   bag,
   onClick,
@@ -80,7 +81,7 @@ export default function BagCard({
       {/* 제목 줄: 제목은 왼쪽에서 최대한 넓게, 고정핀은 오른쪽 끝에 별도 자리를 차지한다
           (D-Day 배지와 자리를 다투지 않도록 D-Day는 아예 다음 줄로 내려서 따로 보여준다). */}
       <div className="flex items-start justify-between gap-1 shrink-0">
-        <span className="text-[calc(13px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0 flex-1">
+        <span className="text-[calc(13px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0 flex-1">
           {bag.name}
         </span>
         {(onTogglePin || onToggleArchive) && (
@@ -125,7 +126,7 @@ export default function BagCard({
       {ddayLabel && (
         <div className="mt-1 shrink-0">
           <span
-            className="inline-block text-[calc(10px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5"
+            className="inline-block text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5"
             style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
           >
             {ddayLabel}
@@ -141,7 +142,7 @@ export default function BagCard({
               return (
                 <span
                   key={pack.id}
-                  className="flex items-center gap-1 text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary truncate"
+                  className="flex items-center gap-1 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary truncate"
                 >
                   {dotHex && (
                     <span
@@ -161,7 +162,7 @@ export default function BagCard({
           </div>
         </div>
       )}
-      <span className="flex items-center justify-end gap-2 text-[calc(11px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
+      <span className="flex items-center justify-end gap-2 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
         {bag.memberIds.length > 1 && (
           <span className="flex items-center gap-0.5 text-text-muted">
             👥 {bag.memberIds.length}

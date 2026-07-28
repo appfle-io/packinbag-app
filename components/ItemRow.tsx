@@ -6,7 +6,7 @@ import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
 import { isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
-import { formatItemDueLabel, getDueUrgency } from "@/lib/dday";
+import { formatItemDueLabel, getDueUrgency, getDueIntensifyPercent } from "@/lib/dday";
 import LinkifiedText from "./LinkifiedText";
 // import ReactionPillRow from "./ReactionPillRow";
 
@@ -179,13 +179,19 @@ export default function ItemRow({
   // 짐 마감일 뱃지 라벨. dueDate가 없으면 null이라 아래에서 자연히 숨겨진다.
   const dueDisplayMode = profile?.packSettings?.dueDateDisplayMode ?? "dday";
   const dueLabel = formatItemDueLabel(item.dueDate, dueDisplayMode, ddayCountTodayAsDayOne);
+  // 마감일 뱃지 색상. "다가올수록 진하게" 옵션(기본값 ON)이 켜져 있으면 muted에서
+  // 새빨간색(--danger)으로 이어지는 연속적인 그라데이션으로, 꺼져있으면 지난(--danger)/임박(--accent)/평소(muted)
+  // 3단계로만 구분하는 이전 방식으로 동작한다.
+  const dueIntensifyEnabled = profile?.packSettings?.dueDateIntensifyEnabled ?? true;
+  const dueIntensifyDays = profile?.packSettings?.dueDateIntensifyDays ?? 7;
   const dueUrgency = getDueUrgency(item.dueDate);
-  const dueLabelColor =
-    dueUrgency === "overdue"
-      ? "var(--danger)"
-      : dueUrgency === "soon"
-      ? "var(--accent)"
-      : "var(--text-muted)";
+  const dueLabelColor = dueIntensifyEnabled
+    ? `color-mix(in srgb, var(--danger) ${getDueIntensifyPercent(item.dueDate, dueIntensifyDays)}%, var(--text-muted))`
+    : dueUrgency === "overdue"
+    ? "var(--danger)"
+    : dueUrgency === "soon"
+    ? "var(--accent)"
+    : "var(--text-muted)";
 
   // 다중선택 모드 중엔 같은 짐을 빠르게 두 번 누르면(더블클릭 속도) 두 번째 탭을 무시한다 -
   // 안 그러면 선택->선택해제가 순식간에 일어나 다중선택 모드가 풀리면서, 동시에 아래

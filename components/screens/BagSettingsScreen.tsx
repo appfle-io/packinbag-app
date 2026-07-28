@@ -1,6 +1,6 @@
 "use client";
 
-import { IconArrowLeft, IconLayoutGrid, IconNotes } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 
@@ -24,35 +24,23 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
           가방 속 팩을 보여주는 기본 방식을 설정해요. 각 가방 안에서 개별로 바꿀 수도 있어요.
         </p>
 
-        <div className="rounded-lg border border-border bg-surface p-3">
-          <p className="text-[13px] font-medium mb-1">가방 기본 보기</p>
-          <p className="text-[11.5px] text-text-secondary mb-3">
-            팩뷰는 지금처럼 카드 형태로, 메모장뷰는 팩을 헤더+내용이 이어지는 문서 형태로 보여줘요.
-          </p>
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <button
-              onClick={() => updateDefaultBagViewMode("pack")}
-              className="flex-1 py-2 text-[13px] flex items-center justify-center gap-1.5"
-              style={{
-                background: defaultBagViewMode === "pack" ? "var(--accent)" : "var(--surface-2)",
-                color: defaultBagViewMode === "pack" ? "#fff" : "var(--foreground)",
-              }}
-            >
-              <IconLayoutGrid size={15} stroke={1.75} />
-              팩뷰
-            </button>
-            <button
-              onClick={() => updateDefaultBagViewMode("notebook")}
-              className="flex-1 py-2 text-[13px] flex items-center justify-center gap-1.5"
-              style={{
-                background: defaultBagViewMode === "notebook" ? "var(--accent)" : "var(--surface-2)",
-                color: defaultBagViewMode === "notebook" ? "#fff" : "var(--foreground)",
-              }}
-            >
-              <IconNotes size={15} stroke={1.75} />
-              메모장뷰
-            </button>
+        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium">가방 기본 보기</p>
+            <p className="text-[11.5px] text-text-secondary mt-0.5">
+              팩뷰는 지금처럼 카드 형태로, 메모장뷰는 팩을 헤더+내용이 이어지는 문서 형태로 보여줘요.
+            </p>
           </div>
+          <select
+            value={defaultBagViewMode}
+            onChange={(e) => updateDefaultBagViewMode(e.target.value as "pack" | "notebook")}
+            aria-label="가방 기본 보기"
+            className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none"
+            style={{ background: "var(--surface-2)", color: "var(--foreground)" }}
+          >
+            <option value="pack">팩뷰</option>
+            <option value="notebook">메모장뷰</option>
+          </select>
         </div>
       </div>
     </div>
