@@ -20,7 +20,7 @@ import {
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
-import { arrangeList, moveIdInOrder } from "@/lib/listSort";
+import { arrangeList } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
 import { useToast } from "@/components/Toast";
@@ -144,7 +144,6 @@ export default function DesktopSidebar({
   onRenamePackEntry: (pack: Pack, name: string) => void;
   onMovePackEntries: (packIds: string[], parentId: string | undefined) => void;
   onDeletePackEntry: (packId: string) => void;
-  onDropQuickPackItems?: (targetType: "bag" | "pack", targetId: string, items: any[]) => void;
   // 설정은 모달로 띄우니 selection과 별개로 관리되는 상태 - 하이라이트만 이걸로 판단한다.
   settingsActive?: boolean;
 }) {
@@ -157,8 +156,6 @@ export default function DesktopSidebar({
     moveBagFolder,
     moveBagToFolder,
     updateExpandedBagFolderIds,
-    updateBagOrderByParent,
-    updatePackOrderByParent,
   } = useAuth();
   const [expandedBagIds, setExpandedBagIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -233,24 +230,15 @@ export default function DesktopSidebar({
   };
 
   const canDropOnTarget = (
-    targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root" | "pack",
-    targetId?: string,
-    e?: React.DragEvent
+    targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root",
+    targetId?: string
   ): boolean => {
-    if (e && e.dataTransfer && e.dataTransfer.types) {
-      if (
-        e.dataTransfer.types.includes("application/json") ||
-        e.dataTransfer.types.includes("text/plain")
-      ) {
-        return true;
-      }
-    }
     if (!activeDragData) return false;
 
     // 1) 가방 / 가방폴더 드래그 중
     if (activeDragData.type === "bag" || activeDragData.type === "bag-folder") {
       // 팩보관함(pack-folder, pack-root)으로는 절대 이동 불가능! (가방 ➡️ 팩보관함 이동 금지)
-      if (targetType === "pack-folder" || targetType === "pack-root" || targetType === "pack") return false;
+      if (targetType === "pack-folder" || targetType === "pack-root") return false;
       if (targetType === "bag") return false; // 가방에 가방을 넣지 못함
       if (targetType === "bag-folder") {
         if (activeDragData.type === "bag-folder") {
@@ -291,29 +279,10 @@ export default function DesktopSidebar({
   };
 
   const handleDropOnTarget = async (
-    targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root" | "pack",
-    targetId?: string,
-    e?: React.DragEvent
+    targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root",
+    targetId?: string
   ) => {
     setDropTargetKey(null);
-
-    // ★ 빠른 팩 외부 아이템 드롭 처리
-    if (e && e.dataTransfer) {
-      const jsonStr = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
-      if (jsonStr) {
-        try {
-          const parsed = JSON.parse(jsonStr);
-          if (parsed && parsed.type === "quick-pack-items" && Array.isArray(parsed.items) && parsed.items.length > 0) {
-            if (onDropQuickPackItems && targetId) {
-              const typeKey = targetType.startsWith("bag") ? "bag" : "pack";
-              onDropQuickPackItems(typeKey, targetId, parsed.items);
-              setActiveDragData(null);
-              return;
-            }
-          }
-        } catch (err) {}
-      }
-    }
     if (!activeDragData) return;
 
     // ★ 팩 ➡️ 가방 위 드롭 (가방에 팩 추가 - 팩보관함과 링크 연동)
@@ -355,73 +324,36 @@ export default function DesktopSidebar({
       return;
     }
 
-    // 가방 ➡️ 가방 폴더 / 최상위 / 다른 가방 (순서 재배치 포함)
-    if (activeDragData.type === "bag" || activeDragData.type === "bag-folder") {
-      const isBag = activeDragData.type === "bag";
-      let targetParentId: string | undefined = undefined;
+    // 가방 ➡️ 가방 폴더 / 최상위
+    if (activeDragData.type === "bag") {
       if (targetType === "bag-folder" && targetId) {
-        targetParentId = targetId;
-      } else if (targetType === "bag" && targetId) {
-        targetParentId = bagFolderAssignments[targetId];
+        moveBagToFolder(activeDragData.id, targetId).catch(() => {});
+      } else if (targetType === "bag-root") {
+        moveBagToFolder(activeDragData.id, undefined).catch(() => {});
       }
-
-      if (isBag) {
-        await moveBagToFolder(activeDragData.id, targetParentId);
-      } else {
-        await moveBagFolder(activeDragData.id, targetParentId);
-      }
-
-      if (targetId && activeDragData.id !== targetId) {
-        const parentKey = targetParentId ?? "root";
-        const childFolders = Object.values(bagFolders).filter((f) => (f.parentId ?? undefined) === targetParentId);
-        const childBags = bags.filter((b) => (bagFolderAssignments[b.id] ?? undefined) === targetParentId);
-        const combined = [
-          ...childFolders.map((f) => ({ id: f.id, name: f.name, createdAt: f.createdAt })),
-          ...childBags.map((b) => ({ id: b.id, name: b.name, createdAt: b.createdAt, updatedAt: b.updatedAt })),
-        ];
-        const currentOrder = profile?.bagOrderByParent?.[parentKey] ?? [];
-        const arranged = arrangeList(combined, {
-          sortBy: profile?.bagSortBy ?? "createdAt",
-          pinnedIds: profile?.pinnedBagIds ?? [],
-          order: currentOrder,
-          maxPinned: 3,
-        });
-        const currentIds = arranged.map((it) => it.id);
-        const newOrder = moveIdInOrder(currentIds, activeDragData.id, targetId);
-        await updateBagOrderByParent(parentKey, newOrder);
-      }
-
       setActiveDragData(null);
       return;
     }
 
-    // 팩 / 팩 폴더 ➡️ 팩 폴더 / 최상위 / 다른 팩 (순서 재배치 포함)
+    // 가방 폴더 ➡️ 가방 폴더 / 최상위
+    if (activeDragData.type === "bag-folder") {
+      if (targetType === "bag-folder" && targetId) {
+        moveBagFolder(activeDragData.id, targetId).catch(() => {});
+      } else if (targetType === "bag-root") {
+        moveBagFolder(activeDragData.id, undefined).catch(() => {});
+      }
+      setActiveDragData(null);
+      return;
+    }
+
+    // 팩 / 팩 폴더 ➡️ 팩 폴더 / 최상위
     if (activeDragData.type === "pack" || activeDragData.type === "pack-folder") {
-      let targetParentId: string | undefined = undefined;
+      const itemIds = [activeDragData.id];
       if (targetType === "pack-folder" && targetId) {
-        targetParentId = targetId;
-      } else if (targetType === "pack" && targetId) {
-        const targetPack = treePacks.find((p) => p.id === targetId);
-        targetParentId = targetPack?.parentId;
+        onMovePackEntries(itemIds, targetId);
+      } else if (targetType === "pack-root") {
+        onMovePackEntries(itemIds, undefined);
       }
-
-      onMovePackEntries([activeDragData.id], targetParentId);
-
-      if (targetId && activeDragData.id !== targetId) {
-        const parentKey = targetParentId ?? "root";
-        const siblings = treePacks.filter((p) => (p.parentId ?? undefined) === targetParentId);
-        const currentOrder = profile?.packOrderByParent?.[parentKey] ?? [];
-        const arranged = arrangeList(siblings, {
-          sortBy: profile?.packSortBy ?? "createdAt",
-          pinnedIds: profile?.pinnedPackIds ?? [],
-          order: currentOrder,
-          maxPinned: Infinity,
-        });
-        const currentIds = arranged.map((it) => it.id);
-        const newOrder = moveIdInOrder(currentIds, activeDragData.id, targetId);
-        await updatePackOrderByParent(parentKey, newOrder);
-      }
-
       setActiveDragData(null);
       return;
     }
@@ -467,11 +399,7 @@ export default function DesktopSidebar({
   );
 
   // --- 가방/폴더 "..." 메뉴(이동/이름바꾸기/삭제) --------------------------------
-  const [menuFor, setMenuFor] = useState<{
-    kind: "bag" | "folder";
-    id: string;
-    position?: { top: number; left: number };
-  } | null>(null);
+  const [menuFor, setMenuFor] = useState<{ kind: "bag" | "folder"; id: string } | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
@@ -518,11 +446,7 @@ export default function DesktopSidebar({
   };
 
   // --- 팩 보관함(팩/폴더) "..." 메뉴 -------------------------------------------
-  const [packMenuFor, setPackMenuFor] = useState<{
-    id: string;
-    isFolder: boolean;
-    position?: { top: number; left: number };
-  } | null>(null);
+  const [packMenuFor, setPackMenuFor] = useState<{ id: string; isFolder: boolean } | null>(null);
   const [renamingPackId, setRenamingPackId] = useState<string | null>(null);
   const [packRenameDraft, setPackRenameDraft] = useState("");
   const [confirmDeletePackId, setConfirmDeletePackId] = useState<string | null>(null);
@@ -584,23 +508,21 @@ export default function DesktopSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-3">
-        {/* 가방 보관함 -------------------------------------------------------- */}
+        {/* 내 가방 -------------------------------------------------------- */}
         <div className="flex items-center justify-between px-2 pt-2 pb-1">
-          <span className="text-[11px] font-semibold text-text-muted">가방 보관함</span>
-          <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-text-muted">내 가방</span>
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => createBagFolder("새 폴더", undefined).catch(() => {})}
               aria-label="새 폴더"
-              title="새 폴더"
-              className="p-1 rounded-md hover:bg-black/5"
+              className="-m-1.5 p-1.5 rounded-md hover:bg-black/5"
             >
               <IconFolderPlus size={14} stroke={1.75} color="var(--text-muted)" />
             </button>
             <button
               onClick={onNewBag}
               aria-label="새 가방"
-              title="새 가방"
-              className="p-1 rounded-md hover:bg-black/5"
+              className="-m-1.5 p-1.5 rounded-md hover:bg-black/5"
             >
               <IconPlus size={14} stroke={1.75} color="var(--text-muted)" />
             </button>
@@ -658,7 +580,7 @@ export default function DesktopSidebar({
                       handleDropOnTarget("bag", bag.id);
                     }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
                     style={{
                       border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
                       background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
@@ -702,7 +624,7 @@ export default function DesktopSidebar({
                       e.stopPropagation();
                       handleDropOnTarget("bag-folder", folder.id);
                     }}
-                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
+                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
                     style={{
                       paddingLeft: 8 + row.depth * 18,
                       border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
@@ -738,14 +660,7 @@ export default function DesktopSidebar({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                          const left = Math.min(rect.left, window.innerWidth - 220);
-                          setMenuFor({
-                            kind: "folder",
-                            id: folder.id,
-                            position: { top: Math.max(10, top), left: Math.max(10, left) },
-                          });
+                          setMenuFor({ kind: "folder", id: folder.id });
                         }}
                         aria-label="폴더 메뉴"
                         className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
@@ -768,7 +683,7 @@ export default function DesktopSidebar({
                     onDragStart={(e) => handleDragStart(e, "bag", bag.id)}
                     onDragEnd={handleDragEnd}
                     onDragOver={(e) => {
-                      if (canDropOnTarget("bag", bag.id, e)) {
+                      if (canDropOnTarget("bag", bag.id)) {
                         e.preventDefault();
                         e.stopPropagation();
                         setDropTargetKey(`bag:${bag.id}`);
@@ -781,9 +696,9 @@ export default function DesktopSidebar({
                     onDrop={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleDropOnTarget("bag", bag.id, e);
+                      handleDropOnTarget("bag", bag.id);
                     }}
-                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
+                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
                     style={{
                       paddingLeft: 8 + row.depth * 18,
                       border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
@@ -814,14 +729,7 @@ export default function DesktopSidebar({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                        const left = Math.min(rect.left, window.innerWidth - 220);
-                        setMenuFor({
-                          kind: "bag",
-                          id: bag.id,
-                          position: { top: Math.max(10, top), left: Math.max(10, left) },
-                        });
+                        setMenuFor({ kind: "bag", id: bag.id });
                       }}
                       aria-label="가방 메뉴"
                       className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
@@ -837,7 +745,7 @@ export default function DesktopSidebar({
                         <div
                           key={pack.id}
                           onClick={() => onSelect({ kind: "bag", bagId: bag.id, focusPackId: pack.id })}
-                          className="flex items-center gap-1.5 rounded-lg py-1 cursor-pointer"
+                          className="flex items-center gap-1.5 rounded-lg py-1.5 cursor-pointer"
                           style={{
                             paddingLeft: 34 + row.depth * 18,
                             background: packSelected ? "var(--accent-soft)" : undefined,
@@ -859,30 +767,28 @@ export default function DesktopSidebar({
         {/* 팩 보관함 -------------------------------------------------------- */}
         <div className="flex items-center justify-between px-2 pt-2 pb-1">
           <span className="text-[11px] font-semibold text-text-muted">팩 보관함</span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => setShowTemplateGallery(true)}
               aria-label="추천 템플릿 둘러보기"
               title="추천 템플릿 둘러보기"
-              className="p-1 rounded-md hover:bg-black/5 flex items-center gap-1 text-[11px] font-medium"
+              className="-m-1.5 p-1.5 rounded-md hover:bg-black/5 flex items-center gap-1 text-[11px] font-medium"
               style={{ color: "var(--accent)" }}
             >
-              <IconSparkles size={13} stroke={1.75} />
+              <IconSparkles size={14} stroke={1.75} />
               <span>템플릿</span>
             </button>
             <button
               onClick={() => onNewFolder(undefined)}
               aria-label="새 폴더"
-              title="새 폴더"
-              className="p-1 rounded-md hover:bg-black/5"
+              className="-m-1.5 p-1.5 rounded-md hover:bg-black/5"
             >
               <IconFolderPlus size={14} stroke={1.75} color="var(--text-muted)" />
             </button>
             <button
               onClick={() => onNewPack(undefined)}
               aria-label="새 팩"
-              title="새 팩"
-              className="p-1 rounded-md hover:bg-black/5"
+              className="-m-1.5 p-1.5 rounded-md hover:bg-black/5"
             >
               <IconPlus size={14} stroke={1.75} color="var(--text-muted)" />
             </button>
@@ -924,27 +830,27 @@ export default function DesktopSidebar({
                   onDragStart={(e) => handleDragStart(e, isFolder ? "pack-folder" : "pack", entry.id)}
                   onDragEnd={handleDragEnd}
                   onDragOver={(e) => {
-                    const targetType = isFolder ? "pack-folder" : "pack";
-                    if (canDropOnTarget(targetType, entry.id, e)) {
+                    if (isFolder && canDropOnTarget("pack-folder", entry.id)) {
                       e.preventDefault();
                       e.stopPropagation();
-                      setDropTargetKey(`pack:${entry.id}`);
+                      setDropTargetKey(`pack-folder:${entry.id}`);
                     }
                   }}
                   onDragLeave={(e) => {
                     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                    if (dropTargetKey === `pack:${entry.id}`) setDropTargetKey(null);
+                    if (dropTargetKey === `pack-folder:${entry.id}`) setDropTargetKey(null);
                   }}
                   onDrop={(e) => {
-                    const targetType = isFolder ? "pack-folder" : "pack";
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDropOnTarget(targetType, entry.id, e);
+                    if (isFolder) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDropOnTarget("pack-folder", entry.id);
+                    }
                   }}
                   onClick={() =>
                     isRenaming ? undefined : isFolder ? togglePackExpanded(entry.id) : onSelect({ kind: "pack", packId: entry.id })
                   }
-                  className="group flex items-center gap-1.5 rounded-lg py-1 cursor-pointer transition-all"
+                  className="group flex items-center gap-1.5 rounded-lg py-1.5 cursor-pointer transition-all"
                   style={{
                     paddingLeft: 8 + depth * 18,
                     paddingRight: 8,
@@ -1005,14 +911,7 @@ export default function DesktopSidebar({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                        const left = Math.min(rect.left, window.innerWidth - 220);
-                        setPackMenuFor({
-                          id: entry.id,
-                          isFolder,
-                          position: { top: Math.max(10, top), left: Math.max(10, left) },
-                        });
+                        setPackMenuFor({ id: entry.id, isFolder });
                       }}
                       aria-label="메뉴"
                       className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
@@ -1042,7 +941,7 @@ export default function DesktopSidebar({
       {menuFor && (
         <Portal>
           <div
-            className="fixed inset-0 z-[160]"
+            className="fixed inset-0 z-[120]"
             onClick={() => setMenuFor(null)}
           >
             <div
@@ -1053,8 +952,10 @@ export default function DesktopSidebar({
                 minWidth: 200,
                 maxHeight: "70vh",
                 overflowY: "auto",
-                left: menuFor.position?.left ?? 16,
-                top: menuFor.position?.top ?? 220,
+                // 사이드바 폭(288px) 근처에 뜨도록 대략 고정 - 트리거 위치를 정확히 추적하진
+                // 않지만(간단한 v1), 사이드바 영역 안이라 항상 보기 좋은 위치에 뜬다.
+                left: 16,
+                top: 220,
               }}
             >
               {menuFor.kind === "folder" &&
@@ -1145,7 +1046,7 @@ export default function DesktopSidebar({
       {/* 팩/폴더 "..." 메뉴 - 이름바꾸기 + 이동(폴더 목록) + 삭제 */}
       {packMenuFor && (
         <Portal>
-          <div className="fixed inset-0 z-[160]" onClick={() => setPackMenuFor(null)}>
+          <div className="fixed inset-0 z-[120]" onClick={() => setPackMenuFor(null)}>
             <div
               onClick={(e) => e.stopPropagation()}
               className="absolute rounded-xl border border-border shadow-lg overflow-hidden"
@@ -1154,8 +1055,8 @@ export default function DesktopSidebar({
                 minWidth: 200,
                 maxHeight: "70vh",
                 overflowY: "auto",
-                left: packMenuFor.position?.left ?? 16,
-                top: packMenuFor.position?.top ?? 420,
+                left: 16,
+                top: 420,
               }}
             >
               {(() => {
