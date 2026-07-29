@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import {
   IconArrowLeft,
@@ -10,6 +10,8 @@ import {
   IconStrikethrough,
   IconH1,
   IconH2,
+  IconH3,
+  IconList,
   IconListCheck,
   IconTable,
   IconTablePlus,
@@ -48,8 +50,11 @@ import Portal from "@/components/Portal";
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
+import SlideUpSheet from "@/components/SlideUpSheet";
 import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
+import { useIsDesktop } from "@/lib/useIsDesktop";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
 // PDF는 이미지처럼 압축되지 않고 원본 크기 그대로 올라가므로, 큰 파일을 막기 위해
@@ -110,6 +115,12 @@ export default function PackNoteEditorScreen({
   // 배너로 알려서, 사용자가 내용을 줄여야 한다는 걸 바로 알 수 있게 한다(타이핑한 내용
   // 자체는 화면에 그대로 남아있어 잃어버리지 않는다).
   const [sizeBlocked, setSizeBlocked] = useState(false);
+  // 목차(TOC): 모바일은 우하단 플로팅 버튼 + 바텀시트, 데스크톱(넓은 화면)은 우측 사이드
+  // 레일로 상시 노출한다. 헤딩이 하나도 없으면 버튼/레일 자체를 숨긴다.
+  const isDesktop = useIsDesktop();
+  const ambientLayer = useOverlayLayer();
+  const [tocOpen, setTocOpen] = useState(false);
+  const [headings, setHeadings] = useState<{ pos: number; level: number; text: string }[]>([]);
 
   const packRef = useRef(pack);
   const nameRef = useRef(name);
@@ -140,13 +151,45 @@ export default function PackNoteEditorScreen({
   // pack.editorDoc을 그대로 에디터에 반영해 "라이브"로 보이게 한다. setContent의
   // 두 번째 인자(emitUpdate=false)로 이 반영이 다시 자동저장 흐름을 타지 않게 막는다
   // (내 편집이 아니라 수신한 값을 그대로 보여주는 것일 뿐이므로).
+  const refreshHeadings = useCallback(() => {
+    if (!editor) return;
+    const list: { pos: number; level: number; text: string }[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "heading") {
+        list.push({
+          pos,
+          level: (node.attrs.level as number) ?? 1,
+          text: node.textContent.trim() || "제목 없음",
+        });
+      }
+    });
+    setHeadings(list);
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    refreshHeadings();
+    const handler = () => refreshHeadings();
+    editor.on("update", handler);
+    return () => {
+      editor.off("update", handler);
+    };
+  }, [editor, refreshHeadings]);
+
+  const scrollToHeading = (pos: number) => {
+    if (!editor) return;
+    editor.chain().focus().setTextSelection(pos + 1).scrollIntoView().run();
+    setTocOpen(false);
+  };
+
   const lastSyncedDocRef = useRef(pack.editorDoc);
   useEffect(() => {
     if (!editor || !otherEditorNickname) return;
     if (pack.editorDoc === lastSyncedDocRef.current) return;
     lastSyncedDocRef.current = pack.editorDoc;
     editor.commands.setContent(pack.editorDoc ?? "", false);
-  }, [editor, otherEditorNickname, pack.editorDoc]);
+    refreshHeadings();
+  }, [editor, otherEditorNickname, pack.editorDoc, refreshHeadings]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
@@ -306,6 +349,7 @@ export default function PackNoteEditorScreen({
   }) => (
     <button
       onClick={onClick}
+      onMouseDown={(e) => e.preventDefault()}
       aria-label={label}
       disabled={effectiveReadOnly || disabled}
       className="rounded-lg p-2 disabled:opacity-30"
@@ -434,6 +478,7 @@ export default function PackNoteEditorScreen({
           <div className="flex items-center gap-0.5 shrink-0">
             <button
               onClick={() => changeFontSize(-1)}
+              onMouseDown={(e) => e.preventDefault()}
               aria-label="글자 크기 줄이기"
               disabled={getCurrentFontSize() <= 8}
               className="rounded-lg p-1.5 disabled:opacity-30"
@@ -445,6 +490,7 @@ export default function PackNoteEditorScreen({
             </span>
             <button
               onClick={() => changeFontSize(1)}
+              onMouseDown={(e) => e.preventDefault()}
               aria-label="글자 크기 키우기"
               disabled={getCurrentFontSize() >= 28}
               className="rounded-lg p-1.5 disabled:opacity-30"
@@ -505,6 +551,13 @@ export default function PackNoteEditorScreen({
             <IconH2 size={17} stroke={1.75} />
           </ToolbarButton>
           <ToolbarButton
+            onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+            active={editor?.isActive("heading", { level: 3 })}
+            label="제목 3"
+          >
+            <IconH3 size={17} stroke={1.75} />
+          </ToolbarButton>
+          <ToolbarButton
             onClick={() => editor?.chain().focus().toggleTaskList().run()}
             active={editor?.isActive("taskList")}
             label="체크박스"
@@ -558,27 +611,66 @@ export default function PackNoteEditorScreen({
         </div>
       )}
 
-      <div
-        className="flex-1 overflow-y-auto px-4 py-3"
-        onClick={(e) => {
-          // 링크(Link 마크)는 자동 탐색이 꺼져있어서(openOnClick: false)
-          // 여기서 <a> 태그 클릭을 직접 감지해서 처리한다. "짧은 URL로 변경"이 가능한
-          // 링크(프리미엄 + 토글 ON + 아직 축약 전)이면 선택 시트를 띄우고, 그러지 않으면
-          // 바로 openExternalLink()로 연다(웹/네이티브 공통).
-          const anchor = (e.target as HTMLElement).closest("a");
-          if (!anchor) return;
-          const href = anchor.getAttribute("href");
-          if (!href) return;
-          e.preventDefault();
-          const canShorten = shortUrlFeatureEnabled && !!user && !isAlreadyShortLink(href);
-          if (canShorten) {
-            setLinkMenuUrl(href);
-          } else {
-            openExternalLink(href);
-          }
-        }}
-      >
-        <EditorContent editor={editor} className="pib-note-editor" />
+      <div className="flex-1 flex overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
+          <div
+            className="h-full overflow-y-auto px-4 py-3"
+            onClick={(e) => {
+              // 링크(Link 마크)는 자동 탐색이 꺼져있어서(openOnClick: false)
+              // 여기서 <a> 태그 클릭을 직접 감지해서 처리한다. "짧은 URL로 변경"이 가능한
+              // 링크(프리미엄 + 토글 ON + 아직 축약 전)이면 선택 시트를 띄우고, 그러지 않으면
+              // 바로 openExternalLink()로 연다(웹/네이티브 공통).
+              const anchor = (e.target as HTMLElement).closest("a");
+              if (!anchor) return;
+              const href = anchor.getAttribute("href");
+              if (!href) return;
+              e.preventDefault();
+              const canShorten = shortUrlFeatureEnabled && !!user && !isAlreadyShortLink(href);
+              if (canShorten) {
+                setLinkMenuUrl(href);
+              } else {
+                openExternalLink(href);
+              }
+            }}
+          >
+            <EditorContent editor={editor} className="pib-note-editor" />
+          </div>
+          {!isDesktop && headings.length > 0 && (
+            <button
+              onClick={() => setTocOpen(true)}
+              aria-label="목차"
+              className="absolute bottom-4 right-4 h-11 w-11 rounded-full flex items-center justify-center shadow-lg z-20"
+              style={{ background: "var(--accent)" }}
+            >
+              <IconList size={20} stroke={1.75} color="#fff" />
+            </button>
+          )}
+        </div>
+        {isDesktop && headings.length > 0 && (
+          <div className="w-52 shrink-0 border-l border-border overflow-y-auto py-3 px-2">
+            <div
+              className="text-[12px] font-medium px-2 mb-1"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              목차
+            </div>
+            {headings.map((h, i) => (
+              <button
+                key={i}
+                onClick={() => scrollToHeading(h.pos)}
+                className="w-full text-left rounded-lg px-2 py-1.5 truncate"
+                style={{
+                  paddingLeft: 8 + (h.level - 1) * 14,
+                  fontSize: h.level === 1 ? 13.5 : h.level === 2 ? 13 : 12.5,
+                  fontWeight: h.level === 1 ? 600 : 500,
+                  color: h.level === 3 ? "var(--text-secondary)" : "var(--foreground)",
+                }}
+              >
+                {h.text}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {linkMenuUrl && (
@@ -604,8 +696,8 @@ export default function PackNoteEditorScreen({
       {showColorPicker && (
         <Portal>
           <div
-            className="fixed inset-0 z-[105] flex items-end justify-center"
-            style={{ background: "rgba(0,0,0,0.35)" }}
+            className="fixed inset-0 flex items-end justify-center"
+            style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.35)" }}
             onClick={() => setShowColorPicker(false)}
           >
             <div
@@ -623,6 +715,7 @@ export default function PackNoteEditorScreen({
                 {PACK_COLORS.filter((c) => c.hex).map((c) => (
                   <button
                     key={c.id}
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       editor?.chain().focus().setColor(c.hex).run();
                       setShowColorPicker(false);
@@ -695,6 +788,35 @@ export default function PackNoteEditorScreen({
           }}
         />
       )}
+
+      <SlideUpSheet active={tocOpen} onBackdropClick={() => setTocOpen(false)}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <span className="text-[15px] font-medium">목차</span>
+          <button onClick={() => setTocOpen(false)} aria-label="닫기">
+            <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+          </button>
+        </div>
+        <div
+          className="overflow-y-auto px-3 py-2"
+          style={{ paddingBottom: "max(12px, calc(env(safe-area-inset-bottom) + 12px))" }}
+        >
+          {headings.map((h, i) => (
+            <button
+              key={i}
+              onClick={() => scrollToHeading(h.pos)}
+              className="w-full text-left rounded-lg px-3 py-2.5 truncate"
+              style={{
+                paddingLeft: 12 + (h.level - 1) * 16,
+                fontSize: h.level === 1 ? 15 : h.level === 2 ? 14 : 13,
+                fontWeight: h.level === 1 ? 600 : 500,
+                color: h.level === 3 ? "var(--text-secondary)" : "var(--foreground)",
+              }}
+            >
+              {h.text}
+            </button>
+          ))}
+        </div>
+      </SlideUpSheet>
     </div>
   );
 }

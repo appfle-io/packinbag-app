@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Portal from "@/components/Portal";
+import { OverlayLayerProvider, useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
 
 // SlideScreen(좌우 풀스크린)과 같은 문제를 겪는 "아래에서 올라오는 시트" 모달용 래퍼.
 // 배경 딤 + 시트 자체가 트랜지션 없이 그냥 나타났다/사라졌다 하던 것을, 아래에서
@@ -14,13 +15,15 @@ export default function SlideUpSheet({
   active,
   onBackdropClick,
   children,
-  zIndex = 75,
+  zIndex,
 }: {
   active: boolean;
   onBackdropClick?: () => void;
   children: React.ReactNode;
   zIndex?: number;
 }) {
+  const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = zIndex ?? ambientLayer + SHEET_OFFSET;
   const [shouldRender, setShouldRender] = useState(active);
   const [entered, setEntered] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -59,7 +62,7 @@ export default function SlideUpSheet({
         style={{
           position: "fixed",
           inset: 0,
-          zIndex,
+          zIndex: resolvedZIndex,
           background: "rgba(0,0,0,0.45)",
           opacity: entered ? 1 : 0,
           transition: `opacity ${TRANSITION_MS}ms ${EASING}`,
@@ -76,7 +79,7 @@ export default function SlideUpSheet({
             willChange: "transform",
           }}
         >
-          {children}
+          <OverlayLayerProvider value={resolvedZIndex}>{children}</OverlayLayerProvider>
         </div>
       </div>
     </Portal>

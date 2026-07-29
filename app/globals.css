@@ -325,6 +325,7 @@ body {
 .pib-note-editor .ProseMirror {
   outline: none;
   min-height: 100%;
+  font-size: 14px;
 }
 .pib-note-editor h1 { font-size: 22px; font-weight: 700; margin: 14px 0 6px; }
 .pib-note-editor h2 { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
@@ -408,4 +409,50 @@ body {
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* 토글 블록("> " 입력으로 만드는 접었다펌다 목록). 화살표는 열림/닫힌에 따라 회전만
+   바꾸고, 본문(toggle-content)은 닫힌 때 CSS로만 숨긴다(데이터 자체는 그대로 저장된다). */
+.pib-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 4px 0;
+}
+.pib-toggle-arrow {
+  flex-shrink: 0;
+  width: 20px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+  margin-top: 2px;
+}
+.pib-toggle[data-open="true"] .pib-toggle-arrow {
+  transform: rotate(90deg);
+}
+.pib-toggle-inner {
+  flex: 1;
+  min-width: 0;
+}
+.pib-toggle-inner [data-type="toggle-summary"] {
+  font-weight: 600;
+  min-height: 24px;
+  line-height: 24px;
+}
+.pib-toggle-inner [data-type="toggle-content"] {
+  padding-left: 2px;
+  border-left: 2px solid var(--border);
+  margin-left: 2px;
+}
+.pib-toggle[data-open="false"] .pib-toggle-inner [data-type="toggle-content"] {
+  display: none;
+}
+.pib-toggle-inner [data-type="toggle-content"] > * {
+  margin-left: 8px;
 }

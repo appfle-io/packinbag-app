@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Portal from "@/components/Portal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
+import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlayLayer";
 
 // 스택으로 쌓이는 풀스크린 화면(가방 편집기, 팩 트리, 설정 하위화면 등)을 오른쪽에서
 // 슬라이드-인/아웃 시키는 공용 래퍼. 기존엔 부모가 `if (editingBag) return <..>` 식으로
@@ -20,7 +21,7 @@ const EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
 export default function SlideScreen({
   active,
   children,
-  zIndex = 60,
+  zIndex,
   innerClassName = "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top",
   from = "right",
   onBackdropClick,
@@ -47,6 +48,8 @@ export default function SlideScreen({
 }) {
   const isDesktop = useIsDesktop();
   const useFade = desktopTransition === "fade" && isDesktop;
+  const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = zIndex ?? ambientLayer + LAYER_STEP;
   // active=false가 되어도 곧바로 사라지지 않고, 닫힘 트랜지션이 끝난 뒤에야 실제로
   // 렌더링을 멈춘다 (그래야 슬라이드 아웃되는 모습이 보인다).
   const [shouldRender, setShouldRender] = useState(active);
@@ -86,7 +89,7 @@ export default function SlideScreen({
 
   return (
     <Portal>
-      <div style={{ position: "fixed", inset: 0, overflow: "hidden", zIndex }}>
+      <div style={{ position: "fixed", inset: 0, overflow: "hidden", zIndex: resolvedZIndex }}>
         <div
           aria-hidden
           onClick={onBackdropClick}
@@ -116,7 +119,7 @@ export default function SlideScreen({
                 }
           }
         >
-          {children}
+          <OverlayLayerProvider value={resolvedZIndex}>{children}</OverlayLayerProvider>
         </div>
       </div>
     </Portal>

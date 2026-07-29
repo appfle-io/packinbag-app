@@ -14,6 +14,7 @@ import Color from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import { FontSize } from "./fontSizeExtension";
+import { ToggleBlock, ToggleSummary, ToggleContent } from "./toggleBlockExtension";
 
 export function getNoteEditorExtensions(placeholder?: string) {
   return [
@@ -21,7 +22,14 @@ export function getNoteEditorExtensions(placeholder?: string) {
       // 팩 자체의 이름은 EditableText/SwipeRenameField로 따로 관리하니, 문서 안 헤딩은
       // h1~h3 정도면 충분하다. Strike(취소선)는 StarterKit에 기본 포함되어 있다.
       heading: { levels: [1, 2, 3] },
+      // blockquote가 기본으로 "> " 입력을 가로채여 인용구로 바꾸는데, 이 입력을
+      // 토글 블록(ToggleBlock, 다음 줄)이 대신 쓰게 하려고 blockquote 자체를 끈다.
+      // 어차피 툴바에도 인용구 버튼이 없고 스타일도 따로 정의된 적 없다.
+      blockquote: false,
     }),
+    ToggleBlock,
+    ToggleSummary,
+    ToggleContent,
     TaskList,
     TaskItem.configure({ nested: true }),
     Table.configure({ resizable: true }),
