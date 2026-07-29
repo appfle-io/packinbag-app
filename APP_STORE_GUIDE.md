@@ -6,19 +6,19 @@
 
 먼저 큰 그림부터 이해하고 가야 헤매지 않아요. 아래 순서로 진행합니다.
 
-- [ ] 0. 개념 이해하기 — 우리가 왜 이 방법을 쓰는지
-- [ ] **0.5. ⚠️ 시작 전에 반드시 처리해야 할 것 — 구글 로그인이 심사/사용 자체를 막을 수 있음**
-- [ ] 1. 준비물 확인 (Mac, Apple 계정, 비용)
-- [ ] 2. Apple Developer Program 가입
-- [ ] 3. 프로젝트에 Capacitor 설치하기
-- [ ] 4. Xcode용 iOS 프로젝트 만들기
-- [ ] 5. 앱 아이콘 만들기
-- [ ] 6. Xcode 26에서 서명(Signing) 설정
-- [ ] 7. 내 아이폰/시뮬레이터로 테스트
-- [ ] 8. Mac 버전 켜기 (Mac Catalyst)
-- [ ] 9. App Store Connect에 앱 등록
-- [ ] 10. 빌드 업로드 + TestFlight 테스트
-- [ ] 11. 앱스토어 심사 제출
+- [x] 0. 개념 이해하기 — 우리가 왜 이 방법을 쓰는지
+- [x] **0.5. ⚠️ 구글/애플 로그인 네이티브 전환 — 완료(2026-07-29, 시뮬레이터에서 둘 다 로그인 성공 확인)**
+- [x] 1. 준비물 확인 (Mac, Apple 계정, 비용)
+- [x] 2. Apple Developer Program 가입
+- [x] 3. 프로젝트에 Capacitor 설치하기
+- [x] 4. Xcode용 iOS 프로젝트 만들기
+- [x] 5. 앱 아이콘 만들기 (Assets.xcassets에 AppIcon 적용됨)
+- [x] 6. Xcode 26에서 서명(Signing) 설정
+- [x] 7. 내 아이폰/시뮬레이터로 테스트
+- [x] 8. Mac 버전 켜기 (Mac Catalyst)
+- [x] 9. App Store Connect에 앱 등록
+- [x] 10. 빌드 업로드 + TestFlight 테스트
+- [x] 11. 앱스토어 심사 제출 — **완료 (2026-07-29, 심사 대기 중, 제출 ID 5b4b7ebe-3ef5-4b51-ab55-aecf31ba1452)**
 - [ ] 12. 비용 정리 & 자주 막히는 부분 FAQ
 
 ---
@@ -360,6 +360,19 @@ Xcode 26은 기본적으로 최신 iOS SDK를 기준으로 프로젝트를 만�
 - **심사 거절 (가이드라인 4.2, 최소 기능성)** → 심사 노트에 앱의 핵심 가치(그룹 짐 체크리스트 공유)를 구체적으로 설명하고, 테스트 계정에 예시 데이터를 채워서 보내주세요. 재발되면 오프라인에서도 일부 열람 가능하게 하거나 네이티브 기능을 추가하는 방향으로 보완 후 재제출
 - **심사 거절 (가이드라인 4.8, 제3자 로그인)** → 구글 로그인을 제공하면서 Apple 로그인이 없으면 걸릴 수 있어요. 이 문서 9번 항목 참고
 - **스크린샷 크기 거부 ("하나 이상의 스크린샷 크기가 잘못되었습니다")** → 위 9번 표의 픽셀 크기(1320x2868 / 2064x2752)를 1픽셀도 틀리지 않게 정확히 맞춰서 다시 캡처
+
+### 실제로 겪은 문제: Archive가 계속 "Communication with Apple failed / no devices"로 실패함 (2026-07-29 해결)
+
+실기기 없이 시뮬레이터로만 테스트하다가, 실제 Archive를 시도하니 계속 아래 증상이 반복됨 — 원인 파악에 시간이 꽤 걸렸어서 순서대로 남겨둔다.
+
+1. Signing & Capabilities "All" 탭에서는 Debug 구성의 **Development 프로파일**을 만들려다, 등록된 실기기(device UDID)가 없어서 "Your team has no devices from which to generate a provisioning profile" 에러가 남.
+2. "Release" 탭만 봐도 계속 Apple Development로 나옴 → 진짜 원인은 **Build Settings > Code Signing Identity**가 옛날 방식으로 "iPhone Developer"라고 수동 지정되어 있어서 자동서명(Automatically manage signing)과 충돌한 것이었음 ("App has conflicting provisioning settings" 에러로 확인됨).
+3. 해결: Build Settings → "All" + "Levels" 보기로 전환 → signing 검색 → Code Signing Identity 옆 화살표로 Debug/Release 펼치기 → TARGET(App) 레벨에 수동 지정된 값을 지워서 비움(자동서명에 완전히 맡김).
+4. 그런데도 계속 같은 에러 → Apple Developer 포털 Certificates 목록에 **Apple Distribution 인증서가 아예 없었음**(Xcode가 계속 Development만 만들고 있었음). Xcode → Settings → Accounts → Manage Certificates → "+" → **Apple Distribution** 직접 생성으로 해결.
+5. 그래도 자동서명이 같은 에러를 반복 → 결국 **수동서명으로 전환**: developer.apple.com/account/resources/profiles 에서 App Store Connect 배포용 프로파일을 방금 만든 Apple Distribution 인증서로 직접 생성 → 다운로드/설치 → Xcode Signing & Capabilities → Release 탭에서 "Automatically manage signing" 해제 → 만든 프로파일 수동 선택.
+6. 중간에 "doesn't include signing certificate" 에러도 남 → Apple Distribution 인증서가 여러 개 생겨서 프로파일이 다른 인증서를 참조하고 있었음 → 포털에서 프로파일 Edit → Xcode에 실제 설치된 인증서와 정확히 일치하는 걸 다시 체크 → 재다운로드/재설치로 해결.
+
+**핵심 요약: "no devices" 에러 메시지는 표면적인 원인일 뿐, 진짜 원인은 Build Settings에 수동으로 박혀있던 옛날 방식 Code Signing Identity였다. 실기기 등록은 전혀 필요 없었음 (App Store 배포는 Distribution 인증서/프로파일만 있으면 됨).**
 
 ---
 
