@@ -174,10 +174,8 @@ export default function EditorPackCard({
         </div>
       </div>
 
-      {!isCollapsed && (
-        <>
-          {packImages.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2 shrink-0">
+      {!isCollapsed && packImages.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2 shrink-0">
               {packImages.map((src, idx) => {
                 const isPdf = isPdfUrl(src);
                 return (
@@ -219,11 +217,11 @@ export default function EditorPackCard({
                   </div>
                 );
               })}
-            </div>
-          )}
+        </div>
+      )}
 
-          <div
-            onClick={(e) => {
+      <div
+        onClick={(e) => {
               // 읽기전용 에디터 내용은 이제 일반 클릭으로는 무시하고(글씨 드래그 선택/접기폄치는
               // 브라우저가 그대로 처리하게 둘), 링크(<a>) 클릭만 직접 감지해서 연다 -
               // PackNoteEditorScreen과 동일한 패턴(Link 마크가 openOnClick:false라서 자동 탐색이 안 됨).
@@ -235,21 +233,27 @@ export default function EditorPackCard({
               e.stopPropagation();
               openExternalLink(href);
             }}
-            onDoubleClick={onOpenEditor}
-            className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden"
-            style={{ maxHeight: "calc(228px * var(--pack-card-scale,1))", overflowY: "auto", cursor: "text" }}
-          >
-            {editor?.isEmpty && (
-              <p className="text-[13px] text-text-muted py-2">
-                더블클릭해서 메모를 수정해보세요
-              </p>
-            )}
-            <div>
-              <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
-            </div>
-          </div>
+        onDoubleClick={onOpenEditor}
+        className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden"
+        style={{
+          maxHeight: "calc(228px * var(--pack-card-scale,1))",
+          overflowY: "auto",
+          cursor: "text",
+          display: isCollapsed ? "none" : undefined,
+        }}
+      >
+        {editor?.isEmpty && (
+          <p className="text-[13px] text-text-muted py-2">
+            더블클릭해서 메모를 수정해보세요
+          </p>
+        )}
+        <div>
+          <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
+        </div>
+      </div>
 
-          <div className="flex items-center justify-end gap-3 pt-2.5 mt-2.5 border-t border-border shrink-0">
+      {!isCollapsed && (
+        <div className="flex items-center justify-end gap-3 pt-2.5 mt-2.5 border-t border-border shrink-0">
             {!readOnly && (
               <>
                 {pack.linkedLibraryPackId && onRefreshFromLibrary && (
@@ -277,8 +281,7 @@ export default function EditorPackCard({
                 </button>
               </>
             )}
-          </div>
-        </>
+        </div>
       )}
 
       {confirmDelete && (

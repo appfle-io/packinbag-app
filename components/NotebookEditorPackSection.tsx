@@ -225,77 +225,76 @@ export default function NotebookEditorPackSection({
         )}
       </div>
 
-      {!isCollapsed && (
-        <>
-          {packImages.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pl-6 mb-1.5">
-              {packImages.map((src, idx) => {
-                const isPdf = isPdfUrl(src);
-                return (
-                  <div
-                    key={idx}
-                    className="relative shrink-0 h-12 w-12 rounded-lg overflow-hidden bg-surface-2"
+      {!isCollapsed && packImages.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pl-6 mb-1.5">
+          {packImages.map((src, idx) => {
+            const isPdf = isPdfUrl(src);
+            return (
+              <div
+                key={idx}
+                className="relative shrink-0 h-12 w-12 rounded-lg overflow-hidden bg-surface-2"
+              >
+                {isPdf ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true);
+                    }}
+                    className="relative h-full w-full flex items-center justify-center text-text-secondary"
+                    aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
                   >
-                    {isPdf ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true);
-                        }}
-                        className="relative h-full w-full flex items-center justify-center text-text-secondary"
-                        aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
+                    <IconFileText size={17} stroke={1.75} />
+                    {!premium && (
+                      <span
+                        className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.55)" }}
                       >
-                        <IconFileText size={17} stroke={1.75} />
-                        {!premium && (
-                          <span
-                            className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full flex items-center justify-center"
-                            style={{ background: "rgba(0,0,0,0.55)" }}
-                          >
-                            <IconLock size={7} stroke={2} color="#fff" />
-                          </span>
-                        )}
-                      </button>
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={src}
-                        alt=""
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLightboxIndex(idx);
-                        }}
-                        className="h-full w-full object-cover"
-                      />
+                        <IconLock size={7} stroke={2} color="#fff" />
+                      </span>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div
-            onClick={(e) => {
-              const anchor = (e.target as HTMLElement).closest("a");
-              if (!anchor) return;
-              const href = anchor.getAttribute("href");
-              if (!href) return;
-              e.preventDefault();
-              e.stopPropagation();
-              openExternalLink(href);
-            }}
-            onDoubleClick={onOpenEditor}
-            className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden"
-            style={{ cursor: "text" }}
-          >
-            {editor?.isEmpty && (
-              <p className="text-[13px] text-text-muted py-1">더블클릭해서 메모를 수정해보세요</p>
-            )}
-            <div>
-              <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
-            </div>
-          </div>
-        </>
+                  </button>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={src}
+                    alt=""
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxIndex(idx);
+                    }}
+                    className="h-full w-full object-cover"
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
+
+      {/* React 19 + Tiptap의 flushSync 콘솔 에러 방지: 접혔다 펼쳐질 때 EditorContent가
+          새로 마운트되는 순간 클릭 이벤트 처리와 충돌하는 게 원인이었음. 조건부 마운트/언마운트
+          대신 항상 DOM에 유지하고 display로만 숨겨서, 펼치기 클릭이 새 마운트를 트리거하지 않게 함. */}
+      <div
+        onClick={(e) => {
+          const anchor = (e.target as HTMLElement).closest("a");
+          if (!anchor) return;
+          const href = anchor.getAttribute("href");
+          if (!href) return;
+          e.preventDefault();
+          e.stopPropagation();
+          openExternalLink(href);
+        }}
+        onDoubleClick={onOpenEditor}
+        className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden"
+        style={{ cursor: "text", display: isCollapsed ? "none" : undefined }}
+      >
+        {editor?.isEmpty && (
+          <p className="text-[13px] text-text-muted py-1">더블클릭해서 메모를 수정해보세요</p>
+        )}
+        <div>
+          <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
+        </div>
+      </div>
 
       {confirmDelete && (
         <ConfirmDialog
