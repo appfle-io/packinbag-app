@@ -68,6 +68,7 @@ import {
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import DesktopShell from "@/components/DesktopShell";
+import type { DesktopSelection } from "@/components/DesktopSidebar";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -943,6 +944,40 @@ export default function AppShell() {
     });
   };
 
+  const desktopSelection: DesktopSelection | null = editingBag
+    ? { kind: "bag", bagId: editingBag.id, focusPackId: bagFocus?.packId }
+    : editingPack
+    ? { kind: "pack", packId: editingPack.id }
+    : null;
+
+  const handleDesktopSelectionChange = (sel: DesktopSelection | null) => {
+    if (!sel) {
+      setEditingBag(null);
+      setIsNewBag(false);
+      setBagFocus(null);
+      setEditingPack(null);
+      return;
+    }
+    if (sel.kind === "bag") {
+      const bag = activeBags.find((b) => b.id === sel.bagId);
+      setEditingPack(null);
+      if (bag) {
+        setIsNewBag(false);
+        setEditingBag(bag);
+        setBagFocus(sel.focusPackId ? { packId: sel.focusPackId } : null);
+      }
+      return;
+    }
+    if (sel.kind === "pack") {
+      const pack = [...activePacks, ...(quickPack ? [quickPack] : [])].find((p) => p.id === sel.packId);
+      setEditingBag(null);
+      setIsNewBag(false);
+      setBagFocus(null);
+      if (pack) setEditingPack(pack);
+      return;
+    }
+  };
+
   if (isDesktop) {
     return (
       <DesktopShell
@@ -952,6 +987,9 @@ export default function AppShell() {
         libraryPacks={activePacks}
         quickPack={quickPack}
         lockedBagIds={lockedBagIds}
+        selection={desktopSelection}
+        onSelectionChange={handleDesktopSelectionChange}
+        isNewBag={isNewBag}
         requestUnlockForBag={requestUnlockForBag}
         requestUnlockForPack={requestUnlockForPack}
         onNewBag={openNewBag}
@@ -1204,7 +1242,11 @@ export default function AppShell() {
       {/* 팩 에디터 - 에디터형(자유문서형 메모 팩)은 노션 페이지처럼 풀스크린으로 오른쪽에서
           슬라이드-인, 체크리스트형은 기존대로 하단 시트로 아래에서 슬라이드-업. 두 경우 모두
           editingPack이 onBack에서 바로 null이 되므로 각자 캐싱해둔 값으로 그린다. */}
-      <SlideScreen active={!!editingPack && editingPack.kind === "editor"} zIndex={70}>
+      <SlideScreen
+        active={!!editingPack && editingPack.kind === "editor"}
+        zIndex={70}
+        innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-background pib-safe-top"
+      >
         {displayedEditorPack && (
           <PackNoteEditorScreen
             pack={displayedEditorPack}

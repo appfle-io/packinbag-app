@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import {
   IconTrash,
@@ -19,6 +19,7 @@ import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { isPdfUrl } from "@/lib/fileUrlUtils";
+import { openExternalLink } from "@/lib/openExternalLink";
 import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./Avatar";
@@ -81,15 +82,21 @@ export default function EditorPackCard({
 
   // 펼쳐졌을 때만 읽기전용 에디터를 만든다(접힌 상태에서는 미리보기 텍스트만 보여주면
   // 되니 무거운 TipTap 인스턴스를 만들 필요가 없다).
-  const editor = useEditor(
-    {
-      extensions: getNoteEditorExtensions(),
-      content: pack.editorDoc ?? "",
-      editable: false,
-      immediatelyRender: false,
-    },
-    [isCollapsed ? null : pack.editorDoc]
-  );
+  const editor = useEditor({
+    extensions: getNoteEditorExtensions(),
+    content: pack.editorDoc ?? "",
+    editable: false,
+    immediatelyRender: false,
+  });
+
+  // NotebookEditorPackSection과 동일한 이유로(deps 배열로 강제 재생성하는 패턴이
+  // React 19 + Tiptap에서 flushSync 콘솔 에러를 일으킴) 에디터는 한 번만 만들고,
+  // 내용 동기화는 렌더링과 분리된 effect로 따로 처리한다.
+  useEffect(() => {
+    if (!editor || isCollapsed) return;
+    editor.commands.setContent(pack.editorDoc ?? "", false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, isCollapsed, pack.editorDoc]);
 
   return (
     <div
@@ -216,21 +223,28 @@ export default function EditorPackCard({
           )}
 
           <div
-            role="button"
-            tabIndex={0}
-            onClick={onOpenEditor}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onOpenEditor();
+            onClick={(e) => {
+              // 읽기전용 에디터 내용은 이제 일반 클릭으로는 무시하고(글씨 드래그 선택/접기폄치는
+              // 브라우저가 그대로 처리하게 둘), 링크(<a>) 클릭만 직접 감지해서 연다 -
+              // PackNoteEditorScreen과 동일한 패턴(Link 마크가 openOnClick:false라서 자동 탐색이 안 됨).
+              const anchor = (e.target as HTMLElement).closest("a");
+              if (!anchor) return;
+              const href = anchor.getAttribute("href");
+              if (!href) return;
+              e.preventDefault();
+              e.stopPropagation();
+              openExternalLink(href);
             }}
-            className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden cursor-pointer"
-            style={{ maxHeight: "calc(228px * var(--pack-card-scale,1))", overflowY: "auto" }}
+            onDoubleClick={onOpenEditor}
+            className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden"
+            style={{ maxHeight: "calc(228px * var(--pack-card-scale,1))", overflowY: "auto", cursor: "text" }}
           >
             {editor?.isEmpty && (
               <p className="text-[13px] text-text-muted py-2">
-                탭해서 메모를 작성해보세요
+                더블클릭해서 메모를 수정해보세요
               </p>
             )}
-            <div style={{ pointerEvents: "none" }}>
+            <div>
               <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
             </div>
           </div>

@@ -18,6 +18,8 @@ import {
   IconNotes,
   IconSparkles,
   IconArrowsSort,
+  IconPinnedFilled,
+  IconPinned,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -163,6 +165,8 @@ export default function DesktopSidebar({
     updatePackOrderByParent,
     updateBagSortBy,
     updatePackSortBy,
+    toggleBagPinned,
+    togglePackPinned,
   } = useAuth();
   const [expandedBagIds, setExpandedBagIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -216,19 +220,23 @@ export default function DesktopSidebar({
   const { show } = useToast();
   const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [activeDragData, setActiveDragData] = useState<{
-    type: "bag" | "bag-folder" | "pack" | "pack-folder";
+    type: "bag" | "bag-folder" | "pack" | "pack-folder" | "bag-pack";
     id: string;
+    // "bag-pack"(가방 안에 들어있는 팩)을 드래그할 때만 쓰인다 - 어느 가방에서 꺼내온 건지를
+    // 알아야 그 가방에서만 지우고 대상 가방에 넣을 수 있다.
+    sourceBagId?: string;
   } | null>(null);
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
 
   const handleDragStart = (
     e: React.DragEvent,
-    type: "bag" | "bag-folder" | "pack" | "pack-folder",
-    id: string
+    type: "bag" | "bag-folder" | "pack" | "pack-folder" | "bag-pack",
+    id: string,
+    sourceBagId?: string
   ) => {
     e.dataTransfer.setData("application/json", JSON.stringify({ type, id }));
     e.dataTransfer.effectAllowed = "move";
-    setActiveDragData({ type, id });
+    setActiveDragData({ type, id, sourceBagId });
   };
 
   const handleDragEnd = () => {
@@ -241,21 +249,35 @@ export default function DesktopSidebar({
     targetId?: string,
     e?: React.DragEvent
   ): boolean => {
-    if (e && e.dataTransfer && e.dataTransfer.types) {
-      if (
-        e.dataTransfer.types.includes("application/json") ||
-        e.dataTransfer.types.includes("text/plain")
-      ) {
-        return true;
+    // 중요: 이 체크는 우리 자체 라이브러리 드래그(activeDragData가 있는 경우)가 아닌,
+    // 외부에서 들어오는 드래그(빠른팩 아이템처럼 activeDragData로 추적하지 않는 것)만
+    // 허용해야 한다. 예전엔 activeDragData 유무와 무관하게 이 검사가 항상 먼저 통과되어버려서,
+    // 우리 자체의 드래그(팩/가방 등)도 아무 곳에나 놓을 수 있는 것처럼 보이는(그리고 실제로 엉뚱한
+    // 곳으로 이동/삭제되는) 심각한 버그가 있었다(팩이 사라지는 것처럼 보이던 버그의 원인).
+    if (!activeDragData) {
+      if (e && e.dataTransfer && e.dataTransfer.types) {
+        if (
+          e.dataTransfer.types.includes("application/json") ||
+          e.dataTransfer.types.includes("text/plain")
+        ) {
+          return true;
+        }
       }
+      return false;
     }
-    if (!activeDragData) return false;
 
     // 1) 가방 / 가방폴더 드래그 중
     if (activeDragData.type === "bag" || activeDragData.type === "bag-folder") {
       // 팩보관함(pack-folder, pack-root)으로는 절대 이동 불가능! (가방 ➡️ 팩보관함 이동 금지)
       if (targetType === "pack-folder" || targetType === "pack-root" || targetType === "pack") return false;
-      if (targetType === "bag") return false; // 가방에 가방을 넣지 못함
+      if (targetType === "bag") {
+        // 가방 위에 드롭하는 건 "가방 안에 가방 넣기"가 아니라, 그 가방 옆으로 순서를
+        // 재배치(또는 그 가방과 같은 폴더로 이동+재배치)하겠다는 뜻이다 - 실제 재배치
+        // 로직은 이 아래 handleDropOnTarget에 이미 있었는데, 여기서 항상 false를
+        // 돌려버려서 한 번도 실행되지 못했다(폴더 안 순서변경이 안 되던 원인).
+        if (activeDragData.type === "bag" && activeDragData.id === targetId) return false;
+        return true;
+      }
       if (targetType === "bag-folder") {
         if (activeDragData.type === "bag-folder") {
           if (activeDragData.id === targetId) return false;
@@ -265,6 +287,13 @@ export default function DesktopSidebar({
         return true;
       }
       if (targetType === "bag-root") return true;
+    }
+
+    // 1-b) 가방 안에 들어있는 팩(bag-pack) 드래그 중 - 다른 가방 위에만 놓을 수 있다
+    // (A가방의 a팩을 B가방으로 옮기는 기능 - 폴더/최상위로는 못 옮긴다, 가방 안 팩은
+    // 항상 어느 가방 소속인지가 의미가 있어서 "독립된 팩"으로 띄울 수 없기 때문).
+    if (activeDragData.type === "bag-pack") {
+      return targetType === "bag" && targetId !== activeDragData.sourceBagId;
     }
 
     // 2) 팩 드래그 중
@@ -319,6 +348,45 @@ export default function DesktopSidebar({
       }
     }
     if (!activeDragData) return;
+
+    // 팩 보관함 팩(activeDragData.type==="pack") ➡️ 가방 위 드롭 - 보관함 팩을 복사해서 가방에 담는다(기존).
+    // 이와는 다른 "가방 안에 이미 들어있는 팩"(bag-pack)을 다른 가방으로 통채로 옮기는 기능은
+    // 바로 아래에 따로 처리한다.
+    if (activeDragData.type === "bag-pack" && targetType === "bag" && targetId) {
+      const sourceBagId = activeDragData.sourceBagId;
+      const sourceBag = bags.find((b) => b.id === sourceBagId);
+      const targetBag = bags.find((b) => b.id === targetId);
+      const movingPack = sourceBag?.packs.find((p) => p.id === activeDragData.id);
+      if (!sourceBag || !targetBag || !movingPack) {
+        setActiveDragData(null);
+        return;
+      }
+      if (targetBag.packs.length >= 10) {
+        show("가방 하나에는 팩을 최대 10개까지만 넣을 수 있어요");
+        setActiveDragData(null);
+        return;
+      }
+      const now = new Date().toISOString();
+      const updatedSourceBag: Bag = {
+        ...sourceBag,
+        packs: sourceBag.packs.filter((p) => p.id !== movingPack.id),
+        updatedAt: now,
+      };
+      const updatedTargetBag: Bag = {
+        ...targetBag,
+        packs: [...targetBag.packs, movingPack],
+        updatedAt: now,
+      };
+      try {
+        await Promise.all([saveBagRemote(updatedSourceBag), saveBagRemote(updatedTargetBag)]);
+        show(`'${movingPack.name}' 팩을 '${targetBag.name}' 가방으로 옮겼어요`);
+      } catch (err) {
+        console.error("[팩인백] 가방 간 팩 이동 실패:", err);
+        show("팩을 옮기지 못했어요.");
+      }
+      setActiveDragData(null);
+      return;
+    }
 
     // ★ 팩 ➡️ 가방 위 드롭 (가방에 팩 추가 - 팩보관함과 링크 연동)
     if (activeDragData.type === "pack" && targetType === "bag" && targetId) {
@@ -434,6 +502,10 @@ export default function DesktopSidebar({
   const treePacks = useMemo(() => libraryPacks.filter((p) => !p.isQuickPack), [libraryPacks]);
   const bagFolders = profile?.bagFolders ?? {};
   const bagFolderAssignments = profile?.bagFolderAssignments ?? {};
+  // 고정핀(★)된 가방/팩은 정렬 기준과 무관하게 항상 제일 위에 띄있다 - 데스크톱에서는 이 상태를
+  // 보여줄 별도 표시가 없어서 "이거 고정된 거예요?" 헷갈릴 수 있었다 - 이름 옆에 작은 핀 아이콘으로 보여준다.
+  const pinnedBagIds = profile?.pinnedBagIds ?? [];
+  const pinnedPackIds = profile?.pinnedPackIds ?? [];
 
   const q = query.trim().toLowerCase();
   const filteredBags = q ? bags.filter((b) => b.name.toLowerCase().includes(q)) : bags;
@@ -695,6 +767,9 @@ export default function DesktopSidebar({
                     <span className="w-[14px] shrink-0" />
                     <IconBackpack size={16} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
                     <span className="text-[13px] font-medium truncate min-w-0 flex-1">{bag.name}</span>
+                    {pinnedBagIds.includes(bag.id) && (
+                      <IconPinnedFilled size={13} stroke={1.75} color="var(--accent)" className="shrink-0" aria-label="고정됨" />
+                    )}
                   </div>
                 );
               })
@@ -839,6 +914,9 @@ export default function DesktopSidebar({
                     )}
                     <IconBackpack size={16} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
                     <span className="text-[13px] font-medium truncate min-w-0 flex-1">{bag.name}</span>
+                    {pinnedBagIds.includes(bag.id) && (
+                      <IconPinnedFilled size={13} stroke={1.75} color="var(--accent)" className="shrink-0" aria-label="고정됨" />
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -861,14 +939,20 @@ export default function DesktopSidebar({
                     bag.packs.map((pack) => {
                       const packSelected =
                         selection?.kind === "bag" && selection.bagId === bag.id && selection.focusPackId === pack.id;
+                      const isBagPackDropSource =
+                        activeDragData?.type === "bag-pack" && activeDragData.id === pack.id;
                       return (
                         <div
                           key={pack.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, "bag-pack", pack.id, bag.id)}
+                          onDragEnd={handleDragEnd}
                           onClick={() => onSelect({ kind: "bag", bagId: bag.id, focusPackId: pack.id })}
-                          className="flex items-center gap-1.5 rounded-lg py-1 cursor-pointer"
+                          className="flex items-center gap-1.5 rounded-lg py-1 cursor-grab"
                           style={{
                             paddingLeft: 34 + row.depth * 18,
                             background: packSelected ? "var(--accent-soft)" : undefined,
+                            opacity: isBagPackDropSource ? 0.4 : 1,
                           }}
                         >
                           <PackColorDot colorId={pack.color} onChange={() => {}} />
@@ -1028,6 +1112,9 @@ export default function DesktopSidebar({
                   ) : (
                     <span className="text-[13px] truncate min-w-0 flex-1">{entry.name}</span>
                   )}
+                  {!isFolder && pinnedPackIds.includes(entry.id) && (
+                    <IconPinnedFilled size={12} stroke={1.75} color="var(--accent)" className="shrink-0" aria-label="고정됨" />
+                  )}
                   {!isFolder && entry.kind === "editor" && (
                     <IconNotes size={12} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
                   )}
@@ -1116,6 +1203,26 @@ export default function DesktopSidebar({
                     </>
                   );
                 })()}
+
+              {menuFor.kind === "bag" && (
+                <>
+                  <button
+                    onClick={() => {
+                      toggleBagPinned(menuFor.id).catch(() => {});
+                      setMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5"
+                  >
+                    {pinnedBagIds.includes(menuFor.id) ? (
+                      <IconPinnedFilled size={15} stroke={1.75} color="var(--accent)" />
+                    ) : (
+                      <IconPinned size={15} stroke={1.75} />
+                    )}
+                    {pinnedBagIds.includes(menuFor.id) ? "고정 해제" : "고정하기"}
+                  </button>
+                  <div className="border-t border-border" />
+                </>
+              )}
 
               <div className="px-3 pt-2 pb-1 text-[11px] text-text-muted">이동할 곳</div>
               <button
@@ -1258,6 +1365,22 @@ export default function DesktopSidebar({
                   </button>
                 );
               })()}
+              {!packMenuFor.isFolder && (
+                <button
+                  onClick={() => {
+                    togglePackPinned(packMenuFor.id).catch(() => {});
+                    setPackMenuFor(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5"
+                >
+                  {pinnedPackIds.includes(packMenuFor.id) ? (
+                    <IconPinnedFilled size={15} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconPinned size={15} stroke={1.75} />
+                  )}
+                  {pinnedPackIds.includes(packMenuFor.id) ? "고정 해제" : "고정하기"}
+                </button>
+              )}
               <div className="border-t border-border" />
               <div className="px-3 pt-2 pb-1 text-[11px] text-text-muted">이동할 곳</div>
               <button

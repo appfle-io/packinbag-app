@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Portal from "@/components/Portal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 // 스택으로 쌓이는 풀스크린 화면(가방 편집기, 팩 트리, 설정 하위화면 등)을 오른쪽에서
 // 슬라이드-인/아웃 시키는 공용 래퍼. 기존엔 부모가 `if (editingBag) return <..>` 식으로
@@ -50,6 +51,8 @@ export default function SlideScreen({
   const useFade = desktopTransition === "fade" && isDesktop;
   const ambientLayer = useOverlayLayer();
   const resolvedZIndex = zIndex ?? ambientLayer + LAYER_STEP;
+  // 데스크톱에서 Esc를 누르면 뒤로가기와 동일하게 닫힌다(onBackdropClick이 있을 때만).
+  useEscapeToClose(onBackdropClick, active);
   // active=false가 되어도 곧바로 사라지지 않고, 닫힘 트랜지션이 끝난 뒤에야 실제로
   // 렌더링을 멈춘다 (그래야 슬라이드 아웃되는 모습이 보인다).
   const [shouldRender, setShouldRender] = useState(active);

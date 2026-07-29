@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Portal from "@/components/Portal";
 import { OverlayLayerProvider, useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 // SlideScreen(좌우 풀스크린)과 같은 문제를 겪는 "아래에서 올라오는 시트" 모달용 래퍼.
 // 배경 딤 + 시트 자체가 트랜지션 없이 그냥 나타났다/사라졌다 하던 것을, 아래에서
@@ -24,6 +25,8 @@ export default function SlideUpSheet({
 }) {
   const ambientLayer = useOverlayLayer();
   const resolvedZIndex = zIndex ?? ambientLayer + SHEET_OFFSET;
+  // 데스크톱에서 Esc로도 백드랍 클릭과 동일하게 닫힌다.
+  useEscapeToClose(onBackdropClick, active);
   const [shouldRender, setShouldRender] = useState(active);
   const [entered, setEntered] = useState(false);
   const timerRef = useRef<number | null>(null);

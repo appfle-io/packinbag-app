@@ -4,6 +4,8 @@ import { IconX } from "@tabler/icons-react";
 import Portal from "@/components/Portal";
 import { BagReactionDoc, ReactionEmoji } from "@/lib/types";
 import ReactionBar from "@/components/ReactionBar";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 // ColorPickerPopover와 동일한 전체화면 딤 + 중앙 카드 패턴. 팩(등 댓글이 없는 대상)에
 // 댓글 없이 즉시 반응만 남기고 싶을 때 쓰는 가벼운 팝업이다.
@@ -20,10 +22,13 @@ export default function ReactionPickerPopover({
   onToggle: (emoji: ReactionEmoji, currentlyReacted: boolean) => void;
   onClose: () => void;
 }) {
+  const ambientLayer = useOverlayLayer();
+  useEscapeToClose(onClose);
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-6"
+        className="fixed inset-0 flex items-center justify-center bg-black/40 p-6"
+        style={{ zIndex: ambientLayer + POPOVER_OFFSET }}
         onClick={onClose}
       >
         <div

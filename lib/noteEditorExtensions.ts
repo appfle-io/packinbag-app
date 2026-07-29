@@ -32,7 +32,7 @@ export function getNoteEditorExtensions(placeholder?: string) {
     ToggleContent,
     TaskList,
     TaskItem.configure({ nested: true }),
-    Table.configure({ resizable: true }),
+    Table.configure({ resizable: true, cellMinWidth: 72, handleWidth: 8 }),
     TableRow,
     TableHeader,
     TableCell,

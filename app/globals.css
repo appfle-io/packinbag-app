@@ -380,8 +380,17 @@ body {
 .pib-note-editor table {
   border-collapse: collapse;
   margin: 8px 0;
-  width: 100%;
   table-layout: fixed;
+}
+/* TipTap의 Table 노드뷰는 table을 <div class="tableWrapper">로 감싼다. 예전엔 table에
+   width:100%를 강제해서, 좁은(모바일) 화면에서 표가 컨테이너 폭에 맞춰 억지로
+   찌그러져(칸이 너무 좁아져 글자가 겹치거나 줄바꿈이 이상해짐) 보이는 문제가 있었다.
+   이제는 표 자체는 칼럼 최소너비(cellMinWidth, lib/noteEditorExtensions.ts)만큼의
+   실제 폭을 유지하고, 넘치는 부분은 이 래퍼가 가로 스크롤로 처리한다. */
+.pib-note-editor .tableWrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 .pib-note-editor td, .pib-note-editor th {
   border: 1px solid var(--border);
@@ -389,6 +398,30 @@ body {
   font-size: 13px;
   vertical-align: top;
   position: relative;
+}
+/* 칼럼 너비 조절 손잡이(@tiptap/extension-table의 columnResizing 플러그인이 각 칸 오른쪽에
+   삽입하는 decoration). 기본값은 커서/색상 스타일이 전혀 없어서 마우스를 올려도 이게
+   드래그해서 너비를 바꿀 수 있는 손잡이라는 걸 알아채기 어려웠다 - PC에서는 col-resize
+   커서 + 옅은 강조색 라인으로 명확히 보여준다.
+   모바일(터치)에서는 이 손잡이가 3px 폭 그대로면 손가락으로 정확히 짚기 거의 불가능하다.
+   아이디어: 시각적 두께는 그대로 두고 히트 영역(실제 터치 판정 폭)만 넓히는 게 가장 실용적 -
+   (pointer: coarse) 미디어쿼리로 터치 기기에서만 폭을 키우고 살짝 왼쪽으로 당겨서, 옆 칸
+   내용을 가리지 않으면서도 손가락으로 집기 쉽게 한다. (더 큰 개선을 원하면 모바일에서는
+   드래그 대신 칸을 탭했을 때 뜨는 +/- 스테퍼로 너비를 바꾸는 방식도 고려해볼 만하다.) */
+.pib-note-editor .column-resize-handle {
+  cursor: col-resize;
+  background-color: var(--accent);
+  width: 3px;
+  z-index: 20;
+}
+@media (pointer: coarse) {
+  .pib-note-editor .column-resize-handle {
+    width: 16px;
+    margin-left: -7px;
+    background-color: transparent;
+    border-left: 3px solid var(--accent);
+    opacity: 0.55;
+  }
 }
 .pib-note-editor th {
   background: var(--surface-2);

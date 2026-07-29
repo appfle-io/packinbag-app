@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import {
   IconDotsVertical,
@@ -19,6 +19,7 @@ import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { isPdfUrl } from "@/lib/fileUrlUtils";
+import { openExternalLink } from "@/lib/openExternalLink";
 import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./Avatar";
@@ -79,15 +80,25 @@ export default function NotebookEditorPackSection({
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
   const packImages = pack.images ?? [];
 
-  const editor = useEditor(
-    {
-      extensions: getNoteEditorExtensions(),
-      content: pack.editorDoc ?? "",
-      editable: false,
-      immediatelyRender: false,
-    },
-    [isCollapsed ? null : pack.editorDoc]
-  );
+  const editor = useEditor({
+    extensions: getNoteEditorExtensions(),
+    content: pack.editorDoc ?? "",
+    editable: false,
+    immediatelyRender: false,
+  });
+
+  // 예전엔 useEditor 두 번째 인자(deps 배열)로 에디터 콘텐츠를 강제로 다시 만들었는데,
+  // 이 패턴이 React 19 + Tiptap 조합에서 "flushSync was called from inside a
+  // lifecycle method" 콘솔 에러를 일으키는 것으로 확인됨(NotebookView가 여러 
+  // NotebookEditorPackSection을 맵해서 렌더링할 때, 각 인스턴스가 독립적으로
+  // 에디터를 재생성하려 하면서 부모 리스트의 렌더링 도중에 동기화 충돌가 생김).
+  // 에디터는 한 번만 만들고, 내용 동기화는 이후에 이루어지는 effect로 분리해서
+  // 렌더링과 완전히 분리된 타이밍에서만 실행되게 한다.
+  useEffect(() => {
+    if (!editor || isCollapsed) return;
+    editor.commands.setContent(pack.editorDoc ?? "", false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, isCollapsed, pack.editorDoc]);
 
   return (
     <div
@@ -263,18 +274,23 @@ export default function NotebookEditorPackSection({
           )}
 
           <div
-            role="button"
-            tabIndex={0}
-            onClick={onOpenEditor}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onOpenEditor();
+            onClick={(e) => {
+              const anchor = (e.target as HTMLElement).closest("a");
+              if (!anchor) return;
+              const href = anchor.getAttribute("href");
+              if (!href) return;
+              e.preventDefault();
+              e.stopPropagation();
+              openExternalLink(href);
             }}
-            className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden cursor-pointer"
+            onDoubleClick={onOpenEditor}
+            className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden"
+            style={{ cursor: "text" }}
           >
             {editor?.isEmpty && (
-              <p className="text-[13px] text-text-muted py-1">탭해서 메모를 작성해보세요</p>
+              <p className="text-[13px] text-text-muted py-1">더블클릭해서 메모를 수정해보세요</p>
             )}
-            <div style={{ pointerEvents: "none" }}>
+            <div>
               <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
             </div>
           </div>

@@ -24,6 +24,9 @@ export default function DesktopShell({
   libraryPacks,
   quickPack,
   lockedBagIds,
+  selection,
+  onSelectionChange,
+  isNewBag,
   requestUnlockForBag,
   requestUnlockForPack,
   onNewBag,
@@ -64,6 +67,15 @@ export default function DesktopShell({
   libraryPacks: Pack[];
   quickPack?: Pack;
   lockedBagIds: Set<string>;
+  // 지금 어느 가방/팩이 선택되어 우측 패널에 열려있는지. 예전엔 이 컴포넌트 자체의
+  // 로컬 state로 관리했는데, 그러면 창 폭이 바뀌어 모바일<->데스크톱 레이아웃이 전환되는
+  // 순간(AppShell이 isDesktop 값에 따라 이 컴포넌트 자체를 통채로 안 그리고 다른 트리를 그린다)
+  // 이 selection이 통채로 사라져버려서 열어두었던 가방/패이 홈 화면으로 튀기는 심각한 버그가
+  // 있었다. 이제는 AppShell이 자기 자신의(editingBag/editingPack) 상태에서 그대로 유도해서 이 컴포넌트에
+  // props로 내려준다 - AppShell 자체는 isDesktop이 바뀝도 unmount되지 않으므로 그 상태가 그대로 살아남는다.
+  selection: DesktopSelection | null;
+  onSelectionChange: (sel: DesktopSelection | null) => void;
+  isNewBag: boolean;
   requestUnlockForBag: () => void;
   requestUnlockForPack: () => void;
   onNewBag: () => Promise<Bag | void>;
@@ -98,7 +110,6 @@ export default function DesktopShell({
   onPermanentDeletePack: (packId: string) => Promise<void>;
 }) {
   const { show } = useToast();
-  const [selection, setSelection] = useState<DesktopSelection | null>(null);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   // 설정은 우측 패널 전체를 바꾸지 않고 모달로 띄운다 - 지금 보고 있던 가방/팝이 그대로 뒤에 남아있고, 닫으면 다시 그 화면으로 돌아온다.
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -112,21 +123,21 @@ export default function DesktopShell({
 
   // 선택된 가방/팩이 목록에서 사라지면(삭제 등) 우측 패널도 자동으로 비운다.
   useEffect(() => {
-    if (selection?.kind === "bag" && !selectedBag) setSelection(null);
-    if (selection?.kind === "pack" && !selectedPack) setSelection(null);
+    if (selection?.kind === "bag" && !selectedBag) onSelectionChange(null);
+    if (selection?.kind === "pack" && !selectedPack) onSelectionChange(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBag, selectedPack, selection?.kind]);
 
   const handleNewBag = () => {
     onNewBag().then((created) => {
-      if (created) setSelection({ kind: "bag", bagId: created.id });
+      if (created) onSelectionChange({ kind: "bag", bagId: created.id });
     });
   };
 
   const handleNewPack = (parentId?: string, kind?: "checklist" | "editor") => {
     Promise.resolve(onNewPack(parentId, kind)).then((created) => {
       if (created) {
-        setSelection({ kind: "pack", packId: created.id });
+        onSelectionChange({ kind: "pack", packId: created.id });
       }
     });
   };
@@ -138,7 +149,7 @@ export default function DesktopShell({
       setSettingsOpen(true);
       return;
     }
-    setSelection(sel);
+    onSelectionChange(sel);
   };
 
   const handleDropQuickPackItems = (
@@ -255,14 +266,14 @@ export default function DesktopShell({
             uid={user.uid}
             nickname={profile.nickname ?? ""}
             avatarId={profile.avatarId ?? ""}
-            isNew={false}
+            isNew={isNewBag}
             readOnly={lockedBagIds.has(selectedBag.id)}
             onRequestUnlock={requestUnlockForBag}
-            onBack={() => setSelection(null)}
+            onBack={() => onSelectionChange(null)}
             onSave={onSaveBag}
             onDeleteBag={(bag) => {
               onDeleteBag(bag);
-              setSelection(null);
+              onSelectionChange(null);
             }}
             onSaveAsLibraryPack={onSaveAsLibraryPack}
             onTrashPackFromBag={onTrashPackFromBag}
@@ -271,7 +282,7 @@ export default function DesktopShell({
             onRegenerateInviteCode={onRegenerateInviteCode}
             onTransferOwnership={onTransferOwnership}
             focusTarget={selection.focusPackId ? { packId: selection.focusPackId } : null}
-            onFocusHandled={() => {}}
+            onFocusHandled={() => onSelectionChange({ kind: "bag", bagId: selectedBag.id })}
           />
         )}
 
@@ -280,11 +291,11 @@ export default function DesktopShell({
             key={selectedPack.id}
             pack={selectedPack}
             readOnly={false}
-            onBack={() => setSelection(null)}
+            onBack={() => onSelectionChange(null)}
             onSave={onSavePack}
             onDeletePack={() => {
               onDeletePack(selectedPack.id);
-              setSelection(null);
+              onSelectionChange(null);
             }}
           />
         )}
@@ -299,12 +310,12 @@ export default function DesktopShell({
             lockedBagIds={lockedBagIds}
             readOnly={!!selectedPack.locked}
             onRequestUnlock={requestUnlockForPack}
-            onBack={() => setSelection(null)}
+            onBack={() => onSelectionChange(null)}
             onSave={onSavePack}
             onSaveOtherPack={onSavePack}
             onDelete={(packId) => {
               onDeletePack(packId);
-              setSelection(null);
+              onSelectionChange(null);
             }}
             onAddItemsToBagPack={onAddItemsToBagPack}
             onRemoveItemsFromBagPack={onRemoveItemsFromBagPack}

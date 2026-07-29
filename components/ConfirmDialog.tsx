@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Portal from "@/components/Portal";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 export default function ConfirmDialog({
   title,
@@ -25,12 +27,14 @@ export default function ConfirmDialog({
   onCancel: () => void;
 }) {
   const [checked, setChecked] = useState(defaultChecked);
+  const ambientLayer = useOverlayLayer();
+  useEscapeToClose(onCancel);
 
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[95] flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.45)" }}
+        className="fixed inset-0 flex items-center justify-center p-4"
+        style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.45)" }}
         onClick={onCancel}
       >
         <div

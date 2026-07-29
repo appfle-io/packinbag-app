@@ -19,6 +19,8 @@ import MentionText from "@/components/MentionText";
 import ReactionPillRow from "@/components/ReactionPillRow";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
 import { extractMentionedUids } from "@/lib/mentions";
+import { OverlayLayerProvider, useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString("ko-KR", {
@@ -61,6 +63,9 @@ export default function ItemThreadSheet({
 }) {
   const [allComments, setAllComments] = useState<BagComment[]>([]);
   const [allReactions, setAllReactions] = useState<BagReactionDoc[]>([]);
+  const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = ambientLayer + SHEET_OFFSET;
+  useEscapeToClose(onClose);
   const [draft, setDraft] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -155,9 +160,10 @@ export default function ItemThreadSheet({
 
   return (
     <Portal>
+      <OverlayLayerProvider value={resolvedZIndex}>
       <div
-        className="fixed inset-0 z-[85] flex items-end justify-center"
-        style={{ background: "rgba(0,0,0,0.45)" }}
+        className="fixed inset-0 flex items-end justify-center"
+        style={{ zIndex: resolvedZIndex, background: "rgba(0,0,0,0.45)" }}
         onClick={onClose}
       >
         <div
@@ -345,6 +351,7 @@ export default function ItemThreadSheet({
           onClose={() => setReactionPickerCommentTarget(null)}
         />
       )}
+      </OverlayLayerProvider>
     </Portal>
   );
 }

@@ -90,6 +90,8 @@ import { isPdfUrl } from "@/lib/fileUrlUtils";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { isNativePlatform } from "@/lib/nativeAuth";
 import { useIsDesktop } from "@/lib/useIsDesktop";
+import { useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -157,6 +159,11 @@ export default function BagEditorScreen({
   onFocusHandled?: () => void;
 }) {
   const isDesktop = useIsDesktop();
+  // 이 화면(BagEditorScreen) 자체가 지금 몇 층에 떠있는지(SlideScreen 중첩 깊이)를 물려받아서,
+  // 안에서 띄우는 드래그 표시/선택 액션바/팝종류 선택 시트 같은 자체 오버레이를 그 위에만 띄우면
+  // 된다(하드코딩된 z-[93]/[94]/[95]/[85]를 쓰면 데스크톱 등 중첩 깊이가 달라지는 화면에서
+  // 어긍나는 문제가 있었다).
+  const ambientLayer = useOverlayLayer();
   const { user } = useAuth();
   const [bag, setBag] = useState<Bag>(initialBag);
   // 이 가방을 내가 만들었는지(소유자)인지 여부. 소유자가 아니면(그룹원으로 참여한
@@ -838,6 +845,7 @@ export default function BagEditorScreen({
 
   // 상단 "+팩" 버튼을 누르면 바로 만들지 않고 체크리스트/메모 중 고르는 작은 시트를 띄운다.
   const [showAddPackKindSheet, setShowAddPackKindSheet] = useState(false);
+  useEscapeToClose(() => setShowAddPackKindSheet(false), showAddPackKindSheet);
 
   // 가방 속 에디터팩(자유문서형 메모 팩)을 전체화면 편집기(PackNoteEditorScreen)로 여는 상태.
   // 라이브러리 쪽(AppShell/PacksScreen)과 달리, 가방 안에서는 별도 화면 전환 없이 이 화면
@@ -2328,8 +2336,9 @@ export default function BagEditorScreen({
 
       {(drag || groupDrag) && (
         <div
-          className="fixed inset-x-0 top-0 z-[94] px-3"
+          className="fixed inset-x-0 top-0 px-3"
           style={{
+            zIndex: ambientLayer + 4,
             paddingTop: "max(10px, env(safe-area-inset-top))",
             paddingBottom: 12,
             background: "var(--surface)",
@@ -2365,8 +2374,9 @@ export default function BagEditorScreen({
 
       {drag && (
         <div
-          className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
+          className="fixed pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
           style={{
+            zIndex: ambientLayer + 5,
             left: drag.x,
             top: drag.y,
             transform: "translate(-50%, -120%)",
@@ -2384,8 +2394,9 @@ export default function BagEditorScreen({
 
       {groupDrag && (
         <div
-          className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] font-medium shadow-lg"
+          className="fixed pointer-events-none rounded-lg px-3 py-2 text-[13px] font-medium shadow-lg"
           style={{
+            zIndex: ambientLayer + 5,
             left: groupDrag.x,
             top: groupDrag.y,
             transform: "translate(-50%, -120%)",
@@ -2400,8 +2411,9 @@ export default function BagEditorScreen({
 
       {packDrag && (
         <div
-          className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
+          className="fixed pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
           style={{
+            zIndex: ambientLayer + 5,
             left: packDrag.x,
             top: packDrag.y,
             transform: "translate(-50%, -120%)",
@@ -2421,8 +2433,9 @@ export default function BagEditorScreen({
           하단에 선택 개수 + 취소/삭제 액션바를 띄운다. */}
       {selection && (
         <div
-          className="fixed inset-x-0 bottom-0 z-[93] border-t border-border p-3 flex items-center gap-2"
+          className="fixed inset-x-0 bottom-0 border-t border-border p-3 flex items-center gap-2"
           style={{
+            zIndex: ambientLayer + 3,
             background: "var(--surface)",
             paddingBottom: "max(26px, calc(env(safe-area-inset-bottom) + 14px))",
           }}
@@ -2459,8 +2472,8 @@ export default function BagEditorScreen({
       {showAddPackKindSheet && (
         <Portal>
           <div
-            className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center"
-            style={{ background: "rgba(0,0,0,0.45)" }}
+            className="fixed inset-0 flex items-end justify-center sm:items-center"
+            style={{ zIndex: ambientLayer + SHEET_OFFSET, background: "rgba(0,0,0,0.45)" }}
             onClick={() => setShowAddPackKindSheet(false)}
           >
             <div
@@ -2496,7 +2509,13 @@ export default function BagEditorScreen({
         </Portal>
       )}
 
-      <SlideScreen active={!!editingNotePackId} zIndex={80} onBackdropClick={() => setEditingNotePackId(null)} desktopTransition="fade">
+      <SlideScreen
+        active={!!editingNotePackId}
+        zIndex={80}
+        onBackdropClick={() => setEditingNotePackId(null)}
+        desktopTransition="fade"
+        innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-background pib-safe-top"
+      >
         {(() => {
           const notePack = bag.packs.find((p) => p.id === displayedNotePackId);
           if (!notePack) return null;
