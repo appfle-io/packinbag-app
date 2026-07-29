@@ -17,10 +17,11 @@ import {
   IconArrowRight,
   IconNotes,
   IconSparkles,
+  IconArrowsSort,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
-import { arrangeList, moveIdInOrder } from "@/lib/listSort";
+import { arrangeList, moveIdInOrder, SORT_OPTIONS, SORT_OPTION_LABELS } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
 import { useToast } from "@/components/Toast";
@@ -160,6 +161,8 @@ export default function DesktopSidebar({
     updateExpandedBagFolderIds,
     updateBagOrderByParent,
     updatePackOrderByParent,
+    updateBagSortBy,
+    updatePackSortBy,
   } = useAuth();
   const [expandedBagIds, setExpandedBagIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -467,6 +470,16 @@ export default function DesktopSidebar({
     [filteredPacks, expandedPackIds, q, profile?.packSortBy, profile?.pinnedPackIds, profile?.packOrderByParent]
   );
 
+  // --- 정렬 기준 메뉴(아이콘 버튼 -> "..." 메뉴처럼 작은 팝업) --------------------
+  // 사이드바 폭이 좁아서 항상 펼쳐지는 SortSelect(select 태그)를 두면 다른 헤더 버튼들과
+  // 종종 줄바꿈이 생기는 문제가 있어서, 아이콘 하나만 두고 누르면 헤더 아래에 드롭다운으로
+  // 정렬 옵션을 고르는 방식으로 바꿨다(2026-07). 지금 무엇이 선택되어있는지는 따로 표시하지
+  // 않는다(자주 바뀌는 설정이 아니라고 판단) - 클릭해서 고르기만 하면 된다.
+  const [sortMenuFor, setSortMenuFor] = useState<{
+    kind: "bag" | "pack";
+    position: { top: number; left: number };
+  } | null>(null);
+
   // --- 가방/폴더 "..." 메뉴(이동/이름바꾸기/삭제) --------------------------------
   const [menuFor, setMenuFor] = useState<{
     kind: "bag" | "folder";
@@ -586,9 +599,23 @@ export default function DesktopSidebar({
 
       <div className="flex-1 overflow-y-auto px-2 pb-3">
         {/* 가방 보관함 -------------------------------------------------------- */}
-        <div className="flex items-center justify-between px-2 pt-2 pb-1">
-          <span className="text-[11px] font-semibold text-text-muted">가방 보관함</span>
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between px-2 pt-2 pb-1 gap-1.5">
+          <span className="text-[11px] font-semibold text-text-muted shrink-0">가방 보관함</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setSortMenuFor({
+                  kind: "bag",
+                  position: { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 170) },
+                });
+              }}
+              aria-label="정렬 기준"
+              title="정렬 기준"
+              className="p-1 rounded-md hover:bg-black/5"
+            >
+              <IconArrowsSort size={14} stroke={1.75} color="var(--text-muted)" />
+            </button>
             <button
               onClick={() => createBagFolder("새 폴더", undefined).catch(() => {})}
               aria-label="새 폴더"
@@ -858,9 +885,23 @@ export default function DesktopSidebar({
         </div>
 
         {/* 팩 보관함 -------------------------------------------------------- */}
-        <div className="flex items-center justify-between px-2 pt-2 pb-1">
-          <span className="text-[11px] font-semibold text-text-muted">팩 보관함</span>
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between px-2 pt-2 pb-1 gap-1.5">
+          <span className="text-[11px] font-semibold text-text-muted shrink-0">팩 보관함</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setSortMenuFor({
+                  kind: "pack",
+                  position: { top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 170) },
+                });
+              }}
+              aria-label="정렬 기준"
+              title="정렬 기준"
+              className="p-1 rounded-md hover:bg-black/5"
+            >
+              <IconArrowsSort size={14} stroke={1.75} color="var(--text-muted)" />
+            </button>
             <button
               onClick={() => setShowTemplateGallery(true)}
               aria-label="추천 템플릿 둘러보기"
@@ -1124,6 +1165,51 @@ export default function DesktopSidebar({
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* 정렬 기준 선택 팝업 - 아이콘 버튼을 누르면 헤더 바로 아래에 드롭다운으로 난다. 지금 값(profile.bagSortBy/packSortBy)은
+          따로 표시하지 않고, 고르면 바로 적용되고 메뉴가 닫힌다. */}
+      {sortMenuFor && (
+        <Portal>
+          <div className="fixed inset-0 z-[160]" onClick={() => setSortMenuFor(null)}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute rounded-xl border border-border shadow-lg overflow-hidden"
+              style={{
+                background: "var(--surface)",
+                minWidth: 150,
+                left: sortMenuFor.position.left,
+                top: sortMenuFor.position.top,
+              }}
+            >
+              {SORT_OPTIONS.map((opt) => {
+                const currentValue =
+                  sortMenuFor.kind === "bag"
+                    ? profile?.bagSortBy ?? "createdAt"
+                    : profile?.packSortBy ?? "createdAt";
+                const isCurrent = currentValue === opt;
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      if (sortMenuFor.kind === "bag") {
+                        updateBagSortBy(opt).catch(() => {});
+                      } else {
+                        updatePackSortBy(opt).catch(() => {});
+                      }
+                      setSortMenuFor(null);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-black/5 ${
+                      isCurrent ? "font-bold" : ""
+                    }`}
+                  >
+                    {SORT_OPTION_LABELS[opt]}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </Portal>
