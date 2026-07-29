@@ -32,6 +32,8 @@ import Portal from "@/components/Portal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotificationBell from "@/components/NotificationBell";
 import PackTemplateGalleryModal from "@/components/PackTemplateGalleryModal";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 // 팩 보관함 트리 한 줄. PacksScreen(모바일 풀스크린 트리)의 buildRows와 동일한 규칙으로
 // 재귀 펼치되, 여기서는 "추가하기" 자리를 별도 행으로 만들지 않고 각 레벨/폴더 옆에
@@ -613,6 +615,11 @@ export default function DesktopSidebar({
   const [packRenameDraft, setPackRenameDraft] = useState("");
   const [confirmDeletePackId, setConfirmDeletePackId] = useState<string | null>(null);
 
+  const ambientLayer = useOverlayLayer();
+  useEscapeToClose(() => setMenuFor(null), !!menuFor);
+  useEscapeToClose(() => setSortMenuFor(null), !!sortMenuFor);
+  useEscapeToClose(() => setPackMenuFor(null), !!packMenuFor);
+
   const buildPackFolderPickerRows = (excludeIds: Set<string>): { folder: Pack; depth: number }[] => {
     const allFolders = treePacks.filter((p) => p.type === "folder");
     const rows: { folder: Pack; depth: number }[] = [];
@@ -1171,7 +1178,8 @@ export default function DesktopSidebar({
       {menuFor && (
         <Portal>
           <div
-            className="fixed inset-0 z-[160]"
+            className="fixed inset-0"
+            style={{ zIndex: ambientLayer + POPOVER_OFFSET }}
             onClick={() => setMenuFor(null)}
           >
             <div
@@ -1281,7 +1289,7 @@ export default function DesktopSidebar({
           따로 표시하지 않고, 고르면 바로 적용되고 메뉴가 닫힌다. */}
       {sortMenuFor && (
         <Portal>
-          <div className="fixed inset-0 z-[160]" onClick={() => setSortMenuFor(null)}>
+          <div className="fixed inset-0" style={{ zIndex: ambientLayer + POPOVER_OFFSET }} onClick={() => setSortMenuFor(null)}>
             <div
               onClick={(e) => e.stopPropagation()}
               className="absolute rounded-xl border border-border shadow-lg overflow-hidden"
@@ -1339,7 +1347,7 @@ export default function DesktopSidebar({
       {/* 팩/폴더 "..." 메뉴 - 이름바꾸기 + 이동(폴더 목록) + 삭제 */}
       {packMenuFor && (
         <Portal>
-          <div className="fixed inset-0 z-[160]" onClick={() => setPackMenuFor(null)}>
+          <div className="fixed inset-0" style={{ zIndex: ambientLayer + POPOVER_OFFSET }} onClick={() => setPackMenuFor(null)}>
             <div
               onClick={(e) => e.stopPropagation()}
               className="absolute rounded-xl border border-border shadow-lg overflow-hidden"

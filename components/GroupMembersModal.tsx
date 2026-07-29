@@ -17,6 +17,8 @@ import { Bag } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import { OverlayLayerProvider, useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 export default function GroupMembersModal({
   bag,
@@ -44,6 +46,9 @@ export default function GroupMembersModal({
   const [transferring, setTransferring] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const { show } = useToast();
+  const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = ambientLayer + POPOVER_OFFSET;
+  useEscapeToClose(onClose);
 
   const isOwner = bag.ownerId === currentUid;
   const inviteLink =
@@ -103,8 +108,10 @@ export default function GroupMembersModal({
 
   return (
     <Portal>
+      <OverlayLayerProvider value={resolvedZIndex}>
       <div
-        className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40 p-6"
+        className="fixed inset-0 flex items-center justify-center bg-black/40 p-6"
+        style={{ zIndex: resolvedZIndex }}
         onClick={onClose}
       >
         <div
@@ -266,6 +273,7 @@ export default function GroupMembersModal({
           />
         )}
       </div>
+      </OverlayLayerProvider>
     </Portal>
   );
 }

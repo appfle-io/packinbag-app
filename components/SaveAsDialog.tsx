@@ -4,6 +4,8 @@ import Portal from "@/components/Portal";
 
 import { useState } from "react";
 import { Pack } from "@/lib/types";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 export default function SaveAsDialog({
   suggestedName,
@@ -17,6 +19,8 @@ export default function SaveAsDialog({
   onConfirm: (name: string) => void;
 }) {
   const [name, setName] = useState(suggestedName);
+  const ambientLayer = useOverlayLayer();
+  useEscapeToClose(onCancel);
 
   const trimmed = name.trim();
   const collides = libraryPacks.some((p) => p.name.trim() === trimmed);
@@ -25,8 +29,8 @@ export default function SaveAsDialog({
   return (
     <Portal>
       <div
-        className="fixed inset-0 z-[97] flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.45)" }}
+        className="fixed inset-0 flex items-center justify-center p-4"
+        style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.45)" }}
         onClick={onCancel}
       >
         <div
