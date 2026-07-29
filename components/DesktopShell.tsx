@@ -11,6 +11,8 @@ import SettingsScreen from "@/components/screens/SettingsScreen";
 import DesktopQuickPackChatView from "@/components/DesktopQuickPackChatView";
 import { useToast } from "@/components/Toast";
 import Portal from "@/components/Portal";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 // PC 웹 전용 레이아웃. 좌측 트리(가방/팩 보관함)에서 클릭한 항목을 우측 패널에 그대로
 // 인라인으로 그린다 - 모바일에서 풀스크린으로 슬라이드-인 되던 BagEditorScreen/
@@ -113,6 +115,8 @@ export default function DesktopShell({
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   // 설정은 우측 패널 전체를 바꾸지 않고 모달로 띄운다 - 지금 보고 있던 가방/팝이 그대로 뒤에 남아있고, 닫으면 다시 그 화면으로 돌아온다.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const ambientLayer = useOverlayLayer();
+  useEscapeToClose(() => setSettingsOpen(false), settingsOpen);
 
   const selectedBag =
     selection?.kind === "bag" ? bags.find((b) => b.id === selection.bagId) ?? null : null;
@@ -329,8 +333,8 @@ export default function DesktopShell({
       {settingsOpen && (
         <Portal>
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.45)" }}
+            className="fixed inset-0 flex items-center justify-center"
+            style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.45)" }}
             onClick={() => setSettingsOpen(false)}
           >
             <div

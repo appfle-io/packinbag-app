@@ -47,6 +47,7 @@ import NotificationBell from "@/components/NotificationBell";
 import ToggleSwitch from "@/components/ToggleSwitch";
 import { useToast } from "@/components/Toast";
 import SlideScreen from "@/components/SlideScreen";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 const modes: { key: ThemeMode; label: string }[] = [
   { key: "system", label: "시스템" },
@@ -76,9 +77,21 @@ type SettingsView =
 // SlideScreen과 동일한 진입/퇴장 애니메이션 로직을 그대로 따른다.
 const CONTAINED_TRANSITION_MS = 260;
 
-function ContainedSlide({ active, children }: { active: boolean; children: React.ReactNode }) {
+function ContainedSlide({
+  active,
+  onBackdropClick,
+  children,
+}: {
+  active: boolean;
+  // SlideScreen과 동일한 prop 이름으로 맞춰서, 데스크탑(ContainedSlide)/모바일(SlideScreen)
+  // 어느 쪽이 쓰이든 호출부는 그대로 onBackdropClick 하나만 넘기면 된다. 여기서는 시각적
+  // 백드롭이 없어서 클릭으로는 쓰이지 않지만, 데스크탑에서 Esc를 누르면 이 콜백으로 뒤로가기가 되게 한다.
+  onBackdropClick?: () => void;
+  children: React.ReactNode;
+}) {
   const [shouldRender, setShouldRender] = useState(active);
   const [entered, setEntered] = useState(false);
+  useEscapeToClose(onBackdropClick, active);
 
   useEffect(() => {
     if (active) {
@@ -455,25 +468,25 @@ export default function SettingsScreen({
         />
       )}
 
-      <Slide active={view === "profile"}>
+      <Slide active={view === "profile"} onBackdropClick={() => setView("main")}>
         <ProfileEditScreen onBack={() => setView("main")} />
       </Slide>
-      <Slide active={view === "version"}>
+      <Slide active={view === "version"} onBackdropClick={() => setView("main")}>
         <VersionInfoScreen onBack={() => setView("main")} />
       </Slide>
-      <Slide active={view === "licenses"}>
+      <Slide active={view === "licenses"} onBackdropClick={() => setView("main")}>
         <LicensesScreen onBack={() => setView("main")} />
       </Slide>
-      <Slide active={view === "packSettings"}>
+      <Slide active={view === "packSettings"} onBackdropClick={() => setView("main")}>
         <PackSettingsScreen onBack={() => setView("main")} />
       </Slide>
-      <Slide active={view === "bagSettings"}>
+      <Slide active={view === "bagSettings"} onBackdropClick={() => setView("main")}>
         <BagSettingsScreen onBack={() => setView("main")} />
       </Slide>
-      <Slide active={view === "colorSettings"}>
+      <Slide active={view === "colorSettings"} onBackdropClick={() => setView("main")}>
         <ColorSettingsScreen onBack={() => setView("main")} />
       </Slide>
-      <Slide active={view === "trash"}>
+      <Slide active={view === "trash"} onBackdropClick={() => setView("main")}>
         <TrashScreen
           bags={trashedBags}
           packs={trashedPacks}
@@ -484,7 +497,7 @@ export default function SettingsScreen({
           onPermanentDeletePack={onPermanentDeletePack}
         />
       </Slide>
-      <Slide active={view === "inquiries"}>
+      <Slide active={view === "inquiries"} onBackdropClick={() => setView("main")}>
         <InquiryScreen
           uid={uid}
           nickname={profile?.nickname ?? ""}
