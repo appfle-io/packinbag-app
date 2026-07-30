@@ -186,6 +186,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // 사용자가 직접 고른 코드로 만드는 커스텀 URL(/c/{code}). shortLinks와 동일한 이유로
+    // client read/write를 전부 막아둔다 - 생성은 app/api/custom-shorten-url, 리다이렉트 조회는
+    // app/c/[code]/route.ts에서만 Admin SDK로 처리한다.
+    match /customShortLinks/{code} {
+      allow read, write: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;

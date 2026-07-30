@@ -726,7 +726,7 @@ export default function DesktopSidebar({
               <IconFolderPlus size={14} stroke={1.75} color="var(--text-muted)" />
             </button>
             <button
-              onClick={onNewBag}
+              onClick={() => onNewBag()}
               aria-label="새 가방"
               title="새 가방"
               className="p-1 rounded-md hover:bg-black/5"

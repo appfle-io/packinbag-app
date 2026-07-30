@@ -34,6 +34,7 @@ import { createShortLink, isShortUrlFeatureEnabled, isAlreadyShortLink } from "@
 import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
 import { openExternalLink } from "@/lib/openExternalLink";
 import LinkActionMenu from "@/components/LinkActionMenu";
+import CustomUrlModal from "@/components/CustomUrlModal";
 import { PACK_COLORS } from "@/lib/packColors";
 import {
   MAX_EDITOR_DOC_BYTES,
@@ -131,6 +132,8 @@ export default function PackNoteEditorScreen({
   // 링크(Link 마크)를 탭했을 때 띄우는 선택 시트의 대상 URL. "짧은 URL로 변경"이 가능한
   // 링크(프리미엄 + 토글 ON + 아직 축약 전)만 이 메뉴를 띄우고, 그러지 않으면 바로 연다.
   const [linkMenuUrl, setLinkMenuUrl] = useState<string | null>(null);
+  // "커스텀 URL로 변경"을 누르면 이 값이 채워져 입력 시트(CustomUrlModal)가 열린다.
+  const [customizeLinkUrl, setCustomizeLinkUrl] = useState<string | null>(null);
 
   const editor = useEditor({
     extensions: getNoteEditorExtensions("메모를 입력해보세요"),
@@ -689,7 +692,23 @@ export default function PackNoteEditorScreen({
                 console.error("[팩인백] 메모 링크 축약 실패:", err);
               });
           }}
+          onCustomize={() => {
+            setCustomizeLinkUrl(linkMenuUrl);
+          }}
           onClose={() => setLinkMenuUrl(null)}
+        />
+      )}
+
+      {customizeLinkUrl && user && (
+        <CustomUrlModal
+          url={customizeLinkUrl}
+          user={user}
+          onSuccess={(shortUrl) => {
+            replaceLinkTextInEditor(editor, customizeLinkUrl, shortUrl);
+            show("커스텀 URL로 바꾸었어요");
+            setCustomizeLinkUrl(null);
+          }}
+          onClose={() => setCustomizeLinkUrl(null)}
         />
       )}
 
