@@ -24,7 +24,7 @@ import {
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
-import { arrangeList, moveIdInOrder, SORT_OPTIONS, SORT_OPTION_LABELS } from "@/lib/listSort";
+import { arrangeList, SORT_OPTIONS, SORT_OPTION_LABELS } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
 import { useToast } from "@/components/Toast";
@@ -269,6 +269,14 @@ export default function DesktopSidebar({
     sourceBagId?: string;
   } | null>(null);
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+  const [dropZone, setDropZone] = useState<"before" | "after" | null>(null);
+  // 2026-07-30: 드래그로는 into(폴더 안으로 넣기)를 지원하지 않고 항상 before/after로만 판단한다.
+  // 폴더 안으로 넣는 건 "..." 맩니의 "이동" 목록으로만 한다.
+  const computeDropZone = (e: React.DragEvent): "before" | "after" => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relY = (e.clientY - rect.top) / rect.height;
+    return relY < 0.5 ? "before" : "after";
+  };
 
   const handleDragStart = (
     e: React.DragEvent,
@@ -284,6 +292,7 @@ export default function DesktopSidebar({
   const handleDragEnd = () => {
     setActiveDragData(null);
     setDropTargetKey(null);
+    setDropZone(null);
   };
 
   const canDropOnTarget = (
@@ -380,9 +389,11 @@ export default function DesktopSidebar({
   const handleDropOnTarget = async (
     targetType: "bag" | "bag-folder" | "bag-root" | "pack-folder" | "pack-root" | "pack",
     targetId?: string,
-    e?: React.DragEvent
+    e?: React.DragEvent,
+    zone?: "before" | "after"
   ) => {
     setDropTargetKey(null);
+    setDropZone(null);
 
     // ★ 빠른 팩 외부 아이템 드롭 처리
     if (e && e.dataTransfer) {
@@ -486,7 +497,7 @@ export default function DesktopSidebar({
       const isBag = activeDragData.type === "bag";
       let targetParentId: string | undefined = undefined;
       if (targetType === "bag-folder" && targetId) {
-        targetParentId = targetId;
+        targetParentId = bagFolders[targetId]?.parentId;
       } else if (targetType === "bag" && targetId) {
         targetParentId = bagFolderAssignments[targetId];
       }
@@ -499,8 +510,12 @@ export default function DesktopSidebar({
 
       if (targetId && activeDragData.id !== targetId) {
         const parentKey = targetParentId ?? "root";
-        const childFolders = Object.values(bagFolders).filter((f) => (f.parentId ?? undefined) === targetParentId);
-        const childBags = bags.filter((b) => (bagFolderAssignments[b.id] ?? undefined) === targetParentId);
+        const childFolders = Object.values(bagFolders).filter(
+          (f) => (f.parentId ?? undefined) === targetParentId && f.id !== activeDragData!.id
+        );
+        const childBags = bags.filter(
+          (b) => (bagFolderAssignments[b.id] ?? undefined) === targetParentId && b.id !== activeDragData!.id
+        );
         const combined = [
           ...childFolders.map((f) => ({ id: f.id, name: f.name, createdAt: f.createdAt })),
           ...childBags.map((b) => ({ id: b.id, name: b.name, createdAt: b.createdAt, updatedAt: b.updatedAt })),
@@ -513,7 +528,11 @@ export default function DesktopSidebar({
           maxPinned: 3,
         });
         const currentIds = arranged.map((it) => it.id);
-        const newOrder = moveIdInOrder(currentIds, activeDragData.id, targetId);
+        let insertAt = currentIds.indexOf(targetId);
+        if (insertAt === -1) insertAt = currentIds.length;
+        else if (zone === "after") insertAt += 1;
+        const newOrder = [...currentIds];
+        newOrder.splice(insertAt, 0, activeDragData.id);
         await updateBagOrderByParent(parentKey, newOrder);
       }
 
@@ -525,7 +544,8 @@ export default function DesktopSidebar({
     if (activeDragData.type === "pack" || activeDragData.type === "pack-folder") {
       let targetParentId: string | undefined = undefined;
       if (targetType === "pack-folder" && targetId) {
-        targetParentId = targetId;
+        const targetFolder = treePacks.find((p) => p.id === targetId);
+        targetParentId = targetFolder?.parentId;
       } else if (targetType === "pack" && targetId) {
         const targetPack = treePacks.find((p) => p.id === targetId);
         targetParentId = targetPack?.parentId;
@@ -535,7 +555,9 @@ export default function DesktopSidebar({
 
       if (targetId && activeDragData.id !== targetId) {
         const parentKey = targetParentId ?? "root";
-        const siblings = treePacks.filter((p) => (p.parentId ?? undefined) === targetParentId);
+        const siblings = treePacks.filter(
+          (p) => (p.parentId ?? undefined) === targetParentId && p.id !== activeDragData!.id
+        );
         const currentOrder = profile?.packOrderByParent?.[parentKey] ?? [];
         const arranged = arrangeList(siblings, {
           sortBy: profile?.packSortBy ?? "createdAt",
@@ -544,7 +566,11 @@ export default function DesktopSidebar({
           maxPinned: Infinity,
         });
         const currentIds = arranged.map((it) => it.id);
-        const newOrder = moveIdInOrder(currentIds, activeDragData.id, targetId);
+        let insertAt = currentIds.indexOf(targetId);
+        if (insertAt === -1) insertAt = currentIds.length;
+        else if (zone === "after") insertAt += 1;
+        const newOrder = [...currentIds];
+        newOrder.splice(insertAt, 0, activeDragData.id);
         await updatePackOrderByParent(parentKey, newOrder);
       }
 
@@ -879,22 +905,28 @@ export default function DesktopSidebar({
                         e.preventDefault();
                         e.stopPropagation();
                         setDropTargetKey(`bag-folder:${folder.id}`);
+                        setDropZone(computeDropZone(e));
                       }
                     }}
                     onDragLeave={(e) => {
                       if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                      if (dropTargetKey === `bag-folder:${folder.id}`) setDropTargetKey(null);
+                      if (dropTargetKey === `bag-folder:${folder.id}`) {
+                        setDropTargetKey(null);
+                        setDropZone(null);
+                      }
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleDropOnTarget("bag-folder", folder.id);
+                      handleDropOnTarget("bag-folder", folder.id, e, computeDropZone(e));
                     }}
                     className="group flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
                     style={{
                       paddingLeft: 8 + row.depth * 18,
-                      border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
-                      background: isDropTarget ? "var(--accent-soft)" : undefined,
+                      borderTop: isDropTarget && dropZone === "before" ? "2px solid var(--accent)" : "2px solid transparent",
+                      borderBottom: isDropTarget && dropZone === "after" ? "2px solid var(--accent)" : "2px solid transparent",
+                      borderLeft: "2px solid transparent",
+                      borderRight: "2px solid transparent",
                     }}
                     onClick={() => !isRenaming && toggleBagFolderExpanded(folder.id)}
                   >
@@ -974,22 +1006,29 @@ export default function DesktopSidebar({
                         e.preventDefault();
                         e.stopPropagation();
                         setDropTargetKey(`bag:${bag.id}`);
+                        setDropZone(computeDropZone(e));
                       }
                     }}
                     onDragLeave={(e) => {
                       if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                      if (dropTargetKey === `bag:${bag.id}`) setDropTargetKey(null);
+                      if (dropTargetKey === `bag:${bag.id}`) {
+                        setDropTargetKey(null);
+                        setDropZone(null);
+                      }
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleDropOnTarget("bag", bag.id, e);
+                      handleDropOnTarget("bag", bag.id, e, computeDropZone(e));
                     }}
                     className="group flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
                     style={{
                       paddingLeft: 8 + row.depth * 18,
-                      border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
-                      background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
+                      borderTop: isDropTarget && dropZone === "before" ? "2px solid var(--accent)" : "2px solid transparent",
+                      borderBottom: isDropTarget && dropZone === "after" ? "2px solid var(--accent)" : "2px solid transparent",
+                      borderLeft: "2px solid transparent",
+                      borderRight: "2px solid transparent",
+                      background: isSelected ? "var(--accent-soft)" : undefined,
                     }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
                   >
@@ -1161,7 +1200,8 @@ export default function DesktopSidebar({
               const isFolder = entry.type === "folder";
               const isSelected = selection?.kind === "pack" && selection.packId === entry.id;
               const isRenaming = renamingPackId === entry.id;
-              const isDropTarget = dropTargetKey === `pack-folder:${entry.id}`;
+              const isDropTarget = dropTargetKey === `pack:${entry.id}`;
+              const rowDropZone = isDropTarget ? dropZone : null;
               return (
                 <div
                   key={entry.id}
@@ -1174,17 +1214,21 @@ export default function DesktopSidebar({
                       e.preventDefault();
                       e.stopPropagation();
                       setDropTargetKey(`pack:${entry.id}`);
+                      setDropZone(computeDropZone(e));
                     }
                   }}
                   onDragLeave={(e) => {
                     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                    if (dropTargetKey === `pack:${entry.id}`) setDropTargetKey(null);
+                    if (dropTargetKey === `pack:${entry.id}`) {
+                      setDropTargetKey(null);
+                      setDropZone(null);
+                    }
                   }}
                   onDrop={(e) => {
                     const targetType = isFolder ? "pack-folder" : "pack";
                     e.preventDefault();
                     e.stopPropagation();
-                    handleDropOnTarget(targetType, entry.id, e);
+                    handleDropOnTarget(targetType, entry.id, e, computeDropZone(e));
                   }}
                   onClick={() =>
                     isRenaming ? undefined : isFolder ? togglePackExpanded(entry.id) : onSelect({ kind: "pack", packId: entry.id })
@@ -1193,8 +1237,11 @@ export default function DesktopSidebar({
                   style={{
                     paddingLeft: 8 + depth * 18,
                     paddingRight: 8,
-                    border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
-                    background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
+                    borderTop: isDropTarget && rowDropZone === "before" ? "2px solid var(--accent)" : "2px solid transparent",
+                    borderBottom: isDropTarget && rowDropZone === "after" ? "2px solid var(--accent)" : "2px solid transparent",
+                    borderLeft: "2px solid transparent",
+                    borderRight: "2px solid transparent",
+                    background: isSelected ? "var(--accent-soft)" : undefined,
                   }}
                 >
                   {isFolder ? (

@@ -26,6 +26,7 @@ import {
   restoreLibraryEntryRecursive,
   deleteLibraryEntryRecursive,
   trashBagPackRemote,
+  moveLibraryEntriesRemote,
 } from "@/lib/packsService";
 import {
   subscribeToAnnouncements,
@@ -828,13 +829,10 @@ export default function AppShell() {
   };
 
   // 팩/폴더를 다른 폴더로(또는 최상위로) 이동한다. 트리 및 다중선택에서 "이동" 액션으로 호출된다.
+  // 2026-07-30: 전체 문서를 setDoc으로 덮어쓰는 대신 parentId 필드만 바꾸는 안전한
+  // moveLibraryEntriesRemote를 쓴다(이동 순간 다른 순량에서 저장된 변경을 덮어쓰는 사고 방지).
   const handleMoveLibraryEntries = (packIds: string[], parentId: string | undefined) => {
-    const idSet = new Set(packIds);
-    Promise.all(
-      activePacks
-        .filter((p) => idSet.has(p.id))
-        .map((p) => saveLibraryPackRemote(user, { ...p, parentId }))
-    ).catch((err) => {
+    moveLibraryEntriesRemote(user.uid, packIds, parentId).catch((err) => {
       console.error("[팩인백] 폴더 이동 실패:", err);
       show(`이동에 실패했어요 (${firebaseErrorCode(err)})`);
     });

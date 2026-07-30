@@ -297,10 +297,9 @@ export default function PacksScreen({
     }
     const rect = rowEl.getBoundingClientRect();
     const relY = (y - rect.top) / rect.height;
-    const overEntry = treePacks.find((p) => p.id === overId);
-    const isFolder = overEntry?.type === "folder";
-    const zone: "before" | "after" | "into" =
-      isFolder && relY > 0.28 && relY < 0.72 ? "into" : relY < 0.5 ? "before" : "after";
+    // 2026-07-30: 드래그로는 into(폴더 안으로 넣기)를 지원하지 않고 항상 before/after로만 판단한다.
+    // 폴더 안으로 넣는 건 이동(길게 누르기 → 다중선택 → 폴더 선택)로만 한다.
+    const zone: "before" | "after" = relY < 0.5 ? "before" : "after";
     setDragOver({ id: overId, zone });
   };
 
@@ -310,13 +309,13 @@ export default function PacksScreen({
     const overEntry = treePacks.find((p) => p.id === over.id);
     if (!dragged || !overEntry) return;
 
-    const newParentId: string | undefined =
-      over.zone === "into" && overEntry.type === "folder" ? overEntry.id : overEntry.parentId;
+    // 2026-07-30: 드래그로는 into가 더 이상 설정되지 않는다(updateDragOver 참고), 항상 같은 레벨로만 순서만 바뀜다.
+    const newParentId: string | undefined = overEntry.parentId;
 
     const siblings = treePacks.filter(
       (p) => (p.parentId ?? undefined) === newParentId && p.id !== draggedId
     );
-    let insertAt = over.zone === "into" ? siblings.length : siblings.findIndex((s) => s.id === over.id);
+    let insertAt = siblings.findIndex((s) => s.id === over.id);
     if (over.zone === "after") insertAt += 1;
     if (insertAt < 0) insertAt = siblings.length;
 

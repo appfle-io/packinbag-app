@@ -323,3 +323,32 @@
   - 미채움 값 3개 (`lib/nativeAuth.ts`의 `webClientId`/`iOSClientId`/Apple `clientId`) — Google Cloud Console/Apple Developer Portal/Firebase Console은 웹 대시보드라 맥 없이도 미리 채울 수 있음 (다음 단계)
   - `npx cap add ios` 이후 `PrivacyInfo.xcprivacy`, 스크린샷, Xcode 서명/빌드/업로드는 여전히 맥 필요 — `APP_STORE_GUIDE.md` 참고
 
+---
+
+## 팩 보관함 폴더 드래그 버그 수정 (2026-07-30, 모바일 + 데스크톱)
+
+- **버그**: 폴더가 드롭 타겟일 때 코드에 "그 안으로 넣기(into)"만 있고 "염에 놓기(순서변경)"가
+  없었다. 폴더/팩을 다른 폴더 위/아래로 옮기려는 드래그도 무조건 그 안으로 들어가버렸고,
+  그게 접힌 폴더면 "사라진 것"처럼 보임(실제 데이터 손실은 아니었음).
+- **모바일 수정**(`PacksScreen.tsx`): 드래그로는 into 자임를 아예 지원하지 않게 막음 — 항상
+  before/after(순서변경)만 가능, 폴더 안으로 넣는 건 이동(다중선택 → 폴더 선택) 시트로만.
+- **데스크톱 수정**(`DesktopSidebar.tsx`): 드롭 지점(행 높이 기준 상/하 30%=before/after, 가운데
+  40%=into)으로 둘 다 판단하는 `computeDropZone` 추가. 폴더 위/아래 가장자리는 순서변경, 중앙은
+  안으로 이동으로 분기. 팩 행의 드롭 하이라이트 key가 서로 안 맞아 항상 꾼져있다가 발개된
+  숨은 버금도 함껸 개선.
+- **안전 이동**(`packsService.ts`): 폴더/팩 이동 시 전체 문서를 setDoc으로 덮어쓰는 대신
+  `moveLibraryEntriesRemote`로 parentId 필드만 부분 업데이트(동시에 저장된 다른 변경 지워버릴 위험 제거).
+- 🔍 **실기기 확인 필요**: (1) 폴더/팩을 다른 폴더 위/아래 가장자리에 놓으면 순서만
+  바뀌는지, (2) 정중앙에 놓으면 여전히 그 안으로 잘 들어가는지, (3) 다시 같은 지점에 놓을
+  때 혹시랑 사라지지 않는지.
+
+### 추가 수정 (2026-07-30 오후)
+
+지점(before/after/into) 3버전은 "제자리에 놓아도 다시 사라지는" 재발 버그가 있어서(이웃
+폴더 중앙을 지나가면 여전히 into로 잔미 되니) 폐기하고, **데스크톱도 드래그로는 into(폴더
+안으로 넣기) 자임를 완전히 제거하고 본문롭/after만 허용으로 변경함(모바일과 동일한 접금). 폴더
+안으로 동이네는 기존 "..." 맩니의 "이동" 기능으로만 가능.
+
+동시에 border(축약형)와 borderTop/borderBottom(개버)을 같이 쓰어서 React가 "스타일 버금 위험"
+경고(콘솔)를 난리던 것도 발개 → 모돈 다 borderTop/borderRight/borderBottom/borderLeft 개별로만 설정하도록 수정.
+

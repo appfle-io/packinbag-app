@@ -1,6 +1,7 @@
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -141,6 +142,19 @@ export async function getLibraryPacksOnce(uid: string): Promise<Pack[]> {
 export function collectDescendantPackIds(allPacks: Pack[], rootId: string): string[] {
   const children = allPacks.filter((p) => p.parentId === rootId);
   return children.flatMap((c) => [c.id, ...collectDescendantPackIds(allPacks, c.id)]);
+}
+
+// 팩/폴더를 다른 폴더로(또는 최상위로) 옮길 때 parentId 필드만 부분 업데이트한다.
+// 전체 문서를 setDoc으로 덮어쓰면 이동하는 순간 다른 곳에서 저장된 변경을 지워버릴 수도
+// 있어서(동시 파니에 대문 된다) updateDoc으로 parentId 하나만 안전하게 바꾸는다.
+export async function moveLibraryEntriesRemote(
+  uid: string,
+  packIds: string[],
+  parentId: string | undefined
+) {
+  await Promise.all(
+    packIds.map((id) => updateDoc(doc(packsCol(uid), id), { parentId: parentId ?? deleteField() }))
+  );
 }
 
 // 폴더를 휴지통으로 보내면(아이폰 메모처럼) 하위 팩/폴더까지 함께 보낸다. 일반 팩을 보낼
