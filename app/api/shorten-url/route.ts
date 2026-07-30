@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { checkShortLinkQuota, consumeShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
 
 // 짐/메모 텍스트에 붙여넣은 긴 URL을 짧은 링크(/s/{code})로 바꿔주는 라우트.
 // shortLinks 컬렉션은 firestore.rules에서 client read/write를 전부 막아뒀다(코드 추측으로
@@ -58,6 +59,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인 정보를 확인할 수 없어요" }, { status: 401 });
   }
 
+  const quota = await checkShortLinkQuota(uid);
+  if (!quota.allowed) {
+    return NextResponse.json({ error: SHORT_LINK_LIMIT_MESSAGE }, { status: 429 });
+  }
+
   const db = adminDb();
   const col = db.collection("shortLinks");
 
@@ -88,6 +94,8 @@ export async function POST(req: NextRequest) {
     console.error("[팩인백] 숏 URL 생성 실패(서버):", err);
     return NextResponse.json({ error: "링크 생성에 실패했어요" }, { status: 500 });
   }
+
+  await consumeShortLinkQuota(uid);
 
   // 짧은 URL은 기본 도메인(packinbag.seeuson.com)보다 더 짧은 전용 도메인(short.seeuson.com 등)을
   // 쓰고 싶을 수 있어서, 환경변수 SHORT_URL_BASE_URL(Vercel 환경변수)이 있으면 그것을, 없으면

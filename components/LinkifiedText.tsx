@@ -6,6 +6,7 @@ import { openExternalLink } from "@/lib/openExternalLink";
 import { createShortLink, isAlreadyShortLink } from "@/lib/shortLinkService";
 import LinkActionMenu from "@/components/LinkActionMenu";
 import CustomUrlModal from "@/components/CustomUrlModal";
+import { useToast } from "@/components/Toast";
 
 // 짐/가방 메모 같은 일반 텍스트(TipTap이 아닌 plain <span>) 안에서 http(s):// URL을
 // 찾아 클릭 가능한 링크로 바꿔준다. MentionText.tsx(@멘션 볼드 처리)와 동일한
@@ -30,6 +31,7 @@ export default function LinkifiedText({
 }) {
   const [menuUrl, setMenuUrl] = useState<string | null>(null);
   const [customizeUrl, setCustomizeUrl] = useState<string | null>(null);
+  const { show } = useToast();
 
   const parts = text.split(URL_REGEX);
 
@@ -77,6 +79,7 @@ export default function LinkifiedText({
               .then((shortUrl) => onReplace(original, shortUrl))
               .catch((err) => {
                 console.error("[팩인백] 링크 축약 실패:", err);
+                show(err instanceof Error ? err.message : "링크 축약에 실패했어요");
               });
           }}
           onCustomize={() => {

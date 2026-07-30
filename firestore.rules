@@ -193,6 +193,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // 숏/커스텀 URL 생성 일일 한도(하루 10개) 카운터. app/api/shorten-url, app/api/custom-shorten-url
+    // 둘 다 같이 쓰며(lib/shortLinkRateLimit.ts), Admin SDK만 쓸 수 있다 - client는 자기 카운트도 읽을 수 없다.
+    match /shortLinkUsage/{docId} {
+      allow read, write: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;

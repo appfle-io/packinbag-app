@@ -690,6 +690,7 @@ export default function PackNoteEditorScreen({
               })
               .catch((err) => {
                 console.error("[팩인백] 메모 링크 축약 실패:", err);
+                show(err instanceof Error ? err.message : "링크 축약에 실패했어요");
               });
           }}
           onCustomize={() => {
