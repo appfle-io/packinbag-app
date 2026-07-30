@@ -36,6 +36,41 @@ import PackTemplateGalleryModal from "@/components/PackTemplateGalleryModal";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
+const MENU_MARGIN = 10;
+
+// 메뉴(가방/폴더 "..." 메뉴, 팩/폴더 "..." 메뉴) 위치 + 최대높이 계산.
+// 예전에는 top을 "창 높이 - 대략 이 정도 높이일 것이다(280 등 하드코딩 guess)"로만
+// 클램프하고, 팝업 자체의 maxHeight는 70vh로 고정해뒀다. 그런데 "이동할 곳" 하위
+// 폴더 목록은 폴더가 많아지면 실제 높이가 그 guess보다 훨씬 커질 수 있어서, 사이드바
+// 목록이 길어진 상태에서 아래쪽 항목의 "..."를 누르면(버튼 위치가 이미 화면 아래쪽이라
+// 남은 공간이 얼마 없는데) 메뉴 아래쪽(하위 폴더 목록)이 화면 밖으로 밀려나가 짤리는
+// 문제가 있었다. 이제는 클릭 시점에 실제 남은 공간(아래/위)을 계산해서, 공간이 되는
+// 방향으로 열고 그 공간에 맞춰 maxHeight를 잡아준다(모자라면 팝업 자체 스크롤로 처리).
+function calcMenuPosition(
+  rect: { top: number; bottom: number; left: number },
+  opts: { width?: number; preferredMaxHeight?: number } = {}
+): { top: number; left: number; maxHeight: number } {
+  const width = opts.width ?? 200;
+  const preferred = opts.preferredMaxHeight ?? 320;
+  const spaceBelow = window.innerHeight - rect.bottom - MENU_MARGIN;
+  const spaceAbove = rect.top - MENU_MARGIN;
+
+  let top: number;
+  let maxHeight: number;
+  if (spaceBelow >= Math.min(preferred, 160) || spaceBelow >= spaceAbove) {
+    // 아래로 펼침
+    top = rect.bottom + 4;
+    maxHeight = Math.max(120, Math.min(preferred, spaceBelow));
+  } else {
+    // 아래 공간이 모자라면 버튼 위쪽으로 펼친다
+    maxHeight = Math.max(120, Math.min(preferred, spaceAbove));
+    top = Math.max(MENU_MARGIN, rect.top - 4 - maxHeight);
+  }
+
+  const left = Math.min(Math.max(MENU_MARGIN, rect.left), window.innerWidth - width - MENU_MARGIN);
+  return { top, left, maxHeight };
+}
+
 // 팩 보관함 트리 한 줄. PacksScreen(모바일 풀스크린 트리)의 buildRows와 동일한 규칙으로
 // 재귀 펼치되, 여기서는 "추가하기" 자리를 별도 행으로 만들지 않고 각 레벨/폴더 옆에
 // 작은 + 버튼으로 대신한다(사이드바 폭이 좁아서 전용 행을 넣으면 답답해 보임).
@@ -583,7 +618,7 @@ export default function DesktopSidebar({
   const [menuFor, setMenuFor] = useState<{
     kind: "bag" | "folder";
     id: string;
-    position?: { top: number; left: number };
+    position?: { top: number; left: number; maxHeight: number };
   } | null>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -652,7 +687,7 @@ export default function DesktopSidebar({
   const [packMenuFor, setPackMenuFor] = useState<{
     id: string;
     isFolder: boolean;
-    position?: { top: number; left: number };
+    position?: { top: number; left: number; maxHeight: number };
   } | null>(null);
   const [renamingPackId, setRenamingPackId] = useState<string | null>(null);
   const [packRenameDraft, setPackRenameDraft] = useState("");
@@ -908,12 +943,10 @@ export default function DesktopSidebar({
                         onClick={(e) => {
                           e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
-                          const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                          const left = Math.min(rect.left, window.innerWidth - 220);
                           setMenuFor({
                             kind: "folder",
                             id: folder.id,
-                            position: { top: Math.max(10, top), left: Math.max(10, left) },
+                            position: calcMenuPosition(rect, { width: 220 }),
                           });
                         }}
                         aria-label="폴더 메뉴"
@@ -1003,12 +1036,10 @@ export default function DesktopSidebar({
                         onClick={(e) => {
                           e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
-                          const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                          const left = Math.min(rect.left, window.innerWidth - 220);
                           setMenuFor({
                             kind: "bag",
                             id: bag.id,
-                            position: { top: Math.max(10, top), left: Math.max(10, left) },
+                            position: calcMenuPosition(rect, { width: 220 }),
                           });
                         }}
                         aria-label="가방 메뉴"
@@ -1226,12 +1257,10 @@ export default function DesktopSidebar({
                       onClick={(e) => {
                         e.stopPropagation();
                         const rect = e.currentTarget.getBoundingClientRect();
-                        const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                        const left = Math.min(rect.left, window.innerWidth - 220);
                         setPackMenuFor({
                           id: entry.id,
                           isFolder,
-                          position: { top: Math.max(10, top), left: Math.max(10, left) },
+                          position: calcMenuPosition(rect, { width: 220 }),
                         });
                       }}
                       aria-label="메뉴"
@@ -1272,7 +1301,7 @@ export default function DesktopSidebar({
               style={{
                 background: "var(--surface)",
                 minWidth: 200,
-                maxHeight: "70vh",
+                maxHeight: menuFor.position?.maxHeight ?? "70vh",
                 overflowY: "auto",
                 left: menuFor.position?.left ?? 16,
                 top: menuFor.position?.top ?? 220,
@@ -1556,7 +1585,7 @@ export default function DesktopSidebar({
               style={{
                 background: "var(--surface)",
                 minWidth: 200,
-                maxHeight: "70vh",
+                maxHeight: packMenuFor.position?.maxHeight ?? "70vh",
                 overflowY: "auto",
                 left: packMenuFor.position?.left ?? 16,
                 top: packMenuFor.position?.top ?? 420,

@@ -199,6 +199,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // 회원탈퇴(계정 완전 삭제) 마커. lib/accountService.ts의 deleteAllUserData가 계정을 지우기 직전에
+    // 자신의 uid로 딱 한 번 쓴다. 다른 그룹원이 이 uid를 조회해서 댓글 작성자가
+    // "그룹만 나갔다/강퇴됐다"가 아니라 "진짜로 회원탈퇴했다"를 구별해서 익명화 표시를 할
+    // 수 있게 하는 용도다(users/{uid}는 본인만 읽을 수 있어서 이 판단에 쓸 수 없다). 로그인한
+    // 사람 누구나 특정 uid 하나만 조회(get)할 수 있고, 본인만 자기 uid로 딱 한 번 생성할
+    // 수 있으며(다른 사람을 탈퇴 마커로 오염시키는 것 방지), 이후 어떤 경로로도 수정/삭제는 안 된다
+    // (위조 방지). 전체목록(list)은 거부해서 탈퇴자 목록을 긁을 수 없다.
+    match /deletedAccounts/{uid} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow update, delete: if false;
+    }
+
     match /bags/{bagId} {
       allow read: if request.auth != null &&
         request.auth.uid in resource.data.memberIds;

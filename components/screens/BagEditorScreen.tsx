@@ -58,6 +58,7 @@ import SlideScreen from "@/components/SlideScreen";
 import { subscribeToComments } from "@/lib/commentsService";
 import { subscribeToReactions, toggleReaction } from "@/lib/reactionsService";
 import { buildMentionMembers } from "@/lib/mentions";
+import { fetchDeletedAccountIds } from "@/lib/accountService";
 import NotebookQuickAddModal, { QuickAddItemData } from "@/components/NotebookQuickAddModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
@@ -217,6 +218,29 @@ export default function BagEditorScreen({
   const [reactions, setReactions] = useState<BagReactionDoc[]>([]);
   useEffect(() => subscribeToComments(bag.id, setComments), [bag.id]);
   useEffect(() => subscribeToReactions(bag.id, setReactions), [bag.id]);
+
+  // 댓글 작성자 중 진짜로 회원탈퇴(계정 삭제)한 사람이 누구인지 추적해서, 댓글 표시에서
+  // 그만 익명화하는 데 쓴다(BagChatPreview/ItemThreadSheet/ItemEditModal에 그대로 전달되어 쓰임).
+  // 단순히 가방을 나가거나 강퇴된 것만으로는 익명화하지 않아서, 지금 memberIds만으로는 판단할
+  // 수 없다 - 실제로 계정을 삭제한 사람만 모은 lib/accountService.ts의 deletedAccounts 컬렉션에서
+  // 확인해야 한다. 이미 확인한 uid는 다시 조회하지 않게 ref로 캐시해둔다.
+  const [deletedAuthorIds, setDeletedAuthorIds] = useState<Set<string>>(new Set());
+  const checkedAuthorUidsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const uidsToCheck = Array.from(new Set(comments.map((c) => c.authorUid))).filter(
+      (uid) => !checkedAuthorUidsRef.current.has(uid)
+    );
+    if (uidsToCheck.length === 0) return;
+    uidsToCheck.forEach((uid) => checkedAuthorUidsRef.current.add(uid));
+    fetchDeletedAccountIds(uidsToCheck)
+      .then((deletedSet) => {
+        if (deletedSet.size === 0) return;
+        setDeletedAuthorIds((prev) => new Set([...prev, ...deletedSet]));
+      })
+      .catch((err) => {
+        console.error("[팩인백] 탈퇴 계정 확인 실패:", err);
+      });
+  }, [comments]);
 
   const getItemThreadInfo = (itemId: string) => ({
     commentCount: comments.filter((c) => c.targetType === "item" && c.targetId === itemId).length,
@@ -2111,6 +2135,7 @@ export default function BagEditorScreen({
           onOpen={() => setShowBagThread(true)}
           hideEmptyPrompt
           currentUid={currentUid}
+          deletedAccountIds={deletedAuthorIds}
           allReactions={reactions}
           onToggleCommentReaction={(commentId, emoji, currentlyReacted) => {
             toggleReaction(bag.id, "comment", commentId, currentUid, emoji, currentlyReacted).catch((err) => {
@@ -2668,6 +2693,7 @@ export default function BagEditorScreen({
             currentNickname: nickname,
             currentAvatarId: avatarId,
             members: mentionMembers,
+            deletedAccountIds: deletedAuthorIds,
           }}
         />
       )}
@@ -2763,6 +2789,7 @@ export default function BagEditorScreen({
           currentNickname={nickname}
           currentAvatarId={avatarId}
           members={mentionMembers}
+          deletedAccountIds={deletedAuthorIds}
           onClose={() => setShowBagThread(false)}
         />
       )}

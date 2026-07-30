@@ -3,6 +3,7 @@ import { BagComment, BagReactionDoc, ReactionEmoji } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import ReactionPillRow from "@/components/ReactionPillRow";
 import MentionText from "@/components/MentionText";
+import { resolveCommentAuthorDisplay } from "@/lib/mentions";
 
 // 가방 공지 메모(BagNotice) 바로 아래에 두는 "가방 대화" 미리보기. 댓글이 있으면
 // 최신순으로 최대 3개까지, 아바타+닉네임+내용을 전부 한 줄로 이어서 보여준다
@@ -18,6 +19,7 @@ export default function BagChatPreview({
   onOpen,
   hideEmptyPrompt,
   currentUid,
+  deletedAccountIds,
   allReactions,
   onToggleCommentReaction,
   onOpenCommentReactionPicker,
@@ -26,6 +28,10 @@ export default function BagChatPreview({
   onOpen: () => void;
   hideEmptyPrompt?: boolean;
   currentUid?: string;
+  // 진짜로 회원탈퇴한(계정 삭제) uid 집합 - 옛 댓글 작성자가 이 안에 해당해야만
+  // 저장된 닉네임/아바타 대신 "탈퇴한 사용자"로 표시한다. 단순히 그룹을 나가거나
+  // 강퇴된 것만으로는 익명화하지 않는다(lib/mentions.ts의 resolveCommentAuthorDisplay 참고).
+  deletedAccountIds: ReadonlySet<string>;
   allReactions?: BagReactionDoc[];
   onToggleCommentReaction?: (commentId: string, emoji: ReactionEmoji, currentlyReacted: boolean) => void;
   onOpenCommentReactionPicker?: (commentId: string, authorNickname: string) => void;
@@ -51,11 +57,12 @@ export default function BagChatPreview({
     <div className="block w-full mb-3">
       <div className="flex flex-col gap-1.5">
         {latest.map((c) => {
+          const authorDisplay = resolveCommentAuthorDisplay(c, deletedAccountIds);
           const commentReactionDoc = allReactions?.find((r) => r.id === `comment_${c.id}`);
           const showReactions = !!(currentUid && onToggleCommentReaction && onOpenCommentReactionPicker);
           return (
             <div key={c.id} className="flex items-center gap-1.5 w-full">
-              <Avatar avatarId={c.authorAvatarId} size={16} />
+              <Avatar avatarId={authorDisplay.avatarId} size={16} />
 
               {/* 아바타 옆으로 닉네임 배지 + 내용 말풍선이 한 줄로 이어진다 (배경을
                   서로 다르게 줘서 별개 박스로 구분되게 함).
@@ -69,7 +76,7 @@ export default function BagChatPreview({
                   className="shrink-0 inline-flex items-center h-5 rounded-full px-1.5 text-[10.5px] font-medium leading-none"
                   style={{ background: "var(--surface-3, var(--border))", color: "var(--text-secondary)" }}
                 >
-                  {c.authorNickname}
+                  {authorDisplay.nickname}
                 </span>
 
                 {/* relative 컨테이너 - 말풍선 실제 크기(내용 길이만큼)를 그대로 감싸서,
@@ -89,7 +96,7 @@ export default function BagChatPreview({
                         currentUid={currentUid!}
                         overlap={false}
                         onToggle={(emoji, mine) => onToggleCommentReaction!(c.id, emoji, mine)}
-                        onOpenPicker={() => onOpenCommentReactionPicker!(c.id, c.authorNickname)}
+                        onOpenPicker={() => onOpenCommentReactionPicker!(c.id, authorDisplay.nickname)}
                       />
                     </div>
                   )}

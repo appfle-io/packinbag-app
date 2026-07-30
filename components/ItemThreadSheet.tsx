@@ -18,7 +18,7 @@ import MentionInput, { MentionMember } from "@/components/MentionInput";
 import MentionText from "@/components/MentionText";
 import ReactionPillRow from "@/components/ReactionPillRow";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
-import { extractMentionedUids } from "@/lib/mentions";
+import { extractMentionedUids, resolveCommentAuthorDisplay } from "@/lib/mentions";
 import { OverlayLayerProvider, useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
@@ -47,6 +47,7 @@ export default function ItemThreadSheet({
   currentNickname,
   currentAvatarId,
   members,
+  deletedAccountIds,
   onClose,
 }: {
   bagId: string;
@@ -59,6 +60,10 @@ export default function ItemThreadSheet({
   currentAvatarId: string;
   // @멘션 자동완성용 가방 멤버 목록(본인 제외). 없으면 멘션 자동완성 없이 일반 입력창.
   members?: MentionMember[];
+  // 진짜로 회원탈퇴한(계정 삭제) uid 집합 - 옛 댓글 작성자가 이 안에 해당해야만
+  // 저장된 닉네임/아바타 대신 "탈퇴한 사용자"로 표시한다. 단순히 그룹을 나가거나
+  // 강퇴된 것만으로는 익명화하지 않는다(lib/mentions.ts의 resolveCommentAuthorDisplay 참고).
+  deletedAccountIds: ReadonlySet<string>;
   onClose: () => void;
 }) {
   const [allComments, setAllComments] = useState<BagComment[]>([]);
@@ -196,12 +201,14 @@ export default function ItemThreadSheet({
                 아직 댓글이 없어요. 첫 댓글을 남겨보세요.
               </p>
             ) : (
-              comments.map((c) => (
+              comments.map((c) => {
+                const authorDisplay = resolveCommentAuthorDisplay(c, deletedAccountIds);
+                return (
                 <div key={c.id} className="flex items-start gap-2">
-                  <Avatar avatarId={c.authorAvatarId} size={28} />
+                  <Avatar avatarId={authorDisplay.avatarId} size={28} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[12.5px] font-medium">{c.authorNickname}</span>
+                      <span className="text-[12.5px] font-medium">{authorDisplay.nickname}</span>
                       <span className="text-[9px] text-text-muted shrink-0">
                         {formatTime(c.createdAt)}
                         {c.updatedAt ? " (수정됨)" : ""}
@@ -253,7 +260,7 @@ export default function ItemThreadSheet({
                             onOpenPicker={() =>
                               setReactionPickerCommentTarget({
                                 commentId: c.id,
-                                authorNickname: c.authorNickname,
+                                authorNickname: authorDisplay.nickname,
                               })
                             }
                           />
@@ -280,7 +287,8 @@ export default function ItemThreadSheet({
                     </div>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
             <div ref={listEndRef} />
           </div>
