@@ -707,6 +707,14 @@ export default function AppShell() {
     }
   };
 
+  // 데스크톱 사이드바 가방 "..." 메뉴에서 바로 이름 바꾸기 - 편집화면을 열지 않고도 가능하게.
+  const handleRenameBag = (bag: Bag, name: string) => {
+    saveBagRemote({ ...bag, name }).catch((err) => {
+      console.error("[팩인백] 가방 이름 변경 실패:", err);
+      show(`이름 변경에 실패했어요 (${firebaseErrorCode(err)})`);
+    });
+  };
+
   const handleSaveAsLibraryPack = (pack: Pack) => {
     saveLibraryPackRemote(user, pack).catch((err) => {
       if (err instanceof PremiumLimitError) {
@@ -995,6 +1003,7 @@ export default function AppShell() {
         onNewBag={openNewBag}
         onSaveBag={handleSaveBag}
         onDeleteBag={handleDeleteBag}
+        onRenameBag={handleRenameBag}
         onSaveAsLibraryPack={handleSaveAsLibraryPack}
         onTrashPackFromBag={handleTrashPackFromBag}
         onLeaveBag={handleLeaveBag}

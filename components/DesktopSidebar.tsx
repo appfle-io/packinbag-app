@@ -129,6 +129,8 @@ export default function DesktopSidebar({
   selection,
   onSelect,
   onNewBag,
+  onDeleteBag,
+  onRenameBag,
   onNewPack,
   onNewFolder,
   onChangeColor,
@@ -143,7 +145,9 @@ export default function DesktopSidebar({
   libraryPacks: Pack[];
   selection: DesktopSelection | null;
   onSelect: (selection: DesktopSelection) => void;
-  onNewBag: () => void;
+  onNewBag: (folderId?: string) => void;
+  onDeleteBag: (bag: Bag) => void;
+  onRenameBag: (bag: Bag, name: string) => void;
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
   onNewFolder: (parentId?: string) => void;
   onChangeColor: (pack: Pack, colorId: string | undefined) => void;
@@ -563,6 +567,24 @@ export default function DesktopSidebar({
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
+  // 가방 자체 이름바꾸기/삭제 - 폴더와 동일한 인라인 패턴 사용
+  const [renamingBagId, setRenamingBagId] = useState<string | null>(null);
+  const [bagRenameDraft, setBagRenameDraft] = useState("");
+  const [confirmDeleteBagId, setConfirmDeleteBagId] = useState<string | null>(null);
+
+  const startRenameBag = (bag: Bag) => {
+    setRenamingBagId(bag.id);
+    setBagRenameDraft(bag.name);
+    setMenuFor(null);
+  };
+
+  const commitRenameBag = () => {
+    if (renamingBagId && bagRenameDraft.trim()) {
+      const bag = bags.find((b) => b.id === renamingBagId);
+      if (bag) onRenameBag(bag, bagRenameDraft.trim());
+    }
+    setRenamingBagId(null);
+  };
 
   // 이동 목적지 후보: 전체 폴더를 depth와 함께 평평하게 나열(최상위 "가방보관함" 포함은
   // 호출부에서 별도로 그린다). 폴더를 옮기는 중이면 자기 자신 + 하위 폴더는 순환 방지로 제외.
@@ -848,6 +870,19 @@ export default function DesktopSidebar({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          onNewBag(folder.id);
+                        }}
+                        aria-label="이 폴더에 가방 추가"
+                        title="이 폴더에 가방 추가"
+                        className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
+                      >
+                        <IconPlus size={13} stroke={1.75} color="var(--text-muted)" />
+                      </button>
+                    )}
+                    {!isRenaming && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
                           const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
                           const left = Math.min(rect.left, window.innerWidth - 220);
@@ -920,27 +955,44 @@ export default function DesktopSidebar({
                       <span className="w-[14px] shrink-0" />
                     )}
                     <IconBackpack size={16} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                    <span className="text-[13px] font-medium truncate min-w-0 flex-1">{bag.name}</span>
-                    {pinnedBagIds.includes(bag.id) && (
+                    {renamingBagId === bag.id ? (
+                      <input
+                        autoFocus
+                        value={bagRenameDraft}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setBagRenameDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRenameBag();
+                          if (e.key === "Escape") setRenamingBagId(null);
+                        }}
+                        onBlur={commitRenameBag}
+                        className="min-w-0 flex-1 rounded border border-border bg-surface px-1 py-0.5 text-[13px] outline-none"
+                      />
+                    ) : (
+                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{bag.name}</span>
+                    )}
+                    {renamingBagId !== bag.id && pinnedBagIds.includes(bag.id) && (
                       <IconPinnedFilled size={13} stroke={1.75} color="var(--accent)" className="shrink-0" aria-label="고정됨" />
                     )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
-                        const left = Math.min(rect.left, window.innerWidth - 220);
-                        setMenuFor({
-                          kind: "bag",
-                          id: bag.id,
-                          position: { top: Math.max(10, top), left: Math.max(10, left) },
-                        });
-                      }}
-                      aria-label="가방 메뉴"
-                      className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
-                    >
-                      <IconDotsVertical size={13} stroke={1.75} color="var(--text-muted)" />
-                    </button>
+                    {renamingBagId !== bag.id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const top = Math.min(rect.bottom + 4, window.innerHeight - 280);
+                          const left = Math.min(rect.left, window.innerWidth - 220);
+                          setMenuFor({
+                            kind: "bag",
+                            id: bag.id,
+                            position: { top: Math.max(10, top), left: Math.max(10, left) },
+                          });
+                        }}
+                        aria-label="가방 메뉴"
+                        className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
+                      >
+                        <IconDotsVertical size={13} stroke={1.75} color="var(--text-muted)" />
+                      </button>
+                    )}
                   </div>
                   {isExpanded &&
                     bag.packs.map((pack) => {
@@ -1216,6 +1268,16 @@ export default function DesktopSidebar({
                 <>
                   <button
                     onClick={() => {
+                      const bag = bags.find((b) => b.id === menuFor.id);
+                      if (bag) startRenameBag(bag);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5"
+                  >
+                    <IconEdit size={15} stroke={1.75} />
+                    이름 바꾸기
+                  </button>
+                  <button
+                    onClick={() => {
                       toggleBagPinned(menuFor.id).catch(() => {});
                       setMenuFor(null);
                     }}
@@ -1280,6 +1342,23 @@ export default function DesktopSidebar({
                   </button>
                 </>
               )}
+
+              {menuFor.kind === "bag" && (
+                <>
+                  <div className="border-t border-border" />
+                  <button
+                    onClick={() => {
+                      setConfirmDeleteBagId(menuFor.id);
+                      setMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5"
+                    style={{ color: "var(--danger)" }}
+                  >
+                    <IconTrash size={15} stroke={1.75} />
+                    가방 삭제
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </Portal>
@@ -1340,6 +1419,21 @@ export default function DesktopSidebar({
           onConfirm={() => {
             deleteBagFolder(confirmDeleteFolderId).catch(() => {});
             setConfirmDeleteFolderId(null);
+          }}
+        />
+      )}
+
+      {confirmDeleteBagId && (
+        <ConfirmDialog
+          title="이 가방을 삭제할까요?"
+          message="휴지통으로 옮겨져서 설정 > 휴지통에서 복구할 수 있어요."
+          confirmLabel="삭제"
+          tone="danger"
+          onCancel={() => setConfirmDeleteBagId(null)}
+          onConfirm={() => {
+            const bag = bags.find((b) => b.id === confirmDeleteBagId);
+            if (bag) onDeleteBag(bag);
+            setConfirmDeleteBagId(null);
           }}
         />
       )}

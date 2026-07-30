@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
+import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement, Bag, Item, Pack, UserProfile } from "@/lib/types";
 import DesktopSidebar, { DesktopSelection } from "@/components/DesktopSidebar";
 import BagEditorScreen from "@/components/screens/BagEditorScreen";
@@ -34,6 +35,7 @@ export default function DesktopShell({
   onNewBag,
   onSaveBag,
   onDeleteBag,
+  onRenameBag,
   onSaveAsLibraryPack,
   onTrashPackFromBag,
   onLeaveBag,
@@ -83,6 +85,7 @@ export default function DesktopShell({
   onNewBag: () => Promise<Bag | void>;
   onSaveBag: (bag: Bag) => void;
   onDeleteBag: (bag: Bag) => void;
+  onRenameBag: (bag: Bag, name: string) => void;
   onSaveAsLibraryPack: (pack: Pack) => void;
   onTrashPackFromBag: (pack: Pack, sourceBagId: string, sourceBagName: string) => void;
   onLeaveBag: (bagId: string) => Promise<void>;
@@ -112,6 +115,7 @@ export default function DesktopShell({
   onPermanentDeletePack: (packId: string) => Promise<void>;
 }) {
   const { show } = useToast();
+  const { moveBagToFolder } = useAuth();
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   // 설정은 우측 패널 전체를 바꾸지 않고 모달로 띄운다 - 지금 보고 있던 가방/팝이 그대로 뒤에 남아있고, 닫으면 다시 그 화면으로 돌아온다.
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -132,9 +136,12 @@ export default function DesktopShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBag, selectedPack, selection?.kind]);
 
-  const handleNewBag = () => {
+  const handleNewBag = (folderId?: string) => {
     onNewBag().then((created) => {
-      if (created) onSelectionChange({ kind: "bag", bagId: created.id });
+      if (created) {
+        onSelectionChange({ kind: "bag", bagId: created.id });
+        if (folderId) moveBagToFolder(created.id, folderId).catch(() => {});
+      }
     });
   };
 
@@ -241,6 +248,8 @@ export default function DesktopShell({
         selection={selection}
         onSelect={handleSidebarSelect}
         onNewBag={handleNewBag}
+        onDeleteBag={onDeleteBag}
+        onRenameBag={onRenameBag}
         onNewPack={handleNewPack}
         onNewFolder={onNewFolder}
         onChangeColor={onChangePackColor}
