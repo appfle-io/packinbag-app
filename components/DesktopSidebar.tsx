@@ -20,6 +20,7 @@ import {
   IconArrowsSort,
   IconPinnedFilled,
   IconPinned,
+  IconListCheck,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -558,6 +559,14 @@ export default function DesktopSidebar({
     position: { top: number; left: number };
   } | null>(null);
 
+  // 폴더 행의 + 버튼을 누르면 "가방/팩 추가" vs "폴더 추가" 둘 중 고르는 작은 팝업.
+  const [addMenuFor, setAddMenuFor] = useState<{
+    kind: "bag" | "pack";
+    parentId?: string;
+    position: { top: number; left: number };
+  } | null>(null);
+  useEscapeToClose(() => setAddMenuFor(null), !!addMenuFor);
+
   // --- 가방/폴더 "..." 메뉴(이동/이름바꾸기/삭제) --------------------------------
   const [menuFor, setMenuFor] = useState<{
     kind: "bag" | "folder";
@@ -870,10 +879,13 @@ export default function DesktopSidebar({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onNewBag(folder.id);
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const top = Math.min(rect.bottom + 4, window.innerHeight - 120);
+                          const left = Math.min(rect.left, window.innerWidth - 170);
+                          setAddMenuFor({ kind: "bag", parentId: folder.id, position: { top: Math.max(10, top), left: Math.max(10, left) } });
                         }}
-                        aria-label="이 폴더에 가방 추가"
-                        title="이 폴더에 가방 추가"
+                        aria-label="이 폴더에 추가"
+                        title="이 폴더에 추가"
                         className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
                       >
                         <IconPlus size={13} stroke={1.75} color="var(--text-muted)" />
@@ -1064,7 +1076,12 @@ export default function DesktopSidebar({
               <IconFolderPlus size={14} stroke={1.75} color="var(--text-muted)" />
             </button>
             <button
-              onClick={() => onNewPack(undefined)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const top = Math.min(rect.bottom + 4, window.innerHeight - 150);
+                const left = Math.min(rect.left, window.innerWidth - 170);
+                setAddMenuFor({ kind: "pack", parentId: undefined, position: { top: Math.max(10, top), left: Math.max(10, left) } });
+              }}
               aria-label="새 팩"
               title="새 팩"
               className="p-1 rounded-md hover:bg-black/5"
@@ -1181,9 +1198,12 @@ export default function DesktopSidebar({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onNewPack(entry.id);
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const top = Math.min(rect.bottom + 4, window.innerHeight - 120);
+                        const left = Math.min(rect.left, window.innerWidth - 170);
+                        setAddMenuFor({ kind: "pack", parentId: entry.id, position: { top: Math.max(10, top), left: Math.max(10, left) } });
                       }}
-                      aria-label="이 폴더에 팩 추가"
+                      aria-label="이 폴더에 추가"
                       className="shrink-0 -m-1 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-black/5"
                     >
                       <IconPlus size={12} stroke={1.75} color="var(--text-muted)" />
@@ -1356,6 +1376,82 @@ export default function DesktopSidebar({
                   >
                     <IconTrash size={15} stroke={1.75} />
                     가방 삭제
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* 폴더 + 버튼 팝업 - 가방/팩 추가 vs 폴더 추가 */}
+      {addMenuFor && (
+        <Portal>
+          <div className="fixed inset-0" style={{ zIndex: ambientLayer + POPOVER_OFFSET }} onClick={() => setAddMenuFor(null)}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute rounded-xl border border-border shadow-lg overflow-hidden"
+              style={{
+                background: "var(--surface)",
+                minWidth: 150,
+                left: addMenuFor.position.left,
+                top: addMenuFor.position.top,
+              }}
+            >
+              {addMenuFor.kind === "bag" ? (
+                <>
+                  <button
+                    onClick={() => {
+                      onNewBag(addMenuFor.parentId);
+                      setAddMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-black/5"
+                  >
+                    <IconBackpack size={14} stroke={1.75} color="var(--text-secondary)" />
+                    가방 추가
+                  </button>
+                  <button
+                    onClick={() => {
+                      createBagFolder("새 폴더", addMenuFor.parentId).catch(() => {});
+                      setAddMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-black/5"
+                  >
+                    <IconFolder size={14} stroke={1.75} color="var(--text-secondary)" />
+                    폴더 추가
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      onNewPack(addMenuFor.parentId, "checklist");
+                      setAddMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-black/5"
+                  >
+                    <IconListCheck size={14} stroke={1.75} color="var(--text-secondary)" />
+                    체크팩 추가
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNewPack(addMenuFor.parentId, "editor");
+                      setAddMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-black/5"
+                  >
+                    <IconNotes size={14} stroke={1.75} color="var(--text-secondary)" />
+                    메모팩 추가
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNewFolder(addMenuFor.parentId);
+                      setAddMenuFor(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-black/5"
+                  >
+                    <IconFolder size={14} stroke={1.75} color="var(--text-secondary)" />
+                    폴더 추가
                   </button>
                 </>
               )}
