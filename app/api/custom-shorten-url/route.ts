@@ -104,5 +104,8 @@ export async function POST(req: NextRequest) {
   // 짧은 URL과 동일하게 SHORT_URL_BASE_URL 환경변수가 있으면 그걸, 없으면 요청 도메인을 쓴다.
   const configuredBase = process.env.SHORT_URL_BASE_URL?.trim().replace(/\/+$/, "");
   const origin = configuredBase || req.nextUrl.origin;
-  return NextResponse.json({ code, shortUrl: `${origin}/c/${encodeURIComponent(code)}` });
+  // 한글 코드를 encodeURIComponent하면 %EB%B0%B1... 식으로 보기 싫어지는 URL이 되니(복사/공유용으로 쓰기 불편),
+  // 한글을 그대로 넣은다 - 현대 브라우저는 이런 IRI(유니코드 경로)를 그대로 널리링/네비게이션할 수 있고,
+  // 실제 발송 시에만 자동으로 퍼센트 인코딩되므로 app/c/[code]/route.ts에서는 그대로 디코딩되어 도착한다.
+  return NextResponse.json({ code, shortUrl: `${origin}/c/${code}` });
 }

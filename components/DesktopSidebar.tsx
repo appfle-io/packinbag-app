@@ -308,6 +308,13 @@ export default function DesktopSidebar({
       if (targetType === "bag") return true; // ★ 팩 ➡️ 가방 이동 가능 (가방에 팩 담기)
       if (targetType === "bag-folder") return false; // ★ 폴더 하위로는 안 됨 (가방속이 아니니까)
       if (targetType === "bag-root") return false;
+      if (targetType === "pack") {
+        // 다른 팩 위에 드롭하는 건 팩 안에 팩 넣기가 아니라, 그 팩 옆으로 순서를 재배치하겠다는
+        // 뜻이다 - 가방 케이스와 동일한 이유로 이 케이스가 빠져있어서 폴더 안 팩 순서변경이
+        // 안 되던 원인이었다.
+        if (activeDragData.id === targetId) return false;
+        return true;
+      }
       if (targetType === "pack-folder") {
         if (activeDragData.id === targetId) return false;
         return true;
@@ -318,6 +325,11 @@ export default function DesktopSidebar({
     // 3) 팩 폴더 드래그 중
     if (activeDragData.type === "pack-folder") {
       if (targetType === "bag" || targetType === "bag-folder" || targetType === "bag-root") return false;
+      if (targetType === "pack") {
+        // 위와 동일한 이유 - 폴더를 일반 팩(체크팩/메모팩) 옆으로 드롭해서 순서를 바꿀 수 있어야 한다.
+        if (activeDragData.id === targetId) return false;
+        return true;
+      }
       if (targetType === "pack-folder") {
         if (activeDragData.id === targetId) return false;
         const descendants = collectDescendantPackIds(treePacks, activeDragData.id);
