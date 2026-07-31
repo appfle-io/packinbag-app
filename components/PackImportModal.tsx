@@ -198,7 +198,7 @@ export default function PackImportModal({
             className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] outline-none shrink-0"
           />
 
-          <div className="flex flex-col gap-1.5 overflow-y-auto scrollbar-thin flex-1 min-h-[220px] max-h-[420px] pr-1">
+          <div className="flex flex-col gap-1 overflow-y-auto scrollbar-thin flex-1 min-h-[220px] max-h-[420px] pr-1">
             {displayRows.map(({ entry, depth }) => {
               const isFolder = entry.type === "folder";
               if (isFolder) {
@@ -211,8 +211,13 @@ export default function PackImportModal({
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center gap-2 rounded-xl bg-surface-2 p-2.5 transition-colors"
-                    style={{ paddingLeft: 10 + depth * 16 }}
+                    className="flex items-center gap-2 rounded-lg p-2 transition-colors"
+                    style={{
+                      paddingLeft: 10 + depth * 14,
+                      background: depth === 0 ? "var(--surface-2)" : "transparent",
+                      borderLeft: depth > 0 ? "2px solid var(--border)" : undefined,
+                      marginLeft: depth > 0 ? 6 : 0,
+                    }}
                   >
                     {!q && (
                       <button
@@ -241,11 +246,11 @@ export default function PackImportModal({
                       className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer"
                     >
                       <IconFolder size={16} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[13.5px] font-semibold text-text-primary truncate block">
+                      <div className="min-w-0 flex-1 flex items-baseline gap-1.5 overflow-hidden">
+                        <span className="text-[13px] font-semibold text-text-primary shrink-0">
                           {entry.name}
                         </span>
-                        <span className="text-[11.5px] text-text-muted">
+                        <span className="text-[11px] text-text-muted truncate">
                           하위 팩 {childPackIds.length}개 전체 선택
                         </span>
                       </div>
@@ -257,27 +262,33 @@ export default function PackImportModal({
               return (
                 <label
                   key={entry.id}
-                  className="flex items-start gap-2.5 rounded-xl bg-surface-2 p-2.5 cursor-pointer hover:bg-black/5"
-                  style={{ paddingLeft: 10 + depth * 16 }}
+                  className="flex items-center gap-2 rounded-lg p-2 cursor-pointer hover:bg-black/5"
+                  style={{
+                    paddingLeft: 10 + depth * 14,
+                    background: depth === 0 ? "var(--surface-2)" : "transparent",
+                    borderLeft: depth > 0 ? "2px solid var(--border)" : undefined,
+                    marginLeft: depth > 0 ? 6 : 0,
+                  }}
                 >
+                  {!q && <span className="shrink-0" style={{ width: 15 }} />}
                   <input
                     type="checkbox"
                     checked={selected.has(entry.id)}
                     onChange={() => togglePack(entry.id)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                    className="h-4 w-4 shrink-0 accent-[var(--accent)]"
                   />
                   <PackColorDot colorId={entry.color} onChange={() => {}} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium mb-0.5 truncate">
+                  <div className="flex-1 min-w-0 flex items-baseline gap-1.5 overflow-hidden">
+                    <span className="text-[12.5px] font-medium shrink-0">
                       {entry.name}
-                    </div>
-                    <div className="text-[11.5px] text-text-secondary truncate">
+                    </span>
+                    <span className="text-[11px] text-text-secondary truncate">
                       {entry.kind === "editor"
                         ? entry.editorPreviewText || "메모 팩"
                         : entry.items.length > 0
                         ? entry.items.map((i) => i.text).join(", ")
                         : "항목 없음"}
-                    </div>
+                    </span>
                   </div>
                 </label>
               );
