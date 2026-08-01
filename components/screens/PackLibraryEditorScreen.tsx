@@ -10,7 +10,7 @@ import {
   IconChevronRight,
   IconChevronLeft,
 } from "@tabler/icons-react";
-import { Bag, Item, Pack } from "@/lib/types";
+import { Bag, Item, Pack, RichSpan } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
@@ -134,7 +134,7 @@ export default function PackLibraryEditorScreen({
   const changeItemText = (
     itemId: string,
     text: string,
-    style?: { bold?: boolean; strike?: boolean; color?: string }
+    style?: { bold?: boolean; strike?: boolean; color?: string; spans?: RichSpan[] }
   ) => {
     if (guardReadOnly()) return;
     setPack((p) => ({
@@ -144,10 +144,9 @@ export default function PackLibraryEditorScreen({
           ? {
               ...i,
               text,
-              spans: undefined,
               ...(style
-                ? { bold: style.bold, strike: style.strike, color: style.color }
-                : null),
+                ? { bold: style.bold, strike: style.strike, color: style.color, spans: style.spans }
+                : { spans: undefined }),
             }
           : i
       ),
@@ -205,7 +204,7 @@ export default function PackLibraryEditorScreen({
     text: data.text,
     ...(data.type === "check"
       ? { checked: false }
-      : { bold: data.bold, strike: data.strike, color: data.color }),
+      : { bold: data.bold, strike: data.strike, color: data.color, spans: data.spans }),
   });
 
   const openAddModal = () => {
@@ -236,12 +235,12 @@ export default function PackLibraryEditorScreen({
           items: p.items.map((i) => {
             if (i.id !== itemId) return i;
             return {
-              id: i.id,
-              type: data.type,
-              text: data.text,
-              ...(data.type === "check"
-                ? { checked: i.type === "check" ? i.checked : false }
-                : { bold: data.bold, strike: data.strike, color: data.color }),
+            id: i.id,
+            type: data.type,
+            text: data.text,
+            ...(data.type === "check"
+            ? { checked: i.type === "check" ? i.checked : false }
+            : { bold: data.bold, strike: data.strike, color: data.color, spans: data.spans }),
             };
           }),
         }));
@@ -756,6 +755,7 @@ export default function PackLibraryEditorScreen({
           initialBold={itemModal.mode === "edit" ? !!itemModal.item.bold : false}
           initialStrike={itemModal.mode === "edit" ? !!itemModal.item.strike : false}
           initialColor={itemModal.mode === "edit" ? itemModal.item.color || "" : ""}
+          initialSpans={itemModal.mode === "edit" ? itemModal.item.spans : undefined}
           onClose={() => setItemModal(null)}
           onSave={handleModalSave}
         />

@@ -43,7 +43,7 @@ import {
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
 import { MAX_PACK_IMAGES } from "@/lib/premiumLimits";
-import { isPdfUrl } from "@/lib/fileUrlUtils";
+import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { uploadPackImage, deletePackImage } from "@/lib/storageService";
 import EditableText from "@/components/EditableText";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -58,9 +58,9 @@ import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
-// PDF는 이미지처럼 압축되지 않고 원본 크기 그대로 올라가므로, 큰 파일을 막기 위해
-// 따로 크기 상한을 둔다 (BagEditorScreen의 MAX_BAG_PDF_BYTES와 동일한 기준).
-const MAX_PACK_PDF_BYTES = 3 * 1024 * 1024;
+// 이미지가 아닌 파일(PDF/기타 문서 형식)은 이미지처럼 압축되지 않고 원본 크기 그대로
+// 올라가므로, 큰 파일을 막기 위해 따로 크기 상한을 둔다(2026-08~ 10MB로 상향).
+const MAX_PACK_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
 
 // 아이폰 메모처럼 자유롭게 제목/체크박스/표를 섞어 쓰는 "에디터팩" 전체화면 편집기.
 // 노션 페이지처럼 팩을 탭하면 이 화면으로 진입한다(팩 보관함/가방 속 EditorPackCard 둘 다
@@ -90,7 +90,7 @@ export default function PackNoteEditorScreen({
   // 있을 때만 노출된다(보관함의 단독 편집 화면에는 이 기능이 없다). 업로드 경로
   // (bags/{bagId}/packs/{packId}/...)와 storage.rules 멤버십 검증에 다 쓰인다.
   bagId?: string;
-  // 지금 이 사용자가 프리미엄인지 - PDF 첨부/미리보기는 프리미엄 전용이라 BagEditorScreen이
+  // 지금 이 사용자가 프리미엄인지 - 이미지가 아닌 파일(PDF 포함) 첨부/미리보기는 프리미엄 전용이라 BagEditorScreen이
   // 계산해둔 premium을 그대로 넘겨받는다.
   premium?: boolean;
 }) {
@@ -297,18 +297,21 @@ export default function PackNoteEditorScreen({
     const currentImages = packRef.current.images ?? [];
     const selected = Array.from(files).slice(0, MAX_PACK_IMAGES - currentImages.length);
 
-    const isPdfFile = (f: File) =>
-      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
-    const pdfFiles = selected.filter(isPdfFile);
-    const toUpload = premium ? selected : selected.filter((f) => !isPdfFile(f));
-    if (pdfFiles.length > 0 && !premium) {
+    // 이미지가 아닌 모든 파일(PDF 포함 임의 파일 형식)은 압축되지 않고 원본 크기 그대로 올라가며,
+    // PDF만 프리미엄이던 기존 정책을 그대로 유지해서 이미지 외 모든 파일로 확장한다.
+    const isNonImageFile = (f: File) => !f.type.startsWith("image/");
+    const nonImageFiles = selected.filter(isNonImageFile);
+    const toUpload = premium ? selected : selected.filter((f) => !isNonImageFile(f));
+    if (nonImageFiles.length > 0 && !premium) {
       setShowPdfPremiumModal(true);
     }
     if (toUpload.length === 0) return;
 
-    const oversizedPdf = toUpload.find((f) => isPdfFile(f) && f.size > MAX_PACK_PDF_BYTES);
-    if (oversizedPdf) {
-      show("PDF 파일은 3MB 이하만 첨부할 수 있어요");
+    const oversized = toUpload.find(
+      (f) => isNonImageFile(f) && f.size > MAX_PACK_ATTACHMENT_FILE_BYTES
+    );
+    if (oversized) {
+      show("이미지가 아닌 파일은 10MB 이하만 첨부할 수 있어요");
       return;
     }
 
@@ -397,7 +400,6 @@ export default function PackNoteEditorScreen({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,application/pdf,.pdf"
           multiple
           hidden
           onChange={(e) => handleAddAttachments(e.target.files)}
@@ -407,13 +409,21 @@ export default function PackNoteEditorScreen({
       {bagId && packImages.length > 0 && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 mb-3 shrink-0">
           {packImages.map((src, idx) => {
-            const isPdf = isPdfUrl(src);
+            const kind = getFileKind(src);
             return (
               <div
                 key={idx}
                 className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
               >
-                {isPdf ? (
+                {kind === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={src}
+                    alt=""
+                    onClick={() => setLightboxIndex(idx)}
+                    className="h-full w-full object-cover"
+                  />
+                ) : kind === "pdf" ? (
                   <button
                     onClick={() =>
                       premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
@@ -433,13 +443,26 @@ export default function PackNoteEditorScreen({
                     )}
                   </button>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={src}
-                    alt=""
-                    onClick={() => setLightboxIndex(idx)}
-                    className="h-full w-full object-cover"
-                  />
+                  <button
+                    onClick={() =>
+                      premium ? openExternalLink(src) : setShowPdfPremiumModal(true)
+                    }
+                    className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary px-1"
+                    aria-label={premium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
+                  >
+                    <IconFileText size={20} stroke={1.75} />
+                    <span className="text-[8px] truncate max-w-full">
+                      {getFileExtensionLabel(src) || "FILE"}
+                    </span>
+                    {!premium && (
+                      <span
+                        className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.55)" }}
+                      >
+                        <IconLock size={9} stroke={2} color="#fff" />
+                      </span>
+                    )}
+                  </button>
                 )}
                 {!effectiveReadOnly && (
                   <button
@@ -583,7 +606,7 @@ export default function PackNoteEditorScreen({
             <ToolbarButton
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImages || packImages.length >= MAX_PACK_IMAGES}
-              label="사진 또는 PDF 첨부"
+              label="파일 첨부"
             >
               {uploadingImages ? (
                 <IconLoader2 size={17} stroke={1.75} className="animate-spin" />
@@ -800,11 +823,11 @@ export default function PackNoteEditorScreen({
 
       {showPdfPremiumModal && (
         <PremiumLimitModal
-          message="PDF 첨부/미리보기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          message="이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
           onClose={() => setShowPdfPremiumModal(false)}
           onUnlocked={() => {
             setShowPdfPremiumModal(false);
-            show("이용권 코드가 적용됐어요! PDF 기능을 다시 시도해주세요");
+            show("이용권 코드가 적용됐어요! 다시 시도해주세요");
           }}
         />
       )}

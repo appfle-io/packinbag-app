@@ -489,3 +489,19 @@ body {
 .pib-toggle-inner [data-type="toggle-content"] > * {
   margin-left: 8px;
 }
+
+/* 짐(Item) 텍스트형 항목의 부분 서식(굵게/밑줄/취소선) 편집기 - 한 줄짜리 문단 하나만
+   있으므로 메모패(pib-note-editor)과 달리 여백/줄바꿈을 최소화한다. */
+.pib-item-rich-text .ProseMirror {
+  outline: none;
+}
+.pib-item-rich-text p {
+  margin: 0;
+}
+.pib-item-rich-text p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

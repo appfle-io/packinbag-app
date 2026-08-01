@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconBold, IconStrikethrough } from "@tabler/icons-react";
-import { /* BagReactionDoc, */ Item, /* ReactionEmoji */ } from "@/lib/types";
+import { /* BagReactionDoc, */ Item, RichSpan, /* ReactionEmoji */ } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "./Toast";
 import { isShortUrlFeatureEnabled } from "@/lib/shortLinkService";
 import { formatItemDueLabel, getDueUrgency, getDueIntensifyPercent } from "@/lib/dday";
 import LinkifiedText from "./LinkifiedText";
+import ItemRichTextField from "./ItemRichTextField";
+import { getItemSpans, spansToPlainText } from "@/lib/richText";
 // import ReactionPillRow from "./ReactionPillRow";
 
 const DELETE_SWIPE_THRESHOLD = -30;
@@ -126,7 +127,7 @@ export default function ItemRow({
   onToggle?: () => void;
   onChangeText: (
     text: string,
-    style?: { bold?: boolean; strike?: boolean; color?: string }
+    style?: { bold?: boolean; strike?: boolean; color?: string; spans?: RichSpan[] }
   ) => void;
   onDelete: () => void;
   onEdit?: () => void;
@@ -158,9 +159,11 @@ export default function ItemRow({
   const [dragging, setDragging] = useState(false);
   const [editing, setEditing] = useState(!onEdit && item.text === "");
   const [draft, setDraft] = useState(item.text);
-  const [draftBold, setDraftBold] = useState(!!item.bold);
-  const [draftStrike, setDraftStrike] = useState(!!item.strike);
+  const [draftSpans, setDraftSpans] = useState(() => getItemSpans(item));
   const [draftColor, setDraftColor] = useState(item.color || "");
+  // "추가" 모드에서 저장 후 입력창을 비우고 다시 포커스를 줄 때, ItemRichTextField를 새로
+  // 마운트시켜서(autoFocus) 초기화하기 위한 키.
+  const [draftResetKey, setDraftResetKey] = useState(0);
   const { profile, user } = useAuth();
   const { show: showToast } = useToast();
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
@@ -430,27 +433,36 @@ export default function ItemRow({
   };
 
   const commitEdit = () => {
+    if (item.type === "text") {
+      const plainText = spansToPlainText(draftSpans);
+      if (plainText.trim() === "") {
+        setEditing(false);
+        onDelete();
+        return;
+      }
+      const styleChanged =
+        plainText !== item.text ||
+        draftSpans.some((s) => s.bold) !== !!item.bold ||
+        draftSpans.some((s) => s.strike) !== !!item.strike ||
+        draftColor !== (item.color || "");
+      setEditing(false);
+      if (styleChanged) {
+        onChangeText(plainText, {
+          bold: draftSpans.some((s) => s.bold),
+          strike: draftSpans.some((s) => s.strike),
+          color: draftColor || undefined,
+          spans: draftSpans,
+        });
+      }
+      return;
+    }
     setEditing(false);
     if (draft.trim() === "") {
       onDelete();
       return;
     }
-    const styleChanged =
-      item.type === "text" &&
-      (draftBold !== !!item.bold ||
-        draftStrike !== !!item.strike ||
-        draftColor !== (item.color || ""));
-    if (draft !== item.text || styleChanged) {
-      onChangeText(
-        draft,
-        item.type === "text"
-          ? {
-              bold: draftBold,
-              strike: draftStrike,
-              color: draftColor || undefined,
-            }
-          : undefined
-      );
+    if (draft !== item.text) {
+      onChangeText(draft);
     }
   };
 
@@ -460,9 +472,9 @@ export default function ItemRow({
       return;
     }
     setDraft(item.text);
-    setDraftBold(!!item.bold);
-    setDraftStrike(!!item.strike);
+    setDraftSpans(getItemSpans(item));
     setDraftColor(item.color || "");
+    setDraftResetKey((k) => k + 1);
     setEditing(true);
   };
 
@@ -589,55 +601,15 @@ export default function ItemRow({
           {editing ? (
             item.type === "text" ? (
               <div className="min-w-0 flex-1 flex flex-col gap-2">
-                <input
-                  autoFocus
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onBlur={commitEdit}
-                  onKeyDown={(e) => e.key === "Enter" && commitEdit()}
+                <ItemRichTextField
+                  key={draftResetKey}
+                  initialSpans={draftSpans}
                   placeholder="텍스트 입력"
-                  className="min-w-0 w-full bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
-                  style={{
-                    fontWeight: draftBold ? 700 : 400,
-                    textDecoration: draftStrike ? "line-through" : "none",
-                    color: draftColor || "var(--foreground)",
-                  }}
+                  autoFocus
+                  onChange={({ spans }) => setDraftSpans(spans)}
+                  onCommit={commitEdit}
                 />
                 <div className="flex items-center flex-wrap gap-2 md:gap-2.5">
-                  <button
-                    type="button"
-                    onMouseDown={preventBlur}
-                    onClick={() => setDraftBold((b) => !b)}
-                    aria-label="굵게"
-                    className="flex items-center justify-center rounded shrink-0"
-                    style={{
-                      background: draftBold ? "var(--accent)" : "var(--surface)",
-                      color: draftBold ? "#fff" : "var(--text-secondary)",
-                      width: "calc(28px * var(--pack-card-scale,1))",
-                      height: "calc(28px * var(--pack-card-scale,1))",
-                    }}
-                  >
-                    <IconBold size={16} stroke={2.25} />
-                  </button>
-                  <button
-                    type="button"
-                    onMouseDown={preventBlur}
-                    onClick={() => setDraftStrike((s) => !s)}
-                    aria-label="취소선"
-                    className="flex items-center justify-center rounded shrink-0"
-                    style={{
-                      background: draftStrike ? "var(--accent)" : "var(--surface)",
-                      color: draftStrike ? "#fff" : "var(--text-secondary)",
-                      width: "calc(28px * var(--pack-card-scale,1))",
-                      height: "calc(28px * var(--pack-card-scale,1))",
-                    }}
-                  >
-                    <IconStrikethrough size={16} stroke={2.25} />
-                  </button>
-                  <span
-                    className="shrink-0"
-                    style={{ width: 1, height: 17, background: "var(--border)" }}
-                  />
                   {TEXT_COLORS.map((c) => (
                     <button
                       key={c || "default"}
@@ -713,27 +685,58 @@ export default function ItemRow({
                 <span
                   className={lineClampClass}
                   style={{
-                    fontWeight: item.bold ? 700 : 400,
-                    textDecoration: [item.strike && "line-through", hasComment && "underline"]
-                      .filter(Boolean)
-                      .join(" ") || "none",
+                    textDecoration: [hasComment && "underline"].filter(Boolean).join(" ") || "none",
                     color: item.color || "var(--foreground)",
                   }}
                 >
-                  <LinkifiedText
-                    text={item.text}
-                    user={user}
-                    shortenEnabled={shortUrlFeatureEnabled}
-                    onReplace={(original, shortUrl) => {
-                      if (!item.text.includes(original)) return;
-                      onChangeText(item.text.replace(original, shortUrl), {
-                        bold: item.bold,
-                        strike: item.strike,
-                        color: item.color,
-                      });
-                      showToast("링크를 짧게 줄였어요");
-                    }}
-                  />
+                  {(() => {
+                    const spans = getItemSpans(item);
+                    // 부분 서식(서로 다른 스팜이 2개 이상)이 실제로 쓰인 경우에만 구간별로 나눠서 렌더링하고,
+                    // 그렇지 않으면(예전처럼 전체가 하나의 스팜) 링크화/짧은URL 치환이 그대로 동작하는
+                    // LinkifiedText 경로를 그대로 쓴다(부분 서식 적용 짐은 링크 감지가 스팜 단위로 나눠져서
+                    // URL이 서로 다른 서식 구간에 걸치면 감지되지 않을 수 있다 - 대부분 짧은 라벨이라 실사용 영향은 작다).
+                    if (spans.length <= 1) {
+                      return (
+                        <span
+                          style={{
+                            fontWeight: spans[0]?.bold ? 700 : 400,
+                            textDecoration: spans[0]?.strike ? "line-through" : "none",
+                          }}
+                        >
+                          <LinkifiedText
+                            text={item.text}
+                            user={user}
+                            shortenEnabled={shortUrlFeatureEnabled}
+                            onReplace={(original, shortUrl) => {
+                              if (!item.text.includes(original)) return;
+                              onChangeText(item.text.replace(original, shortUrl), {
+                                bold: item.bold,
+                                strike: item.strike,
+                                color: item.color,
+                              });
+                              showToast("링크를 짧게 줄였어요");
+                            }}
+                          />
+                        </span>
+                      );
+                    }
+                    return spans.map((span, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          fontWeight: span.bold ? 700 : 400,
+                          textDecoration: [
+                            span.strike && "line-through",
+                            span.underline && "underline",
+                          ]
+                            .filter(Boolean)
+                            .join(" ") || "none",
+                        }}
+                      >
+                        {span.text}
+                      </span>
+                    ));
+                  })()}
                 </span>
               )}
             </div>

@@ -18,7 +18,7 @@ import {
 import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
-import { isPdfUrl } from "@/lib/fileUrlUtils";
+import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
@@ -177,13 +177,24 @@ export default function EditorPackCard({
       {!isCollapsed && packImages.length > 0 && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2 shrink-0">
               {packImages.map((src, idx) => {
-                const isPdf = isPdfUrl(src);
+                const kind = getFileKind(src);
                 return (
                   <div
                     key={idx}
                     className="relative shrink-0 h-12 w-12 rounded-lg overflow-hidden bg-surface-2"
                   >
-                    {isPdf ? (
+                    {kind === "image" ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={src}
+                        alt=""
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxIndex(idx);
+                        }}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : kind === "pdf" ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -203,16 +214,27 @@ export default function EditorPackCard({
                         )}
                       </button>
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={src}
-                        alt=""
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setLightboxIndex(idx);
+                          premium ? openExternalLink(src) : setShowPdfPremiumModal(true);
                         }}
-                        className="h-full w-full object-cover"
-                      />
+                        className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary px-0.5"
+                        aria-label={premium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
+                      >
+                        <IconFileText size={17} stroke={1.75} />
+                        <span className="text-[7px] truncate max-w-full">
+                          {getFileExtensionLabel(src) || "FILE"}
+                        </span>
+                        {!premium && (
+                          <span
+                            className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full flex items-center justify-center"
+                            style={{ background: "rgba(0,0,0,0.55)" }}
+                          >
+                            <IconLock size={7} stroke={2} color="#fff" />
+                          </span>
+                        )}
+                      </button>
                     )}
                   </div>
                 );
@@ -314,7 +336,7 @@ export default function EditorPackCard({
 
       {showPdfPremiumModal && (
         <PremiumLimitModal
-          message="PDF 첨부/미리보기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          message="이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
           onClose={() => setShowPdfPremiumModal(false)}
           onUnlocked={() => setShowPdfPremiumModal(false)}
         />

@@ -108,6 +108,8 @@ interface AuthContextValue {
   updateExpandedBagFolderIds: (ids: string[]) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
+  updateSidebarWidth: (width: number) => Promise<void>;
+  updateSidebarCollapsed: (collapsed: boolean) => Promise<void>;
   updateShortUrlEnabled: (enabled: boolean) => Promise<void>;
   updateRegionRecommendEnabled: (enabled: boolean) => Promise<void>;
   updatePackDisplayState: (
@@ -228,6 +230,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         expandedBagFolderIds: data?.expandedBagFolderIds as string[] | undefined,
         packSettings: data?.packSettings as UserProfile["packSettings"],
         quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
+        sidebarWidth: data?.sidebarWidth as number | undefined,
+        sidebarCollapsed: data?.sidebarCollapsed as boolean | undefined,
         packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
         bagViewMode: data?.bagViewMode as UserProfile["bagViewMode"],
         defaultBagViewMode: data?.defaultBagViewMode as UserProfile["defaultBagViewMode"],
@@ -717,6 +721,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
   };
 
+  // 데스크톱 사이드바 폭(px) - 오른쪽 가장자리 드래그가 끝난 지점에서만 호출되므로(드래그 중에는
+  // 로컬 state만 바꾸다), 매번 쓰기가 일어나지 않아 다른 설정값들과 달리 디바운스가 필요하지 않다.
+  const updateSidebarWidth = async (width: number) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { sidebarWidth: width }, { merge: true });
+  };
+
+  const updateSidebarCollapsed = async (collapsed: boolean) => {
+    if (!user) return;
+    await setDoc(doc(db, "users", user.uid), { sidebarCollapsed: collapsed }, { merge: true });
+  };
+
   // 설정 > AI 기능 하위 "짧은 URL 사용하기" 토글. 프리미엄 판정은 화면(SettingsScreen)에서 하고, 여기서는
   // 값만 그대로 저장한다(다른 설정값들과 동일한 패턴).
   const updateShortUrlEnabled = async (enabled: boolean) => {
@@ -880,6 +896,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateExpandedBagFolderIds,
         updatePackSettings,
         updateQuickPackCollapsed,
+        updateSidebarWidth,
+        updateSidebarCollapsed,
         updateShortUrlEnabled,
         updateRegionRecommendEnabled,
         updatePackDisplayState,

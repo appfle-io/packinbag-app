@@ -21,6 +21,8 @@ import {
   IconPinnedFilled,
   IconPinned,
   IconListCheck,
+  IconChevronsLeft,
+  IconChevronsRight,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -37,6 +39,17 @@ import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 const MENU_MARGIN = 10;
+
+// 데스크톱 사이드바 폭 범위(px) + 기본값. 오른쪽 가장자리를 드래그해서 조절하면 이 범위로
+// 항상 클램프되고, 계정(profile.sidebarWidth)에 저장되어 기기 간에도 그대로 유지된다.
+const MIN_SIDEBAR_WIDTH = 220;
+const MAX_SIDEBAR_WIDTH = 420;
+const DEFAULT_SIDEBAR_WIDTH = 288; // 기존 w-72와 동일
+const COLLAPSED_SIDEBAR_WIDTH = 56;
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
+}
 
 // 메뉴(가방/폴더 "..." 메뉴, 팩/폴더 "..." 메뉴) 위치 + 최대높이 계산.
 // 예전에는 top을 "창 높이 - 대략 이 정도 높이일 것이다(280 등 하드코딩 guess)"로만
@@ -209,7 +222,52 @@ export default function DesktopSidebar({
     updatePackSortBy,
     toggleBagPinned,
     togglePackPinned,
+    updateSidebarWidth,
+    updateSidebarCollapsed,
   } = useAuth();
+
+  // 사이드바 폭/접힌 상태 - 계정(profile)에서 초기값을 가져오고, 드래그 중에는 네트워크
+  // 왕복 없이 로컬 state만 바꾸다가 놓았을 때만 계정에 저장한다.
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    clampSidebarWidth(profile?.sidebarWidth ?? DEFAULT_SIDEBAR_WIDTH)
+  );
+  useEffect(() => {
+    if (profile?.sidebarWidth != null) {
+      setSidebarWidth(clampSidebarWidth(profile.sidebarWidth));
+    }
+  }, [profile?.sidebarWidth]);
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => profile?.sidebarCollapsed ?? false
+  );
+  useEffect(() => {
+    setIsSidebarCollapsed(profile?.sidebarCollapsed ?? false);
+  }, [profile?.sidebarCollapsed]);
+
+  const handleSidebarResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      setSidebarWidth(clampSidebarWidth(startWidth + (moveEvent.clientX - startX)));
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      setSidebarWidth((current) => {
+        updateSidebarWidth(current).catch(() => {});
+        return current;
+      });
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const toggleSidebarCollapsed = () => {
+    const next = !isSidebarCollapsed;
+    setIsSidebarCollapsed(next);
+    updateSidebarCollapsed(next).catch(() => {});
+  };
   const [expandedBagIds, setExpandedBagIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
 
@@ -760,8 +818,57 @@ export default function DesktopSidebar({
     setPackMenuFor(null);
   };
 
+  // 접힌 상태일 때는 아이콘만 남은 좁은 레일로 교체해서 보여준다. 이 위에서 모든 hook이 이미 호출된 뒤이라
+  // 조건부 return으로 빠져나가도 안전하다.
+  if (isSidebarCollapsed) {
+    return (
+      <div
+        className="flex h-full shrink-0 flex-col items-center border-r border-border py-3 gap-2"
+        style={{ width: COLLAPSED_SIDEBAR_WIDTH }}
+      >
+        <button
+          onClick={toggleSidebarCollapsed}
+          aria-label="사이드바 펼치기"
+          title="사이드바 펼치기"
+          className="p-1.5 rounded-md hover:bg-black/5"
+        >
+          <IconChevronsRight size={17} stroke={1.75} color="var(--text-muted)" />
+        </button>
+        <button
+          onClick={toggleSidebarCollapsed}
+          aria-label="가방 보관함 (펼쳐서 보기)"
+          title="가방 보관함"
+          className="p-1.5 rounded-md hover:bg-black/5"
+        >
+          <IconBackpack size={18} stroke={1.75} color="var(--text-secondary)" />
+        </button>
+        <button
+          onClick={toggleSidebarCollapsed}
+          aria-label="팩 보관함 (펼쳐서 보기)"
+          title="팩 보관함"
+          className="p-1.5 rounded-md hover:bg-black/5"
+        >
+          <IconFolder size={18} stroke={1.75} color="var(--text-secondary)" />
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => onSelect({ kind: "settings" })}
+          aria-label="설정 · 휴지통"
+          title="설정 · 휴지통"
+          className="p-1.5 rounded-md hover:bg-black/5"
+          style={{ background: settingsActive ? "var(--accent-soft)" : undefined }}
+        >
+          <IconSettings size={18} stroke={1.75} color="var(--text-secondary)" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col border-r border-border">
+    <div
+      className="relative flex h-full shrink-0 flex-col border-r border-border"
+      style={{ width: sidebarWidth }}
+    >
       <div className="shrink-0 p-3 pb-2 flex items-center gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5">
           <IconSearch size={15} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
@@ -777,6 +884,14 @@ export default function DesktopSidebar({
             </button>
           )}
         </div>
+        <button
+          onClick={toggleSidebarCollapsed}
+          aria-label="사이드바 접기"
+          title="사이드바 접기"
+          className="shrink-0 p-1 rounded-md hover:bg-black/5"
+        >
+          <IconChevronsLeft size={15} stroke={1.75} color="var(--text-muted)" />
+        </button>
         <NotificationBell uid={uid} />
       </div>
 

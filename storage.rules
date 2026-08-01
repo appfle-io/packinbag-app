@@ -1,12 +1,13 @@
 rules_version = '2';
 
 // 팩인백 Storage 보안 규칙
-// 경로: bags/{bagId}/{fileName} (가방 사진/PDF), bags/{bagId}/packs/{packId}/{fileName} (가방 안
-// 메모팩 사진/PDF). 해당 가방의 멤버만 읽고 쓸 수 있고, 이미지는 5MB 이하만 업로드 가능.
-// PDF는 프리미엄 전용 기능(2026-07 추가)이라 업로드/다운로드 모두 "지금 요청하는 사람이
-// 프리미엄인지"를 그때그때 실시간으로 검사한다(무료→유료 전환/유료→무료 다운그레이드가
-// 바로 반영됨 - 가방/팩의 locked 필드처럼 별도 동기화 배치가 필요 없다, 매 요청마다
-// unlockCodes 문서를 직접 확인하기 때문). 이미지는 기존과 동일하게 무료/유료 구분 없음.
+// 경로: bags/{bagId}/{fileName} (가방 사진/파일), bags/{bagId}/packs/{packId}/{fileName} (가방 안
+// 메모팩 사진/파일). 해당 가방의 멤버만 읽고 쓸 수 있고, 이미지는 5MB 이하만 업로드 가능.
+// 이미지가 아닌 모든 파일(PDF 포함, 2026-08~ 어떤 형식이든)은 프리미엄 전용 기능이라
+// 업로드/다운로드 모두 "지금 요청하는 사람이 프리미엄인지"를 그때그때 실시간으로 검사한다
+// (무료→유료 전환/유료→무료 다운그레이드가 바로 반영됨 - 가방/팩의 locked 필드처럼 별도
+// 동기화 배치가 필요 없다, 매 요청마다 unlockCodes 문서를 직접 확인하기 때문). 이미지는
+// 기존과 동일하게 무료/유료 구분 없음.
 // 가방이 locked:true(소유자가 무료 전환 후 개수 제한을 넘어선 상태)이고 지금 업로드하는
 // 사람이 그 가방의 소유자(ownerId)라면, 업로드가 거부된다 - 다른 그룹원은 locked 여부와
 // 무관하게 여전히 업로드할 수 있다(firestore.rules에서 가방 수정/삭제를 막는 것과 동일한 원칙).
@@ -60,24 +61,27 @@ service firebase.storage {
       );
     }
 
-    function isPdf(contentType) {
-      return contentType == 'application/pdf';
+    // 2026-08~: PDF만 따로 취급하던 것을 "이미지가 아닌 모든 파일"로 일반화했다.
+    // 클라이언트(accept 속성 제거)가 이제 임의 파일 형식을 올릴 수 있으므로, 여기서도
+    // 특정 MIME 타입(application/pdf)만 허용하던 조건을 없애고 "이미지가 아니면" 조건으로 바꾼다.
+    function isImage(contentType) {
+      return contentType.matches('image/.*');
     }
 
     match /bags/{bagId}/{fileName} {
       allow read: if request.auth != null &&
         isMemberOf(bagId) &&
         (
-          resource.contentType.matches('image/.*') ||
-          (isPdf(resource.contentType) && isPremium())
+          isImage(resource.contentType) ||
+          (!isImage(resource.contentType) && isPremium())
         );
 
       allow write: if request.auth != null &&
         isMemberOf(bagId) &&
         !isOwnerLockedOf(bagId) &&
         (
-          (request.resource.contentType.matches('image/.*') && request.resource.size < 5 * 1024 * 1024) ||
-          (isPdf(request.resource.contentType) && isPremium() && request.resource.size < 3 * 1024 * 1024)
+          (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
+          (!isImage(request.resource.contentType) && isPremium() && request.resource.size < 10 * 1024 * 1024)
         );
     }
 
@@ -87,16 +91,16 @@ service firebase.storage {
       allow read: if request.auth != null &&
         isMemberOf(bagId) &&
         (
-          resource.contentType.matches('image/.*') ||
-          (isPdf(resource.contentType) && isPremium())
+          isImage(resource.contentType) ||
+          (!isImage(resource.contentType) && isPremium())
         );
 
       allow write: if request.auth != null &&
         isMemberOf(bagId) &&
         !isOwnerLockedOf(bagId) &&
         (
-          (request.resource.contentType.matches('image/.*') && request.resource.size < 5 * 1024 * 1024) ||
-          (isPdf(request.resource.contentType) && isPremium() && request.resource.size < 3 * 1024 * 1024)
+          (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
+          (!isImage(request.resource.contentType) && isPremium() && request.resource.size < 10 * 1024 * 1024)
         );
     }
   }

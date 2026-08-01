@@ -450,7 +450,7 @@ export default function AppShell() {
         {
           id: uid(),
           name: "새 팩",
-          items: [{ id: uid(), type: "check", text: "", checked: false }],
+          items: [],
         },
       ],
       memberIds: [user.uid],
@@ -518,7 +518,7 @@ export default function AppShell() {
               {
                 id: uid(),
                 name: "새 팩",
-                items: [{ id: uid(), type: "check", text: "", checked: false }],
+                items: [],
               },
             ],
       memberIds: [user.uid],

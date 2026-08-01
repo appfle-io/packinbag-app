@@ -29,7 +29,7 @@ import {
   IconArrowForwardUp,
   IconRefresh,
 } from "@tabler/icons-react";
-import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset } from "@/lib/types";
+import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset, RichSpan } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import EditableText from "@/components/EditableText";
 import BagNotice from "@/components/BagNotice";
@@ -87,7 +87,8 @@ import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
-import { isPdfUrl } from "@/lib/fileUrlUtils";
+import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
+import { openExternalLink } from "@/lib/openExternalLink";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { isNativePlatform } from "@/lib/nativeAuth";
 import { useIsDesktop } from "@/lib/useIsDesktop";
@@ -108,9 +109,9 @@ const RECOMMENDATION_CATEGORY_LABEL: Record<string, string> = {
 // 브라우저를 새로고침하면(모듈이 다시 초기화되므로) 자연스럽게 비워져서 다시 호출된다.
 const aiPlacesClientCache = new Map<string, TravelRecommendation[]>();
 
-// PDF is not compressed like images (compressImageFile skips non-image files and returns
-// them as-is), so it can be uploaded at full size. Keep a size cap here to avoid huge files.
-const MAX_BAG_PDF_BYTES = 3 * 1024 * 1024;
+// 이미지가 아닌 모든 파일(PDF 포함)은 이미지처럼 압축되지 않고 원본 크기 그대로 올라가므로,
+// 큰 파일을 막기 위해 따로 크기 상한을 둔다(2026-08~ 10MB로 상향).
+const MAX_BAG_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
 
 export default function BagEditorScreen({
   initialBag,
@@ -680,7 +681,7 @@ export default function BagEditorScreen({
     packId: string,
     itemId: string,
     text: string,
-    style?: { bold?: boolean; strike?: boolean; color?: string }
+    style?: { bold?: boolean; strike?: boolean; color?: string; spans?: RichSpan[] }
   ) => {
     if (guardReadOnly()) return;
     updatePacks((packs) =>
@@ -691,14 +692,14 @@ export default function BagEditorScreen({
             ? {
                 ...i,
                 text,
-                spans: undefined,
                 ...(style
                   ? {
                       bold: style.bold,
                       strike: style.strike,
                       color: style.color,
+                      spans: style.spans,
                     }
-                  : null),
+                  : { spans: undefined }),
               }
             : i
         );
@@ -760,7 +761,7 @@ export default function BagEditorScreen({
 
   const handleCreateItem = (
     targetPackId: string,
-    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string }
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string; spans?: RichSpan[] }
   ) => {
     if (guardReadOnly()) return;
     updatePacks((packs) =>
@@ -773,7 +774,7 @@ export default function BagEditorScreen({
           dueDate: data.dueDate,
           ...(data.type === "check"
             ? { checked: false }
-            : { bold: data.bold, strike: data.strike, color: data.color }),
+            : { bold: data.bold, strike: data.strike, color: data.color, spans: data.spans }),
         };
         const items = [...p.items, newItem];
         const updated = { ...p, items };
@@ -789,7 +790,7 @@ export default function BagEditorScreen({
     sourcePackId: string,
     itemId: string,
     targetPackId: string,
-    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string }
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string; spans?: RichSpan[] }
   ) => {
     if (guardReadOnly()) return;
     updatePacks((packs) => {
@@ -804,7 +805,7 @@ export default function BagEditorScreen({
         dueDate: data.dueDate,
         ...(data.type === "check"
           ? { checked: original.type === "check" ? original.checked : false }
-          : { bold: data.bold, strike: data.strike, color: data.color }),
+          : { bold: data.bold, strike: data.strike, color: data.color, spans: data.spans }),
       };
 
       if (sourcePackId === targetPackId) {
@@ -1712,20 +1713,21 @@ export default function BagEditorScreen({
     // PDF는 프리미엄 전용 기능 - storage.rules가 실제로도 프리미엄 요청자에게만 읽기/쓰기를
     // 허용한다. 무료 회원이 PDF를 골랐다면 그 파일들만 업로드 목록에서 빼고 업그레이드
     // 안내 모달을 띄우며, 같이 고른 이미지는 그대로 정상 업로드된다.
-    const isPdfFile = (f: File) =>
-      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
-    const pdfFiles = selected.filter(isPdfFile);
-    const toUpload = premium ? selected : selected.filter((f) => !isPdfFile(f));
-    if (pdfFiles.length > 0 && !premium) {
+    const isNonImageFile = (f: File) => !f.type.startsWith("image/");
+    const nonImageFiles = selected.filter(isNonImageFile);
+    const toUpload = premium ? selected : selected.filter((f) => !isNonImageFile(f));
+    if (nonImageFiles.length > 0 && !premium) {
       setShowPdfPremiumModal(true);
     }
     if (toUpload.length === 0) return;
 
     // PDF is not compressed on upload, so reject oversized PDFs here before spending
     // an upload attempt (images are still compressed down automatically as before).
-    const oversizedPdf = toUpload.find((f) => isPdfFile(f) && f.size > MAX_BAG_PDF_BYTES);
-    if (oversizedPdf) {
-      show("PDF 파일은 3MB 이하만 첨부할 수 있어요");
+    const oversized = toUpload.find(
+      (f) => isNonImageFile(f) && f.size > MAX_BAG_ATTACHMENT_FILE_BYTES
+    );
+    if (oversized) {
+      show("이미지가 아닌 파일은 10MB 이하만 첨부할 수 있어요");
       return;
     }
     setUploadingImages(true);
@@ -2032,13 +2034,21 @@ export default function BagEditorScreen({
         {bag.images.length > 0 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4">
             {bag.images.map((src, idx) => {
-              const isPdf = isPdfUrl(src);
+              const kind = getFileKind(src);
               return (
                 <div
                   key={idx}
                   className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
                 >
-                  {isPdf ? (
+                  {kind === "image" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={src}
+                      alt=""
+                      onClick={() => setLightboxIndex(idx)}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : kind === "pdf" ? (
                     <button
                       onClick={() =>
                         premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
@@ -2058,13 +2068,26 @@ export default function BagEditorScreen({
                       )}
                     </button>
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={src}
-                      alt=""
-                      onClick={() => setLightboxIndex(idx)}
-                      className="h-full w-full object-cover"
-                    />
+                    <button
+                      onClick={() =>
+                        premium ? openExternalLink(src) : setShowPdfPremiumModal(true)
+                      }
+                      className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary px-1"
+                      aria-label={premium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
+                    >
+                      <IconFileText size={20} stroke={1.75} />
+                      <span className="text-[8px] truncate max-w-full">
+                        {getFileExtensionLabel(src) || "FILE"}
+                      </span>
+                      {!premium && (
+                        <span
+                          className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                          style={{ background: "rgba(0,0,0,0.55)" }}
+                        >
+                          <IconLock size={9} stroke={2} color="#fff" />
+                        </span>
+                      )}
+                    </button>
                   )}
                   {!readOnly && (
                     <button
@@ -2083,7 +2106,7 @@ export default function BagEditorScreen({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingImages}
                 className="shrink-0 h-14 w-14 rounded-lg border border-dashed border-border-strong flex items-center justify-center text-text-muted disabled:opacity-50"
-                aria-label="사진 또는 PDF 첨부"
+                aria-label="파일 첨부"
               >
                 {uploadingImages ? (
                   <IconLoader2 size={18} stroke={1.75} className="animate-spin" />
@@ -2097,7 +2120,6 @@ export default function BagEditorScreen({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,application/pdf,.pdf"
           multiple
           hidden
           onChange={(e) => handleAddImages(e.target.files)}
@@ -2678,6 +2700,7 @@ export default function BagEditorScreen({
           initialBold={!!itemModal.item.bold}
           initialStrike={!!itemModal.item.strike}
           initialColor={itemModal.item.color || ""}
+          initialSpans={itemModal.item.spans}
           initialDueDate={itemModal.item.dueDate}
           onClose={() => setItemModal(null)}
           onSave={(targetPackIds, data) => {
@@ -2770,11 +2793,11 @@ export default function BagEditorScreen({
 
       {showPdfPremiumModal && (
         <PremiumLimitModal
-          message="PDF 첨부/미리보기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          message="이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
           onClose={() => setShowPdfPremiumModal(false)}
           onUnlocked={() => {
             setShowPdfPremiumModal(false);
-            show("이용권 코드가 적용됐어요! PDF 기능을 다시 시도해주세요");
+            show("이용권 코드가 적용됐어요! 다시 시도해주세요");
           }}
         />
       )}

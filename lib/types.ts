@@ -296,6 +296,13 @@ export interface UserProfile {
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)
   // 어디서나 동일하게 적용된다.
   quickPackCollapsed?: boolean;
+  // 데스크톱 레이아웃(DesktopSidebar) 폭(px). 오른쪽 가장자리를 드래그해서 조절한 값을 계정에
+  // 저장한다(기기 간 동기화). 없으면 288(기본값, w-72) 사용. DesktopSidebar.tsx의
+  // MIN/MAX_SIDEBAR_WIDTH 범위로 항상 클램프해서 저장된다.
+  sidebarWidth?: number;
+  // 데스크톱 레이아웃 사이드바를 아이콘만 남기고 접은 상태로 보여줄지. 없으면 false(펼쳐진
+  // 상태) 기본값.
+  sidebarCollapsed?: boolean;
   // 가방 속 팩의 펼침/접힘/넓게보기 상태(카드뷰)와 섹션 접기(메모장뷰). 그룹원과는
   // 절대 동기화되지 않고(각자 자기 화면에만 적용), 같은 사용자가 다른 기기에서 다시 로그인해도
   // 그대로 유지된다(계정에 저장되므로). 키는 `${bagId}:${packId}` 형태.

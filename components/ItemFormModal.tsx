@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IconX,
   IconSquareCheck,
   IconAlignLeft,
-  IconBold,
-  IconStrikethrough,
   IconCalendarEvent,
 } from "@tabler/icons-react";
 import Portal from "@/components/Portal";
 import PackChipBar from "@/components/PackChipBar";
-import { ItemType, Pack } from "@/lib/types";
+import ItemRichTextField from "@/components/ItemRichTextField";
+import { getItemSpans, spansToPlainText } from "@/lib/richText";
+import { ItemType, Pack, RichSpan } from "@/lib/types";
 import { TEXT_COLORS } from "@/components/ItemRow";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
@@ -23,6 +23,8 @@ export interface ItemFormSaveData {
   strike?: boolean;
   color?: string;
   dueDate?: string;
+  // 부분 서식(굵게/밑줄/취소선)이 적용된 구간별 스팬. 텍스트형(type:"text")일 때만 채워진다.
+  spans?: RichSpan[];
 }
 
 // 모바일 키보드가 올라오면 iOS는 레이아웃 뷰포트는 그대로 두고 비주얼 뷰포트만
@@ -61,6 +63,11 @@ function useVisualViewport() {
 //   보여주고, 체크된 모든 팩에 동시에 추가/복사된다.
 // 삭제는 이 모달의 책임이 아니다 - 짐 목록의 오른쪽 스와이프 삭제로만 가능하고,
 // 이 모달에서는 필수값(텍스트/팩 선택)이 비어있으면 저장을 막고 안내만 보여준다.
+//
+// 2026-08~: 텍스트형(type:"text") 항목은 전체 텍스트가 아니라 선택한 부분에만 굵게/밑줄/
+// 취소선을 줄 수 있다(ItemRichTextField, 부분 서식은 lib/richText.ts의 RichSpan[]로 저장).
+// 색상(color)은 여전히 텍스트 전체에 적용되는 값 그대로 유지한다 - RichSpan에는 색상
+// 필드가 없어서(굵게/밑줄/취소선만) 부분별 색상까지는 지원하지 않는다.
 export default function ItemFormModal({
   packs,
   selectionMode,
@@ -71,6 +78,7 @@ export default function ItemFormModal({
   initialBold = false,
   initialStrike = false,
   initialColor = "",
+  initialSpans,
   initialDueDate,
   onClose,
   onSave,
@@ -84,18 +92,24 @@ export default function ItemFormModal({
   initialBold?: boolean;
   initialStrike?: boolean;
   initialColor?: string;
+  // 있으면 부분 서식이 적용된 기존 짐을 그대로 불러온다. 없으면(예전 데이터 등)
+  // initialBold/initialStrike로 전체 텍스트를 감싸서 보여준다.
+  initialSpans?: RichSpan[];
   initialDueDate?: string;
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
 }) {
   const [selectedPackIds, setSelectedPackIds] = useState<string[]>(initialSelectedPackIds);
   const [type, setType] = useState<ItemType>(initialType);
-  const [text, setText] = useState(initialText);
-  const [bold, setBold] = useState(initialBold);
-  const [strike, setStrike] = useState(initialStrike);
+  const [spans, setSpans] = useState<RichSpan[]>(() =>
+    getItemSpans({ text: initialText, spans: initialSpans, bold: initialBold, strike: initialStrike })
+  );
+  const [checkText, setCheckText] = useState(initialType === "check" ? initialText : "");
   const [color, setColor] = useState(initialColor);
   const [dueDate, setDueDate] = useState(initialDueDate ?? "");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // "추가" 모드에서 저장 후 입력창을 비우고 다시 포커스를 줄 때, ItemRichTextField를
+  // 새로 마운트시켜서(autoFocus) 초기화하기 위한 키.
+  const [textFieldResetKey, setTextFieldResetKey] = useState(0);
   const { height: viewportHeight, offsetTop: viewportOffsetTop } = useVisualViewport();
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
@@ -110,7 +124,8 @@ export default function ItemFormModal({
     );
   };
 
-  const textEmpty = text.trim() === "";
+  const plainText = type === "check" ? checkText : spansToPlainText(spans);
+  const textEmpty = plainText.trim() === "";
   const noPackSelected = selectedPackIds.length === 0;
   const canSave = !textEmpty && !noPackSelected;
 
@@ -118,21 +133,27 @@ export default function ItemFormModal({
     if (!canSave) return;
     onSave(selectedPackIds, {
       type,
-      text,
+      text: plainText,
       dueDate: dueDate || undefined,
-      ...(type === "text" ? { bold, strike, color: color || undefined } : {}),
+      ...(type === "text"
+        ? {
+            bold: spans.some((s) => s.bold),
+            strike: spans.some((s) => s.strike),
+            color: color || undefined,
+            spans,
+          }
+        : {}),
     });
     // "추가" 모드일 때만 저장 후 모달을 닫지 않고 텍스트/서식만 초기화해서 연달아
-    // 여러 개를 넣을 수 있게 한다(팀 선택은 그대로 유지 - 같은 패들에 계속 추가하는
+    // 여러 개를 넣을 수 있게 한다(팩 선택은 그대로 유지 - 같은 팩들에 계속 추가하는
     // 경우가 많아서). 닫거나 멈추려면 사용자가 직접 취소/X를 누르면 된다. 수정(edit)
     // 모드는 부모(handleModalSave)가 대신 모달을 닫는다.
     if (mode === "add") {
-      setText("");
-      setBold(false);
-      setStrike(false);
+      setCheckText("");
+      setSpans([]);
       setColor("");
       setDueDate("");
-      textareaRef.current?.focus();
+      setTextFieldResetKey((k) => k + 1);
     }
   };
 
@@ -205,62 +226,42 @@ export default function ItemFormModal({
             </button>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <textarea
-              ref={textareaRef}
-              autoFocus
-              rows={3}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={type === "check" ? "짐 이름" : "텍스트 입력"}
-              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
-              style={{
-                fontWeight: type === "text" && bold ? 700 : 400,
-                textDecoration: type === "text" && strike ? "line-through" : "none",
-                color: type === "text" ? color || "var(--foreground)" : "var(--foreground)",
-              }}
-            />
-            {textEmpty && (
-              <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
-                텍스트를 입력해주세요.
-              </p>
-            )}
-          </div>
+          {type === "check" ? (
+            <div className="flex flex-col gap-1.5">
+              <textarea
+                autoFocus
+                rows={3}
+                value={checkText}
+                onChange={(e) => setCheckText(e.target.value)}
+                placeholder="짐 이름"
+                className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
+              />
+              {textEmpty && (
+                <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
+                  텍스트를 입력해주세요.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5" style={{ color: color || undefined }}>
+              <ItemRichTextField
+                key={textFieldResetKey}
+                initialSpans={spans}
+                placeholder="텍스트 입력"
+                autoFocus
+                onChange={({ spans }) => setSpans(spans)}
+                onCommit={handleSave}
+              />
+              {textEmpty && (
+                <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
+                  텍스트를 입력해주세요.
+                </p>
+              )}
+            </div>
+          )}
 
           {type === "text" && (
             <div className="flex items-center flex-wrap gap-2.5">
-              <button
-                type="button"
-                onClick={() => setBold((b) => !b)}
-                aria-label="굵게"
-                className="flex items-center justify-center rounded shrink-0"
-                style={{
-                  background: bold ? "var(--accent)" : "var(--surface-2)",
-                  color: bold ? "#fff" : "var(--text-secondary)",
-                  width: 30,
-                  height: 30,
-                }}
-              >
-                <IconBold size={16} stroke={2.25} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setStrike((s) => !s)}
-                aria-label="취소선"
-                className="flex items-center justify-center rounded shrink-0"
-                style={{
-                  background: strike ? "var(--accent)" : "var(--surface-2)",
-                  color: strike ? "#fff" : "var(--text-secondary)",
-                  width: 30,
-                  height: 30,
-                }}
-              >
-                <IconStrikethrough size={16} stroke={2.25} />
-              </button>
-              <span
-                className="shrink-0"
-                style={{ width: 1, height: 18, background: "var(--border)" }}
-              />
               {TEXT_COLORS.map((c) => (
                 <button
                   key={c || "default"}
