@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useMemo, useState } from "react";
 import {
   IconTrash,
   IconChevronDown,
@@ -19,7 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
-import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
+import { collectEditorDocPreviewLines } from "@/lib/editorDocPreview";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import SwipeRenameField from "./SwipeRenameField";
@@ -30,10 +29,12 @@ import PdfPreviewModal from "./PdfPreviewModal";
 import PremiumLimitModal from "./PremiumLimitModal";
 
 // "checklist" 팩의 PackCard와 짝이 되는 "editor" 팩(자유문서형 메모 팩)용 카드.
-// 짐(Item) 그리드 대신, 접혀있을 땐 미리보기 텍스트 한두 줄만, 펼치면 TipTap을
-// 읽기전용으로 렌더해서 체크박스/제목/표가 그대로 보이게 한다. 실제 수정은 연필
-// 아이콘으로 전체화면 편집기(PackNoteEditorScreen)를 열어야 한다 - 노션 페이지
-// 진입하듯 별도 화면에서 편집하고, 이 카드 자체는 보기 전용 미리보기 역할만 한다.
+// 짐(Item) 그리드 대신, 접혀있을 땐 미리보기 텍스트 한두 줄만, 펼치면 서식 없는 순수
+// 텍스트(+링크만 클릭 가능)로 내용을 보여준다(2026-08, 팩뷰 표시 단순화 - 원래는 TipTap을
+// 읽기전용으로 통째로 렌더했었는데, 카드마다 무거운 에디터 인스턴스를 만드는 대신 가벼운
+// 텍스트 미리보기로 바꿨다). 실제 수정은 연필 아이콘으로 전체화면 편집기(PackNoteEditorScreen)를
+// 열어야 한다 - 노션 페이지 진입하듯 별도 화면에서 편집하고, 이 카드 자체는 보기 전용
+// 미리보기 역할만 한다.
 // 보관함 저장/새로고침/삭제(+함께삭제) 등 팩 자체를 다루는 기능은 PackCard와 동일하게 제공한다.
 export default function EditorPackCard({
   pack,
@@ -90,23 +91,10 @@ export default function EditorPackCard({
   const isCollapsed = displayState === "collapsed";
   const packImages = pack.images ?? [];
 
-  // 펼쳐졌을 때만 읽기전용 에디터를 만든다(접힌 상태에서는 미리보기 텍스트만 보여주면
-  // 되니 무거운 TipTap 인스턴스를 만들 필요가 없다).
-  const editor = useEditor({
-    extensions: getNoteEditorExtensions(),
-    content: pack.editorDoc ?? "",
-    editable: false,
-    immediatelyRender: false,
-  });
-
-  // NotebookEditorPackSection과 동일한 이유로(deps 배열로 강제 재생성하는 패턴이
-  // React 19 + Tiptap에서 flushSync 콘솔 에러를 일으킴) 에디터는 한 번만 만들고,
-  // 내용 동기화는 렌더링과 분리된 effect로 따로 처리한다.
-  useEffect(() => {
-    if (!editor || isCollapsed) return;
-    editor.commands.setContent(pack.editorDoc ?? "", false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, isCollapsed, pack.editorDoc]);
+  // 팩뷰(EditorPackCard) 미리보기는 이제 무거운 TipTap 읽기전용 인스턴스를 카드마다 mount하는
+  // 대신, editorDoc을 순수 텍스트+링크만 뽑아내는 가벼운 유틸(lib/editorDocPreview.ts)로 대체했다
+  // (2026-08). 서식(제목/표/체크박스/토글)은 다 빠지지만 링크는 그대로 살아있어 탭 가능.
+  const previewLines = useMemo(() => collectEditorDocPreviewLines(pack.editorDoc), [pack.editorDoc]);
 
   return (
     <div
@@ -262,20 +250,8 @@ export default function EditorPackCard({
       )}
 
       <div
-        onClick={(e) => {
-              // 읽기전용 에디터 내용은 이제 일반 클릭으로는 무시하고(글씨 드래그 선택/접기폄치는
-              // 브라우저가 그대로 처리하게 둘), 링크(<a>) 클릭만 직접 감지해서 연다 -
-              // PackNoteEditorScreen과 동일한 패턴(Link 마크가 openOnClick:false라서 자동 탐색이 안 됨).
-              const anchor = (e.target as HTMLElement).closest("a");
-              if (!anchor) return;
-              const href = anchor.getAttribute("href");
-              if (!href) return;
-              e.preventDefault();
-              e.stopPropagation();
-              openExternalLink(href);
-            }}
         onDoubleClick={onOpenEditor}
-        className="text-left rounded-lg -mx-1 px-1 py-1 overflow-hidden"
+        className="text-left rounded-lg -mx-1 px-1 py-1"
         style={{
           maxHeight: "calc(228px * var(--pack-card-scale,1))",
           overflowY: "auto",
@@ -283,14 +259,43 @@ export default function EditorPackCard({
           display: isCollapsed ? "none" : undefined,
         }}
       >
-        {editor?.isEmpty && (
+        {previewLines.length === 0 ? (
           <p className="text-[13px] text-text-muted py-2">
             더블클릭해서 메모를 수정해보세요
           </p>
+        ) : (
+          <div
+            className="text-[13px] leading-[1.55] whitespace-pre-wrap break-words"
+            style={{ color: "var(--text-secondary)" }}
+          >
+            {previewLines.map((spans, li) => (
+              <p key={li} className="m-0">
+                {spans.map((span, si) =>
+                  span.href ? (
+                    <a
+                      key={si}
+                      href={span.href}
+                      onClick={(e) => {
+                        // 링크는 싱글탭으로 바로 이동, 그 외 영역은 onDoubleClick으로 에디터를 연다
+                        // (PackNoteEditorScreen/예전과 동일한 규약 - openExternalLink로 열고 기본
+                        // 네비게이션은 막는다).
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openExternalLink(span.href!);
+                      }}
+                      className="underline"
+                      style={{ color: "var(--accent)" }}
+                    >
+                      {span.text}
+                    </a>
+                  ) : (
+                    <span key={si}>{span.text}</span>
+                  )
+                )}
+              </p>
+            ))}
+          </div>
         )}
-        <div>
-          <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
-        </div>
       </div>
 
       {!isCollapsed && (
@@ -304,7 +309,9 @@ export default function EditorPackCard({
                     </span>
                   </button>
                 )}
-                {pack.linkedLibraryPackId && onRefreshFromLibrary && (
+                {/* 실시간 동기화(autoSyncEnabled) 중이면 보관함과 항상 자동으로 맞춰지므로,
+                    수동 저장/다시불러오기 버튼은 의미가 없어 숨긴다 - 동기화 토글만 남긴다. */}
+                {!pack.autoSyncEnabled && pack.linkedLibraryPackId && onRefreshFromLibrary && (
                   <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
                     <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                       <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
@@ -325,7 +332,7 @@ export default function EditorPackCard({
                     </span>
                   </button>
                 )}
-                {onSaveToLibrary && (
+                {!pack.autoSyncEnabled && onSaveToLibrary && (
                   <button onClick={onSaveToLibrary} aria-label="팩 저장">
                     <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                       {isSyncedWithLibrary ? (

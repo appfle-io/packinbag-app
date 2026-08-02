@@ -203,7 +203,8 @@ export default function NotebookEditorPackSection({
                       다른 가방으로 이동
                     </button>
                   )}
-                  {pack.linkedLibraryPackId && onRefreshFromLibrary && (
+                  {/* 실시간 동기화(autoSyncEnabled) 중이면 수동 다시불러오기가 의미가 없어 숨긴다. */}
+                  {!pack.autoSyncEnabled && pack.linkedLibraryPackId && onRefreshFromLibrary && (
                     <button
                       onClick={() => {
                         setShowMenu(false);
@@ -230,7 +231,7 @@ export default function NotebookEditorPackSection({
                       {pack.autoSyncEnabled ? "실시간 동기화 끄기" : "실시간 동기화 켜기"}
                     </button>
                   )}
-                  {onSaveToLibrary && (
+                  {!pack.autoSyncEnabled && onSaveToLibrary && (
                     <button
                       onClick={() => {
                         setShowMenu(false);
@@ -346,8 +347,15 @@ export default function NotebookEditorPackSection({
           openExternalLink(href);
         }}
         onDoubleClick={onOpenEditor}
-        className="text-left w-full rounded-lg pl-6 pr-1 py-1 overflow-hidden"
-        style={{ cursor: "text", display: isCollapsed ? "none" : undefined }}
+        className="text-left w-full rounded-lg pl-6 pr-1 py-1"
+        style={{
+          cursor: "text",
+          display: isCollapsed ? "none" : undefined,
+          // 팝뷰(EditorPackCard)와 동일한 기본 최대높이 - 내용이 적으면 그만큼만 차지하고(auto),
+          // 이 값을 넘으면 이제 스크롤된다. 예전엔 높이 제한이 없어서 긴 문서면 리스트 전체가 끝없이 늘어났다.
+          maxHeight: 228,
+          overflowY: "auto",
+        }}
       >
         {editor?.isEmpty && (
           <p className="text-[13px] text-text-muted py-1">더블클릭해서 메모를 수정해보세요</p>

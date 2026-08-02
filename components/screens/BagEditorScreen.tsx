@@ -50,6 +50,7 @@ import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
 import AiOrganizeModal from "@/components/AiOrganizeModal";
 import AiFeatureMenu from "@/components/AiFeatureMenu";
+import AiClipboardModal, { AiClipboardResult } from "@/components/AiClipboardModal";
 import ItemThreadSheet from "@/components/ItemThreadSheet";
 import ReactionPickerPopover from "@/components/ReactionPickerPopover";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
@@ -201,6 +202,7 @@ export default function BagEditorScreen({
   // 이용권 구매를 유도한다.
   const [showAiFeatureMenu, setShowAiFeatureMenu] = useState(false);
   const [showAiPremiumModal, setShowAiPremiumModal] = useState(false);
+  const [showAiClipboard, setShowAiClipboard] = useState(false);
 
   // 설정 > 팩 설정 > "가방 열 때 팩 접어서 보기"가 켜져 있으면, 이 화면에 처음 들어온
   // 순간에만 모든 팩을 접힌 상태로 보여준다. 저장된 Pack.displayState는 전혀 건드리지
@@ -407,6 +409,57 @@ export default function BagEditorScreen({
       ]);
     }
     show(`'${itemText}'를 'AI추천' 팩에 담았어요!`);
+  };
+
+  // AI 클립보드 결과 적용 - 통째로 교체하는 AiOrganizeModal과 달리, 지금 있는 팩(체크리스트 팩)과
+  // 이름이 같으면 그 팩에 이어서 담고, 없으면 새로 만든다(서버가 이미 중복 항목을 거른 뒤라
+  // 여기서는 단순 병합만 한다). 팩 10개 캡은 새 팩을 만들 때만 적용되고,
+  // 캡에 걸린 항목은 조용히 버려지지 않고 토스트로 알려준다.
+  const handleApplyClipboardAdd = (result: AiClipboardResult) => {
+    if (guardReadOnly()) return;
+    let addedCount = 0;
+    let cappedOut = false;
+    updatePacks((packs) => {
+      let next = [...packs];
+      for (const g of result.packs) {
+        if (g.items.length === 0) continue;
+        const newItems: Item[] = g.items.map((itemText) => ({
+          id: uid(),
+          type: "check",
+          text: itemText,
+          checked: false,
+        }));
+        const existingIdx = next.findIndex(
+          (p) => p.kind !== "editor" && p.name.trim() === g.name.trim()
+        );
+        if (existingIdx >= 0) {
+          next = next.map((p, i) =>
+            i === existingIdx ? { ...p, items: [...p.items, ...newItems] } : p
+          );
+          addedCount += newItems.length;
+        } else if (next.length < 10) {
+          next = [{ id: uid(), name: g.name, items: newItems }, ...next];
+          addedCount += newItems.length;
+        } else {
+          cappedOut = true;
+        }
+      }
+      return next;
+    });
+    setShowAiClipboard(false);
+    if (addedCount === 0) {
+      show(
+        result.skippedDuplicateCount > 0
+          ? "클립보드 내용이 이미 모두 이 가방에 있어요"
+          : "추가할 만한 내용을 찾지 못했어요"
+      );
+    } else if (cappedOut) {
+      show(`팩이 가득 차서 일부는 추가하지 못했어요 (${addedCount}개 추가함)`);
+    } else if (result.skippedDuplicateCount > 0) {
+      show(`${addedCount}개 추가했어요 (이미 있는 항목 ${result.skippedDuplicateCount}개는 제외)`);
+    } else {
+      show(`${addedCount}개 추가했어요`);
+    }
   };
 
   // 잠긴 가방에서 수정을 시도하는 모든 진입점의 공용 방어선. true를 반환하면(=막혔으면)
@@ -2798,12 +2851,19 @@ export default function BagEditorScreen({
             }
             runAiRecommend();
           }}
+          onSelectClipboard={() => {
+            if (!premium) {
+              setShowAiPremiumModal(true);
+              return;
+            }
+            setShowAiClipboard(true);
+          }}
         />
       )}
 
       {showAiPremiumModal && (
         <PremiumLimitModal
-          message="AI 정리·AI 추천은 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          message="AI 정리·AI 추천·AI 클립보드는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
           onClose={() => setShowAiPremiumModal(false)}
           onUnlocked={() => {
             setShowAiPremiumModal(false);
@@ -2822,6 +2882,14 @@ export default function BagEditorScreen({
             updatePacks(() => newPacks);
             show("AI가 정리했어요");
           }}
+        />
+      )}
+
+      {showAiClipboard && (
+        <AiClipboardModal
+          bag={bag}
+          onClose={() => setShowAiClipboard(false)}
+          onApply={handleApplyClipboardAdd}
         />
       )}
 
