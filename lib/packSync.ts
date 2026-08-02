@@ -57,7 +57,7 @@ export function findLinkedBagPackRefs(
 // 걱정도 없다.
 export interface EditorSyncPatch {
   name: string;
-  editorDoc: object | null;
+  editorDoc: object | undefined;
   editorPreviewText?: string;
   updatedAt: string;
 }
@@ -85,7 +85,7 @@ export function resolveEditorSyncDirection(
 export function buildEditorSyncPatch(source: Pack): EditorSyncPatch {
   return {
     name: source.name,
-    editorDoc: source.editorDoc ?? null,
+    editorDoc: source.editorDoc ?? undefined,
     editorPreviewText: source.editorPreviewText,
     updatedAt: source.updatedAt ?? new Date().toISOString(),
   };

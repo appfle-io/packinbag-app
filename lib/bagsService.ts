@@ -87,7 +87,7 @@ export async function saveBagRemote(bag: Bag) {
 export async function updateBagPackEditorContent(
   bagId: string,
   packId: string,
-  patch: { name: string; editorDoc: object | null; editorPreviewText?: string; updatedAt: string }
+  patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
 ) {
   const ref = doc(bagsCol(), bagId);
   await runTransaction(db, async (tx) => {
