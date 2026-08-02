@@ -18,6 +18,8 @@ export default function PackGrid({
   onDeletePack,
   onChangeDisplayState,
   onRefreshFromLibrary,
+  onSyncEditorPack,
+  onMoveToBag,
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
@@ -60,6 +62,11 @@ export default function PackGrid({
   onDeletePack: (packId: string, alsoDeleteLibrary: boolean) => void;
   onChangeDisplayState: (packId: string, nextState: "normal" | "wide" | "collapsed") => void;
   onRefreshFromLibrary: (packId: string) => void;
+  // 링크된 메모팩만 대상으로, 보관함과 계속 맞춰질지(pack.autoSyncEnabled) 켜고/끄는 토글.
+  onSyncEditorPack?: (packId: string) => void;
+  // 있으면 모든 팩 카드에 "다른 가방으로 이동" 버튼이 보인다(내가 속한
+  // 다른 가방이 있을 때만 BagEditorScreen이 이 콜백을 넘겨준다).
+  onMoveToBag?: (packId: string) => void;
   onStartItemDrag?: (packId: string, itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
@@ -112,6 +119,8 @@ export default function PackGrid({
           onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
           onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
           onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
+          onSyncLibraryLink={onSyncEditorPack ? () => onSyncEditorPack(pack.id) : undefined}
+          onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
           editors={getNoteEditors?.(pack.id) ?? []}
           premium={premium}
           onStartPackDrag={
@@ -141,6 +150,7 @@ export default function PackGrid({
       onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
       onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
       onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
+      onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
       onStartItemDrag={
         onStartItemDrag
           ? (itemId, text, x, y) => onStartItemDrag(pack.id, itemId, text, x, y)

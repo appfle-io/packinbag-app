@@ -10,6 +10,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   setDoc,
   updateDoc,
   where,
@@ -78,6 +79,36 @@ export async function saveBagRemote(bag: Bag) {
   );
 }
 
+// 메모팩 실시간 동기화(autoSyncEnabled) 전용 - 팩이 배열(Bag.packs) 안에 박혀있어서
+// 단순 updateDoc으로는 한 개만 고칠 수 없다. 팩 보관함 화면이 열려있을 때(그 가방이 지금
+// 아무도 열어보고 있지 않아도) 호출되는 것을 전제로 하므로, 동시 편집과 경합해도 다른
+// 필드/다른 팩을 덮어쓰지 않게 runTransaction으로 방금 읽은 최신 packs에 대해서만 대상
+// 팩을 교체해서 다시 쓴다.
+export async function updateBagPackEditorContent(
+  bagId: string,
+  packId: string,
+  patch: { name: string; editorDoc: object | null; editorPreviewText?: string; updatedAt: string }
+) {
+  const ref = doc(bagsCol(), bagId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as Bag;
+    const packs = data.packs.map((p) =>
+      p.id === packId
+        ? {
+            ...p,
+            name: patch.name,
+            editorDoc: patch.editorDoc ?? undefined,
+            editorPreviewText: patch.editorPreviewText,
+            updatedAt: patch.updatedAt,
+          }
+        : p
+    );
+    tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
+  });
+}
+
 // 가방 하나를 실시간 구독 (다른 멤버의 변경을 편집 화면에서 바로 반영하기 위함).
 // 목록 구독(subscribeToUserBags)과 별개로, 지금 열어본 가방 하나만 가볍게 구독한다.
 export function subscribeToBag(
@@ -86,6 +117,44 @@ export function subscribeToBag(
 ) {
   return onSnapshot(doc(bagsCol(), bagId), (snap) => {
     callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Bag) : null);
+  });
+}
+
+// 가방 속 팩을 다른 가방으로 통채 이동(모바일 "다른 가방으로 이동" 버튼 전용 -
+// 데스크톱은 DesktopSidebar.tsx의 드래그앤드롭으로 이미 동일한 일을 한다). 두 가방 문서를
+// 한 번에 읽고 쓰는 runTransaction으로 처리해서, 그 사이에 다른 멤버가 어느 쪽이든 가방을
+// 동시 편집해도 안전하다. 대상 가방이 이미 10개를 다 채우면 이동을 거부한다.
+export async function movePackBetweenBagsRemote(
+  fromBagId: string,
+  toBagId: string,
+  packId: string
+): Promise<{ ok: true } | { ok: false; reason: "not-found" | "target-full" }> {
+  const fromRef = doc(bagsCol(), fromBagId);
+  const toRef = doc(bagsCol(), toBagId);
+  return await runTransaction(db, async (tx) => {
+    const [fromSnap, toSnap] = await Promise.all([tx.get(fromRef), tx.get(toRef)]);
+    if (!fromSnap.exists() || !toSnap.exists()) {
+      return { ok: false, reason: "not-found" as const };
+    }
+    const fromData = fromSnap.data() as Bag;
+    const toData = toSnap.data() as Bag;
+    const movingPack = fromData.packs.find((p) => p.id === packId);
+    if (!movingPack) {
+      return { ok: false, reason: "not-found" as const };
+    }
+    if (toData.packs.length >= 10) {
+      return { ok: false, reason: "target-full" as const };
+    }
+    const now = new Date().toISOString();
+    tx.update(fromRef, {
+      packs: stripUndefined(fromData.packs.filter((p) => p.id !== packId)),
+      updatedAt: now,
+    });
+    tx.update(toRef, {
+      packs: stripUndefined([...toData.packs, movingPack]),
+      updatedAt: now,
+    });
+    return { ok: true as const };
   });
 }
 

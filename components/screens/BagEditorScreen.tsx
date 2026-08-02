@@ -62,9 +62,9 @@ import { fetchDeletedAccountIds } from "@/lib/accountService";
 import NotebookQuickAddModal, { QuickAddItemData } from "@/components/NotebookQuickAddModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
-import { subscribeToBag, saveBagRemote } from "@/lib/bagsService";
-import { deleteLibraryPackRemote } from "@/lib/packsService";
-import { isInSyncWithLibrary } from "@/lib/packSync";
+import { subscribeToBag, saveBagRemote, movePackBetweenBagsRemote } from "@/lib/bagsService";
+import { deleteLibraryPackRemote, updateLibraryPackEditorContent } from "@/lib/packsService";
+import { isInSyncWithLibrary, resolveEditorSyncDirection, buildEditorSyncPatch } from "@/lib/packSync";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { collectDescendantPackIds } from "@/lib/packsService";
@@ -116,6 +116,7 @@ const MAX_BAG_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
 export default function BagEditorScreen({
   initialBag,
   libraryPacks,
+  bags,
   uid: currentUid,
   nickname,
   avatarId,
@@ -136,6 +137,9 @@ export default function BagEditorScreen({
 }: {
   initialBag: Bag;
   libraryPacks: Pack[];
+  // 내가 속한 모든 가방(이 가방 자체 포함). 모바일에서 "다른 가방으로 이동" 시트에
+  // 필요하다(데스크톱은 DesktopSidebar.tsx의 드래그앤드롭을 따로 쓴다).
+  bags: Bag[];
   uid: string;
   nickname: string;
   avatarId: string;
@@ -629,6 +633,99 @@ export default function BagEditorScreen({
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bag.id]);
+
+  // --- 메모팩(에디터팩) 보관함 연동 실시간 동기화 (토글) ---------------------------------
+  // pack.autoSyncEnabled를 켜두면, 이 화면(가방)이 열려있는 동안에는 linkedLibraryPackId로
+  // 연동된 보관함 원본과 내용이 다를 때마다(bag.packs 또는 libraryPacks가 바뀔 때마다)
+  // 계속 재검사해서 더 최신인 쪽으로 맞춘다(lib/packSync.ts resolveEditorSyncDirection).
+  // 노션처럼 "닫힌 가방까지 계속" 동기화하는 서버 트리거는 없어서 이 화면이 열려있는
+  // 동안만 실제로 일어나고, 끄면 그 순간부터 더 이상 비교하지 않는다. resolveEditorSyncDirection이
+  // 내용이 같으면 "none"을 돌려주므로(핑퐁 방지), 한번 맞춰지고 나면 이 effect가 다시
+  // 돌아와도 쓰기가 더 이상 나가지 않는다.
+  const handleToggleAutoSync = (packId: string) => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) =>
+      packs.map((p) => (p.id === packId ? { ...p, autoSyncEnabled: !p.autoSyncEnabled } : p))
+    );
+  };
+
+  useEffect(() => {
+    let bagChanged = false;
+    const nextPacks = bag.packs.map((p) => {
+      if (p.kind !== "editor" || !p.autoSyncEnabled || !p.linkedLibraryPackId) return p;
+      const libPack = libraryPacks.find((lp) => lp.id === p.linkedLibraryPackId);
+      if (!libPack) return p;
+      const direction = resolveEditorSyncDirection(p, libPack);
+      if (direction === "none") return p;
+      if (direction === "library-wins") {
+        bagChanged = true;
+        return { ...p, ...buildEditorSyncPatch(libPack) };
+      }
+      // bag-wins: 이 팩은 그대로 두고, 보관함 원본만 따로 업데이트한다.
+      updateLibraryPackEditorContent(currentUid, p.linkedLibraryPackId, buildEditorSyncPatch(p)).catch(
+        (err) => {
+          console.error("[팩인백] 메모팩 보관함 동기화 실패:", err);
+        }
+      );
+      return p;
+    });
+    if (bagChanged) {
+      // 사용자가 직접 고친 게 아니라 연동된 보관함 내용이 들어온 것이라 undo 스택에는
+      // 쌓지 않는다(pushUndoSnapshot 없이 setBag만). 다만 이 가방 자체에는 그대로
+      // 저장되어야 하므로(그룹원도 봐야 함) 아래 자동저장 effect는 정상적으로 돈다.
+      setBag((prev) => ({ ...prev, packs: nextPacks }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bag.packs, libraryPacks]);
+
+  // --- 다른 가방으로 팩 이동 (모바일 "다른 가방으로 이동" 시트) ------------------------------
+  // 데스크톱은 DesktopSidebar.tsx에서 가방을 펼친 뒤 팩을 드래그해서 다른 가방에 놓는
+  // 방식으로 이미 동일한 일을 하고 있어서, 이 화면에는 대신 "다른 가방으로 이동" 버튼을 더한다.
+  // 서버층(movePackBetweenBagsRemote)은 runTransaction으로 두 가방 문서를 안전하게 바꾸기 때문에
+  // 데스크톱과 동일한 기반을 공유한다.
+  const [moveTargetPackId, setMoveTargetPackId] = useState<string | null>(null);
+  const [movingPackId, setMovingPackId] = useState<string | null>(null);
+
+  const handleOpenMovePackSheet = (packId: string) => {
+    if (guardReadOnly()) return;
+    setMoveTargetPackId(packId);
+  };
+
+  // 실제 이동 로직 - 버튼 시트에서 고른 경우(handleMovePackToBag)와 사이드바로 드래그해서 놓은
+  // 경우(아래 packDrag 포인터업) 둘 다 이 함수로 수렴된다.
+  const performMovePackToBag = async (packId: string, targetBagId: string) => {
+    setMovingPackId(packId);
+    try {
+      const result = await movePackBetweenBagsRemote(bag.id, targetBagId, packId);
+      if (!result.ok) {
+        show(
+          result.reason === "target-full"
+            ? "그 가방은 이미 팩이 10개라 더 넣을 수 없어요"
+            : "팩을 이동하지 못했어요"
+        );
+        return;
+      }
+      // 서버 트랜잭션이 이미 이 가방 문서에서 통째로 지웠으니, 로컬 상태도 그대로 따라가게
+      // 지운다(pushUndoSnapshot 없이). isApplyingRemoteRef를 켜서 자동저장 effect가 이미
+      // 서버에 반영된 내용을 다시 덮어쓰지 않게 막는다.
+      isApplyingRemoteRef.current = true;
+      setBag((prev) => ({ ...prev, packs: prev.packs.filter((p) => p.id !== packId) }));
+      const targetBagName = bags.find((b) => b.id === targetBagId)?.name ?? "다른 가방";
+      show(`'${targetBagName}' 가방으로 옮겨요`);
+    } catch (err) {
+      console.error("[팩인백] 가방 간 팩 이동 실패:", err);
+      show("팩을 이동하지 못했어요");
+    } finally {
+      setMovingPackId(null);
+    }
+  };
+
+  const handleMovePackToBag = (targetBagId: string) => {
+    const packId = moveTargetPackId;
+    if (!packId) return;
+    setMoveTargetPackId(null);
+    performMovePackToBag(packId, targetBagId);
+  };
 
   // 검색 결과를 눌러서 들어온 경우(focusTarget) 해당 팩이 접혀있으면 펼치고, 그 팩(또는 짐)으로
   // 스크롤한 뒤 잠깐 하이라이트(pib-search-highlight, globals.css)를 붙였다 뗀다. 펼치는
@@ -1432,9 +1529,11 @@ export default function BagEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- 팩 순서 드래그 -------------------------------------------------------
+  // --- 팩 순서 드래그 -------------------------------------------------------------
   // 짐 드래그(팩→팩 이동)와 별개로, 팩 카드 자체를 드래그해서 가방 안 팩들의
-  // 순서를 바꾸는 기능. 같은 [data-pack-drop-id] 드롭존을 재사용한다.
+  // 순서를 바꾸는 기능. 같은 [data-pack-drop-id] 드롭존을 재사용한다. 데스크톱에서는
+  // 사이드바(DesktopSidebar.tsx)의 가방 행에 붙은 [data-bag-drop-id]도 같이 감지해서, 놓으면
+  // 이 가방에서 다른 가방으로 통째 이동시킨다(performMovePackToBag).
   const [packDrag, setPackDrag] = useState<{
     packId: string;
     name: string;
@@ -1442,6 +1541,7 @@ export default function BagEditorScreen({
     y: number;
     overPackId: string | null;
     overPackPosition: "before" | "after" | null;
+    overBagId: string | null;
   } | null>(null);
 
   const handleStartPackDrag = (
@@ -1451,13 +1551,21 @@ export default function BagEditorScreen({
     clientY: number
   ) => {
     if (guardReadOnly()) return;
-    const next = { packId, name, x: clientX, y: clientY, overPackId: null, overPackPosition: null };
+    const next = {
+      packId,
+      name,
+      x: clientX,
+      y: clientY,
+      overPackId: null,
+      overPackPosition: null,
+      overBagId: null,
+    };
     packDragRef.current = next;
     setPackDrag(next);
   };
 
   // insertAfter가 true면 toPackId "다음"에, 아니면 "앞"에 삽입한다(짐 순서변경과 같은
-  // 이유로 커서 위치 기준으로 before/after를 판단해야 어디로 옮겨질지 직관적이다).
+  // 이유로 커서 위치 기준으로 before/after를 판단해야 어디로 옥겨질지 직관적이다).
   const handleReorderPack = (fromPackId: string, toPackId: string, insertAfter?: boolean) => {
     if (guardReadOnly()) return;
     updatePacks((packs) => {
@@ -1470,34 +1578,73 @@ export default function BagEditorScreen({
       const moved = packs[fromIndex];
       return [...withoutItem.slice(0, targetIndex), moved, ...withoutItem.slice(targetIndex)];
     });
-    show("팩 순서를 바꿨어요");
+    show("팩 순서를 바됀어요");
   };
 
   const packDragRef = useRef<typeof packDrag>(null);
+  // 사이드바 가방 행을 통과하는 동안 하이라이트를 직접 DOM에 그려주기 위한 ref -
+  // 그 element는 이 컴포넌트가 만든 것이 아니라 사이드바 컴포넌트가 그린 것이라,
+  // React state가 아니라 직접 DOM 스타일을 건드려야한다.
+  const bagDropHighlightElRef = useRef<HTMLElement | null>(null);
+
+  const clearBagDropHighlight = () => {
+    const el = bagDropHighlightElRef.current;
+    if (el) {
+      el.style.outline = "";
+      el.style.outlineOffset = "";
+      el.style.background = "";
+    }
+    bagDropHighlightElRef.current = null;
+  };
 
   useEffect(() => {
     if (!packDrag) return;
 
     const handleMove = (e: PointerEvent) => {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      const packEl = el?.closest("[data-pack-drop-id]") as HTMLElement | null;
+      // 데스크톱에서만 사이드바가 존재하므로, 모바일에서는 이 요소 자체가 발견되지 않는다.
+      const bagEl = el?.closest("[data-bag-drop-id]") as HTMLElement | null;
+      const overBagId = bagEl?.getAttribute("data-bag-drop-id") ?? null;
+      // 사이드바에 올라타있으면 같은 팩막(reorder) 드롭존은 보지 않기로 한다(우선순위 분리).
+      const packEl = overBagId ? null : (el?.closest("[data-pack-drop-id]") as HTMLElement | null);
       const overPackId = packEl?.getAttribute("data-pack-drop-id") ?? null;
       let overPackPosition: "before" | "after" | null = null;
       if (packEl) {
         const rect = packEl.getBoundingClientRect();
         overPackPosition = e.clientY - rect.top < rect.height / 2 ? "before" : "after";
       }
+
+      // 사이드바 하이라이트 - 다른 가방 위에 올라타있을 때만 표시하고, 지금 열어본 가방
+      // 자체에 올라타 있으면(이동이 의미없으니) 표시하지 않는다.
+      const validOverBagId = overBagId && overBagId !== bag.id ? overBagId : null;
+      if (bagEl !== bagDropHighlightElRef.current) {
+        clearBagDropHighlight();
+        if (validOverBagId && bagEl) {
+          bagEl.style.outline = "2px solid var(--accent)";
+          bagEl.style.outlineOffset = "-2px";
+          bagEl.style.background = "var(--accent-soft)";
+          bagDropHighlightElRef.current = bagEl;
+        }
+      }
+
       setPackDrag((d) => {
         if (!d) return d;
-        const next = { ...d, x: e.clientX, y: e.clientY, overPackId, overPackPosition };
+        const next = {
+          ...d,
+          x: e.clientX,
+          y: e.clientY,
+          overPackId,
+          overPackPosition,
+          overBagId: validOverBagId,
+        };
         packDragRef.current = next;
         return next;
       });
     };
 
-    // 예전에는 손을 뗀 순간(handleUp) 안에서 setPackDrag의 함수형 업데이트(d => {...})
+    // 예전에는 손을 덴 순간(handleUp) 안에서 setPackDrag의 함수형 업데이트(d => {...})
     // 안에서 바로 handleReorderPack(setBag + 토스트 show)을 호출해서, "BagEditorScreen을
-    // 렌더링하는 도중에 ToastProvider 상태를 바꾼다"는 React 경고가 났다(setState
+    // 렌더링하는 도중에 ToastProvider 상태를 바꾸다"는 React 경고가 났다(setState
     // 업데이터 함수 안에서 다른 컴포넌트의 setState를 호출하는 건 안전하지 않다).
     // 짐/그룹 드래그와 동일하게 packDragRef로 최신 값을 따로 보관해두는 방식으로 수정해서,
     // handleUp에선 setPackDrag(null)을 그대로 호출하고 handleReorderPack은 업데이트와
@@ -1506,6 +1653,11 @@ export default function BagEditorScreen({
       const d = packDragRef.current;
       packDragRef.current = null;
       setPackDrag(null);
+      clearBagDropHighlight();
+      if (d && d.overBagId) {
+        performMovePackToBag(d.packId, d.overBagId);
+        return;
+      }
       if (d && d.overPackId && d.overPackId !== d.packId) {
         handleReorderPack(d.packId, d.overPackId, d.overPackPosition === "after");
       }
@@ -1518,6 +1670,7 @@ export default function BagEditorScreen({
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
       window.removeEventListener("pointercancel", handleUp);
+      clearBagDropHighlight();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packDrag !== null]);
@@ -2298,6 +2451,8 @@ export default function BagEditorScreen({
               if (guardReadOnly()) return;
               setRefreshConfirmTarget(packId);
             }}
+            onSyncEditorPack={handleToggleAutoSync}
+            onMoveToBag={bags.some((b) => b.id !== bag.id) ? handleOpenMovePackSheet : undefined}
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={groupDragSingleItemId ?? drag?.itemId ?? null}
             dragOverItemId={groupDragSingleItemId ? groupDrag?.overItemId ?? null : drag?.overItemId ?? null}
@@ -2341,6 +2496,8 @@ export default function BagEditorScreen({
               if (guardReadOnly()) return;
               setRefreshConfirmTarget(packId);
             }}
+            onSyncEditorPack={handleToggleAutoSync}
+            onMoveToBag={bags.some((b) => b.id !== bag.id) ? handleOpenMovePackSheet : undefined}
             onStartItemDrag={handleStartItemDrag}
             dragSourceItemId={groupDragSingleItemId ?? drag?.itemId ?? null}
             dragOverItemId={groupDragSingleItemId ? groupDrag?.overItemId ?? null : drag?.overItemId ?? null}
@@ -2551,6 +2708,45 @@ export default function BagEditorScreen({
                 <span className="text-[13px] font-medium">메모 팩</span>
                 <span className="text-[11px] text-text-muted">아이폰 메모처럼 자유롭게 쓰는 패(제목/체크박스/표)</span>
               </button>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* 모바일 "다른 가방으로 이동" 시트 - PackCard/EditorPackCard(패뷰)와 NotebookPackSection/
+          NotebookEditorPackSection(심플뷰)의 "이동" 버튼/메뉴를 누르면 열린다. 데스크톱은 DesktopSidebar.tsx의
+          드래그앤드롭을 따로 쓰므로 이 시트는 보여줄 필요가 없지만, 이 버튼 자체는 데스크톱에서도
+          같이 동작한다(단순 모바일 전용 UI로 제한하지 않음). */}
+      {moveTargetPackId && (
+        <Portal>
+          <div
+            className="fixed inset-0 flex items-end justify-center sm:items-center"
+            style={{ zIndex: ambientLayer + SHEET_OFFSET, background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setMoveTargetPackId(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{
+                paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))",
+                maxHeight: "70vh",
+                overflowY: "auto",
+              }}
+            >
+              <span className="text-[15px] font-medium mb-1">어느 가방으로 이동할까요?</span>
+              {bags
+                .filter((b) => b.id !== bag.id)
+                .map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => handleMovePackToBag(b.id)}
+                    className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left"
+                    style={{ background: "var(--surface-2)" }}
+                  >
+                    <span className="text-[13px] font-medium truncate">{b.name}</span>
+                    <span className="text-[11px] text-text-muted shrink-0">팩 {b.packs.length}개</span>
+                  </button>
+                ))}
             </div>
           </div>
         </Portal>

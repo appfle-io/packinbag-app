@@ -7,6 +7,8 @@ import {
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
   IconRefresh,
+  IconArrowsExchange,
+  IconArrowRight,
   IconTrash,
   IconGripVertical,
   IconChevronDown,
@@ -41,6 +43,8 @@ export default function NotebookEditorPackSection({
   onDeletePack,
   onChangeDisplayState,
   onOpenEditor,
+  onSyncLibraryLink,
+  onMoveToBag,
   onStartPackDrag,
   isPackDragSource,
   isDragOver,
@@ -59,6 +63,11 @@ export default function NotebookEditorPackSection({
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
   onChangeDisplayState?: (nextState: "normal" | "collapsed") => void;
   onOpenEditor: () => void;
+  // EditorPackCard(팩뷰)와 동일 - 링크된 보관함 원본과 계속 맞춰질지(pack.autoSyncEnabled) 켜고/끄는
+  // 토글 메뉴 항목(lib/packSync.ts resolveEditorSyncDirection).
+  onSyncLibraryLink?: () => void;
+  // 있으면 "이동" 버튼이 "⋯" 메뉴에 나타난다(NotebookPackSection과 동일한 규약).
+  onMoveToBag?: () => void;
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
   isDragOver?: boolean;
@@ -109,9 +118,12 @@ export default function NotebookEditorPackSection({
           ? isPackDragOverPosition === "after"
             ? "inset 0 -2px 0 0 var(--accent)"
             : "inset 0 2px 0 0 var(--accent)"
+          : pack.autoSyncEnabled
+          ? "inset 3px 0 0 0 var(--accent)"
           : undefined,
+        background: pack.autoSyncEnabled ? "var(--accent-soft)" : undefined,
         opacity: isPackDragSource ? 0.4 : 1,
-        transition: "box-shadow 120ms ease, opacity 120ms ease",
+        transition: "box-shadow 120ms ease, opacity 120ms ease, background 120ms ease",
       }}
     >
       <div className="flex items-center gap-2 mb-1.5">
@@ -179,6 +191,18 @@ export default function NotebookEditorPackSection({
                   }`}
                   style={{ background: "var(--surface)", minWidth: 140 }}
                 >
+                  {onMoveToBag && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onMoveToBag();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                    >
+                      <IconArrowRight size={15} stroke={1.75} />
+                      다른 가방으로 이동
+                    </button>
+                  )}
                   {pack.linkedLibraryPackId && onRefreshFromLibrary && (
                     <button
                       onClick={() => {
@@ -189,6 +213,21 @@ export default function NotebookEditorPackSection({
                     >
                       <IconRefresh size={15} stroke={1.75} />
                       다시 불러오기
+                    </button>
+                  )}
+                  {pack.linkedLibraryPackId && onSyncLibraryLink && (
+                    <button
+                      onClick={() => {
+                        onSyncLibraryLink();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                    >
+                      <IconArrowsExchange
+                        size={15}
+                        stroke={1.75}
+                        color={pack.autoSyncEnabled ? "var(--accent)" : undefined}
+                      />
+                      {pack.autoSyncEnabled ? "실시간 동기화 끄기" : "실시간 동기화 켜기"}
                     </button>
                   )}
                   {onSaveToLibrary && (

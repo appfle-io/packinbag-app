@@ -58,6 +58,12 @@ export interface Pack {
   savedAsLibraryPack?: boolean;
   // 이 팩이 어떤 보관함 팩과 연결돼있는지 (새로고침 대상)
   linkedLibraryPackId?: string;
+  // 메모팩(kind==='editor') 전용 - true면 이 팰이 열려있는(=가방 또는 보관함 화면이
+  // 마운트된) 동안 linkedLibraryPackId와 자동으로 계속 맞춰진다(lib/packSync.ts
+  // resolveEditorSyncDirection, 가방/보관함 양쪽 도화면에서 내용이 바뀜 때마다 대상). 노션과
+  // 달리 "닫힌 가방까지 계속" 동기화하는 서버 트리거는 없고, 이 화면이 열려있는
+  // 동안만 적용된다. 사용자가 직접 켜고/끔야만 바뀌는 값(false/undefined면 꺼진 상태).
+  autoSyncEnabled?: boolean;
   // 마지막으로 보관함과 동기화(저장/덮어쓰기/새로고침)했던 시점의 보관함 팩 updatedAt.
   // 저장 시점에 보관함 쪽 updatedAt이 이 값보다 더 최신이면 "다른 가방/기기에서
   // 먼저 바뀐 것"으로 판단해 덮어쓰기 대신 새롭게 저장을 유도한다.

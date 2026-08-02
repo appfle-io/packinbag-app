@@ -14,6 +14,7 @@ import {
   IconSquareCheck,
   IconAlignLeft,
   IconX,
+  IconArrowRight,
 } from "@tabler/icons-react";
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -43,6 +44,7 @@ export default function PackCard({
   onRefreshFromLibrary,
   onDeletePack,
   onChangeDisplayState,
+  onMoveToBag,
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
@@ -84,6 +86,9 @@ export default function PackCard({
   onRefreshFromLibrary: () => void;
   // alsoDeleteLibrary가 true면 연동된 보관함 원본도 함께 삭제해달라는 뜻.
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
+  // 있으면 "다른 가방으로 이동" 버튼이 보인다(내가 속한 다른 가방이 있을 때만 BagEditorScreen이
+  // 이 콜백을 넘겨준다). 누르면 가방 선택 시트가 나타난다(데스크톱은 사이드바 드래그앤드롭을 따로 쓴다).
+  onMoveToBag?: () => void;
   // 카드 자체의 펼치기/접기 토글 (nextState는 "wide" | "collapsed" | "normal")
   onChangeDisplayState?: (nextState: "normal" | "wide" | "collapsed") => void;
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
@@ -367,6 +372,13 @@ export default function PackCard({
                   입력 중 옆의 버튼을 잘못 눌러 팩 자체가 삭제/저장되는 걸 막기 위함. */}
               {!quickAddType && (
                 <div className="flex items-center gap-3 ml-auto">
+                  {onMoveToBag && (
+                    <button onClick={onMoveToBag} aria-label="다른 가방으로 이동">
+                      <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                        <IconArrowRight size={18} stroke={1.75} color="var(--text-secondary)" />
+                      </span>
+                    </button>
+                  )}
                   {pack.linkedLibraryPackId && (
                     <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기" className="relative">
                       <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>

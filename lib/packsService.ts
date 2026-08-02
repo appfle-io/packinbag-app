@@ -78,6 +78,17 @@ export async function deleteLibraryPackRemote(uid: string, packId: string) {
   await deleteDoc(doc(packsCol(uid), packId));
 }
 
+// 메모팩 실시간(진입 시점) 동기화 전용 - 이름/문서 내용만 부분 업데이트한다(lib/packSync.ts
+// resolveEditorSyncDirection이 이긴 쪽을 계산해서 불러준다). 전체 setDoc이 아니라 updateDoc으로
+// 이 필드들만 건들어서, 그 사이 parentId 이동이나 trashedAt 같은 다른 필드가 바뀜어도 덮어쓰지 않는다.
+export async function updateLibraryPackEditorContent(
+  uid: string,
+  packId: string,
+  patch: { name: string; editorDoc: object | null; editorPreviewText?: string; updatedAt: string }
+) {
+  await updateDoc(doc(packsCol(uid), packId), stripUndefined({ ...patch }));
+}
+
 // 완전삭제 대신 휴지통으로 보낸다. trashedAt만 채우고 문서 자체는 그대로 둔다 - 30일 뒤
 // 자동 영구삭제되거나, 그 전에 복구/영구삭제할 수 있다.
 export async function trashLibraryPackRemote(uid: string, packId: string) {

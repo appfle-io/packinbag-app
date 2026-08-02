@@ -47,3 +47,46 @@ export function findLinkedBagPackRefs(
   }
   return refs;
 }
+
+// --- 메모팩(에디터팩) 실시간 동기화 ------------------------------------------
+// 팩 보관함의 메모팩과, 그걸 연동해서 가방에 불러온 사본을 "가방을 열 때 / 팩 보관함에
+// 들어갈 때" 그 순간에 한 번 비교해서 최신 쪽 내용으로 맞춘다(양방향). 체크리스트 팩과
+// 달리 메모팩은 items가 항상 빈 배열이고 진행률/체크 개념 자체가 없어서(에디터팩 주석
+// 참고), 짐 단위 병합 없이 문서(editorDoc) 통째로 비교/복사하면 충분하다. 지속적인
+// onSnapshot 구독이나 서버 트리거 없이, 화면 진입 시점 1회성 비교라 핑퐁(무한루프)
+// 걱정도 없다.
+export interface EditorSyncPatch {
+  name: string;
+  editorDoc: object | null;
+  editorPreviewText?: string;
+  updatedAt: string;
+}
+
+// bagPack(가방 속 사본)과 libraryPack(연동된 보관함 원본) 중 어느 쪽을 기준으로 맞춰야
+// 하는지 판정한다. updatedAt이 없는 예전 데이터는 가장 오래된 것(0)으로 취급한다.
+// 이미 내용이 완전히 같으면(타임스탬프만 다르고 실제 문서는 동일) "none"을 돌려서
+// 불필요한 쓰기를 만들지 않는다.
+export function resolveEditorSyncDirection(
+  bagPack: Pack,
+  libraryPack: Pack
+): "bag-wins" | "library-wins" | "none" {
+  if (bagPack.kind !== "editor" || libraryPack.kind !== "editor") return "none";
+  const sameContent =
+    JSON.stringify(bagPack.editorDoc ?? null) === JSON.stringify(libraryPack.editorDoc ?? null) &&
+    bagPack.name.trim() === libraryPack.name.trim();
+  if (sameContent) return "none";
+  const bagTime = bagPack.updatedAt ? new Date(bagPack.updatedAt).getTime() : 0;
+  const libTime = libraryPack.updatedAt ? new Date(libraryPack.updatedAt).getTime() : 0;
+  if (bagTime === libTime) return "none";
+  return bagTime > libTime ? "bag-wins" : "library-wins";
+}
+
+// 이긴 쪽(source)의 이름/문서 내용만 뽑아서, 상대편에 그대로 덮어쓸 부분 패치를 만든다.
+export function buildEditorSyncPatch(source: Pack): EditorSyncPatch {
+  return {
+    name: source.name,
+    editorDoc: source.editorDoc ?? null,
+    editorPreviewText: source.editorPreviewText,
+    updatedAt: source.updatedAt ?? new Date().toISOString(),
+  };
+}

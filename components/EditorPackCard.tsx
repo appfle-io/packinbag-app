@@ -12,6 +12,8 @@ import {
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
   IconRefresh,
+  IconArrowsExchange,
+  IconArrowRight,
   IconFileText,
   IconLock,
 } from "@tabler/icons-react";
@@ -43,6 +45,8 @@ export default function EditorPackCard({
   onDeletePack,
   onChangeDisplayState,
   onOpenEditor,
+  onSyncLibraryLink,
+  onMoveToBag,
   onStartPackDrag,
   isPackDragSource,
   isPackDragOverPosition,
@@ -60,6 +64,12 @@ export default function EditorPackCard({
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
   onChangeDisplayState?: (nextState: "normal" | "collapsed") => void;
   onOpenEditor: () => void;
+  // 링크된 보관함 원본과 계속 맞춰질지(pack.autoSyncEnabled) 켜고/끄는 토글 버튼
+  // (lib/packSync.ts resolveEditorSyncDirection으로 이 화면이 열려있는 동안 계속 재검사된다).
+  // 없으면(링크 안 된 팩) 버튼 자체가 안 보인다.
+  onSyncLibraryLink?: () => void;
+  // 있으면 "다른 가방으로 이동" 버튼이 보인다(PackCard와 동일한 규약).
+  onMoveToBag?: () => void;
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
   isPackDragOverPosition?: "before" | "after" | null;
@@ -103,15 +113,24 @@ export default function EditorPackCard({
       data-pack-drop-id={pack.id}
       className="flex flex-col rounded-xl border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
       style={{
-        borderColor: isDragOver ? "var(--accent)" : "var(--border)",
+        borderColor: isDragOver
+          ? "var(--accent)"
+          : pack.autoSyncEnabled
+          ? "var(--accent)"
+          : "var(--border)",
+        borderWidth: pack.autoSyncEnabled && !isDragOver ? 1.5 : undefined,
         boxShadow: isDragOver
           ? isPackDragOverPosition === "after"
             ? "0 2px 0 0 var(--accent)"
             : "0 -2px 0 0 var(--accent)"
           : undefined,
-        background: accentHex ? `${accentHex}26` : "var(--pack-card-bg)",
+        background: pack.autoSyncEnabled
+          ? "var(--accent-soft)"
+          : accentHex
+          ? `${accentHex}26`
+          : "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
-        transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
+        transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease, background 120ms ease",
       }}
     >
       <div className="flex items-center justify-between mb-2.5 shrink-0 gap-2">
@@ -278,10 +297,31 @@ export default function EditorPackCard({
         <div className="flex items-center justify-end gap-3 pt-2.5 mt-2.5 border-t border-border shrink-0">
             {!readOnly && (
               <>
+                {onMoveToBag && (
+                  <button onClick={onMoveToBag} aria-label="다른 가방으로 이동">
+                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                      <IconArrowRight size={18} stroke={1.75} color="var(--text-secondary)" />
+                    </span>
+                  </button>
+                )}
                 {pack.linkedLibraryPackId && onRefreshFromLibrary && (
                   <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기">
                     <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                       <IconRefresh size={18} stroke={1.75} color="var(--text-secondary)" />
+                    </span>
+                  </button>
+                )}
+                {pack.linkedLibraryPackId && onSyncLibraryLink && (
+                  <button
+                    onClick={onSyncLibraryLink}
+                    aria-label={pack.autoSyncEnabled ? "실시간 동기화 끄기" : "실시간 동기화 켜기"}
+                  >
+                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
+                      <IconArrowsExchange
+                        size={18}
+                        stroke={1.75}
+                        color={pack.autoSyncEnabled ? "var(--accent)" : "var(--text-secondary)"}
+                      />
                     </span>
                   </button>
                 )}

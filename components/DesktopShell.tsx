@@ -276,6 +276,7 @@ export default function DesktopShell({
             key={selectedBag.id}
             initialBag={selectedBag}
             libraryPacks={libraryPacks}
+            bags={bags}
             uid={user.uid}
             nickname={profile.nickname ?? ""}
             avatarId={profile.avatarId ?? ""}

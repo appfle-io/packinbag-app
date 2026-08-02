@@ -13,6 +13,7 @@ import {
   IconSquareCheck,
   IconAlignLeft,
   IconX,
+  IconArrowRight,
 } from "@tabler/icons-react";
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -46,6 +47,7 @@ export default function NotebookPackSection({
   onRefreshFromLibrary,
   onDeletePack,
   onChangeDisplayState,
+  onMoveToBag,
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
@@ -87,6 +89,8 @@ export default function NotebookPackSection({
   // 심플뷰는 "wide" 개념이 없다(문서가 이어지는 형태라 넓게보기가 의미없음) -
   // "collapsed"인지 아닌지(=섹션 접기/펼치기, 노션처럼)만 쓴다.
   onChangeDisplayState?: (nextState: "normal" | "collapsed") => void;
+  // 있으면 "이동" 버튼이 "⋯" 메뉴에 나타난다(PackCard와 동일한 규약).
+  onMoveToBag?: () => void;
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
@@ -253,6 +257,18 @@ export default function NotebookPackSection({
                       텍스트 항목 추가
                     </button>
                   </>
+                )}
+                {onMoveToBag && (
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      onMoveToBag();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                  >
+                    <IconArrowRight size={15} stroke={1.75} />
+                    다른 가방으로 이동
+                  </button>
                 )}
                 {pack.linkedLibraryPackId && (
                   <button

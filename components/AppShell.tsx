@@ -1217,6 +1217,7 @@ export default function AppShell() {
               <BagEditorScreen
                 initialBag={displayedBag}
                 libraryPacks={activePacks}
+                bags={activeBags}
                 uid={user.uid}
                 nickname={profile.nickname}
                 avatarId={profile.avatarId}

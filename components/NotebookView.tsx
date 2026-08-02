@@ -21,6 +21,8 @@ export default function NotebookView({
   onDeletePack,
   onChangeDisplayState,
   onRefreshFromLibrary,
+  onSyncEditorPack,
+  onMoveToBag,
   onStartItemDrag,
   dragSourceItemId,
   dragOverItemId,
@@ -62,6 +64,10 @@ export default function NotebookView({
   onDeletePack: (packId: string, alsoDeleteLibrary: boolean) => void;
   onChangeDisplayState: (packId: string, nextState: "normal" | "wide" | "collapsed") => void;
   onRefreshFromLibrary: (packId: string) => void;
+  // PackGrid와 동일 - 링크된 메모팩만 대상으로 보관함과 계속 맞춰질지 켜고/끄는 토글.
+  onSyncEditorPack?: (packId: string) => void;
+  // PackGrid와 동일 - 있으면 "다른 가방으로 이동" 버튼이 보인다.
+  onMoveToBag?: (packId: string) => void;
   onStartItemDrag?: (packId: string, itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
@@ -111,6 +117,8 @@ export default function NotebookView({
               onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
               onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
               onOpenEditor={() => onOpenNotePackEditor?.(pack.id)}
+              onSyncLibraryLink={onSyncEditorPack ? () => onSyncEditorPack(pack.id) : undefined}
+              onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
               editors={getNoteEditors?.(pack.id) ?? []}
               premium={premium}
               isDragOver={dragOverPackId === pack.id}
@@ -139,6 +147,7 @@ export default function NotebookView({
           onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
           onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
           onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
+          onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
           onStartItemDrag={
             onStartItemDrag
               ? (itemId, text, x, y) => onStartItemDrag(pack.id, itemId, text, x, y)

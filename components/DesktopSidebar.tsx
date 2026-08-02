@@ -964,6 +964,7 @@ export default function DesktopSidebar({
                 return (
                   <div
                     key={bag.id}
+                    data-bag-drop-id={bag.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, "bag", bag.id)}
                     onDragEnd={handleDragEnd}
@@ -1113,6 +1114,7 @@ export default function DesktopSidebar({
               return (
                 <div key={bag.id}>
                   <div
+                    data-bag-drop-id={bag.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, "bag", bag.id)}
                     onDragEnd={handleDragEnd}
