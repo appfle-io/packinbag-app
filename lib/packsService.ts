@@ -84,7 +84,7 @@ export async function deleteLibraryPackRemote(uid: string, packId: string) {
 export async function updateLibraryPackEditorContent(
   uid: string,
   packId: string,
-  patch: { name: string; editorDoc: object | null; editorPreviewText?: string; updatedAt: string }
+  patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
 ) {
   await updateDoc(doc(packsCol(uid), packId), stripUndefined({ ...patch }));
 }
