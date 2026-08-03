@@ -34,6 +34,7 @@ import {
   setDoc,
   updateDoc,
   deleteField,
+  clearIndexedDbPersistence,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
@@ -834,7 +835,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await updatePassword(user, newPassword);
   };
 
-  const logout = () => signOut(auth);
+  // signOut 후 IndexedDB 캐시를 지운다(best-effort) - 같은 기기를 다른 계정이 바로 이어서
+  // 쓸 때 이전 계정의 캐시된 화면이 잠깐 보이는 걸 줄이기 위한 처리. 아직 리스너가 다 정리되기
+  // 전이라 실패할 수 있는데, 실패해도 치명적이지 않다(다음 로그인 시 캐시가 새 값으로 덮어써짐).
+  const logout = async () => {
+    await signOut(auth);
+    try {
+      await clearIndexedDbPersistence(db);
+    } catch {
+      // 무시
+    }
+  };
 
   const deleteAccount = async () => {
     if (!user) return;
@@ -843,6 +854,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await deleteAllUserData(user.uid);
     try {
       await deleteUser(user);
+      try {
+        await clearIndexedDbPersistence(db);
+      } catch {
+        // 무시 - logout()의 캐시 정리와 동일한 best-effort 처리
+      }
     } catch (err) {
       const code =
         err && typeof err === "object" && "code" in err
