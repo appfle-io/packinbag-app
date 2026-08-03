@@ -38,7 +38,7 @@ function createFirestore() {
   }
   try {
     return initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager({}) }),
     });
   } catch {
     return getFirestore(app);
