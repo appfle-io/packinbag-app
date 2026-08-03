@@ -423,11 +423,11 @@ export default function BagEditorScreen({
       let next = [...packs];
       for (const g of result.packs) {
         if (g.items.length === 0) continue;
-        const newItems: Item[] = g.items.map((itemText) => ({
+        const newItems: Item[] = g.items.map((item) => ({
           id: uid(),
           type: "check",
-          text: itemText,
-          checked: false,
+          text: item.text,
+          checked: item.checked,
         }));
         const existingIdx = next.findIndex(
           (p) => p.kind !== "editor" && p.name.trim() === g.name.trim()

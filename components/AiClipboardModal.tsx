@@ -22,7 +22,7 @@ const LOADING_MESSAGES = [
 ];
 
 export interface AiClipboardResult {
-  packs: { name: string; items: string[] }[];
+  packs: { name: string; items: { text: string; checked: boolean }[] }[];
   skippedDuplicateCount: number;
 }
 

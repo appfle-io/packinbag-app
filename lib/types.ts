@@ -357,6 +357,9 @@ export interface UserProfile {
 export interface ImportedItemDraft {
   text: string;
   type?: ItemType; // 없으면 "check" 기본값
+  // 없으면 false 기본값 - 원본(아이폰 메모 등)에서 이미 체크된 것으로 보이는 항목(보통 "✓"/"v"/"[x]" 표시)을
+  // AI가 인식해서 채워준다(NoteImportModal/AiClipboardModal 둘 다 해당).
+  checked?: boolean;
 }
 
 export interface ImportedPackDraft {

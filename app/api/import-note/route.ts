@@ -18,7 +18,7 @@ const SYSTEM_PROMPT = `당신은 여행/외출 준비물 메모나 PDF 파일을
 {
   "bagName": "짧은 가방 이름",
   "packs": [
-    { "name": "카테고리 이름", "items": ["항목1", "항목2"] }
+    { "name": "카테고리 이름", "items": [{ "text": "항목1", "checked": false }, { "text": "항목2", "checked": true }] }
   ]
 }
 
@@ -26,14 +26,20 @@ const SYSTEM_PROMPT = `당신은 여행/외출 준비물 메모나 PDF 파일을
 - 텍스트의 첫 줄(또는 PDF의 제목처럼 보이는 부분)이 제목처럼 보이면(짧고, 목록 기호나 체크박스로 시작하지 않으면) 그 부분을 다듬어서 bagName으로 쓰세요. 제목이 될 만한 부분이 없으면, 전체 내용에 어울리는 이름을 새로 지어주세요 (예: "제주도 여행 준비물").
 - 항목들을 의미 있는 카테고리(팩)로 분류하세요. 예: 의류, 세면도구, 전자기기, 서류/카드, 약/건강, 유아용품, 기타 등 - 내용에 맞게 자유롭게 이름을 정하세요.
 - 어느 카테고리에도 애매하게 속하는 항목은 "기타" 팩 하나에 모아주세요.
-- 목록 기호(-, *, •, 숫자, 체크박스 등)와 이미 표시된 체크 표시는 제거하고 항목 텍스트만 남기세요.
+- 항목별로 원본에 이미 체크된(완료된) 표시가 있는지 판단해서 checked에 반영하세요 - 예를 들어 "✓", "✔", "v", "[x]", "☑" 같은 표시나 취소선(strikethrough)이 그어진 항목은 checked:true, 빈 체크박스("☐", "[ ]", "□")나 표시가 전혀 없는 항목은 checked:false로 하세요.
+- 목록 기호(-, *, •, 숫자, 체크박스 등)와 체크 표시 자체는 text에서 반드시 제거하고 순수 항목 텍스트만 남기세요(checked 여부는 위 규칙대로 별도 필드에 담으세요).
 - 같은 의미의 중복 항목은 하나로 합치세요.
 - 팩은 최대 ${MAX_PACKS}개까지만 만드세요.
 - 준비물 목록이 아니라 전혀 관련 없는 내용이라면 packs를 빈 배열로 응답하세요.`;
 
+interface ParsedItem {
+  text: string;
+  checked: boolean;
+}
+
 interface ParsedPack {
   name: string;
-  items: string[];
+  items: ParsedItem[];
 }
 
 function sanitizeResult(raw: unknown): { bagName: string; packs: ParsedPack[] } {
@@ -56,9 +62,22 @@ function sanitizeResult(raw: unknown): { bagName: string; packs: ParsedPack[] } 
       const itemsRaw = Array.isArray((p as { items?: unknown }).items)
         ? ((p as { items: unknown[] }).items as unknown[])
         : [];
-      const items = itemsRaw
-        .filter((i): i is string => typeof i === "string" && i.trim().length > 0)
-        .map((i) => i.trim().slice(0, 60))
+      // 각 항목은 단순 문자열이거나(구버전 호환, checked:false 취급) {text, checked} 객체일 수 있다.
+      const items: ParsedItem[] = itemsRaw
+        .map((rawItem): ParsedItem | null => {
+          if (typeof rawItem === "string") {
+            const text = rawItem.trim().slice(0, 60);
+            return text ? { text, checked: false } : null;
+          }
+          if (rawItem && typeof rawItem === "object") {
+            const textRaw = (rawItem as { text?: unknown }).text;
+            const text = typeof textRaw === "string" ? textRaw.trim().slice(0, 60) : "";
+            if (!text) return null;
+            return { text, checked: !!(rawItem as { checked?: unknown }).checked };
+          }
+          return null;
+        })
+        .filter((i): i is ParsedItem => i !== null)
         .slice(0, MAX_ITEMS_PER_PACK);
       return { name: name || "기타", items };
     })
