@@ -22,6 +22,7 @@ import { Pack, ListSortOption, Bag } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList } from "@/lib/listSort";
 import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
+import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import PackColorDot from "@/components/PackColorDot";
@@ -120,6 +121,9 @@ export default function PacksScreen({
     updateExpandedPackFolderIds,
   } = useAuth();
   const { show } = useToast();
+  // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
+  // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 검색 결과에서 숨긴다.
+  const premium = isPremiumUser(profile?.email, profile ?? null);
   // 패 보관함은 가방보관함에서 왼→우 스와이프로 열리므로(AppShell의 handleSwipeGestureEnd),
   // 닫을 때는 반대로 우→왼로 쓰는 것이 즐기는 방향과 자연스럽게 이어진다. useSwipeBack(왼엣지리
   // 오른쪽 스와이프 전용)을 그대로 쓰지 않고, 전체 화면 어디서든(드래그/버튼 제외) 왼쪽으로
@@ -202,9 +206,15 @@ export default function PacksScreen({
     return quickPack ? [...realPacks, quickPack] : realPacks;
   }, [treePacks, quickPack]);
 
+  // 가방 보관함(HomeScreen)과 동일하게, 무료회원에게는 다른 멤버의 AI추천 팩 내용이 검색
+  // 결과로 새어나가지 않도록, 검색 대상 자체를 뷰어 기준으로 걸러낸 사본으로 바꿔서 넘긴다.
+  const searchableBags = useMemo(
+    () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
+    [bags, premium]
+  );
   const { results: searchResults, truncated: searchTruncated } = useMemo(
-    () => searchLibraryPacks(searchablePacks, searchQuery, bags),
-    [searchablePacks, searchQuery, bags]
+    () => searchLibraryPacks(searchablePacks, searchQuery, searchableBags),
+    [searchablePacks, searchQuery, searchableBags]
   );
 
   const openSearch = () => {
@@ -218,7 +228,10 @@ export default function PacksScreen({
   const handleResultClick = (result: PackSearchResult) => {
     closeSearch();
     if (result.type === "bag" && result.bag) {
-      onOpenBag(result.bag, { packId: result.packId, itemId: result.itemId });
+      // result.bag은 검색용으로 필터링된(AI추천 팩이 빠진) 사본일 수 있어, 그대로 열면 그 상태로
+      // 저장될 때 실제 AI추천 팩이 지워질 수 있다. 반드시 원본 bags에서 같은 id를 다시 찾아서 연다.
+      const originalBag = bags.find((b) => b.id === result.bag?.id) ?? result.bag;
+      onOpenBag(originalBag, { packId: result.packId, itemId: result.itemId });
       return;
     }
     if (result.pack) {

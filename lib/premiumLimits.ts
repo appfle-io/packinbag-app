@@ -101,3 +101,13 @@ export function computeLockedBagIds(bags: Bag[], ownerUid: string): Set<string> 
 
 // v68: 팩 보관함 개수 제한은 폐지됨(폴더 기능 도입과 함께 무제한으로 변경).
 // 가방 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)은 기존 정책 그대로 유지된다.
+
+// AI 추천이 만든 전용 팩(Pack.aiRecommendSource, 보통 이름은 "AI추천")은 무료회원 화면에서는
+// 안 보이게 걸러준다 - 같은 가방을 같이 쓰는 다른 멤버가 무료회원이어도 프리미엄 회원의 AI 추천
+// 결과물을 그대로 얻어가면 안 되기 때문. premium이면 그대로 전부 반환한다(만든 사람 포함 프리미엄
+// 회원에게는 항상 보인다). 가방/팩 화면(BagEditorScreen, BagCard, DesktopSidebar 등)에서 bag.packs를
+// 그릴 때는 항상 이 함수를 거친 결과를 써야 한다 - 저장/수정 로직(updatePacks 등)은 원본 bag.packs를
+// 그대로 써야 하므로 이 함수와 섞으면 안 된다(이건 순수하게 "화면에 보여줄 목록"만 계산한다).
+export function getViewablePacks<T extends Pack>(packs: T[], premium: boolean): T[] {
+  return premium ? packs : packs.filter((p) => !p.aiRecommendSource);
+}

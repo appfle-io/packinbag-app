@@ -87,7 +87,7 @@ import {
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
-import { MAX_BAG_IMAGES, isPremiumUser } from "@/lib/premiumLimits";
+import { MAX_BAG_IMAGES, isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import { useSwipeBack } from "@/lib/useSwipeBack";
@@ -363,7 +363,7 @@ export default function BagEditorScreen({
     // 이미 'AI추천' 팩에 담아둔 항목은 새로고침해도 다시 나오지 않도록, 아이콘
     // 접두사를 뗀 텍스트만 뽑아서 제외 목록으로 서버에 넘긴다.
     const existingRecommendPack = bag.packs.find(
-      (p) => p.kind !== "editor" && p.name === AI_RECOMMEND_PACK_NAME
+      (p) => p.kind !== "editor" && p.aiRecommendSource
     );
     const excludeTexts = (existingRecommendPack?.items ?? []).map((i) =>
       i.text.replace(/^\S+\s+/, "").trim()
@@ -393,7 +393,9 @@ export default function BagEditorScreen({
   const handleAddRecommendedItem = (itemText: string) => {
     if (guardReadOnly()) return;
     const newItem: Item = { id: uid(), type: "check", text: itemText, checked: false };
-    const existing = bag.packs.find((p) => p.kind !== "editor" && p.name === AI_RECOMMEND_PACK_NAME);
+    // 이름이 아니라 aiRecommendSource 플래그로만 찾는다 - 사용자가 직접 "AI추천"이라는
+    // 이름의 팩을 만들어둔 경우와 헷갈리지 않기 위함(lib/types.ts Pack.aiRecommendSource 참고).
+    const existing = bag.packs.find((p) => p.kind !== "editor" && p.aiRecommendSource);
     if (existing) {
       updatePacks((packs) =>
         packs.map((p) => (p.id === existing.id ? { ...p, items: [...p.items, newItem] } : p))
@@ -404,7 +406,7 @@ export default function BagEditorScreen({
         return;
       }
       updatePacks((packs) => [
-        { id: uid(), name: AI_RECOMMEND_PACK_NAME, items: [newItem] },
+        { id: uid(), name: AI_RECOMMEND_PACK_NAME, items: [newItem], aiRecommendSource: true },
         ...packs,
       ]);
     }
@@ -1970,7 +1972,10 @@ export default function BagEditorScreen({
   // 화면에 실제로 그릴 팩 목록. collapseOverrideActive면 저장된 displayState를
   // 무시하고 전부 "collapsed"로 덮어써서 보여준다(데이터 자체는 그대로 둠).
   const packDisplayStates = profile?.packDisplayStates ?? {};
-  const effectivePacks = bag.packs.map((p) => ({
+  // 무료회원에게는 다른 멤버(프리미엄)이 만든 AI추천 팩(aiRecommendSource)을 화면에서 숨긴다 -
+  // 저장/수정 로직(updatePacks 등)은 여전히 원본 bag.packs를 그대로 쓴다(lib/premiumLimits.ts getViewablePacks 참고).
+  const viewablePacks = getViewablePacks(bag.packs, premium);
+  const effectivePacks = viewablePacks.map((p) => ({
     ...p,
     displayState: collapseOverrideActive
       ? ("collapsed" as const)
@@ -1988,7 +1993,7 @@ export default function BagEditorScreen({
 
   // 상단 체크박스 전체선택/해제 버튼의 현재 상태 판단용 - 이 가방 안 모든 패의 체크형 짐을 모아서,
   // 하나라도 있고 다 켜져있으면만 true(체크할 것이 아예 없으면 false).
-  const allBagCheckItems = bag.packs.flatMap((p) => p.items).filter((i) => i.type === "check");
+  const allBagCheckItems = viewablePacks.flatMap((p) => p.items).filter((i) => i.type === "check");
   const allBagChecked = allBagCheckItems.length > 0 && allBagCheckItems.every((i) => i.checked);
 
   // 이 가방을 카드(팩뷰)로 볼지 내용이 이어지는 문서형(심플뷰)으로 볼지. 이 가방만의
@@ -2024,7 +2029,7 @@ export default function BagEditorScreen({
   // 메모패(editingNotePackId)이 열린 동안에도 바가 그대로 남아있던 버그 - 메모패 에디터가
   // 이 화면 위에 풀스크린 오버레이로 띄는데, 바는 이 화면의 자식이라 따로 가려지지 않았다.
   const showQuickAddBar = !readOnly && !selection && !isNativePlatform() && isDesktop && !editingNotePackId;
-  const quickAddPacks = bag.packs.filter((p) => p.kind !== "editor");
+  const quickAddPacks = viewablePacks.filter((p) => p.kind !== "editor");
 
   return (
     <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden">
@@ -2605,7 +2610,7 @@ export default function BagEditorScreen({
           }}
         >
           <PackChipBar
-            packs={bag.packs.filter((p) => p.kind !== "editor")}
+            packs={viewablePacks.filter((p) => p.kind !== "editor")}
             label="팩으로 옮기기"
             dropIds
             getState={(packId) => {
@@ -2895,7 +2900,7 @@ export default function BagEditorScreen({
 
       {showNotebookQuickAdd && (
         <NotebookQuickAddModal
-          packs={bag.packs.filter((p) => p.kind !== "editor")}
+          packs={viewablePacks.filter((p) => p.kind !== "editor")}
           onClose={() => setShowNotebookQuickAdd(false)}
           onAddToPack={(packId, data) => handleCreateItem(packId, data)}
           onCreatePack={(name, data) => handleQuickAddNewPack(name, data)}
@@ -2955,7 +2960,7 @@ export default function BagEditorScreen({
 
       {itemModal && (
         <ItemEditModal
-          packs={bag.packs.filter((p) => p.kind !== "editor")}
+          packs={viewablePacks.filter((p) => p.kind !== "editor")}
           selectionMode="single"
           initialSelectedPackIds={[itemModal.sourcePackId]}
           mode="edit"

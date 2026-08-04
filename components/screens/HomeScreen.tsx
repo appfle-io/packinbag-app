@@ -18,6 +18,7 @@ import { Bag, BagFolder, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList, moveIdInOrder } from "@/lib/listSort";
 import { searchBags, BagSearchResult } from "@/lib/librarySearch";
+import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { daysUntil } from "@/lib/dday";
 import BagCard from "@/components/BagCard";
 import SortSelect from "@/components/SortSelect";
@@ -137,6 +138,9 @@ export default function HomeScreen({
     moveBagsToFolder,
   } = useAuth();
   const { show } = useToast();
+  // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
+  // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 카드 미리보기/검색 결과에서 숨긴다.
+  const premium = isPremiumUser(profile?.email, profile ?? null);
   const sortBy = profile?.bagSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedBagIds ?? [];
   // "보관" 처리된 가방은 삭제가 아니라 그냥 메인 목록("진행중" 탭)에서 숨기고 "보관" 탭으로
@@ -280,9 +284,15 @@ export default function HomeScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // 검색도 화면 미리보기와 동일하게 무료회원에게는 다른 멤버의 AI추천 팩 내용이 결과로
+  // 새어나가지 않도록, 검색 대상 자체를 뷰어 기준으로 걸러낸 사본으로 바꿔서 넘긴다.
+  const searchableBags = useMemo(
+    () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
+    [bags, premium]
+  );
   const { results: searchResults, truncated: searchTruncated } = useMemo(
-    () => searchBags(bags, searchQuery),
-    [bags, searchQuery]
+    () => searchBags(searchableBags, searchQuery),
+    [searchableBags, searchQuery]
   );
 
   const openSearch = () => {
@@ -298,7 +308,10 @@ export default function HomeScreen({
 
   const handleResultClick = (result: BagSearchResult) => {
     closeSearch();
-    onOpenBag(result.bag, { packId: result.packId, itemId: result.itemId });
+    // result.bag은 검색용으로 필터링된(AI추천 팩이 빠진) 사본일 수 있어, 그대로 열면 그 상태로
+    // 저장될 때 실제 AI추천 팩이 지워질 수 있다. 반드시 원본 bags에서 같은 id를 다시 찾아서 연다.
+    const originalBag = bags.find((b) => b.id === result.bag.id) ?? result.bag;
+    onOpenBag(originalBag, { packId: result.packId, itemId: result.itemId });
   };
 
   // --- 길게 눌러서 순서 바꾸기 / 폴더로 이동 / 다중선택 --------------------------
@@ -827,6 +840,7 @@ export default function HomeScreen({
                 >
                   <BagCard
                     bag={bag}
+                    premium={premium}
                     locked={lockedBagIds?.has(bag.id)}
                     pinned={pinnedSet.has(bag.id)}
                     onTogglePin={

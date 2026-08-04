@@ -4,6 +4,7 @@ import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff } from "@
 import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getPackColorHex } from "@/lib/packColors";
+import { getViewablePacks } from "@/lib/premiumLimits";
 import { formatDDayLabel } from "@/lib/dday";
 import ProgressRing from "@/components/ProgressRing";
 
@@ -14,6 +15,7 @@ import ProgressRing from "@/components/ProgressRing";
 export default function BagCard({
   bag,
   onClick,
+  premium,
   locked,
   pinned,
   onTogglePin,
@@ -24,6 +26,9 @@ export default function BagCard({
 }: {
   bag: Bag;
   onClick: () => void;
+  // 지금 이 카드를 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버(프리미엄)가 만든
+  // AI추천 팩(Pack.aiRecommendSource)을 무료회원 본인 화면에서는 미리보기/개수에서 숨기는 데 쓴다.
+  premium: boolean;
   // true면 무료 전환으로 잠긴 가방. 탭하면 여전히 열리지만(읽기 전용) 자물쇠 표시를 보여준다.
   locked?: boolean;
   // 고정핀 처리된 가방인지 (최대 3개, 홈 그리드 맨 앞에 고정되고 드래그 대상에서 제외됨)
@@ -36,7 +41,9 @@ export default function BagCard({
   isDragSource?: boolean;
   isDragOver?: boolean;
 }) {
-  const allItems = bag.packs.flatMap((p) => p.items);
+  // AI추천 팩(aiRecommendSource)은 무료회원에게는 목록/개수/진행률 어디에도 포함시키지 않는다.
+  const viewablePacks = getViewablePacks(bag.packs, premium);
+  const allItems = viewablePacks.flatMap((p) => p.items);
   const totalLabel = formatItemCountLabel(allItems, bag.images.length > 0);
   const overallRatio = getProgressRatio(allItems);
   const ddayLabel = formatDDayLabel(bag.travelDate, bag.ddayCountTodayAsDayOne);
@@ -133,10 +140,10 @@ export default function BagCard({
           </span>
         </div>
       )}
-      {bag.packs.length > 0 && (
+      {viewablePacks.length > 0 && (
         <div className="flex-1 min-h-0 overflow-hidden mt-1.5">
           <div className="grid grid-cols-2 gap-x-2 md:gap-x-3 gap-y-0.5 md:gap-y-1">
-            {bag.packs.map((pack) => {
+            {viewablePacks.map((pack) => {
               const packLabel = formatItemCountLabel(pack.items, false);
               const dotHex = getPackColorHex(pack.color);
               return (

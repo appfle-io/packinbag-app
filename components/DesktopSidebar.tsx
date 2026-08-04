@@ -26,6 +26,7 @@ import {
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
+import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { arrangeList, SORT_OPTIONS, SORT_OPTION_LABELS } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
@@ -225,6 +226,10 @@ export default function DesktopSidebar({
     updateSidebarWidth,
     updateSidebarCollapsed,
   } = useAuth();
+
+  // 지금 이 사이드바를 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
+  // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 트리 미리보기에서 숨긴다.
+  const premium = isPremiumUser(profile?.email, profile ?? null);
 
   // 사이드바 폭/접힌 상태 - 계정(profile)에서 초기값을 가져오고, 드래그 중에는 네트워크
   // 왕복 없이 로컬 state만 바꾸다가 놓았을 때만 계정에 저장한다.
@@ -1108,6 +1113,8 @@ export default function DesktopSidebar({
               }
 
               const bag = row.bag;
+              // 다른 멤버가 만든 AI추천 팩(aiRecommendSource)은 무료회원에게는 트리에서 숨긴다.
+              const viewableBagPacks = getViewablePacks(bag.packs, premium);
               const isSelected = selection?.kind === "bag" && selection.bagId === bag.id && !selection.focusPackId;
               const isExpanded = expandedBagIds.has(bag.id);
               const isDropTarget = dropTargetKey === `bag:${bag.id}`;
@@ -1149,7 +1156,7 @@ export default function DesktopSidebar({
                     }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
                   >
-                    {bag.packs.length > 0 ? (
+                    {viewableBagPacks.length > 0 ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1206,7 +1213,7 @@ export default function DesktopSidebar({
                     )}
                   </div>
                   {isExpanded &&
-                    bag.packs.map((pack) => {
+                    viewableBagPacks.map((pack) => {
                       const packSelected =
                         selection?.kind === "bag" && selection.bagId === bag.id && selection.focusPackId === pack.id;
                       const isBagPackDropSource =
