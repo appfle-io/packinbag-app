@@ -1,6 +1,8 @@
 // 팩인백 데이터 모델
 // 가방(Bag) = 체크리스트, 팩(Pack) = 카테고리 묶음, 짐(Item) = 개별 항목
 
+import type { WeatherInfo, TravelRecommendation } from "./weatherService";
+
 export type ItemType = "check" | "text";
 
 export interface RichSpan {
@@ -160,6 +162,21 @@ export interface Bag {
   // 프리미엄 전용 기능으로 바뀌어서(무료회원은 카드 자체가 안 보임, BagEditorScreen 참고) 더 이상 읽거나 쓰지 않는다.
   // 예전 데이터 호환을 위해 필드만 남겨둔다.
   aiWeatherMode?: boolean;
+  // "AI 추천"(날씨/명소/맛집/특산물)을 실행해서 얻은 마지막 결과를 캐싱해둔 값. 가방을
+  // 나갔다가 다시 들어와도 이 캐시가 있으면 AI/날씨 API를 다시 호출하지 않고 그대로
+  // 보여준다(BagEditorScreen이 진입 시 이 값으로 weatherInfo/aiPlaces 초기값을 채움). "AI 추천"을
+  // 다시 누르거나 새로고침하면 최신 결과로 덮어써진다. 이 기능 자체가 프리미엄만 호출하므로
+  // (BagEditorScreen의 onSelectRecommend 가드 참고) 이 필드는 항상 프리미엄이 만들어낸다 - 다만 화면 노출은
+  // premium && 조건에서만 그려진다(같은 가방을 보는 무료회원에게는 안 보임 - Pack.aiRecommendSource와
+  // 동일한 패턴, 데이터는 공유 문서에 있어도 화면 표시만 프리미엄으로 제한). 실패(지명 미인식/날씨
+  // 조회 실패)했을 때는 기존 캐시를 지우지 않고 그대로 둔다(일시적인 네트워크 장애로 멤버지게
+  // 지워지면 안 되므로).
+  aiRecommendCache?: {
+    city: string;
+    weatherInfo: WeatherInfo;
+    places: TravelRecommendation[];
+    cachedAt: string; // ISO
+  };
   // 소유자(ownerId)가 이 가방을 휴지통으로 보낸 시각(ISO). 있으면 소유자 본인의 홈 목록에서만
   // 숨겨지고 설정 > 휴지통에 나타난다 - 다른 그룹원들은 이 필드와 무관하게 가방을 계속
   // 그대로 볼 수 있다(소유자 화면에서만 휴지통 처리되는 정책). 30일(TRASH_RETENTION_DAYS)이

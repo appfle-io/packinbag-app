@@ -286,9 +286,16 @@ export default function BagEditorScreen({
   const travelDateRef = useRef<TravelDateFieldHandle>(null);
   const bagNoticeRef = useRef<BagNoticeHandle>(null);
 
-  // 가방 제목에 포함된 도시 날씨 감지 및 추천 명소 상태
-  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
-  const [aiPlaces, setAiPlaces] = useState<TravelRecommendation[] | null>(null);
+  // 가방 제목에 포함된 도시 날씨 감지 및 추천 명소 상태. bag.aiRecommendCache가 있으면(=이전에
+  // "AI 추천"을 실행해서 얻은 결과가 가방 문서에 저장돼있으면) 그 값으로 초기화해서, 가방을
+  // 나갔다가 다시 들어와도 AI/날씨 API를 다시 부르지 않고 곧바로 보여준다. 화면 노출 자체는
+  // 아래 JSX의 premium && 조건이 그대로 막아주므로 여기서는 premium 여부와 무관하게 채운다.
+  const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(
+    bag.aiRecommendCache?.weatherInfo ?? null
+  );
+  const [aiPlaces, setAiPlaces] = useState<TravelRecommendation[] | null>(
+    bag.aiRecommendCache?.places ?? null
+  );
   const [loadingAiPlaces, setLoadingAiPlaces] = useState(false);
   const [aiPlacesCollapsed, setAiPlacesCollapsed] = useState(true);
   // 지역 인식(지오코딩+날씨) 자체가 진행 중인지 - AI 추천을 누른 직후, 명소/맛집 목록이 뜨기 전
@@ -301,6 +308,23 @@ export default function BagEditorScreen({
   // AI 추천은 가방 제목 전체가 아니라 인식된 도시명(weatherInfo.city)에만 의존한다 - 제목을 조금 고쳤을
   // 뿐(도시는 그대로)이면 재요청하지 않아 불필요한 Gemini 호출을 줄인다(서버의 도시명 캐시와 함께 이중으로 비용 방어).
   const weatherCity = weatherInfo?.city ?? null;
+
+  // "AI 추천" 결과(날씨+명소/맛집/특산물)가 확정되면 가방 문서에 그대로 캐싱해둔다 - 가방을
+  // 나갔다가 다시 들어와도(=이 화면이 리마운트되어도) 위 weatherInfo/aiPlaces 초기값이 이 캐시를
+  // 그대로 읽어서 AI/날씨 API를 다시 부르지 않게 된다. 사용자가 직접 고친 변경이 아니라
+  // AI 응답을 그대로 저장해두는 것뿐이라 pushUndoSnapshot은 부르지 않고(setBag만, updatePacks와 다름)
+  // undo/redo에는 영향을 주지 않는다. 실패(지명 미인식/날씨 조회 실패)했을 때는 호출하지
+  // 않는다 - 일시적인 장애로 기존 캐시가 지워지면 안 되기 때문이다(lib/types.ts Bag.aiRecommendCache 참고).
+  const persistAiRecommendCache = (
+    city: string,
+    info: WeatherInfo,
+    places: TravelRecommendation[]
+  ) => {
+    setBag((prev) => ({
+      ...prev,
+      aiRecommendCache: { city, weatherInfo: info, places, cachedAt: new Date().toISOString() },
+    }));
+  };
 
   // 2026-07: 예전엔 가방 제목이 바뀔 때마다 자동으로(디바운스 후) 지오코딩을 시도했는데, "2026.07"
   // 같은 날짜/버전 숫자가 실제 지명으로 우연히 매칭되어(예: 프랑스) 엉뚱한 추천이 뜨는 오탐이 있었다.
@@ -331,6 +355,7 @@ export default function BagEditorScreen({
         const cached = aiPlacesClientCache.get(info.city);
         if (cached) {
           setAiPlaces(cached);
+          persistAiRecommendCache(info.city, info, cached);
           return;
         }
         const aiSeq = ++aiRequestSeqRef.current;
@@ -344,7 +369,10 @@ export default function BagEditorScreen({
             .then((places) => {
               if (aiRequestSeqRef.current !== aiSeq) return;
               setAiPlaces(places);
-              if (places.length > 0) aiPlacesClientCache.set(info.city, places);
+              if (places.length > 0) {
+                aiPlacesClientCache.set(info.city, places);
+                persistAiRecommendCache(info.city, info, places);
+              }
             })
             .finally(() => {
               if (aiRequestSeqRef.current === aiSeq) setLoadingAiPlaces(false);
@@ -377,7 +405,12 @@ export default function BagEditorScreen({
         .then((places) => {
           if (aiRequestSeqRef.current !== seq) return;
           setAiPlaces(places);
-          if (places.length > 0) aiPlacesClientCache.set(weatherCity, places);
+          if (places.length > 0) {
+            aiPlacesClientCache.set(weatherCity, places);
+            // 새로고침은 날씨를 다시 조회하지 않으므로(명소/맛집/특산물만 갱신), 지금 가지고
+            // 있는 weatherInfo를 그대로 함께 캐싱해둔다.
+            if (weatherInfo) persistAiRecommendCache(weatherCity, weatherInfo, places);
+          }
         })
         .finally(() => {
           if (aiRequestSeqRef.current === seq) setLoadingAiPlaces(false);
