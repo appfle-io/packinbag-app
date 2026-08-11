@@ -30,11 +30,20 @@ import {
 import { Pack } from "@/lib/types";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { useAuth } from "@/contexts/AuthProvider";
-import { createShortLink, isShortUrlFeatureEnabled, isAlreadyShortLink } from "@/lib/shortLinkService";
+import {
+  isShortUrlFeatureEnabled,
+  isAlreadyShortLink,
+  fetchLinkMeta,
+  parseShortLinkUrl,
+  type LinkMeta,
+} from "@/lib/shortLinkService";
+import { getCachedLinkMeta, setLinkMetaCache } from "@/lib/linkLabelCache";
 import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
 import { openExternalLink } from "@/lib/openExternalLink";
 import LinkActionMenu from "@/components/LinkActionMenu";
 import CustomUrlModal from "@/components/CustomUrlModal";
+import ShortenUrlModal from "@/components/ShortenUrlModal";
+import EditLinkModal from "@/components/EditLinkModal";
 import { PACK_COLORS } from "@/lib/packColors";
 import {
   MAX_EDITOR_DOC_BYTES,
@@ -134,6 +143,13 @@ export default function PackNoteEditorScreen({
   const [linkMenuUrl, setLinkMenuUrl] = useState<string | null>(null);
   // "커스텀 URL로 변경"을 누르면 이 값이 채워져 입력 시트(CustomUrlModal)가 열린다.
   const [customizeLinkUrl, setCustomizeLinkUrl] = useState<string | null>(null);
+  // "짧은 URL로 변경"을 누르면 이 값이 채워져 표시 이름 입력 시트(ShortenUrlModal)가 열린다.
+  const [shortenLinkUrl, setShortenLinkUrl] = useState<string | null>(null);
+  // 이미 축약된 링크를 탭했을 때, 본인이 만든 링크로 확인되면(fetchLinkMeta의 canEdit) 이
+  // 값이 채워져 "열기/수정" 선택 시트가 뜬다. 다른 사람이 만든 링크면 메뉴 없이 바로 열린다.
+  const [manageLinkTarget, setManageLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
+  // "수정"을 누르면 이 값이 채워져 이름/주소 수정 시트(EditLinkModal)가 열린다.
+  const [editLinkTarget, setEditLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
 
   const editor = useEditor({
     extensions: getNoteEditorExtensions("메모를 입력해보세요"),
@@ -193,6 +209,52 @@ export default function PackNoteEditorScreen({
     editor.commands.setContent(pack.editorDoc ?? "", false);
     refreshHeadings();
   }, [editor, otherEditorNickname, pack.editorDoc, refreshHeadings]);
+
+  // 렌더링된 링크(<a>) 중 우리 서비스 짧은/커스텀 링크의 화면 표시 텍스트를 캐시된 표시
+  // 이름(label)으로 바꿔치기한다. 문서(editorDoc) 자체의 텍스트/href는 그대로 두고 DOM
+  // 렌더링만 바꾸는 방식이라(TipTap 문서 모델은 손대지 않음) 저장/자동저장 로직과 완전히
+  // 분리되어 있다. 아직 원본 그대로거나(라벨 적용 전) 이전에 우리가 라벨로 바꿔치기해둔
+  // 자리만 갱신해서, 사용자가 링크 글자를 직접 다른 문구로 적어둔 경우까지 덮어쓰지 않는다.
+  const applyLinkLabels = useCallback(() => {
+    if (!editor) return;
+    const anchors = editor.view.dom.querySelectorAll<HTMLAnchorElement>("a[href]");
+    anchors.forEach((a) => {
+      const href = a.getAttribute("href");
+      if (!href) return;
+      const parsed = parseShortLinkUrl(href);
+      if (!parsed) return;
+      const cached = getCachedLinkMeta(href);
+      if (cached === undefined) {
+        fetchLinkMeta(href, user).then((meta) => {
+          setLinkMetaCache(parsed.kind, parsed.code, meta);
+          applyLinkLabels();
+        });
+        return;
+      }
+      const desiredText = cached?.label || href;
+      const appliedBefore = a.dataset.pibLinkPatched === "1";
+      const isOriginalRawText = a.textContent === href;
+      if ((isOriginalRawText || appliedBefore) && a.textContent !== desiredText) {
+        a.textContent = desiredText;
+        a.dataset.pibLinkPatched = desiredText !== href ? "1" : "";
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, user]);
+
+  useEffect(() => {
+    if (!editor) return;
+    applyLinkLabels();
+    editor.on("update", applyLinkLabels);
+    return () => {
+      editor.off("update", applyLinkLabels);
+    };
+  }, [editor, applyLinkLabels]);
+
+  useEffect(() => {
+    if (!editor || !otherEditorNickname) return;
+    applyLinkLabels();
+  }, [editor, otherEditorNickname, pack.editorDoc, applyLinkLabels]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
@@ -643,15 +705,32 @@ export default function PackNoteEditorScreen({
             className="h-full overflow-y-auto px-4 py-3"
             onClick={(e) => {
               // 링크(Link 마크)는 자동 탐색이 꺼져있어서(openOnClick: false)
-              // 여기서 <a> 태그 클릭을 직접 감지해서 처리한다. "짧은 URL로 변경"이 가능한
-              // 링크(프리미엄 + 토글 ON + 아직 축약 전)이면 선택 시트를 띄우고, 그러지 않으면
-              // 바로 openExternalLink()로 연다(웹/네이티브 공통).
+              // 여기서 <a> 태그 클릭을 직접 감지해서 처리한다. 이미 우리 서비스 짧은/커스텀
+              // 링크면 본인이 만든 것인지부터 확인해서(fetchLinkMeta) 맞으면 "열기/수정" 선택
+              // 시트를, 아니면 바로 연다. 아직 축약 전 링크면 기존처럼(프리미엄 + 토글 ON일
+              // 때만) "짧은/커스텀 URL로 변경" 선택 시트를 띄운다.
               const anchor = (e.target as HTMLElement).closest("a");
               if (!anchor) return;
               const href = anchor.getAttribute("href");
               if (!href) return;
               e.preventDefault();
-              const canShorten = shortUrlFeatureEnabled && !!user && !isAlreadyShortLink(href);
+
+              if (isAlreadyShortLink(href)) {
+                if (!user) {
+                  openExternalLink(href);
+                  return;
+                }
+                fetchLinkMeta(href, user).then((meta) => {
+                  if (meta?.canEdit) {
+                    setManageLinkTarget({ url: href, meta });
+                  } else {
+                    openExternalLink(href);
+                  }
+                });
+                return;
+              }
+
+              const canShorten = shortUrlFeatureEnabled && !!user;
               if (canShorten) {
                 setLinkMenuUrl(href);
               } else {
@@ -703,23 +782,32 @@ export default function PackNoteEditorScreen({
         <LinkActionMenu
           url={linkMenuUrl}
           onOpen={() => openExternalLink(linkMenuUrl)}
-          onShorten={() => {
-            if (!user) return;
-            const original = linkMenuUrl;
-            createShortLink(user, original)
-              .then((shortUrl) => {
-                replaceLinkTextInEditor(editor, original, shortUrl);
-                show("링크를 짧게 줄였어요");
-              })
-              .catch((err) => {
-                console.error("[팩인백] 메모 링크 축약 실패:", err);
-                show(err instanceof Error ? err.message : "링크 축약에 실패했어요");
-              });
-          }}
-          onCustomize={() => {
-            setCustomizeLinkUrl(linkMenuUrl);
-          }}
+          onShorten={() => setShortenLinkUrl(linkMenuUrl)}
+          onCustomize={() => setCustomizeLinkUrl(linkMenuUrl)}
           onClose={() => setLinkMenuUrl(null)}
+        />
+      )}
+
+      {shortenLinkUrl && user && (
+        <ShortenUrlModal
+          url={shortenLinkUrl}
+          user={user}
+          onSuccess={({ shortUrl, label }) => {
+            const parsed = parseShortLinkUrl(shortUrl);
+            if (parsed) {
+              setLinkMetaCache(parsed.kind, parsed.code, {
+                kind: parsed.kind,
+                code: parsed.code,
+                longUrl: shortenLinkUrl,
+                label,
+                canEdit: true,
+              });
+            }
+            replaceLinkTextInEditor(editor, shortenLinkUrl, shortUrl);
+            show("링크를 짧게 줄였어요");
+            setShortenLinkUrl(null);
+          }}
+          onClose={() => setShortenLinkUrl(null)}
         />
       )}
 
@@ -727,12 +815,57 @@ export default function PackNoteEditorScreen({
         <CustomUrlModal
           url={customizeLinkUrl}
           user={user}
-          onSuccess={(shortUrl) => {
+          onSuccess={({ shortUrl, label }) => {
+            const parsed = parseShortLinkUrl(shortUrl);
+            if (parsed) {
+              setLinkMetaCache(parsed.kind, parsed.code, {
+                kind: parsed.kind,
+                code: parsed.code,
+                longUrl: customizeLinkUrl,
+                label,
+                canEdit: true,
+              });
+            }
             replaceLinkTextInEditor(editor, customizeLinkUrl, shortUrl);
             show("커스텀 URL로 바꾸었어요");
             setCustomizeLinkUrl(null);
           }}
           onClose={() => setCustomizeLinkUrl(null)}
+        />
+      )}
+
+      {manageLinkTarget && (
+        <LinkActionMenu
+          url={manageLinkTarget.url}
+          onOpen={() => {
+            openExternalLink(manageLinkTarget.url);
+            setManageLinkTarget(null);
+          }}
+          onManage={() => {
+            setEditLinkTarget(manageLinkTarget);
+            setManageLinkTarget(null);
+          }}
+          onClose={() => setManageLinkTarget(null)}
+        />
+      )}
+
+      {editLinkTarget && user && (
+        <EditLinkModal
+          kind={editLinkTarget.meta.kind}
+          code={editLinkTarget.meta.code}
+          initialLabel={editLinkTarget.meta.label}
+          initialLongUrl={editLinkTarget.meta.longUrl}
+          user={user}
+          onSuccess={(result) => {
+            setLinkMetaCache(editLinkTarget.meta.kind, editLinkTarget.meta.code, {
+              ...editLinkTarget.meta,
+              ...result,
+            });
+            applyLinkLabels();
+            show("링크를 수정했어요");
+            setEditLinkTarget(null);
+          }}
+          onClose={() => setEditLinkTarget(null)}
         />
       )}
 

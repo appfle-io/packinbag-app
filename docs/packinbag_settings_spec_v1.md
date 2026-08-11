@@ -1,3 +1,18 @@
+# 팩인백 기능 스펙 문서 (v80 기준)
+
+## v80 변경 요약
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **짧은/커스텀 URL에 표시 이름(label) 추가** | 🆕 v80 신규 | 링크(주소) 자체와 화면에 보이는 이름을 분리. 생성 시 "표시 이름"을 선택입력받아(비워두면 링크 그대로 보임) `shortLinks`/`customShortLinks` 문서에 `label` 필드로 저장(`app/api/shorten-url`, `app/api/custom-shorten-url`). 리다이렉트(`app/s`,`c`/[code]/route.ts)는 전혀 손대지 않아 기존 동작 그대로 유지 |
+| **`app/api/link-meta`(GET) 신규** | 🆕 v80 신규 | 코드로 label/longUrl을 조회하는 공개 라우트(리다이렉트가 이미 longUrl을 인증 없이 공개하므로 같은 수준). Authorization 헤더가 있으면 검증해서 `canEdit`(요청자 uid == createdBy)까지 함께 내려준다 |
+| **`app/api/update-short-link`(PATCH) 신규** | 🆕 v80 신규 | 본인이 만든 링크의 label/longUrl을 수정. `verifyRequestUser`로 로그인을 확인한 뒤 `createdBy === uid`일 때만 허용(그 외에는 403). 코드(주소 뒷부분) 자체는 수정 불가(이미 공유된 링크가 깨지지 않게) |
+| **`lib/linkLabelCache.ts` 신규(모듈 공유 캐시)** | 🆕 v80 신규 | 짧은/커스텀 링크의 label을 code 기준으로 메모리에 캐싱하고 구독(subscribe) 가능하게 함 - `LinkifiedText.tsx`(리액트 상태로 재렌더)와 `PackNoteEditorScreen.tsx`(TipTap DOM 직접 갱신) 양쪽이 같은 캐시를 공유 |
+| **`LinkifiedText.tsx` 개편: 라벨 표시 + 수정 진입점** | 🔄 v80 변경 | 짐/가방메모 안 링크 텔스트가 우리 서비스 짧은/커스텀 링크면 label이 있을 때 그 이름을 보여준다(href는 그대로). 이미 축약된 링크를 탭했을 때는 `fetchLinkMeta`로 본인이 만든 것인지 확인해서(canEdit) 맞으면 "열기/수정" 선택 시트를, 아니면 v78부터의 "바로 열림" 동작을 그대로 유지(다른 사람이 만든 링크까지 매번 확인창을 띄우면 번거로워서) |
+| **`PackNoteEditorScreen.tsx` 개편: 같은 로직 TipTap에 적용** | 🔄 v80 변경 | 새 `applyLinkLabels()`가 렌더링된 `<a>` 중 우리 링크만 캐시된 label로 텍스트를 바꿔치기한다(문서 모델/자동저장은 손대지 않음, DOM 렌더링만 변경). 에디터 "update" 이벤트 + 리모트 라이브동기화 시점에 재적용된다. "짧은 URL로 변경"도 이제 `ShortenUrlModal`을 거쳐 표시 이름을 입력받는다(이전에는 모달 없이 즉시 생성) |
+| **`ShortenUrlModal.tsx`, `EditLinkModal.tsx` 신규** | 🆕 v80 신규 | `CustomUrlModal`과 같은 바텀시트 패턴. ShortenUrlModal은 표시 이름만(선택) 받고, EditLinkModal은 기존 링크의 표시 이름/연결 주소를 수정(코드는 변경 불가) |
+| **`LinkActionMenu.tsx` 개편: `onManage` 슬롯 추가** | 🔄 v80 변경 | onShorten/onCustomize/onManage를 모두 선택(optional)으로 받아, 넘겨진 것만 버튼으로 보여준다 - 축약 전 링크(onShorten+onCustomize)와 본인 소유 축약된 링크(onManage)가 같은 컴포넌트를 공유 |
+
 # 팩인백 기능 스펙 문서 (v79 기준)
 
 ## v79 변경 요약

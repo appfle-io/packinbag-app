@@ -43,6 +43,11 @@ export async function POST(req: NextRequest) {
   if (!longUrl || typeof longUrl !== "string" || !isHttpUrl(longUrl)) {
     return NextResponse.json({ error: "올바른 URL이 아니에요" }, { status: 400 });
   }
+  // 표시 이름(label)은 선택 입력 - 비어있으면 null로 저장해서, 화면에서는 링크 그대로
+  // (shortUrl 텍스트)를 보여주게 한다(lib/linkLabelCache.ts). 60자를 넘으면 자른다(모달
+  // 쪽에서 이미 lib/shortLinkService.ts의 validateLinkLabel로 막지만, 여기서도 한번 더 방어).
+  const rawLabel = (body as { label?: string })?.label;
+  const label = typeof rawLabel === "string" && rawLabel.trim() ? rawLabel.trim().slice(0, 60) : null;
   // 우리 서비스의 숏 URL을 또 축약하려는 경우 무한 리다이렉트로 이어질 수 있어 막는다.
   if (/\/s\/[a-zA-Z0-9]+\/?$/.test(longUrl)) {
     return NextResponse.json({ error: "이미 축약된 링크예요" }, { status: 400 });
@@ -87,6 +92,7 @@ export async function POST(req: NextRequest) {
   try {
     await col.doc(code).set({
       longUrl,
+      label,
       createdBy: uid,
       createdAt: new Date().toISOString(),
     });
@@ -103,5 +109,5 @@ export async function POST(req: NextRequest) {
   // 추가해두면 이 값을 그대로 따라간다.
   const configuredBase = process.env.SHORT_URL_BASE_URL?.trim().replace(/\/+$/, "");
   const origin = configuredBase || req.nextUrl.origin;
-  return NextResponse.json({ code, shortUrl: `${origin}/s/${code}` });
+  return NextResponse.json({ code, shortUrl: `${origin}/s/${code}`, label });
 }

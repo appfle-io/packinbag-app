@@ -53,6 +53,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미 축약된 링크예요" }, { status: 400 });
   }
 
+  // 표시 이름(label)은 선택 입력 - 비어있으면 null로 저장해서, 화면에서는 링크 그대로
+  // (shortUrl 텍스트)를 보여주게 한다(lib/linkLabelCache.ts). 60자를 넘으면 자른다(모달
+  // 쪽에서 이미 lib/shortLinkService.ts의 validateLinkLabel로 막지만, 여기서도 한번 더 방어).
+  const rawLabel = (body as { label?: string })?.label;
+  const label = typeof rawLabel === "string" && rawLabel.trim() ? rawLabel.trim().slice(0, 60) : null;
+
   const code = typeof rawCode === "string" ? rawCode.trim() : "";
   if (!CUSTOM_CODE_REGEX.test(code)) {
     return NextResponse.json(
@@ -91,6 +97,7 @@ export async function POST(req: NextRequest) {
   try {
     await col.doc(code).set({
       longUrl,
+      label,
       createdBy: uid,
       createdAt: new Date().toISOString(),
     });
@@ -107,5 +114,5 @@ export async function POST(req: NextRequest) {
   // 한글 코드를 encodeURIComponent하면 %EB%B0%B1... 식으로 보기 싫어지는 URL이 되니(복사/공유용으로 쓰기 불편),
   // 한글을 그대로 넣은다 - 현대 브라우저는 이런 IRI(유니코드 경로)를 그대로 널리링/네비게이션할 수 있고,
   // 실제 발송 시에만 자동으로 퍼센트 인코딩되므로 app/c/[code]/route.ts에서는 그대로 디코딩되어 도착한다.
-  return NextResponse.json({ code, shortUrl: `${origin}/c/${code}` });
+  return NextResponse.json({ code, shortUrl: `${origin}/c/${code}`, label });
 }

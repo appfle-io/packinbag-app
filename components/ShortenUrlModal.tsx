@@ -4,22 +4,16 @@ import { useState } from "react";
 import type { User } from "firebase/auth";
 import { IconX } from "@tabler/icons-react";
 import Portal from "@/components/Portal";
-import {
-  createCustomShortLink,
-  validateCustomCode,
-  validateLinkLabel,
-  LINK_LABEL_MAX_LENGTH,
-} from "@/lib/shortLinkService";
+import { createShortLink, validateLinkLabel, LINK_LABEL_MAX_LENGTH } from "@/lib/shortLinkService";
 import { useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
-// LinkActionMenu의 "커스텀 URL로 변경"을 누르면 뜨는 입력 시트. /c/{code} 형태로 사용자가
-// 직접 코드를 입력하고, 표시 이름(label)은 선택 입력 - 비워두면 화면에서는 링크 그대로
-// 보여준다(components/LinkifiedText.tsx/PackNoteEditorScreen.tsx가 lib/linkLabelCache.ts로
-// 조회해서 렌더링). 저장 전 클라이언트에서 1차 검증(validateCustomCode/validateLinkLabel) 후
-// 서버에서 다시 검증 + 중복 체크한다(app/api/custom-shorten-url). 성공하면 onSuccess로
+// LinkActionMenu의 "짧은 URL로 변경"을 누르면 뜨는 입력 시트. CustomUrlModal과 거의 동일하지만
+// 코드는 서버가 무작위로 발급하므로(/s/{7자리}) 입력칸이 없고, 표시 이름(label)만 선택으로
+// 받는다 - 비워두면 화면에서는 링크 그대로 보여준다(components/LinkifiedText.tsx/
+// PackNoteEditorScreen.tsx가 lib/linkLabelCache.ts로 조회해서 렌더링). 성공하면 onSuccess로
 // 완성된 shortUrl/label을 부모에 넘기고, 부모가 실제 텍스트 교체(onReplace)를 수행한다.
-export default function CustomUrlModal({
+export default function ShortenUrlModal({
   url,
   user,
   onSuccess,
@@ -32,21 +26,11 @@ export default function CustomUrlModal({
 }) {
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
-  const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // 미리보기용 도메인 - 실제 저장 후 받는 shortUrl과 도메인이 다를 수도 있지만(SHORT_URL_BASE_URL
-  // 환경변수), 입력하는 동안 보여주는 용도라 지금 접속 중인 origin으로 충분하다.
-  const previewOrigin = typeof window !== "undefined" ? window.location.origin : "";
-
   const handleSave = async () => {
-    const codeError = validateCustomCode(code);
-    if (codeError) {
-      setError(codeError);
-      return;
-    }
     const labelError = validateLinkLabel(label);
     if (labelError) {
       setError(labelError);
@@ -56,10 +40,10 @@ export default function CustomUrlModal({
     setError(null);
     try {
       const trimmedLabel = label.trim();
-      const shortUrl = await createCustomShortLink(user, url, code.trim(), trimmedLabel || undefined);
+      const shortUrl = await createShortLink(user, url, trimmedLabel || undefined);
       onSuccess({ shortUrl, label: trimmedLabel || null });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "커스텀 URL 생성에 실패했어요");
+      setError(err instanceof Error ? err.message : "링크 축약에 실패했어요");
     } finally {
       setSaving(false);
     }
@@ -78,7 +62,7 @@ export default function CustomUrlModal({
           style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[14px] font-medium">커스텀 URL 만들기</span>
+            <span className="text-[14px] font-medium">짧은 URL 만들기</span>
             <button onClick={onClose} aria-label="닫기" className="-m-2 p-2">
               <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
             </button>
@@ -86,32 +70,10 @@ export default function CustomUrlModal({
 
           <p className="text-[12px] text-text-muted truncate">{url}</p>
 
-          <div
-            className="flex items-center rounded-lg border border-border overflow-hidden"
-            style={{ background: "var(--surface-2)" }}
-          >
-            <span className="pl-3 pr-1 text-[13px] text-text-muted shrink-0 truncate max-w-[45%]">
-              {previewOrigin}/c/
-            </span>
-            <input
-              autoFocus
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                if (error) setError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
-              maxLength={20}
-              placeholder="원하는 주소"
-              className="min-w-0 flex-1 bg-transparent py-2.5 pr-3 text-[13px] outline-none"
-            />
-          </div>
-
           <div className="flex flex-col gap-1">
             <span className="text-[11px] text-text-muted">표시 이름 (선택)</span>
             <input
+              autoFocus
               value={label}
               onChange={(e) => {
                 setLabel(e.target.value);
@@ -121,25 +83,21 @@ export default function CustomUrlModal({
                 if (e.key === "Enter") handleSave();
               }}
               maxLength={LINK_LABEL_MAX_LENGTH}
-              placeholder="비워두면 링크 그대로 보여요"
+              placeholder="예: 백화점POSA_정리내용 (비워두면 링크 그대로 보여요)"
               className="rounded-lg border border-border px-3 py-2.5 text-[13px] outline-none"
               style={{ background: "var(--surface-2)" }}
             />
           </div>
 
-          {error ? (
+          {error && (
             <p className="text-[12px]" style={{ color: "var(--danger)" }}>
               {error}
-            </p>
-          ) : (
-            <p className="text-[11px] text-text-muted">
-              한글/영문/숫자/하이픈(-)/밑줄(_)만 사용, 2~20자
             </p>
           )}
 
           <button
             onClick={handleSave}
-            disabled={saving || !code.trim()}
+            disabled={saving}
             className="w-full rounded-lg py-2.5 text-[14px] font-medium disabled:opacity-40"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
