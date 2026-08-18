@@ -18,7 +18,7 @@ import {
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { Bag, BagMemberProfile } from "@/lib/types";
-import { stripUndefined } from "@/lib/firestoreSanitize";
+import { stripUndefined, findInvalidFirestoreEntity } from "@/lib/firestoreSanitize";
 import { PremiumLimitError } from "@/lib/premiumLimits";
 
 function bagsCol() {
@@ -73,10 +73,12 @@ export async function createBagRemote(
 }
 
 export async function saveBagRemote(bag: Bag) {
-  await setDoc(
-    doc(bagsCol(), bag.id),
-    stripUndefined({ ...bag, updatedAt: new Date().toISOString() })
-  );
+  const payload = stripUndefined({ ...bag, updatedAt: new Date().toISOString() });
+  // 임시 진단(2026-08) - "invalid nested entity" 원인 추적용. 원인 찾으면 이 두 줄과
+  // firestoreSanitize.ts의 findInvalidFirestoreEntity는 지운다.
+  const bad = findInvalidFirestoreEntity(payload);
+  if (bad) console.error("[팩인백] 🎯 문제 위치 발견:", bad);
+  await setDoc(doc(bagsCol(), bag.id), payload);
 }
 
 // 메모팩 실시간 동기화(autoSyncEnabled) 전용 - 팩이 배열(Bag.packs) 안에 박혀있어서
