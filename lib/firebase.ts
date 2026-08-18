@@ -53,18 +53,15 @@ export const storage = getStorage(app);
 export default app;
 
 // TEMP DEBUG (2026-08): "Property X contains an invalid nested entity" is confirmed
-// to be a real data-shape problem (an isolated write of the sanitized bag to an
-// unrelated users/{uid} field failed with the exact same error). Static recursive
-// checks for a literal array-directly-inside-array all report clean, so instead of
-// guessing we bisect for real: write progressively smaller fragments of the actual
-// bag to an isolated scratch field and see which fragment is the smallest one that
-// still fails. This walks bag -> each pack -> each editorDoc.content node -> each
-// node's own nested content array, recursively, stopping at the first failing leaf
-// per branch. Each candidate write goes through the exact same stripUndefined
-// normalization as the real save path.
-//
-// Call site: BagEditorScreen's save-failure catch calls debugBisectBag(bag)
-// automatically. Remove this whole section + the call site once the cause is found.
+// to be a real data-shape problem. First bisection pass tested bag.packs (each pack,
+// then each editorDoc.content node) and every single one passed in isolation - so
+// the culprit is NOT inside any pack. This pass instead walks the FULL object
+// generically: for any plain object, test each top-level key alone; for any array,
+// test each element alone; recurse into whichever child fails, and also always
+// test "the rest" (object minus the already-cleared keys) in case the problem only
+// shows up in combination with sibling fields that individually look fine.
+// Call site: BagEditorScreen's save-failure catch calls debugBisectBag(bag).
+// Remove this whole section + the call site once the cause is found.
 
 async function tryIsolatedWrite(uid: string, label: string, value: unknown): Promise<boolean> {
   try {
@@ -81,48 +78,43 @@ async function tryIsolatedWrite(uid: string, label: string, value: unknown): Pro
   }
 }
 
-async function bisectNodeContent(uid: string, label: string, content: unknown[]): Promise<void> {
-  for (let i = 0; i < content.length; i++) {
-    const node = content[i] as { type?: string; content?: unknown[] };
-    const nodeLabel = `${label}.content[${i}] (type=${node?.type ?? "?"})`;
-    const ok = await tryIsolatedWrite(uid, nodeLabel, node);
-    if (ok) {
-      console.log(`[pib-bisect] ok: ${nodeLabel}`);
-      continue;
-    }
-    // this node itself fails in isolation - if it has its own nested content array,
-    // recurse into it to find the smallest failing sub-node; otherwise this leaf IS
-    // the culprit.
-    if (Array.isArray(node?.content) && node.content.length > 0) {
-      await bisectNodeContent(uid, nodeLabel, node.content);
-    } else {
-      console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${nodeLabel}`, JSON.stringify(node));
-    }
+async function bisectValue(uid: string, label: string, value: unknown): Promise<void> {
+  const ok = await tryIsolatedWrite(uid, label, value);
+  if (ok) {
+    console.log(`[pib-bisect] ok: ${label}`);
+    return;
   }
+  if (Array.isArray(value)) {
+    if (value.length <= 1) {
+      console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${label}`, JSON.stringify(value));
+      return;
+    }
+    for (let i = 0; i < value.length; i++) {
+      await bisectValue(uid, `${label}[${i}]`, value[i]);
+    }
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length <= 1) {
+      console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${label}`, JSON.stringify(value));
+      return;
+    }
+    for (const [k, v] of entries) {
+      await bisectValue(uid, `${label}.${k}`, v);
+    }
+    return;
+  }
+  console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND (primitive?!): ${label}`, JSON.stringify(value));
 }
 
-export async function debugBisectBag(bag: {
-  packs: { id: string; name: string; editorDoc?: { content?: unknown[] } }[];
-}): Promise<void> {
+export async function debugBisectBag(bag: Record<string, unknown>): Promise<void> {
   const uid = auth.currentUser?.uid;
   if (!uid) {
     console.error("[pib-bisect] not signed in");
     return;
   }
-  console.log("[pib-bisect] starting bisection...");
-  for (const pack of bag.packs) {
-    const packLabel = `pack ${pack.id} (${pack.name})`;
-    const ok = await tryIsolatedWrite(uid, packLabel, pack);
-    if (ok) {
-      console.log(`[pib-bisect] ok: ${packLabel}`);
-      continue;
-    }
-    const content = pack.editorDoc?.content;
-    if (Array.isArray(content) && content.length > 0) {
-      await bisectNodeContent(uid, packLabel, content);
-    } else {
-      console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND (whole pack, no content to split): ${packLabel}`);
-    }
-  }
+  console.log("[pib-bisect] starting full generic bisection of the whole bag object...");
+  await bisectValue(uid, "bag", bag);
   console.log("[pib-bisect] done - look above for 'SMALLEST FAILING LEAF FOUND'");
 }
