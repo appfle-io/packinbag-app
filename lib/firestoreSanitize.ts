@@ -10,8 +10,15 @@
 // 그런 값을 만나면 저장을 막는 대신 { list: [...] }로 감싸서 저장은 되게 하고, 어느
 // 경로(path)에서 걸렸는지 콘솔에 남겨서 다음에 같은 문제가 생기면 원인을 바로 찾을 수
 // 있게 한다.
+//
+// 추가로, 마지막 안전장치로 JSON.parse(JSON.stringify(...)) 라운드트립을 한 번 거친다.
+// 이렇게 하면 Firestore SDK가 실제로 받는 값이 개발자가 console.log로 보는 값과
+// 100% 동일하다는 게 보장된다(class 인스턴스/Proxy/toJSON이 있는 객체 등, 문자열로
+// 찍을 때는 "정상"처럼 보이지만 실제로는 다른 형태인 값들을 전부 강제로 순수 JSON으로
+// 만든다). 그래도 같은 에러가 나면 데이터 모양 문제가 아니라는 뜻이다.
 export function stripUndefined<T>(value: T): T {
-  return sanitizeForFirestore(value, "root") as T;
+  const sanitized = sanitizeForFirestore(value, "root");
+  return JSON.parse(JSON.stringify(sanitized)) as T;
 }
 
 function sanitizeForFirestore(value: unknown, path: string): unknown {
@@ -42,11 +49,11 @@ function sanitizeForFirestore(value: unknown, path: string): unknown {
   return value;
 }
 
-// 임시 진단용(2026-08) - 저장 직전 "실제 JS 객체"를 재귀 검사해서 Firestore가 거부할 만한
+// 진단용(2026-08) - 저장 직전 "실제 JS 객체"를 재귀 검사해서 Firestore가 거부할 만한
 // 지점(배열 속 배열, undefined, class 인스턴스/Map/Set/함수 등)의 정확한 경로를 찾는다.
-// JSON.stringify로 콘솔에 로그를 찍으면 toJSON()이 정의된 객체가 자동으로 "정상"처럼
-// 보여서 못 잡아내는 경우가 있어서, 문자열로 찍기 전에 원본 객체를 직접 훑어본다.
-// 원인 찾으면 이 함수와 호출부(bagsService.saveBagRemote 등)는 지워도 된다.
+// stripUndefined의 JSON 라운드트립 이후에는 이런 값들이 이미 사라지므로, 이 함수는
+// 라운드트립 "이전" 원본 객체에 대해 호출해야 의미가 있다(bagsService.saveBagRemote 참고).
+// 원인 찾으면 이 함수와 호출부는 지워도 된다.
 export function findInvalidFirestoreEntity(
   value: unknown,
   path = "root",
