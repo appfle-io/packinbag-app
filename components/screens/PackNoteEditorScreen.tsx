@@ -48,6 +48,7 @@ import { PACK_COLORS } from "@/lib/packColors";
 import {
   MAX_EDITOR_DOC_BYTES,
   checkEditorDocSizeForSave,
+  checkEditorDocDepthForSave,
   extractPlainTextPreview,
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
@@ -125,6 +126,9 @@ export default function PackNoteEditorScreen({
   // 배너로 알려서, 사용자가 내용을 줄여야 한다는 걸 바로 알 수 있게 한다(타이핑한 내용
   // 자체는 화면에 그대로 남아있어 잃어버리지 않는다).
   const [sizeBlocked, setSizeBlocked] = useState(false);
+  // 토글(> 접기)이나 리스트를 여러 단계 겹쳐 쌓아서 Firestore의 중첩 제한(최대 20단계)을
+  // 넘을 위험이 있을 때 true. sizeBlocked와 동일하게 자동저장을 건너뛰고 배너로 알린다.
+  const [depthBlocked, setDepthBlocked] = useState(false);
   // 목차(TOC): 모바일은 우하단 플로팅 버튼 + 바텀시트, 데스크톱(넓은 화면)은 우측 사이드
   // 레일로 상시 노출한다. 헤딩이 하나도 없으면 버튼/레일 자체를 숨긴다.
   const isDesktop = useIsDesktop();
@@ -268,6 +272,12 @@ export default function PackNoteEditorScreen({
       return;
     }
     setSizeBlocked(false);
+    const depthError = checkEditorDocDepthForSave(doc);
+    if (depthError) {
+      setDepthBlocked(true);
+      return;
+    }
+    setDepthBlocked(false);
     const updated: Pack = {
       ...packRef.current,
       name: nameRef.current,
@@ -558,6 +568,17 @@ export default function PackNoteEditorScreen({
         >
           <IconAlertTriangle size={15} stroke={1.75} className="shrink-0" />
           메모 용량이 너무 커서 지금 상태는 저장되지 않고 있어요. 표나 텍스트를 좀 줄여주세요.
+        </div>
+      )}
+
+      {depthBlocked && (
+        <div
+          className="mx-4 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] shrink-0"
+          style={{ background: "var(--danger-soft, #fee2e2)", color: "var(--danger)" }}
+        >
+          <IconAlertTriangle size={15} stroke={1.75} className="shrink-0" />
+          토글(&gt; 접기)이나 리스트가 너무 깊게 겹쳐 있어서 지금 상태는 저장되지 않고 있어요.
+          일부 항목을 리스트/토글 바깥으로 꺼내서 평평하게 정리해주세요.
         </div>
       )}
 

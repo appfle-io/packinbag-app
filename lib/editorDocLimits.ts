@@ -90,3 +90,57 @@ export function checkBagSizeForSave(projectedBag: object): string | null {
   }
   return null;
 }
+
+// Firestore는 맵/배열 중첩이 문서당 최대 20단계까지만 허용된다(Firestore 자체 하드리밋).
+// 메모팩이 실제로 저장될 때는 bag -> packs(배열) -> pack(맵) -> editorDoc(맵) 4단계가 이미
+// 씌워진 채로 들어가므로, editorDoc 자신의 깊이는 여유를 두고 14단계 이하로 제한한다.
+// 토글(> 접기) 안에 리스트를 넣고 그 리스트 항목 안에 또 토글을 넣는 식으로 3~4단계 넘게
+// 겹쳐 쌓으면 이 상한에 걸린다. 2026-08: "Property array contains an invalid nested
+// entity"라는 다소 오해하기 쉬운 Firestore 에러의 실제 원인이 바로 이 깊이 초과였다
+// (배열 안에 배열이 있다는 뜻이 아니라, 중첩 단계 초과를 이렇게 표시하는 경우가 있음).
+export const MAX_EDITOR_DOC_NESTING_DEPTH = 14;
+
+function computeNestingDepth(value: unknown): number {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return 1;
+    let max = 0;
+    for (const v of value) {
+      const d = computeNestingDepth(v);
+      if (d > max) max = d;
+    }
+    return 1 + max;
+  }
+  if (value !== null && typeof value === "object") {
+    const vals = Object.values(value as Record<string, unknown>);
+    if (vals.length === 0) return 1;
+    let max = 0;
+    for (const v of vals) {
+      const d = computeNestingDepth(v);
+      if (d > max) max = d;
+    }
+    return 1 + max;
+  }
+  return 0;
+}
+
+// TipTap 문서 자신의 최대 중첩 깊이를 잰다(문서 자체 기준 - 간단한 짐은 1~2, 토글/리스트를
+// 계속 겹쳐 쌓으면 20 근처까지도 올라갈 수 있다).
+export function getEditorDocNestingDepth(doc: object): number {
+  return computeNestingDepth(doc);
+}
+
+export function isEditorDocTooDeeplyNested(doc: object): boolean {
+  return getEditorDocNestingDepth(doc) > MAX_EDITOR_DOC_NESTING_DEPTH;
+}
+
+/**
+ * 저장 직전에 호출한다. 토글(> 접기)이나 리스트를 여러 단계 겹쳐 쌓아서 Firestore의
+ * 중첩 제한(최대 20단계)을 넘을 위험이 있으면 저장을 막고 이유를 문자열로 돌려준다
+ * (null이면 정상 - 그대로 저장 진행).
+ */
+export function checkEditorDocDepthForSave(doc: object): string | null {
+  if (isEditorDocTooDeeplyNested(doc)) {
+    return "메모 안의 토글(> 접기)이나 리스트가 너무 깊게 겹쳐 있어요. 저장이 안 될 수 있어요 - 일부 항목을 리스트/토글 바깥으로 꺼내서 평평하게 정리한 다음 다시 저장해주세요.";
+  }
+  return null;
+}
