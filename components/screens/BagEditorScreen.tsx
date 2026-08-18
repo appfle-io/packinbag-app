@@ -64,6 +64,7 @@ import NotebookQuickAddModal, { QuickAddItemData } from "@/components/NotebookQu
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
 import { subscribeToBag, saveBagRemote, movePackBetweenBagsRemote } from "@/lib/bagsService";
+import { debugTestIsolatedSave } from "@/lib/firebase";
 import { deleteLibraryPackRemote, updateLibraryPackEditorContent } from "@/lib/packsService";
 import { isInSyncWithLibrary, resolveEditorSyncDirection, buildEditorSyncPatch } from "@/lib/packSync";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
@@ -675,7 +676,10 @@ export default function BagEditorScreen({
           console.error("[팩인백] 실시간 저장 실패:", err);
           // 2026-08 임시 진단 로그: "Property array contains an invalid nested entity"
           // 원인을 못 찾아서, 실패한 그 순간의 bag 데이터를 직접 훑어 어느 경로에 배열
-          // 속 배열이 있는지 콘솔에 찍어본다. 원인 파악되면 이 블록은 지워도 된다.
+          // 속 배열이 있는지 콘솔에 찍어본다. 또한 같은 payload를 완전히 무관한 users/{uid}
+          // 문서에 격리 저장해봐서, 데이터 모양 문제인지 다른 동시 쓰기/리스너 문제인지
+          // 자동으로 가려본다(복붙 없이). 원인 파악되면 이 블록은 지워도 된다.
+          debugTestIsolatedSave(bag).catch(() => {});
           try {
             const offending = findNestedArrayPaths(bag);
             if (offending.length > 0) {

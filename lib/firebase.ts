@@ -5,8 +5,11 @@ import {
   getFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
+  doc,
+  setDoc,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { stripUndefined } from "./firestoreSanitize";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -51,44 +54,36 @@ export default app;
 
 // TEMP DEBUG (2026-08): isolate whether "invalid nested entity" is caused by the
 // data shape itself, or by interaction with other concurrent writes/listeners on
-// the bags/{bagId} document. This writes the exact same bag payload to the
-// caller's own users/{uid} document instead (rules always allow read/write on your
-// own user doc), which has no other writers/listeners touching this test field.
+// the bags/{bagId} document. Takes the actual in-memory object directly (no
+// copy-paste of a giant JSON string needed, which is error-prone - quotes inside
+// the note content can break a hand-typed JS string literal). Writes the exact
+// same payload to the caller's own users/{uid} document instead (rules always
+// allow read/write on your own user doc), which has no other writers/listeners
+// touching this test field.
 //
-// Console usage:
-//   1) copy the full bag JSON string printed after the "save failed" error log
-//   2) run: window.__pibDebugTestSave(thatString)
-//   3) success -> not a data-shape issue, something about concurrent bag writes/listeners
-//      failure -> the data itself still has the problem (path is in the console error)
-// Remove this whole block once the cause is found.
-if (typeof window !== "undefined") {
-  import("firebase/firestore").then(async ({ doc, setDoc }) => {
-    const { stripUndefined } = await import("./firestoreSanitize");
-    (window as unknown as Record<string, unknown>).__pibDebugTestSave = async (
-      jsonString: string
-    ) => {
-      try {
-        const uid = auth.currentUser?.uid;
-        if (!uid) {
-          console.error("[pib-debug] not signed in");
-          return;
-        }
-        const parsed = JSON.parse(jsonString);
-        const sanitized = stripUndefined(parsed);
-        await setDoc(
-          doc(db, "users", uid),
-          { __debugTestPayload: sanitized, __debugTestAt: new Date().toISOString() },
-          { merge: true }
-        );
-        console.log(
-          "[pib-debug] SAVE SUCCEEDED - not a data shape issue. Check users/" +
-            uid +
-            " field __debugTestPayload"
-        );
-      } catch (err) {
-        console.error("[pib-debug] SAVE FAILED - the data itself still has the problem:", err);
-      }
-    };
-    console.log("[pib-debug] window.__pibDebugTestSave(bagJsonString) is ready");
-  });
+// Call site: BagEditorScreen's save-failure catch block calls this automatically
+// with the live `bag` object right after the real save fails, so the isolated
+// test runs with zero manual steps. Remove this + the call site once the cause
+// is found.
+export async function debugTestIsolatedSave(payload: unknown): Promise<void> {
+  try {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      console.error("[pib-debug] not signed in");
+      return;
+    }
+    const sanitized = stripUndefined(payload);
+    await setDoc(
+      doc(db, "users", uid),
+      { __debugTestPayload: sanitized, __debugTestAt: new Date().toISOString() },
+      { merge: true }
+    );
+    console.log(
+      "[pib-debug] ISOLATED SAVE SUCCEEDED - not a data shape issue. Check users/" +
+        uid +
+        " field __debugTestPayload"
+    );
+  } catch (err) {
+    console.error("[pib-debug] ISOLATED SAVE FAILED TOO - the data itself still has the problem:", err);
+  }
 }
