@@ -312,7 +312,7 @@ export default function AppShell() {
 
     user
       .getIdToken()
-      .then((idToken) =>
+      .then((idToken: string) =>
         fetch("/api/sync-lock-status", {
           method: "POST",
           headers: { Authorization: `Bearer ${idToken}` },

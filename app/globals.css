@@ -130,19 +130,49 @@ body {
     -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* 데스크탑 PWA 및 스크롤바 미려화 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
 .scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 4px;
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/* 데스크탑 앱 UI 요소 선택 방지 (버튼/사이드바/헤더) */
+.desktop-no-select,
+button,
+[role="button"],
+nav,
+aside {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 @keyframes pib-toast-pop-in {

@@ -990,10 +990,12 @@ export default function DesktopSidebar({
                       handleDropOnTarget("bag", bag.id);
                     }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
+                    className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                     style={{
                       border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
                       background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
+                      color: isSelected ? "var(--accent)" : undefined,
+                      fontWeight: isSelected ? 600 : undefined,
                     }}
                   >
                     <span className="w-[14px] shrink-0" />
@@ -1145,7 +1147,7 @@ export default function DesktopSidebar({
                       e.stopPropagation();
                       handleDropOnTarget("bag", bag.id, e, computeDropZone(e));
                     }}
-                    className="group flex items-center gap-1.5 rounded-lg px-2 py-1 cursor-pointer transition-all"
+                    className="group flex items-center gap-1.5 rounded-xl px-2 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                     style={{
                       paddingLeft: 8 + row.depth * 18,
                       borderTop: isDropTarget && dropZone === "before" ? "2px solid var(--accent)" : "2px solid transparent",
@@ -1153,6 +1155,8 @@ export default function DesktopSidebar({
                       borderLeft: "2px solid transparent",
                       borderRight: "2px solid transparent",
                       background: isSelected ? "var(--accent-soft)" : undefined,
+                      color: isSelected ? "var(--accent)" : undefined,
+                      fontWeight: isSelected ? 600 : undefined,
                     }}
                     onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
                   >

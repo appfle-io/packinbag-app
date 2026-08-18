@@ -17,6 +17,8 @@ import {
   IconCheck,
   IconCopy,
   IconGripVertical,
+  IconBackpack,
+  IconPlus,
 } from "@tabler/icons-react";
 import { Bag, Item, Pack } from "@/lib/types";
 import { QUICK_PACK_ID } from "@/lib/premiumLimits";
