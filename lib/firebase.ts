@@ -48,3 +48,47 @@ function createFirestore() {
 export const db = createFirestore();
 export const storage = getStorage(app);
 export default app;
+
+// TEMP DEBUG (2026-08): isolate whether "invalid nested entity" is caused by the
+// data shape itself, or by interaction with other concurrent writes/listeners on
+// the bags/{bagId} document. This writes the exact same bag payload to the
+// caller's own users/{uid} document instead (rules always allow read/write on your
+// own user doc), which has no other writers/listeners touching this test field.
+//
+// Console usage:
+//   1) copy the full bag JSON string printed after the "save failed" error log
+//   2) run: window.__pibDebugTestSave(thatString)
+//   3) success -> not a data-shape issue, something about concurrent bag writes/listeners
+//      failure -> the data itself still has the problem (path is in the console error)
+// Remove this whole block once the cause is found.
+if (typeof window !== "undefined") {
+  import("firebase/firestore").then(async ({ doc, setDoc }) => {
+    const { stripUndefined } = await import("./firestoreSanitize");
+    (window as unknown as Record<string, unknown>).__pibDebugTestSave = async (
+      jsonString: string
+    ) => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) {
+          console.error("[pib-debug] not signed in");
+          return;
+        }
+        const parsed = JSON.parse(jsonString);
+        const sanitized = stripUndefined(parsed);
+        await setDoc(
+          doc(db, "users", uid),
+          { __debugTestPayload: sanitized, __debugTestAt: new Date().toISOString() },
+          { merge: true }
+        );
+        console.log(
+          "[pib-debug] SAVE SUCCEEDED - not a data shape issue. Check users/" +
+            uid +
+            " field __debugTestPayload"
+        );
+      } catch (err) {
+        console.error("[pib-debug] SAVE FAILED - the data itself still has the problem:", err);
+      }
+    };
+    console.log("[pib-debug] window.__pibDebugTestSave(bagJsonString) is ready");
+  });
+}
