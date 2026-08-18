@@ -114,6 +114,26 @@ const aiPlacesClientCache = new Map<string, TravelRecommendation[]>();
 // 큰 파일을 막기 위해 따로 크기 상한을 둔다(2026-08~ 10MB로 상향).
 const MAX_BAG_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
 
+// 2026-08 임시 진단 헬퍼: Firestore가 거부하는 "배열 안에 배열" 패턴이 실제 저장 시도
+// 데이터의 어느 경로에 있는지 찾아준다. lib/firestoreSanitize.ts의 sanitizeForFirestore와
+// 같은 판정 로직을 독립적으로(라이브러리 캐싱/번들링 이슈 가능성을 배제하기 위해) 여기
+// 직접 둔다. 원인 파악되면 이 함수와 호출부(handleImport 근처 catch)는 지워도 된다.
+function findNestedArrayPaths(value: unknown, path = "root", out: { path: string; value: unknown }[] = []) {
+  if (Array.isArray(value)) {
+    value.forEach((v, i) => {
+      if (Array.isArray(v)) {
+        out.push({ path: `${path}[${i}]`, value: v });
+      }
+      findNestedArrayPaths(v, `${path}[${i}]`, out);
+    });
+  } else if (value !== null && typeof value === "object") {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      findNestedArrayPaths(v, `${path}.${k}`, out);
+    }
+  }
+  return out;
+}
+
 export default function BagEditorScreen({
   initialBag,
   libraryPacks,
@@ -653,6 +673,22 @@ export default function BagEditorScreen({
         })
         .catch((err) => {
           console.error("[팩인백] 실시간 저장 실패:", err);
+          // 2026-08 임시 진단 로그: "Property array contains an invalid nested entity"
+          // 원인을 못 찾아서, 실패한 그 순간의 bag 데이터를 직접 훑어 어느 경로에 배열
+          // 속 배열이 있는지 콘솔에 찍어본다. 원인 파악되면 이 블록은 지워도 된다.
+          try {
+            const offending = findNestedArrayPaths(bag);
+            if (offending.length > 0) {
+              console.error("[팩인백] 진단: 중첩 배열 발견", offending);
+            } else {
+              console.error(
+                "[팩인백] 진단: 중첩 배열은 못 찾음 - 저장 시도했던 bag 전체를 아래에 남김"
+              );
+              console.error(JSON.stringify(bag));
+            }
+          } catch (diagErr) {
+            console.error("[팩인백] 진단 로직 자체 실패:", diagErr);
+          }
           show(`실시간 저장에 실패했어요 (${firebaseErrorCode(err)})`);
         })
         .finally(() => {
