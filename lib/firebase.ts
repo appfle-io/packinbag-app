@@ -52,14 +52,15 @@ export const db = createFirestore();
 export const storage = getStorage(app);
 export default app;
 
-// TEMP DEBUG (2026-08): "Property X contains an invalid nested entity" is confirmed
-// to be a real data-shape problem. First bisection pass tested bag.packs (each pack,
-// then each editorDoc.content node) and every single one passed in isolation - so
-// the culprit is NOT inside any pack. This pass instead walks the FULL object
-// generically: for any plain object, test each top-level key alone; for any array,
-// test each element alone; recurse into whichever child fails, and also always
-// test "the rest" (object minus the already-cleared keys) in case the problem only
-// shows up in combination with sibling fields that individually look fine.
+// TEMP DEBUG (2026-08): "Property X contains an invalid nested entity" confirmed to
+// be a real data-shape problem. First pass bisected bag.packs and every single pack
+// AND every single editorDoc.content node passed in isolation, while the pack as a
+// WHOLE still failed - meaning this isn't "one bad node", it's a combination-only
+// failure (something only breaks when several siblings sit together in the same
+// array). This version handles that: for any array, if the whole thing fails but
+// every individual element passes, it binary-splits the array, and if both halves
+// pass alone too, it falls back to testing every cross-half PAIR to find the
+// specific two elements that only fail when written together.
 // Call site: BagEditorScreen's save-failure catch calls debugBisectBag(bag).
 // Remove this whole section + the call site once the cause is found.
 
@@ -78,6 +79,56 @@ async function tryIsolatedWrite(uid: string, label: string, value: unknown): Pro
   }
 }
 
+async function bisectArrayCombo(uid: string, label: string, arr: unknown[]): Promise<void> {
+  if (arr.length <= 1) {
+    console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${label}`, JSON.stringify(arr));
+    return;
+  }
+  const mid = Math.floor(arr.length / 2);
+  const left = arr.slice(0, mid);
+  const right = arr.slice(mid);
+  const leftLabel = `${label}[0:${mid}]`;
+  const rightLabel = `${label}[${mid}:${arr.length}]`;
+  const leftOk = await tryIsolatedWrite(uid, leftLabel, left);
+  const rightOk = await tryIsolatedWrite(uid, rightLabel, right);
+
+  if (!leftOk) {
+    console.log(`[pib-bisect] narrowing into left half: ${leftLabel}`);
+    await bisectValue(uid, leftLabel, left);
+  }
+  if (!rightOk) {
+    console.log(`[pib-bisect] narrowing into right half: ${rightLabel}`);
+    await bisectValue(uid, rightLabel, right);
+  }
+  if (leftOk && rightOk) {
+    // Neither half alone reproduces it, but the full array does - so it's specifically
+    // a cross-half interaction. Brute-force every (left element, right element) pair.
+    console.log(
+      `[pib-bisect] both halves pass alone but combined array fails - trying ${left.length}x${right.length} cross pairs for ${label}`
+    );
+    let found = false;
+    for (let i = 0; i < left.length; i++) {
+      for (let j = 0; j < right.length; j++) {
+        const pairLabel = `${label} pair(${i} x ${mid + j})`;
+        const pairOk = await tryIsolatedWrite(uid, pairLabel, [left[i], right[j]]);
+        if (!pairOk) {
+          console.error(
+            `[pib-bisect] PAIR FAILS TOGETHER: ${pairLabel}`,
+            "\nELEMENT A:", JSON.stringify(left[i]),
+            "\nELEMENT B:", JSON.stringify(right[j])
+          );
+          found = true;
+        }
+      }
+    }
+    if (!found) {
+      console.error(
+        `[pib-bisect] no single pair reproduces it either for ${label} - likely needs 3+ elements together, or it's a count/size threshold rather than specific content`
+      );
+    }
+  }
+}
+
 async function bisectValue(uid: string, label: string, value: unknown): Promise<void> {
   const ok = await tryIsolatedWrite(uid, label, value);
   if (ok) {
@@ -89,8 +140,21 @@ async function bisectValue(uid: string, label: string, value: unknown): Promise<
       console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${label}`, JSON.stringify(value));
       return;
     }
+    let anyChildFailed = false;
     for (let i = 0; i < value.length; i++) {
-      await bisectValue(uid, `${label}[${i}]`, value[i]);
+      const childOk = await tryIsolatedWrite(uid, `${label}[${i}]`, value[i]);
+      if (childOk) {
+        console.log(`[pib-bisect] ok: ${label}[${i}]`);
+      } else {
+        anyChildFailed = true;
+        await bisectValue(uid, `${label}[${i}]`, value[i]);
+      }
+    }
+    if (!anyChildFailed) {
+      console.log(
+        `[pib-bisect] every element of ${label} passes alone, but the array together fails - switching to combo search`
+      );
+      await bisectArrayCombo(uid, label, value);
     }
     return;
   }
@@ -100,8 +164,20 @@ async function bisectValue(uid: string, label: string, value: unknown): Promise<
       console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${label}`, JSON.stringify(value));
       return;
     }
+    let anyChildFailed = false;
     for (const [k, v] of entries) {
-      await bisectValue(uid, `${label}.${k}`, v);
+      const childOk = await tryIsolatedWrite(uid, `${label}.${k}`, v);
+      if (childOk) {
+        console.log(`[pib-bisect] ok: ${label}.${k}`);
+      } else {
+        anyChildFailed = true;
+        await bisectValue(uid, `${label}.${k}`, v);
+      }
+    }
+    if (!anyChildFailed) {
+      console.error(
+        `[pib-bisect] every field of ${label} passes alone, but the object together fails - this needs manual inspection (combo search across object keys isn't implemented, only arrays)`
+      );
     }
     return;
   }
@@ -116,5 +192,5 @@ export async function debugBisectBag(bag: Record<string, unknown>): Promise<void
   }
   console.log("[pib-bisect] starting full generic bisection of the whole bag object...");
   await bisectValue(uid, "bag", bag);
-  console.log("[pib-bisect] done - look above for 'SMALLEST FAILING LEAF FOUND'");
+  console.log("[pib-bisect] done - look above for 'SMALLEST FAILING LEAF FOUND' or 'PAIR FAILS TOGETHER'");
 }
