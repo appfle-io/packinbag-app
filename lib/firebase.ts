@@ -52,38 +52,77 @@ export const db = createFirestore();
 export const storage = getStorage(app);
 export default app;
 
-// TEMP DEBUG (2026-08): isolate whether "invalid nested entity" is caused by the
-// data shape itself, or by interaction with other concurrent writes/listeners on
-// the bags/{bagId} document. Takes the actual in-memory object directly (no
-// copy-paste of a giant JSON string needed, which is error-prone - quotes inside
-// the note content can break a hand-typed JS string literal). Writes the exact
-// same payload to the caller's own users/{uid} document instead (rules always
-// allow read/write on your own user doc), which has no other writers/listeners
-// touching this test field.
+// TEMP DEBUG (2026-08): "Property X contains an invalid nested entity" is confirmed
+// to be a real data-shape problem (an isolated write of the sanitized bag to an
+// unrelated users/{uid} field failed with the exact same error). Static recursive
+// checks for a literal array-directly-inside-array all report clean, so instead of
+// guessing we bisect for real: write progressively smaller fragments of the actual
+// bag to an isolated scratch field and see which fragment is the smallest one that
+// still fails. This walks bag -> each pack -> each editorDoc.content node -> each
+// node's own nested content array, recursively, stopping at the first failing leaf
+// per branch. Each candidate write goes through the exact same stripUndefined
+// normalization as the real save path.
 //
-// Call site: BagEditorScreen's save-failure catch block calls this automatically
-// with the live `bag` object right after the real save fails, so the isolated
-// test runs with zero manual steps. Remove this + the call site once the cause
-// is found.
-export async function debugTestIsolatedSave(payload: unknown): Promise<void> {
+// Call site: BagEditorScreen's save-failure catch calls debugBisectBag(bag)
+// automatically. Remove this whole section + the call site once the cause is found.
+
+async function tryIsolatedWrite(uid: string, label: string, value: unknown): Promise<boolean> {
   try {
-    const uid = auth.currentUser?.uid;
-    if (!uid) {
-      console.error("[pib-debug] not signed in");
-      return;
-    }
-    const sanitized = stripUndefined(payload);
+    const sanitized = stripUndefined(value);
     await setDoc(
       doc(db, "users", uid),
-      { __debugTestPayload: sanitized, __debugTestAt: new Date().toISOString() },
+      { __debugBisect: sanitized, __debugBisectLabel: label, __debugBisectAt: new Date().toISOString() },
       { merge: true }
     );
-    console.log(
-      "[pib-debug] ISOLATED SAVE SUCCEEDED - not a data shape issue. Check users/" +
-        uid +
-        " field __debugTestPayload"
-    );
+    return true;
   } catch (err) {
-    console.error("[pib-debug] ISOLATED SAVE FAILED TOO - the data itself still has the problem:", err);
+    console.error(`[pib-bisect] FAIL: ${label}`, err);
+    return false;
   }
+}
+
+async function bisectNodeContent(uid: string, label: string, content: unknown[]): Promise<void> {
+  for (let i = 0; i < content.length; i++) {
+    const node = content[i] as { type?: string; content?: unknown[] };
+    const nodeLabel = `${label}.content[${i}] (type=${node?.type ?? "?"})`;
+    const ok = await tryIsolatedWrite(uid, nodeLabel, node);
+    if (ok) {
+      console.log(`[pib-bisect] ok: ${nodeLabel}`);
+      continue;
+    }
+    // this node itself fails in isolation - if it has its own nested content array,
+    // recurse into it to find the smallest failing sub-node; otherwise this leaf IS
+    // the culprit.
+    if (Array.isArray(node?.content) && node.content.length > 0) {
+      await bisectNodeContent(uid, nodeLabel, node.content);
+    } else {
+      console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND: ${nodeLabel}`, JSON.stringify(node));
+    }
+  }
+}
+
+export async function debugBisectBag(bag: {
+  packs: { id: string; name: string; editorDoc?: { content?: unknown[] } }[];
+}): Promise<void> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) {
+    console.error("[pib-bisect] not signed in");
+    return;
+  }
+  console.log("[pib-bisect] starting bisection...");
+  for (const pack of bag.packs) {
+    const packLabel = `pack ${pack.id} (${pack.name})`;
+    const ok = await tryIsolatedWrite(uid, packLabel, pack);
+    if (ok) {
+      console.log(`[pib-bisect] ok: ${packLabel}`);
+      continue;
+    }
+    const content = pack.editorDoc?.content;
+    if (Array.isArray(content) && content.length > 0) {
+      await bisectNodeContent(uid, packLabel, content);
+    } else {
+      console.error(`[pib-bisect] SMALLEST FAILING LEAF FOUND (whole pack, no content to split): ${packLabel}`);
+    }
+  }
+  console.log("[pib-bisect] done - look above for 'SMALLEST FAILING LEAF FOUND'");
 }
