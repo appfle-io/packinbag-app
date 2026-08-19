@@ -351,7 +351,7 @@ export default function NotebookPackSection({
               return (
                 <div
                   key={item.id}
-                  className="grow-0 shrink basis-[170px] min-w-[120px] md:basis-[340px] md:min-w-[220px]"
+                  className="grow-0 shrink basis-[min(170px,calc(50%-3px))] min-w-[120px] md:basis-[min(340px,calc(50%-6px))] md:min-w-[220px]"
                   style={
                     selecting
                       ? {
