@@ -723,7 +723,7 @@ export default function PackNoteEditorScreen({
       <div className="flex-1 flex overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
           <div
-            className="h-full overflow-y-auto px-4 py-3"
+            className="h-full overflow-y-auto px-4 py-4 md:px-10 md:py-8 scrollbar-thin"
             onClick={(e) => {
               // 링크(Link 마크)는 자동 탐색이 꺼져있어서(openOnClick: false)
               // 여기서 <a> 태그 클릭을 직접 감지해서 처리한다. 이미 우리 서비스 짧은/커스텀
@@ -759,7 +759,9 @@ export default function PackNoteEditorScreen({
               }
             }}
           >
-            <EditorContent editor={editor} className="pib-note-editor" />
+            <div className="max-w-4xl mx-auto pb-20">
+              <EditorContent editor={editor} className="pib-note-editor" />
+            </div>
           </div>
           {!isDesktop && headings.length > 0 && (
             <button

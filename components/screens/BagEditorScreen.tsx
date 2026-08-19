@@ -2848,7 +2848,7 @@ export default function BagEditorScreen({
         zIndex={80}
         onBackdropClick={() => setEditingNotePackId(null)}
         desktopTransition="fade"
-        innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-background pib-safe-top"
+        innerClassName="flex flex-col h-full md:h-[calc(100%-3.5rem)] w-full mx-auto max-w-3xl md:max-w-5xl md:my-7 md:rounded-2xl md:border md:border-border md:shadow-2xl bg-background pib-safe-top overflow-hidden"
       >
         {(() => {
           const notePack = bag.packs.find((p) => p.id === displayedNotePackId);

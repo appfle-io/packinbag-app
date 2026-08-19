@@ -30,7 +30,10 @@ export const ToggleSummary = Node.create({
     return ["div", mergeAttributes(HTMLAttributes, { "data-type": "toggle-summary" }), 0];
   },
 
-  // 제목 줄에서 Enter를 누르면 줄바꿈 대신 본문(toggleContent) 첫 문단으로 커서를 옮긴다.
+  // 제목 줄 키보드 단축키:
+  // 1. Enter: 내용이 있으면 아래에 '새 토글' 연속 생성, 비어있으면 일반 문단으로 전환(탈출).
+  // 2. Backspace (지우기): 비어있거나 맨 앞이면 토글을 해제하고 일반 문단으로 전환.
+  // 3. Shift-Enter: 본문(toggleContent)으로 들어가서 작성 (접혀있으면 자동 펼침).
   addKeyboardShortcuts() {
     return {
       Enter: () => {
@@ -38,6 +41,76 @@ export const ToggleSummary = Node.create({
         const { state } = editor;
         const { $from } = state.selection;
         if ($from.parent.type.name !== this.name) return false;
+
+        const summaryNode = $from.parent;
+        const isSummaryEmpty = summaryNode.textContent.trim().length === 0;
+        const toggleBlockDepth = $from.depth - 1;
+
+        if (isSummaryEmpty) {
+          // 요약(제목)이 비어있는 상태에서 Enter를 치면 토글 블록을 해제하고 일반 문단으로 전환
+          const toggleBlockPos = $from.before(toggleBlockDepth);
+          const toggleBlockEnd = $from.after(toggleBlockDepth);
+          return editor
+            .chain()
+            .focus()
+            .insertContentAt({ from: toggleBlockPos, to: toggleBlockEnd }, { type: "paragraph" })
+            .run();
+        }
+
+        // 제목에 글자가 있으면 바로 아래에 '새로운 토글 블록'을 연속 생성 (리스트처럼 동작)
+        const posAfterToggleBlock = $from.after(toggleBlockDepth);
+        return editor
+          .chain()
+          .focus()
+          .insertContentAt(posAfterToggleBlock, {
+            type: "toggleBlock",
+            attrs: { open: true },
+            content: [
+              { type: "toggleSummary", content: [] },
+              { type: "toggleContent", content: [{ type: "paragraph" }] },
+            ],
+          })
+          .setTextSelection(posAfterToggleBlock + 2)
+          .run();
+      },
+      Backspace: () => {
+        const { editor } = this;
+        const { state } = editor;
+        const { $from, empty } = state.selection;
+        if ($from.parent.type.name !== this.name) return false;
+
+        // 커서가 요약(제목) 맨 앞에 있거나 요약이 비어있을 때 지우기(Backspace)를 누른 경우
+        if (empty && $from.parentOffset === 0) {
+          const summaryNode = $from.parent;
+          const isSummaryEmpty = summaryNode.textContent.trim().length === 0;
+          const toggleBlockDepth = $from.depth - 1;
+          const toggleBlockPos = $from.before(toggleBlockDepth);
+          const toggleBlockEnd = $from.after(toggleBlockDepth);
+
+          if (isSummaryEmpty) {
+            // 요약이 비어있으면 토글을 통째로 지우고 일반 문단(paragraph)으로 전환
+            return editor
+              .chain()
+              .focus()
+              .insertContentAt({ from: toggleBlockPos, to: toggleBlockEnd }, { type: "paragraph" })
+              .run();
+          }
+        }
+        return false;
+      },
+      "Shift-Enter": () => {
+        const { editor } = this;
+        const { state } = editor;
+        const { $from } = state.selection;
+        if ($from.parent.type.name !== this.name) return false;
+
+        const toggleBlockDepth = $from.depth - 1;
+        const toggleBlockNode = $from.node(toggleBlockDepth);
+        if (toggleBlockNode && toggleBlockNode.attrs.open === false) {
+          // 접혀있다면 본문으로 들어가기 전에 자동으로 펼쳐줌
+          editor.commands.updateAttributes("toggleBlock", { open: true });
+        }
+
         const afterSummary = $from.after($from.depth);
         return editor.chain().focus().setTextSelection(afterSummary + 1).run();
       },

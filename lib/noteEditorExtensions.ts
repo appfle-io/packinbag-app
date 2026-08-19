@@ -15,6 +15,7 @@ import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import { FontSize } from "./fontSizeExtension";
 import { ToggleBlock, ToggleSummary, ToggleContent } from "./toggleBlockExtension";
+import { IndentExtension } from "./indentExtension";
 
 export function getNoteEditorExtensions(placeholder?: string) {
   return [
@@ -32,6 +33,7 @@ export function getNoteEditorExtensions(placeholder?: string) {
     ToggleContent,
     TaskList,
     TaskItem.configure({ nested: true }),
+    IndentExtension,
     Table.configure({ resizable: true, cellMinWidth: 72, handleWidth: 8 }),
     TableRow,
     TableHeader,

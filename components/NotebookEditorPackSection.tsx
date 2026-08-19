@@ -105,7 +105,12 @@ export default function NotebookEditorPackSection({
   // 렌더링과 완전히 분리된 타이밍에서만 실행되게 한다.
   useEffect(() => {
     if (!editor || isCollapsed) return;
-    editor.commands.setContent(pack.editorDoc ?? "", false);
+    const targetContent = pack.editorDoc ?? "";
+    const timer = requestAnimationFrame(() => {
+      if (editor.isDestroyed) return;
+      editor.commands.setContent(targetContent, false);
+    });
+    return () => cancelAnimationFrame(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, isCollapsed, pack.editorDoc]);
 
