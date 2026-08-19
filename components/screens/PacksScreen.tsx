@@ -924,13 +924,14 @@ export default function PacksScreen({
       {renamingEntry && (
         <Portal>
           <div
-            className="fixed inset-0 z-[90] flex items-center justify-center"
+            className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center"
             style={{ background: "rgba(0,0,0,0.45)" }}
             onClick={() => setRenamingEntry(null)}
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm mx-4 rounded-2xl bg-surface p-4 flex flex-col gap-3"
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-3"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <span className="text-[15px] font-medium">이름 변경</span>
               <input
