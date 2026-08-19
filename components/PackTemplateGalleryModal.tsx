@@ -23,7 +23,7 @@ export interface PresetPackTemplate {
 export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   {
     id: "tpl-overseas",
-    name: "✈️ 해외여행 필수품 팩",
+    name: "해외여행 필수품 팩",
     category: "travel",
     categoryLabel: "해외여행",
     description: "해외 출국 전 꼭 확인해야 할 필수 서류 및 필수템 세트",
@@ -40,7 +40,7 @@ export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   },
   {
     id: "tpl-camping-cook",
-    name: "⛺ 감성 캠핑 쿡웨어 팩",
+    name: "감성 캠핑 쿡웨어 팩",
     category: "camping",
     categoryLabel: "캠핑/차박",
     description: "캠핑장에서 요리할 때 필요한 기본 주방 및 취사도구 모음",
@@ -56,7 +56,7 @@ export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   },
   {
     id: "tpl-baby-outing",
-    name: "👶 아이와 외출/여행 팩",
+    name: "아이와 외출/여행 팩",
     category: "baby",
     categoryLabel: "육아/아이짐",
     description: "아기와 함께 떠날 때 빠뜨리기 쉬운 육아 필수품",
@@ -72,7 +72,7 @@ export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   },
   {
     id: "tpl-domestic-trip",
-    name: "🚗 국내 1박 2일 여행 팩",
+    name: "국내 1박 2일 여행 팩",
     category: "travel",
     categoryLabel: "국내여행",
     description: "부담 없이 주말에 가볍게 떠나는 여행 기본 팩",
@@ -87,7 +87,7 @@ export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   },
   {
     id: "tpl-business-work",
-    name: "💻 스마트 워크 & 출장 팩",
+    name: "스마트 워크 & 출장 팩",
     category: "business",
     categoryLabel: "출장/비즈니스",
     description: "업무 생산성을 유지해 주는 스마트 기기 및 비즈니스 소품",
@@ -102,7 +102,7 @@ export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   },
   {
     id: "tpl-water-beach",
-    name: "🏖️ 바다/워터파크 휴양 팩",
+    name: "바다/워터파크 휴양 팩",
     category: "leisure",
     categoryLabel: "휴양/물놀이",
     description: "물놀이와 물놀이 후 깔끔한 정리를 위한 팩",
@@ -117,7 +117,7 @@ export const PRESET_PACK_TEMPLATES: PresetPackTemplate[] = [
   },
   {
     id: "tpl-fitness-gym",
-    name: "🏋️ 오운완 헬스/운동 팩",
+    name: "오운완 헬스/운동 팩",
     category: "leisure",
     categoryLabel: "운동/레저",
     description: "매일 운동갈 때 챙기는 헬스 파우치",
@@ -277,7 +277,7 @@ export default function PackTemplateGalleryModal({
                 color: activeTab === "gallery" ? "var(--accent)" : "var(--text-muted)",
               }}
             >
-              🌟 템플릿 둘러보기
+              템플릿 둘러보기
             </button>
             <button
               onClick={() => setActiveTab("myPacks")}

@@ -411,7 +411,7 @@ export default function SettingsScreen({
 
         {isMaster && (
           <div className="mb-2">
-            <p className="text-[12px] font-semibold text-accent mb-2">👑 관리자 전용 메뉴</p>
+            <p className="text-[12px] font-semibold text-accent mb-2">관리자 전용 메뉴</p>
             <div className="rounded-lg border border-accent/40 bg-accent/5 overflow-hidden">
               <button
                 onClick={() => setShowInspectLogsModal(true)}

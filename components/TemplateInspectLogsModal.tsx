@@ -86,7 +86,7 @@ export default function TemplateInspectLogsModal({ onClose }: { onClose: () => v
                 <IconShieldCheck size={18} color="var(--accent)" />
               </div>
               <div>
-                <h3 className="text-[15px] font-semibold">👑 템플릿 공유 등록 이력 & 모니터링</h3>
+                <h3 className="text-[15px] font-semibold">템플릿 공유 등록 이력 & 모니터링</h3>
                 <p className="text-[12px] text-text-muted">유저가 공유 등록을 시도한 팩과 AI 유해성 심사 내역</p>
               </div>
             </div>
@@ -145,7 +145,7 @@ export default function TemplateInspectLogsModal({ onClose }: { onClose: () => v
 
                   {!log.safe && log.reason && (
                     <div className="text-[12px] p-2 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20">
-                      ⚠️ AI 차단 사유: {log.reason}
+                      AI 차단 사유: {log.reason}
                     </div>
                   )}
 

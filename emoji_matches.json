@@ -1,0 +1,527 @@
+[
+  {
+    "file": "app/admin/templates/page.tsx",
+    "line": 136,
+    "text": "⚠️ AI 차단 사유: {log.reason}"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 45,
+    "text": "icon: String(item.icon || item.emoji || \"📍\"),"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 143,
+    "text": "{ \"category\": \"attraction\", \"text\": \"다이아몬드 헤드\", \"desc\": \"정상에서 보는 와이키키 전망이 일품\", \"icon\": \"🌋\" },"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 144,
+    "text": "{ \"category\": \"attraction\", \"text\": \"와이키키 해변\", \"desc\": \"하와이를 대표하는 해변 산책로\", \"icon\": \"🏖️\" },"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 145,
+    "text": "{ \"category\": \"food\", \"text\": \"로컬 새우트럭\", \"desc\": \"현지인도 줄서는 갈릭 새우 맛집\", \"icon\": \"🦐\" },"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 146,
+    "text": "{ \"category\": \"food\", \"text\": \"차이나타운 딤섬\", \"desc\": \"아침 일찍부터 붐비는 딤섬 골목\", \"icon\": \"🥟\" },"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 147,
+    "text": "{ \"category\": \"specialty\", \"text\": \"스팸무스비\", \"desc\": \"하와이 대표 간편식, 편의점에도 있음\", \"icon\": \"🍙\" },"
+  },
+  {
+    "file": "app/api/ai-travel-places/route.ts",
+    "line": 148,
+    "text": "{ \"category\": \"specialty\", \"text\": \"코나 커피\", \"desc\": \"빅아일랜드산 원두, 기념품으로도 인기\", \"icon\": \"☕\" }"
+  },
+  {
+    "file": "app/api/ai-weather-recommend/route.ts",
+    "line": 28,
+    "text": "icon: String(i.icon || i.emoji || \"✨\"),"
+  },
+  {
+    "file": "app/api/ai-weather-recommend/route.ts",
+    "line": 41,
+    "text": "icon: String(i.icon || i.emoji || \"✨\"),"
+  },
+  {
+    "file": "app/api/ai-weather-recommend/route.ts",
+    "line": 162,
+    "text": "{ text: `${bagName} 짐`, icon: \"🧳\" },"
+  },
+  {
+    "file": "app/api/ai-weather-recommend/route.ts",
+    "line": 163,
+    "text": "{ text: \"여행 준비물\", icon: \"📌\" },"
+  },
+  {
+    "file": "app/api/ai-weather-recommend/route.ts",
+    "line": 164,
+    "text": "{ text: \"날씨 대비 용품\", icon: \"🌤️\" },"
+  },
+  {
+    "file": "app/api/ai-weather-recommend/route.ts",
+    "line": 165,
+    "text": "{ text: \"여비 물품\", icon: \"✨\" },"
+  },
+  {
+    "file": "app/api/clipboard-organize/route.ts",
+    "line": 29,
+    "text": "- 항목별로 원본에 이미 체크된(완료된) 표시가 있는지 판단해서 checked에 반영하세요 - 예를 들어 \"✓\", \"✔\", \"v\", \"[x]\", \"☑\" 같은 표시나 취소선(strikethrough)이 그어진 항목은 checked:true, 빈 체크박스(\"☐\", \"[ ]\", \"□\")나 표시가 전혀 없는 항목은 checked:false로 하세요."
+  },
+  {
+    "file": "app/api/import-note/route.ts",
+    "line": 29,
+    "text": "- 항목별로 원본에 이미 체크된(완료된) 표시가 있는지 판단해서 checked에 반영하세요 - 예를 들어 \"✓\", \"✔\", \"v\", \"[x]\", \"☑\" 같은 표시나 취소선(strikethrough)이 그어진 항목은 checked:true, 빈 체크박스(\"☐\", \"[ ]\", \"□\")나 표시가 전혀 없는 항목은 checked:false로 하세요."
+  },
+  {
+    "file": "capacitor.config.ts",
+    "line": 3,
+    "text": "// ⚠️ 아래 두 값은 반드시 실제 값으로 바꿔야 합니다. (APP_STORE_GUIDE.md 참고)"
+  },
+  {
+    "file": "components/BagCard.tsx",
+    "line": 175,
+    "text": "👥 {bag.memberIds.length}"
+  },
+  {
+    "file": "components/BagListSwipeHint.tsx",
+    "line": 19,
+    "text": "// 설정 > 팩 설정 > \"가방 보관함 ↔ 팩 보관함 이동 버튼\")으로 함께 관리한다 - 별도 토글을 만들지"
+  },
+  {
+    "file": "components/BagListSwipeHint.tsx",
+    "line": 20,
+    "text": "// 않고, 가방↔팩 양방향 버튼이 한 스위치로 같이 켜지고 꺼진다. 꺼도 오른쪽 엣지에서 왼쪽으로"
+  },
+  {
+    "file": "components/DesktopSidebar.tsx",
+    "line": 385,
+    "text": "// 팩보관함(pack-folder, pack-root)으로는 절대 이동 불가능! (가방 ➡️ 팩보관함 이동 금지)"
+  },
+  {
+    "file": "components/DesktopSidebar.tsx",
+    "line": 415,
+    "text": "if (targetType === \"bag\") return true; // ★ 팩 ➡️ 가방 이동 가능 (가방에 팩 담기)"
+  },
+  {
+    "file": "components/DesktopSidebar.tsx",
+    "line": 480,
+    "text": "// 팩 보관함 팩(activeDragData.type===\"pack\") ➡️ 가방 위 드롭 - 보관함 팩을 복사해서 가방에 담는다(기존)."
+  },
+  {
+    "file": "components/DesktopSidebar.tsx",
+    "line": 519,
+    "text": "// ★ 팩 ➡️ 가방 위 드롭 (가방에 팩 추가 - 팩보관함과 링크 연동)"
+  },
+  {
+    "file": "components/DesktopSidebar.tsx",
+    "line": 558,
+    "text": "// 가방 ➡️ 가방 폴더 / 최상위 / 다른 가방 (순서 재배치 포함)"
+  },
+  {
+    "file": "components/DesktopSidebar.tsx",
+    "line": 606,
+    "text": "// 팩 / 팩 폴더 ➡️ 팩 폴더 / 최상위 / 다른 팩 (순서 재배치 포함)"
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 26,
+    "text": "name: \"✈️ 해외여행 필수품 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 43,
+    "text": "name: \"⛺ 감성 캠핑 쿡웨어 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 59,
+    "text": "name: \"👶 아이와 외출/여행 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 75,
+    "text": "name: \"🚗 국내 1박 2일 여행 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 90,
+    "text": "name: \"💻 스마트 워크 & 출장 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 105,
+    "text": "name: \"🏖️ 바다/워터파크 휴양 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 120,
+    "text": "name: \"🏋️ 오운완 헬스/운동 팩\","
+  },
+  {
+    "file": "components/PackTemplateGalleryModal.tsx",
+    "line": 280,
+    "text": "🌟 템플릿 둘러보기"
+  },
+  {
+    "file": "components/screens/BagEditorScreen.tsx",
+    "line": 2157,
+    "text": "<span className=\"truncate\">📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>"
+  },
+  {
+    "file": "components/screens/BagEditorScreen.tsx",
+    "line": 2180,
+    "text": "🗺️ AI 추천 · 명소 / 맛집 / 특산물"
+  },
+  {
+    "file": "components/screens/PackSettingsScreen.tsx",
+    "line": 18,
+    "text": "// - 가방↔팩 보관함 양방향 스와이프 힌트 버튼을 이 값 하나로 같이 켜고 끈다."
+  },
+  {
+    "file": "components/screens/PackSettingsScreen.tsx",
+    "line": 146,
+    "text": "<p className=\"text-[13px] font-medium\">가방 보관함 ↔ 팩 보관함 이동 버튼</p>"
+  },
+  {
+    "file": "components/screens/SettingsScreen.tsx",
+    "line": 414,
+    "text": "<p className=\"text-[12px] font-semibold text-accent mb-2\">👑 관리자 전용 메뉴</p>"
+  },
+  {
+    "file": "components/TemplateInspectLogsModal.tsx",
+    "line": 89,
+    "text": "<h3 className=\"text-[15px] font-semibold\">👑 템플릿 공유 등록 이력 & 모니터링</h3>"
+  },
+  {
+    "file": "components/TemplateInspectLogsModal.tsx",
+    "line": 148,
+    "text": "⚠️ AI 차단 사유: {log.reason}"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 13,
+    "text": "{ id: \"hero\", emoji: \"🦸\", bg: \"#ff6b6b\", bg2: \"#ffa06b\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 14,
+    "text": "{ id: \"villain\", emoji: \"🦹\", bg: \"#6b6bff\", bg2: \"#8f6bff\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 15,
+    "text": "{ id: \"wizard\", emoji: \"🧙\", bg: \"#5b8def\", bg2: \"#7fd0e8\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 16,
+    "text": "{ id: \"elf\", emoji: \"🧝\", bg: \"#4caf7d\", bg2: \"#8bd98b\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 17,
+    "text": "{ id: \"robot\", emoji: \"🤖\", bg: \"#8a8f98\", bg2: \"#b9c0cc\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 18,
+    "text": "{ id: \"alien\", emoji: \"👽\", bg: \"#43c96a\", bg2: \"#9be89b\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 19,
+    "text": "{ id: \"ghost\", emoji: \"👻\", bg: \"#9aa0ff\", bg2: \"#c9cdff\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 20,
+    "text": "{ id: \"ninja\", emoji: \"🥷\", bg: \"#3a3f47\", bg2: \"#636b78\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 21,
+    "text": "{ id: \"dragon\", emoji: \"🐉\", bg: \"#3fae5c\", bg2: \"#a3e6b0\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 22,
+    "text": "{ id: \"unicorn\", emoji: \"🦄\", bg: \"#ff9de2\", bg2: \"#c6a8ff\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 23,
+    "text": "{ id: \"lion\", emoji: \"🦁\", bg: \"#f6a835\", bg2: \"#ffd580\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 24,
+    "text": "{ id: \"fox\", emoji: \"🦊\", bg: \"#ff8a4c\", bg2: \"#ffc38a\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 25,
+    "text": "{ id: \"panda\", emoji: \"🐼\", bg: \"#4a4a4a\", bg2: \"#9a9a9a\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 26,
+    "text": "{ id: \"owl\", emoji: \"🦉\", bg: \"#8b6b4a\", bg2: \"#cba876\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 27,
+    "text": "{ id: \"penguin\", emoji: \"🐧\", bg: \"#37474f\", bg2: \"#78909c\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 28,
+    "text": "{ id: \"cat\", emoji: \"🐱\", bg: \"#f2994a\", bg2: \"#f2c94c\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 29,
+    "text": "{ id: \"dog\", emoji: \"🐶\", bg: \"#c48a5a\", bg2: \"#e8c39a\" },"
+  },
+  {
+    "file": "lib/avatars.ts",
+    "line": 30,
+    "text": "{ id: \"koala\", emoji: \"🐨\", bg: \"#7d8b96\", bg2: \"#c1cdd6\" },"
+  },
+  {
+    "file": "lib/nativeAuth.ts",
+    "line": 6,
+    "text": "// ⚠️ Google 쪽 2개(webClientId, iOSClientId)는 채워졌고, Apple 쪽 clientId만 Apple Developer"
+  },
+  {
+    "file": "lib/nativeAuth.ts",
+    "line": 11,
+    "text": "// ⚠️ SocialLogin.initialize/login의 정확한 옵션 타입은 패키지를 실제로 설치해서"
+  },
+  {
+    "file": "lib/nativeAuth.ts",
+    "line": 93,
+    "text": "// ⚠️ @capgo/capacitor-social-login 6.x iOS 네이티브 코드(AppleProvider.swift)에 두 가지 문제가 있다:"
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 32,
+    "text": "icon: \"✈️\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 49,
+    "text": "icon: \"🚗\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 62,
+    "text": "icon: \"⛺\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 75,
+    "text": "icon: \"👶\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 90,
+    "text": "icon: \"🛒\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 103,
+    "text": "icon: \"📦\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 116,
+    "text": "icon: \"🍼\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 128,
+    "text": "icon: \"🐶\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 142,
+    "text": "icon: \"💒\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 155,
+    "text": "icon: \"🎉\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 167,
+    "text": "icon: \"🎒\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 179,
+    "text": "icon: \"🧺\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 193,
+    "text": "icon: \"📋\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 212,
+    "text": "icon: \"🎪\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 224,
+    "text": "icon: \"🖇️\","
+  },
+  {
+    "file": "lib/sampleBags.ts",
+    "line": 235,
+    "text": "icon: \"🧑‍💻\","
+  },
+  {
+    "file": "lib/sampleOnboardingData.ts",
+    "line": 79,
+    "text": "notice: \"공항 리무진버스 예약 완료 🚌 출발 3시간 전 도착하기!\","
+  },
+  {
+    "file": "lib/sampleOnboardingData.ts",
+    "line": 138,
+    "text": "notice: \"매주 월요일 오전 10시 스탠드업 미팅이에요! ⏰\","
+  },
+  {
+    "file": "lib/toggleBlockExtension.tsx",
+    "line": 149,
+    "text": "▶"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 488,
+    "text": "\"👍\", // 좋아요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 489,
+    "text": "\"❤️\", // 사랑해요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 490,
+    "text": "\"😂\", // 웃겨요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 491,
+    "text": "\"😮\", // 놀람"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 492,
+    "text": "\"😢\", // 슬퍼요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 493,
+    "text": "\"🙏\", // 감사해요/부탁해요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 494,
+    "text": "\"✅\", // 확인했어요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 495,
+    "text": "\"❓\", // 궁금해요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 496,
+    "text": "\"🙋\", // 제가 할게요"
+  },
+  {
+    "file": "lib/types.ts",
+    "line": 497,
+    "text": "\"🔥\", // 핫해요"
+  },
+  {
+    "file": "lib/useSwipeBack.ts",
+    "line": 26,
+    "text": "// AppShell의 홈↔설정 탭전환 스와이프(onTouchStart/End)가 이 화면을 감싸는 바깥쪽 div 안에서 같이 일어나는"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 86,
+    "text": "let weatherText = \"맑음 ☀️\";"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 87,
+    "text": "if (hasRain) weatherText = \"비 소식 ☔\";"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 88,
+    "text": "else if (hasSnow) weatherText = \"눈 소식 ❄️\";"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 89,
+    "text": "else if (weatherCode >= 1 && weatherCode <= 3) weatherText = \"구름 약간 ⛅\";"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 90,
+    "text": "else if (weatherCode >= 45) weatherText = \"안개/흐림 🌫️\";"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 94,
+    "text": "recommendations.push({ text: \"우산 / 방수팩\", icon: \"🌂\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 97,
+    "text": "recommendations.push({ text: \"경량패딩 / 핫팩\", icon: \"🧥\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 98,
+    "text": "recommendations.push({ text: \"따뜻한 보온병\", icon: \"☕\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 101,
+    "text": "recommendations.push({ text: \"선글라스 / 모자\", icon: \"🕶️\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 102,
+    "text": "recommendations.push({ text: \"자외선 차단제 (선크림)\", icon: \"🧴\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 103,
+    "text": "recommendations.push({ text: \"손풍기 / 부채\", icon: \"🌬️\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 106,
+    "text": "recommendations.push({ text: \"편안한 산책화\", icon: \"👟\" });"
+  },
+  {
+    "file": "lib/weatherService.ts",
+    "line": 107,
+    "text": "recommendations.push({ text: \"보조배터리\", icon: \"🔋\" });"
+  }
+]

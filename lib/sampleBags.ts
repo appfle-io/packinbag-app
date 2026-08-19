@@ -29,7 +29,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "travel-abroad",
     category: "travel",
-    icon: "✈️",
+    icon: "",
     title: "해외여행",
     bagName: "해외여행 준비물",
     packs: [
@@ -46,7 +46,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "travel-domestic",
     category: "travel",
-    icon: "🚗",
+    icon: "",
     title: "국내여행 (1박2일)",
     bagName: "국내여행 준비물",
     packs: [
@@ -59,7 +59,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "travel-camping",
     category: "travel",
-    icon: "⛺",
+    icon: "",
     title: "캠핑/등산",
     bagName: "캠핑 준비물",
     packs: [
@@ -72,7 +72,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "travel-baby",
     category: "travel",
-    icon: "👶",
+    icon: "",
     title: "아기와 여행",
     bagName: "아기와 함께 여행 준비물",
     packs: [
@@ -87,7 +87,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "life-groceries",
     category: "life",
-    icon: "🛒",
+    icon: "",
     title: "장보기",
     bagName: "이번주 장보기",
     packs: [
@@ -100,7 +100,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "life-moving",
     category: "life",
-    icon: "📦",
+    icon: "",
     title: "이사",
     bagName: "이사 체크리스트",
     packs: [
@@ -113,7 +113,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "life-baby-outing",
     category: "life",
-    icon: "🍼",
+    icon: "",
     title: "아기 외출 준비물",
     bagName: "아기 외출 준비물",
     packs: [
@@ -125,7 +125,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "life-pet",
     category: "life",
-    icon: "🐶",
+    icon: "",
     title: "반려동물 동반 외출",
     bagName: "반려동물 외출 준비물",
     packs: [
@@ -139,7 +139,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "event-wedding",
     category: "event",
-    icon: "💒",
+    icon: "",
     title: "결혼식 준비",
     bagName: "결혼식 준비 체크리스트",
     packs: [
@@ -152,7 +152,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "event-housewarming",
     category: "event",
-    icon: "🎉",
+    icon: "",
     title: "집들이/파티 준비물",
     bagName: "집들이 준비물",
     packs: [
@@ -164,7 +164,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "event-back-to-school",
     category: "event",
-    icon: "🎒",
+    icon: "",
     title: "신학기 준비물",
     bagName: "신학기 준비물",
     packs: [
@@ -176,7 +176,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "event-potluck-meet",
     category: "event",
-    icon: "🧺",
+    icon: "",
     title: "모임 준비물 분담",
     bagName: "모임 준비물",
     packs: [
@@ -190,7 +190,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "work-kanban",
     category: "work",
-    icon: "📋",
+    icon: "",
     title: "팀 할일 보드",
     bagName: "팀 프로젝트",
     packs: [
@@ -209,7 +209,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "work-event-booth",
     category: "work",
-    icon: "🎪",
+    icon: "",
     title: "행사/부스 준비물",
     bagName: "행사 준비물",
     packs: [
@@ -221,7 +221,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "work-office-supply",
     category: "work",
-    icon: "🖇️",
+    icon: "",
     title: "사무실 비품 체크",
     bagName: "사무실 비품 체크리스트",
     packs: [
@@ -232,7 +232,7 @@ export const SAMPLE_BAG_TEMPLATES: SampleBagTemplate[] = [
   {
     id: "work-onboarding",
     category: "work",
-    icon: "🧑‍💻",
+    icon: "",
     title: "신입사원 온보딩",
     bagName: "신입사원 온보딩 체크리스트",
     packs: [

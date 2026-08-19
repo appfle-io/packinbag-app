@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff } from "@tabler/icons-react";
+import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff, IconUsers } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getPackColorHex } from "@/lib/packColors";
@@ -171,8 +171,9 @@ export default function BagCard({
       )}
       <span className="flex items-center justify-end gap-2 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
         {bag.memberIds.length > 1 && (
-          <span className="flex items-center gap-0.5 text-text-muted">
-            👥 {bag.memberIds.length}
+          <span className="flex items-center gap-1 text-text-muted">
+            <IconUsers size={13} stroke={1.75} />
+            <span>{bag.memberIds.length}</span>
           </span>
         )}
         {overallRatio !== null && (

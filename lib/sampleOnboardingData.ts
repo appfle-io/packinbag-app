@@ -76,7 +76,7 @@ export async function seedSampleDataForNewUser(
     id: uid(),
     name: "제주도 3박4일 여행",
     images: [],
-    notice: "공항 리무진버스 예약 완료 🚌 출발 3시간 전 도착하기!",
+    notice: "공항 리무진버스 예약 완료 - 출발 3시간 전 도착하기!",
     travelDate: isoDaysFromNow(14),
     reminderOffsets: [3, 1, 0],
     packs: [
@@ -135,7 +135,7 @@ export async function seedSampleDataForNewUser(
     id: uid(),
     name: "팀 프로젝트 킥오프",
     images: [],
-    notice: "매주 월요일 오전 10시 스탠드업 미팅이에요! ⏰",
+    notice: "매주 월요일 오전 10시 스탠드업 미팅이에요!",
     packs: [
       {
         id: uid(),

@@ -25,7 +25,7 @@ function extractJsonItems(rawText: string): { text: string; icon: string }[] {
       .slice(0, 4)
       .map((i) => ({
         text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 짐",
-        icon: String(i.icon || i.emoji || "✨"),
+        icon: String(i.icon || i.emoji || ""),
       }));
   } catch {
     const match = rawText.match(/\[[\s\S]*\]/);
@@ -38,7 +38,7 @@ function extractJsonItems(rawText: string): { text: string; icon: string }[] {
             .slice(0, 4)
             .map((i) => ({
               text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 짐",
-              icon: String(i.icon || i.emoji || "✨"),
+              icon: String(i.icon || i.emoji || ""),
             }));
         }
       } catch {
@@ -159,10 +159,10 @@ export async function POST(req: NextRequest) {
 
   if (finalItems.length === 0) {
     finalItems = [
-      { text: `${bagName} 짐`, icon: "🧳" },
-      { text: "여행 준비물", icon: "📌" },
-      { text: "날씨 대비 용품", icon: "🌤️" },
-      { text: "여비 물품", icon: "✨" },
+      { text: `${bagName} 짐`, icon: "" },
+      { text: "여행 준비물", icon: "" },
+      { text: "날씨 대비 용품", icon: "" },
+      { text: "여비 물품", icon: "" },
     ];
   }
 

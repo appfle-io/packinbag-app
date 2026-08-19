@@ -83,28 +83,28 @@ export async function fetchWeatherForCity(lat: number, lon: number, cityName: st
     const isCold = tempMin <= 8;
     const isHot = tempMax >= 28;
 
-    let weatherText = "맑음 ☀️";
-    if (hasRain) weatherText = "비 소식 ☔";
-    else if (hasSnow) weatherText = "눈 소식 ❄️";
-    else if (weatherCode >= 1 && weatherCode <= 3) weatherText = "구름 약간 ⛅";
-    else if (weatherCode >= 45) weatherText = "안개/흐림 🌫️";
+    let weatherText = "맑음";
+    if (hasRain) weatherText = "비 소식";
+    else if (hasSnow) weatherText = "눈 소식";
+    else if (weatherCode >= 1 && weatherCode <= 3) weatherText = "구름 약간";
+    else if (weatherCode >= 45) weatherText = "안개/흐림";
 
     const recommendations: { text: string; icon: string }[] = [];
     if (hasRain) {
-      recommendations.push({ text: "우산 / 방수팩", icon: "🌂" });
+      recommendations.push({ text: "우산 / 방수팩", icon: "" });
     }
     if (hasSnow || isCold) {
-      recommendations.push({ text: "경량패딩 / 핫팩", icon: "🧥" });
-      recommendations.push({ text: "따뜻한 보온병", icon: "☕" });
+      recommendations.push({ text: "경량패딩 / 핫팩", icon: "" });
+      recommendations.push({ text: "따뜻한 보온병", icon: "" });
     }
     if (isHot) {
-      recommendations.push({ text: "선글라스 / 모자", icon: "🕶️" });
-      recommendations.push({ text: "자외선 차단제 (선크림)", icon: "🧴" });
-      recommendations.push({ text: "손풍기 / 부채", icon: "🌬️" });
+      recommendations.push({ text: "선글라스 / 모자", icon: "" });
+      recommendations.push({ text: "자외선 차단제 (선크림)", icon: "" });
+      recommendations.push({ text: "손풍기 / 부채", icon: "" });
     }
     if (recommendations.length === 0) {
-      recommendations.push({ text: "편안한 산책화", icon: "👟" });
-      recommendations.push({ text: "보조배터리", icon: "🔋" });
+      recommendations.push({ text: "편안한 산책화", icon: "" });
+      recommendations.push({ text: "보조배터리", icon: "" });
     }
 
     return {

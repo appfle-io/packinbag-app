@@ -2154,7 +2154,7 @@ export default function BagEditorScreen({
           <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex flex-col gap-2 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary min-w-0">
-                <span className="truncate">📍 {weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
+                <span className="truncate">{weatherInfo.city} 예보: {weatherInfo.weatherText}</span>
                 <span className="text-[12px] text-text-muted shrink-0">
                   ({weatherInfo.tempMin}°C ~ {weatherInfo.tempMax}°C)
                 </span>
@@ -2177,7 +2177,7 @@ export default function BagEditorScreen({
                 className="w-full flex items-center justify-between gap-2 -mx-1 px-1 py-1.5 rounded-lg cursor-pointer select-none"
               >
                 <span className="text-[11.5px] font-medium text-text-muted">
-                  🗺️ AI 추천 · 명소 / 맛집 / 특산물
+                  AI 추천 · 명소 / 맛집 / 특산물
                 </span>
                 <span className="flex items-center gap-1.5 shrink-0">
                   <button
