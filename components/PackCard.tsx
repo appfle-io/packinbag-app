@@ -173,7 +173,9 @@ export default function PackCard({
             ? "0 2px 0 0 var(--accent)"
             : "0 -2px 0 0 var(--accent)"
           : undefined,
-        background: accentHex ? `${accentHex}26` : "var(--pack-card-bg)",
+        background: accentHex
+          ? `color-mix(in srgb, ${accentHex} var(--pack-card-bg-pct, 100%), transparent)`
+          : "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
         transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
       }}

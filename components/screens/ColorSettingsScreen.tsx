@@ -251,7 +251,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
   } = useTheme();
   const [openPicker, setOpenPicker] = useState<Slot | null>(null);
   const [fontScaleOpen, setFontScaleOpen] = useState(true);
-  const [baseOpacityOpen, setBaseOpacityOpen] = useState(true);
+  const [baseOpacityOpen, setBaseOpacityOpen] = useState(false);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { user, profile, updateBagCardSize } = useAuth();
   const [showColorLimitModal, setShowColorLimitModal] = useState(false);
@@ -310,7 +310,6 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           showDefaultOption={false}
           onSelectPreset={setAccent}
           onOpenCustomPicker={() => openCustomPicker("accent")}
-          defaultOpen
           preview={
             <div className="mt-3 flex items-center gap-2">
               <button

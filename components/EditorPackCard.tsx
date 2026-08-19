@@ -115,7 +115,7 @@ export default function EditorPackCard({
         background: pack.autoSyncEnabled
           ? "var(--accent-soft)"
           : accentHex
-          ? `${accentHex}26`
+          ? `color-mix(in srgb, ${accentHex} var(--pack-card-bg-pct, 100%), transparent)`
           : "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
         transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease, background 120ms ease",

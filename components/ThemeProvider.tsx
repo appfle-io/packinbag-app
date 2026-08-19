@@ -133,6 +133,10 @@ function applyBaseOpacity(resolved: "light" | "dark", opacity: number) {
 // 카드 뒤에 있는 페이지 배경(라이트=흰색/다크=검정 계열)이 비쳐 보이게 한다.
 // "기본(default)"이어도 --surface를 기준으로 똑같이 투명도를 적용한다 (완전 불투명=100%일 땐
 // 기존과 동일한 모습).
+// cssVar와 함께 "{cssVar}-pct"도 같이 내보낸다 - 팩 하나하나에 개별 색(pack.color)을 지정했을 때
+// PackCard/EditorPackCard가 그 색에 color-mix()로 이 퍼센트를 그대로 적용해서, 개별 색 팩도
+// 이 슬라이더(팩 카드 기본 투명도)를 그대로 따라가게 하기 위함 (예전엔 개별 색 팩만 15% 고정값
+// 하드코딩이라 슬라이더를 움직여도 안 바뀌는 버그가 있었음).
 function applyCardColor(
   cssVar: string,
   colorId: string,
@@ -149,6 +153,7 @@ function applyCardColor(
         ? deriveAccentTone(customHex, resolved).soft
         : getAccentPreset(colorId)[resolved].soft;
   root.setProperty(cssVar, `color-mix(in srgb, ${baseColor} ${pct}%, transparent)`);
+  root.setProperty(`${cssVar}-pct`, `${pct}%`);
 }
 
 // 가방 카드 / 팩 카드 / 팩 라이브러리 타일 크기 배율 + 가방 카드/팩카드 글자 크기 배율을
