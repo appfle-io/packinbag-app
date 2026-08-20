@@ -24,7 +24,7 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
           가방 속 팩을 보여주는 기본 방식을 설정해요. 각 가방 안에서 개별로 바꿀 수도 있어요.
         </p>
 
-        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-medium">가방 기본 보기</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">

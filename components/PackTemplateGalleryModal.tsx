@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { IconX, IconSparkles, IconCheck, IconDownload, IconBriefcase, IconCompass, IconTent, IconBabyCarriage, IconSwimming, IconPlus, IconLoader2 } from "@tabler/icons-react";
+import { IconX, IconSparkles, IconCheck, IconDownload, IconPlus, IconLoader2 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
@@ -167,12 +167,12 @@ export default function PackTemplateGalleryModal({
   useEscapeToClose(isInspecting ? undefined : onClose);
 
   const categories = [
-    { id: "all", label: "전체", icon: IconSparkles },
-    { id: "travel", label: "여행", icon: IconCompass },
-    { id: "camping", label: "캠핑/차박", icon: IconTent },
-    { id: "baby", label: "육아", icon: IconBabyCarriage },
-    { id: "business", label: "출장/업무", icon: IconBriefcase },
-    { id: "leisure", label: "휴양/운동", icon: IconSwimming },
+    { id: "all", label: "전체" },
+    { id: "travel", label: "여행" },
+    { id: "camping", label: "캠핑/차박" },
+    { id: "baby", label: "육아" },
+    { id: "business", label: "출장/업무" },
+    { id: "leisure", label: "휴양/운동" },
   ];
 
   const allTemplates = useMemo(() => {
@@ -297,7 +297,6 @@ export default function PackTemplateGalleryModal({
               {/* 카테고리 칩 필터 */}
               <div className="flex items-center gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-none border-b border-border bg-surface-2 shrink-0">
                 {categories.map((cat) => {
-                  const Icon = cat.icon;
                   const active = selectedCategory === cat.id;
                   return (
                     <button
@@ -310,7 +309,6 @@ export default function PackTemplateGalleryModal({
                         border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
                       }}
                     >
-                      <Icon size={14} stroke={1.75} />
                       <span>{cat.label}</span>
                     </button>
                   );

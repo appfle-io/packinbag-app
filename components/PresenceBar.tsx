@@ -42,26 +42,23 @@ export default function PresenceBar({
     return () => window.clearInterval(t);
   }, []);
 
-  const active = entries
-    .filter((e) => now - e.updatedAtMs < PRESENCE_STALE_MS)
-    .sort((a, b) => (a.uid === uid ? -1 : b.uid === uid ? 1 : 0));
+  // 나(uid)는 항상 접속자 목록에 포함되지만(joinPresence), 화면에는 "다른 사람"만 보여준다 -
+  // 나 혼자 접속 중이면 아예 표시하지 않고, 누군가 같이 있을 때만 그 사람들만 나열한다.
+  const others = entries
+    .filter((e) => e.uid !== uid && now - e.updatedAtMs < PRESENCE_STALE_MS);
 
-  if (active.length === 0) return null;
+  if (others.length === 0) return null;
 
-  const visible = active.slice(0, 2);
-  const overflow = active.slice(2);
+  const visible = others.slice(0, 2);
+  const overflow = others.slice(2);
 
   return (
     <div className="relative flex items-center -space-x-2 shrink-0">
       {visible.map((entry) => (
         <button
           key={entry.uid}
-          onMouseEnter={() =>
-            show(entry.uid === uid ? `${entry.nickname} (나)` : entry.nickname)
-          }
-          onClick={() =>
-            show(entry.uid === uid ? `${entry.nickname} (나)` : entry.nickname)
-          }
+          onMouseEnter={() => show(entry.nickname)}
+          onClick={() => show(entry.nickname)}
         >
           <Avatar avatarId={entry.avatarId} size={26} ring />
         </button>
@@ -91,9 +88,7 @@ export default function PresenceBar({
                 <button
                   key={entry.uid}
                   onClick={() => {
-                    show(
-                      entry.uid === uid ? `${entry.nickname} (나)` : entry.nickname
-                    );
+                    show(entry.nickname);
                     setShowOverflow(false);
                   }}
                   className="flex items-center gap-2 px-1.5 py-1 rounded-md text-[12px] text-left hover:bg-surface-2"

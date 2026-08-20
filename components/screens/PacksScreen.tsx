@@ -16,7 +16,6 @@ import {
   IconEdit,
   IconArrowRight,
   IconNotes,
-  IconSparkles,
 } from "@tabler/icons-react";
 import { Pack, ListSortOption, Bag } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -565,7 +564,6 @@ export default function PacksScreen({
                     onClick={() => setShowTemplateGallery(true)}
                     className="flex items-center gap-1 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[12px] font-semibold text-accent"
                   >
-                    <IconSparkles size={15} stroke={1.75} />
                     <span>템플릿</span>
                   </button>
                 </div>

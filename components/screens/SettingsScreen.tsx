@@ -3,15 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  IconMail,
   IconChevronRight,
-  IconSpeakerphone,
-  IconHelpCircle,
-  IconSparkles,
   IconArrowLeft,
-  IconExternalLink,
-  IconShieldCheck,
-  IconLink,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
@@ -43,6 +36,7 @@ import InquiryScreen from "@/components/screens/InquiryScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
+import MyShortLinksModal from "@/components/MyShortLinksModal";
 import NotificationBell from "@/components/NotificationBell";
 import ToggleSwitch from "@/components/ToggleSwitch";
 import { useToast } from "@/components/Toast";
@@ -156,13 +150,14 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { profile, updateDefaultTab, updateShortUrlEnabled } = useAuth();
+  const { user, profile, updateDefaultTab, updateShortUrlEnabled } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [showUnlockCode, setShowUnlockCode] = useState(false);
+  const [showMyShortLinks, setShowMyShortLinks] = useState(false);
   // v68부터 설정은 하단탭이라, 이 화면(main)에서 스와이프로 뒤로가는 것(설정->가방보관함)은
   // AppShell이 탭 전환 스와이프로 이미 처리한다. 여기서 또 useSwipeBack을 걸면 같은 제스처가
   // 두 군데서 겹쳐 처리돼서(설정->홈으로 바뀐 뒤, 그 홈 상태 기준으로 AppShell 스와이프가
@@ -283,7 +278,6 @@ export default function SettingsScreen({
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
               <div className="flex items-center gap-2 min-w-0">
-                <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
                 <span className="text-[13px]">
                   {aiUnlimited
                     ? "무제한 이용 중"
@@ -300,10 +294,9 @@ export default function SettingsScreen({
               )}
             </div>
 
-            <div className="p-3 flex items-center justify-between gap-3">
+            <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <IconLink size={15} stroke={1.75} color="var(--accent)" className="shrink-0" />
                   <span className="text-[13px] font-medium">짧은 URL 사용하기</span>
                   {!premium && (
                     <span
@@ -325,6 +318,13 @@ export default function SettingsScreen({
                 ariaLabel="짧은 URL 사용하기"
               />
             </div>
+            <button
+              onClick={() => setShowMyShortLinks(true)}
+              className="w-full flex items-center justify-between p-3"
+            >
+              <span className="text-[13px]">내가 만든 URL 관리</span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
           </div>
         </div>
 
@@ -355,10 +355,7 @@ export default function SettingsScreen({
               onClick={() => setShowAnnouncements(true)}
               className="w-full flex items-center justify-between p-3 border-b border-border"
             >
-              <span className="flex items-center gap-2 text-[13px]">
-                <IconSpeakerphone size={16} stroke={1.75} />
-                공지사항
-              </span>
+              <span className="text-[13px]">공지사항</span>
               <span className="flex items-center gap-1">
                 {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
@@ -370,20 +367,14 @@ export default function SettingsScreen({
               onClick={() => setShowFaq(true)}
               className="w-full flex items-center justify-between p-3 border-b border-border"
             >
-              <span className="flex items-center gap-2 text-[13px]">
-                <IconHelpCircle size={16} stroke={1.75} />
-                자주 묻는 질문
-              </span>
+              <span className="text-[13px]">자주 묻는 질문</span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
             </button>
             <button
               onClick={() => setView("inquiries")}
               className="w-full flex items-center justify-between p-3"
             >
-              <span className="flex items-center gap-2 text-[13px]">
-                <IconMail size={16} stroke={1.75} />
-                문의하기
-              </span>
+              <span className="text-[13px]">문의하기</span>
               <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
             </button>
           </div>
@@ -417,8 +408,7 @@ export default function SettingsScreen({
                 onClick={() => setShowInspectLogsModal(true)}
                 className="w-full flex items-center justify-between p-3 border-b border-accent/20"
               >
-                <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
-                  <IconShieldCheck size={17} color="var(--accent)" />
+                <span className="text-[13px] font-medium text-text-primary">
                   템플릿 공유 등록 모니터링
                 </span>
                 <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
@@ -427,8 +417,7 @@ export default function SettingsScreen({
                 href="/admin"
                 className="w-full flex items-center justify-between p-3"
               >
-                <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
-                  <IconExternalLink size={16} stroke={1.75} color="var(--accent)" />
+                <span className="text-[13px] font-medium text-text-primary">
                   관리자 사이트로 이동
                 </span>
                 <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
@@ -466,6 +455,10 @@ export default function SettingsScreen({
             }
           }}
         />
+      )}
+
+      {showMyShortLinks && user && (
+        <MyShortLinksModal user={user} onClose={() => setShowMyShortLinks(false)} />
       )}
 
       <Slide active={view === "profile"} onBackdropClick={() => setView("main")}>

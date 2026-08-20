@@ -44,7 +44,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
           가방/팩 안의 짐 목록이 보여지는 방식을 설정해요
         </p>
 
-        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-medium">완료된 항목 맨 아래로 이동</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
@@ -58,7 +58,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
           />
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-medium">가방 열 때 팩 접어서 보기</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
@@ -72,7 +72,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
           />
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-medium">짐 최대 표시 줄 수</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
@@ -92,7 +92,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
           </select>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[13px] font-medium">짐 마감일 표시 방식</p>
@@ -141,7 +141,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-surface p-3 flex items-center justify-between gap-3">
+        <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-medium">가방 보관함 ↔ 팩 보관함 이동 버튼</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">

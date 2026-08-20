@@ -151,6 +151,48 @@ export async function fetchLinkMeta(url: string, user: User | null): Promise<Lin
   }
 }
 
+// 본인이 만든 짧은/커스텀 링크 하나를 나타낸다("내가 만든 URL 관리" 모달 목록 항목).
+export interface MyShortLink {
+  kind: "s" | "c";
+  code: string;
+  longUrl: string;
+  label: string | null;
+  createdAt: string;
+  shortUrl: string;
+}
+
+// 설정 > "짧은 URL 사용하기" 하단 "내가 만든 URL 관리"에서 본인이 만든 짧은/커스텀 URL을
+// 전부 조회한다(app/api/my-short-links, 최신순으로 이미 정렬돼서 돌아온다).
+export async function fetchMyShortLinks(user: User): Promise<MyShortLink[]> {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/my-short-links", {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data?.error as string | undefined) ?? "목록을 불러오지 못했어요");
+  }
+  return (data.links as MyShortLink[]) ?? [];
+}
+
+// 본인이 만든 짧은/커스텀 링크를 삭제한다(app/api/delete-short-link). 서버가 createdBy와
+// 요청자 uid가 같은지 다시 검증한다.
+export async function deleteShortLink(user: User, kind: "s" | "c", code: string): Promise<void> {
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/delete-short-link", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ kind, code }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error((data?.error as string | undefined) ?? "링크 삭제에 실패했어요");
+  }
+}
+
 // 본인이 만든 짧은/커스텀 링크의 표시 이름·원본 주소를 수정한다(app/api/update-short-link, PATCH).
 // 서버가 createdBy와 요청자 uid가 같은지 다시 검증하므로("만든 사람 본인만 수정 가능"의 실제
 // 강제는 거기서 일어남), 여기서는 별도 권한 체크 없이 그대로 호출한다.
