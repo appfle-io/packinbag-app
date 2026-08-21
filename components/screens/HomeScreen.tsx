@@ -477,27 +477,27 @@ export default function HomeScreen({
   return (
     <div className="relative flex-1 flex flex-col overflow-hidden">
       <div className="shrink-0 p-4 pb-0">
-        <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center justify-between mb-3.5 gap-2">
           {searchOpen ? (
             <>
-              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5">
-                <IconSearch size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
+                <IconSearch size={15} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="가방, 팩, 짐 검색"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+                  placeholder="가방, 팩, 짐 검색..."
+                  className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none text-foreground placeholder:text-text-muted"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} aria-label="검색어 지우기" className="shrink-0">
-                    <IconX size={15} stroke={1.75} color="var(--text-muted)" />
+                  <button onClick={() => setSearchQuery("")} aria-label="검색어 지우기" className="shrink-0 text-text-muted hover:text-foreground">
+                    <IconX size={14} stroke={1.75} />
                   </button>
                 )}
               </div>
               <button
                 onClick={closeSearch}
-                className="shrink-0 text-[13px] text-text-secondary px-1"
+                className="shrink-0 text-[13px] font-medium text-text-secondary hover:text-foreground px-1.5 py-1"
               >
                 취소
               </button>
@@ -505,18 +505,18 @@ export default function HomeScreen({
           ) : (
             <>
               <div className="flex items-baseline gap-2 min-w-0">
-                <h1 className="text-[22px] font-bold shrink-0">가방</h1>
-                <span className="text-[12px] text-text-muted truncate">
-                  팩을 모아 자유롭게 정리하는 공간이에요
+                <h1 className="text-[20px] font-bold tracking-tight shrink-0 text-foreground">가방</h1>
+                <span className="text-[11.5px] text-text-muted truncate">
+                  짐을 챙기고 관리하는 공간
                 </span>
               </div>
-              <div className="flex items-center gap-4 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={openSearch}
                   aria-label="검색"
-                  className="-m-2 p-2"
+                  className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
                 >
-                  <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
+                  <IconSearch size={18} stroke={1.75} />
                 </button>
                 <NotificationBell uid={uid} />
               </div>
@@ -529,34 +529,32 @@ export default function HomeScreen({
             <div className="flex items-center justify-between mb-3 gap-2">
               <button
                 onClick={cancelSelectMode}
-                className="text-[13px] text-text-secondary px-1 py-1.5"
+                className="text-[12.5px] text-text-secondary hover:text-foreground px-1 py-1.5"
               >
                 취소
               </button>
-              <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
+              <span className="text-[12.5px] font-medium text-foreground">{selectedIds.size}개 선택됨</span>
             </div>
           ) : (
             <div className="flex items-center justify-between mb-3 gap-2">
               <button
                 onClick={() => setShowJoin(true)}
-                className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[12px] shrink-0"
+                className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs"
               >
-                <IconTicket size={14} stroke={1.75} />
+                <IconTicket size={13} stroke={1.75} />
                 코드로 참여
               </button>
               <div className="flex items-center gap-1.5 shrink-0">
                 {(archivedBagsAll.length > 0 || bagFilter === "archived") && (
                   <div
-                    className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5"
-                    style={{ background: "var(--surface-2)" }}
+                    className="flex items-center gap-1 rounded-lg border border-border/80 px-2 py-1.5 bg-surface"
                   >
                     <IconArchive size={13} stroke={1.75} color="var(--text-secondary)" />
                     <select
                       value={bagFilter}
                       onChange={(e) => setBagFilter(e.target.value as "active" | "archived")}
                       aria-label="진행중/보관"
-                      className="bg-transparent text-[12px] pr-1 outline-none"
-                      style={{ color: "var(--text-secondary)" }}
+                      className="bg-transparent text-[11.5px] pr-1 outline-none text-text-secondary"
                     >
                       <option value="active">진행중 ({activeBagsAll.length})</option>
                       <option value="archived">보관 ({archivedBagsAll.length})</option>

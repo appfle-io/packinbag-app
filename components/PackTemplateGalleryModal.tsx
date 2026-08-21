@@ -243,51 +243,53 @@ export default function PackTemplateGalleryModal({
   return (
     <Portal>
       <div
-        className="fixed inset-0 flex items-center justify-center p-3 md:p-4"
-        style={{ zIndex: resolvedZIndex, background: "rgba(0,0,0,0.5)" }}
+        className="fixed inset-0 flex items-center justify-center p-3 md:p-4 max-sm:items-end max-sm:p-0 backdrop-blur-xs"
+        style={{ zIndex: resolvedZIndex, background: "rgba(0,0,0,0.45)" }}
         onClick={onClose}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex flex-col w-full max-w-2xl max-h-[85vh] rounded-2xl bg-surface border border-border shadow-2xl overflow-hidden"
+          className="flex flex-col w-full max-w-2xl max-h-[85vh] max-sm:max-h-[88vh] rounded-2xl max-sm:rounded-b-none max-sm:rounded-t-2xl bg-surface border border-border shadow-2xl overflow-hidden animate-in fade-in max-sm:slide-in-from-bottom-4 duration-200"
         >
+          {/* 모바일 바텀시트 드래그 핸들바 */}
+          <div className="hidden max-sm:flex items-center justify-center pt-2.5 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-border-strong" />
+          </div>
+
           {/* 헤더 */}
-          <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent/10">
-                <IconSparkles size={18} color="var(--accent)" />
-              </div>
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div>
-                <h3 className="text-[15px] font-semibold">추천 팩 템플릿 갤러리</h3>
-                <p className="text-[12px] text-text-muted">검증된 짐싸기 팩을 불러오거나 내 팩을 템플릿으로 등록하세요</p>
+                <h3 className="text-[15px] font-semibold text-foreground tracking-tight">추천 팩 템플릿</h3>
+                <p className="text-[11.5px] text-text-muted mt-0.5">상황별 검증된 팩을 내 보관함으로 바로 가져올 수 있어요</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1 rounded-lg hover:bg-black/5" aria-label="닫기">
-              <IconX size={18} stroke={1.75} color="var(--text-muted)" />
+            <button onClick={onClose} className="p-1.5 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors" aria-label="닫기">
+              <IconX size={17} stroke={1.75} />
             </button>
           </div>
 
-          {/* 탭 네비게이션: 갤러리 둘러보기 vs 내 팩 등록하기 */}
-          <div className="flex border-b border-border bg-surface shrink-0 px-4 pt-2 gap-4">
+          {/* 탭 네비게이션 */}
+          <div className="flex border-b border-border bg-surface shrink-0 px-5 pt-2 gap-5">
             <button
               onClick={() => setActiveTab("gallery")}
-              className="pb-2 text-[13px] font-semibold border-b-2 transition-all"
+              className="pb-2.5 text-[13px] font-medium border-b-2 transition-all"
               style={{
                 borderColor: activeTab === "gallery" ? "var(--accent)" : "transparent",
-                color: activeTab === "gallery" ? "var(--accent)" : "var(--text-muted)",
+                color: activeTab === "gallery" ? "var(--foreground)" : "var(--text-muted)",
               }}
             >
-              템플릿 둘러보기
+              템플릿 목록
             </button>
             <button
               onClick={() => setActiveTab("myPacks")}
-              className="pb-2 text-[13px] font-semibold border-b-2 transition-all flex items-center gap-1"
+              className="pb-2.5 text-[13px] font-medium border-b-2 transition-all flex items-center gap-1.5"
               style={{
                 borderColor: activeTab === "myPacks" ? "var(--accent)" : "transparent",
-                color: activeTab === "myPacks" ? "var(--accent)" : "var(--text-muted)",
+                color: activeTab === "myPacks" ? "var(--foreground)" : "var(--text-muted)",
               }}
             >
-              <IconPlus size={14} />
+              <IconPlus size={13} stroke={2} />
               <span>내 팩 템플릿 등록</span>
             </button>
           </div>
@@ -295,14 +297,14 @@ export default function PackTemplateGalleryModal({
           {activeTab === "gallery" ? (
             <>
               {/* 카테고리 칩 필터 */}
-              <div className="flex items-center gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-none border-b border-border bg-surface-2 shrink-0">
+              <div className="flex items-center gap-1.5 px-5 py-2.5 overflow-x-auto scrollbar-none border-b border-border bg-surface-2/40 shrink-0">
                 {categories.map((cat) => {
                   const active = selectedCategory === cat.id;
                   return (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition-all"
+                      className="flex items-center px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all"
                       style={{
                         background: active ? "var(--accent)" : "var(--surface)",
                         color: active ? "#fff" : "var(--text-secondary)",
@@ -316,36 +318,36 @@ export default function PackTemplateGalleryModal({
               </div>
 
               {/* 템플릿 목록 */}
-              <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex-1 overflow-y-auto p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 gap-3 scrollbar-thin">
                 {filteredTemplates.map((template) => {
                   const isImported = importedSet.has(template.id);
                   return (
                     <div
                       key={template.id}
-                      className="flex flex-col justify-between p-3.5 rounded-xl border border-border bg-surface hover:border-accent/40 transition-all shadow-sm"
+                      className="flex flex-col justify-between p-3.5 rounded-xl border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <PackColorDot colorId={template.color} onChange={() => {}} />
-                            <span className="text-[14px] font-semibold truncate">{template.name}</span>
+                            <span className="text-[13.5px] font-semibold text-foreground truncate">{template.name}</span>
                           </div>
-                          <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full bg-surface-2 text-text-muted">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
                             {template.categoryLabel}
                           </span>
                         </div>
-                        <p className="text-[12px] text-text-muted mb-2.5 line-clamp-1">{template.description}</p>
+                        <p className="text-[11.5px] text-text-muted mb-2.5 line-clamp-1">{template.description}</p>
 
-                        <div className="flex flex-col gap-1 mb-3 bg-surface-2/60 p-2 rounded-lg">
+                        <div className="flex flex-col gap-1 mb-3 bg-surface-2/50 p-2.5 rounded-lg border border-border/40">
                           {template.items.slice(0, 4).map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-                              <span className="w-1.5 h-1.5 rounded-full bg-accent/60 shrink-0" />
+                            <div key={idx} className="flex items-center gap-2 text-[12px] text-text-secondary">
+                              <span className="w-1 h-1 rounded-full bg-text-muted shrink-0" />
                               <span className="truncate">{item.text}</span>
                             </div>
                           ))}
                           {template.items.length > 4 && (
-                            <span className="text-[11px] text-text-muted pl-3">
-                              외 {template.items.length - 4}개 항목 더보기
+                            <span className="text-[10.5px] text-text-muted pl-3 pt-0.5">
+                              외 {template.items.length - 4}개 항목 포함
                             </span>
                           )}
                         </div>
@@ -354,7 +356,7 @@ export default function PackTemplateGalleryModal({
                       <button
                         onClick={() => handleImport(template)}
                         disabled={isImported}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px] font-medium transition-all"
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12.5px] font-medium transition-all shadow-2xs disabled:opacity-80"
                         style={{
                           background: isImported ? "var(--surface-2)" : "var(--accent)",
                           color: isImported ? "var(--text-muted)" : "#fff",
@@ -362,13 +364,13 @@ export default function PackTemplateGalleryModal({
                       >
                         {isImported ? (
                           <>
-                            <IconCheck size={15} stroke={2} />
-                            <span>보관함에 담김</span>
+                            <IconCheck size={14} stroke={2} />
+                            <span>보관함에 추가됨</span>
                           </>
                         ) : (
                           <>
-                            <IconDownload size={15} stroke={2} />
-                            <span>내 팩 보관함으로 가져오기</span>
+                            <IconDownload size={14} stroke={2} />
+                            <span>내 보관함으로 가져오기</span>
                           </>
                         )}
                       </button>
@@ -379,9 +381,9 @@ export default function PackTemplateGalleryModal({
             </>
           ) : (
             /* 내 팩을 템플릿 갤러리에 등록하는 탭 */
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-              <p className="text-[13px] text-text-muted">
-                내가 만든 팩 보관함 목록 중 템플릿 갤러리에 공유하고 싶은 팩을 선택하세요:
+            <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-3 scrollbar-thin">
+              <p className="text-[12px] text-text-muted">
+                내 보관함의 팩을 선택하여 추천 템플릿 목록에 공유할 수 있어요:
               </p>
               {userPacks.filter((p) => p.type !== "folder").length === 0 ? (
                 <div className="py-12 text-center text-[13px] text-text-muted">
@@ -394,20 +396,20 @@ export default function PackTemplateGalleryModal({
                     .map((pack) => (
                       <div
                         key={pack.id}
-                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-surface hover:border-accent/40"
+                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <PackColorDot colorId={pack.color} onChange={() => {}} />
                           <div className="min-w-0 flex-1">
-                            <h4 className="text-[13.5px] font-medium truncate">{pack.name}</h4>
-                            <p className="text-[11.5px] text-text-muted truncate">
+                            <h4 className="text-[13px] font-medium text-foreground truncate">{pack.name}</h4>
+                            <p className="text-[11px] text-text-muted truncate">
                               항목 {pack.items.length}개
                             </p>
                           </div>
                         </div>
                         <button
                           onClick={() => handleRegisterMyPack(pack)}
-                          className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-accent text-white"
+                          className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-accent text-white hover:opacity-90 transition-opacity shadow-2xs"
                         >
                           템플릿 공유
                         </button>

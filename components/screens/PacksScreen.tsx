@@ -486,39 +486,39 @@ export default function PacksScreen({
       className="relative flex-1 flex flex-col overflow-hidden"
     >
       <div className="shrink-0 p-4 pb-0">
-        <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center justify-between mb-3.5 gap-2">
           {searchOpen ? (
             <>
-              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5">
-                <IconSearch size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
+                <IconSearch size={15} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="팩, 짐, 가방 검색"
-                  className="min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+                  placeholder="팩, 짐, 가방 검색..."
+                  className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none text-foreground placeholder:text-text-muted"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} aria-label="검색어 지우기" className="shrink-0">
-                    <IconX size={15} stroke={1.75} color="var(--text-muted)" />
+                  <button onClick={() => setSearchQuery("")} aria-label="검색어 지우기" className="shrink-0 text-text-muted hover:text-foreground">
+                    <IconX size={14} stroke={1.75} />
                   </button>
                 )}
               </div>
-              <button onClick={closeSearch} className="shrink-0 text-[13px] text-text-secondary px-1">
+              <button onClick={closeSearch} className="shrink-0 text-[13px] font-medium text-text-secondary hover:text-foreground px-1.5 py-1">
                 취소
               </button>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-[22px] font-bold shrink-0">팩</h1>
-                <span className="text-[12px] text-text-muted truncate">
-                  폴더로 정리해서 두고두고 써요
+              <div className="flex items-baseline gap-2 min-w-0">
+                <h1 className="text-[20px] font-bold tracking-tight shrink-0 text-foreground">팩</h1>
+                <span className="text-[11.5px] text-text-muted truncate">
+                  폴더로 정리해서 관리하는 보관함
                 </span>
               </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <button onClick={openSearch} aria-label="검색" className="-m-2 p-2">
-                  <IconSearch size={20} stroke={1.75} color="var(--text-secondary)" />
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={openSearch} aria-label="검색" className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors">
+                  <IconSearch size={18} stroke={1.75} />
                 </button>
                 <NotificationBell uid={uid} />
               </div>
@@ -529,10 +529,10 @@ export default function PacksScreen({
         {!searchOpen &&
           (selectMode ? (
             <div className="flex items-center justify-between mb-3 gap-2">
-              <button onClick={cancelSelectMode} className="text-[13px] text-text-secondary px-1 py-1.5">
+              <button onClick={cancelSelectMode} className="text-[12.5px] text-text-secondary hover:text-foreground px-1 py-1.5">
                 취소
               </button>
-              <span className="text-[13px] font-medium">{selectedIds.size}개 선택됨</span>
+              <span className="text-[12.5px] font-medium text-foreground">{selectedIds.size}개 선택됨</span>
             </div>
           ) : (
             !isEmpty && (

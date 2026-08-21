@@ -23,9 +23,9 @@ export default function BottomTabBar({
 
   return (
     <nav
-      className="relative flex shrink-0 pt-2"
+      className="relative flex shrink-0 pt-2 backdrop-blur-md"
       style={{
-        background: "var(--surface-2)",
+        background: "color-mix(in srgb, var(--surface-2) 85%, transparent)",
         borderTop: "1px solid var(--border)",
         paddingBottom: "max(9px, env(safe-area-inset-bottom))",
       }}
@@ -41,7 +41,7 @@ export default function BottomTabBar({
         }}
       >
         <div
-          className="h-full rounded-2xl"
+          className="h-full rounded-2xl border border-accent/20"
           style={{ width: "72%", background: "var(--accent-soft)" }}
         />
       </div>

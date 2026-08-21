@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconFlame, IconChevronsRight } from "@tabler/icons-react";
+import { IconPackage, IconChevronsRight } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 
@@ -110,14 +110,14 @@ export default function QuickPackBar({
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") handleBarClick();
         }}
-        className="relative flex items-center overflow-hidden text-left cursor-pointer"
+        className="relative flex items-center overflow-hidden text-left cursor-pointer shadow-sm"
         style={{
-          width: collapsed ? 52 : "100%",
-          height: collapsed ? 52 : 58,
-          borderRadius: collapsed ? 9999 : 12,
+          width: collapsed ? 48 : "100%",
+          height: collapsed ? 48 : 54,
+          borderRadius: collapsed ? 9999 : 14,
           border: collapsed ? "none" : "1px solid var(--border)",
-          background: collapsed ? "var(--accent)" : "var(--accent-soft)",
-          padding: collapsed ? 0 : "10px 12px",
+          background: collapsed ? "var(--accent)" : "var(--surface)",
+          padding: collapsed ? 0 : "8px 12px",
           gap: collapsed ? 0 : 10,
           transform: dragX !== 0 ? `translateX(${dragX}px)` : undefined,
           opacity: dragX !== 0 ? Math.max(0.5, 1 - Math.abs(dragX) / 160) : 1,
@@ -129,26 +129,25 @@ export default function QuickPackBar({
       >
         {/* 펼쳐진 바 내용: 접히면 빠르게 페이드아웃된다 */}
         <span
-          className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center"
+          className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center border border-accent/30 bg-accent/10"
           style={{
-            background: "var(--accent)",
             opacity: collapsed ? 0 : 1,
             transition: "opacity 180ms ease",
           }}
         >
-          <IconFlame size={16} stroke={1.75} color="#fff" />
+          <IconPackage size={15} stroke={1.75} color="var(--accent)" />
         </span>
         <span
           className="min-w-0 flex-1"
           style={{ opacity: collapsed ? 0 : 1, transition: "opacity 160ms ease" }}
         >
           <span className="flex items-center gap-1.5">
-            <span className="text-[13px] font-medium whitespace-nowrap" style={{ color: "var(--accent-strong)" }}>
-              빠른팩
+            <span className="text-[12.5px] font-semibold whitespace-nowrap text-foreground">
+              빠른 팩
             </span>
-            <span className="text-[11px] text-text-muted shrink-0">{pack.items.length}개</span>
+            <span className="text-[10.5px] text-text-muted shrink-0">{pack.items.length}개 보관</span>
           </span>
-          <span className="block text-[11.5px] text-text-secondary truncate mt-0.5">
+          <span className="block text-[11px] text-text-secondary truncate mt-0.5">
             {preview}
           </span>
         </span>
@@ -159,9 +158,9 @@ export default function QuickPackBar({
               toggleCollapsed(true);
             }}
             aria-label="빠른팩 접기"
-            className="shrink-0 -m-1.5 p-1.5"
+            className="shrink-0 -m-1.5 p-1.5 text-text-muted hover:text-foreground"
           >
-            <IconChevronsRight size={16} stroke={1.75} color="var(--text-muted)" />
+            <IconChevronsRight size={15} stroke={1.75} />
           </button>
         )}
 
@@ -170,7 +169,7 @@ export default function QuickPackBar({
           className="absolute inset-0 flex items-center justify-center"
           style={{ opacity: collapsed ? 1 : 0, transition: "opacity 200ms ease", pointerEvents: "none" }}
         >
-          <IconFlame size={20} stroke={1.75} color="#fff" />
+          <IconPackage size={18} stroke={1.75} color="#fff" />
         </span>
       </div>
     </div>

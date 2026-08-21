@@ -133,8 +133,7 @@ export default function BagCard({
       {ddayLabel && (
         <div className="mt-1 shrink-0">
           <span
-            className="inline-block text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5"
-            style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+            className="inline-block text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-2 py-0.5 border border-accent/40 bg-accent/5 text-accent"
           >
             {ddayLabel}
           </span>
@@ -183,6 +182,19 @@ export default function BagCard({
         )}
         {totalLabel && <span className="font-medium">{totalLabel}</span>}
       </span>
+
+      {/* 카드 하단 2px 미니멀 진행률 바 */}
+      {overallRatio !== null && (
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-border/40 overflow-hidden rounded-b-xl">
+          <div
+            className="h-full transition-all duration-300 ease-out"
+            style={{
+              width: `${Math.round(overallRatio * 100)}%`,
+              background: "var(--accent)",
+            }}
+          />
+        </div>
+      )}
     </div>
     </div>
   );
