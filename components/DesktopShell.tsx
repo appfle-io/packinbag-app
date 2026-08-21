@@ -244,7 +244,7 @@ export default function DesktopShell({
   };
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background">
+    <div className="flex h-dvh w-full overflow-hidden bg-surface">
       <DesktopSidebar
         uid={user.uid}
         bags={bags}
@@ -264,91 +264,93 @@ export default function DesktopShell({
         settingsActive={settingsOpen}
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {!selection && (
-          <DesktopQuickPackChatView
-            quickPack={quickPack}
-            bags={bags}
-            libraryPacks={libraryPacks}
-            onSavePack={onSavePack}
-            onAddItemsToBagPack={onAddItemsToBagPack}
-          />
-        )}
+      <main className="flex-1 flex flex-col min-w-0 h-full p-2.5 pl-1.5 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 h-full rounded-2xl border border-border bg-background shadow-xs overflow-hidden relative">
+          {!selection && (
+            <DesktopQuickPackChatView
+              quickPack={quickPack}
+              bags={bags}
+              libraryPacks={libraryPacks}
+              onSavePack={onSavePack}
+              onAddItemsToBagPack={onAddItemsToBagPack}
+            />
+          )}
 
-        {selection?.kind === "bag" && selectedBag && (
-          <BagEditorScreen
-            key={selectedBag.id}
-            initialBag={selectedBag}
-            libraryPacks={libraryPacks}
-            bags={bags}
-            uid={user.uid}
-            nickname={profile.nickname ?? ""}
-            avatarId={profile.avatarId ?? ""}
-            isNew={isNewBag}
-            readOnly={lockedBagIds.has(selectedBag.id)}
-            onRequestUnlock={requestUnlockForBag}
-            onBack={() => onSelectionChange(null)}
-            onSave={onSaveBag}
-            onDeleteBag={(bag) => {
-              onDeleteBag(bag);
-              onSelectionChange(null);
-            }}
-            onSaveAsLibraryPack={onSaveAsLibraryPack}
-            onTrashPackFromBag={onTrashPackFromBag}
-            onLeaveBag={onLeaveBag}
-            onRemoveMember={onRemoveMember}
-            onRegenerateInviteCode={onRegenerateInviteCode}
-            onTransferOwnership={onTransferOwnership}
-            focusTarget={selection.focusPackId ? { packId: selection.focusPackId } : null}
-            onFocusHandled={() => onSelectionChange({ kind: "bag", bagId: selectedBag.id })}
-          />
-        )}
+          {selection?.kind === "bag" && selectedBag && (
+            <BagEditorScreen
+              key={selectedBag.id}
+              initialBag={selectedBag}
+              libraryPacks={libraryPacks}
+              bags={bags}
+              uid={user.uid}
+              nickname={profile.nickname ?? ""}
+              avatarId={profile.avatarId ?? ""}
+              isNew={isNewBag}
+              readOnly={lockedBagIds.has(selectedBag.id)}
+              onRequestUnlock={requestUnlockForBag}
+              onBack={() => onSelectionChange(null)}
+              onSave={onSaveBag}
+              onDeleteBag={(bag) => {
+                onDeleteBag(bag);
+                onSelectionChange(null);
+              }}
+              onSaveAsLibraryPack={onSaveAsLibraryPack}
+              onTrashPackFromBag={onTrashPackFromBag}
+              onLeaveBag={onLeaveBag}
+              onRemoveMember={onRemoveMember}
+              onRegenerateInviteCode={onRegenerateInviteCode}
+              onTransferOwnership={onTransferOwnership}
+              focusTarget={selection.focusPackId ? { packId: selection.focusPackId } : null}
+              onFocusHandled={() => onSelectionChange({ kind: "bag", bagId: selectedBag.id })}
+            />
+          )}
 
-        {selection?.kind === "pack" && selectedPack && selectedPack.kind === "editor" && (
-          <PackNoteEditorScreen
-            key={selectedPack.id}
-            pack={selectedPack}
-            readOnly={false}
-            onBack={() => onSelectionChange(null)}
-            onSave={onSavePack}
-            onDeletePack={() => {
-              onDeletePack(selectedPack.id);
-              onSelectionChange(null);
-            }}
-          />
-        )}
+          {selection?.kind === "pack" && selectedPack && selectedPack.kind === "editor" && (
+            <PackNoteEditorScreen
+              key={selectedPack.id}
+              pack={selectedPack}
+              readOnly={false}
+              onBack={() => onSelectionChange(null)}
+              onSave={onSavePack}
+              onDeletePack={() => {
+                onDeletePack(selectedPack.id);
+                onSelectionChange(null);
+              }}
+            />
+          )}
 
-        {selection?.kind === "pack" && selectedPack && selectedPack.kind !== "editor" && (
-          <PackLibraryEditorScreen
-            key={selectedPack.id}
-            variant="sheet"
-            initialPack={selectedPack}
-            libraryPacks={libraryPacks.filter((p) => p.type !== "folder")}
-            bags={bags}
-            lockedBagIds={lockedBagIds}
-            readOnly={!!selectedPack.locked}
-            onRequestUnlock={requestUnlockForPack}
-            onBack={() => onSelectionChange(null)}
-            onSave={onSavePack}
-            onSaveOtherPack={onSavePack}
-            onDelete={(packId) => {
-              onDeletePack(packId);
-              onSelectionChange(null);
-            }}
-            onAddItemsToBagPack={onAddItemsToBagPack}
-            onRemoveItemsFromBagPack={onRemoveItemsFromBagPack}
-            focusItemId={packFocusItemId}
-            onFocusHandled={() => setPackFocusItemId(null)}
-          />
-        )}
-      </div>
+          {selection?.kind === "pack" && selectedPack && selectedPack.kind !== "editor" && (
+            <PackLibraryEditorScreen
+              key={selectedPack.id}
+              variant="sheet"
+              initialPack={selectedPack}
+              libraryPacks={libraryPacks.filter((p) => p.type !== "folder")}
+              bags={bags}
+              lockedBagIds={lockedBagIds}
+              readOnly={!!selectedPack.locked}
+              onRequestUnlock={requestUnlockForPack}
+              onBack={() => onSelectionChange(null)}
+              onSave={onSavePack}
+              onSaveOtherPack={onSavePack}
+              onDelete={(packId) => {
+                onDeletePack(packId);
+                onSelectionChange(null);
+              }}
+              onAddItemsToBagPack={onAddItemsToBagPack}
+              onRemoveItemsFromBagPack={onRemoveItemsFromBagPack}
+              focusItemId={packFocusItemId}
+              onFocusHandled={() => setPackFocusItemId(null)}
+            />
+          )}
+        </div>
+      </main>
 
       {/* 설정은 우측 패널을 바꾸지 않고 작지 않은 모달로 띄운다 - 백드롭 클릭하면 닫힌다. */}
       {settingsOpen && (
         <Portal>
           <div
-            className="fixed inset-0 flex items-center justify-center"
-            style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.45)" }}
+            className="fixed inset-0 flex items-center justify-center backdrop-blur-xs"
+            style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.4)" }}
             onClick={() => setSettingsOpen(false)}
           >
             <div

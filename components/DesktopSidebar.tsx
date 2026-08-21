@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconChevronRight,
   IconChevronDown,
@@ -275,6 +275,24 @@ export default function DesktopSidebar({
   };
   const [expandedBagIds, setExpandedBagIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Cmd+K / Ctrl+K 단축키로 검색창 포커스
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        if (isSidebarCollapsed) {
+          setIsSidebarCollapsed(false);
+          updateSidebarCollapsed(false).catch(() => {});
+        }
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSidebarCollapsed, updateSidebarCollapsed]);
 
   // 팩 폴더 펼침 상태는 모바일 팩 트리 화면(PacksScreen)과 같은 계정 필드를 공유한다 -
   // 어느 화면에서 펼쳐두든 다른 화면/기기에서도 그대로 이어진다.
@@ -874,28 +892,33 @@ export default function DesktopSidebar({
       className="relative flex h-full shrink-0 flex-col border-r border-border"
       style={{ width: sidebarWidth }}
     >
-      <div className="shrink-0 p-3 pb-2 flex items-center gap-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5">
-          <IconSearch size={15} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+      <div className="shrink-0 p-3 pb-2 flex items-center gap-1.5">
+        <div className="flex items-center gap-2 min-w-0 flex-1 rounded-xl border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent/60 focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
+          <IconSearch size={14} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
           <input
+            ref={searchInputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="가방/팩 이름 검색"
-            className="min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+            placeholder="빠른 이동..."
+            className="min-w-0 flex-1 bg-transparent text-[12.5px] outline-none text-foreground placeholder:text-text-muted"
           />
-          {query && (
-            <button onClick={() => setQuery("")} aria-label="검색어 지우기" className="shrink-0">
-              <IconX size={14} stroke={1.75} color="var(--text-muted)" />
+          {query ? (
+            <button onClick={() => setQuery("")} aria-label="검색어 지우기" className="shrink-0 text-text-muted hover:text-foreground">
+              <IconX size={13} stroke={1.75} />
             </button>
+          ) : (
+            <kbd className="hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono text-text-muted bg-surface border border-border/70 rounded shadow-2xs shrink-0 select-none">
+              ⌘K
+            </kbd>
           )}
         </div>
         <button
           onClick={toggleSidebarCollapsed}
           aria-label="사이드바 접기"
           title="사이드바 접기"
-          className="shrink-0 p-1 rounded-md hover:bg-black/5"
+          className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
         >
-          <IconChevronsLeft size={15} stroke={1.75} color="var(--text-muted)" />
+          <IconChevronsLeft size={15} stroke={1.75} />
         </button>
         <NotificationBell uid={uid} />
       </div>
@@ -1271,10 +1294,8 @@ export default function DesktopSidebar({
               onClick={() => setShowTemplateGallery(true)}
               aria-label="추천 템플릿 둘러보기"
               title="추천 템플릿 둘러보기"
-              className="p-1 rounded-md hover:bg-black/5 flex items-center gap-1 text-[11px] font-medium"
-              style={{ color: "var(--accent)" }}
+              className="p-1 rounded-md hover:bg-black/5 flex items-center text-[11.5px] font-medium text-text-secondary hover:text-foreground transition-colors"
             >
-              <IconSparkles size={13} stroke={1.75} />
               <span>템플릿</span>
             </button>
             <button

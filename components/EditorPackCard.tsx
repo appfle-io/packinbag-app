@@ -103,22 +103,17 @@ export default function EditorPackCard({
       style={{
         borderColor: isDragOver
           ? "var(--accent)"
-          : pack.autoSyncEnabled
-          ? "var(--accent)"
           : "var(--border)",
-        borderWidth: pack.autoSyncEnabled && !isDragOver ? 1.5 : undefined,
         boxShadow: isDragOver
           ? isPackDragOverPosition === "after"
             ? "0 2px 0 0 var(--accent)"
             : "0 -2px 0 0 var(--accent)"
           : undefined,
-        background: pack.autoSyncEnabled
-          ? "var(--accent-soft)"
-          : accentHex
+        background: accentHex
           ? `color-mix(in srgb, ${accentHex} var(--pack-card-bg-pct, 100%), transparent)`
           : "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
-        transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease, background 120ms ease",
+        transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
       }}
     >
       <div className="flex items-center justify-between mb-2.5 shrink-0 gap-2">
@@ -149,6 +144,11 @@ export default function EditorPackCard({
             className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
             inputClassName="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
+          {pack.autoSyncEnabled && (
+            <span className="shrink-0 text-[10.5px] font-medium px-2 py-0.5 rounded-full border border-accent/50 bg-accent/5 text-accent">
+              동기화됨
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           {editors && editors.length > 0 && (

@@ -2028,6 +2028,9 @@ export default function BagEditorScreen({
   // 하나라도 있고 다 켜져있으면만 true(체크할 것이 아예 없으면 false).
   const allBagCheckItems = viewablePacks.flatMap((p) => p.items).filter((i) => i.type === "check");
   const allBagChecked = allBagCheckItems.length > 0 && allBagCheckItems.every((i) => i.checked);
+  const checkedBagCount = allBagCheckItems.filter((i) => i.checked).length;
+  const totalBagCount = allBagCheckItems.length;
+  const bagProgressPct = totalBagCount > 0 ? (checkedBagCount / totalBagCount) * 100 : 0;
 
   // 이 가방을 카드(팩뷰)로 볼지 내용이 이어지는 문서형(심플뷰)으로 볼지. 이 가방만의
   // 개별 오버라이드(profile.bagViewMode[bag.id])가 있으면 그것을, 없으면 설정 > 가방설정의
@@ -2065,36 +2068,36 @@ export default function BagEditorScreen({
   const quickAddPacks = viewablePacks.filter((p) => p.kind !== "editor");
 
   return (
-    <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden">
-      <div className="relative flex items-center justify-between p-4 pb-2 shrink-0">
-        <div className="flex items-center gap-4">
-          <button onClick={handleBackAttempt} className="-m-2.5 p-2.5" aria-label="뒤로가기">
-            <IconArrowLeft size={22} stroke={1.75} />
+    <div ref={swipeBackRef} className="relative flex-1 flex flex-col overflow-hidden bg-background">
+      <div className="relative flex items-center justify-between px-4 py-2.5 shrink-0 border-b border-border/60 bg-surface/30">
+        <div className="flex items-center gap-3">
+          <button onClick={handleBackAttempt} className="-m-1.5 p-1.5 rounded-lg hover:bg-surface-2 text-text-secondary hover:text-foreground transition-colors" aria-label="뒤로가기">
+            <IconArrowLeft size={18} stroke={1.75} />
           </button>
-          {/* 예전엔 이 되돌리기/다시하기 묶음을 헤더 정중앙에 절대좌표(absolute)로 띄웠는데,
-              화면이 좁은 모바일에서 오른쪽 아이콘 그룹(그룹원 관리 등) 중 가장 왼쪽
-              아이콘과 클릭 영역이 겹쳐서 탭이 씹히는 버그가 있었다(레이아웃 흐름
-              밖이라 flex 정렬에는 안 잡히지만 클릭은 그대로 가로챔). 뒤로가기 옆
-              일반 flex 흐름으로 옮겨서 겹칠 여지 자체를 없앤다. */}
           {!readOnly && (historyLen > 0 || redoLen > 0) && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleUndo}
                 disabled={historyLen === 0}
-                className="-m-2.5 p-2.5 disabled:opacity-30"
+                className="p-1 rounded-md text-text-muted hover:text-foreground disabled:opacity-30 transition-colors"
                 aria-label="undo"
               >
-                <IconArrowBackUp size={20} stroke={1.75} color="var(--text-secondary)" />
+                <IconArrowBackUp size={16} stroke={1.75} />
               </button>
               <button
                 onClick={handleRedo}
                 disabled={redoLen === 0}
-                className="-m-2.5 p-2.5 disabled:opacity-30"
+                className="p-1 rounded-md text-text-muted hover:text-foreground disabled:opacity-30 transition-colors"
                 aria-label="redo"
               >
-                <IconArrowForwardUp size={20} stroke={1.75} color="var(--text-secondary)" />
+                <IconArrowForwardUp size={16} stroke={1.75} />
               </button>
             </div>
+          )}
+          {totalBagCount > 0 && (
+            <span className="text-[12px] font-medium text-text-muted">
+              완료 {checkedBagCount} / {totalBagCount} ({Math.round(bagProgressPct)}%)
+            </span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -2104,9 +2107,9 @@ export default function BagEditorScreen({
               <button
                 onClick={() => setShowMembers(true)}
                 aria-label="그룹원 관리"
-                className="-m-2.5 p-2.5"
+                className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
               >
-                <IconUsers size={20} stroke={1.75} />
+                <IconUsers size={18} stroke={1.75} />
               </button>
             </>
           )}
@@ -2114,12 +2117,12 @@ export default function BagEditorScreen({
             <button
               onClick={() => setConfirmDeleteBag(true)}
               aria-label={isOwner ? "가방 삭제" : "가방 나가기"}
-              className="-m-2.5 p-2.5"
+              className="p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
             >
               {isOwner ? (
-                <IconTrash size={19} stroke={1.75} color="var(--danger)" />
+                <IconTrash size={17} stroke={1.75} />
               ) : (
-                <IconLogout size={19} stroke={1.75} color="var(--danger)" />
+                <IconLogout size={17} stroke={1.75} />
               )}
             </button>
           )}
@@ -2127,15 +2130,28 @@ export default function BagEditorScreen({
             <button
               onClick={() => setShowAiFeatureMenu(true)}
               aria-label="AI 기능"
-              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5"
+              className="flex items-center gap-1 rounded-lg border border-border/80 bg-surface px-2 py-1 hover:border-accent transition-colors"
             >
-              <span className="text-[13px] font-semibold leading-none" style={{ color: "var(--accent)" }}>
+              <span className="text-[12px] font-semibold leading-none" style={{ color: "var(--accent)" }}>
                 AI
               </span>
-              <IconSparkles size={16} stroke={1.75} color="var(--accent)" />
+              <IconSparkles size={14} stroke={1.75} color="var(--accent)" />
             </button>
           )}
         </div>
+
+        {/* 2px 상단 미니멀 진행률 바 */}
+        {totalBagCount > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-border/40 overflow-hidden">
+            <div
+              className="h-full transition-all duration-300 ease-out"
+              style={{
+                width: `${bagProgressPct}%`,
+                background: "var(--accent)",
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div

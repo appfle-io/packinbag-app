@@ -174,25 +174,25 @@ export default function DesktopQuickPackChatView({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
       {/* 1. 상단 타이틀 헤더 */}
-      <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-border bg-surface/50 backdrop-blur-sm">
+      <div className="shrink-0 flex items-center justify-between px-6 py-3.5 border-b border-border bg-surface/30 backdrop-blur-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
-            <IconSparkles size={22} stroke={1.75} />
+          <div className="w-8 h-8 rounded-xl border border-border/80 bg-surface flex items-center justify-center text-text-secondary">
+            <IconPackage size={17} stroke={1.5} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-[17px] font-bold text-text-primary">빠른 팩 (Quick Inbox)</h2>
-              <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[12px] font-semibold text-text-secondary">
-                {items.length}개 보관 중
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">빠른 팩</h2>
+              <span className="rounded-md border border-border/70 bg-surface px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+                {items.length}개 보관
               </span>
             </div>
-            <p className="text-[12.5px] text-text-muted mt-0.5">
-              적어둔 짐을 끌어서(Drag&amp;Drop) 왼쪽 가방이나 팩 보관함에 바로 담아보세요!
+            <p className="text-[12px] text-text-muted mt-0.5">
+              사이드바의 가방이나 팩으로 드래그해서 바로 담을 수 있어요
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {items.length > 0 && (
             <button
               onClick={() => {
@@ -203,13 +203,13 @@ export default function DesktopQuickPackChatView({
                   setMultiSelectMode(true);
                 }
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                 multiSelectMode
                   ? "bg-accent text-white"
-                  : "bg-surface-2 text-text-secondary hover:text-text-primary"
+                  : "border border-border/70 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2"
               }`}
             >
-              <IconSquareCheck size={15} stroke={1.75} />
+              <IconSquareCheck size={14} stroke={1.75} />
               {multiSelectMode ? "선택 완료" : "다중 선택"}
             </button>
           )}
@@ -217,29 +217,29 @@ export default function DesktopQuickPackChatView({
           {items.length > 0 && (
             <button
               onClick={handleClearAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
             >
-              <IconTrash size={15} stroke={1.75} />
-              전체 비우기
+              <IconTrash size={14} stroke={1.75} />
+              비우기
             </button>
           )}
         </div>
       </div>
 
       {/* 2. 타일/그리드 피드 영역 (Grid Tile Flow Layout) */}
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
         {items.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-3">
-            <div className="w-16 h-16 rounded-full bg-surface-2 flex items-center justify-center text-text-muted mb-1">
-              <IconSparkles size={32} stroke={1.5} />
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-2.5">
+            <div className="w-12 h-12 rounded-2xl border border-border/80 bg-surface flex items-center justify-center text-text-muted mb-1">
+              <IconPackage size={22} stroke={1.5} />
             </div>
-            <h3 className="text-[16px] font-semibold text-text-primary">지금 보관함이 비어있어요</h3>
-            <p className="text-[13px] text-text-muted max-w-sm leading-relaxed">
-              아래 입력창에 생각나는 짐이나 메모를 적고 <kbd className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono border border-border">Enter</kbd>를 누르면 타일처럼 차곡차곡 쌓입니다.
+            <h3 className="text-[14.5px] font-medium text-foreground">보관함이 비어있어요</h3>
+            <p className="text-[12.5px] text-text-muted max-w-sm leading-relaxed">
+              하단 입력창에 생각나는 짐을 적고 <kbd className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono border border-border">Enter</kbd>를 누르면 보관됩니다.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {items.map((item) => {
               const dday = getDDayLabel(item.dueDate);
               const isCheckType = item.type === "check";
@@ -260,12 +260,12 @@ export default function DesktopQuickPackChatView({
                       toggleSelectItem(item.id);
                     }
                   }}
-                  className={`group relative flex flex-col justify-between rounded-2xl p-3.5 border transition-all shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md ${
+                  className={`group relative flex flex-col justify-between rounded-xl p-3 border transition-all cursor-grab active:cursor-grabbing hover:border-border-strong ${
                     isSelected
-                      ? "border-accent bg-accent/5 ring-2 ring-accent/30"
-                      : "bg-surface border-border/70 hover:border-border"
+                      ? "border-accent bg-accent/5 ring-1 ring-accent/40"
+                      : "bg-surface border-border/80"
                   }`}
-                  style={{ minHeight: "84px" }}
+                  style={{ minHeight: "78px" }}
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
                     {/* 선택 체크박스 or 일반 체크 아이콘 */}
@@ -274,7 +274,7 @@ export default function DesktopQuickPackChatView({
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelectItem(item.id)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)] cursor-pointer"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--accent)] cursor-pointer"
                       />
                     ) : isCheckType ? (
                       <button
@@ -282,23 +282,23 @@ export default function DesktopQuickPackChatView({
                           e.stopPropagation();
                           handleToggleCheck(item.id);
                         }}
-                        className="mt-0.5 text-text-secondary hover:text-accent transition-colors shrink-0"
+                        className="mt-0.5 text-text-muted hover:text-accent transition-colors shrink-0"
                       >
                         {item.checked ? (
-                          <IconSquareCheck size={18} stroke={2} className="text-accent" />
+                          <IconSquareCheck size={16} stroke={2} className="text-accent" />
                         ) : (
-                          <IconSquare size={18} stroke={1.75} />
+                          <IconSquare size={16} stroke={1.5} />
                         )}
                       </button>
                     ) : (
                       <div className="mt-0.5 text-text-muted shrink-0">
-                        <IconAlignLeft size={17} stroke={1.75} />
+                        <IconAlignLeft size={15} stroke={1.5} />
                       </div>
                     )}
 
                     <span
-                      className={`text-[13.5px] leading-snug break-words flex-1 min-w-0 ${
-                        item.checked ? "line-through text-text-muted" : "text-text-primary"
+                      className={`text-[13px] leading-relaxed break-words flex-1 min-w-0 transition-opacity ${
+                        item.checked ? "line-through text-text-muted opacity-60" : "text-foreground"
                       }`}
                     >
                       {item.text}
@@ -306,36 +306,36 @@ export default function DesktopQuickPackChatView({
                   </div>
 
                   {/* 하단 D-Day 태그 & 마우스 호버 이동/삭제 버튼 */}
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/40">
+                  <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-border/40">
                     {dday ? (
                       <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                        className={`inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded ${
                           dday.isPast
                             ? "bg-danger/10 text-danger"
                             : "bg-accent/10 text-accent"
                         }`}
                       >
-                        <IconCalendarEvent size={11} stroke={2} />
+                        <IconCalendarEvent size={11} stroke={1.75} />
                         {dday.text}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-text-muted flex items-center gap-1">
-                        <IconGripVertical size={12} stroke={1.5} />
-                        드래그해서 이동
+                      <span className="text-[10.5px] text-text-muted flex items-center gap-1">
+                        <IconGripVertical size={11} stroke={1.5} />
+                        드래그 이동
                       </span>
                     )}
 
                     {!multiSelectMode && (
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setMoveModalItems([item]);
                           }}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] font-medium text-accent hover:bg-accent/10 transition-colors"
-                          title="가방이나 팩으로 이동/복사"
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium text-text-secondary hover:text-accent hover:bg-accent/10 transition-colors"
+                          title="가방이나 팩으로 이동"
                         >
-                          <IconArrowRight size={13} stroke={2} />
+                          <IconArrowRight size={12} stroke={1.75} />
                           이동
                         </button>
                         <button
@@ -343,10 +343,10 @@ export default function DesktopQuickPackChatView({
                             e.stopPropagation();
                             handleDeleteItems(new Set([item.id]));
                           }}
-                          className="p-1 rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                          className="p-1 rounded text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
                           title="삭제"
                         >
-                          <IconTrash size={13} stroke={1.75} />
+                          <IconTrash size={12} stroke={1.75} />
                         </button>
                       </div>
                     )}
@@ -361,8 +361,8 @@ export default function DesktopQuickPackChatView({
       {/* 3. 하단 다중 선택 플로팅 액션 바 */}
       {multiSelectMode && selectedIds.size > 0 && (
         <div className="shrink-0 border-t border-border bg-surface-2 p-3 flex items-center justify-between px-6 animate-in slide-in-from-bottom-2">
-          <span className="text-[13.5px] font-bold text-text-primary">
-            {selectedIds.size}개 짐 선택됨
+          <span className="text-[13px] font-medium text-foreground">
+            {selectedIds.size}개 항목 선택됨
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -370,21 +370,21 @@ export default function DesktopQuickPackChatView({
                 const targetItems = items.filter((i) => selectedIds.has(i.id));
                 setMoveModalItems(targetItems);
               }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-white text-[13px] font-semibold hover:opacity-90 transition-opacity"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-accent text-white text-[12.5px] font-medium hover:opacity-90 transition-opacity shadow-2xs"
             >
-              <IconArrowRight size={15} stroke={2} />
-              선택한 짐 이동/복사
+              <IconArrowRight size={14} stroke={2} />
+              선택 항목 이동
             </button>
             <button
               onClick={() => handleDeleteItems(selectedIds)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-danger/10 text-danger text-[13px] font-medium hover:bg-danger/20 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-danger/10 text-danger text-[12.5px] font-medium hover:bg-danger/20 transition-colors"
             >
-              <IconTrash size={15} stroke={1.75} />
+              <IconTrash size={14} stroke={1.75} />
               삭제
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary"
+              className="px-2.5 py-1.5 text-[12.5px] text-text-secondary hover:text-foreground"
             >
               선택 해제
             </button>
@@ -392,34 +392,34 @@ export default function DesktopQuickPackChatView({
         </div>
       )}
 
-      {/* 4. 하단 입력 바 (Bottom Chat Input Bar) */}
-      <div className="shrink-0 p-4 border-t border-border bg-surface">
-        <div className="flex flex-col gap-2.5 max-w-3xl mx-auto">
+      {/* 4. 하단 입력 바 (Linear / Things 3 Floating Input Bar) */}
+      <div className="shrink-0 p-3.5 border-t border-border bg-surface/50">
+        <div className="flex flex-col gap-2 max-w-2xl mx-auto">
           {/* 타입 & D-Day 옵션 바 */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setType("check")}
-                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors ${
                   type === "check"
-                    ? "bg-accent text-white"
-                    : "bg-surface-2 text-text-secondary hover:text-text-primary"
+                    ? "bg-foreground text-background"
+                    : "text-text-muted hover:text-foreground"
                 }`}
               >
-                <IconSquareCheck size={14} stroke={1.75} />
+                <IconSquareCheck size={13} stroke={1.75} />
                 체크형
               </button>
               <button
                 type="button"
                 onClick={() => setType("text")}
-                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors ${
                   type === "text"
-                    ? "bg-accent text-white"
-                    : "bg-surface-2 text-text-secondary hover:text-text-primary"
+                    ? "bg-foreground text-background"
+                    : "text-text-muted hover:text-foreground"
                 }`}
               >
-                <IconAlignLeft size={14} stroke={1.75} />
+                <IconAlignLeft size={13} stroke={1.75} />
                 메모형
               </button>
             </div>
@@ -429,22 +429,22 @@ export default function DesktopQuickPackChatView({
               <button
                 type="button"
                 onClick={() => setShowDatePicker((prev) => !prev)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11.5px] font-medium transition-colors ${
                   dueDate
-                    ? "bg-accent/15 text-accent border border-accent/30"
-                    : "bg-surface-2 text-text-secondary hover:text-text-primary"
+                    ? "text-accent bg-accent/10 border border-accent/30"
+                    : "text-text-muted hover:text-text-secondary"
                 }`}
               >
-                <IconCalendarEvent size={14} stroke={1.75} />
-                {dueDate ? `디데이 (${dueDate})` : "+ 디데이 설정"}
+                <IconCalendarEvent size={13} stroke={1.75} />
+                {dueDate ? `D-Day: ${dueDate}` : "+ 날짜 지정"}
               </button>
 
               {showDatePicker && (
-                <div className="absolute right-0 bottom-9 z-30 bg-surface border border-border p-3 rounded-2xl shadow-xl flex flex-col gap-2 min-w-[220px]">
+                <div className="absolute right-0 bottom-8 z-30 bg-surface border border-border p-2.5 rounded-xl shadow-lg flex flex-col gap-2 min-w-[200px]">
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] font-semibold text-text-primary">디데이 설정</span>
+                    <span className="text-[11.5px] font-medium text-foreground">마감 날짜 지정</span>
                     <button onClick={() => setShowDatePicker(false)}>
-                      <IconX size={14} stroke={1.75} color="var(--text-muted)" />
+                      <IconX size={13} stroke={1.75} color="var(--text-muted)" />
                     </button>
                   </div>
                   <input
@@ -454,7 +454,7 @@ export default function DesktopQuickPackChatView({
                       setDueDate(e.target.value);
                       setShowDatePicker(false);
                     }}
-                    className="w-full rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[12.5px] outline-none"
+                    className="w-full rounded-lg border border-border bg-surface-2 px-2 py-1 text-[12px] outline-none text-foreground"
                   />
                   {dueDate && (
                     <button
@@ -462,9 +462,9 @@ export default function DesktopQuickPackChatView({
                         setDueDate("");
                         setShowDatePicker(false);
                       }}
-                      className="text-[11.5px] text-danger hover:underline text-left"
+                      className="text-[11px] text-danger hover:underline text-left"
                     >
-                      디데이 지우기
+                      날짜 지우기
                     </button>
                   )}
                 </div>
@@ -473,7 +473,7 @@ export default function DesktopQuickPackChatView({
           </div>
 
           {/* 텍스트 입력창 & 전송 버튼 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-3 py-1.5 transition-all shadow-2xs">
             <input
               ref={inputRef}
               value={text}
@@ -486,22 +486,22 @@ export default function DesktopQuickPackChatView({
               }}
               placeholder={
                 type === "check"
-                  ? "체크리스트에 추가할 짐을 적어보세요... (Enter로 바로 입력)"
-                  : "자유롭게 남길 메모나 생각 아이디어를 적어보세요... (Enter)"
+                  ? "체크리스트에 추가할 짐 입력... (Enter로 등록)"
+                  : "메모할 내용 입력... (Enter로 등록)"
               }
-              className="flex-1 rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-[13.5px] outline-none focus:border-accent transition-colors"
+              className="flex-1 bg-transparent text-[13px] outline-none text-foreground placeholder:text-text-muted py-1"
             />
             <button
               onClick={handleAddItem}
               disabled={!text.trim()}
-              className="rounded-xl px-4 py-2.5 font-medium text-[13.5px] flex items-center justify-center gap-1.5 transition-all shrink-0"
+              className="rounded-lg px-3 py-1.5 font-medium text-[12.5px] flex items-center justify-center gap-1 transition-all shrink-0 shadow-2xs disabled:opacity-40"
               style={{
                 background: text.trim() ? "var(--accent)" : "var(--surface-2)",
                 color: text.trim() ? "#fff" : "var(--text-muted)",
               }}
             >
-              <IconSend size={16} stroke={2} />
-              전송
+              <IconSend size={14} stroke={2} />
+              추가
             </button>
           </div>
         </div>

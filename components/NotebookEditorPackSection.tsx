@@ -123,12 +123,9 @@ export default function NotebookEditorPackSection({
           ? isPackDragOverPosition === "after"
             ? "inset 0 -2px 0 0 var(--accent)"
             : "inset 0 2px 0 0 var(--accent)"
-          : pack.autoSyncEnabled
-          ? "inset 3px 0 0 0 var(--accent)"
           : undefined,
-        background: pack.autoSyncEnabled ? "var(--accent-soft)" : undefined,
         opacity: isPackDragSource ? 0.4 : 1,
-        transition: "box-shadow 120ms ease, opacity 120ms ease, background 120ms ease",
+        transition: "box-shadow 120ms ease, opacity 120ms ease",
       }}
     >
       <div className="flex items-center gap-2 mb-1.5">
@@ -171,6 +168,11 @@ export default function NotebookEditorPackSection({
           className="text-[15px] font-semibold truncate text-left min-w-0 flex-1"
           inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />
+        {pack.autoSyncEnabled && (
+          <span className="shrink-0 text-[10.5px] font-medium px-2 py-0.5 rounded-full border border-accent/50 bg-accent/5 text-accent">
+            동기화됨
+          </span>
+        )}
         {editors && editors.length > 0 && (
           <div className="flex items-center -space-x-1.5 shrink-0" aria-label="편집 중인 사람">
             {editors.map((e) => (
