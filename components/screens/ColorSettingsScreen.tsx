@@ -528,6 +528,8 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           message="헥사코드로 색상을 직접 입력하는 기능은 프리미엄 전용이에요. 무료에서는 프리셋 색상만 고를 수 있어요."
           onClose={() => setShowColorLimitModal(false)}
           onUnlocked={() => setShowColorLimitModal(false)}
+          email={user?.email}
+          profile={profile}
         />
       )}
     </div>

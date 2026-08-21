@@ -376,6 +376,17 @@ export interface UserProfile {
   // unlockCodeExpiresAt만 보면 무효화를 실시간으로 알 수 없다. lib/premiumLimits.ts의
   // isPremiumUser/isUnlimitedAiUser가 unlockCodeExpiresAt보다 이 값을 우선한다.
   unlockCodeLiveStatus?: "active" | "invalidated" | "expired" | null;
+  // 인앱결제(iOS App Store, RevenueCat) 영구구매(non-consumable) 여부. RevenueCat 웹훅
+  // (app/api/revenuecat-webhook)만 이 필드를 쓴다(firestore.rules에서 클라이언트 수정
+  // 불가). true면 만료 없이 영구히 프리미엄 - lib/premiumLimits.ts의 isPremiumUser/
+  // lib/premiumServer.ts의 isPremiumServer 둘 다 이 필드를 unlockCode와 동등하게
+  // 프리미엄 조건에 포함한다.
+  premiumPurchase?: {
+    purchased: boolean;
+    purchasedAt?: string; // ISO
+    productId?: string | null;
+    platform?: "ios" | "android" | null;
+  };
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.

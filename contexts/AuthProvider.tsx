@@ -27,6 +27,7 @@ import {
   User,
 } from "firebase/auth";
 import { isNativePlatform, nativeAppleIdToken, nativeGoogleIdToken } from "@/lib/nativeAuth";
+import { ensurePurchasesConfigured } from "@/lib/purchaseService";
 import {
   doc,
   onSnapshot,
@@ -177,6 +178,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // "닉네임 정하기" 화면이 한 프레임 스치듯 보이는 걸 막기 위해
         // 새 프로필 문서를 읽어올 때까지 다시 로딩 상태로 되돌린다.
         setLoading(true);
+        // 인앱결제(RevenueCat)을 로그인한 uid로 초기화한다 - appUserID를 항상 Firebase uid로
+        // 고정해야 웹훅이 보내주는 app_user_id가 이 uid와 일치해서 별도 매핑 없이 Firestore에
+        // 바로 기록할 수 있다(lib/purchaseService.ts, app/api/revenuecat-webhook 참고). 웹에서는 이 함수 내부에서
+        // 자동으로 무력화되므로(isNativePlatform() 검사) 안전하게 항상 호출해도 된다.
+        ensurePurchasesConfigured(firebaseUser.uid).catch((err) => {
+          console.error("[팩인백] RevenueCat 초기화 실패:", err);
+        });
       }
     });
     return unsubAuth;

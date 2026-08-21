@@ -2923,6 +2923,8 @@ export default function BagEditorScreen({
             setShowAiPremiumModal(false);
             show("이용권 코드가 적용됐어요! 'AI' 버튼을 다시 눌러보세요");
           }}
+          email={profile?.email}
+          profile={profile ?? null}
         />
       )}
 
@@ -3117,6 +3119,8 @@ export default function BagEditorScreen({
             setShowPdfPremiumModal(false);
             show("이용권 코드가 적용됐어요! 다시 시도해주세요");
           }}
+          email={profile?.email}
+          profile={profile ?? null}
         />
       )}
 

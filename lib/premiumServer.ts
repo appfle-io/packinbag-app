@@ -41,6 +41,11 @@ export async function isPremiumServer(uid: string, email: string | null): Promis
 
   const db = adminDb();
   const userSnap = await db.collection("users").doc(uid).get();
+
+  // 인앱결제(RevenueCat 웹훅이 기록한 영구구매)로 프리미엄이면 이용권 코드와 무관하게 항상 프리미엄.
+  const premiumPurchase = userSnap.data()?.premiumPurchase as { purchased?: boolean } | undefined;
+  if (premiumPurchase?.purchased) return true;
+
   const claimedCode = userSnap.data()?.unlockCode as string | undefined;
   if (!claimedCode) return false;
 

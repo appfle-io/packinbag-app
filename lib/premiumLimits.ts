@@ -27,6 +27,9 @@ export function isPremiumUser(
   email: string | null | undefined,
   profile: UserProfile | null
 ): boolean {
+  // 인앱결제(RevenueCat 웹훅이 기록한 영구구매)로 프리미엄이면 이용권 코드와 무관하게
+  // 언제나 프리미엄이다(lib/types.ts UserProfile.premiumPurchase 주석 참고).
+  if (profile?.premiumPurchase?.purchased) return true;
   return isUnlimitedAiUser(email, profile);
 }
 

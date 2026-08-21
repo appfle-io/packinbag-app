@@ -47,7 +47,20 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // premiumPurchase(인앱결제 영구구매 여부)는 RevenueCat 웹훅(app/api/revenuecat-webhook,
+      // Admin SDK)만 쓸 수 있다 - 클라이언트가 devtools로 이 필드를 직접 써넣어
+      // 프리미엄을 자칭하는 것을 막기 위해, 일반 create/update에서는 이 필드를
+      // 절대 포함하거나 바꿀 수 없게 막는다(Admin SDK는 규칙 자체를 우회하므로
+      // 웹훅은 여기와 무관하게 정상 동작한다).
+      allow create: if request.auth != null && request.auth.uid == uid &&
+        !('premiumPurchase' in request.resource.data);
+
+      allow update: if request.auth != null && request.auth.uid == uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['premiumPurchase']);
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
 
       // 문의하기 답변 등록 시 마스터가 작성자에게 알림을 남기는 곳. 나중에 푸시
       // 기능이 생기면 서버(Admin SDK)가 같은 구조에 다른 type을 쓰기만 하면 되도록

@@ -19,6 +19,7 @@
     "@capacitor/splash-screen": "^6.0.0",
     "@capacitor/status-bar": "^6.0.0",
     "@capgo/capacitor-social-login": "^6.0.0",
+    "@revenuecat/purchases-capacitor": "^9.2.2",
     "@tabler/icons-react": "^3.44.0",
     "@tiptap/core": "^2.11.0",
     "@tiptap/react": "^2.11.0",
