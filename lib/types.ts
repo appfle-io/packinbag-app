@@ -321,6 +321,9 @@ export interface UserProfile {
     // 위 옵션이 켜져 있을 때, 며칠 전(오늘 기준 며칠 남았을 때)부터 색상이 진해지기 시작하는지.
     // 없으면 7(1주일전) 기본값.
     dueDateIntensifyDays?: number;
+    // 메모팩 작성 시 브라우저 맞춤법 검사(빨간 밑줄)를 켤지 여부 (없으면 false 기본값 끄기).
+    // ON이면 빨간 밑줄이 나오고, OFF면 빨간 밑줄이 나오지 않는다.
+    noteSpellcheckEnabled?: boolean;
   };
   // 하단 QuickPackBar(빠른팩 미리보기)를 접어서 오른쪽 끝에 떠있는 작은 원형 버튼으로만
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)

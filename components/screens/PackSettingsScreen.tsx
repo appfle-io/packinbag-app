@@ -17,6 +17,8 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   // 스와이프 힌트 물방울 보이기 여부 (명시적으로 꺼둔 적이 없으면 기본 켜짐)
   // - 가방↔팩 보관함 양방향 스와이프 힌트 버튼을 이 값 하나로 같이 켜고 끈다.
   const packTreeHintEnabled = profile?.packSettings?.packTreeHintEnabled ?? true;
+  // 메모 맞춤법 검사 (없으면 기본 false 끄기)
+  const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
 
   // 짐 마감일 표시 방식 (없으면 "dday" 기본값)
   const dueDateDisplayMode = profile?.packSettings?.dueDateDisplayMode ?? "dday";
@@ -152,6 +154,20 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
             checked={packTreeHintEnabled}
             onChange={(v) => updatePackSettings({ packTreeHintEnabled: v })}
             ariaLabel="팩 보관함 열기 버튼"
+          />
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium">메모 맞춤법 검사 (빨간 밑줄)</p>
+            <p className="text-[11.5px] text-text-secondary mt-0.5">
+              메모팩 작성 시 기술 용어나 오탈자 아래에 표시되는 브라우저 빨간 밑줄을 켜거나 꺼요. (메모팩 안 툴바에서도 바로 변경할 수 있어요)
+            </p>
+          </div>
+          <ToggleSwitch
+            checked={noteSpellcheckEnabled}
+            onChange={(v) => updatePackSettings({ noteSpellcheckEnabled: v })}
+            ariaLabel="메모 맞춤법 검사"
           />
         </div>
       </div>

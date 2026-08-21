@@ -72,6 +72,25 @@ const AUTOSAVE_DEBOUNCE_MS = 600;
 // 올라가므로, 큰 파일을 막기 위해 따로 크기 상한을 둔다(2026-08~ 10MB로 상향).
 const MAX_PACK_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
 
+function SpellcheckIcon({ size = 17, stroke = 1.75 }: { size?: number; stroke?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 14l3.5 -8h1l3.5 8" />
+      <path d="M5.5 11.5h5" />
+      <path d="M15 19l2 2l4 -4" />
+    </svg>
+  );
+}
+
 // 아이폰 메모처럼 자유롭게 제목/체크박스/표를 섞어 쓰는 "에디터팩" 전체화면 편집기.
 // 노션 페이지처럼 팩을 탭하면 이 화면으로 진입한다(팩 보관함/가방 속 EditorPackCard 둘 다
 // 동일 화면을 재사용 - onSave로 어디에 반영할지만 다르게 넘겨받는다).
@@ -106,7 +125,8 @@ export default function PackNoteEditorScreen({
 }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
-  const { user, profile } = useAuth();
+  const { user, profile, updatePackSettings } = useAuth();
+  const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -160,7 +180,23 @@ export default function PackNoteEditorScreen({
     content: pack.editorDoc ?? "",
     editable: !effectiveReadOnly,
     immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        spellcheck: noteSpellcheckEnabled ? "true" : "false",
+        autocapitalize: "off",
+        autocomplete: "off",
+      },
+    },
   });
+
+  // 맞춤법 검사 On/Off 변경 시 에디터 DOM에 즉시 반영
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const el = editor.view.dom;
+    if (el) {
+      el.setAttribute("spellcheck", noteSpellcheckEnabled ? "true" : "false");
+    }
+  }, [editor, noteSpellcheckEnabled]);
 
   // readOnly는 고정값이지만 otherEditorNickname은 화면을 열어둔 채 바뀌는 값이라(다른 사람이
   // 편집을 시작/종료하는 순간), useEditor 생성 시점의 editable 값만으로는
@@ -698,6 +734,17 @@ export default function PackNoteEditorScreen({
               )}
             </ToolbarButton>
           )}
+          <ToolbarButton
+            onClick={() => {
+              const next = !noteSpellcheckEnabled;
+              updatePackSettings({ noteSpellcheckEnabled: next });
+              show(next ? "맞춤법 검사를 켰어요 (빨간 밑줄 표시)" : "맞춤법 검사를 껐어요 (빨간 밑줄 숨김)");
+            }}
+            active={noteSpellcheckEnabled}
+            label={noteSpellcheckEnabled ? "맞춤법 검사 끄기 (빨간 밑줄 숨김)" : "맞춤법 검사 켜기 (빨간 밑줄 표시)"}
+          >
+            <SpellcheckIcon size={17} stroke={1.75} />
+          </ToolbarButton>
           {editor?.isActive("table") && (
             <>
               <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} label="행 추가">

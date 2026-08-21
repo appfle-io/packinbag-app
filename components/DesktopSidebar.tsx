@@ -23,6 +23,7 @@ import {
   IconListCheck,
   IconChevronsLeft,
   IconChevronsRight,
+  IconCheck,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -30,6 +31,7 @@ import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { arrangeList, SORT_OPTIONS, SORT_OPTION_LABELS } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
+import { searchBags, searchLibraryPacks } from "@/lib/librarySearch";
 import { useToast } from "@/components/Toast";
 import PackColorDot from "@/components/PackColorDot";
 import Portal from "@/components/Portal";
@@ -669,8 +671,38 @@ export default function DesktopSidebar({
   const pinnedPackIds = profile?.pinnedPackIds ?? [];
 
   const q = query.trim().toLowerCase();
-  const filteredBags = q ? bags.filter((b) => b.name.toLowerCase().includes(q)) : bags;
-  const filteredPacks = q ? treePacks.filter((p) => p.name.toLowerCase().includes(q)) : treePacks;
+
+  // 통합 검색 결과: 가방(가방이름, 가방속 팩, 가방속 짐, 가방 폴더)
+  const bagSearchResults = useMemo(() => {
+    if (!q) return [];
+    const base = searchBags(bags, q).results;
+    const matchingFolders = Object.values(bagFolders)
+      .filter((f) => f.name.toLowerCase().includes(q))
+      .map((f) => ({
+        type: "folder" as const,
+        id: `folder-${f.id}`,
+        label: f.name,
+        subtitle: "가방 폴더",
+        folder: f,
+      }));
+    return [...matchingFolders, ...base];
+  }, [bags, bagFolders, q]);
+
+  // 통합 검색 결과: 팩 보관함(팩이름, 팩속 짐, 팩 메모내용, 팩 폴더)
+  const packSearchResults = useMemo(() => {
+    if (!q) return [];
+    const base = searchLibraryPacks(treePacks, q).results.filter((r) => r.type !== "bag");
+    const matchingFolders = treePacks
+      .filter((p) => p.type === "folder" && p.name.toLowerCase().includes(q))
+      .map((f) => ({
+        type: "folder" as const,
+        id: `pack-folder-${f.id}`,
+        label: f.name,
+        subtitle: "팩 폴더",
+        pack: f,
+      }));
+    return [...matchingFolders, ...base];
+  }, [treePacks, q]);
 
   const bagRows = useMemo(
     () =>
@@ -691,16 +723,15 @@ export default function DesktopSidebar({
   const packRows = useMemo(
     () =>
       buildPackRows(
-        filteredPacks,
+        treePacks,
         undefined,
         0,
-        // 검색 중일 때는 매칭된 항목이 폴더 안에 있어도 보이도록 전부 펼친 것처럼 취급한다.
-        q ? new Set(filteredPacks.map((p) => p.id)) : expandedPackIds,
+        expandedPackIds,
         profile?.packSortBy ?? "createdAt",
         profile?.pinnedPackIds ?? [],
         profile?.packOrderByParent
       ),
-    [filteredPacks, expandedPackIds, q, profile?.packSortBy, profile?.pinnedPackIds, profile?.packOrderByParent]
+    [treePacks, expandedPackIds, profile?.packSortBy, profile?.pinnedPackIds, profile?.packOrderByParent]
   );
 
   // --- 정렬 기준 메뉴(아이콘 버튼 -> "..." 메뉴처럼 작은 팝업) --------------------
@@ -982,51 +1013,88 @@ export default function DesktopSidebar({
           }}
         >
           {q ? (
-            // 검색 중에는 폴더 구조를 무시하고 이름이 맞는 가방만 평평하게 보여준다.
-            filteredBags.length === 0 ? (
+            bagSearchResults.length === 0 ? (
               <p className="px-2 py-2 text-[12px] text-text-muted">검색 결과가 없어요.</p>
             ) : (
-              filteredBags.map((bag) => {
-                const isSelected = selection?.kind === "bag" && selection.bagId === bag.id && !selection.focusPackId;
-                const isDropTarget = dropTargetKey === `bag:${bag.id}`;
+              bagSearchResults.map((res) => {
+                if (res.type === "folder") {
+                  const isExpanded = expandedBagFolderIds.has(res.folder.id);
+                  return (
+                    <div
+                      key={res.id}
+                      onClick={() => toggleBagFolderExpanded(res.folder.id)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                    >
+                      <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
+                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{res.label}</span>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        {isExpanded ? "펼쳐짐" : "폴더"}
+                      </span>
+                    </div>
+                  );
+                }
+
+                if (res.type === "bag") {
+                  const isSelected = selection?.kind === "bag" && selection.bagId === res.bag.id && !selection.focusPackId;
+                  return (
+                    <div
+                      key={res.id}
+                      onClick={() => onSelect({ kind: "bag", bagId: res.bag.id })}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                      style={{
+                        background: isSelected ? "var(--accent-soft)" : undefined,
+                        color: isSelected ? "var(--accent)" : undefined,
+                        fontWeight: isSelected ? 600 : undefined,
+                      }}
+                    >
+                      <IconBackpack size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
+                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{res.label}</span>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        가방
+                      </span>
+                    </div>
+                  );
+                }
+
+                if (res.type === "pack") {
+                  const isSelected = selection?.kind === "bag" && selection.bagId === res.bag.id && selection.focusPackId === res.packId;
+                  return (
+                    <div
+                      key={res.id}
+                      onClick={() => onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId })}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                      style={{
+                        background: isSelected ? "var(--accent-soft)" : undefined,
+                        color: isSelected ? "var(--accent)" : undefined,
+                      }}
+                    >
+                      <IconNotes size={14} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12.5px] font-medium truncate">{res.label}</div>
+                        {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                      </div>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        팩
+                      </span>
+                    </div>
+                  );
+                }
+
+                // item (짐)
                 return (
                   <div
-                    key={bag.id}
-                    data-bag-drop-id={bag.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, "bag", bag.id)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={(e) => {
-                      if (canDropOnTarget("bag", bag.id)) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDropTargetKey(`bag:${bag.id}`);
-                      }
-                    }}
-                    onDragLeave={(e) => {
-                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                      if (dropTargetKey === `bag:${bag.id}`) setDropTargetKey(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDropOnTarget("bag", bag.id);
-                    }}
-                    onClick={() => onSelect({ kind: "bag", bagId: bag.id })}
-                    className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
-                    style={{
-                      border: isDropTarget ? "2px dashed var(--accent)" : "2px solid transparent",
-                      background: isDropTarget ? "var(--accent-soft)" : isSelected ? "var(--accent-soft)" : undefined,
-                      color: isSelected ? "var(--accent)" : undefined,
-                      fontWeight: isSelected ? 600 : undefined,
-                    }}
+                    key={res.id}
+                    onClick={() => onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId })}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                   >
-                    <span className="w-[14px] shrink-0" />
-                    <IconBackpack size={16} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                    <span className="text-[13px] font-medium truncate min-w-0 flex-1">{bag.name}</span>
-                    {pinnedBagIds.includes(bag.id) && (
-                      <IconPinnedFilled size={13} stroke={1.75} color="var(--accent)" className="shrink-0" aria-label="고정됨" />
-                    )}
+                    <IconCheck size={13} stroke={2} color="var(--text-muted)" className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-medium truncate text-foreground">{res.label}</div>
+                      {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                    </div>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                      짐
+                    </span>
                   </div>
                 );
               })
@@ -1342,7 +1410,73 @@ export default function DesktopSidebar({
             handleDropOnTarget("pack-root");
           }}
         >
-          {packRows.length === 0 ? (
+          {q ? (
+            packSearchResults.length === 0 ? (
+              <p className="px-2 py-2 text-[12px] text-text-muted">검색 결과가 없어요.</p>
+            ) : (
+              packSearchResults.map((res) => {
+                if (res.type === "folder") {
+                  const isExpanded = expandedPackIds.has(res.pack.id);
+                  return (
+                    <div
+                      key={res.id}
+                      onClick={() => togglePackExpanded(res.pack.id)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                    >
+                      <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
+                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{res.label}</span>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        {isExpanded ? "펼쳐짐" : "폴더"}
+                      </span>
+                    </div>
+                  );
+                }
+
+                if (res.type === "pack" && res.pack) {
+                  const isSelected = selection?.kind === "pack" && selection.packId === res.pack.id;
+                  return (
+                    <div
+                      key={res.id}
+                      onClick={() => onSelect({ kind: "pack", packId: res.pack!.id })}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                      style={{
+                        background: isSelected ? "var(--accent-soft)" : undefined,
+                        color: isSelected ? "var(--accent)" : undefined,
+                        fontWeight: isSelected ? 600 : undefined,
+                      }}
+                    >
+                      <IconNotes size={14} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12.5px] font-medium truncate">{res.label}</div>
+                        {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                      </div>
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        팩
+                      </span>
+                    </div>
+                  );
+                }
+
+                // item (짐)
+                return (
+                  <div
+                    key={res.id}
+                    onClick={() => res.pack && onSelect({ kind: "pack", packId: res.pack.id })}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                  >
+                    <IconCheck size={13} stroke={2} color="var(--text-muted)" className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-medium truncate text-foreground">{res.label}</div>
+                      {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                    </div>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                      짐
+                    </span>
+                  </div>
+                );
+              })
+            )
+          ) : packRows.length === 0 ? (
             <p className="px-2 py-2 text-[12px] text-text-muted">아직 만든 팩이 없어요.</p>
           ) : (
             packRows.map(({ entry, depth }) => {
