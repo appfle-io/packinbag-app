@@ -37,6 +37,9 @@ export default function PackGrid({
   getNoteEditors,
   premium,
   ddayCountTodayAsDayOne,
+  memberProfiles,
+  isShared,
+  onClickAssignee,
   /*
   getItemReactionDoc,
   currentUid,
@@ -94,6 +97,9 @@ export default function PackGrid({
   premium?: boolean;
   // 이 가방의 D-day 계산 기준. 각 짐의 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
+  memberProfiles?: Record<string, import("@/lib/types").BagMemberProfile>;
+  isShared?: boolean;
+  onClickAssignee?: (packId: string, itemId: string) => void;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;
   currentUid?: string;
@@ -173,6 +179,9 @@ export default function PackGrid({
       onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
       getItemThreadInfo={getItemThreadInfo}
       ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
+      memberProfiles={memberProfiles}
+      isShared={isShared}
+      onClickAssignee={onClickAssignee ? (itemId) => onClickAssignee(pack.id, itemId) : undefined}
       /*
       getItemReactionDoc={getItemReactionDoc}
       currentUid={currentUid}

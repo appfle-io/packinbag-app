@@ -12,6 +12,8 @@ import {
   IconUserMinus,
   IconCrown,
   IconArrowsExchange,
+  IconLink,
+  IconPhoto,
 } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import Avatar from "@/components/Avatar";
@@ -28,6 +30,7 @@ export default function GroupMembersModal({
   onRemoveMember,
   onRegenerateCode,
   onTransferOwnership,
+  onOpenShareCard,
 }: {
   bag: Bag;
   currentUid: string;
@@ -36,6 +39,7 @@ export default function GroupMembersModal({
   onRemoveMember: (uid: string) => Promise<void> | void;
   onRegenerateCode: () => Promise<void> | void;
   onTransferOwnership: (targetUid: string) => Promise<void> | void;
+  onOpenShareCard?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -190,6 +194,32 @@ export default function GroupMembersModal({
                 <IconCopy size={15} stroke={1.75} />
               )}
             </button>
+          </div>
+
+          <div className="flex gap-2 shrink-0 pt-1">
+            <button
+              onClick={async () => {
+                const guestUrl = `${window.location.origin}/v/${bag.publicShareToken || bag.inviteCode}`;
+                await navigator.clipboard.writeText(guestUrl);
+                show("보기 전용 웹 링크를 복사했어요");
+              }}
+              className="flex-1 py-2 px-2.5 rounded-lg border border-border text-[12px] font-medium hover:bg-surface-2 flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <IconLink size={14} stroke={1.75} />
+              보기전용 링크 복사
+            </button>
+            {onOpenShareCard && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenShareCard();
+                }}
+                className="py-2 px-3 rounded-lg bg-accent-soft text-accent-strong hover:bg-accent/15 border border-accent/20 text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <IconPhoto size={14} stroke={1.75} />
+                여행 카드
+              </button>
+            )}
           </div>
 
           {isOwner && (

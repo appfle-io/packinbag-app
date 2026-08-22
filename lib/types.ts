@@ -31,6 +31,9 @@ export interface Item {
   // 세는 규칙을 하나로 통일). 팩을 보관함에 저장하거나 보관함에서 다시 불러올 때는
   // (다음에 재사용할 때 지난 날짜가 그대로 딸려오는 것을 막기 위해) 항상 제외된다.
   dueDate?: string;
+  // 짐 담당자 UID (공유 가방에서 "내가 챙길게!" 등으로 특정 멤버를 지정할 때 씀).
+  // 없으면 전체 공용 또는 미지정.
+  assigneeUid?: string;
 }
 
 export interface Pack {
@@ -184,6 +187,9 @@ export interface Bag {
   // 열릴 때 검사). 복구(지우기)는 무료 동시 진행 개수 제한 검증이 필요해서 클라이언트가 직접
   // 지울 수 없고(firestore.rules) app/api/restore-bag만 가능하다.
   trashedByOwnerAt?: string;
+  // 비로그인 게스트 보기 전용 공개 웹 링크 설정
+  publicShareToken?: string;
+  publicShareEnabled?: boolean;
 }
 
 // 가방 보관함 폴더. 팩 폴더(Pack, type:"folder")와 달리 가방은 여러 명이 함께 쓰는
@@ -407,6 +413,8 @@ export interface ImportedPackDraft {
 
 export interface ImportedBagResult {
   bagName: string;
+  travelDate?: string;
+  notice?: string;
   packs: ImportedPackDraft[];
 }
 

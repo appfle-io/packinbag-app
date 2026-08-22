@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { getGeminiEndpoint } from "@/lib/geminiConfig";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
@@ -159,9 +160,7 @@ ${excludeTexts.length > 0 ? `\n이미 추천해서 사용자가 담은 항목이
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const res = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-          {
+        const res = await fetch(getGeminiEndpoint(), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

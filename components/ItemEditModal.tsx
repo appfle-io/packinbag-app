@@ -41,6 +41,7 @@ export interface ItemFormSaveData {
   strike?: boolean;
   color?: string;
   dueDate?: string;
+  assigneeUid?: string;
   // 부분 서식(굵게/밑줄/취소선)이 적용된 구간별 스팬. 텍스트형(type:"text")일 때만 채워진다.
   spans?: RichSpan[];
 }
@@ -111,6 +112,8 @@ export default function ItemEditModal({
   initialColor = "",
   initialSpans,
   initialDueDate,
+  initialAssigneeUid,
+  members,
   onClose,
   onSave,
   thread,
@@ -128,6 +131,8 @@ export default function ItemEditModal({
   // initialBold/initialStrike로 전체 텍스트를 감싸서 보여준다.
   initialSpans?: RichSpan[];
   initialDueDate?: string;
+  initialAssigneeUid?: string;
+  members?: Array<{ uid: string; nickname?: string; avatarId?: import("@/lib/types").AvatarId }>;
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
   // 있으면 이 짐의 댓글 스레드를 수정 필드 아래에 함께 보여준다.
@@ -154,6 +159,7 @@ export default function ItemEditModal({
   const [checkText, setCheckText] = useState(initialType === "check" ? initialText : "");
   const [color, setColor] = useState(initialColor);
   const [dueDate, setDueDate] = useState(initialDueDate ?? "");
+  const [assigneeUid, setAssigneeUid] = useState<string | undefined>(initialAssigneeUid);
   const { height: viewportHeight, offsetTop: viewportOffsetTop } = useVisualViewport();
   const ambientLayer = useOverlayLayer();
   const resolvedZIndex = ambientLayer + POPOVER_OFFSET;
@@ -180,6 +186,7 @@ export default function ItemEditModal({
       type,
       text: plainText,
       dueDate: dueDate || undefined,
+      assigneeUid: assigneeUid || undefined,
       ...(type === "text"
         ? {
             bold: spans.some((s) => s.bold),
@@ -399,6 +406,39 @@ export default function ItemEditModal({
               </button>
             )}
           </div>
+
+          {members && members.length > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[12px] text-text-muted pl-1">담당자</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setAssigneeUid(undefined)}
+                  className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border transition-colors ${
+                    !assigneeUid
+                      ? "bg-accent-soft text-accent-strong border-accent/40"
+                      : "bg-surface-2 border-border text-text-secondary hover:text-foreground"
+                  }`}
+                >
+                  미지정
+                </button>
+                {members.map((m) => (
+                  <button
+                    key={m.uid}
+                    type="button"
+                    onClick={() => setAssigneeUid(m.uid)}
+                    className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border flex items-center gap-1 transition-colors ${
+                      assigneeUid === m.uid
+                        ? "bg-accent text-white border-accent"
+                        : "bg-surface-2 border-border text-text-secondary hover:text-foreground"
+                    }`}
+                  >
+                    <span>{m.nickname || "멤버"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {type === "check" ? (
             <div className="flex flex-col gap-1.5">

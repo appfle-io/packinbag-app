@@ -28,6 +28,9 @@ import {
   IconArrowBackUp,
   IconArrowForwardUp,
   IconRefresh,
+  IconShare,
+  IconChecklist,
+  IconUser,
 } from "@tabler/icons-react";
 import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset, RichSpan } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -88,6 +91,10 @@ import {
 import ImageLightbox from "@/components/ImageLightbox";
 import PdfPreviewModal from "@/components/PdfPreviewModal";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
+import PackingModeModal from "@/components/PackingModeModal";
+import AssigneeSelectModal from "@/components/AssigneeSelectModal";
+import ShareCardModal from "@/components/ShareCardModal";
+import AiBagAuditModal from "@/components/AiBagAuditModal";
 import { MAX_BAG_IMAGES, isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
@@ -976,7 +983,7 @@ export default function BagEditorScreen({
     sourcePackId: string,
     itemId: string,
     targetPackId: string,
-    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string; spans?: RichSpan[] }
+    data: { type: "check" | "text"; text: string; bold?: boolean; strike?: boolean; color?: string; dueDate?: string; assigneeUid?: string; spans?: RichSpan[] }
   ) => {
     if (guardReadOnly()) return;
     updatePacks((packs) => {
@@ -989,6 +996,7 @@ export default function BagEditorScreen({
         type: data.type,
         text: data.text,
         dueDate: data.dueDate,
+        assigneeUid: data.assigneeUid,
         ...(data.type === "check"
           ? { checked: original.type === "check" ? original.checked : false }
           : { bold: data.bold, strike: data.strike, color: data.color, spans: data.spans }),
@@ -1137,6 +1145,43 @@ export default function BagEditorScreen({
           Date.now() - e.updatedAtMs < PRESENCE_STALE_MS
       )
       .slice(0, 3);
+
+  const [showPackingMode, setShowPackingMode] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [showAiAudit, setShowAiAudit] = useState(false);
+  const [assigneeTargetItem, setAssigneeTargetItem] = useState<{ packId: string; item: Item } | null>(null);
+  const [filterOnlyMyItems, setFilterOnlyMyItems] = useState(false);
+
+  const handleAssignItem = (packId: string, itemId: string, assigneeUid: string | undefined) => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) =>
+      packs.map((p) => {
+        if (p.id !== packId) return p;
+        return {
+          ...p,
+          items: p.items.map((i) => (i.id === itemId ? { ...i, assigneeUid } : i)),
+        };
+      })
+    );
+  };
+
+  const handleAddItemFromAudit = (packName: string, itemText: string) => {
+    if (guardReadOnly()) return;
+    updatePacks((packs) => {
+      const existingPack = packs.find((p) => p.name === packName && p.kind !== "editor" && p.type !== "folder");
+      const newItem: Item = { id: uid(), type: "check", text: itemText, checked: false };
+      if (existingPack) {
+        return packs.map((p) => (p.id === existingPack.id ? { ...p, items: [...p.items, newItem] } : p));
+      }
+      const newPack: Pack = {
+        id: uid(),
+        name: packName,
+        items: [newItem],
+      };
+      return [...packs, newPack];
+    });
+    show(`'${packName}' 팩에 '${itemText}'을(를) 담았어요`);
+  };
 
   const handleImport = (imported: Pack[]) => {
     if (guardReadOnly()) return;
@@ -2021,7 +2066,13 @@ export default function BagEditorScreen({
   // 무료회원에게는 다른 멤버(프리미엄)이 만든 AI추천 팩(aiRecommendSource)을 화면에서 숨긴다 -
   // 저장/수정 로직(updatePacks 등)은 여전히 원본 bag.packs를 그대로 쓴다(lib/premiumLimits.ts getViewablePacks 참고).
   const viewablePacks = getViewablePacks(bag.packs, premium);
-  const effectivePacks = viewablePacks.map((p) => ({
+  const filteredViewablePacks = filterOnlyMyItems
+    ? viewablePacks.map((p) => ({
+        ...p,
+        items: p.items.filter((item) => item.assigneeUid === currentUid),
+      }))
+    : viewablePacks;
+  const effectivePacks = filteredViewablePacks.map((p) => ({
     ...p,
     displayState: collapseOverrideActive
       ? ("collapsed" as const)
@@ -2151,6 +2202,13 @@ export default function BagEditorScreen({
               <IconSparkles size={14} stroke={1.75} color="var(--accent)" />
             </button>
           )}
+          <button
+            onClick={() => setShowShareCard(true)}
+            aria-label="여행 공유 카드"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
+          >
+            <IconShare size={18} stroke={1.75} />
+          </button>
         </div>
 
         {/* 2px 상단 미니멀 진행률 바 */}
@@ -2483,6 +2541,28 @@ export default function BagEditorScreen({
                 </>
               )}
             </button>
+            <button
+              onClick={() => setShowPackingMode(true)}
+              className="rounded-lg border border-accent/40 bg-accent-soft text-accent-strong px-2.5 py-1.5 text-[12px] font-semibold flex items-center gap-1.5 hover:bg-accent/15 transition-colors"
+              aria-label="집중 패킹 모드 시작"
+            >
+              <IconChecklist size={14} stroke={1.75} />
+              집중 패킹
+            </button>
+            {isSharedBag && (
+              <button
+                onClick={() => setFilterOnlyMyItems((v) => !v)}
+                className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium flex items-center gap-1 transition-colors ${
+                  filterOnlyMyItems
+                    ? "bg-accent text-white"
+                    : "border border-border hover:bg-surface-2 text-text-secondary"
+                }`}
+                aria-label="내 짐만 필터"
+              >
+                <IconUser size={13} stroke={1.75} />
+                내 짐만
+              </button>
+            )}
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
                 <button
@@ -2635,6 +2715,13 @@ export default function BagEditorScreen({
             getNoteEditors={getNoteEditorsForPack}
             premium={premium}
             ddayCountTodayAsDayOne={bag.ddayCountTodayAsDayOne}
+            memberProfiles={bag.memberProfiles}
+            isShared={isSharedBag}
+            onClickAssignee={(packId, itemId) => {
+              const pack = bag.packs.find((p) => p.id === packId);
+              const item = pack?.items.find((i) => i.id === itemId);
+              if (item) setAssigneeTargetItem({ packId, item });
+            }}
             /*
             getItemReactionDoc={getItemReactionDoc}
             currentUid={currentUid}
@@ -2925,6 +3012,9 @@ export default function BagEditorScreen({
             }
             setShowAiClipboard(true);
           }}
+          onSelectAudit={() => {
+            setShowAiAudit(true);
+          }}
         />
       )}
 
@@ -3035,6 +3125,12 @@ export default function BagEditorScreen({
           initialColor={itemModal.item.color || ""}
           initialSpans={itemModal.item.spans}
           initialDueDate={itemModal.item.dueDate}
+          initialAssigneeUid={itemModal.item.assigneeUid}
+          members={bag.memberIds.map((uid) => ({
+            uid,
+            nickname: bag.memberProfiles?.[uid]?.nickname,
+            avatarId: bag.memberProfiles?.[uid]?.avatarId,
+          }))}
           onClose={() => setItemModal(null)}
           onSave={(targetPackIds, data) => {
             const targetPackId = targetPackIds[0];
@@ -3072,6 +3168,46 @@ export default function BagEditorScreen({
           onRemoveMember={handleRemoveMember}
           onRegenerateCode={handleRegenerateCode}
           onTransferOwnership={handleTransferOwnership}
+          onOpenShareCard={() => setShowShareCard(true)}
+        />
+      )}
+
+      {showPackingMode && (
+        <PackingModeModal
+          bag={bag}
+          currentUid={currentUid}
+          onClose={() => setShowPackingMode(false)}
+          onToggleItem={handleToggleItem}
+        />
+      )}
+
+      {showShareCard && (
+        <ShareCardModal
+          bag={bag}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
+
+      {showAiAudit && (
+        <AiBagAuditModal
+          bag={bag}
+          user={user}
+          onClose={() => setShowAiAudit(false)}
+          onAddItemToPack={handleAddItemFromAudit}
+          onShowPremiumLimit={(msg) => setShowAiPremiumModal(true)}
+        />
+      )}
+
+      {assigneeTargetItem && (
+        <AssigneeSelectModal
+          bag={bag}
+          item={assigneeTargetItem.item}
+          currentUid={currentUid}
+          onSelect={(uid) => {
+            handleAssignItem(assigneeTargetItem.packId, assigneeTargetItem.item.id, uid);
+            setAssigneeTargetItem(null);
+          }}
+          onClose={() => setAssigneeTargetItem(null)}
         />
       )}
 

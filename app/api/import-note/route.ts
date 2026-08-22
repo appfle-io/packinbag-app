@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.
 export const runtime = "nodejs";
@@ -173,9 +174,7 @@ export async function POST(req: NextRequest) {
 
   try {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-        {
+      const res = await fetch(getGeminiEndpoint(), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

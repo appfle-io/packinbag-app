@@ -28,6 +28,7 @@ import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
+import AiTicketOcrModal from "@/components/AiTicketOcrModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
@@ -124,7 +125,9 @@ export default function HomeScreen({
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
+  const [showTicketImport, setShowTicketImport] = useState(false);
   const {
+    user,
     profile,
     updateBagSortBy,
     toggleBagPinned,
@@ -992,6 +995,26 @@ export default function HomeScreen({
           onFromNote={() => {
             setShowNewBagOptions(false);
             setShowNoteImport(true);
+          }}
+          onFromTicket={() => {
+            setShowNewBagOptions(false);
+            setShowTicketImport(true);
+          }}
+        />
+      )}
+
+      {showTicketImport && (
+        <AiTicketOcrModal
+          user={user}
+          onClose={() => setShowTicketImport(false)}
+          onCreateBagWithData={async (data) => {
+            setShowTicketImport(false);
+            onImportNote({
+              bagName: data.name,
+              travelDate: data.travelDate,
+              notice: data.notice,
+              packs: data.packs,
+            });
           }}
         />
       )}

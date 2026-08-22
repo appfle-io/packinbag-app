@@ -16,12 +16,14 @@ export default function AiFeatureMenu({
   onSelectOrganize,
   onSelectRecommend,
   onSelectClipboard,
+  onSelectAudit,
 }: {
   premium: boolean;
   onClose: () => void;
   onSelectOrganize: () => void;
   onSelectRecommend: () => void;
   onSelectClipboard: () => void;
+  onSelectAudit: () => void;
 }) {
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
@@ -138,6 +140,33 @@ export default function AiFeatureMenu({
               </div>
               <div className="text-[11px] text-text-muted mt-0.5">
                 클립보드에 복사해둔 내용을 보고, 지금 이 가방에 없는 항목만 새로 추가해드려요
+              </div>
+            </div>
+            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
+          </button>
+
+          <button
+            onClick={() => {
+              onClose();
+              onSelectAudit();
+            }}
+            className="flex items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-surface-2"
+          >
+            <div
+              className="shrink-0 flex items-center justify-center rounded-full bg-amber-500/15"
+              style={{ width: 32, height: 32 }}
+            >
+              <IconSparkles size={16} stroke={1.75} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[14px] font-medium">AI 짐 누락 검수</span>
+                <span className="shrink-0 text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  추천
+                </span>
+              </div>
+              <div className="text-[11px] text-text-muted mt-0.5">
+                여행지, 계절, 짐 목록을 분석하여 놓치기 쉬운 필수품을 찾아드려요
               </div>
             </div>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />

@@ -2,7 +2,7 @@
 
 import Portal from "@/components/Portal";
 
-import { IconEdit, IconLayoutGrid, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconEdit, IconLayoutGrid, IconSparkles, IconX, IconPlane } from "@tabler/icons-react";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
@@ -11,11 +11,13 @@ export default function NewBagOptionsSheet({
   onBlank,
   onFromSample,
   onFromNote,
+  onFromTicket,
 }: {
   onClose: () => void;
   onBlank: () => void;
   onFromSample: () => void;
   onFromNote: () => void;
+  onFromTicket: () => void;
 }) {
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
@@ -84,6 +86,24 @@ export default function NewBagOptionsSheet({
               </div>
               <div className="text-[11px] text-text-secondary">
                 메모장에서 복사한 내용을 붙여넣으면 AI가 자동으로 분류해줘요
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={onFromTicket}
+            className="flex items-center gap-3 rounded-lg p-3 text-left bg-accent-soft/60 border border-accent/20"
+          >
+            <IconPlane size={20} stroke={1.75} className="text-accent shrink-0" />
+            <div>
+              <div className="text-[13px] font-bold text-accent-strong flex items-center gap-1.5">
+                항공권 / 티켓으로 만들기
+                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
+                  AI
+                </span>
+              </div>
+              <div className="text-[11px] text-text-secondary">
+                탑승권/예약표 사진을 올리면 여행지와 짐 목록을 자동 생성해요
               </div>
             </div>
           </button>

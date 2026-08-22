@@ -269,13 +269,11 @@ service cloud.firestore {
         resource.data.memberIds.size() < 10 &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberProfiles']);
 
-      // 가방 삭제(영구삭제 - 휴지통에서 "완전삭제" 버튼, 30일 경과 자동정리, 혹은 예전처럼
-      // 새로 만들다가 취소한 임시 가방 정리에 쓰인다)도 수정과 동일하게: locked:true인
-      // 가방은 소유자 본인이라면 삭제할 수 없다 - 다른 그룹원(탈퇴 대상)도 memberIds에
-      // 있는 한 이 규칙을 타니, 소유자가 아니라면 당연히 허용된다.
+      // 가방 삭제(영구삭제 - 휴지통에서 "완전삭제" 버튼, 30일 경과 자동정리, 혹은
+      // 새로 만들다가 취소한 임시 가방 정리): 가방의 소유자이거나 멤버인 경우 삭제를 허용한다.
+      // (locked: true인 가방이라도 휴지통 정리 및 슬롯 확보를 위해 완전삭제는 가능해야 함)
       allow delete: if request.auth != null &&
-        request.auth.uid in resource.data.memberIds &&
-        !(request.auth.uid == resource.data.ownerId && resource.data.get('locked', false) == true);
+        (request.auth.uid in resource.data.memberIds || request.auth.uid == resource.data.ownerId);
 
       match /presence/{presenceUid} {
         allow read: if request.auth != null &&

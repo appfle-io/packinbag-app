@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // "AI 클립보드" 기능 - 클립보드에서 읽어온(또는 직접 붙여넣은) 텍스트를 분석해서, 지금 열려있는
 // 가방에 아직 없는 항목만 골라 새로 추가할 팩/짐 목록을 만들어준다. organize-bag(기존 항목 재배치)과
@@ -194,9 +195,7 @@ export async function POST(req: NextRequest) {
 
   try {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
-        {
+      const res = await fetch(getGeminiEndpoint(), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

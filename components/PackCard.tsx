@@ -59,6 +59,9 @@ export default function PackCard({
   onToggleSelectItem,
   getItemThreadInfo,
   ddayCountTodayAsDayOne,
+  memberProfiles,
+  isShared,
+  onClickAssignee,
   /*
   getItemReactionDoc,
   currentUid,
@@ -68,6 +71,9 @@ export default function PackCard({
 }: {
   pack: Pack;
   isSyncedWithLibrary: boolean;
+  memberProfiles?: Record<string, import("@/lib/types").BagMemberProfile>;
+  isShared?: boolean;
+  onClickAssignee?: (itemId: string) => void;
   // linkedLibraryPackId가 "내" 보관함에 실제로 있을 때만 true - 이때만 삭제
   // 다이얼로그에 "보관함도 함께 삭제" 옵션을 보여줄 수 있다.
   canDeleteFromLibrary?: boolean;
@@ -303,6 +309,8 @@ export default function PackCard({
                     onRowTap={selecting ? () => onToggleSelectItem?.(item.id) : undefined}
                     commentCount={getItemThreadInfo?.(item.id)?.commentCount}
                     ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
+                    assigneeNickname={item.assigneeUid ? memberProfiles?.[item.assigneeUid]?.nickname : undefined}
+                    onClickAssignee={isShared && onClickAssignee ? () => onClickAssignee(item.id) : undefined}
                     /*
                     reactionDoc={getItemReactionDoc?.(item.id)}
                     currentUid={currentUid}

@@ -503,6 +503,8 @@ export default function AppShell() {
     const draft: Bag = {
       id: uid(),
       name: result.bagName || "새 가방",
+      travelDate: result.travelDate,
+      notice: result.notice,
       images: [],
       packs:
         result.packs.length > 0

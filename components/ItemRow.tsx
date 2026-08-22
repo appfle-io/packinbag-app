@@ -9,6 +9,7 @@ import { formatItemDueLabel, getDueUrgency, getDueIntensifyPercent } from "@/lib
 import LinkifiedText from "./LinkifiedText";
 import ItemRichTextField from "./ItemRichTextField";
 import { getItemSpans, spansToPlainText } from "@/lib/richText";
+import { IconUser } from "@tabler/icons-react";
 // import ReactionPillRow from "./ReactionPillRow";
 
 const DELETE_SWIPE_THRESHOLD = -30;
@@ -116,6 +117,8 @@ export default function ItemRow({
   onRowTap,
   commentCount,
   ddayCountTodayAsDayOne,
+  assigneeNickname,
+  onClickAssignee,
   /*
   reactionDoc,
   currentUid,
@@ -124,6 +127,8 @@ export default function ItemRow({
   */
 }: {
   item: Item;
+  assigneeNickname?: string;
+  onClickAssignee?: () => void;
   onToggle?: () => void;
   onChangeText: (
     text: string,
@@ -749,6 +754,16 @@ export default function ItemRow({
               style={{ color: dueLabelColor, whiteSpace: "nowrap" }}
             >
               {dueLabel}
+            </span>
+          )}
+
+          {!editing && assigneeNickname && (
+            <span
+              onPointerDown={(e) => e.stopPropagation()}
+              className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-accent-soft text-accent-strong border border-accent/20"
+              title={`담당자: ${assigneeNickname}`}
+            >
+              {assigneeNickname}
             </span>
           )}
 
