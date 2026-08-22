@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bag } from "@/lib/types";
-import { IconDownload, IconShare, IconX, IconSparkles, IconCheck, IconPhoto } from "@tabler/icons-react";
+import { IconDownload, IconShare, IconX, IconSparkles, IconCheck, IconPhoto, IconLink } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 
 interface ShareCardModalProps {
@@ -16,7 +16,21 @@ export default function ShareCardModal({ bag, onClose }: ShareCardModalProps) {
   const [theme, setTheme] = useState<CardTheme>("boarding");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [copied, setCopied] = useState(false);
+  const [guestLinkCopied, setGuestLinkCopied] = useState(false);
   const { show } = useToast();
+
+  const handleCopyGuestLink = async () => {
+    const token = bag.publicShareToken || bag.inviteCode;
+    const url = `${window.location.origin}/v/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setGuestLinkCopied(true);
+      show("보기 전용 링크가 클립보드에 복사되었어요");
+      setTimeout(() => setGuestLinkCopied(false), 2000);
+    } catch {
+      show("링크 복사에 실패했어요");
+    }
+  };
 
   // 팩 및 짐 통계 계산
   const checklistPacks = bag.packs.filter((p) => p.kind !== "editor" && p.type !== "folder");
@@ -480,11 +494,36 @@ export default function ShareCardModal({ bag, onClose }: ShareCardModalProps) {
         </div>
 
         {/* 캔버스 프리뷰 */}
-        <div className="flex-1 overflow-y-auto flex items-center justify-center p-2 bg-surface-2 rounded-xl mb-4 border border-border min-h-[300px]">
+        <div className="flex-1 overflow-y-auto flex items-center justify-center p-2 bg-surface-2 rounded-xl mb-3 border border-border min-h-[260px]">
           <canvas
             ref={canvasRef}
-            className="w-full max-h-[360px] object-contain rounded-lg shadow-sm"
+            className="w-full max-h-[320px] object-contain rounded-lg shadow-sm"
           />
+        </div>
+
+        {/* 보기 전용 웹 링크 복사 섹션 */}
+        <div className="mb-3 p-2.5 rounded-xl bg-surface-2 border border-border flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-foreground truncate">보기 전용 웹 링크</p>
+            <p className="text-[10px] text-text-muted truncate">로그인 없이 누구나 웹에서 볼 수 있어요</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyGuestLink}
+            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-surface border border-border hover:bg-surface-3 active:scale-95 text-[11px] font-bold text-accent flex items-center gap-1 transition-all shadow-xs"
+          >
+            {guestLinkCopied ? (
+              <>
+                <IconCheck size={13} className="text-emerald-500" stroke={2.5} />
+                <span className="text-emerald-600 dark:text-emerald-400">복사됨</span>
+              </>
+            ) : (
+              <>
+                <IconLink size={13} stroke={2} />
+                <span>링크 복사</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* 하단 액션 버튼 */}

@@ -9,6 +9,7 @@ import {
   IconSparkles,
   IconLock,
 } from "@tabler/icons-react";
+import GuestMemoPackView from "@/components/GuestMemoPackView";
 
 export const dynamic = "force-dynamic";
 
@@ -171,9 +172,7 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
                 </h2>
 
                 {pack.kind === "editor" ? (
-                  <div className="text-[13px] text-slate-600 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl">
-                    {pack.editorPreviewText || "(메모 내용)"}
-                  </div>
+                  <GuestMemoPackView pack={pack} />
                 ) : (
                   <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
                     {pack.items.map((item) => (
