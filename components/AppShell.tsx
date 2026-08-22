@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { IconLoader2 } from "@tabler/icons-react";
-import { Bag, Item, Pack, Announcement } from "@/lib/types";
+import { Bag, Item, Pack, Announcement, SharedPackSnapshot } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
   subscribeToUserBags,
@@ -372,13 +374,14 @@ export default function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, announcements]);
 
-  // 1. URL 쿼리 파라미터(?invite=, ?join=, ?openBag=)를 접속 즉시 sessionStorage에 보존하여 로그인/회원가입 후 유실 방지
+  // 1. URL 쿼리 파라미터(?invite=, ?join=, ?openBag=, ?importPack=)를 접속 즉시 sessionStorage에 보존하여 로그인/회원가입 후 유실 방지
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const inviteCode = urlParams.get("invite") || urlParams.get("join");
       const openBagId = urlParams.get("openBag");
+      const importPackToken = urlParams.get("importPack");
 
       if (inviteCode && inviteCode.trim()) {
         sessionStorage.setItem("pib_pending_invite", inviteCode.trim().toUpperCase());
@@ -386,7 +389,10 @@ export default function AppShell() {
       if (openBagId && openBagId.trim()) {
         sessionStorage.setItem("pib_pending_open_bag", openBagId.trim());
       }
-      if (inviteCode || openBagId) {
+      if (importPackToken && importPackToken.trim()) {
+        sessionStorage.setItem("pib_pending_import_pack", importPackToken.trim());
+      }
+      if (inviteCode || openBagId || importPackToken) {
         window.history.replaceState({}, "", window.location.pathname);
       }
     } catch {
@@ -394,16 +400,72 @@ export default function AppShell() {
     }
   }, []);
 
-  // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기 작업 자동 실행
+  // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기/팩 가져오기 작업 자동 실행
   const pendingActionProcessedRef = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined" || !user || !profile?.nickname || pendingActionProcessedRef.current) return;
 
     const pendingInvite = sessionStorage.getItem("pib_pending_invite");
     const pendingOpenBag = sessionStorage.getItem("pib_pending_open_bag");
+    const pendingImportPack = sessionStorage.getItem("pib_pending_import_pack");
 
-    if (!pendingInvite && !pendingOpenBag) return;
+    if (!pendingInvite && !pendingOpenBag && !pendingImportPack) return;
     pendingActionProcessedRef.current = true;
+
+    if (pendingImportPack) {
+      sessionStorage.removeItem("pib_pending_import_pack");
+      getDoc(doc(db, "sharedPacks", pendingImportPack))
+        .then(async (snap) => {
+          if (!snap.exists()) {
+            show("공유가 종료되었거나 없는 팩이에요.");
+            return;
+          }
+          const data = snap.data() as SharedPackSnapshot;
+          if (data.type === "folder") {
+            const folderId = uid();
+            const newFolder: Pack = {
+              id: folderId,
+              name: data.title,
+              type: "folder",
+              items: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            await saveLibraryPackRemote(user, newFolder);
+            const childPacks = (data.packs ?? []).filter((p) => p.type !== "folder");
+            for (const cp of childPacks) {
+              const newChildPack: Pack = {
+                ...cp,
+                id: uid(),
+                parentId: folderId,
+                items: (cp.items ?? []).map((i) => ({ ...i, id: uid() })),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              await saveLibraryPackRemote(user, newChildPack);
+            }
+            setShowPackTree(true);
+            show(`"${data.title}" 폴더와 팩들을 보관함으로 가져왔어요!`);
+          } else if (data.pack) {
+            const newPack: Pack = {
+              ...data.pack,
+              id: uid(),
+              parentId: undefined,
+              items: (data.pack.items ?? []).map((i) => ({ ...i, id: uid() })),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            await saveLibraryPackRemote(user, newPack);
+            setShowPackTree(true);
+            show(`"${newPack.name}" 팩을 보관함으로 가져왔어요!`);
+          }
+        })
+        .catch((err) => {
+          console.error("[팩인백] 팩 가져오기 실패:", err);
+          show("팩을 가져오지 못했어요.");
+        });
+      return;
+    }
 
     if (pendingInvite) {
       sessionStorage.removeItem("pib_pending_invite");

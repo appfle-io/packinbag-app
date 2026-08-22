@@ -326,5 +326,11 @@ service cloud.firestore {
         allow write: if isBagMember();
       }
     }
+
+    // 팩/폴더 웹 공개 공유 스냅샷 (app/api/share-pack Admin SDK에서 작성)
+    match /sharedPacks/{token} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

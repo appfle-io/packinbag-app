@@ -16,6 +16,8 @@ import {
   IconEdit,
   IconArrowRight,
   IconNotes,
+  IconDots,
+  IconShare,
 } from "@tabler/icons-react";
 import { Pack, ListSortOption, Bag } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -25,6 +27,7 @@ import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import PackColorDot from "@/components/PackColorDot";
+import PackShareModal from "@/components/PackShareModal";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
 import NotificationBell from "@/components/NotificationBell";
@@ -252,6 +255,8 @@ export default function PacksScreen({
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showMoveSheet, setShowMoveSheet] = useState(false);
   const [renamingEntry, setRenamingEntry] = useState<Pack | null>(null);
+  const [folderMenuEntry, setFolderMenuEntry] = useState<Pack | null>(null);
+  const [sharingFolder, setSharingFolder] = useState<Pack | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<{ id: string; zone: "before" | "after" | "into" } | null>(
     null
@@ -725,9 +730,21 @@ export default function PacksScreen({
                           openAddChooser(entry.id);
                         }}
                         aria-label="이 폴더에 추가"
-                        className="shrink-0 -m-2 p-2 mx-1.5 flex items-center justify-center rounded-full active:bg-black/5"
+                        className="shrink-0 -m-2 p-2 mx-1 flex items-center justify-center rounded-full text-text-muted hover:text-foreground active:bg-black/5"
                       >
-                        <IconPlus size={14} stroke={1.75} color="var(--text-muted)" />
+                        <IconPlus size={14} stroke={1.75} />
+                      </button>
+                    )}
+                    {!selectMode && isFolder && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFolderMenuEntry(entry);
+                        }}
+                        aria-label="폴더 메뉴"
+                        className="shrink-0 -m-2 p-2 mx-1 flex items-center justify-center rounded-full text-text-muted hover:text-foreground active:bg-black/5"
+                      >
+                        <IconDots size={16} stroke={1.75} />
                       </button>
                     )}
                     {!selectMode && (
@@ -756,8 +773,7 @@ export default function PacksScreen({
 
       <QuickPackBar pack={quickPack} onClick={() => quickPack && onOpenPack(quickPack)} />
 
-      {/* 다중선택 모드 하단 액션바: 이름변경(1개 선택일 때만)/이동/삭제.
-          bottom-24만큼 띄운 이유는 예전 그리드와 동일 - 하단탭바 중앙 "+" FAB와 겹치지 않게. */}
+      {/* 다중선택 모드 하단 액션바: 이름변경(1개 선택일 때만)/공유(폴더 1개일 때)/이동/삭제 */}
       {selectMode && !showMoveSheet && !showBulkDeleteConfirm && !renamingEntry && (
         <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center gap-3 pointer-events-none">
           {selectedIds.size === 1 && (
@@ -771,6 +787,21 @@ export default function PacksScreen({
               style={{ background: "var(--surface-2)" }}
             >
               <IconEdit size={22} stroke={1.75} color="var(--text-secondary)" />
+            </button>
+          )}
+          {selectedIds.size === 1 && (
+            <button
+              onClick={() => {
+                const only = treePacks.find((p) => selectedIds.has(p.id));
+                if (only && only.type === "folder") {
+                  setSharingFolder(only);
+                }
+              }}
+              aria-label="공유"
+              className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
+              style={{ background: "var(--surface-2)" }}
+            >
+              <IconShare size={22} stroke={1.75} color="var(--text-secondary)" />
             </button>
           )}
           <button
@@ -981,6 +1012,96 @@ export default function PacksScreen({
             onNewPack(undefined);
             onRenameEntry(newPack, newPack.name);
           }}
+        />
+      )}
+
+      {/* 폴더 옵션 메뉴 모달 */}
+      {folderMenuEntry && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setFolderMenuEntry(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
+            >
+              <div className="flex items-center justify-between mb-1 px-1">
+                <span className="text-[15px] font-semibold text-foreground truncate">
+                  {folderMenuEntry.name}
+                </span>
+                <button onClick={() => setFolderMenuEntry(null)} aria-label="닫기">
+                  <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    const target = folderMenuEntry;
+                    setFolderMenuEntry(null);
+                    setRenamingEntry(target);
+                  }}
+                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconEdit size={17} stroke={1.75} className="text-text-secondary" />
+                  <span className="text-[13.5px] font-medium text-foreground">이름 바꾸기</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const target = folderMenuEntry;
+                    setFolderMenuEntry(null);
+                    setSharingFolder(target);
+                  }}
+                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconShare size={17} stroke={1.75} className="text-accent" />
+                  <span className="text-[13.5px] font-medium text-accent">공유</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const target = folderMenuEntry;
+                    setFolderMenuEntry(null);
+                    setSelectedIds(new Set([target.id]));
+                    setShowMoveSheet(true);
+                  }}
+                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconArrowRight size={17} stroke={1.75} className="text-text-secondary" />
+                  <span className="text-[13.5px] font-medium text-foreground">이동</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const target = folderMenuEntry;
+                    setFolderMenuEntry(null);
+                    setSelectedIds(new Set([target.id]));
+                    setShowBulkDeleteConfirm(true);
+                  }}
+                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-danger/10 transition-colors active:scale-[0.99]"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <IconTrash size={17} stroke={1.75} className="text-danger" />
+                  <span className="text-[13.5px] font-medium text-danger">삭제</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* 폴더 공유 모달 */}
+      {sharingFolder && (
+        <PackShareModal
+          folder={sharingFolder}
+          folderPacks={treePacks.filter((p) => {
+            const descIds = collectDescendantPackIds(treePacks, sharingFolder.id);
+            return descIds.includes(p.id) && p.type !== "folder";
+          })}
+          onClose={() => setSharingFolder(null)}
         />
       )}
     </div>

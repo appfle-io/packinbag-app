@@ -116,6 +116,20 @@ export interface Pack {
   images?: string[];
   trashSourceBagId?: string;
   trashSourceBagName?: string;
+  // 팩 보관함 공개 공유용 난수 토큰
+  publicShareToken?: string;
+}
+
+// 팩/폴더 웹 공개 공유 스냅샷 문서 (/sharedPacks/{token})
+export interface SharedPackSnapshot {
+  token: string;
+  ownerUid: string;
+  type: "pack" | "folder";
+  title: string;
+  pack?: Pack;
+  packs?: Pack[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 // 가방 멤버의 표시용 정보 (닉네임/아바타). users/{uid} 문서는 본인만 읽을 수 있어서

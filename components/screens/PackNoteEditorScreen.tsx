@@ -16,6 +16,7 @@ import {
   IconTable,
   IconTablePlus,
   IconTrash,
+  IconShare,
   IconAlertTriangle,
   IconPalette,
   IconX,
@@ -28,6 +29,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
+import PackShareModal from "@/components/PackShareModal";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
@@ -130,6 +132,7 @@ export default function PackNoteEditorScreen({
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   // 툴바 파일첨부(사진/PDF) 관련 상태 - BagEditorScreen의 가방 이미지 기능과 동일한 패턴.
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -496,6 +499,15 @@ export default function PackNoteEditorScreen({
           >
             {percentOfLimit}%
           </span>
+        )}
+        {!pack.isQuickPack && (
+          <button
+            onClick={() => setShowShareModal(true)}
+            aria-label="팩 공유"
+            className="-m-2.5 p-2.5 shrink-0 text-text-secondary hover:text-foreground transition-colors"
+          >
+            <IconShare size={19} stroke={1.75} />
+          </button>
         )}
         {onDeletePack && !effectiveReadOnly && (
           <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제" className="-m-2.5 p-2.5 shrink-0">
@@ -1063,6 +1075,13 @@ export default function PackNoteEditorScreen({
           ))}
         </div>
       </SlideUpSheet>
+
+      {showShareModal && (
+        <PackShareModal
+          pack={pack}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 }

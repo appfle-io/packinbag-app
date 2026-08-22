@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Bag, Pack } from "@/lib/types";
 import {
   IconDownload,
@@ -21,7 +21,12 @@ import {
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { collectEditorDocPreviewLines } from "@/lib/editorDocPreview";
+import {
+  collectEditorDocPreviewLines,
+  collectEditorDocRichBlocks,
+  renderRichMemoBlocksOnCanvas,
+  RichBlock,
+} from "@/lib/editorDocPreview";
 import Portal from "@/components/Portal";
 import { OverlayLayerProvider, useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
@@ -60,6 +65,95 @@ function getMemoPreviewLines(pack: Pack, maxLines = 5): string[] {
   return [];
 }
 
+function getMemoRichBlocks(pack: Pack): RichBlock[] {
+  if (pack.editorDoc) {
+    const blocks = collectEditorDocRichBlocks(pack.editorDoc);
+    if (blocks.length > 0) return blocks;
+  }
+  if (pack.editorPreviewText) {
+    return pack.editorPreviewText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .map((line) => ({
+        type: "paragraph" as const,
+        spans: [{ text: line }],
+      }));
+  }
+  return [];
+}
+
+function computeEstimatedListHeight(
+  packs: Pack[],
+  theme: "boarding" | "receipt" | "polaroid"
+): number {
+  if (theme === "receipt") {
+    if (packs.length === 1 && packs[0].kind === "editor") {
+      const blocks = getMemoRichBlocks(packs[0]);
+      let h = 26;
+      for (const b of blocks.slice(0, 25)) {
+        const charLen = b.spans.reduce((acc, s) => acc + s.text.length, 0);
+        const lines = charLen > 30 ? 2 : 1;
+        h += b.type === "heading" ? 30 : lines * 22;
+      }
+      return h + 10;
+    }
+
+    let h = 0;
+    for (const p of packs) {
+      h += 26;
+      if (p.kind === "editor") {
+        const maxL = 5;
+        const lines = getMemoPreviewLines(p, maxL);
+        h += lines.length * 20 + 5;
+      } else {
+        h += (p.items?.length ?? 0) * 20 + 5;
+      }
+    }
+    return h;
+  }
+
+  const lineH = theme === "boarding" ? 19 : 18;
+  const titleH = theme === "boarding" ? 21 : 20;
+
+  if (packs.length === 1) {
+    const p = packs[0];
+    if (p.kind === "editor") {
+      const blocks = getMemoRichBlocks(p);
+      let h = titleH + 15;
+      for (const b of blocks.slice(0, 25)) {
+        const charLen = b.spans.reduce((acc, s) => acc + s.text.length, 0);
+        const lines = charLen > 38 ? 2 : 1;
+        h += b.type === "heading" ? 30 : lines * (lineH + 3);
+      }
+      return h;
+    } else {
+      const items = p.items || [];
+      const rows = Math.ceil(items.length / 2);
+      return titleH + rows * lineH + 10;
+    }
+  }
+
+  let col1H = 0;
+  let col2H = 0;
+  for (const p of packs) {
+    let packH = titleH;
+    if (p.kind === "editor") {
+      const lines = getMemoPreviewLines(p, 5);
+      packH += lines.length * lineH + 6;
+    } else {
+      packH += (p.items?.length ?? 0) * lineH + 6;
+    }
+
+    if (col1H <= col2H) {
+      col1H += packH;
+    } else {
+      col2H += packH;
+    }
+  }
+  return Math.max(col1H, col2H);
+}
+
 export default function ShareCardModal({
   bag,
   currentUid,
@@ -70,9 +164,28 @@ export default function ShareCardModal({
   onRegenerateCode,
   onTransferOwnership,
 }: ShareCardModalProps) {
+  const { show } = useToast();
+  const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = ambientLayer + POPOVER_OFFSET;
+  useEscapeToClose(onClose);
+
+  const isOwner = currentUid ? bag.ownerId === currentUid : false;
+
   const [mainTab, setMainTab] = useState<MainTab>(initialTab);
   const [theme, setTheme] = useState<CardTheme>("boarding");
-  const [includeInvite, setIncludeInvite] = useState(false);
+  const [includeInvite, setIncludeInvite] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [guestLinkCopied, setGuestLinkCopied] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmTransferUid, setConfirmTransferUid] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -83,63 +196,47 @@ export default function ShareCardModal({
     }
   };
 
-  const [copied, setCopied] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState(false);
-  const [guestLinkCopied, setGuestLinkCopied] = useState(false);
   const [showEnlargedPreview, setShowEnlargedPreview] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState<string>("");
 
   const handleOpenEnlargedPreview = () => {
     const canvas = canvasRef.current || canvasElement;
-    if (!canvas) return;
-    setPreviewDataUrl(canvas.toDataURL("image/png"));
-    setShowEnlargedPreview(true);
+    if (canvas) {
+      setPreviewDataUrl(canvas.toDataURL("image/png"));
+      setShowEnlargedPreview(true);
+    }
   };
 
-  // 멤버 관리 관련 상태
-  const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
-  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
-  const [confirmLeave, setConfirmLeave] = useState(false);
-  const [confirmTransferUid, setConfirmTransferUid] = useState<string | null>(null);
-  const [transferring, setTransferring] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  const displayPacks: Pack[] = useMemo(() => {
+    return bag.packs.filter((p) => p.type !== "folder");
+  }, [bag.packs]);
 
-  const { show } = useToast();
-  const ambientLayer = useOverlayLayer();
-  const resolvedZIndex = ambientLayer + POPOVER_OFFSET;
-  useEscapeToClose(onClose);
+  const totalItems = useMemo(() => {
+    return displayPacks.reduce((acc, p) => acc + p.items.length, 0);
+  }, [displayPacks]);
 
-  const isOwner = currentUid ? bag.ownerId === currentUid : false;
+  const checkedItems = useMemo(() => {
+    return displayPacks.reduce(
+      (acc, p) => acc + p.items.filter((i) => i.checked).length,
+      0
+    );
+  }, [displayPacks]);
 
-  // 모든 팩 (체크리스트 + 메모팩 순서 유지)
-  const displayPacks = bag.packs.filter((p) => p.type !== "folder");
-  const checklistPacks = displayPacks.filter((p) => p.kind !== "editor");
-
-  let totalItems = 0;
-  let checkedItems = 0;
-  checklistPacks.forEach((p) => {
-    p.items.forEach((i) => {
-      totalItems++;
-      if (i.checked) checkedItems++;
-    });
-  });
   const progressRatio = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
 
-  // D-Day 계산
-  let ddayText = "D-DAY";
+  let ddayText = "";
   if (bag.travelDate) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const target = new Date(bag.travelDate);
     target.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) ddayText = "D-DAY";
-    else if (diffDays > 0) ddayText = `D-${diffDays}`;
-    else ddayText = `D+${Math.abs(diffDays)}`;
+    const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    ddayText = diff === 0 ? "D-DAY" : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+  } else {
+    ddayText = "D-DAY";
   }
 
-  // 캔버스 렌더링
+  // 캔버스 렌더링 (내용량에 따른 동적 높이 계산 & 하단 여백 최소화)
   useEffect(() => {
     if (mainTab !== "card") return;
     const canvas = canvasElement || canvasRef.current;
@@ -148,7 +245,21 @@ export default function ShareCardModal({
     if (!ctx) return;
 
     const width = 800;
-    const height = 1200;
+    const listH = computeEstimatedListHeight(displayPacks, theme);
+    let height = 1200;
+
+    if (theme === "boarding") {
+      const cardH = Math.min(1120, Math.max(500, 313 + listH + 150));
+      height = cardH + 80;
+    } else if (theme === "receipt") {
+      const cardH = Math.min(1120, Math.max(480, 176 + listH + 170));
+      height = cardH + 80;
+    } else {
+      const photoH = Math.min(780, Math.max(220, 84 + listH + 25));
+      const cardH = Math.min(1120, Math.max(500, 36 + photoH + 140));
+      height = cardH + 90;
+    }
+
     canvas.width = width;
     canvas.height = height;
 
@@ -161,7 +272,7 @@ export default function ShareCardModal({
     } else {
       drawPolaroid(ctx, width, height);
     }
-  }, [canvasElement, mainTab, theme, bag, progressRatio, ddayText, checkedItems, totalItems]);
+  }, [canvasElement, mainTab, theme, bag, displayPacks, progressRatio, ddayText, checkedItems, totalItems]);
 
   // 비행기 실루엣 그리기 헬퍼
   function drawAirplane(
@@ -331,90 +442,138 @@ export default function ShareCardModal({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 2-Column 짐 목록 섹션
+    // 2-Column 짐 목록 섹션 (위에서 아래로 균등하게 채우는 레이아웃)
     const colStartY = notchY + 36;
     const botLimitY = cardY + cardH - 120;
     const col1X = cardX + 36;
     const col2X = cardX + 365;
 
-    let curCol = 1;
-    let curX = col1X;
-    let curY = colStartY;
+    let curY1 = colStartY;
+    let curY2 = colStartY;
 
-    for (const pack of displayPacks) {
-      if (curY + 45 > botLimitY) {
-        if (curCol === 1) {
-          curCol = 2;
-          curX = col2X;
-          curY = colStartY;
-        } else {
-          break;
-        }
-      }
-
+    if (displayPacks.length === 1) {
+      const pack = displayPacks[0];
       const packTitle = pack.name.length > 15 ? pack.name.slice(0, 15) + "..." : pack.name;
 
       if (pack.kind === "editor") {
+        // 단일 메모팩: 서식(헤딩, 볼드, 체크박스, 인용구, 형광펜 등)을 완벽히 적용하여 전폭 1단 렌더링
         ctx.fillStyle = "#D97706";
-        ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
-        ctx.fillText(`[📝 ${packTitle}]`, curX, curY);
-        curY += 21;
+        ctx.font = "bold 16px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillText(`[📝 ${packTitle}]`, col1X, curY1);
+        curY1 += 26;
 
-        const memoLines = getMemoPreviewLines(pack, 4);
-        for (const line of memoLines) {
-          if (curY + 20 > botLimitY) {
-            if (curCol === 1) {
-              curCol = 2;
-              curX = col2X;
-              curY = colStartY;
-              ctx.fillStyle = "#D97706";
-              ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
-              ctx.fillText(`[📝 ${packTitle}]`, curX, curY);
-              curY += 21;
-            } else {
-              break;
-            }
-          }
-          ctx.fillStyle = "#4B5563";
-          ctx.font = "500 13px -apple-system, BlinkMacSystemFont, sans-serif";
-          const itemText = line.length > 19 ? line.slice(0, 19) + "..." : line;
-          ctx.fillText("• " + itemText, curX + 8, curY);
-          curY += 19;
-        }
-        curY += 5;
+        const blocks = getMemoRichBlocks(pack);
+        curY1 = renderRichMemoBlocksOnCanvas({
+          ctx,
+          blocks,
+          startX: col1X,
+          startY: curY1,
+          maxWidth: cardW - 72,
+          botLimitY,
+          theme: "boarding",
+        });
       } else {
+        const items = pack.items;
+        const mid = Math.ceil(items.length / 2);
+        const col1Items = items.slice(0, mid);
+        const col2Items = items.slice(mid);
+
         ctx.fillStyle = "#1E40AF";
         ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
-        ctx.fillText(`[${packTitle}]`, curX, curY);
-        curY += 21;
-
-        for (const item of pack.items) {
-          if (curY + 20 > botLimitY) {
-            if (curCol === 1) {
-              curCol = 2;
-              curX = col2X;
-              curY = colStartY;
-              ctx.fillStyle = "#1E40AF";
-              ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
-              ctx.fillText(`[${packTitle}]`, curX, curY);
-              curY += 21;
-            } else {
-              break;
-            }
-          }
-
+        ctx.fillText(`[${packTitle}]`, col1X, curY1);
+        curY1 += 21;
+        for (const item of col1Items) {
+          if (curY1 + 19 > botLimitY) break;
           ctx.fillStyle = item.checked ? "#94A3B8" : "#1E293B";
           ctx.font = item.checked
             ? "13px -apple-system, BlinkMacSystemFont, sans-serif"
             : "500 13px -apple-system, BlinkMacSystemFont, sans-serif";
           const checkIcon = item.checked ? "[✓] " : "[ ] ";
           const itemText = item.text.length > 18 ? item.text.slice(0, 18) + "..." : item.text;
-          ctx.fillText(checkIcon + itemText, curX + 8, curY);
-          curY += 19;
+          ctx.fillText(checkIcon + itemText, col1X + 8, curY1);
+          curY1 += 19;
         }
-        curY += 5;
+
+        if (col2Items.length > 0) {
+          ctx.fillStyle = "#1E40AF";
+          ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText(`[${packTitle} (이어서)]`, col2X, curY2);
+          curY2 += 21;
+          for (const item of col2Items) {
+            if (curY2 + 19 > botLimitY) break;
+            ctx.fillStyle = item.checked ? "#94A3B8" : "#1E293B";
+            ctx.font = item.checked
+              ? "13px -apple-system, BlinkMacSystemFont, sans-serif"
+              : "500 13px -apple-system, BlinkMacSystemFont, sans-serif";
+            const checkIcon = item.checked ? "[✓] " : "[ ] ";
+            const itemText = item.text.length > 18 ? item.text.slice(0, 18) + "..." : item.text;
+            ctx.fillText(checkIcon + itemText, col2X + 8, curY2);
+            curY2 += 19;
+          }
+        }
       }
-      if (curCol === 2 && curY > botLimitY) break;
+    } else {
+      for (const pack of displayPacks) {
+        const isCol1 = curY1 <= curY2;
+        let curX = isCol1 ? col1X : col2X;
+        let curY = isCol1 ? curY1 : curY2;
+
+        if (curY + 45 > botLimitY) {
+          if (isCol1 && curY2 + 45 <= botLimitY) {
+            curX = col2X;
+            curY = curY2;
+          } else if (!isCol1 && curY1 + 45 <= botLimitY) {
+            curX = col1X;
+            curY = curY1;
+          } else {
+            continue;
+          }
+        }
+
+        const packTitle = pack.name.length > 15 ? pack.name.slice(0, 15) + "..." : pack.name;
+
+        if (pack.kind === "editor") {
+          ctx.fillStyle = "#D97706";
+          ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText(`[📝 ${packTitle}]`, curX, curY);
+          curY += 21;
+
+          const memoLines = getMemoPreviewLines(pack, 5);
+          for (const line of memoLines) {
+            if (curY + 19 > botLimitY) break;
+            ctx.fillStyle = "#4B5563";
+            ctx.font = "500 13px -apple-system, BlinkMacSystemFont, sans-serif";
+            const itemText = line.length > 20 ? line.slice(0, 20) + "..." : line;
+            ctx.fillText(itemText, curX + 4, curY);
+            curY += 19;
+          }
+          curY += 6;
+        } else {
+          ctx.fillStyle = "#1E40AF";
+          ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText(`[${packTitle}]`, curX, curY);
+          curY += 21;
+
+          for (const item of pack.items) {
+            if (curY + 19 > botLimitY) break;
+            ctx.fillStyle = item.checked ? "#94A3B8" : "#1E293B";
+            ctx.font = item.checked
+              ? "13px -apple-system, BlinkMacSystemFont, sans-serif"
+              : "500 13px -apple-system, BlinkMacSystemFont, sans-serif";
+            const checkIcon = item.checked ? "[✓] " : "[ ] ";
+            const itemText = item.text.length > 18 ? item.text.slice(0, 18) + "..." : item.text;
+            ctx.fillText(checkIcon + itemText, curX + 8, curY);
+            curY += 19;
+          }
+          curY += 6;
+        }
+
+        if (curX === col1X) {
+          curY1 = curY;
+        } else {
+          curY2 = curY;
+        }
+      }
     }
 
     // 하단 진행률 & 바코드 스텁
@@ -477,44 +636,64 @@ export default function ShareCardModal({
 
     const botY = cardY + cardH - 130;
 
-    for (const pack of displayPacks) {
-      if (currentY + 30 >= botY) break;
+    if (displayPacks.length === 1 && displayPacks[0].kind === "editor") {
+      const pack = displayPacks[0];
       const packTitle = pack.name.length > 20 ? pack.name.slice(0, 20) + "..." : pack.name;
+      ctx.font = "bold 16px 'Courier New', monospace";
+      ctx.fillStyle = "#B45309";
+      ctx.fillText(`[MEMO: ${packTitle}]`, cardX + 30, currentY);
+      currentY += 26;
 
-      if (pack.kind === "editor") {
-        ctx.font = "bold 16px 'Courier New', monospace";
-        ctx.fillStyle = "#B45309";
-        ctx.fillText(`[MEMO: ${packTitle}]`, cardX + 30, currentY);
-        currentY += 21;
+      const blocks = getMemoRichBlocks(pack);
+      currentY = renderRichMemoBlocksOnCanvas({
+        ctx,
+        blocks,
+        startX: cardX + 30,
+        startY: currentY,
+        maxWidth: cardW - 60,
+        botLimitY: botY,
+        theme: "receipt",
+      });
+    } else {
+      for (const pack of displayPacks) {
+        if (currentY + 30 >= botY) break;
+        const packTitle = pack.name.length > 20 ? pack.name.slice(0, 20) + "..." : pack.name;
 
-        const memoLines = getMemoPreviewLines(pack, 5);
-        for (const line of memoLines) {
-          if (currentY + 20 >= botY) break;
-          ctx.font = "13px 'Courier New', monospace";
-          ctx.fillStyle = "#44403C";
-          const text = line.length > 22 ? line.slice(0, 22) + "..." : line;
-          ctx.fillText("> " + text, cardX + 42, currentY);
-          ctx.fillText("NOTE", cardX + cardW - 70, currentY);
-          currentY += 20;
+        if (pack.kind === "editor") {
+          ctx.font = "bold 16px 'Courier New', monospace";
+          ctx.fillStyle = "#B45309";
+          ctx.fillText(`[MEMO: ${packTitle}]`, cardX + 30, currentY);
+          currentY += 21;
+
+          const memoLines = getMemoPreviewLines(pack, 5);
+          for (const line of memoLines) {
+            if (currentY + 20 >= botY) break;
+            ctx.font = "13px 'Courier New', monospace";
+            ctx.fillStyle = "#44403C";
+            const text = line.length > 24 ? line.slice(0, 24) + "..." : line;
+            ctx.fillText(text, cardX + 36, currentY);
+            ctx.fillText("NOTE", cardX + cardW - 70, currentY);
+            currentY += 20;
+          }
+          currentY += 5;
+        } else {
+          ctx.font = "bold 16px 'Courier New', monospace";
+          ctx.fillStyle = "#0C0A09";
+          ctx.fillText(`[${packTitle}]`, cardX + 30, currentY);
+          currentY += 21;
+
+          for (const item of pack.items) {
+            if (currentY + 20 >= botY) break;
+            ctx.font = "14px 'Courier New', monospace";
+            ctx.fillStyle = item.checked ? "#78716C" : "#1C1917";
+            const sign = item.checked ? "(V) " : "( ) ";
+            const itemText = item.text.length > 22 ? item.text.slice(0, 22) + "..." : item.text;
+            ctx.fillText(sign + itemText, cardX + 42, currentY);
+            ctx.fillText("1 EA", cardX + cardW - 70, currentY);
+            currentY += 20;
+          }
+          currentY += 5;
         }
-        currentY += 5;
-      } else {
-        ctx.font = "bold 16px 'Courier New', monospace";
-        ctx.fillStyle = "#0C0A09";
-        ctx.fillText(`[${packTitle}]`, cardX + 30, currentY);
-        currentY += 21;
-
-        for (const item of pack.items) {
-          if (currentY + 20 >= botY) break;
-          ctx.font = "14px 'Courier New', monospace";
-          ctx.fillStyle = item.checked ? "#78716C" : "#1C1917";
-          const sign = item.checked ? "(V) " : "( ) ";
-          const itemText = item.text.length > 22 ? item.text.slice(0, 22) + "..." : item.text;
-          ctx.fillText(sign + itemText, cardX + 42, currentY);
-          ctx.fillText("1 EA", cardX + cardW - 70, currentY);
-          currentY += 20;
-        }
-        currentY += 5;
       }
     }
 
@@ -646,91 +825,138 @@ export default function ShareCardModal({
     ctx.fillText(ddayText, photoX + photoW - 50, photoY + 39);
     ctx.textAlign = "left";
 
-    // 사진 내부 팩 & 아이템 2단 리스트 (선명한 딥 네이비 & 앰버 톤)
+    // 사진 내부 팩 & 아이템 2단 리스트 (위에서 아래로 균등하게 채우는 레이아웃)
     const colStartY = photoY + 84;
     const botLimitY = photoY + photoH - 20;
     const col1X = photoX + 24;
     const col2X = photoX + 325;
 
-    let curCol = 1;
-    let curX = col1X;
-    let curY = colStartY;
+    let curY1 = colStartY;
+    let curY2 = colStartY;
 
-    for (const pack of displayPacks) {
-      if (curY + 36 > botLimitY) {
-        if (curCol === 1) {
-          curCol = 2;
-          curX = col2X;
-          curY = colStartY;
-        } else {
-          break;
-        }
-      }
-
+    if (displayPacks.length === 1) {
+      const pack = displayPacks[0];
       const packTitle = pack.name.length > 14 ? pack.name.slice(0, 14) + "..." : pack.name;
 
       if (pack.kind === "editor") {
+        // 단일 메모팩: 서식(헤딩, 볼드, 체크박스, 인용구, 형광펜 등)을 완벽히 적용하여 전폭 1단 렌더링
         ctx.fillStyle = "#B45309";
-        ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
-        ctx.fillText(`* 📝 ${packTitle}`, curX, curY);
-        curY += 20;
+        ctx.font = "bold 15px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillText(`* 📝 ${packTitle}`, col1X, curY1);
+        curY1 += 26;
 
-        const memoLines = getMemoPreviewLines(pack, 3);
-        for (const line of memoLines) {
-          if (curY + 18 > botLimitY) {
-            if (curCol === 1) {
-              curCol = 2;
-              curX = col2X;
-              curY = colStartY;
-              ctx.fillStyle = "#B45309";
-              ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
-              ctx.fillText(`* 📝 ${packTitle}`, curX, curY);
-              curY += 20;
-            } else {
-              break;
-            }
-          }
-
-          ctx.fillStyle = "#334155";
-          ctx.font = "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
-          const text = line.length > 18 ? line.slice(0, 18) + "..." : line;
-          ctx.fillText("~ " + text, curX + 10, curY);
-          curY += 18;
-        }
-        curY += 5;
+        const blocks = getMemoRichBlocks(pack);
+        curY1 = renderRichMemoBlocksOnCanvas({
+          ctx,
+          blocks,
+          startX: col1X,
+          startY: curY1,
+          maxWidth: photoW - 48,
+          botLimitY,
+          theme: "polaroid",
+        });
       } else {
+        const items = pack.items;
+        const mid = Math.ceil(items.length / 2);
+        const col1Items = items.slice(0, mid);
+        const col2Items = items.slice(mid);
+
         ctx.fillStyle = "#0369A1";
         ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
-        ctx.fillText(`* ${packTitle}`, curX, curY);
-        curY += 20;
-
-        for (const item of pack.items) {
-          if (curY + 18 > botLimitY) {
-            if (curCol === 1) {
-              curCol = 2;
-              curX = col2X;
-              curY = colStartY;
-              ctx.fillStyle = "#0369A1";
-              ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
-              ctx.fillText(`* ${packTitle}`, curX, curY);
-              curY += 20;
-            } else {
-              break;
-            }
-          }
-
+        ctx.fillText(`* ${packTitle}`, col1X, curY1);
+        curY1 += 20;
+        for (const item of col1Items) {
+          if (curY1 + 18 > botLimitY) break;
           ctx.fillStyle = item.checked ? "#94A3B8" : "#0F172A";
           ctx.font = item.checked
             ? "12.5px -apple-system, BlinkMacSystemFont, sans-serif"
             : "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
           const mark = item.checked ? "[✓] " : "[ ] ";
           const itemText = item.text.length > 17 ? item.text.slice(0, 17) + "..." : item.text;
-          ctx.fillText(mark + itemText, curX + 10, curY);
-          curY += 18;
+          ctx.fillText(mark + itemText, col1X + 10, curY1);
+          curY1 += 18;
         }
-        curY += 5;
+
+        if (col2Items.length > 0) {
+          ctx.fillStyle = "#0369A1";
+          ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText(`* ${packTitle} (이어서)`, col2X, curY2);
+          curY2 += 20;
+          for (const item of col2Items) {
+            if (curY2 + 18 > botLimitY) break;
+            ctx.fillStyle = item.checked ? "#94A3B8" : "#0F172A";
+            ctx.font = item.checked
+              ? "12.5px -apple-system, BlinkMacSystemFont, sans-serif"
+              : "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
+            const mark = item.checked ? "[✓] " : "[ ] ";
+            const itemText = item.text.length > 17 ? item.text.slice(0, 17) + "..." : item.text;
+            ctx.fillText(mark + itemText, col2X + 10, curY2);
+            curY2 += 18;
+          }
+        }
       }
-      if (curCol === 2 && curY > botLimitY) break;
+    } else {
+      for (const pack of displayPacks) {
+        const isCol1 = curY1 <= curY2;
+        let curX = isCol1 ? col1X : col2X;
+        let curY = isCol1 ? curY1 : curY2;
+
+        if (curY + 36 > botLimitY) {
+          if (isCol1 && curY2 + 36 <= botLimitY) {
+            curX = col2X;
+            curY = curY2;
+          } else if (!isCol1 && curY1 + 36 <= botLimitY) {
+            curX = col1X;
+            curY = curY1;
+          } else {
+            continue;
+          }
+        }
+
+        const packTitle = pack.name.length > 14 ? pack.name.slice(0, 14) + "..." : pack.name;
+
+        if (pack.kind === "editor") {
+          ctx.fillStyle = "#B45309";
+          ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText(`* 📝 ${packTitle}`, curX, curY);
+          curY += 20;
+
+          const memoLines = getMemoPreviewLines(pack, 4);
+          for (const line of memoLines) {
+            if (curY + 18 > botLimitY) break;
+            ctx.fillStyle = "#334155";
+            ctx.font = "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
+            const text = line.length > 19 ? line.slice(0, 19) + "..." : line;
+            ctx.fillText(text, curX + 4, curY);
+            curY += 18;
+          }
+          curY += 6;
+        } else {
+          ctx.fillStyle = "#0369A1";
+          ctx.font = "bold 14.5px -apple-system, BlinkMacSystemFont, sans-serif";
+          ctx.fillText(`* ${packTitle}`, curX, curY);
+          curY += 20;
+
+          for (const item of pack.items) {
+            if (curY + 18 > botLimitY) break;
+            ctx.fillStyle = item.checked ? "#94A3B8" : "#0F172A";
+            ctx.font = item.checked
+              ? "12.5px -apple-system, BlinkMacSystemFont, sans-serif"
+              : "500 12.5px -apple-system, BlinkMacSystemFont, sans-serif";
+            const mark = item.checked ? "[✓] " : "[ ] ";
+            const itemText = item.text.length > 17 ? item.text.slice(0, 17) + "..." : item.text;
+            ctx.fillText(mark + itemText, curX + 10, curY);
+            curY += 18;
+          }
+          curY += 6;
+        }
+
+        if (curX === col1X) {
+          curY1 = curY;
+        } else {
+          curY2 = curY;
+        }
+      }
     }
 
     // 하단 시그니처 손글씨 영역 (Wide Bottom Chin)

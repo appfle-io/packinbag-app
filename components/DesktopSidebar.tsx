@@ -24,6 +24,7 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconCheck,
+  IconShare,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -34,6 +35,7 @@ import { saveBagRemote } from "@/lib/bagsService";
 import { searchBags, searchLibraryPacks } from "@/lib/librarySearch";
 import { useToast } from "@/components/Toast";
 import PackColorDot from "@/components/PackColorDot";
+import PackShareModal from "@/components/PackShareModal";
 import Portal from "@/components/Portal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotificationBell from "@/components/NotificationBell";
@@ -827,6 +829,7 @@ export default function DesktopSidebar({
     isFolder: boolean;
     position?: { top: number; left: number; maxHeight: number };
   } | null>(null);
+  const [sharingPackOrFolder, setSharingPackOrFolder] = useState<Pack | null>(null);
   const [renamingPackId, setRenamingPackId] = useState<string | null>(null);
   const [packRenameDraft, setPackRenameDraft] = useState("");
   const [confirmDeletePackId, setConfirmDeletePackId] = useState<string | null>(null);
@@ -1925,13 +1928,25 @@ export default function DesktopSidebar({
                 const entry = treePacks.find((p) => p.id === packMenuFor.id);
                 if (!entry) return null;
                 return (
-                  <button
-                    onClick={() => startRenamePack(entry)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5"
-                  >
-                    <IconEdit size={15} stroke={1.75} />
-                    이름 바꾸기
-                  </button>
+                  <>
+                    <button
+                      onClick={() => startRenamePack(entry)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5"
+                    >
+                      <IconEdit size={15} stroke={1.75} />
+                      이름 바꾸기
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPackMenuFor(null);
+                        setSharingPackOrFolder(entry);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5 text-accent"
+                    >
+                      <IconShare size={15} stroke={1.75} />
+                      공유
+                    </button>
+                  </>
                 );
               })()}
               {!packMenuFor.isFolder && (
@@ -2014,6 +2029,22 @@ export default function DesktopSidebar({
             // 팩 보관함 추가
             onRenamePackEntry(newPack, newPack.name);
           }}
+        />
+      )}
+
+      {sharingPackOrFolder && (
+        <PackShareModal
+          pack={sharingPackOrFolder.type !== "folder" ? sharingPackOrFolder : undefined}
+          folder={sharingPackOrFolder.type === "folder" ? sharingPackOrFolder : undefined}
+          folderPacks={
+            sharingPackOrFolder.type === "folder"
+              ? treePacks.filter((p) => {
+                  const descIds = collectDescendantPackIds(treePacks, sharingPackOrFolder.id);
+                  return descIds.includes(p.id) && p.type !== "folder";
+                })
+              : undefined
+          }
+          onClose={() => setSharingPackOrFolder(null)}
         />
       )}
     </div>

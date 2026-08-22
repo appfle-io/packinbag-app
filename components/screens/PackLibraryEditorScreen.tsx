@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconArrowLeft,
   IconTrash,
+  IconShare,
   IconPlus,
   IconLock,
   IconX,
@@ -19,6 +20,7 @@ import ItemRow from "@/components/ItemRow";
 import ItemFormModal, { ItemFormSaveData } from "@/components/ItemFormModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import PackColorDot from "@/components/PackColorDot";
+import PackShareModal from "@/components/PackShareModal";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 
@@ -91,6 +93,7 @@ export default function PackLibraryEditorScreen({
 }) {
   const [pack, setPack] = useState<Pack>(initialPack);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   // 이 팩이 가방 속 어느 팩이랑이라도 연결되어 있는지 확인해서, 삭제 확인창에
   // "가방 속 사본도 함께 삭제" 체크박스를 보여줄지 결정한다.
   const linkedBagPackCount = useMemo(
@@ -586,10 +589,20 @@ export default function PackLibraryEditorScreen({
               >
                 저장됨
               </span>
+              {!pack.isQuickPack && (
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  aria-label="팩 공유"
+                  className="rounded-lg p-1.5 text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
+                >
+                  <IconShare size={18} stroke={1.75} />
+                </button>
+              )}
               {!readOnly && !pack.isQuickPack && (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="rounded-lg px-2.5 py-1.5"
+                  aria-label="팩 삭제"
+                  className="rounded-lg p-1.5 text-danger hover:bg-danger/10 transition-colors"
                 >
                   <IconTrash size={18} stroke={1.75} color="var(--danger)" />
                 </button>
@@ -916,6 +929,13 @@ export default function PackLibraryEditorScreen({
             deletingRef.current = true;
             onDelete(pack.id, alsoDeleteFromBags);
           }}
+        />
+      )}
+
+      {showShareModal && (
+        <PackShareModal
+          pack={pack}
+          onClose={() => setShowShareModal(false)}
         />
       )}
     </div>
