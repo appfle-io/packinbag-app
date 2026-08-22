@@ -1,13 +1,14 @@
 import { adminDb } from "@/lib/firebaseAdmin";
-import { Bag, Pack } from "@/lib/types";
+import { Bag } from "@/lib/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   IconBackpack,
   IconCheck,
   IconCalendar,
-  IconSparkles,
   IconLock,
+  IconArrowRight,
+  IconUserPlus,
 } from "@tabler/icons-react";
 import GuestMemoPackView from "@/components/GuestMemoPackView";
 
@@ -15,10 +16,12 @@ export const dynamic = "force-dynamic";
 
 interface GuestPageProps {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ code?: string; join?: string }>;
 }
 
-export default async function GuestBagPage({ params }: GuestPageProps) {
+export default async function GuestBagPage({ params, searchParams }: GuestPageProps) {
   const { token } = await params;
+  const { code: queryCode, join: queryJoin } = (await searchParams) || {};
   if (!token) notFound();
 
   const db = adminDb();
@@ -65,6 +68,12 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
   const bagDoc = snap.docs[0];
   const bag = { id: bagDoc.id, ...bagDoc.data() } as Bag;
 
+  // 초대코드 존재 여부 (URL 쿼리 우선)
+  const activeInviteCode = queryCode || queryJoin;
+  const appEntryUrl = activeInviteCode
+    ? `/?invite=${activeInviteCode}`
+    : `/?openBag=${bag.id}`;
+
   // 체크리스트 통계
   const checklistPacks = (bag.packs || []).filter((p) => p.kind !== "editor" && p.type !== "folder");
   let totalItems = 0;
@@ -89,7 +98,7 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-24 font-sans">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-28 font-sans">
       {/* 상단 브랜드 헤더 */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
@@ -99,9 +108,11 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
             </div>
             <span className="font-bold text-[15px] tracking-tight">PackInBag</span>
           </div>
-          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-            보기 전용 모드
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+              {activeInviteCode ? "초대 포함 모드" : "보기 전용 모드"}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -210,23 +221,34 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
         </div>
       </div>
 
-      {/* 하단 고정 온보딩 CTA 배너 */}
+      {/* 하단 고정 온보딩 & 가방 열기 CTA 배너 */}
       <div className="fixed bottom-0 inset-x-0 p-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-40">
         <div className="max-w-md mx-auto flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">
-              나만의 스마트 여행 짐 싸기
+              {activeInviteCode ? "그룹원으로 함께 패킹하기" : "팩인백에서 가방 열기"}
             </p>
             <p className="text-[11px] text-slate-500 truncate">
-              팩인백으로 실시간 공유하고 AI로 간편하게 준비하세요
+              {activeInviteCode
+                ? "초대코드가 포함되어 바로 그룹원으로 등록돼요"
+                : "앱/웹에서 실시간으로 짐을 체크하고 관리하세요"}
             </p>
           </div>
           <Link
-            href="/"
-            className="shrink-0 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[13px] shadow-sm flex items-center gap-1.5 transition-colors"
+            href={appEntryUrl}
+            className="shrink-0 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-[13px] shadow-sm flex items-center gap-1.5 transition-all"
           >
-            <IconSparkles size={16} />
-            시작하기
+            {activeInviteCode ? (
+              <>
+                <IconUserPlus size={16} />
+                <span>참여하기</span>
+              </>
+            ) : (
+              <>
+                <span>열기</span>
+                <IconArrowRight size={15} />
+              </>
+            )}
           </Link>
         </div>
       </div>

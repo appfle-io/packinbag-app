@@ -247,6 +247,16 @@ export async function joinBagByCode(
   return bagId;
 }
 
+export async function fetchBagRemote(bagId: string): Promise<Bag | null> {
+  try {
+    const snap = await getDoc(doc(bagsCol(), bagId));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() } as Bag;
+  } catch {
+    return null;
+  }
+}
+
 export async function leaveBagRemote(uid: string, bagId: string) {
   await updateDoc(doc(bagsCol(), bagId), {
     memberIds: arrayRemove(uid),

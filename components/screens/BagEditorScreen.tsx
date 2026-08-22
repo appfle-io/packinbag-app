@@ -31,6 +31,7 @@ import {
   IconShare,
   IconChecklist,
   IconUser,
+  IconCheck,
 } from "@tabler/icons-react";
 import { Bag, BagComment, BagReactionDoc, Item, Pack, ReactionEmoji, ReminderOffset, RichSpan } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -225,6 +226,7 @@ export default function BagEditorScreen({
   // 화면에 그릴 때만 걸러낸다(PackCard/NotebookPackSection의 displayItems 필터링) - 저장되지 않는
   // 화면별 임시 상태라 화면을 다시 들어오면 항상 꺼진 채로 시작한다.
   const [hideChecked, setHideChecked] = useState(false);
+  const [showViewMenu, setShowViewMenu] = useState(false);
 
   // 짐/팩 댓글 + 리액션. 이 가방의 comments/reactions 서브컴렉션 전체를 통째로
   // 구독하고(presence와 동일한 이유 - 복합 인덱스 없이 가벼운 구현), 화면에서는
@@ -2526,43 +2528,131 @@ export default function BagEditorScreen({
                 <IconPlus size={9} stroke={3} color="#fff" />
               </span>
             </button>
-            <button
-              onClick={handleToggleViewMode}
-              className="rounded-lg border border-border px-3 py-1.5 text-[12px] flex items-center gap-1"
-              aria-label={viewMode === "pack" ? "심플뷰로 보기" : "팩뷰로 보기"}
-            >
-              {viewMode === "pack" ? (
+            {/* 보기 모드 통합 셀렉트 박스 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowViewMenu((v) => !v)}
+                className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-medium flex items-center gap-1.5 transition-all shadow-2xs ${
+                  filterOnlyMyItems
+                    ? "border-accent bg-accent/10 text-accent font-bold"
+                    : "border-border bg-surface hover:bg-surface-2 text-foreground"
+                }`}
+                aria-label="보기 모드 선택"
+              >
+                {filterOnlyMyItems ? (
+                  <>
+                    <IconUser size={13} stroke={2} className="text-accent" />
+                    <span>내 짐만</span>
+                  </>
+                ) : viewMode === "pack" ? (
+                  <>
+                    <IconLayoutGrid size={13} stroke={1.75} className="text-accent" />
+                    <span>팩뷰</span>
+                  </>
+                ) : (
+                  <>
+                    <IconNotes size={13} stroke={1.75} className="text-accent" />
+                    <span>심플뷰</span>
+                  </>
+                )}
+                <IconChevronDown size={13} stroke={2} className="text-text-muted opacity-70" />
+              </button>
+
+              {/* 드롭다운 메뉴 */}
+              {showViewMenu && (
                 <>
-                  <IconNotes size={13} stroke={1.75} />심플뷰
-                </>
-              ) : (
-                <>
-                  <IconLayoutGrid size={13} stroke={1.75} />팩뷰
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowViewMenu(false)}
+                  />
+                  <div
+                    className="absolute top-full left-0 mt-1.5 z-50 w-48 rounded-2xl border border-border bg-surface p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-0.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-2.5 py-1 text-[10.5px] font-bold text-text-muted uppercase tracking-wider">
+                      보기 방식
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (viewMode !== "pack") handleToggleViewMode();
+                        setShowViewMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors ${
+                        viewMode === "pack" && !filterOnlyMyItems
+                          ? "bg-accent/10 text-accent font-bold"
+                          : "text-foreground hover:bg-surface-2"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <IconLayoutGrid size={15} stroke={1.75} />
+                        <span>팩 뷰 (카드형)</span>
+                      </div>
+                      {viewMode === "pack" && !filterOnlyMyItems && (
+                        <IconCheck size={14} stroke={2.5} />
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (viewMode !== "notebook") handleToggleViewMode();
+                        setShowViewMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors ${
+                        viewMode === "notebook" && !filterOnlyMyItems
+                          ? "bg-accent/10 text-accent font-bold"
+                          : "text-foreground hover:bg-surface-2"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <IconNotes size={15} stroke={1.75} />
+                        <span>심플 뷰 (문서형)</span>
+                      </div>
+                      {viewMode === "notebook" && !filterOnlyMyItems && (
+                        <IconCheck size={14} stroke={2.5} />
+                      )}
+                    </button>
+
+                    <div className="my-1 border-t border-border" />
+
+                    <div className="px-2.5 py-1 text-[10.5px] font-bold text-text-muted uppercase tracking-wider">
+                      특별 뷰 & 필터
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setShowPackingMode(true);
+                        setShowViewMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-[12.5px] font-medium text-foreground hover:bg-surface-2 transition-colors"
+                    >
+                      <IconChecklist size={15} stroke={1.75} className="text-accent" />
+                      <span>집중 패킹 모드</span>
+                    </button>
+
+                    {bag.memberIds.length > 1 && (
+                      <button
+                        onClick={() => {
+                          setFilterOnlyMyItems((v) => !v);
+                          setShowViewMenu(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors ${
+                          filterOnlyMyItems
+                            ? "bg-accent/10 text-accent font-bold"
+                            : "text-foreground hover:bg-surface-2"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <IconUser size={15} stroke={1.75} />
+                          <span>내 짐만 보기 (나만보기)</span>
+                        </div>
+                        {filterOnlyMyItems && <IconCheck size={14} stroke={2.5} />}
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
-            </button>
-            <button
-              onClick={() => setShowPackingMode(true)}
-              className="rounded-lg border border-accent/40 bg-accent-soft text-accent-strong px-2.5 py-1.5 text-[12px] font-semibold flex items-center gap-1.5 hover:bg-accent/15 transition-colors"
-              aria-label="집중 패킹 모드 시작"
-            >
-              <IconChecklist size={14} stroke={1.75} />
-              집중 패킹
-            </button>
-            {isSharedBag && (
-              <button
-                onClick={() => setFilterOnlyMyItems((v) => !v)}
-                className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium flex items-center gap-1 transition-colors ${
-                  filterOnlyMyItems
-                    ? "bg-accent text-white"
-                    : "border border-border hover:bg-surface-2 text-text-secondary"
-                }`}
-                aria-label="내 짐만 필터"
-              >
-                <IconUser size={13} stroke={1.75} />
-                내 짐만
-              </button>
-            )}
+            </div>
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
                 <button

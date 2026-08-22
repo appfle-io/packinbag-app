@@ -12,6 +12,7 @@ import {
   trashBagRemote,
   restoreBagRemote,
   joinBagByCode,
+  fetchBagRemote,
   leaveBagRemote,
   removeMemberRemote,
   regenerateInviteCodeRemote,
@@ -371,26 +372,70 @@ export default function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, announcements]);
 
-  // URL의 ?invite=CODE 쿼리 파라미터를 통한 공유 가방 자동 초대 수락
+  // 1. URL 쿼리 파라미터(?invite=, ?join=, ?openBag=)를 접속 즉시 sessionStorage에 보존하여 로그인/회원가입 후 유실 방지
   useEffect(() => {
-    if (typeof window === "undefined" || !user || !profile?.nickname) return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const inviteCode = urlParams.get("invite");
-    if (inviteCode && inviteCode.trim()) {
-      const code = inviteCode.trim().toUpperCase();
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
+    if (typeof window === "undefined") return;
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteCode = urlParams.get("invite") || urlParams.get("join");
+      const openBagId = urlParams.get("openBag");
 
-      handleJoinBag(code)
-        .then(() => {
+      if (inviteCode && inviteCode.trim()) {
+        sessionStorage.setItem("pib_pending_invite", inviteCode.trim().toUpperCase());
+      }
+      if (openBagId && openBagId.trim()) {
+        sessionStorage.setItem("pib_pending_open_bag", openBagId.trim());
+      }
+      if (inviteCode || openBagId) {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기 작업 자동 실행
+  const pendingActionProcessedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !user || !profile?.nickname || pendingActionProcessedRef.current) return;
+
+    const pendingInvite = sessionStorage.getItem("pib_pending_invite");
+    const pendingOpenBag = sessionStorage.getItem("pib_pending_open_bag");
+
+    if (!pendingInvite && !pendingOpenBag) return;
+    pendingActionProcessedRef.current = true;
+
+    if (pendingInvite) {
+      sessionStorage.removeItem("pib_pending_invite");
+      joinBagByCode(user.uid, pendingInvite, {
+        nickname: profile.nickname,
+        avatarId: profile.avatarId || "avatar_1",
+      })
+        .then(async (bagId) => {
           show("초대 링크로 가방에 참여했어요!");
+          const joined = await fetchBagRemote(bagId);
+          if (joined) {
+            setEditingBag(joined);
+          }
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error("[팩인백] 초대 가방 자동 참여 실패:", err);
           show("유효하지 않거나 만료된 초대 링크예요.");
         });
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, profile?.nickname]);
+
+    if (pendingOpenBag) {
+      sessionStorage.removeItem("pib_pending_open_bag");
+      fetchBagRemote(pendingOpenBag).then((targetBag) => {
+        if (targetBag && targetBag.memberIds.includes(user.uid)) {
+          setEditingBag(targetBag);
+        } else {
+          show("가방에 접근할 권한이 없어요.");
+        }
+      });
+    }
+  }, [user, profile?.nickname, profile?.avatarId, show]);
 
   const handleDismissAnnouncement = (id: string) => {
     if (!user) return;
