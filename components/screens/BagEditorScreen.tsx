@@ -79,6 +79,7 @@ import {
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import PresenceBar from "@/components/PresenceBar";
 import {
+  joinPresence,
   subscribeToPresence,
   setEditingNotePack,
   PRESENCE_STALE_MS,
@@ -1086,25 +1087,37 @@ export default function BagEditorScreen({
     updatePacks((packs) => packs.map((p) => (p.id === updated.id ? updated : p)));
   };
 
-  // 같은 메모팩을 두 명 이상이 동시에 열어서 덮어쓰는 사고를 막기 위해, 누가 어느 메모팩을 편집
-  // 중인지 presence 문서(bags/{bagId}/presence/{uid}.editingPackId)로 공유한다. PresenceBar와는
-  // 독립적인 구독이라(가방 전체 접속표시용), 여기서는 그 중 editingPackId만 보면 된다.
-  const [notePresenceEntries, setNotePresenceEntries] = useState<RawPresence[]>([]);
-  useEffect(() => subscribeToPresence(bag.id, setNotePresenceEntries), [bag.id]);
+  // 공유 가방(멤버 2명 이상)일 때만 접속자 presence를 구독하고 하트비트를 전송한다.
+  // 혼자 쓰는 1인 가방이거나 아직 생성 중(isNew)인 가방은 불필요한 쓰기/읽기를 건너뛴다.
+  const isSharedBag = bag.memberIds.length > 1;
+  const [presenceEntries, setPresenceEntries] = useState<RawPresence[]>([]);
+
+  useEffect(() => {
+    if (!isSharedBag || isNew) {
+      setPresenceEntries([]);
+      return;
+    }
+    const leave = joinPresence(bag.id, currentUid, nickname, avatarId, isSharedBag);
+    const unsub = subscribeToPresence(bag.id, setPresenceEntries);
+    return () => {
+      unsub();
+      leave();
+    };
+  }, [bag.id, currentUid, nickname, avatarId, isSharedBag, isNew]);
 
   // 지금 내가 열고 있는 메모팩 id를 presence에 알린다(닫거나 다른 팩으로 바꿀 때 자동으로 지우고
-  // 새로 알림). 다른 사람이 같은 팩을 편집 중이면(otherNoteEditor 아래) 배지로 보여준다.
+  // 새로 알림). 공유 가방에서만 동작하며, 다른 사람이 같은 팩을 편집 중이면(otherNoteEditor 아래) 배지로 보여준다.
   useEffect(() => {
-    if (!editingNotePackId) return;
+    if (!isSharedBag || !editingNotePackId) return;
     setEditingNotePack(bag.id, currentUid, editingNotePackId);
     return () => {
       setEditingNotePack(bag.id, currentUid, null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingNotePackId, bag.id, currentUid]);
+  }, [editingNotePackId, bag.id, currentUid, isSharedBag]);
 
   const otherNoteEditor = editingNotePackId
-    ? notePresenceEntries.find(
+    ? presenceEntries.find(
         (e) =>
           e.uid !== currentUid &&
           e.editingPackId === editingNotePackId &&
@@ -1116,7 +1129,7 @@ export default function BagEditorScreen({
   // 조회 함수. 카드 목록 화면에서는 내 편집 화면(전체화면 오버레이)이 그 위를 덮고 있으므로
   // 내 자신은 자연스럽게 제외된다(동시에 볼 수 없는 화면이기 때문). 최대 3명까지만 보여준다.
   const getNoteEditorsForPack = (packId: string) =>
-    notePresenceEntries
+    presenceEntries
       .filter(
         (e) =>
           e.uid !== currentUid &&
@@ -2103,7 +2116,7 @@ export default function BagEditorScreen({
         <div className="flex items-center gap-2">
           {!isNew && (
             <>
-              <PresenceBar bagId={bag.id} uid={currentUid} nickname={nickname} avatarId={avatarId} />
+              <PresenceBar entries={presenceEntries} uid={currentUid} />
               <button
                 onClick={() => setShowMembers(true)}
                 aria-label="그룹원 관리"

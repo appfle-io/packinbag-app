@@ -1,4 +1,5 @@
 declare module "@tabler/icons-react";
+declare module "@revenuecat/purchases-capacitor";
 
 declare module "firebase/firestore" {
   export * from "@firebase/firestore";

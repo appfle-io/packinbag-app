@@ -12,8 +12,8 @@ import { db } from "@/lib/firebase";
 // bags/{bagId}/presence/{uid} 문서로 저장하고, 주기적으로 updatedAt을 갱신(heartbeat)해서
 // 죽은 접속(브라우저를 그냥 닫아버린 경우)은 클라이언트에서 오래된 항목으로 판단해 걸러낸다.
 
-const HEARTBEAT_MS = 20000; // 20초마다 살아있다고 갱신
-export const PRESENCE_STALE_MS = 45000; // 45초 넘게 갱신 없으면 나간 것으로 간주
+const HEARTBEAT_MS = 35000; // 35초마다 살아있다고 갱신 (기존 20초에서 완화하여 쓰기 비용 절감)
+export const PRESENCE_STALE_MS = 80000; // 80초 넘게 갱신 없으면 나간 것으로 간주 (네트워크 지연 마진)
 
 function presenceCol(bagId: string) {
   return collection(db, "bags", bagId, "presence");
@@ -61,30 +61,55 @@ export function subscribeToPresence(
 }
 
 // 가방을 여는 동안 호출: 즉시 등록 + 주기적 heartbeat. 반환된 함수를 unmount 시 호출해 정리한다.
+// 1인 가방(isSharedBag = false)인 경우 혼자 쓰는 공간이므로 불필요한 하트비트 Write를 건너뛴다.
 export function joinPresence(
   bagId: string,
   uid: string,
   nickname: string,
-  avatarId: string
+  avatarId: string,
+  isSharedBag: boolean = true
 ): () => void {
+  if (!isSharedBag) return () => {};
+
   const ref = doc(presenceCol(bagId), uid);
-  const beat = () =>
+  const beat = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     setDoc(
       ref,
       { nickname, avatarId, updatedAt: serverTimestamp() },
       { merge: true }
     ).catch(() => {});
+  };
 
   beat();
-  const interval = window.setInterval(beat, HEARTBEAT_MS);
+  let interval: number | null = window.setInterval(beat, HEARTBEAT_MS);
+
+  const handleVisibility = () => {
+    if (document.visibilityState === "hidden") {
+      if (interval !== null) {
+        window.clearInterval(interval);
+        interval = null;
+      }
+    } else {
+      beat();
+      if (interval === null) {
+        interval = window.setInterval(beat, HEARTBEAT_MS);
+      }
+    }
+  };
 
   const handleUnload = () => {
     deleteDoc(ref).catch(() => {});
   };
+
+  document.addEventListener("visibilitychange", handleVisibility);
   window.addEventListener("pagehide", handleUnload);
 
   return () => {
-    window.clearInterval(interval);
+    if (interval !== null) {
+      window.clearInterval(interval);
+    }
+    document.removeEventListener("visibilitychange", handleVisibility);
     window.removeEventListener("pagehide", handleUnload);
     deleteDoc(ref).catch(() => {});
   };

@@ -49,6 +49,17 @@ function diffStats(current: AdminStats, baseline: AdminStats | null): AdminStats
   };
 }
 
+// 관리자 대시보드 통계 인메모리 캐시 (5분 TTL). 대시보드 새로고침 시의 Firestore 대량 Read를 방어한다.
+interface CachedStatsPayload {
+  stats: AdminStats;
+  trend: {
+    vsYesterday: AdminStats | null;
+    vsLastWeek: AdminStats | null;
+  };
+}
+let statsCache: { data: CachedStatsPayload; cachedAtMs: number } | null = null;
+const STATS_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export async function GET(req: NextRequest) {
   try {
     await requireMasterUser(req);
@@ -60,6 +71,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }
     return NextResponse.json({ error: "로그인 정보를 확인할 수 없어요" }, { status: 401 });
+  }
+
+  const force = req.nextUrl.searchParams.get("force") === "1";
+  const now = Date.now();
+  if (!force && statsCache && now - statsCache.cachedAtMs < STATS_CACHE_TTL_MS) {
+    return NextResponse.json({
+      ...statsCache.data.stats,
+      trend: statsCache.data.trend,
+      cached: true,
+    });
   }
 
   try {
@@ -76,12 +97,19 @@ export async function GET(req: NextRequest) {
     const yesterdayStats = yesterdaySnap.exists ? (yesterdaySnap.data() as AdminStats) : null;
     const weekAgoStats = weekAgoSnap.exists ? (weekAgoSnap.data() as AdminStats) : null;
 
+    const trend = {
+      vsYesterday: diffStats(stats, yesterdayStats),
+      vsLastWeek: diffStats(stats, weekAgoStats),
+    };
+
+    statsCache = {
+      data: { stats, trend },
+      cachedAtMs: Date.now(),
+    };
+
     return NextResponse.json({
       ...stats,
-      trend: {
-        vsYesterday: diffStats(stats, yesterdayStats),
-        vsLastWeek: diffStats(stats, weekAgoStats),
-      },
+      trend,
     });
   } catch (err) {
     console.error("[팩인백] 관리자 통계 조회 실패:", err);

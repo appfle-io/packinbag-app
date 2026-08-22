@@ -231,13 +231,19 @@ export default function AppShell() {
     return subscribeToUserBags(user.uid, setBags);
   }, [user]);
 
-  // 내 닉네임/아바타를 바꾼 뒤(혹은 예전에 참여해두고 한 번도 갱신 안 된 채로 남아있는
-  // 경우까지) 각 가방에 찍힌 memberProfiles 스냅샷이 최신 프로필과 다르면 그 가방만
-  // 가볍게 고쳐쓴다. 이미 실시간 구독 중인 bags 목록을 그대로 비교에 쓰기 때문에 별도
-  // 쿼리 없이 동작하고, 실제로 값이 어긋난 가방에만 쓰기가 일어난다.
+  const lastSyncedProfileRef = useRef<string | null>(null);
+
+  // 내 닉네임/아바타를 바꾼 뒤(혹은 최초 로드 시) 각 공유 가방에 찍힌 memberProfiles 스냅샷이
+  // 최신 프로필과 다르면 그 가방만 가볍게 고쳐쓴다. 프로필(닉네임/아바타)이 실제로 변경된 순간에만
+  // 실행되고, 휴지통으로 들어간 가방은 제외하여 불필요한 연속 쓰기를 방지한다.
   useEffect(() => {
     if (!user || !profile?.nickname || !profile.avatarId) return;
+    const profileKey = `${profile.nickname}:${profile.avatarId}`;
+    if (lastSyncedProfileRef.current === profileKey) return;
+    lastSyncedProfileRef.current = profileKey;
+
     bags.forEach((bag) => {
+      if (bag.trashedByOwnerAt) return;
       const snap = bag.memberProfiles?.[user.uid];
       if (!snap) return;
       if (snap.nickname === profile.nickname && snap.avatarId === profile.avatarId) return;
@@ -246,7 +252,7 @@ export default function AppShell() {
         avatarId: profile.avatarId!,
       }).catch(() => {});
     });
-  }, [bags, user, profile]);
+  }, [bags, user, profile?.nickname, profile?.avatarId]);
 
   useEffect(() => {
     if (!user) return;

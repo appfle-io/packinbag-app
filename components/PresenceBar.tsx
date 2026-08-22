@@ -3,38 +3,18 @@
 import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/Toast";
-import {
-  joinPresence,
-  subscribeToPresence,
-  PRESENCE_STALE_MS,
-  RawPresence,
-} from "@/lib/presenceService";
+import { PRESENCE_STALE_MS, RawPresence } from "@/lib/presenceService";
 
 export default function PresenceBar({
-  bagId,
+  entries = [],
   uid,
-  nickname,
-  avatarId,
 }: {
-  bagId: string;
+  entries?: RawPresence[];
   uid: string;
-  nickname: string;
-  avatarId: string;
 }) {
-  const [entries, setEntries] = useState<RawPresence[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [showOverflow, setShowOverflow] = useState(false);
   const { show } = useToast();
-
-  useEffect(() => {
-    const leave = joinPresence(bagId, uid, nickname, avatarId);
-    const unsub = subscribeToPresence(bagId, setEntries);
-    return () => {
-      unsub();
-      leave();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bagId, uid]);
 
   // 시간이 흘러서 오래된 접속자를 걸러내기 위해 주기적으로 리렌더
   useEffect(() => {
