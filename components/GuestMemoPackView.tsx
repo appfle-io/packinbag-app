@@ -11,55 +11,41 @@ import {
   IconPhoto,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
-import { collectEditorDocPreviewLines, PreviewSpan } from "@/lib/editorDocPreview";
-
-// URL 문자열을 자동으로 <a> 태그로 파싱하는 정규식
-const URL_REGEX = /(https?:\/\/[^\s]+)/g;
-
-function renderTextWithLinks(text: string, keyPrefix: string) {
-  const parts = text.split(URL_REGEX);
-  return parts.map((part, index) => {
-    if (URL_REGEX.test(part)) {
-      return (
-        <a
-          key={`${keyPrefix}-${index}`}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:opacity-80 break-all font-medium"
-        >
-          <span>{part}</span>
-          <IconExternalLink size={12} className="shrink-0 inline" />
-        </a>
-      );
-    }
-    return <span key={`${keyPrefix}-${index}`}>{part}</span>;
-  });
-}
+import {
+  collectEditorDocRichBlocks,
+  RichBlock,
+} from "@/lib/editorDocPreview";
+import MemoRichTextView from "./MemoRichTextView";
 
 export default function GuestMemoPackView({ pack }: { pack: Pack }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // TipTap JSON 구조(editorDoc)에서 텍스트 라인 파싱, 없으면 editorPreviewText를 기반으로 생성
-  const parsedLines = useMemo(() => {
+  // TipTap JSON 구조(editorDoc)에서 리치 블록 파싱, 없으면 editorPreviewText를 기반으로 생성
+  const richBlocks = useMemo(() => {
     if (pack.editorDoc) {
-      const lines = collectEditorDocPreviewLines(pack.editorDoc);
-      if (lines.length > 0) return lines;
+      const b = collectEditorDocRichBlocks(pack.editorDoc);
+      if (b.length > 0) return b;
     }
     if (pack.editorPreviewText) {
-      return pack.editorPreviewText.split("\n").map((line): PreviewSpan[] => [{ text: line }]);
+      return pack.editorPreviewText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .map((line): RichBlock => ({
+          type: "paragraph",
+          spans: [{ text: line }],
+        }));
     }
     return [];
   }, [pack.editorDoc, pack.editorPreviewText]);
 
   const fullText = useMemo(() => {
-    if (parsedLines.length > 0) {
-      return parsedLines.map((line) => line.map((s) => s.text).join("")).join("\n");
+    if (richBlocks.length > 0) {
+      return richBlocks.map((b) => b.spans.map((s) => s.text).join("")).join("\n");
     }
     return pack.editorPreviewText || "";
-  }, [parsedLines, pack.editorPreviewText]);
+  }, [richBlocks, pack.editorPreviewText]);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,8 +59,8 @@ export default function GuestMemoPackView({ pack }: { pack: Pack }) {
     }
   };
 
-  const isLongContent = parsedLines.length > 4 || fullText.length > 180;
-  const displayedLines = isLongContent && !expanded ? parsedLines.slice(0, 4) : parsedLines;
+  const isLongContent = richBlocks.length > 5 || fullText.length > 200;
+  const displayedBlocks = isLongContent && !expanded ? richBlocks.slice(0, 5) : richBlocks;
 
   return (
     <div className="space-y-2">
@@ -108,35 +94,13 @@ export default function GuestMemoPackView({ pack }: { pack: Pack }) {
 
       {/* 메모 본문 카드 */}
       <div className="relative rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/80 p-3.5 transition-all">
-        {parsedLines.length === 0 ? (
+        {displayedBlocks.length === 0 ? (
           <p className="text-[13px] text-slate-400 italic py-1">작성된 메모 내용이 없어요</p>
         ) : (
-          <div className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-200 space-y-1.5 whitespace-pre-wrap break-words">
-            {displayedLines.map((line, li) => (
-              <p key={li} className="m-0">
-                {line.map((span, si) =>
-                  span.href ? (
-                    <a
-                      key={si}
-                      href={span.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:opacity-80 break-all font-medium"
-                    >
-                      <span>{span.text}</span>
-                      <IconExternalLink size={12} className="shrink-0 inline" />
-                    </a>
-                  ) : (
-                    renderTextWithLinks(span.text, `${li}-${si}`)
-                  )
-                )}
-              </p>
-            ))}
-          </div>
+          <MemoRichTextView blocks={displayedBlocks} />
         )}
 
-        {/* 4줄 초과 시 접힘 페이드 & 더보기 버튼 */}
+        {/* 5줄 초과 시 접힘 페이드 & 더보기 버튼 */}
         {isLongContent && (
           <div className="pt-2">
             <button
