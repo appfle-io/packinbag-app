@@ -17,6 +17,8 @@ import {
   IconRefresh,
   IconLogout,
   IconZoomIn,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { useToast } from "@/components/Toast";
 import Avatar from "@/components/Avatar";
@@ -199,13 +201,77 @@ export default function ShareCardModal({
   const [showEnlargedPreview, setShowEnlargedPreview] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState<string>("");
 
+  const THEMES: CardTheme[] = ["boarding", "receipt", "polaroid"];
+  const THEME_LABELS: Record<CardTheme, string> = {
+    boarding: "보딩패스",
+    receipt: "영수증",
+    polaroid: "폴라로이드",
+  };
+
+  const handlePrevTheme = () => {
+    setTheme((prev) => {
+      const idx = THEMES.indexOf(prev);
+      return THEMES[(idx - 1 + THEMES.length) % THEMES.length];
+    });
+  };
+
+  const handleNextTheme = () => {
+    setTheme((prev) => {
+      const idx = THEMES.indexOf(prev);
+      return THEMES[(idx + 1) % THEMES.length];
+    });
+  };
+
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  const handleSwipeStart = (clientX: number, clientY: number) => {
+    setTouchStartX(clientX);
+    setTouchStartY(clientY);
+  };
+
+  const handleSwipeEnd = (clientX: number, clientY: number) => {
+    if (touchStartX === null || touchStartY === null) return;
+    const deltaX = clientX - touchStartX;
+    const deltaY = clientY - touchStartY;
+    if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+      if (deltaX < 0) {
+        handleNextTheme();
+      } else {
+        handlePrevTheme();
+      }
+    }
+    setTouchStartX(null);
+    setTouchStartY(null);
+  };
+
   const handleOpenEnlargedPreview = () => {
     const canvas = canvasRef.current || canvasElement;
     if (canvas) {
-      setPreviewDataUrl(canvas.toDataURL("image/png"));
+      try {
+        setPreviewDataUrl(canvas.toDataURL("image/png"));
+      } catch {
+        // ignore
+      }
       setShowEnlargedPreview(true);
     }
   };
+
+  // 확대 미리보기 중 좌우 방향키로 카드 전환
+  useEffect(() => {
+    if (!showEnlargedPreview) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlePrevTheme();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNextTheme();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showEnlargedPreview]);
 
   const displayPacks: Pack[] = useMemo(() => {
     return bag.packs.filter((p) => p.type !== "folder");
@@ -271,6 +337,12 @@ export default function ShareCardModal({
       drawReceipt(ctx, width, height);
     } else {
       drawPolaroid(ctx, width, height);
+    }
+
+    try {
+      setPreviewDataUrl(canvas.toDataURL("image/png"));
+    } catch {
+      // ignore
     }
   }, [canvasElement, mainTab, theme, bag, displayPacks, progressRatio, ddayText, checkedItems, totalItems]);
 
@@ -1273,16 +1345,42 @@ export default function ShareCardModal({
                   </button>
                 </div>
 
-                {/* 캔버스 프리뷰 (클릭 시 크게 보기) */}
+                {/* 캔버스 프리뷰 (클릭 시 크게 보기 + 좌우 스와이프로 전환) */}
                 <div
                   onClick={handleOpenEnlargedPreview}
-                  title="클릭하여 크게 보기"
-                  className="group relative flex items-center justify-center p-2 bg-surface-2 rounded-xl mb-2.5 border border-border min-h-[220px] max-h-[280px] cursor-pointer hover:border-accent/50 transition-all"
+                  onTouchStart={(e) => handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)}
+                  onTouchEnd={(e) => handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
+                  title="클릭하여 크게 보기 (좌우 스와이프로 카드 전환)"
+                  className="group relative flex items-center justify-center p-2 bg-surface-2 rounded-xl mb-2.5 border border-border min-h-[220px] max-h-[280px] cursor-pointer hover:border-accent/50 transition-all select-none"
                 >
                   <canvas
                     ref={setCanvasRef}
                     className="w-full max-h-[260px] object-contain rounded-lg shadow-sm"
                   />
+                  {/* 좌우 이동 버튼 */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevTheme();
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                    aria-label="이전 카드"
+                  >
+                    <IconChevronLeft size={16} stroke={2.5} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextTheme();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                    aria-label="다음 카드"
+                  >
+                    <IconChevronRight size={16} stroke={2.5} />
+                  </button>
+
                   <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center pointer-events-none">
                     <div className="bg-black/75 text-white text-[12px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg backdrop-blur-xs">
                       <IconZoomIn size={15} />
@@ -1515,49 +1613,130 @@ export default function ShareCardModal({
             />
           )}
 
-          {/* 카드 크게 보기 라이트박스 모달 */}
+          {/* 카드 크게 보기 라이트박스 모달 (좌우 스와이프 및 전환 지원) */}
           {showEnlargedPreview && (
             <div
-              className="fixed inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-4 z-[99999] animate-in fade-in duration-150"
+              className="fixed inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-between p-4 z-[99999] animate-in fade-in duration-150 select-none"
               onClick={() => setShowEnlargedPreview(false)}
+              onTouchStart={(e) => handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)}
+              onTouchEnd={(e) => handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
+              onMouseDown={(e) => handleSwipeStart(e.clientX, e.clientY)}
+              onMouseUp={(e) => handleSwipeEnd(e.clientX, e.clientY)}
             >
-              <div className="absolute top-4 right-4 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload();
-                  }}
-                  className="px-3 py-2 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white transition-all flex items-center gap-1.5 text-[13px] font-bold shadow-lg"
-                  aria-label="다운로드"
-                >
-                  <IconDownload size={17} />
-                  <span>저장</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowEnlargedPreview(false);
-                  }}
-                  className="p-2 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white transition-all shadow-lg"
-                  aria-label="닫기"
-                >
-                  <IconX size={20} />
-                </button>
-              </div>
-
+              {/* 상단 툴바 (테마 전환 탭 & 저장/닫기) */}
               <div
-                className="max-w-md w-full max-h-[85vh] flex items-center justify-center animate-in zoom-in-95 duration-200"
+                className="w-full max-w-lg flex items-center justify-between gap-2 z-10"
                 onClick={(e) => e.stopPropagation()}
               >
+                {/* 상단 3종 테마 전환 필 */}
+                <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md p-1 rounded-full border border-white/10 text-white text-[12px] font-medium shadow-lg">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTheme(t)}
+                      className={`px-3 py-1 rounded-full transition-all ${
+                        theme === t
+                          ? "bg-white text-black font-bold shadow-sm"
+                          : "text-white/70 hover:text-white"
+                      }`}
+                    >
+                      {THEME_LABELS[t]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload();
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white transition-all flex items-center gap-1.5 text-[12px] font-bold shadow-lg backdrop-blur-sm"
+                    aria-label="저장"
+                  >
+                    <IconDownload size={15} />
+                    <span>저장</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowEnlargedPreview(false);
+                    }}
+                    className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 text-white transition-all shadow-lg backdrop-blur-sm"
+                    aria-label="닫기"
+                  >
+                    <IconX size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 중앙 이미지 및 좌우 네비게이션 버튼 */}
+              <div
+                className="relative max-w-md w-full flex-1 flex items-center justify-center min-h-0 my-auto py-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* 이전 카드 버튼 */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevTheme();
+                  }}
+                  className="absolute -left-2 sm:-left-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white transition-all backdrop-blur-md shadow-xl z-20 border border-white/15"
+                  aria-label="이전 카드 (스와이프 가능)"
+                  title="이전 카드 (← 방향키/스와이프)"
+                >
+                  <IconChevronLeft size={22} stroke={2.5} />
+                </button>
+
                 {previewDataUrl && (
                   <img
                     src={previewDataUrl}
                     alt={`${bag.name} 공유 카드 확대`}
-                    className="max-h-[82vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl"
+                    className="max-h-[76vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-all duration-200"
+                    draggable={false}
                   />
                 )}
+
+                {/* 다음 카드 버튼 */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextTheme();
+                  }}
+                  className="absolute -right-2 sm:-right-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white transition-all backdrop-blur-md shadow-xl z-20 border border-white/15"
+                  aria-label="다음 카드 (스와이프 가능)"
+                  title="다음 카드 (→ 방향키/스와이프)"
+                >
+                  <IconChevronRight size={22} stroke={2.5} />
+                </button>
+              </div>
+
+              {/* 하단 인디케이터 점 3개 & 팁 */}
+              <div
+                className="flex flex-col items-center gap-1.5 z-10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTheme(t)}
+                      className={`h-2 rounded-full transition-all ${
+                        theme === t ? "w-6 bg-white shadow-sm" : "w-2 bg-white/35 hover:bg-white/60"
+                      }`}
+                      aria-label={`${THEME_LABELS[t]}로 전환`}
+                    />
+                  ))}
+                </div>
+                <p className="text-[11px] text-white/60 font-medium">
+                  좌우로 스와이프하거나 방향키로 3종 카드를 바로 전환해보세요
+                </p>
               </div>
             </div>
           )}
