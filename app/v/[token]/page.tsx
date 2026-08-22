@@ -41,7 +41,7 @@ export default async function GuestBagPage({ params, searchParams }: GuestPagePr
 
   if (snap.empty) {
     return (
-      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="max-w-sm w-full text-center space-y-4 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
           <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
             <IconLock size={28} />
@@ -98,7 +98,7 @@ export default async function GuestBagPage({ params, searchParams }: GuestPagePr
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-28 font-sans">
+    <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-32 font-sans">
       {/* 상단 브랜드 헤더 */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
