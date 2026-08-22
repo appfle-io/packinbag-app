@@ -2167,18 +2167,7 @@ export default function BagEditorScreen({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!isNew && (
-            <>
-              <PresenceBar entries={presenceEntries} uid={currentUid} />
-              <button
-                onClick={() => setShowMembers(true)}
-                aria-label="그룹원 관리"
-                className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
-              >
-                <IconUsers size={18} stroke={1.75} />
-              </button>
-            </>
-          )}
+          {!isNew && <PresenceBar entries={presenceEntries} uid={currentUid} />}
           {!readOnly && (
             <button
               onClick={() => setConfirmDeleteBag(true)}
@@ -2206,7 +2195,7 @@ export default function BagEditorScreen({
           )}
           <button
             onClick={() => setShowShareCard(true)}
-            aria-label="여행 공유 카드"
+            aria-label="가방 공유 및 멤버"
             className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
           >
             <IconShare size={18} stroke={1.75} />
@@ -3249,16 +3238,19 @@ export default function BagEditorScreen({
         />
       )}
 
-      {showMembers && (
-        <GroupMembersModal
+      {(showShareCard || showMembers) && (
+        <ShareCardModal
           bag={bag}
           currentUid={currentUid}
-          onClose={() => setShowMembers(false)}
+          initialTab={showMembers ? "members" : "card"}
+          onClose={() => {
+            setShowShareCard(false);
+            setShowMembers(false);
+          }}
           onLeave={handleLeave}
           onRemoveMember={handleRemoveMember}
           onRegenerateCode={handleRegenerateCode}
           onTransferOwnership={handleTransferOwnership}
-          onOpenShareCard={() => setShowShareCard(true)}
         />
       )}
 
@@ -3268,13 +3260,6 @@ export default function BagEditorScreen({
           currentUid={currentUid}
           onClose={() => setShowPackingMode(false)}
           onToggleItem={handleToggleItem}
-        />
-      )}
-
-      {showShareCard && (
-        <ShareCardModal
-          bag={bag}
-          onClose={() => setShowShareCard(false)}
         />
       )}
 
