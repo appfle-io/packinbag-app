@@ -34,7 +34,6 @@ import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
 import { searchBags, searchLibraryPacks } from "@/lib/librarySearch";
 import { useToast } from "@/components/Toast";
-import PackColorDot from "@/components/PackColorDot";
 import PackShareModal from "@/components/PackShareModal";
 import Portal from "@/components/Portal";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -1342,7 +1341,6 @@ export default function DesktopSidebar({
                             opacity: isBagPackDropSource ? 0.4 : 1,
                           }}
                         >
-                          <PackColorDot colorId={pack.color} onChange={() => {}} />
                           <span className="text-[12.5px] truncate min-w-0 flex-1 text-text-secondary">
                             {pack.name}
                           </span>
@@ -1555,10 +1553,8 @@ export default function DesktopSidebar({
                   ) : (
                     <span className="w-[13px] shrink-0" />
                   )}
-                  {isFolder ? (
+                  {isFolder && (
                     <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                  ) : (
-                    <PackColorDot colorId={entry.color} onChange={(colorId) => onChangeColor(entry, colorId)} />
                   )}
                   {isRenaming ? (
                     <input

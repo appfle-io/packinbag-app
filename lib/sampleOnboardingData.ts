@@ -55,7 +55,6 @@ export async function seedSampleDataForNewUser(
   const libraryElecPack: Pack = {
     id: uid(),
     name: "전자기기 & 충전",
-    color: "blue",
     parentId: folderTravel.id,
     type: "pack",
     createdAt: now,
@@ -75,7 +74,6 @@ export async function seedSampleDataForNewUser(
   const libraryClothesPack: Pack = {
     id: uid(),
     name: "의류 & 위생용품",
-    color: "teal",
     parentId: folderTravel.id,
     type: "pack",
     createdAt: now,
@@ -95,7 +93,6 @@ export async function seedSampleDataForNewUser(
   const libraryFoodPack: Pack = {
     id: uid(),
     name: "바베큐 & 먹거리",
-    color: "orange",
     type: "pack",
     createdAt: now,
     updatedAt: now,
@@ -115,51 +112,363 @@ export async function seedSampleDataForNewUser(
     type: "doc",
     content: [
       {
-        type: "paragraph",
-        content: [{ type: "text", text: "✈️ 도쿄 3박 4일 일정 & 맛집 리스트" }],
+        type: "heading",
+        attrs: { level: 2 },
+        content: [{ type: "text", text: "✈️ 도쿄 3박 4일 일정 & 맛집 총정리" }],
       },
       {
         type: "paragraph",
         content: [
+          { type: "text", marks: [{ type: "bold" }], text: "📌 필수 예약 & 교통 정보" },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: [
           {
-            type: "text",
-            text: "• Day 1: 나리타 공항 도착 → 신주쿠 숙소 체크인 → 오모이데요코초 라멘 투어",
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "숙소: 호텔 그레이서리 신주쿠 (체크인 15:00 / 예약번호: JP-883920)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "N'EX 나리타 익스프레스 왕복권: 1터미널 JR 동일본 여행 서비스 센터에서 발권" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "시부야 스카이 전망대: 2일차 14:00 입장 예약 완료 (모바일 QR 캡처 필수)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "교통카드: 아이폰 애플페이 스이카(Suica) 등록 완료 (마스터/현대카드 충전)" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: "heading",
+        attrs: { level: 3 },
+        content: [{ type: "text", text: "🗓️ 일자별 상세 코스" }],
+      },
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", marks: [{ type: "bold" }], text: "Day 1 (신주쿠 중심)" },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "11:30 나리타 공항 도착 → 입국심사(Visit Japan Web QR) → 12:45 N'EX 탑승" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "14:30 호텔 체크인 & 짐 정리 후 신주쿠 거리 산책" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "16:30 늦은 점심: 타츠노야 신주쿠점 (매운 곱창 츠케멘 강추!)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "19:00 도쿄도청 남쪽 전망대 (무료 입장, 21:30 마감) 야경 감상" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "21:00 오모이데요코초 꼬치 골목에서 생맥주(나마비루) 한 잔 🍢" },
+                ],
+              },
+            ],
           },
         ],
       },
       {
         type: "paragraph",
         content: [
+          { type: "text", marks: [{ type: "bold" }], text: "Day 2 (시부야 & 하라주쿠 & 롯폰기)" },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: [
           {
-            type: "text",
-            text: "• Day 2: 시부야 스카이 전망대(14:00 예약) → 하라주쿠 쇼핑 → 롯폰기 힐즈 야경",
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "10:30 오모테산도 힐즈 & 캣스트리트 쇼핑 (키디랜드, 슈프림)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "12:30 점심: 하라주쿠 아후리(AFURI) 유자시오 라멘" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "14:00 시부야 스카이 전망대 입장 (13:45까지 도착하기)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "16:00 미야시타 파크 카페 휴식 & 넘버슈가 수제 카라멜 구매" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "19:30 저녁: 롯폰기 츠루동탄 (세숫대야 명란 크림 우동)" },
+                ],
+              },
+            ],
           },
         ],
       },
       {
         type: "paragraph",
         content: [
+          { type: "text", marks: [{ type: "bold" }], text: "Day 3 (아사쿠사 & 긴자 & 오다이바)" },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: [
           {
-            type: "text",
-            text: "• Day 3: 아사쿠사 센소지 → 오다이바 해변공원 → 긴자 규카츠 (웨이팅 필수)",
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "09:30 아사쿠사 센소지 신사 산책 & 나카미세도리 간식 (실크푸딩)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "12:00 점심: 긴자 모토무라 규카츠 (웨이팅 예상, 마 소스 추가)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "15:00 유리카모메 탑승 → 오다이바 해변공원, 자유의 여신상, 다이버시티 건담" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "18:30 레인보우 브릿지 야경 감상 & 덱스 도쿄 비치 저녁 식사" },
+                ],
+              },
+            ],
           },
         ],
       },
       {
         type: "paragraph",
         content: [
+          { type: "text", marks: [{ type: "bold" }], text: "Day 4 (쇼핑 & 귀국)" },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: [
           {
-            type: "text",
-            text: "• Day 4: 숙소 체크아웃 → 면세점 쇼핑 → 나리타 익스프레스(N'EX) 공항 이동",
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "10:00 호텔 체크아웃 (캐리어 로비에 무료 보관)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "11:00 돈키호테 신주쿠 가부키초점 (면세 10% + 5% 할인쿠폰 적용)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "13:30 호텔에서 짐 픽업 → 신주쿠역 N'EX 탑승" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "15:30 나리타 공항 면세점: 도쿄바나나, 시로이코이비토, 닷사이 23 사케 구매" },
+                ],
+              },
+            ],
           },
         ],
       },
       {
-        type: "paragraph",
+        type: "heading",
+        attrs: { level: 3 },
+        content: [{ type: "text", text: "🛍️ 쇼핑 위시리스트 & 꿀팁" }],
+      },
+      {
+        type: "bulletList",
         content: [
           {
-            type: "text",
-            text: "💡 팁: 스이카(Suica) 교통카드 애플페이 충전 완료! 지하철 패스 수령처: 1터미널 지하 1층",
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "의약품: 샤론파스 140매, 오타이산 소화제, 이브 퀵(EVE Quick) 진통제, 로토 안약" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "화장품/잡화: 비오레 선크림, 휴족시간, 멜라노 CC 에센스" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "주류: 산토리 가쿠빈 위스키 (1인당 2병 면세 한도 확인)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "🚨 긴급 연락처: 주일 대한민국 대사관 +81-3-3452-7770 / 영사콜센터 +82-2-3210-0404" },
+                ],
+              },
+            ],
           },
         ],
       },
@@ -167,18 +476,17 @@ export async function seedSampleDataForNewUser(
   };
 
   const memoPreviewText = [
-    "✈️ 도쿄 3박 4일 일정 & 맛집 리스트",
-    "• Day 1: 나리타 공항 도착 → 신주쿠 숙소 체크인 → 오모이데요코초 라멘 투어",
-    "• Day 2: 시부야 스카이 전망대(14:00 예약) → 하라주쿠 쇼핑 → 롯폰기 힐즈 야경",
-    "• Day 3: 아사쿠사 센소지 → 오다이바 해변공원 → 긴자 규카츠 (웨이팅 필수)",
-    "• Day 4: 숙소 체크아웃 → 면세점 쇼핑 → 나리타 익스프레스(N'EX) 공항 이동",
-    "💡 팁: 스이카(Suica) 교통카드 애플페이 충전 완료! 지하철 패스 수령처: 1터미널 지하 1층",
+    "✈️ 도쿄 3박 4일 일정 & 맛집 총정리",
+    "• Day 1: 나리타 공항 도착 → 호텔 체크인 → 타츠노야 츠케멘 → 도쿄도청 야경",
+    "• Day 2: 하라주쿠 쇼핑 → 시부야 스카이(14:00 예약) → 롯폰기 츠루동탄",
+    "• Day 3: 아사쿠사 센소지 → 긴자 규카츠 → 오다이바 해변공원 & 건담",
+    "• Day 4: 돈키호테 면세 쇼핑 → 나리타 익스프레스(N'EX) → 면세점 쇼핑 & 귀국",
+    "📌 필수 팁: 스이카 교통카드 애플페이 충전, 비짓재팬웹 입국 QR 사전 등록 완료",
   ].join("\n");
 
   const libraryMemoPack: Pack = {
     id: uid(),
     name: "여행 일정 & 맛집 메모",
-    color: "purple",
     kind: "editor",
     type: "pack",
     items: [],
@@ -204,7 +512,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: "여권 & 필수 서류",
-        color: "amber",
         items: [
           checkItem("👉 오른쪽으로 밀어보면 수정할 수 있어요"),
           checkItem("👈 왼쪽으로 밀면 삭제할 수 있어요"),
@@ -219,7 +526,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: libraryElecPack.name,
-        color: libraryElecPack.color,
         items: libraryElecPack.items.map((it) => ({ ...it, id: uid() })),
         savedAsLibraryPack: true,
         linkedLibraryPackId: libraryElecPack.id,
@@ -229,7 +535,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: libraryClothesPack.name,
-        color: libraryClothesPack.color,
         items: libraryClothesPack.items.map((it) => ({ ...it, id: uid() })),
         savedAsLibraryPack: true,
         linkedLibraryPackId: libraryClothesPack.id,
@@ -239,7 +544,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: libraryMemoPack.name,
-        color: libraryMemoPack.color,
         kind: "editor",
         items: [],
         editorDoc: memoDocContent,
@@ -264,39 +568,160 @@ export async function seedSampleDataForNewUser(
     type: "doc",
     content: [
       {
-        type: "paragraph",
-        content: [{ type: "text", text: "🏕️ 가평 달빛 글램핑장 이용 안내" }],
+        type: "heading",
+        attrs: { level: 2 },
+        content: [{ type: "text", text: "🏕️ 가평 달빛 글램핑장 이용 안내 & 체크리스트" }],
       },
       {
         type: "paragraph",
-        content: [{ type: "text", text: "• 체크인: 15:00 / 체크아웃: 11:00" }],
+        content: [
+          { type: "text", marks: [{ type: "bold" }], text: "⏰ 입·퇴실 및 시설 규칙" },
+        ],
       },
       {
-        type: "paragraph",
-        content: [{ type: "text", text: "• 매너타임: 밤 10시 이후 음악 OFF & 조용한 대화" }],
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "입실(체크인): 15:00 / 퇴실(체크아웃): 익일 11:00" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "매너타임: 밤 22:00부터 (음악 OFF, 고성방가 금지)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "숯불 바베큐 세트: 18:00 시작 요청 완료 (그릴/숯/토치/장갑 제공)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "불멍 장작 세트: 현장 결제 15,000원 (오로라 가루 서비스)" },
+                ],
+              },
+            ],
+          },
+        ],
       },
       {
-        type: "paragraph",
-        content: [{ type: "text", text: "• 숯불 바베큐: 18:00 시작 (그릴/숯/장갑 기본 제공)" }],
+        type: "heading",
+        attrs: { level: 3 },
+        content: [{ type: "text", text: "🛒 인근 마트 & 편의시설" }],
       },
       {
-        type: "paragraph",
-        content: [{ type: "text", text: "• 인근 마트: 하나로마트 가평점 (차량 10분, 20시 마감)" }],
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "하나로마트 가평농협 자라섬점: 차량 10분 거리 (영업시간: 08:30~20:00)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "CU 가평달빛점: 도보 3분 거리 (24시간 영업, 장작/얼음 구비)" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "글램핑장 관리실 비상 연락처: 010-8765-4321" },
+                ],
+              },
+            ],
+          },
+        ],
       },
       {
-        type: "paragraph",
-        content: [{ type: "text", text: "• 관리실 비상 연락처: 010-1234-5678" }],
+        type: "heading",
+        attrs: { level: 3 },
+        content: [{ type: "text", text: "🔥 맛있는 바베큐 굽기 순서 팁" }],
+      },
+      {
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "1. 숯불이 하얗게 달아오르면 먼저 목살/소고기부터 올리기" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "2. 삼겹살은 기름이 떨어져 불쇼가 날 수 있으니 가장자리나 호일 위에서 굽기" },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "3. 마무리로 남은 불씨에 호일 감싼 고구마 & 마시멜로우 굽기 🍠" },
+                ],
+              },
+            ],
+          },
+        ],
       },
     ],
   };
 
   const campingMemoPreviewText = [
-    "🏕️ 가평 달빛 글램핑장 이용 안내",
-    "• 체크인: 15:00 / 체크아웃: 11:00",
-    "• 매너타임: 밤 10시 이후 음악 OFF & 조용한 대화",
-    "• 숯불 바베큐: 18:00 시작 (그릴/숯/장갑 기본 제공)",
-    "• 인근 마트: 하나로마트 가평점 (차량 10분, 20시 마감)",
-    "• 관리실 비상 연락처: 010-1234-5678",
+    "🏕️ 가평 달빛 글램핑장 이용 안내 & 체크리스트",
+    "• 체크인: 15:00 / 체크아웃: 11:00 (매너타임 22:00)",
+    "• 숯불 바베큐 18:00 예약 완료, 불멍 장작 현장 결제",
+    "• 하나로마트 가평농협점(차량 10분, 20시 마감)에서 장보기",
+    "🔥 팁: 삼겹살은 호일 위에서 굽기, 고구마/마시멜로우 챙기기",
   ].join("\n");
 
   const campingBag: Bag = {
@@ -311,7 +736,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: "캠핑 & 취침 장비",
-        color: "green",
         items: [
           checkItem("사계절 침낭 / 담요 / 개인 베개", true),
           checkItem("충전식 LED 캠핑 랜턴 & 감성 조명", true),
@@ -325,7 +749,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: libraryFoodPack.name,
-        color: libraryFoodPack.color,
         items: libraryFoodPack.items.map((it) => ({ ...it, id: uid() })),
         savedAsLibraryPack: true,
         linkedLibraryPackId: libraryFoodPack.id,
@@ -335,7 +758,6 @@ export async function seedSampleDataForNewUser(
       {
         id: uid(),
         name: "캠핑장 이용 안내 & 체크인",
-        color: "amber",
         kind: "editor",
         items: [],
         editorDoc: campingMemoDocContent,

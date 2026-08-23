@@ -19,7 +19,6 @@ import EditableText from "@/components/EditableText";
 import ItemRow from "@/components/ItemRow";
 import ItemFormModal, { ItemFormSaveData } from "@/components/ItemFormModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import PackColorDot from "@/components/PackColorDot";
 import PackShareModal from "@/components/PackShareModal";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
@@ -643,13 +642,6 @@ export default function PackLibraryEditorScreen({
       )}
 
       <div className="flex items-center gap-2 px-4 pb-2 shrink-0">
-        <PackColorDot
-          colorId={pack.color}
-          onChange={(colorId) => {
-            if (guardReadOnly()) return;
-            setPack((p) => ({ ...p, color: colorId }));
-          }}
-        />
         <EditableText
           value={pack.name}
           onChange={(name) => setPack((p) => ({ ...p, name }))}

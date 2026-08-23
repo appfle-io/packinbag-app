@@ -7,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
 import Portal from "@/components/Portal";
 import BackpackLogo from "@/components/BackpackLogo";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function AccountLinkModal({
   isOpen,
@@ -15,7 +16,7 @@ export default function AccountLinkModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { linkAccountWithGoogle, linkAccountWithApple, linkAccountWithEmail } = useAuth();
+  const { linkAccountWithGoogle, linkAccountWithApple, linkAccountWithEmail, logout } = useAuth();
   const { show } = useToast();
 
   const [mode, setMode] = useState<"options" | "email">("options");
@@ -25,6 +26,7 @@ export default function AccountLinkModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [emailSentSuccess, setEmailSentSuccess] = useState<string | null>(null);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   if (!isOpen) return null;
 
@@ -192,6 +194,17 @@ export default function AccountLinkModal({
                   >
                     이메일로 가입/연동하기
                   </button>
+
+                  <div className="pt-3 border-t border-border mt-2 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmLogout(true)}
+                      disabled={busy}
+                      className="text-[12px] text-text-muted hover:text-red-500 transition-colors py-1 px-2.5"
+                    >
+                      게스트 모드 종료 (로그아웃)
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleEmailSubmit} className="flex flex-col gap-2.5 pt-1">
@@ -251,6 +264,21 @@ export default function AccountLinkModal({
           )}
         </div>
       </div>
+
+      {confirmLogout && (
+        <ConfirmDialog
+          title="게스트 모드를 종료하시겠어요?"
+          message="회원가입 없이 나가면 지금까지 작성한 가방과 팩이 모두 삭제될 수 있어요."
+          confirmLabel="데이터 삭제하고 나가기"
+          tone="danger"
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={() => {
+            setConfirmLogout(false);
+            onClose();
+            logout();
+          }}
+        />
+      )}
     </Portal>
   );
 }

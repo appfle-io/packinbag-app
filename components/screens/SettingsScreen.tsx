@@ -43,6 +43,7 @@ import { useToast } from "@/components/Toast";
 import SlideScreen from "@/components/SlideScreen";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import AccountLinkModal from "@/components/auth/AccountLinkModal";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const modes: { key: ThemeMode; label: string }[] = [
   { key: "system", label: "시스템" },
@@ -151,7 +152,7 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { user, profile, updateDefaultTab, updateShortUrlEnabled, isGuest } = useAuth();
+  const { user, profile, updateDefaultTab, updateShortUrlEnabled, isGuest, logout } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -160,6 +161,7 @@ export default function SettingsScreen({
   const [showUnlockCode, setShowUnlockCode] = useState(false);
   const [showMyShortLinks, setShowMyShortLinks] = useState(false);
   const [showAccountLinkModal, setShowAccountLinkModal] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   // v68부터 설정은 하단탭이라, 이 화면(main)에서 스와이프로 뒤로가는 것(설정->가방보관함)은
   // AppShell이 탭 전환 스와이프로 이미 처리한다. 여기서 또 useSwipeBack을 걸면 같은 제스처가
   // 두 군데서 겹쳐 처리돼서(설정->홈으로 바뀐 뒤, 그 홈 상태 기준으로 AppShell 스와이프가
@@ -190,42 +192,63 @@ export default function SettingsScreen({
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {profile && (
-          <div className="mb-6 rounded-lg border border-border bg-surface p-3 flex items-center gap-3">
-            <Avatar avatarId={profile.avatarId} size={40} />
-            <button
-              onClick={() => {
-                if (isGuest) {
-                  setShowAccountLinkModal(true);
-                } else {
-                  setView("profile");
-                }
-              }}
-              className="flex-1 min-w-0 text-left"
-            >
-              <div className="flex items-center gap-2">
-                <p className="text-[14px] font-medium truncate">
-                  {profile.nickname ?? "닉네임 설정하기"}
+          <div className="mb-6 rounded-lg border border-border bg-surface p-3 flex flex-col gap-2.5">
+            <div className="flex items-center gap-3">
+              <Avatar avatarId={profile.avatarId} size={40} />
+              <button
+                onClick={() => {
+                  if (isGuest) {
+                    setShowAccountLinkModal(true);
+                  } else {
+                    setView("profile");
+                  }
+                }}
+                className="flex-1 min-w-0 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <p className="text-[14px] font-medium truncate">
+                    {profile.nickname ?? "닉네임 설정하기"}
+                  </p>
+                  {isGuest && (
+                    <span
+                      className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                    >
+                      게스트
+                    </span>
+                  )}
+                </div>
+                <p className="text-[12px] text-text-secondary truncate mt-0.5">
+                  {isGuest ? "기기에만 저장됨 (계정 연동하기)" : profile.email}
                 </p>
-                {isGuest && (
-                  <span
-                    className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                  >
-                    게스트
-                  </span>
-                )}
+              </button>
+              <button
+                onClick={() => setView("profile")}
+                className="p-1.5 rounded-md hover:bg-surface-2 text-text-muted hover:text-foreground text-[12px] shrink-0"
+                title="프로필 수정"
+              >
+                <IconChevronRight size={16} stroke={1.75} />
+              </button>
+            </div>
+
+            {isGuest && (
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowAccountLinkModal(true)}
+                  className="flex-1 py-1.5 px-2 rounded-md bg-accent-soft text-accent text-[12px] font-medium text-center hover:opacity-90 transition-opacity"
+                >
+                  계정 연동하기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmLogout(true)}
+                  className="py-1.5 px-2.5 rounded-md border border-border bg-surface-2 text-red-500 text-[12px] text-center hover:bg-red-500/10 transition-colors"
+                >
+                  게스트 종료
+                </button>
               </div>
-              <p className="text-[12px] text-text-secondary truncate mt-0.5">
-                {isGuest ? "기기에만 저장됨 (계정 연동하기)" : profile.email}
-              </p>
-            </button>
-            <button
-              onClick={() => setView("profile")}
-              className="p-1.5 rounded-md hover:bg-surface-2 text-text-muted hover:text-foreground text-[12px] shrink-0"
-              title="프로필 수정"
-            >
-              <IconChevronRight size={16} stroke={1.75} />
-            </button>
+            )}
           </div>
         )}
 
@@ -456,6 +479,16 @@ export default function SettingsScreen({
             </div>
           </div>
         )}
+
+        <div className="pt-2 pb-6 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setConfirmLogout(true)}
+            className="rounded-lg border border-border px-4 py-2 text-[12px] text-text-muted hover:text-red-500 transition-colors"
+          >
+            {isGuest ? "게스트 모드 종료 (로그아웃)" : "로그아웃"}
+          </button>
+        </div>
       </div>
 
       {showAnnouncements && (
@@ -537,6 +570,24 @@ export default function SettingsScreen({
         <AccountLinkModal
           isOpen={showAccountLinkModal}
           onClose={() => setShowAccountLinkModal(false)}
+        />
+      )}
+
+      {confirmLogout && (
+        <ConfirmDialog
+          title={isGuest ? "게스트 모드를 종료하시겠어요?" : "로그아웃 하시겠어요?"}
+          message={
+            isGuest
+              ? "회원가입 없이 나가면 지금까지 작성한 가방과 팩이 모두 삭제될 수 있어요."
+              : undefined
+          }
+          confirmLabel={isGuest ? "데이터 삭제하고 나가기" : "로그아웃"}
+          tone="danger"
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={() => {
+            setConfirmLogout(false);
+            logout();
+          }}
         />
       )}
     </div>

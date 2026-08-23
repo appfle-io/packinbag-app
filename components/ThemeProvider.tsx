@@ -34,9 +34,9 @@ const DEFAULT_CUSTOM = "#8b5cf6";
 const SURFACE_2_BASE = { light: "#eef0f2", dark: "#2c2c2e" };
 // "default"는 커스텀하지 않은 상태 (기본 무채색 카드 배경 = --surface 그대로)
 export const DEFAULT_CARD_COLOR_ID = "default";
-// 투명도/카드 크기 기본값 (둘 다 "지금 이대로" = 100%)
-const DEFAULT_OPACITY = 1;
-const DEFAULT_CARD_SCALE = 1;
+// 투명도/카드 크기 기본값 (기본 투명도 30%, 카드 크기 100%)
+export const DEFAULT_OPACITY = 0.3;
+export const DEFAULT_CARD_SCALE = 1;
 // 가방 속 팩카드 글자 크기(packCardFontScale)만 예외로 기준점을 다르게 잡는다. 기존에는
 // 슬라이더 "100%"가 실제 저장값 1.0을 그대로 쓰면서 체감상 너무 큰 문제(체감상
 // 120% 정도)가 있어서, 실제 저장값 = 표시값(%) * BASE 공식으로 기준점을 낮춰놓는다
@@ -229,6 +229,7 @@ const ThemeContext = createContext<{
   setPackLibraryCardScale: (scale: number) => void;
   baseOpacity: number;
   setBaseOpacity: (opacity: number) => void;
+  resetThemeSettings: () => void;
 }>({
   mode: "system",
   setMode: () => {},
@@ -268,6 +269,7 @@ const ThemeContext = createContext<{
   setPackLibraryCardScale: () => {},
   baseOpacity: DEFAULT_OPACITY,
   setBaseOpacity: () => {},
+  resetThemeSettings: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -678,6 +680,107 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     updateThemePrefs({ baseOpacity: opacity }).catch(() => {});
   };
 
+  const resetThemeSettings = () => {
+    setFontScaleState("md");
+    window.localStorage.setItem(FONT_SCALE_KEY, "md");
+    updateFontScale("md").catch(() => {});
+
+    setAccentState(ACCENT_PRESETS[0].id);
+    window.localStorage.setItem(ACCENT_KEY, ACCENT_PRESETS[0].id);
+
+    setCustomHexState(DEFAULT_CUSTOM);
+    window.localStorage.setItem(CUSTOM_KEY, DEFAULT_CUSTOM);
+
+    setBagColorState(DEFAULT_CARD_COLOR_ID);
+    window.localStorage.setItem(BAG_COLOR_KEY, DEFAULT_CARD_COLOR_ID);
+
+    setBagCustomHexState(DEFAULT_CUSTOM);
+    window.localStorage.setItem(BAG_CUSTOM_KEY, DEFAULT_CUSTOM);
+
+    setBagColorOpacityState(DEFAULT_OPACITY);
+    window.localStorage.setItem(BAG_OPACITY_KEY, String(DEFAULT_OPACITY));
+
+    setBagCardScaleState(DEFAULT_CARD_SCALE);
+    window.localStorage.setItem(BAG_SCALE_KEY, String(DEFAULT_CARD_SCALE));
+
+    setBagCardFontScaleState(DEFAULT_CARD_SCALE);
+    window.localStorage.setItem(BAG_CARD_FONT_SCALE_KEY, String(DEFAULT_CARD_SCALE));
+
+    setPackGridColorState(DEFAULT_CARD_COLOR_ID);
+    window.localStorage.setItem(PACK_GRID_COLOR_KEY, DEFAULT_CARD_COLOR_ID);
+
+    setPackGridCustomHexState(DEFAULT_CUSTOM);
+    window.localStorage.setItem(PACK_GRID_CUSTOM_KEY, DEFAULT_CUSTOM);
+
+    setPackGridColorOpacityState(DEFAULT_OPACITY);
+    window.localStorage.setItem(PACK_GRID_OPACITY_KEY, String(DEFAULT_OPACITY));
+
+    setPackCardScaleState(DEFAULT_CARD_SCALE);
+    window.localStorage.setItem(PACK_SCALE_KEY, String(DEFAULT_CARD_SCALE));
+
+    setPackCardFontScaleState(PACK_CARD_FONT_SCALE_BASE);
+    window.localStorage.setItem(PACK_CARD_FONT_SCALE_KEY, String(PACK_CARD_FONT_SCALE_BASE));
+
+    setPackLibraryColorState(DEFAULT_CARD_COLOR_ID);
+    window.localStorage.setItem(PACK_LIBRARY_COLOR_KEY, DEFAULT_CARD_COLOR_ID);
+
+    setPackLibraryCustomHexState(DEFAULT_CUSTOM);
+    window.localStorage.setItem(PACK_LIBRARY_CUSTOM_KEY, DEFAULT_CUSTOM);
+
+    setPackLibraryColorOpacityState(DEFAULT_OPACITY);
+    window.localStorage.setItem(PACK_LIBRARY_OPACITY_KEY, String(DEFAULT_OPACITY));
+
+    setPackLibraryCardScaleState(DEFAULT_CARD_SCALE);
+    window.localStorage.setItem(PACK_LIBRARY_SCALE_KEY, String(DEFAULT_CARD_SCALE));
+
+    setBaseOpacityState(DEFAULT_OPACITY);
+    window.localStorage.setItem(BASE_OPACITY_KEY, String(DEFAULT_OPACITY));
+
+    applyAll({
+      mode,
+      accentId: ACCENT_PRESETS[0].id,
+      customHex: DEFAULT_CUSTOM,
+      bagColorId: DEFAULT_CARD_COLOR_ID,
+      bagCustomHex: DEFAULT_CUSTOM,
+      bagColorOpacity: DEFAULT_OPACITY,
+      packGridColorId: DEFAULT_CARD_COLOR_ID,
+      packGridCustomHex: DEFAULT_CUSTOM,
+      packGridColorOpacity: DEFAULT_OPACITY,
+      packLibraryColorId: DEFAULT_CARD_COLOR_ID,
+      packLibraryCustomHex: DEFAULT_CUSTOM,
+      packLibraryColorOpacity: DEFAULT_OPACITY,
+      baseOpacity: DEFAULT_OPACITY,
+    });
+    applyFontScale("md");
+    applyCardScale(
+      DEFAULT_CARD_SCALE,
+      DEFAULT_CARD_SCALE,
+      DEFAULT_CARD_SCALE,
+      DEFAULT_CARD_SCALE,
+      PACK_CARD_FONT_SCALE_BASE
+    );
+
+    updateThemePrefs({
+      accentId: ACCENT_PRESETS[0].id,
+      customAccentHex: DEFAULT_CUSTOM,
+      bagColorId: DEFAULT_CARD_COLOR_ID,
+      customBagColorHex: DEFAULT_CUSTOM,
+      bagColorOpacity: DEFAULT_OPACITY,
+      bagCardScale: DEFAULT_CARD_SCALE,
+      bagCardFontScale: DEFAULT_CARD_SCALE,
+      packGridColorId: DEFAULT_CARD_COLOR_ID,
+      customPackGridColorHex: DEFAULT_CUSTOM,
+      packGridColorOpacity: DEFAULT_OPACITY,
+      packCardScale: DEFAULT_CARD_SCALE,
+      packCardFontScale: PACK_CARD_FONT_SCALE_BASE,
+      packLibraryColorId: DEFAULT_CARD_COLOR_ID,
+      customPackLibraryColorHex: DEFAULT_CUSTOM,
+      packLibraryColorOpacity: DEFAULT_OPACITY,
+      packLibraryCardScale: DEFAULT_CARD_SCALE,
+      baseOpacity: DEFAULT_OPACITY,
+    }).catch(() => {});
+  };
+
   return (
     <ThemeContext.Provider
       value={{
@@ -719,6 +822,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setPackLibraryCardScale,
         baseOpacity,
         setBaseOpacity,
+        resetThemeSettings,
       }}
     >
       {children}

@@ -1,13 +1,37 @@
 "use client";
 
+import { useState } from "react";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import ToggleSwitch from "@/components/ToggleSwitch";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/Toast";
 
 export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const { profile, updatePackSettings } = useAuth();
+  const { show } = useToast();
+  const [confirmReset, setConfirmReset] = useState(false);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
+
+  const handleReset = async () => {
+    try {
+      await updatePackSettings({
+        moveCompletedToBottom: true,
+        alwaysCollapseOnEntry: false,
+        itemMaxLines: 1,
+        packTreeHintEnabled: true,
+        noteSpellcheckEnabled: false,
+        dueDateDisplayMode: "dday",
+        dueDateIntensifyEnabled: true,
+        dueDateIntensifyDays: 7,
+      });
+      setConfirmReset(false);
+      show("팩 설정이 기본값으로 초기화되었어요");
+    } catch {
+      show("설정 초기화에 실패했어요");
+    }
+  };
   // 명시적으로 꺼둔 적이 없으면 기본 켜짐
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   // 명시적으로 켜둔 적이 없으면 기본 꺼짐
@@ -35,7 +59,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1">
+        <button onClick={onBack} className="flex items-center gap-1" aria-label="뒤로가기">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
         <p className="text-[15px] font-medium">팩 설정</p>
@@ -170,7 +194,28 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
             ariaLabel="메모 맞춤법 검사"
           />
         </div>
+
+        <div className="mt-4 mb-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="rounded-lg border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
+          >
+            팩 설정 초기화
+          </button>
+        </div>
       </div>
+
+      {confirmReset && (
+        <ConfirmDialog
+          title="팩 설정을 초기화하시겠어요?"
+          message="완료된 항목 이동, 짐 최대 줄 수, 마감일 표시 방식 등 모든 팩 설정이 기본값으로 돌아가요."
+          confirmLabel="초기화"
+          tone="accent"
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={handleReset}
+        />
+      )}
     </div>
   );
 }

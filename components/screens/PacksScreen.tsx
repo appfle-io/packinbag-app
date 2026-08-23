@@ -26,7 +26,6 @@ import { searchLibraryPacks, PackSearchResult } from "@/lib/librarySearch";
 import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
-import PackColorDot from "@/components/PackColorDot";
 import PackShareModal from "@/components/PackShareModal";
 import SortSelect from "@/components/SortSelect";
 import QuickPackBar from "@/components/QuickPackBar";
@@ -701,7 +700,7 @@ export default function PacksScreen({
                         {isSelected && <IconCheck size={13} stroke={3} color="#fff" />}
                       </div>
                     )}
-                    {isFolder ? (
+                    {isFolder && (
                       <IconChevronRight
                         size={15}
                         stroke={2}
@@ -710,11 +709,6 @@ export default function PacksScreen({
                         style={{
                           transform: expandedIds.has(entry.id) ? "rotate(90deg)" : "rotate(0deg)",
                         }}
-                      />
-                    ) : (
-                      <PackColorDot
-                        colorId={entry.color}
-                        onChange={(colorId) => onChangeColor(entry, colorId)}
                       />
                     )}
                     {isFolder && (

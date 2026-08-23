@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthProvider";
 import type { UserProfile } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/Toast";
 
 type Slot = "accent" | "bag" | "packGrid";
 
@@ -248,10 +250,13 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setPackCardFontScale,
     baseOpacity,
     setBaseOpacity,
+    resetThemeSettings,
   } = useTheme();
+  const { show } = useToast();
   const [openPicker, setOpenPicker] = useState<Slot | null>(null);
   const [fontScaleOpen, setFontScaleOpen] = useState(true);
   const [baseOpacityOpen, setBaseOpacityOpen] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { user, profile, updateBagCardSize } = useAuth();
   const [showColorLimitModal, setShowColorLimitModal] = useState(false);
@@ -266,10 +271,17 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
     setOpenPicker(slot);
   };
 
+  const handleReset = () => {
+    resetThemeSettings();
+    updateBagCardSize("medium").catch(() => {});
+    setConfirmReset(false);
+    show("화면 설정이 기본값으로 초기화되었어요");
+  };
+
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-4 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1">
+        <button onClick={onBack} className="flex items-center gap-1" aria-label="뒤로가기">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
         <p className="text-[15px] font-medium">화면설정</p>
@@ -500,6 +512,16 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
             </div>
           }
         />
+
+        <div className="mt-8 mb-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="rounded-lg border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
+          >
+            화면 설정 초기화
+          </button>
+        </div>
       </div>
 
       {openPicker === "accent" && (
@@ -530,6 +552,17 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onUnlocked={() => setShowColorLimitModal(false)}
           email={user?.email}
           profile={profile}
+        />
+      )}
+
+      {confirmReset && (
+        <ConfirmDialog
+          title="화면 설정을 초기화하시겠어요?"
+          message="글자 크기(보통), 강조 색상(오렌지), 투명도(30%), 카드 크기(100%), 글씨 크기(100%) 및 그리드 밀도가 모두 기본값으로 돌아가요."
+          confirmLabel="초기화"
+          tone="accent"
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={handleReset}
         />
       )}
     </div>

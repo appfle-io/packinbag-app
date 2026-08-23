@@ -6,7 +6,6 @@ import { Pack } from "@/lib/types";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthProvider";
-import PackColorDot from "@/components/PackColorDot";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
@@ -329,7 +328,6 @@ export default function PackTemplateGalleryModal({
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <PackColorDot colorId={template.color} onChange={() => {}} />
                             <span className="text-[13.5px] font-semibold text-foreground truncate">{template.name}</span>
                           </div>
                           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
@@ -399,7 +397,6 @@ export default function PackTemplateGalleryModal({
                         className="flex items-center justify-between p-3 rounded-xl border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <PackColorDot colorId={pack.color} onChange={() => {}} />
                           <div className="min-w-0 flex-1">
                             <h4 className="text-[13px] font-medium text-foreground truncate">{pack.name}</h4>
                             <p className="text-[11px] text-text-muted truncate">

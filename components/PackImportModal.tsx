@@ -8,7 +8,6 @@ import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthProvider";
 import { arrangeList } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
-import PackColorDot from "@/components/PackColorDot";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
@@ -277,7 +276,6 @@ export default function PackImportModal({
                     onChange={() => togglePack(entry.id)}
                     className="h-4 w-4 shrink-0 accent-[var(--accent)]"
                   />
-                  <PackColorDot colorId={entry.color} onChange={() => {}} />
                   <div className="flex-1 min-w-0 flex items-baseline gap-1.5 overflow-hidden">
                     <span className="text-[12.5px] font-medium shrink-0">
                       {entry.name}

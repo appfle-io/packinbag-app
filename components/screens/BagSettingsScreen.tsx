@@ -1,19 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/Toast";
 
 export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
   const { profile, updateDefaultBagViewMode } = useAuth();
+  const { show } = useToast();
+  const [confirmReset, setConfirmReset] = useState(false);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   // 명시적으로 고른 적이 없으면 기본값은 팩뷰(카드 그리드)
   const defaultBagViewMode = profile?.defaultBagViewMode ?? "pack";
 
+  const handleReset = async () => {
+    try {
+      await updateDefaultBagViewMode("pack");
+      setConfirmReset(false);
+      show("가방 설정이 기본값으로 초기화되었어요");
+    } catch {
+      show("설정 초기화에 실패했어요");
+    }
+  };
+
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center gap-2 p-4 pb-2 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1">
+        <button onClick={onBack} className="flex items-center gap-1" aria-label="뒤로가기">
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
         <p className="text-[15px] font-medium">가방설정</p>
@@ -42,7 +57,28 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
             <option value="notebook">심플뷰</option>
           </select>
         </div>
+
+        <div className="mt-4 mb-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="rounded-lg border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
+          >
+            가방 설정 초기화
+          </button>
+        </div>
       </div>
+
+      {confirmReset && (
+        <ConfirmDialog
+          title="가방 설정을 초기화하시겠어요?"
+          message="가방 기본 보기(팩뷰) 설정이 기본값으로 돌아가요."
+          confirmLabel="초기화"
+          tone="accent"
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={handleReset}
+        />
+      )}
     </div>
   );
 }
