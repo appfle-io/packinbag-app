@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { Pack, SharedPackSnapshot } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
+import { serializePack } from "@/lib/editorDocSerialize";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -67,8 +68,8 @@ export async function POST(req: NextRequest) {
       ownerUid: uid,
       type: isFolder ? "folder" : "pack",
       title,
-      pack: pack ?? undefined,
-      packs: packs ?? undefined,
+      pack: pack ? serializePack(pack) : undefined,
+      packs: packs ? packs.map(serializePack) : undefined,
       createdAt: now,
       updatedAt: now,
     };

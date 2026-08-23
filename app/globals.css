@@ -496,8 +496,11 @@ aside {
   transition: transform 120ms ease;
   margin-top: 2px;
 }
-.pib-toggle[data-open="true"] .pib-toggle-arrow {
+.pib-toggle[data-open="true"] > .pib-toggle-arrow {
   transform: rotate(90deg);
+}
+.pib-toggle[data-open="false"] > .pib-toggle-arrow {
+  transform: rotate(0deg);
 }
 .pib-toggle-inner {
   flex: 1;

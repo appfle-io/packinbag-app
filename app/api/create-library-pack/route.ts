@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
+import { serializePack } from "@/lib/editorDocSerialize";
 
 // 팩 보관함에 "새 팩/폴더"를 만드는 것만 서버에서 처리하도록 만든 라우트 (이미 있는 팩을
 // 고치는 건 여전히 클라이언트가 직접 한다 - lib/packsService.ts의 자동저장 참고).
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   const finalPack: Pack = { ...draft, createdAt: draft.createdAt ?? now, updatedAt: now };
 
   try {
-    await packsCol.doc(draft.id).set(stripUndefined(finalPack));
+    await packsCol.doc(draft.id).set(stripUndefined(serializePack(finalPack)));
   } catch (err) {
     console.error("[팩인백] 보관함 팩 생성 실패(서버):", err);
     return NextResponse.json({ error: "팩 저장에 실패했어요" }, { status: 500 });

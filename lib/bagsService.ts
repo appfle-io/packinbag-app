@@ -19,6 +19,7 @@ import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
+import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
 import { PremiumLimitError } from "@/lib/premiumLimits";
 
 function bagsCol() {
@@ -39,7 +40,7 @@ export function subscribeToUserBags(
     orderBy("updatedAt", "desc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bag)));
+    callback(snap.docs.map((d) => deserializeBag({ id: d.id, ...d.data() } as Bag)));
   });
 }
 
@@ -69,13 +70,14 @@ export async function createBagRemote(
     }
     throw new Error(message);
   }
-  return data.bag as Bag;
+  return deserializeBag(data.bag as Bag);
 }
 
 export async function saveBagRemote(bag: Bag) {
+  const serialized = serializeBag(bag);
   await setDoc(
     doc(bagsCol(), bag.id),
-    stripUndefined({ ...bag, updatedAt: new Date().toISOString() })
+    stripUndefined({ ...serialized, updatedAt: new Date().toISOString() })
   );
 }
 
@@ -96,13 +98,13 @@ export async function updateBagPackEditorContent(
     const data = snap.data() as Bag;
     const packs = data.packs.map((p) =>
       p.id === packId
-        ? {
+        ? serializePack({
             ...p,
             name: patch.name,
             editorDoc: patch.editorDoc ?? undefined,
             editorPreviewText: patch.editorPreviewText,
             updatedAt: patch.updatedAt,
-          }
+          })
         : p
     );
     tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
@@ -116,7 +118,7 @@ export function subscribeToBag(
   callback: (bag: Bag | null) => void
 ) {
   return onSnapshot(doc(bagsCol(), bagId), (snap) => {
-    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as Bag) : null);
+    callback(snap.exists() ? deserializeBag({ id: snap.id, ...snap.data() } as Bag) : null);
   });
 }
 
@@ -162,7 +164,7 @@ export async function movePackBetweenBagsRemote(
 export async function getUserBagsOnce(uid: string): Promise<Bag[]> {
   const q = query(bagsCol(), where("memberIds", "array-contains", uid));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Bag));
+  return snap.docs.map((d) => deserializeBag({ id: d.id, ...d.data() } as Bag));
 }
 
 // 가방 자체와 초대코드 매핑까지 함께 삭제 (이미지는 호출하는 쪽에서 별도 삭제)
@@ -251,7 +253,7 @@ export async function fetchBagRemote(bagId: string): Promise<Bag | null> {
   try {
     const snap = await getDoc(doc(bagsCol(), bagId));
     if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as Bag;
+    return deserializeBag({ id: snap.id, ...snap.data() } as Bag);
   } catch {
     return null;
   }

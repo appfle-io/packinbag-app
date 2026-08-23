@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { Bag } from "@/lib/types";
+import { deserializeBag } from "@/lib/editorDocSerialize";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -66,7 +67,7 @@ export default async function GuestBagPage({ params, searchParams }: GuestPagePr
   }
 
   const bagDoc = snap.docs[0];
-  const bag = { id: bagDoc.id, ...bagDoc.data() } as Bag;
+  const bag = deserializeBag({ id: bagDoc.id, ...bagDoc.data() } as Bag);
 
   // 초대코드 존재 여부 (URL 쿼리 우선)
   const activeInviteCode = queryCode || queryJoin;

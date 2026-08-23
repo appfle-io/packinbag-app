@@ -14,6 +14,7 @@ import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
+import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
 import { PremiumLimitError } from "@/lib/premiumLimits";
 
 // 팩 보관함은 공유되지 않는 개인 전용 공간이다.
@@ -30,7 +31,7 @@ export function subscribeToLibraryPacks(
 ) {
   const q = query(packsCol(uid));
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Pack)));
+    callback(snap.docs.map((d) => deserializePack({ id: d.id, ...d.data() } as Pack)));
   });
 }
 
@@ -61,7 +62,7 @@ export async function saveLibraryPackRemote(user: User, pack: Pack) {
       }
       throw new Error(message);
     }
-    return data.pack as Pack;
+    return deserializePack(data.pack as Pack);
   }
 
   // updatedAt은 호출하는 쪽(BagEditorScreen)에서 미리 만들어서 넘겨준 값을 그대로 쓴다.
@@ -71,7 +72,8 @@ export async function saveLibraryPackRemote(user: User, pack: Pack) {
   // createdAt은 최초 저장 시점 값을 계속 유지해야 "생성일자" 정렬이 의미있다.
   const createdAt =
     pack.createdAt ?? (snap.data().createdAt as string | undefined) ?? now;
-  await setDoc(ref, stripUndefined({ ...pack, createdAt, updatedAt: now }));
+  const serialized = serializePack({ ...pack, createdAt, updatedAt: now });
+  await setDoc(ref, stripUndefined(serialized));
 }
 
 export async function deleteLibraryPackRemote(uid: string, packId: string) {
@@ -86,7 +88,20 @@ export async function updateLibraryPackEditorContent(
   packId: string,
   patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
 ) {
-  await updateDoc(doc(packsCol(uid), packId), stripUndefined({ ...patch }));
+  const serialized = serializePack({
+    id: packId,
+    name: patch.name,
+    items: [],
+    editorDoc: patch.editorDoc,
+    editorPreviewText: patch.editorPreviewText,
+    updatedAt: patch.updatedAt,
+  });
+  await updateDoc(doc(packsCol(uid), packId), stripUndefined({
+    name: serialized.name,
+    editorDoc: serialized.editorDoc,
+    editorPreviewText: serialized.editorPreviewText,
+    updatedAt: serialized.updatedAt,
+  }));
 }
 
 // 완전삭제 대신 휴지통으로 보낸다. trashedAt만 채우고 문서 자체는 그대로 둔다 - 30일 뒤
@@ -141,7 +156,7 @@ export async function trashBagPackRemote(
 // 실시간 구독 없이 한 번만 조회 (회원탈퇴 등 일괄 처리용)
 export async function getLibraryPacksOnce(uid: string): Promise<Pack[]> {
   const snap = await getDocs(packsCol(uid));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Pack));
+  return snap.docs.map((d) => deserializePack({ id: d.id, ...d.data() } as Pack));
 }
 
 // --- v68 폴더(그룹) 기능 -----------------------------------------------------

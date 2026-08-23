@@ -55,6 +55,15 @@ export function collectEditorDocPreviewLines(doc: unknown): PreviewSpan[][] {
   const lines: PreviewSpan[][] = [];
   let current: PreviewSpan[] = [];
 
+  let parsedDoc = doc;
+  if (typeof parsedDoc === "string") {
+    try {
+      parsedDoc = JSON.parse(parsedDoc);
+    } catch {
+      return [];
+    }
+  }
+
   const flushLine = () => {
     if (current.length > 0) {
       lines.push(current);
@@ -79,7 +88,7 @@ export function collectEditorDocPreviewLines(doc: unknown): PreviewSpan[][] {
     if (node.type && LINE_BREAK_TYPES.has(node.type)) flushLine();
   };
 
-  const root = doc as DocNode | undefined;
+  const root = parsedDoc as DocNode | undefined;
   for (const block of root?.content ?? []) {
     walk(block);
     flushLine();
@@ -91,7 +100,15 @@ export function collectEditorDocPreviewLines(doc: unknown): PreviewSpan[][] {
 // TipTap JSON에서 풍부한 서식(헤딩, 볼드, 체크박스, 인용구, 하이라이트 등)을 포함하는 블록 추출
 export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
   const blocks: RichBlock[] = [];
-  const root = doc as DocNode | undefined;
+  let parsedDoc = doc;
+  if (typeof parsedDoc === "string") {
+    try {
+      parsedDoc = JSON.parse(parsedDoc);
+    } catch {
+      return [];
+    }
+  }
+  const root = parsedDoc as DocNode | undefined;
   if (!root || !root.content) return [];
 
   const extractSpans = (node: DocNode | undefined): RichSpan[] => {
@@ -152,6 +169,14 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
         } else {
           blocks.push({ type: "paragraph", spans });
         }
+      }
+    } else if (type === "toggleSummary") {
+      const spans = extractSpans(node);
+      if (spans.some((s) => s.text.trim().length > 0)) {
+        blocks.push({
+          type: "paragraph",
+          spans: [{ text: "▶ ", bold: true }, ...spans],
+        });
       }
     } else if (type === "bulletList") {
       for (const item of node.content || []) {

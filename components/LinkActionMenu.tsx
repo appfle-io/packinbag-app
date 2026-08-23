@@ -1,20 +1,15 @@
 "use client";
 
 import Portal from "@/components/Portal";
-import { IconExternalLink, IconLink, IconEdit } from "@tabler/icons-react";
+import { IconExternalLink, IconLink, IconLinkOff, IconEdit } from "@tabler/icons-react";
 import { useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
-// 짐/메모/메모팩 안의 링크를 눌렀을 때 뜨는 작은 선택 시트. 두 가지 상황에서 쓰인다.
-// (1) 아직 축약 전 링크(프리미엄 + 토글 ON) - "링크 열기"/"짧은 URL로 변경"/"커스텀 URL로
-// 변경" 세 개를 보여준다(onShorten/onCustomize를 넘긴다). (2) 이미 축약됐고 본인이 만든
-// 링크(클릭 시 fetchLinkMeta로 확인) - "링크 열기"/"수정" 두 개만 보여준다(onManage를
-// 넘긴다). 두 상황 모두 아닌 경우(축약된 남의 링크)는 이 메뉴 자체를 띄우지 않고 곧바로
-// openExternalLink()로 연다 - 그래서 이 컴포넌트는 onShorten/onCustomize/onManage를 모두
-// 선택(optional)으로 받아, 넘어온 것만 보여준다.
+// 짐/메모/메모팩 안의 링크를 눌렀을 때 뜨는 작은 선택 시트.
 export default function LinkActionMenu({
   url,
   onOpen,
+  onUnlink,
   onShorten,
   onCustomize,
   onManage,
@@ -22,6 +17,7 @@ export default function LinkActionMenu({
 }: {
   url: string;
   onOpen: () => void;
+  onUnlink?: () => void;
   onShorten?: () => void;
   onCustomize?: () => void;
   onManage?: () => void;
@@ -54,6 +50,19 @@ export default function LinkActionMenu({
             <IconExternalLink size={17} stroke={1.75} color="var(--text-secondary)" />
             링크 열기
           </button>
+          {onUnlink && (
+            <button
+              onClick={() => {
+                onClose();
+                onUnlink();
+              }}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[14px]"
+              style={{ background: "var(--surface-2)" }}
+            >
+              <IconLinkOff size={17} stroke={1.75} color="var(--text-secondary)" />
+              링크 해제 (일반 텍스트로 변경)
+            </button>
+          )}
           {onShorten && (
             <button
               onClick={() => {

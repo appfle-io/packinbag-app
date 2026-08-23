@@ -4,6 +4,7 @@ import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premi
 import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
+import { serializeBag } from "@/lib/editorDocSerialize";
 
 // 가방 생성을 서버에서만 처리하도록 만든 라우트.
 //
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const batch = db.batch();
-    batch.set(db.collection("bags").doc(draft.id), stripUndefined(finalBag));
+    batch.set(db.collection("bags").doc(draft.id), stripUndefined(serializeBag(finalBag)));
     batch.set(db.collection("inviteCodes").doc(inviteCode), { bagId: draft.id });
     await batch.commit();
   } catch (err) {

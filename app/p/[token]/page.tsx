@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { SharedPackSnapshot, Pack } from "@/lib/types";
+import { deserializePack } from "@/lib/editorDocSerialize";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -54,11 +55,12 @@ export default async function GuestPackPage({ params }: GuestPackPageProps) {
 
   const snapshot = docSnap.data() as SharedPackSnapshot;
   const isFolder = snapshot.type === "folder";
-  const displayPacks: Pack[] = isFolder
+  const rawPacks: Pack[] = isFolder
     ? (snapshot.packs ?? []).filter((p) => p.type !== "folder")
     : snapshot.pack
       ? [snapshot.pack]
       : [];
+  const displayPacks = rawPacks.map(deserializePack);
 
   const totalItems = displayPacks.reduce((acc, p) => acc + (p.items?.length ?? 0), 0);
 

@@ -27,6 +27,7 @@ import {
   IconFileText,
   IconLock,
   IconLoader2,
+  IconLink,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import PackShareModal from "@/components/PackShareModal";
@@ -42,7 +43,6 @@ import {
 import { getCachedLinkMeta, setLinkMetaCache } from "@/lib/linkLabelCache";
 import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
 import { openExternalLink } from "@/lib/openExternalLink";
-import LinkActionMenu from "@/components/LinkActionMenu";
 import CustomUrlModal from "@/components/CustomUrlModal";
 import ShortenUrlModal from "@/components/ShortenUrlModal";
 import EditLinkModal from "@/components/EditLinkModal";
@@ -165,16 +165,10 @@ export default function PackNoteEditorScreen({
     nameRef.current = name;
   }, [name]);
 
-  // 링크(Link 마크)를 탭했을 때 띄우는 선택 시트의 대상 URL. "짧은 URL로 변경"이 가능한
-  // 링크(프리미엄 + 토글 ON + 아직 축약 전)만 이 메뉴를 띄우고, 그러지 않으면 바로 연다.
-  const [linkMenuUrl, setLinkMenuUrl] = useState<string | null>(null);
   // "커스텀 URL로 변경"을 누르면 이 값이 채워져 입력 시트(CustomUrlModal)가 열린다.
   const [customizeLinkUrl, setCustomizeLinkUrl] = useState<string | null>(null);
   // "짧은 URL로 변경"을 누르면 이 값이 채워져 표시 이름 입력 시트(ShortenUrlModal)가 열린다.
   const [shortenLinkUrl, setShortenLinkUrl] = useState<string | null>(null);
-  // 이미 축약된 링크를 탭했을 때, 본인이 만든 링크로 확인되면(fetchLinkMeta의 canEdit) 이
-  // 값이 채워져 "열기/수정" 선택 시트가 뜬다. 다른 사람이 만든 링크면 메뉴 없이 바로 열린다.
-  const [manageLinkTarget, setManageLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
   // "수정"을 누르면 이 값이 채워져 이름/주소 수정 시트(EditLinkModal)가 열린다.
   const [editLinkTarget, setEditLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
 
@@ -328,6 +322,16 @@ export default function PackNoteEditorScreen({
     onSave(updated);
   };
 
+  const handleUnlink = (pos: number | null) => {
+    if (!editor || effectiveReadOnly) return;
+    if (typeof pos === "number" && pos >= 0) {
+      editor.chain().focus().setTextSelection(pos + 1).extendMarkRange("link").unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    }
+    show("링크를 해제했어요");
+  };
+
   useEffect(() => {
     if (!editor) return;
     const handler = () => {
@@ -373,6 +377,25 @@ export default function PackNoteEditorScreen({
     if (effectiveReadOnly || !editor) return;
     const next = Math.min(28, Math.max(8, getCurrentFontSize() + delta));
     editor.chain().focus().setFontSize(`${next}px`).run();
+  };
+
+  const toggleLink = () => {
+    if (effectiveReadOnly || !editor) return;
+    if (editor.isActive("link")) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      show("링크를 해제했어요");
+      return;
+    }
+    const previousUrl = (editor.getAttributes("link").href as string | undefined) || "";
+    const url = window.prompt("연결할 웹 주소(URL)를 입력해주세요", previousUrl || "https://");
+    if (url === null) return;
+    const trimmed = url.trim();
+    if (!trimmed) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      return;
+    }
+    const finalUrl = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    editor.chain().focus().extendMarkRange("link").setLink({ href: finalUrl }).run();
   };
 
   // 화면을 나갈 때 디바운스 대기 중인 변경이 있으면 그 즉시 반영한다. otherEditorNickname이 마운트
@@ -694,6 +717,13 @@ export default function PackNoteEditorScreen({
             </ToolbarButton>
           </div>
           <ToolbarButton
+            onClick={toggleLink}
+            active={editor?.isActive("link")}
+            label={editor?.isActive("link") ? "링크 해제 (일반 글자로 변경)" : "링크 삽입"}
+          >
+            <IconLink size={17} stroke={1.75} />
+          </ToolbarButton>
+          <ToolbarButton
             onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
             active={editor?.isActive("heading", { level: 1 })}
             label="제목 1"
@@ -784,38 +814,13 @@ export default function PackNoteEditorScreen({
           <div
             className="h-full overflow-y-auto px-4 py-4 md:px-10 md:py-8 scrollbar-thin"
             onClick={(e) => {
-              // 링크(Link 마크)는 자동 탐색이 꺼져있어서(openOnClick: false)
-              // 여기서 <a> 태그 클릭을 직접 감지해서 처리한다. 이미 우리 서비스 짧은/커스텀
-              // 링크면 본인이 만든 것인지부터 확인해서(fetchLinkMeta) 맞으면 "열기/수정" 선택
-              // 시트를, 아니면 바로 연다. 아직 축약 전 링크면 기존처럼(프리미엄 + 토글 ON일
-              // 때만) "짧은/커스텀 URL로 변경" 선택 시트를 띄운다.
+              // 텍스트 내 링크 탭 시 외부 브라우저로 즉시 바로 열림
               const anchor = (e.target as HTMLElement).closest("a");
               if (!anchor) return;
               const href = anchor.getAttribute("href");
               if (!href) return;
               e.preventDefault();
-
-              if (isAlreadyShortLink(href)) {
-                if (!user) {
-                  openExternalLink(href);
-                  return;
-                }
-                fetchLinkMeta(href, user).then((meta) => {
-                  if (meta?.canEdit) {
-                    setManageLinkTarget({ url: href, meta });
-                  } else {
-                    openExternalLink(href);
-                  }
-                });
-                return;
-              }
-
-              const canShorten = shortUrlFeatureEnabled && !!user;
-              if (canShorten) {
-                setLinkMenuUrl(href);
-              } else {
-                openExternalLink(href);
-              }
+              openExternalLink(href);
             }}
           >
             <div className="max-w-4xl mx-auto pb-20">
@@ -860,16 +865,6 @@ export default function PackNoteEditorScreen({
         )}
       </div>
 
-      {linkMenuUrl && (
-        <LinkActionMenu
-          url={linkMenuUrl}
-          onOpen={() => openExternalLink(linkMenuUrl)}
-          onShorten={() => setShortenLinkUrl(linkMenuUrl)}
-          onCustomize={() => setCustomizeLinkUrl(linkMenuUrl)}
-          onClose={() => setLinkMenuUrl(null)}
-        />
-      )}
-
       {shortenLinkUrl && user && (
         <ShortenUrlModal
           url={shortenLinkUrl}
@@ -913,21 +908,6 @@ export default function PackNoteEditorScreen({
             setCustomizeLinkUrl(null);
           }}
           onClose={() => setCustomizeLinkUrl(null)}
-        />
-      )}
-
-      {manageLinkTarget && (
-        <LinkActionMenu
-          url={manageLinkTarget.url}
-          onOpen={() => {
-            openExternalLink(manageLinkTarget.url);
-            setManageLinkTarget(null);
-          }}
-          onManage={() => {
-            setEditLinkTarget(manageLinkTarget);
-            setManageLinkTarget(null);
-          }}
-          onClose={() => setManageLinkTarget(null)}
         />
       )}
 
