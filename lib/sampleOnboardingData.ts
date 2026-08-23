@@ -67,8 +67,8 @@ export async function seedSampleDataForNewUser(
     ],
   };
 
-  await saveLibraryPackRemote(user, libraryTravelPack);
-  await saveLibraryPackRemote(user, libraryStayPack);
+  await saveLibraryPackRemote(user, libraryTravelPack, true);
+  await saveLibraryPackRemote(user, libraryStayPack, true);
 
   // 2) 여행 가방 - 위 보관함 팩 2개를 실제로 "가져온" 상태로 넣어서 연동을 보여준다.
   //    첫 팩의 첫 두 짐은 스와이프 제스처 안내용 샘플.

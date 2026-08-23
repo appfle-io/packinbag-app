@@ -433,7 +433,7 @@ export default function AppShell() {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
-            await saveLibraryPackRemote(user, newFolder);
+            await saveLibraryPackRemote(user, newFolder, true);
             const childPacks = (data.packs ?? []).filter((p) => p.type !== "folder");
             for (const cp of childPacks) {
               const newChildPack: Pack = {
@@ -444,7 +444,7 @@ export default function AppShell() {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               };
-              await saveLibraryPackRemote(user, newChildPack);
+              await saveLibraryPackRemote(user, newChildPack, true);
             }
             setShowPackTree(true);
             show(`"${data.title}" 폴더와 팩들을 보관함으로 가져왔어요!`);
@@ -457,7 +457,7 @@ export default function AppShell() {
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
-            await saveLibraryPackRemote(user, newPack);
+            await saveLibraryPackRemote(user, newPack, true);
             setShowPackTree(true);
             show(`"${newPack.name}" 팩을 보관함으로 가져왔어요!`);
           }

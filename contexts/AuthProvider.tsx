@@ -536,11 +536,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 다시 수정하는 경로(설정 화면)는 updateNickname/updateAvatar를 따로 쓰기 때문에
     // 여기로는 안 들어오지만, 혹시 몰라 한 번 더 방어적으로 확인한다.
     const isFirstTime = !profile?.nickname && !profile?.avatarId;
-    await setDoc(
-      doc(db, "users", user.uid),
-      { nickname, avatarId },
-      { merge: true }
-    );
     if (isFirstTime) {
       try {
         await seedSampleDataForNewUser(user, { nickname, avatarId });
@@ -548,6 +543,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("[팩인백] 샘플 데이터 생성 실패:", err);
       }
     }
+    await setDoc(
+      doc(db, "users", user.uid),
+      { nickname, avatarId },
+      { merge: true }
+    );
   };
 
   const updateNickname = async (nickname: string) => {
