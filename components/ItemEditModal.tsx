@@ -117,6 +117,8 @@ export default function ItemEditModal({
   onClose,
   onSave,
   thread,
+  allComments: allCommentsProp,
+  allReactions: allReactionsProp,
 }: {
   packs: Pack[];
   selectionMode: "single" | "multi";
@@ -150,6 +152,8 @@ export default function ItemEditModal({
     // 강퇴된 것만으로는 익명화하지 않는다(lib/mentions.ts의 resolveCommentAuthorDisplay 참고).
     deletedAccountIds: ReadonlySet<string>;
   };
+  allComments?: BagComment[];
+  allReactions?: BagReactionDoc[];
 }) {
   const [selectedPackIds, setSelectedPackIds] = useState<string[]>(initialSelectedPackIds);
   const [type, setType] = useState<ItemType>(initialType);
@@ -214,8 +218,8 @@ export default function ItemEditModal({
   const [textFieldResetKey, setTextFieldResetKey] = useState(0);
 
   // --- 댓글 스레드 (thread prop이 있을 때만 동작) ---------------------------
-  const [allComments, setAllComments] = useState<BagComment[]>([]);
-  const [allReactions, setAllReactions] = useState<BagReactionDoc[]>([]);
+  const [internalComments, setInternalComments] = useState<BagComment[]>([]);
+  const [internalReactions, setInternalReactions] = useState<BagReactionDoc[]>([]);
   const [commentDraft, setCommentDraft] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<string | null>(null);
@@ -227,13 +231,17 @@ export default function ItemEditModal({
   } | null>(null);
 
   useEffect(() => {
-    if (!thread) return;
-    return subscribeToComments(thread.bagId, setAllComments);
-  }, [thread?.bagId]);
+    if (!thread || allCommentsProp !== undefined) return;
+    return subscribeToComments(thread.bagId, setInternalComments);
+  }, [thread?.bagId, allCommentsProp]);
+
   useEffect(() => {
-    if (!thread) return;
-    return subscribeToReactions(thread.bagId, setAllReactions);
-  }, [thread?.bagId]);
+    if (!thread || allReactionsProp !== undefined) return;
+    return subscribeToReactions(thread.bagId, setInternalReactions);
+  }, [thread?.bagId, allReactionsProp]);
+
+  const allComments = allCommentsProp ?? internalComments;
+  const allReactions = allReactionsProp ?? internalReactions;
 
   const comments = useMemo(() => {
     if (!thread) return [];

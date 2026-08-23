@@ -40,38 +40,40 @@ export function subscribeToLibraryPacks(
 // 호출하고, 이미 있는 팩이면(=수정) 기존처럼 클라이언트가 직접 저장한다 - 0.5초 디바운스
 // 자동저장이라 매번 서버를 거치면 타이핑마다 왕복이 생기기 때문. firestore.rules에서도
 // libraryPacks의 client-side create는 막아둬서, 새 팩은 이 경로 말고는 생성이 안 된다.
-export async function saveLibraryPackRemote(user: User, pack: Pack) {
+export async function saveLibraryPackRemote(user: User, pack: Pack, isNew?: boolean) {
   const ref = doc(packsCol(user.uid), pack.id);
-  const snap = await getDoc(ref);
 
-  if (!snap.exists()) {
-    const idToken = await user.getIdToken();
-    const res = await fetch("/api/create-library-pack", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ pack }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const message = (data?.error as string | undefined) ?? "팩 저장에 실패했어요";
-      if (data?.code === "PACK_LIMIT_REACHED") {
-        throw new PremiumLimitError(message);
+  // 새 팩 생성이거나 createdAt이 아직 없는 경우에만 생성 API(무료 개수 검증)를 호출한다.
+  // 이미 존재하는 팩을 수정/자동저장할 때는 불필요한 getDoc 사전 조회를 건너뛰어 Read 비용을 제거한다.
+  if (isNew === true || !pack.createdAt) {
+    const snap = isNew === true ? null : await getDoc(ref);
+    if (isNew === true || !snap || !snap.exists()) {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/create-library-pack", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ pack }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = (data?.error as string | undefined) ?? "팩 저장에 실패했어요";
+        if (data?.code === "PACK_LIMIT_REACHED") {
+          throw new PremiumLimitError(message);
+        }
+        throw new Error(message);
       }
-      throw new Error(message);
+      return deserializePack(data.pack as Pack);
     }
-    return deserializePack(data.pack as Pack);
   }
 
   // updatedAt은 호출하는 쪽(BagEditorScreen)에서 미리 만들어서 넘겨준 값을 그대로 쓴다.
   // 그래야 그쪽에서 같은 타임스탬프를 pack.linkedLibraryUpdatedAt으로도 저장해서
   // "그 이후로 보관함이 또 바뀌었는지" 정확히 비교할 수 있다.
   const now = pack.updatedAt ?? new Date().toISOString();
-  // createdAt은 최초 저장 시점 값을 계속 유지해야 "생성일자" 정렬이 의미있다.
-  const createdAt =
-    pack.createdAt ?? (snap.data().createdAt as string | undefined) ?? now;
+  const createdAt = pack.createdAt ?? now;
   const serialized = serializePack({ ...pack, createdAt, updatedAt: now });
   await setDoc(ref, stripUndefined(serialized));
 }

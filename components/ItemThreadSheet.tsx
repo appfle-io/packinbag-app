@@ -49,6 +49,8 @@ export default function ItemThreadSheet({
   members,
   deletedAccountIds,
   onClose,
+  allComments: allCommentsProp,
+  allReactions: allReactionsProp,
 }: {
   bagId: string;
   targetType?: CommentTargetType;
@@ -65,9 +67,11 @@ export default function ItemThreadSheet({
   // 강퇴된 것만으로는 익명화하지 않는다(lib/mentions.ts의 resolveCommentAuthorDisplay 참고).
   deletedAccountIds: ReadonlySet<string>;
   onClose: () => void;
+  allComments?: BagComment[];
+  allReactions?: BagReactionDoc[];
 }) {
-  const [allComments, setAllComments] = useState<BagComment[]>([]);
-  const [allReactions, setAllReactions] = useState<BagReactionDoc[]>([]);
+  const [internalComments, setInternalComments] = useState<BagComment[]>([]);
+  const [internalReactions, setInternalReactions] = useState<BagReactionDoc[]>([]);
   const ambientLayer = useOverlayLayer();
   const resolvedZIndex = ambientLayer + SHEET_OFFSET;
   useEscapeToClose(onClose);
@@ -79,8 +83,18 @@ export default function ItemThreadSheet({
   const [editDraft, setEditDraft] = useState("");
   const listEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => subscribeToComments(bagId, setAllComments), [bagId]);
-  useEffect(() => subscribeToReactions(bagId, setAllReactions), [bagId]);
+  useEffect(() => {
+    if (allCommentsProp !== undefined) return;
+    return subscribeToComments(bagId, setInternalComments);
+  }, [bagId, allCommentsProp]);
+
+  useEffect(() => {
+    if (allReactionsProp !== undefined) return;
+    return subscribeToReactions(bagId, setInternalReactions);
+  }, [bagId, allReactionsProp]);
+
+  const allComments = allCommentsProp ?? internalComments;
+  const allReactions = allReactionsProp ?? internalReactions;
 
   const comments = useMemo(
     () => allComments.filter((c) => c.targetType === targetType && c.targetId === targetId),

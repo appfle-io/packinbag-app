@@ -150,25 +150,32 @@ export default function PacksScreen({
   const treePacks = packs.filter((p) => !p.isQuickPack);
   const pinnedSet = new Set(pinnedIds);
 
-  // 폴더 펼침/접힘 상태. 계정(profile.expandedPackFolderIds)에 저장되어 기기 간에도 동일하게
-  // 유지된다. profile 값을 로컬로 미러링해서 즉시 반응(낙관적 UI)하고, 다른 기기/화면에서
-  // 값이 바뀌면 따라간다(QuickPackBar의 quickPackCollapsed와 동일한 패턴).
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set(profile?.expandedPackFolderIds ?? [])
-  );
+  // 폴더 펼침/접힘 상태. 로컬 스토리지에 저장하여 불필요한 Firestore 쓰기/읽기 비용을 방지한다.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("pib_expanded_pack_folders");
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {}
+    }
+    return new Set(profile?.expandedPackFolderIds ?? []);
+  });
   const [showTemplateGallery, setShowTemplateGallery] = useState(false);
-  useEffect(() => {
-    setExpandedIds(new Set(profile?.expandedPackFolderIds ?? []));
-  }, [profile?.expandedPackFolderIds]);
+
+  const saveLocalExpanded = (set: Set<string>) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("pib_expanded_pack_folders", JSON.stringify(Array.from(set)));
+      } catch {}
+    }
+  };
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      updateExpandedPackFolderIds(Array.from(next)).catch(() => {
-        show("펼침 상태를 저장하지 못했어요");
-      });
+      saveLocalExpanded(next);
       return next;
     });
   };
@@ -185,15 +192,12 @@ export default function PacksScreen({
   const expandAllFolders = () => {
     const next = new Set(allFolderIds);
     setExpandedIds(next);
-    updateExpandedPackFolderIds(Array.from(next)).catch(() => {
-      show("펼침 상태를 저장하지 못했어요");
-    });
+    saveLocalExpanded(next);
   };
   const collapseAllFolders = () => {
-    setExpandedIds(new Set());
-    updateExpandedPackFolderIds([]).catch(() => {
-      show("펼침 상태를 저장하지 못했어요");
-    });
+    const next = new Set<string>();
+    setExpandedIds(next);
+    saveLocalExpanded(next);
   };
 
   // --- 검색 --------------------------------------------------------------

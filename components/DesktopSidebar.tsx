@@ -298,22 +298,26 @@ export default function DesktopSidebar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isSidebarCollapsed, updateSidebarCollapsed]);
 
-  // 팩 폴더 펼침 상태는 모바일 팩 트리 화면(PacksScreen)과 같은 계정 필드를 공유한다 -
-  // 어느 화면에서 펼쳐두든 다른 화면/기기에서도 그대로 이어진다.
-  const [expandedPackIds, setExpandedPackIds] = useState<Set<string>>(
-    () => new Set(profile?.expandedPackFolderIds ?? [])
-  );
-  useEffect(() => {
-    setExpandedPackIds(new Set(profile?.expandedPackFolderIds ?? []));
-  }, [profile?.expandedPackFolderIds]);
+  // 폴더 펼침 상태는 로컬 스토리지에 저장하여 불필요한 Firestore 쓰기/읽기 비용을 제거한다.
+  const [expandedPackIds, setExpandedPackIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("pib_expanded_pack_folders");
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {}
+    }
+    return new Set(profile?.expandedPackFolderIds ?? []);
+  });
 
-  // 가방보관함 폴더 펼침 상태 - 팩 폴더와 동일한 패턴(계정 필드 미러링).
-  const [expandedBagFolderIds, setExpandedBagFolderIds] = useState<Set<string>>(
-    () => new Set(profile?.expandedBagFolderIds ?? [])
-  );
-  useEffect(() => {
-    setExpandedBagFolderIds(new Set(profile?.expandedBagFolderIds ?? []));
-  }, [profile?.expandedBagFolderIds]);
+  const [expandedBagFolderIds, setExpandedBagFolderIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("pib_expanded_bag_folders");
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {}
+    }
+    return new Set(profile?.expandedBagFolderIds ?? []);
+  });
 
   const toggleBagExpanded = (id: string) => {
     setExpandedBagIds((prev) => {
@@ -329,7 +333,11 @@ export default function DesktopSidebar({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      updateExpandedPackFolderIds(Array.from(next)).catch(() => {});
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("pib_expanded_pack_folders", JSON.stringify(Array.from(next)));
+        } catch {}
+      }
       return next;
     });
   };
@@ -339,7 +347,11 @@ export default function DesktopSidebar({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      updateExpandedBagFolderIds(Array.from(next)).catch(() => {});
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("pib_expanded_bag_folders", JSON.stringify(Array.from(next)));
+        } catch {}
+      }
       return next;
     });
   };

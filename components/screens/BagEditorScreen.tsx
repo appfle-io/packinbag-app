@@ -67,7 +67,7 @@ import { fetchDeletedAccountIds } from "@/lib/accountService";
 import NotebookQuickAddModal, { QuickAddItemData } from "@/components/NotebookQuickAddModal";
 import { useToast } from "@/components/Toast";
 import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
-import { subscribeToBag, saveBagRemote, movePackBetweenBagsRemote } from "@/lib/bagsService";
+import { saveBagRemote, movePackBetweenBagsRemote } from "@/lib/bagsService";
 import { deleteLibraryPackRemote, updateLibraryPackEditorContent } from "@/lib/packsService";
 import { isInSyncWithLibrary, resolveEditorSyncDirection, buildEditorSyncPatch } from "@/lib/packSync";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
@@ -715,22 +715,22 @@ export default function BagEditorScreen({
   // 오히려 화면이 잠깐 깜빡이거나 아직 저장 안 한 내 편집을 잃을 수 있다.
   // 이 구독은 locked 필드도 그대로 실어오므로, 다른 곳(app/api/sync-lock-status)에서
   // 잠금 상태가 바뀌면 이 화면도 곧바로 반영된다(=readOnly prop이 AppShell에서 다시 계산됨).
+  // AppShell이 이미 subscribeToUserBags로 전체 가방을 실시간 구독하고 있으므로,
+  // 여기서 Firestore에 subscribeToBag를 또 걸어 중복 Read를 발생시키지 않고
+  // props로 넘어온 bags에서 해당 가방의 최신 변경을 전달받아 반영한다.
+  const remoteBag = bags.find((b) => b.id === initialBag.id);
   useEffect(() => {
-    const unsub = subscribeToBag(bag.id, (remoteBag) => {
-      if (!remoteBag) return;
-      if (isDirtyRef.current) return;
-      isApplyingRemoteRef.current = true;
-      // Remote update just arrived - clear the local undo/redo stacks since they no
-      // longer match the bag state we're about to show.
-      historyRef.current = [];
-      setHistoryLen(0);
-      redoRef.current = [];
-      setRedoLen(0);
-      setBag(remoteBag);
-    });
-    return unsub;
+    if (!remoteBag) return;
+    if (isDirtyRef.current) return;
+    if (remoteBag.updatedAt && bag.updatedAt && remoteBag.updatedAt <= bag.updatedAt) return;
+    isApplyingRemoteRef.current = true;
+    historyRef.current = [];
+    setHistoryLen(0);
+    redoRef.current = [];
+    setRedoLen(0);
+    setBag(remoteBag);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bag.id]);
+  }, [remoteBag]);
 
   // --- 메모팩(에디터팩) 보관함 연동 실시간 동기화 (토글) ---------------------------------
   // pack.autoSyncEnabled를 켜두면, 이 화면(가방)이 열려있는 동안에는 linkedLibraryPackId로
@@ -3226,6 +3226,8 @@ export default function BagEditorScreen({
             members: mentionMembers,
             deletedAccountIds: deletedAuthorIds,
           }}
+          allComments={comments}
+          allReactions={reactions}
         />
       )}
 
@@ -3360,6 +3362,8 @@ export default function BagEditorScreen({
           members={mentionMembers}
           deletedAccountIds={deletedAuthorIds}
           onClose={() => setShowBagThread(false)}
+          allComments={comments}
+          allReactions={reactions}
         />
       )}
 
