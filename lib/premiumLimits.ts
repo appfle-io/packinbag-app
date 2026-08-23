@@ -42,13 +42,24 @@ export function isRegionRecommendFeatureEnabled(
   return isPremiumUser(email, profile) && !!profile?.regionRecommendEnabled;
 }
 
-// 무료 사용자가 동시에 가질 수 있는(진행 중인) 가방 최대 개수 (프리미엄은 무제한)
+// 무료 사용자가 동시에 가질 수 있는 내가 만든 가방(소유 가방) 최대 개수 (프리미엄은 무제한)
 export const FREE_MAX_ACTIVE_BAGS = 3;
 
-// 가방당 사진 첨부 최대 장수 - 무료/유료 공통 제한 (멤버 혼재 정책 충돌 방지용)
+// 무료 사용자가 동시에 참여할 수 있는 초대받은 가방(참여 가방) 최대 개수 (프리미엄은 무제한)
+export const FREE_MAX_JOINED_BAGS = 3;
+
+// 무료 사용자가 팩 보관함에 보관할 수 있는 팩 & 폴더 총합 최대 개수 (프리미엄은 무제한)
+// (하단 "+" 빠른입력 시스템 팩은 이 카운트에서 제외되어 항상 무료 생성/저장 허용)
+export const FREE_MAX_LIBRARY_PACKS = 10;
+
+// 무료 사용자가 가방 1개에 직접 업로드할 수 있는 대표 사진 최대 장수
+// (친구가 올린 사진은 제외하고 본인 업로드 기준 1장)
+export const FREE_MAX_USER_BAG_IMAGES = 1;
+
+// 가방당 전체 사진 첨부 최대 장수 - 무료/유료 공통 상한 (멤버 혼재 정책 충돌 방지용)
 export const MAX_BAG_IMAGES = 5;
 
-// 메모(에디터) 패당 사진/PDF 첨부 최대 개수 - 무료/유료 공통 제한
+// 메모(에디터) 팩당 사진/PDF 첨부 최대 개수 - 프리미엄 전용 (무료는 첨부 불가)
 export const MAX_PACK_IMAGES = 3;
 
 // 휴지통(설정 > 휴지통)에 넣은 가방/팩을 며칠간 보관할지. 이 기간이 지나면 클라이언트가
@@ -88,22 +99,40 @@ function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]): T[] 
   return [...items].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
 }
 
-// 무료인데 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)을 넘는 가방을 갖고 있을 때, 그 중
-// 몇 개를 "잠금"으로 표시할지 계산한다. 대상은 내(ownerUid)가 직접 소유(ownerId)한
-// 가방만 - 다른 사람이 만들어서 나를 초대한 공유 가방은 이 제한과 무관하므로 대상에서
-// 제외된다(소유자 화면에서만 잠기고 다른 그룹원은 그대로 쓰는 것과 동일한 원칙).
-// 휴지통으로 보낸(trashedByOwnerAt) 가방은 이미 목록에서 숨겨져 있어 잠금 계산 자체에서
-// 제외한다 - 안 그러면 휴지통에 있는 가방이 "슬롯"을 차지해서 정상 가방이 잘못 잠기게 된다.
-// createdAt 내림순(최신순)으로 정렬해서 상위 N개만 잠금 해제, 나머지는 잠금 대상.
-export function computeLockedBagIds(bags: Bag[], ownerUid: string): Set<string> {
+/**
+ * 무료 회원이 슬롯 한도를 초과했을 때 잠금(읽기 전용) 처리할 가방 ID 목록을 계산한다.
+ * 1. 내가 소유한 가방(ownerId === currentUid): 최신 3개 제외 나머지 잠금
+ * 2. 내가 참여한 가방(memberIds 포함 & ownerId !== currentUid): 최신 3개 제외 나머지 내 화면에서 잠금
+ * (휴지통에 들어간 가방은 제외)
+ */
+export function computeLockedBagIds(bags: Bag[], currentUid: string): Set<string> {
+  const activeBags = bags.filter((b) => !b.trashedByOwnerAt);
+
+  // 1. 내가 만든 소유 가방
   const owned = sortByCreatedAtDesc(
-    bags.filter((b) => b.ownerId === ownerUid && !b.trashedByOwnerAt)
+    activeBags.filter((b) => b.ownerId === currentUid)
   );
-  return new Set(owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id));
+  const lockedOwned = owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id);
+
+  // 2. 친구에게 초대받은 참여 가방
+  const joined = sortByCreatedAtDesc(
+    activeBags.filter((b) => b.ownerId !== currentUid && b.memberIds.includes(currentUid))
+  );
+  const lockedJoined = joined.slice(FREE_MAX_JOINED_BAGS).map((b) => b.id);
+
+  return new Set([...lockedOwned, ...lockedJoined]);
 }
 
-// v68: 팩 보관함 개수 제한은 폐지됨(폴더 기능 도입과 함께 무제한으로 변경).
-// 가방 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)은 기존 정책 그대로 유지된다.
+/**
+ * 무료 회원이 팩/폴더 보관함 한도(10개)를 초과했을 때 잠금(읽기 전용) 처리할 팩/폴더 ID 목록을 계산한다.
+ * (빠른팩 및 휴지통에 있는 항목은 계산에서 제외)
+ */
+export function computeLockedPackIds(libraryPacks: Pack[]): Set<string> {
+  const active = sortByCreatedAtDesc(
+    libraryPacks.filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID && !p.isQuickPack)
+  );
+  return new Set(active.slice(FREE_MAX_LIBRARY_PACKS).map((p) => p.id));
+}
 
 // AI 추천이 만든 전용 팩(Pack.aiRecommendSource, 보통 이름은 "AI추천")은 무료회원 화면에서는
 // 안 보이게 걸러준다 - 같은 가방을 같이 쓰는 다른 멤버가 무료회원이어도 프리미엄 회원의 AI 추천

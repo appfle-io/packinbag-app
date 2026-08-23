@@ -96,7 +96,7 @@ import PackingModeModal from "@/components/PackingModeModal";
 import AssigneeSelectModal from "@/components/AssigneeSelectModal";
 import ShareCardModal from "@/components/ShareCardModal";
 import AiBagAuditModal from "@/components/AiBagAuditModal";
-import { MAX_BAG_IMAGES, isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
+import { MAX_BAG_IMAGES, FREE_MAX_USER_BAG_IMAGES, isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import { useSwipeBack } from "@/lib/useSwipeBack";
@@ -200,7 +200,7 @@ export default function BagEditorScreen({
   // storage.rules가 해주지만(프리미엄이 아닌 요청자에게는 읽기/쓰기 자체가 거부됨),
   // 여기서는 실패하기 전에 미리 안내해서 사용자가 왜 막혔는지 바로 알게 한다.
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
+  const [premiumModalMessage, setPremiumModalMessage] = useState<string | null>(null);
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
@@ -2009,7 +2009,17 @@ export default function BagEditorScreen({
   const handleAddImages = async (files: FileList | null) => {
     if (guardReadOnly()) return;
     if (!files || files.length === 0) return;
-    const selected = Array.from(files).slice(0, MAX_BAG_IMAGES - bag.images.length);
+
+    // 무료 회원은 가방 대표 사진을 본인 업로드 기준 1장까지 가능 (초과 시 이용권 등록 안내)
+    if (!premium && bag.images.length >= FREE_MAX_USER_BAG_IMAGES) {
+      setPremiumModalMessage(
+        `무료 회원은 가방 사진을 최대 ${FREE_MAX_USER_BAG_IMAGES}장까지 첨부할 수 있어요. 사진을 더 추가하려면 이용권 코드를 등록해주세요.`
+      );
+      return;
+    }
+
+    const maxAllowed = premium ? MAX_BAG_IMAGES : FREE_MAX_USER_BAG_IMAGES;
+    const selected = Array.from(files).slice(0, maxAllowed - bag.images.length);
 
     // PDF는 프리미엄 전용 기능 - storage.rules가 실제로도 프리미엄 요청자에게만 읽기/쓰기를
     // 허용한다. 무료 회원이 PDF를 골랐다면 그 파일들만 업로드 목록에서 빼고 업그레이드
@@ -2018,7 +2028,9 @@ export default function BagEditorScreen({
     const nonImageFiles = selected.filter(isNonImageFile);
     const toUpload = premium ? selected : selected.filter((f) => !isNonImageFile(f));
     if (nonImageFiles.length > 0 && !premium) {
-      setShowPdfPremiumModal(true);
+      setPremiumModalMessage(
+        "이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+      );
     }
     if (toUpload.length === 0) return;
 
@@ -2373,7 +2385,11 @@ export default function BagEditorScreen({
                   ) : kind === "pdf" ? (
                     <button
                       onClick={() =>
-                        premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
+                        premium
+                          ? setPdfPreviewUrl(src)
+                          : setPremiumModalMessage(
+                              "이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+                            )
                       }
                       className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
                       aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
@@ -2392,7 +2408,11 @@ export default function BagEditorScreen({
                   ) : (
                     <button
                       onClick={() =>
-                        premium ? openExternalLink(src) : setShowPdfPremiumModal(true)
+                        premium
+                          ? openExternalLink(src)
+                          : setPremiumModalMessage(
+                              "이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+                            )
                       }
                       className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary px-1"
                       aria-label={premium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
@@ -3337,12 +3357,12 @@ export default function BagEditorScreen({
         <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />
       )}
 
-      {showPdfPremiumModal && (
+      {premiumModalMessage && (
         <PremiumLimitModal
-          message="이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
-          onClose={() => setShowPdfPremiumModal(false)}
+          message={premiumModalMessage}
+          onClose={() => setPremiumModalMessage(null)}
           onUnlocked={() => {
-            setShowPdfPremiumModal(false);
+            setPremiumModalMessage(null);
             show("이용권 코드가 적용됐어요! 다시 시도해주세요");
           }}
           email={profile?.email}

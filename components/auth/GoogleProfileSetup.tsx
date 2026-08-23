@@ -12,7 +12,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // 구글 로그인은 비밀번호/닉네임 입력 단계가 없기 때문에, 최초 1회 로그인 직후
 // 여기서 이메일 가입과 동일하게 닉네임 + 아바타를 고르게 한다.
 export default function GoogleProfileSetup() {
-  const { completeProfile, logout } = useAuth();
+  const { completeProfile, logout, isGuest } = useAuth();
   const [nickname, setNickname] = useState(randomNickname);
   const [avatarId, setAvatarId] = useState(randomAvatarId);
   const [busy, setBusy] = useState(false);
@@ -36,7 +36,7 @@ export default function GoogleProfileSetup() {
         <div className="text-center mb-1">
           <p className="text-[18px] font-medium">거의 다 왔어요</p>
           <p className="text-[12px] text-text-secondary mt-1">
-            같이 쓰는 가방에서 보여질 닉네임과 캐릭터를 골라주세요
+            가방에서 보여질 닉네임과 캐릭터를 골라주세요
           </p>
         </div>
 
@@ -84,7 +84,7 @@ export default function GoogleProfileSetup() {
         </button>
 
         <button onClick={() => setConfirmLogout(true)} className="text-[12px] text-text-secondary text-center">
-          다른 계정으로 로그인
+          {isGuest ? "처음 화면으로 돌아가기" : "다른 계정으로 로그인"}
         </button>
       </div>
 

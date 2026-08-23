@@ -64,9 +64,11 @@ import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
   isPremiumUser,
   FREE_MAX_ACTIVE_BAGS,
+  FREE_MAX_LIBRARY_PACKS,
   QUICK_PACK_ID,
   PremiumLimitError,
   computeLockedBagIds,
+  computeLockedPackIds,
   isTrashExpired,
 } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
@@ -341,10 +343,10 @@ export default function AppShell() {
     }
   }, [premium, user, show]);
 
-  // 무료 전환으로 잠긴(내가 소유한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
+  // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
   // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
-  // v68: 팩 개수 제한이 폐지되어 팩/폴더는 더 이상 잠기지 않는다.
+  const lockedPackIds = user && !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
 
@@ -469,7 +471,7 @@ export default function AppShell() {
 
     if (pendingInvite) {
       sessionStorage.removeItem("pib_pending_invite");
-      joinBagByCode(user.uid, pendingInvite, {
+      joinBagByCode(user, pendingInvite, {
         nickname: profile.nickname,
         avatarId: profile.avatarId || "avatar_1",
       })
@@ -482,7 +484,11 @@ export default function AppShell() {
         })
         .catch((err) => {
           console.error("[팩인백] 초대 가방 자동 참여 실패:", err);
-          show("유효하지 않거나 만료된 초대 링크예요.");
+          if (err instanceof PremiumLimitError) {
+            setPremiumLimitMessage(err.message);
+          } else {
+            show(err instanceof Error ? err.message : "유효하지 않거나 만료된 초대 링크예요.");
+          }
         });
       return;
     }
@@ -815,12 +821,16 @@ export default function AppShell() {
 
   const handleJoinBag = async (code: string) => {
     try {
-      await joinBagByCode(user.uid, code, {
+      await joinBagByCode(user, code, {
         nickname: profile.nickname!,
         avatarId: profile.avatarId!,
       });
       show("가방에 참여했어요");
     } catch (err) {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 가방 참여 실패:", err);
       throw err;
     }
@@ -901,6 +911,11 @@ export default function AppShell() {
       await saveLibraryPackRemote(user, draft);
       return draft;
     } catch (err) {
+      setEditingPack(null);
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 팩 생성 실패:", err);
       show(`팩 생성에 실패했어요 (${firebaseErrorCode(err)})`);
     } finally {
@@ -922,6 +937,10 @@ export default function AppShell() {
     try {
       await saveLibraryPackRemote(user, draft);
     } catch (err) {
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
       console.error("[팩인백] 폴더 생성 실패:", err);
       show(`폴더 생성에 실패했어요 (${firebaseErrorCode(err)})`);
     } finally {
@@ -1104,50 +1123,73 @@ export default function AppShell() {
 
   if (isDesktop) {
     return (
-      <DesktopShell
-        user={user}
-        profile={profile}
-        bags={activeBags}
-        libraryPacks={activePacks}
-        quickPack={quickPack}
-        lockedBagIds={lockedBagIds}
-        selection={desktopSelection}
-        onSelectionChange={handleDesktopSelectionChange}
-        isNewBag={isNewBag}
-        requestUnlockForBag={requestUnlockForBag}
-        requestUnlockForPack={requestUnlockForPack}
-        onNewBag={openNewBag}
-        onSaveBag={handleSaveBag}
-        onDeleteBag={handleDeleteBag}
-        onRenameBag={handleRenameBag}
-        onSaveAsLibraryPack={handleSaveAsLibraryPack}
-        onTrashPackFromBag={handleTrashPackFromBag}
-        onLeaveBag={handleLeaveBag}
-        onRemoveMember={handleRemoveMember}
-        onRegenerateInviteCode={handleRegenerateInviteCode}
-        onTransferOwnership={handleTransferOwnership}
-        onAddItemsToBagPack={handleAddItemsToBagPack}
-        onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-        onNewPack={openNewPack}
-        onNewFolder={handleCreateFolder}
-        onChangePackColor={handleChangePackColor}
-        onRenamePackEntry={handleRenameLibraryEntry}
-        onMovePackEntries={handleMoveLibraryEntries}
-        onSavePack={handleSavePack}
-        onDeletePack={handleDeletePack}
-        announcements={announcements}
-        dismissedAnnouncementIds={dismissedIds}
-        onDismissAnnouncement={handleDismissAnnouncement}
-        onCreateAnnouncement={handleCreateAnnouncement}
-        onUpdateAnnouncement={handleUpdateAnnouncement}
-        onDeleteAnnouncement={handleDeleteAnnouncement}
-        trashedBags={trashedBags}
-        trashedPacks={trashedPacks}
-        onRestoreBag={handleRestoreBag}
-        onPermanentDeleteBag={handlePermanentDeleteBag}
-        onRestorePack={handleRestorePack}
-        onPermanentDeletePack={handlePermanentDeletePack}
-      />
+      <>
+        <DesktopShell
+          user={user}
+          profile={profile}
+          bags={activeBags}
+          libraryPacks={activePacks}
+          quickPack={quickPack}
+          lockedBagIds={lockedBagIds}
+          selection={desktopSelection}
+          onSelectionChange={handleDesktopSelectionChange}
+          isNewBag={isNewBag}
+          requestUnlockForBag={requestUnlockForBag}
+          requestUnlockForPack={requestUnlockForPack}
+          onNewBag={openNewBag}
+          onSaveBag={handleSaveBag}
+          onDeleteBag={handleDeleteBag}
+          onRenameBag={handleRenameBag}
+          onSaveAsLibraryPack={handleSaveAsLibraryPack}
+          onTrashPackFromBag={handleTrashPackFromBag}
+          onLeaveBag={handleLeaveBag}
+          onRemoveMember={handleRemoveMember}
+          onRegenerateInviteCode={handleRegenerateInviteCode}
+          onTransferOwnership={handleTransferOwnership}
+          onAddItemsToBagPack={handleAddItemsToBagPack}
+          onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+          onNewPack={openNewPack}
+          onNewFolder={handleCreateFolder}
+          onChangePackColor={handleChangePackColor}
+          onRenamePackEntry={handleRenameLibraryEntry}
+          onMovePackEntries={handleMoveLibraryEntries}
+          onSavePack={handleSavePack}
+          onDeletePack={handleDeletePack}
+          announcements={announcements}
+          dismissedAnnouncementIds={dismissedIds}
+          onDismissAnnouncement={handleDismissAnnouncement}
+          onCreateAnnouncement={handleCreateAnnouncement}
+          onUpdateAnnouncement={handleUpdateAnnouncement}
+          onDeleteAnnouncement={handleDeleteAnnouncement}
+          trashedBags={trashedBags}
+          trashedPacks={trashedPacks}
+          onRestoreBag={handleRestoreBag}
+          onPermanentDeleteBag={handlePermanentDeleteBag}
+          onRestorePack={handleRestorePack}
+          onPermanentDeletePack={handlePermanentDeletePack}
+        />
+        {showAnnouncementPopup && activeUndismissed.length > 0 && (
+          <AnnouncementPopupStack
+            announcements={activeUndismissed}
+            onDismiss={handleDismissAnnouncement}
+            onClose={() => setShowAnnouncementPopup(false)}
+          />
+        )}
+        {premiumLimitMessage && (
+          <PremiumLimitModal
+            message={premiumLimitMessage}
+            onClose={() => setPremiumLimitMessage(null)}
+            onUnlocked={() => {
+              setPremiumLimitMessage(null);
+              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+            }}
+          />
+        )}
+        <SplashScreen visible={showSplash} />
+        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
+        <CreatingBagOverlay visible={creatingBag} />
+        <CreatingPackOverlay visible={creatingPack} />
+      </>
     );
   }
 

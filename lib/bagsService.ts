@@ -213,40 +213,39 @@ export async function restoreBagRemote(user: User, bagId: string) {
   }
 }
 
-// 가방 초대코드로 참여하기 (최대 10명)
-// 주의: 참여 전에는 아직 멤버가 아니라서 bags/{bagId} 문서를 직접 읽을 수 없다
-// (firestore.rules상 read는 멤버만 허용). 그래서 여기서는 가방을 미리 조회해
-// "인원이 가득 찼는지"등을 클라이언트에서 먼저 확인하지 않고, 곧바로 updateDoc을
-// 시도한 뒤 규칙 위반(가득 참/존재하지 않음 등)을 catch에서 안내 문구로 변환한다.
+// 가방 초대코드로 참여하기 (서버 검증 API 라우트 경유)
+// 무료 사용자의 초대 참여 슬롯(최대 3개) 및 가방 정원(최대 10명)을 서버에서 안전하게 검증한다.
 export async function joinBagByCode(
-  uid: string,
+  user: User,
   rawCode: string,
   joinerProfile: { nickname: string; avatarId: string }
-) {
+): Promise<string> {
   const code = rawCode.trim().toUpperCase();
   if (!code) throw new Error("초대 코드를 입력해주세요.");
 
-  const codeDoc = await getDoc(doc(db, "inviteCodes", code));
-  if (!codeDoc.exists()) throw new Error("해당 코드의 가방을 찾을 수 없어요.");
-  const bagId = codeDoc.data().bagId as string;
+  const idToken = await user.getIdToken();
+  const res = await fetch("/api/join-bag", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      inviteCode: code,
+      joinerProfile,
+    }),
+  });
 
-  const profileEntry: BagMemberProfile = {
-    nickname: joinerProfile.nickname,
-    avatarId: joinerProfile.avatarId,
-    joinedAt: new Date().toISOString(),
-  };
-
-  try {
-    // 이미 멤버인 경우 arrayUnion은 아무 변화 없이 성공하고(멱등), memberProfiles의
-    // joinedAt만 갱신된다 - 별도 사전 체크 없이도 안전하게 재시도 가능.
-    await updateDoc(doc(bagsCol(), bagId), {
-      memberIds: arrayUnion(uid),
-      [`memberProfiles.${uid}`]: profileEntry,
-    });
-  } catch {
-    throw new Error("참여할 수 없어요. 가방이 삭제되었거나 인원이 가득 찼을 수 있어요.");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = (data?.error as string | undefined) ?? "가방에 참여하지 못했어요";
+    if (data?.code === "JOIN_LIMIT_REACHED") {
+      throw new PremiumLimitError(message);
+    }
+    throw new Error(message);
   }
-  return bagId;
+
+  return (data?.bagId as string) || "";
 }
 
 export async function fetchBagRemote(bagId: string): Promise<Bag | null> {

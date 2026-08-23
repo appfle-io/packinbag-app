@@ -3,6 +3,9 @@
 import { useState, useRef } from "react";
 import { IconPlane, IconUpload, IconX, IconLoader2, IconCheck, IconAlertTriangle, IconFileText, IconSparkles } from "@tabler/icons-react";
 import { User } from "firebase/auth";
+import Portal from "@/components/Portal";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 interface OcrResult {
   bagName: string;
@@ -124,15 +127,20 @@ export default function AiTicketOcrModal({
     }
   };
 
+  const ambientLayer = useOverlayLayer();
+  useEscapeToClose(loading ? undefined : onClose);
+
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
-      onClick={onClose}
-    >
+    <Portal>
       <div
-        className="w-full max-w-md bg-surface border border-border rounded-2xl p-5 shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+        style={{ zIndex: ambientLayer + POPOVER_OFFSET }}
+        onClick={onClose}
       >
+        <div
+          className="w-full max-w-md bg-surface border border-border rounded-2xl p-5 shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* 모달 헤더 */}
         <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
           <div className="flex items-center gap-2">
@@ -284,5 +292,6 @@ export default function AiTicketOcrModal({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

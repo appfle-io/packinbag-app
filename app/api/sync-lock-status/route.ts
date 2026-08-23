@@ -37,17 +37,35 @@ export async function POST(req: NextRequest) {
   const premium = await isPremiumServer(uid, email);
 
   try {
+    // 1. 소유 가방 잠금 상태 동기화 (최신 3개 제외 나머지 locked)
     await syncOwnedBagLocks(uid);
 
-    // v68: 팩 라이브러리 개수 제한은 폐지되어 팩에는 더 이상 locked를 걸지 않는다. 예전에
-    // 이미 locked:true로 기록된 팩이 남아있으면 여기서 전부 풀어준다(한 번만 실행되면 되고,
-    // 이후로는 이 섹션 자체가 다시 잠글 일이 없다).
+    // 2. 팩 보관함 잠금 상태 동기화 (무료는 최신 10개 제외 나머지 locked: true, 프리미엄은 전부 false)
     const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
     const packsSnap = await packsCol.get();
-    const stillLockedPacks = packsSnap.docs.filter((d) => d.data().locked === true);
-    if (stillLockedPacks.length > 0) {
-      const packBatch = db.batch();
-      stillLockedPacks.forEach((d) => packBatch.update(packsCol.doc(d.id), { locked: false }));
+    const activePacks = packsSnap.docs
+      .map((d) => ({
+        id: d.id,
+        createdAt: d.data().createdAt as string | undefined,
+        locked: d.data().locked as boolean | undefined,
+        trashedAt: d.data().trashedAt as string | undefined,
+        isQuick: d.id === "quick-pack" || !!d.data().isQuickPack,
+      }))
+      .filter((p) => !p.trashedAt && !p.isQuick)
+      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+
+    const packBatch = db.batch();
+    let packWrites = 0;
+
+    activePacks.forEach((p, idx) => {
+      const shouldLock = !premium && idx >= 10;
+      if (!!p.locked !== shouldLock) {
+        packBatch.update(packsCol.doc(p.id), { locked: shouldLock });
+        packWrites++;
+      }
+    });
+
+    if (packWrites > 0) {
       await packBatch.commit();
     }
 

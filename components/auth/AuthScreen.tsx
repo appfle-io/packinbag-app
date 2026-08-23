@@ -37,6 +37,7 @@ export default function AuthScreen() {
     signUpWithEmail,
     signInWithGoogle,
     signInWithApple,
+    signInAsGuest,
     resendVerificationByCredential,
     sendPasswordReset,
   } = useAuth();
@@ -152,6 +153,18 @@ export default function AuthScreen() {
     setBusy(true);
     try {
       await signInWithApple();
+    } catch (err) {
+      setError(friendlyAuthError(err instanceof Error ? err.message : ""));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await signInAsGuest();
     } catch (err) {
       setError(friendlyAuthError(err instanceof Error ? err.message : ""));
     } finally {
@@ -356,6 +369,15 @@ export default function AuthScreen() {
             className="rounded-lg border border-border py-2.5 text-[13px] disabled:opacity-50"
           >
             Apple로 계속하기
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGuest}
+            disabled={busy}
+            className="rounded-lg border border-dashed border-border py-2.5 text-[13px] text-text-secondary hover:text-foreground disabled:opacity-50"
+          >
+            로그인 없이 둘러보기 (게스트)
           </button>
 
           <button

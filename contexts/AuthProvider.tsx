@@ -13,11 +13,14 @@ import {
   deleteUser,
   EmailAuthProvider,
   GoogleAuthProvider,
+  linkWithCredential,
+  linkWithPopup,
   OAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
+  signInAnonymously,
   signInWithCredential,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -49,11 +52,16 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  isGuest: boolean;
   // 회원가입 처리 중(계정 생성 -> 샘플데이터/인증메일 -> 로그아웃) true. 이 사이에는
   // Firebase가 잠깐 로그인 상태가 되지만, 화면은 절대 홈으로 넘어가면 안 된다
   // (넘어갔다가 마지막에 signOut하면서 다시 로그인 화면으로 튕기는 부자연스러운
   // 깜빡임이 생기기 때문 - AppShell에서 이 값을 user와 함께 확인해서 막는다).
   authBusy: boolean;
+  signInAsGuest: () => Promise<void>;
+  linkAccountWithGoogle: () => Promise<void>;
+  linkAccountWithApple: () => Promise<void>;
+  linkAccountWithEmail: (email: string, password: string) => Promise<boolean>;
   signUpWithEmail: (
     email: string,
     password: string,
@@ -456,7 +464,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await ensureUserDoc(cred.user);
   };
 
-  // 구글로 가입한 사람이 처음 한 번 닉네임/아바타를 고르면 호출됨
+  // 게스트(익명) 로그인: 이메일/비밀번호 없이 로컬 전용 임시 세션으로 시작
+  const signInAsGuest = async () => {
+    setAuthBusy(true);
+    try {
+      const cred = await signInAnonymously(auth);
+      await ensureUserDoc(cred.user);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  // 게스트 계정 -> Google 계정 연동 (데이터 유지)
+  const linkAccountWithGoogle = async () => {
+    if (!user) throw new Error("게스트 상태가 아니에요");
+    if (isNativePlatform()) {
+      const idToken = await nativeGoogleIdToken();
+      const credential = GoogleAuthProvider.credential(idToken);
+      const res = await linkWithCredential(user, credential);
+      await ensureUserDoc(res.user);
+      return;
+    }
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    const res = await linkWithPopup(user, provider);
+    await ensureUserDoc(res.user);
+  };
+
+  // 게스트 계정 -> Apple 계정 연동 (데이터 유지)
+  const linkAccountWithApple = async () => {
+    if (!user) throw new Error("게스트 상태가 아니에요");
+    if (isNativePlatform()) {
+      const { idToken, rawNonce } = await nativeAppleIdToken();
+      const provider = new OAuthProvider("apple.com");
+      const credential = provider.credential({ idToken, rawNonce });
+      const res = await linkWithCredential(user, credential);
+      await ensureUserDoc(res.user);
+      return;
+    }
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    const res = await linkWithPopup(user, provider);
+    await ensureUserDoc(res.user);
+  };
+
+  // 게스트 계정 -> 이메일/비밀번호 연동 (데이터 유지)
+  const linkAccountWithEmail = async (email: string, password: string): Promise<boolean> => {
+    if (!user) throw new Error("게스트 상태가 아니에요");
+    const credential = EmailAuthProvider.credential(email, password);
+    const res = await linkWithCredential(user, credential);
+    await setDoc(
+      doc(db, "users", res.user.uid),
+      { email, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+    let sent = true;
+    try {
+      await sendEmailVerification(res.user);
+    } catch (err) {
+      console.error("[팩인백] 연동 후 인증 메일 발송 실패:", err);
+      sent = false;
+    }
+    return sent;
+  };
+
+  // 구글/게스트로 가입한 사람이 처음 한 번 닉네임/아바타를 고르면 호출됨
   const completeProfile = async (nickname: string, avatarId: string) => {
     if (!user) return;
     // 닉네임/아바타가 둘 다 비어있던 경우만 "진짜 처음"이다 - 기존 유저가 프로필을
@@ -887,7 +960,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         loading,
+        isGuest: !!user?.isAnonymous,
         authBusy,
+        signInAsGuest,
+        linkAccountWithGoogle,
+        linkAccountWithApple,
+        linkAccountWithEmail,
         signUpWithEmail,
         signInWithEmail,
         signInWithGoogle,

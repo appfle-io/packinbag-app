@@ -428,17 +428,18 @@ export default function PackNoteEditorScreen({
   const handleAddAttachments = async (files: FileList | null) => {
     if (effectiveReadOnly || !bagId) return;
     if (!files || files.length === 0) return;
+
+    // 메모팩 첨부파일은 프리미엄 전용 기능 (무료 회원은 첨부 불가)
+    if (!premium) {
+      setShowPdfPremiumModal(true);
+      return;
+    }
+
     const currentImages = packRef.current.images ?? [];
     const selected = Array.from(files).slice(0, MAX_PACK_IMAGES - currentImages.length);
 
-    // 이미지가 아닌 모든 파일(PDF 포함 임의 파일 형식)은 압축되지 않고 원본 크기 그대로 올라가며,
-    // PDF만 프리미엄이던 기존 정책을 그대로 유지해서 이미지 외 모든 파일로 확장한다.
     const isNonImageFile = (f: File) => !f.type.startsWith("image/");
-    const nonImageFiles = selected.filter(isNonImageFile);
-    const toUpload = premium ? selected : selected.filter((f) => !isNonImageFile(f));
-    if (nonImageFiles.length > 0 && !premium) {
-      setShowPdfPremiumModal(true);
-    }
+    const toUpload = selected;
     if (toUpload.length === 0) return;
 
     const oversized = toUpload.find(
@@ -765,14 +766,30 @@ export default function PackNoteEditorScreen({
           </ToolbarButton>
           {bagId && (
             <ToolbarButton
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingImages || packImages.length >= MAX_PACK_IMAGES}
-              label="파일 첨부"
+              onClick={() => {
+                if (!premium) {
+                  setShowPdfPremiumModal(true);
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
+              disabled={uploadingImages || (premium && packImages.length >= MAX_PACK_IMAGES)}
+              label={premium ? "파일 첨부" : "파일 첨부 (프리미엄 전용)"}
             >
               {uploadingImages ? (
                 <IconLoader2 size={17} stroke={1.75} className="animate-spin" />
               ) : (
-                <IconPaperclip size={17} stroke={1.75} />
+                <div className="relative">
+                  <IconPaperclip size={17} stroke={1.75} />
+                  {!premium && (
+                    <span
+                      className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full flex items-center justify-center"
+                      style={{ background: "rgba(0,0,0,0.6)" }}
+                    >
+                      <IconLock size={7} stroke={2} color="#fff" />
+                    </span>
+                  )}
+                </div>
               )}
             </ToolbarButton>
           )}
@@ -1018,7 +1035,7 @@ export default function PackNoteEditorScreen({
 
       {showPdfPremiumModal && (
         <PremiumLimitModal
-          message="이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
+          message="메모팩에 사진 및 파일을 첨부하거나 여는 것은 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
           onClose={() => setShowPdfPremiumModal(false)}
           onUnlocked={() => {
             setShowPdfPremiumModal(false);

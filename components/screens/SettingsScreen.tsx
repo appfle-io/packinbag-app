@@ -42,6 +42,7 @@ import ToggleSwitch from "@/components/ToggleSwitch";
 import { useToast } from "@/components/Toast";
 import SlideScreen from "@/components/SlideScreen";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import AccountLinkModal from "@/components/auth/AccountLinkModal";
 
 const modes: { key: ThemeMode; label: string }[] = [
   { key: "system", label: "시스템" },
@@ -150,7 +151,7 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { user, profile, updateDefaultTab, updateShortUrlEnabled } = useAuth();
+  const { user, profile, updateDefaultTab, updateShortUrlEnabled, isGuest } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -158,6 +159,7 @@ export default function SettingsScreen({
   const [showFaq, setShowFaq] = useState(false);
   const [showUnlockCode, setShowUnlockCode] = useState(false);
   const [showMyShortLinks, setShowMyShortLinks] = useState(false);
+  const [showAccountLinkModal, setShowAccountLinkModal] = useState(false);
   // v68부터 설정은 하단탭이라, 이 화면(main)에서 스와이프로 뒤로가는 것(설정->가방보관함)은
   // AppShell이 탭 전환 스와이프로 이미 처리한다. 여기서 또 useSwipeBack을 걸면 같은 제스처가
   // 두 군데서 겹쳐 처리돼서(설정->홈으로 바뀐 뒤, 그 홈 상태 기준으로 AppShell 스와이프가
@@ -188,21 +190,43 @@ export default function SettingsScreen({
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {profile && (
-          <button
-            onClick={() => setView("profile")}
-            className="w-full mb-6 rounded-lg border border-border bg-surface p-3 flex items-center gap-3"
-          >
+          <div className="mb-6 rounded-lg border border-border bg-surface p-3 flex items-center gap-3">
             <Avatar avatarId={profile.avatarId} size={40} />
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-[14px] font-medium truncate">
-                {profile.nickname ?? "닉네임 설정하기"}
+            <button
+              onClick={() => {
+                if (isGuest) {
+                  setShowAccountLinkModal(true);
+                } else {
+                  setView("profile");
+                }
+              }}
+              className="flex-1 min-w-0 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <p className="text-[14px] font-medium truncate">
+                  {profile.nickname ?? "닉네임 설정하기"}
+                </p>
+                {isGuest && (
+                  <span
+                    className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                    style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                  >
+                    게스트
+                  </span>
+                )}
+              </div>
+              <p className="text-[12px] text-text-secondary truncate mt-0.5">
+                {isGuest ? "기기에만 저장됨 (계정 연동하기)" : profile.email}
               </p>
-              <p className="text-[12px] text-text-secondary truncate">
-                {profile.email}
-              </p>
-            </div>
-            <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-          </button>
+            </button>
+            <button
+              onClick={() => setView("profile")}
+              className="p-1.5 rounded-md hover:bg-surface-2 text-text-muted hover:text-foreground text-[12px] shrink-0"
+              title="프로필 수정"
+            >
+              <IconChevronRight size={16} stroke={1.75} />
+            </button>
+          </div>
         )}
 
         <div className="mb-6">
@@ -286,7 +310,14 @@ export default function SettingsScreen({
               </div>
               {!aiUnlimited && (
                 <button
-                  onClick={() => setShowUnlockCode(true)}
+                  onClick={() => {
+                    if (isGuest) {
+                      show("회원가입 후 이용권을 등록할 수 있어요");
+                      setShowAccountLinkModal(true);
+                      return;
+                    }
+                    setShowUnlockCode(true);
+                  }}
                   className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
                 >
                   이용권 코드 입력
@@ -500,6 +531,13 @@ export default function SettingsScreen({
 
       {showInspectLogsModal && (
         <TemplateInspectLogsModal onClose={() => setShowInspectLogsModal(false)} />
+      )}
+
+      {showAccountLinkModal && (
+        <AccountLinkModal
+          isOpen={showAccountLinkModal}
+          onClose={() => setShowAccountLinkModal(false)}
+        />
       )}
     </div>
   );

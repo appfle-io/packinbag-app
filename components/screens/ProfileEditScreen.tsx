@@ -11,9 +11,10 @@ import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/Toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import DeleteAccountDialog from "@/components/DeleteAccountDialog";
+import AccountLinkModal from "@/components/auth/AccountLinkModal";
 
 export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
-  const { user, profile, updateNickname, updateAvatar, changePassword, logout, deleteAccount } =
+  const { user, profile, updateNickname, updateAvatar, changePassword, logout, deleteAccount, isGuest } =
     useAuth();
   const { show } = useToast();
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
@@ -22,6 +23,7 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [showAccountLinkModal, setShowAccountLinkModal] = useState(false);
 
   const isPasswordAccount = !!user?.providerData.some((p) => p.providerId === "password");
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -96,7 +98,21 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
       <div className="flex-1 overflow-y-auto px-4 pb-6 flex flex-col gap-6">
         <div className="flex flex-col items-center gap-3 pt-2">
           <Avatar avatarId={avatarDraft} size={72} />
-          <p className="text-[12px] text-text-secondary">{profile?.email}</p>
+          {isGuest ? (
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-[12px] text-text-secondary">게스트 계정 (기기에만 저장됨)</p>
+              <button
+                type="button"
+                onClick={() => setShowAccountLinkModal(true)}
+                className="rounded-full px-3 py-1 text-[11.5px] font-medium"
+                style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+              >
+                정식 계정으로 전환하기
+              </button>
+            </div>
+          ) : (
+            <p className="text-[12px] text-text-secondary">{profile?.email}</p>
+          )}
         </div>
 
         <div>
@@ -223,24 +239,31 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
           style={{
             borderColor: "var(--border)",
             background: "var(--surface-2)",
-            color: "var(--text-secondary)",
+            color: isGuest ? "var(--danger)" : "var(--text-secondary)",
           }}
         >
-          로그아웃
+          {isGuest ? "게스트 모드 종료" : "로그아웃"}
         </button>
-        <button
-          onClick={() => setShowDeleteAccount(true)}
-          className="rounded-lg border px-4 py-1.5 text-[11px]"
-          style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-        >
-          회원 탈퇴
-        </button>
+        {!isGuest && (
+          <button
+            onClick={() => setShowDeleteAccount(true)}
+            className="rounded-lg border px-4 py-1.5 text-[11px]"
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+          >
+            회원 탈퇴
+          </button>
+        )}
       </div>
 
       {confirmLogout && (
         <ConfirmDialog
-          title="로그아웃 하시겠어요?"
-          confirmLabel="로그아웃"
+          title={isGuest ? "게스트 모드를 종료하시겠어요?" : "로그아웃 하시겠어요?"}
+          message={
+            isGuest
+              ? "회원가입 없이 나가면 지금까지 작성한 가방과 팩이 모두 삭제될 수 있어요."
+              : undefined
+          }
+          confirmLabel={isGuest ? "데이터 삭제하고 나가기" : "로그아웃"}
           tone="danger"
           onCancel={() => setConfirmLogout(false)}
           onConfirm={() => {
@@ -258,6 +281,13 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
             await deleteAccount();
             setShowDeleteAccount(false);
           }}
+        />
+      )}
+
+      {showAccountLinkModal && (
+        <AccountLinkModal
+          isOpen={showAccountLinkModal}
+          onClose={() => setShowAccountLinkModal(false)}
         />
       )}
     </div>

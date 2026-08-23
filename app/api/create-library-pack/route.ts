@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
-import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
+import { FREE_MAX_LIBRARY_PACKS, QUICK_PACK_ID } from "@/lib/premiumLimits";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack } from "@/lib/editorDocSerialize";
 
-// 팩 보관함에 "새 팩/폴더"를 만드는 것만 서버에서 처리하도록 만든 라우트 (이미 있는 팩을
-// 고치는 건 여전히 클라이언트가 직접 한다 - lib/packsService.ts의 자동저장 참고).
-//
-// v68 이후: 팩 개수 제한(FREE_MAX_LIBRARY_PACKS)은 폐지되었지만, firestore.rules에서
-// libraryPacks의 client-side create는 여전히 막아뒀어서(allow create: if false) 새 팩/폴더
-// 생성은 계속 이 라우트(Admin SDK)를 거쳐야 한다.
+// 팩 보관함에 "새 팩/폴더"를 만드는 것을 서버에서 처리하고 무료 한도(10개)를 검증하는 라우트.
+// (하단 "+" 빠른입력 시스템 팩은 한도와 무관하게 항상 생성 허용)
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
@@ -27,9 +24,11 @@ export async function POST(req: NextRequest) {
   }
 
   let uid: string;
+  let email: string | null;
   try {
     const verified = await verifyRequestUser(req);
     uid = verified.uid;
+    email = verified.email;
   } catch (err) {
     if (err instanceof ServerAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
@@ -39,6 +38,30 @@ export async function POST(req: NextRequest) {
 
   const db = adminDb();
   const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
+
+  // 빠른팩은 무료 한도 대상에서 제외
+  const isQuick = draft.id === QUICK_PACK_ID || draft.isQuickPack;
+
+  if (!isQuick) {
+    const premium = await isPremiumServer(uid, email);
+    if (!premium) {
+      const snap = await packsCol.get();
+      const activeCount = snap.docs.filter((doc) => {
+        const d = doc.data();
+        return !d.trashedAt && doc.id !== QUICK_PACK_ID && !d.isQuickPack;
+      }).length;
+
+      if (activeCount >= FREE_MAX_LIBRARY_PACKS) {
+        return NextResponse.json(
+          {
+            code: "PACK_LIMIT_REACHED",
+            error: `무료로는 팩/폴더를 최대 ${FREE_MAX_LIBRARY_PACKS}개까지만 보관할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
+  }
 
   const now = draft.updatedAt ?? new Date().toISOString();
   const finalPack: Pack = { ...draft, createdAt: draft.createdAt ?? now, updatedAt: now };

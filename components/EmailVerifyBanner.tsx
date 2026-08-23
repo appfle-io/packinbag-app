@@ -10,8 +10,8 @@ export default function EmailVerifyBanner() {
   const [sending, setSending] = useState(false);
   const { show } = useToast();
 
-  // 구글로 가입한 사람은 이미 검증된 이메일이라 배너가 필요 없음
-  if (!user || user.emailVerified || dismissed) return null;
+  // 구글로 가입한 사람이나 게스트는 배너가 필요 없음
+  if (!user || user.isAnonymous || user.emailVerified || dismissed) return null;
   const isPasswordAccount = user.providerData.some(
     (p) => p.providerId === "password"
   );

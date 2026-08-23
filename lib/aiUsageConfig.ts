@@ -3,7 +3,9 @@
 // 안전하게 가져다 쓸 수 있다. 숫자/날짜 기준이 클라이언트 표시용과 서버 검증용에서
 // 어긋나지 않도록 이 파일 하나로 통일한다.
 
-export const AI_FREE_DAILY_LIMIT = 10;
+// 무료 회원의 AI 기능(메모 가방 변환, 티켓 OCR, 짐 자동정리 등) 일일 무료 사용 한도.
+// 한국시간(KST) 자정마다 리셋되며, 서버(aiQuotaServer.ts)와 클라이언트 모두 이 값을 참조한다.
+export const AI_FREE_DAILY_LIMIT = 3;
 export const UNLOCK_CODE_LENGTH = 10;
 
 // 하루 구분은 한국 시간(KST) 자정 기준.
