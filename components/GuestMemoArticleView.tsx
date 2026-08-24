@@ -33,10 +33,10 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+    <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
       {/* 상단 미니멀 브랜드 헤더 */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 shrink-0">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
               <IconNotes size={16} />
@@ -48,7 +48,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
             <button
               type="button"
               onClick={handleCopyText}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12px] font-medium text-slate-600 dark:text-slate-300 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[12.5px] font-medium text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
             >
               {copied ? <IconCheck size={14} className="text-emerald-500" /> : <IconCopy size={14} />}
               <span>{copied ? "복사됨" : "본문 복사"}</span>
@@ -56,7 +56,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
 
             <Link
               href={`/?importPack=${token}`}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-semibold transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-semibold transition-colors shadow-xs"
             >
               <IconPlus size={14} stroke={2.5} />
               <span>내 가방에 담기</span>
@@ -65,12 +65,12 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
         </div>
       </header>
 
-      {/* 중앙 아티클 문서 영역 */}
-      <main className="flex-1 max-w-2xl w-full mx-auto p-4 sm:p-8 flex flex-col gap-6 pb-28">
-        {/* 문서 헤더 */}
-        <div className="flex flex-col gap-2 pb-5 border-b border-slate-200 dark:border-slate-800">
+      {/* 중앙 아티클 문서 영역 (시원한 max-w-4xl 폭 적용) */}
+      <div className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8 flex flex-col gap-5 pb-32">
+        {/* 문서 헤더 카드 */}
+        <div className="flex flex-col gap-2 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+            <span className="text-[11.5px] font-semibold px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
               메모팩 문서
             </span>
           </div>
@@ -80,20 +80,20 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
         </div>
 
         {/* 문서 본문 서식 렌더러 (TipTap Rich Document) */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-10 shadow-sm">
           <MemoDocViewer pack={pack} />
         </div>
-      </main>
+      </div>
 
       {/* 하단 플로팅 바 */}
       <footer className="fixed bottom-0 inset-x-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 z-20">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
               <IconPackage size={18} className="text-blue-600 dark:text-blue-400" />
             </div>
             <div className="min-w-0">
-              <p className="text-[12.5px] font-bold truncate text-slate-900 dark:text-white">
+              <p className="text-[13px] font-bold truncate text-slate-900 dark:text-white">
                 {pack.name}
               </p>
               <p className="text-[11px] text-slate-500 truncate">
@@ -111,6 +111,6 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
           </Link>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }
