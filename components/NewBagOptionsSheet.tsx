@@ -81,8 +81,11 @@ export default function NewBagOptionsSheet({
           >
             <IconSparkles size={18} stroke={1.75} color="var(--accent-strong)" />
             <div>
-              <div className="text-[13px] font-medium" style={{ color: "var(--accent-strong)" }}>
+              <div className="text-[13px] font-bold flex items-center gap-1.5" style={{ color: "var(--accent-strong)" }}>
                 클립보드에서 가져오기
+                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
+                  AI
+                </span>
               </div>
               <div className="text-[11px] text-text-secondary">
                 메모장에서 복사한 내용을 붙여넣으면 AI가 자동으로 분류해줘요
