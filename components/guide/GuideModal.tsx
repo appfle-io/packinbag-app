@@ -13,6 +13,7 @@ import GuideMemoDemo from "@/components/guide/GuideMemoDemo";
 import GuideShareDemo from "@/components/guide/GuideShareDemo";
 import GuideShareCardsDemo from "@/components/guide/GuideShareCardsDemo";
 import ItemEditModal from "@/components/ItemEditModal";
+import { OverlayLayerProvider } from "@/lib/overlayLayer";
 import { GUIDE_SAMPLE_BAG, GUIDE_SAMPLE_ITEM, GUIDE_SAMPLE_MEMBERS } from "@/lib/guideSampleData";
 
 export default function GuideModal({
@@ -27,7 +28,8 @@ export default function GuideModal({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[190] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+      <OverlayLayerProvider value={190}>
+        <div className="fixed inset-0 z-[190] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
         <div
           onClick={(e) => e.stopPropagation()}
           className="w-full max-w-lg h-[90vh] max-h-[750px] rounded-2xl bg-background border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
@@ -251,6 +253,7 @@ export default function GuideModal({
           />
         )}
       </div>
+      </OverlayLayerProvider>
     </Portal>
   );
 }

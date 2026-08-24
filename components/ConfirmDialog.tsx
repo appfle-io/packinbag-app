@@ -28,13 +28,14 @@ export default function ConfirmDialog({
 }) {
   const [checked, setChecked] = useState(defaultChecked);
   const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = Math.max(ambientLayer + POPOVER_OFFSET, 250);
   useEscapeToClose(onCancel);
 
   return (
     <Portal>
       <div
         className="fixed inset-0 flex items-center justify-center p-4"
-        style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.45)" }}
+        style={{ zIndex: resolvedZIndex, background: "rgba(0,0,0,0.45)" }}
         onClick={onCancel}
       >
         <div
