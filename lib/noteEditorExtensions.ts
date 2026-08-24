@@ -13,11 +13,35 @@ import TextStyle from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { FontSize } from "./fontSizeExtension";
 import { ToggleBlock, ToggleSummary, ToggleContent } from "./toggleBlockExtension";
 import { IndentExtension } from "./indentExtension";
 
-export function getNoteEditorExtensions(placeholder?: string) {
+export interface NoteEditorExtensionOptions {
+  placeholder?: string;
+  collaboration?: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    document: any;
+    field?: string;
+  };
+  collaborationCursor?: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    provider: any;
+    user: {
+      name: string;
+      color: string;
+    };
+  };
+}
+
+export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOptions) {
+  const opts: NoteEditorExtensionOptions =
+    typeof options === "string" ? { placeholder: options } : options ?? {};
+
+  const isCollab = !!opts.collaboration?.document;
+
   return [
     StarterKit.configure({
       // 팩 자체의 이름은 EditableText/SwipeRenameField로 따로 관리하니, 문서 안 헤딩은
@@ -25,8 +49,9 @@ export function getNoteEditorExtensions(placeholder?: string) {
       heading: { levels: [1, 2, 3] },
       // blockquote가 기본으로 "> " 입력을 가로채여 인용구로 바꾸는데, 이 입력을
       // 토글 블록(ToggleBlock, 다음 줄)이 대신 쓰게 하려고 blockquote 자체를 끈다.
-      // 어차피 툴바에도 인용구 버튼이 없고 스타일도 따로 정의된 적 없다.
       blockquote: false,
+      // 실시간 협업(Yjs) 모드에서는 TipTap 기본 history를 끄고 Yjs UndoManager가 히스토리를 관리한다.
+      history: isCollab ? false : undefined,
     }),
     ToggleBlock,
     ToggleSummary,
@@ -57,6 +82,22 @@ export function getNoteEditorExtensions(placeholder?: string) {
       linkOnPaste: true,
       HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
     }),
-    ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
+    ...(opts.placeholder ? [Placeholder.configure({ placeholder: opts.placeholder })] : []),
+    ...(opts.collaboration?.document
+      ? [
+          Collaboration.configure({
+            document: opts.collaboration.document,
+            field: opts.collaboration.field ?? "default",
+          }),
+        ]
+      : []),
+    ...(opts.collaborationCursor?.provider
+      ? [
+          CollaborationCursor.configure({
+            provider: opts.collaborationCursor.provider,
+            user: opts.collaborationCursor.user,
+          }),
+        ]
+      : []),
   ];
 }

@@ -97,37 +97,37 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-lg max-h-[90vh] rounded-2xl bg-surface border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          className="w-full max-w-2xl md:max-w-3xl max-h-[90vh] rounded-2xl bg-surface border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         >
           {/* 헤더 */}
-          <div className="flex items-center justify-between p-3.5 px-4 border-b border-border bg-surface shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded-lg bg-accent-soft text-accent">
-                <IconNotes size={18} />
+          <div className="flex items-center justify-between p-3.5 px-4 sm:px-5 border-b border-border bg-surface shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-xl bg-accent-soft text-accent">
+                <IconNotes size={19} />
               </div>
               <div>
-                <h2 className="text-[14.5px] font-semibold text-foreground">메모팩 웹 문서 공유</h2>
-                <p className="text-[11px] text-text-muted">모든 서식과 표가 유지된 읽기 전용 문서로 공유돼요</p>
+                <h2 className="text-[15px] font-semibold text-foreground">메모팩 공유</h2>
+                <p className="text-[11.5px] text-text-muted">웹 문서 열람 및 실시간 공동 작성을 지원해요</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="p-1 rounded-md text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
               aria-label="닫기"
             >
               <IconX size={18} />
             </button>
           </div>
 
-          {/* 상단 링크 복사 & 공유 바 */}
-          <div className="p-3 px-4 bg-surface-2/40 border-b border-border flex flex-col gap-2 shrink-0">
+          {/* 상단 링크 복사 & 공유 바 (항상 노출) */}
+          <div className="p-3.5 px-4 sm:px-5 bg-surface-2/50 border-b border-border flex flex-col gap-2.5 shrink-0">
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center px-3 py-1.5 rounded-xl bg-surface border border-border text-[12px] text-text-secondary truncate">
+              <div className="flex-1 flex items-center px-3.5 py-2 rounded-xl bg-surface border border-border text-[12.5px] text-text-secondary truncate shadow-2xs">
                 {loadingToken ? (
                   <span className="flex items-center gap-1.5 text-text-muted">
-                    <IconLoader2 size={13} className="animate-spin" /> 링크를 생성하고 있어요...
+                    <IconLoader2 size={13} className="animate-spin" /> 웹 공유 링크를 생성하고 있어요...
                   </span>
                 ) : (
                   <span className="font-mono truncate">{shareUrl || "공유 링크 준비 중..."}</span>
@@ -138,13 +138,13 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
                 type="button"
                 onClick={handleCopyLink}
                 disabled={!shareUrl}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-colors cursor-pointer shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors cursor-pointer shrink-0 shadow-2xs ${
                   linkCopied
                     ? "bg-accent text-white"
                     : "bg-surface border border-border hover:border-accent text-foreground disabled:opacity-50"
                 }`}
               >
-                {linkCopied ? <IconCheck size={14} stroke={2.5} /> : <IconCopy size={14} />}
+                {linkCopied ? <IconCheck size={15} stroke={2.5} /> : <IconCopy size={15} />}
                 <span>{linkCopied ? "복사 완료" : "링크 복사"}</span>
               </button>
 
@@ -153,24 +153,35 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
                   href={shareUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-xl bg-surface border border-border hover:border-accent text-text-secondary hover:text-foreground transition-colors shrink-0"
-                  title="새 브라우저 탭에서 열기"
+                  className="p-2.5 rounded-xl bg-surface border border-border hover:border-accent text-text-secondary hover:text-foreground transition-colors shrink-0 shadow-2xs"
+                  title="새 브라우저 탭에서 웹 문서 열기"
                 >
-                  <IconExternalLink size={15} />
+                  <IconExternalLink size={16} />
                 </a>
               )}
+            </div>
+
+            {/* 실시간 협업 팁 뱃지 */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent-soft/50 border border-accent/20 text-[11.5px] text-foreground">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+              </span>
+              <span className="text-text-secondary truncate">
+                <strong className="text-accent font-semibold">실시간 동시 작성 지원:</strong> 가방 속 멤버와 함께 이 메모를 열면 실시간 커서와 타이핑이 즉시 연결돼요.
+              </span>
             </div>
           </div>
 
           {/* 본문 미리보기 페이퍼 (Document Paper Preview) */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-surface-2/20 flex flex-col items-center">
-            <div className="w-full max-w-md rounded-2xl bg-surface border border-border/80 p-5 sm:p-6 shadow-sm flex flex-col gap-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-surface-2/20 flex flex-col items-center">
+            <div className="w-full max-w-2xl rounded-2xl bg-surface border border-border/80 p-6 sm:p-8 shadow-sm flex flex-col gap-4">
               {/* 문서 헤더 */}
               <div className="flex flex-col gap-1 pb-3 border-b border-border/60">
-                <span className="text-[10.5px] font-semibold text-accent uppercase tracking-wider">
-                  메모팩 웹 뷰어
+                <span className="text-[11px] font-semibold text-accent uppercase tracking-wider">
+                  메모팩 문서 뷰어
                 </span>
-                <h1 className="text-[17px] font-bold text-foreground leading-snug">
+                <h1 className="text-[19px] font-bold text-foreground leading-snug">
                   {pack.name || "제목 없는 메모"}
                 </h1>
               </div>
@@ -181,9 +192,9 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
           </div>
 
           {/* 모달 하단 바 */}
-          <div className="p-3 px-4 border-t border-border bg-surface flex items-center justify-between gap-2 shrink-0">
+          <div className="p-3 px-4 sm:px-5 border-t border-border bg-surface flex items-center justify-between gap-2 shrink-0">
             <span className="text-[11.5px] text-text-muted">
-              링크를 가진 사람은 누구나 서식이 적용된 이 문서를 열람할 수 있어요.
+              링크를 가진 사람은 누구나 서식이 적용된 이 문서를 웹에서 열람할 수 있어요.
             </span>
             <button
               type="button"

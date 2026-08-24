@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import {
   IconArrowLeft,
@@ -29,6 +29,8 @@ import {
   IconLoader2,
   IconLink,
 } from "@tabler/icons-react";
+import * as Y from "yjs";
+import { WebrtcProvider } from "y-webrtc";
 import { Pack } from "@/lib/types";
 import MemoPackShareModal from "@/components/MemoPackShareModal";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
@@ -141,10 +143,78 @@ export default function PackNoteEditorScreen({
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // 다른 사람이 같은 메모를 지금 편집 중이면 무조건 읽기전용으로 전환한다(선택 아님) -
-  // 동시에 고치면 한쪽 내용이 덮어쓰이는 사고를 막기 위함이다. 그 사람이 편집을 끝내는 순간
-  // (otherEditorNickname이 null이 되는 순간) 자동으로 다시 편집 가능해진다.
-  const effectiveReadOnly = !!readOnly || !!otherEditorNickname;
+  const COLLAB_COLORS = [
+    "#f43f5e",
+    "#8b5cf6",
+    "#0ea5e9",
+    "#10b981",
+    "#f59e0b",
+    "#ec4899",
+    "#6366f1",
+    "#14b8a6",
+  ];
+
+  function getCollaboratorColor(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+    }
+    return COLLAB_COLORS[Math.abs(hash) % COLLAB_COLORS.length];
+  }
+
+  // 실시간 동시 수정(Yjs + WebRTC) 설정: 가방 안의 메모팩인 경우 브라우저 간 P2P로 직접 통신하여
+  // Firestore 읽기/쓰기 없이($0) 실시간 동시 타이핑 및 커서를 지원한다.
+  const [collab, setCollab] = useState<{
+    ydoc: Y.Doc;
+    provider: WebrtcProvider;
+  } | null>(null);
+
+  const [activePeers, setActivePeers] = useState<{ name: string; color: string }[]>([]);
+
+  const myNickname = profile?.nickname || user?.displayName || "익명";
+  const myColor = getCollaboratorColor(user?.uid || myNickname);
+
+  useEffect(() => {
+    if (!bagId || typeof window === "undefined") return;
+    const ydoc = new Y.Doc();
+    const roomName = `pib-bag-${bagId}-pack-${pack.id}`;
+    const provider = new WebrtcProvider(roomName, ydoc, {
+      signaling: [
+        "wss://signaling.yjs.dev",
+        "wss://y-webrtc-signaling-eu.herokuapp.com",
+        "wss://y-webrtc-signaling-us.herokuapp.com",
+      ],
+    });
+
+    provider.awareness.setLocalStateField("user", {
+      name: myNickname,
+      color: myColor,
+    });
+
+    const updatePeers = () => {
+      const states = Array.from(provider.awareness.getStates().entries());
+      const clientID = provider.awareness.clientID;
+      const peers = states
+        .filter(([id, state]) => id !== clientID && state.user?.name)
+        .map(([, state]) => state.user as { name: string; color: string });
+      setActivePeers(peers);
+    };
+
+    provider.awareness.on("change", updatePeers);
+    updatePeers();
+
+    setCollab({ ydoc, provider });
+
+    return () => {
+      provider.awareness.off("change", updatePeers);
+      provider.destroy();
+      ydoc.destroy();
+      setCollab(null);
+    };
+  }, [bagId, pack.id, myNickname, myColor]);
+
+  // 실시간 동시 수정을 지원하므로 다른 사람이 열어보고 있어도 읽기전용으로 잠그지 않는다.
+  const effectiveReadOnly = !!readOnly;
   // 문서가 너무 커져서 지금 상태로는 저장이 막혔는지. true인 동안은 자동저장을 건너뛰고
   // 배너로 알려서, 사용자가 내용을 줄여야 한다는 걸 바로 알 수 있게 한다(타이핑한 내용
   // 자체는 화면에 그대로 남아있어 잃어버리지 않는다).
@@ -172,19 +242,46 @@ export default function PackNoteEditorScreen({
   // "수정"을 누르면 이 값이 채워져 이름/주소 수정 시트(EditLinkModal)가 열린다.
   const [editLinkTarget, setEditLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
 
-  const editor = useEditor({
-    extensions: getNoteEditorExtensions("메모를 입력해보세요"),
-    content: pack.editorDoc ?? "",
-    editable: !effectiveReadOnly,
-    immediatelyRender: false,
-    editorProps: {
-      attributes: {
-        spellcheck: noteSpellcheckEnabled ? "true" : "false",
-        autocapitalize: "off",
-        autocomplete: "off",
+  const editor = useEditor(
+    {
+      extensions: getNoteEditorExtensions({
+        placeholder: "메모를 입력해보세요",
+        collaboration: collab?.ydoc ? { document: collab.ydoc } : undefined,
+        collaborationCursor: collab?.provider
+          ? {
+              provider: collab.provider,
+              user: {
+                name: myNickname,
+                color: myColor,
+              },
+            }
+          : undefined,
+      }),
+      content: pack.editorDoc ?? "",
+      editable: !effectiveReadOnly,
+      immediatelyRender: false,
+      editorProps: {
+        attributes: {
+          spellcheck: noteSpellcheckEnabled ? "true" : "false",
+          autocapitalize: "off",
+          autocomplete: "off",
+        },
       },
     },
-  });
+    [collab, effectiveReadOnly, noteSpellcheckEnabled]
+  );
+
+  // 기존 작성된 메모팩 내용이 마운트 시 즉시 정상 렌더링되도록 보장
+  const initialContentSeededRef = useRef(false);
+  useEffect(() => {
+    if (!editor) return;
+    if (pack.editorDoc && (editor.isEmpty || !initialContentSeededRef.current)) {
+      if (editor.isEmpty) {
+        editor.commands.setContent(pack.editorDoc, false);
+      }
+      initialContentSeededRef.current = true;
+    }
+  }, [editor, collab, pack.editorDoc]);
 
   // 맞춤법 검사 On/Off 변경 시 에디터 DOM에 즉시 반영
   useEffect(() => {
@@ -195,18 +292,10 @@ export default function PackNoteEditorScreen({
     }
   }, [editor, noteSpellcheckEnabled]);
 
-  // readOnly는 고정값이지만 otherEditorNickname은 화면을 열어둔 채 바뀌는 값이라(다른 사람이
-  // 편집을 시작/종료하는 순간), useEditor 생성 시점의 editable 값만으로는
-  // 반영되지 않아서 editor.setEditable로 직접 동기화한다.
   useEffect(() => {
     editor?.setEditable(!effectiveReadOnly);
   }, [editor, effectiveReadOnly]);
 
-  // 다른 사람이 지금 편집 중이라 내가 강제 읽기전용으로 보고 있는 동안에는, 그 사람이
-  // 저장할 때마다 부모(BagEditorScreen)의 실시간 구독을 통해 내려오는 최신
-  // pack.editorDoc을 그대로 에디터에 반영해 "라이브"로 보이게 한다. setContent의
-  // 두 번째 인자(emitUpdate=false)로 이 반영이 다시 자동저장 흐름을 타지 않게 막는다
-  // (내 편집이 아니라 수신한 값을 그대로 보여주는 것일 뿐이므로).
   const refreshHeadings = useCallback(() => {
     if (!editor) return;
     const list: { pos: number; level: number; text: string }[] = [];
@@ -240,12 +329,13 @@ export default function PackNoteEditorScreen({
 
   const lastSyncedDocRef = useRef(pack.editorDoc);
   useEffect(() => {
-    if (!editor || !otherEditorNickname) return;
+    // 실시간 협업 모드일 때는 Yjs가 동기화를 직접 처리하므로 setContent 불필요
+    if (!editor || collab?.ydoc) return;
     if (pack.editorDoc === lastSyncedDocRef.current) return;
     lastSyncedDocRef.current = pack.editorDoc;
     editor.commands.setContent(pack.editorDoc ?? "", false);
     refreshHeadings();
-  }, [editor, otherEditorNickname, pack.editorDoc, refreshHeadings]);
+  }, [editor, collab, pack.editorDoc, refreshHeadings]);
 
   // 렌더링된 링크(<a>) 중 우리 서비스 짧은/커스텀 링크의 화면 표시 텍스트를 캐시된 표시
   // 이름(label)으로 바꿔치기한다. 문서(editorDoc) 자체의 텍스트/href는 그대로 두고 DOM
@@ -289,9 +379,9 @@ export default function PackNoteEditorScreen({
   }, [editor, applyLinkLabels]);
 
   useEffect(() => {
-    if (!editor || !otherEditorNickname) return;
+    if (!editor) return;
     applyLinkLabels();
-  }, [editor, otherEditorNickname, pack.editorDoc, applyLinkLabels]);
+  }, [editor, pack.editorDoc, applyLinkLabels]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
@@ -623,15 +713,40 @@ export default function PackNoteEditorScreen({
         </div>
       )}
 
-      {otherEditorNickname && (
+      {activePeers.length > 0 ? (
         <div
-          className="mx-4 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] shrink-0"
-          style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+          className="mx-4 mb-2 flex items-center justify-between gap-2 rounded-xl px-3.5 py-2 text-[12.5px] shrink-0 border border-accent/20 bg-accent-soft text-foreground"
         >
-          <IconUsers size={14} stroke={1.75} className="shrink-0" />
-          <span>{otherEditorNickname}님이 지금 편집 중이라 읽기전용으로 보고 있어요 · 수정 내용이 라이브로 반영돼요</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+            </span>
+            <span className="font-medium text-accent truncate">
+              {activePeers.map((p) => p.name).join(", ")}님과 실시간으로 함께 작성 중이에요
+            </span>
+          </div>
+          <div className="flex items-center -space-x-1.5 overflow-hidden shrink-0">
+            {activePeers.map((p, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white shadow-xs ring-2 ring-surface"
+                style={{ backgroundColor: p.color }}
+                title={p.name}
+              >
+                {p.name.slice(0, 1)}
+              </span>
+            ))}
+          </div>
         </div>
-      )}
+      ) : otherEditorNickname ? (
+        <div
+          className="mx-4 mb-2 flex items-center gap-2 rounded-xl px-3.5 py-2 text-[12.5px] shrink-0 border border-border bg-surface-2 text-text-secondary"
+        >
+          <IconUsers size={15} stroke={1.75} className="shrink-0 text-accent" />
+          <span>{otherEditorNickname}님이 접속 중이에요 · 실시간으로 함께 작성할 수 있어요</span>
+        </div>
+      ) : null}
 
       {sizeBlocked && (
         <div

@@ -474,6 +474,35 @@ aside {
   pointer-events: none;
 }
 
+/* 실시간 협업 커서 및 닉네임 라벨 (@tiptap/extension-collaboration-cursor) */
+.pib-note-editor .collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid #0d0d0d;
+  border-right: 2px solid #0d0d0d;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.pib-note-editor .collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+}
+
 /* 토글 블록("> " 입력으로 만드는 접었다펌다 목록). 화살표는 열림/닫힌에 따라 회전만
    바꾸고, 본문(toggle-content)은 닫힌 때 CSS로만 숨긴다(데이터 자체는 그대로 저장된다). */
 .pib-toggle {
