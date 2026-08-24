@@ -199,6 +199,49 @@ export default function MemoRichTextView({
           );
         }
 
+        if (block.type === "table" && block.table) {
+          return (
+            <div
+              key={bIdx}
+              className="overflow-x-auto my-2 rounded-lg border border-border/80 text-[11.5px] leading-tight"
+            >
+              <table className="w-full border-collapse text-left">
+                {block.table.headers && (
+                  <thead>
+                    <tr className="bg-surface-2/80 border-b border-border/80">
+                      {block.table.headers.map((hSpans, hIdx) => (
+                        <th
+                          key={hIdx}
+                          className="p-1.5 font-bold text-foreground border-r last:border-r-0 border-border/60 whitespace-nowrap"
+                        >
+                          {renderSpans(hSpans)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
+                <tbody>
+                  {block.table.rows.map((row, rIdx) => (
+                    <tr
+                      key={rIdx}
+                      className="border-b last:border-b-0 border-border/40 hover:bg-surface-2/30"
+                    >
+                      {row.map((cellSpans, cIdx) => (
+                        <td
+                          key={cIdx}
+                          className="p-1.5 text-text-secondary border-r last:border-r-0 border-border/40 whitespace-pre-wrap"
+                        >
+                          {renderSpans(cellSpans)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
         if (block.type === "code") {
           return (
             <pre

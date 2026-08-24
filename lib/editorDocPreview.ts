@@ -17,12 +17,18 @@ export interface RichSpan {
   href?: string;
 }
 
+export interface RichTable {
+  headers?: RichSpan[][];
+  rows: RichSpan[][][];
+}
+
 export interface RichBlock {
-  type: "heading" | "paragraph" | "bullet" | "ordered" | "task" | "blockquote" | "code" | "hr";
+  type: "heading" | "paragraph" | "bullet" | "ordered" | "task" | "blockquote" | "code" | "hr" | "table";
   level?: number;
   checked?: boolean;
   orderNumber?: number;
   spans: RichSpan[];
+  table?: RichTable;
 }
 
 interface DocNode {
@@ -199,6 +205,31 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
         if (spans.some((s) => s.text.trim().length > 0)) {
           blocks.push({ type: "task", checked, spans });
         }
+      }
+    } else if (type === "table") {
+      const tableRows: RichSpan[][][] = [];
+      let headers: RichSpan[][] | undefined;
+      for (const row of node.content || []) {
+        if (row.type === "tableRow") {
+          const cells: RichSpan[][] = [];
+          let isHeaderRow = false;
+          for (const cell of row.content || []) {
+            if (cell.type === "tableHeader") isHeaderRow = true;
+            cells.push(extractSpans(cell));
+          }
+          if (isHeaderRow && !headers) {
+            headers = cells;
+          } else {
+            tableRows.push(cells);
+          }
+        }
+      }
+      if (tableRows.length > 0 || headers) {
+        blocks.push({
+          type: "table",
+          spans: [],
+          table: { headers, rows: tableRows },
+        });
       }
     } else if (type === "blockquote") {
       const spans = extractSpans(node);

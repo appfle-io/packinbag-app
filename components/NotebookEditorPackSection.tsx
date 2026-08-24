@@ -16,6 +16,7 @@ import {
   IconNotes,
   IconFileText,
   IconLock,
+  IconPencil,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
@@ -181,24 +182,42 @@ export default function NotebookEditorPackSection({
           </div>
         )}
         {!readOnly && (
-          <div className="relative shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
-              onClick={() => setShowMenu((v) => !v)}
-              aria-label="팩 메뉴"
-              className="flex items-center justify-center"
+              onClick={onOpenEditor}
+              aria-label="메모 편집"
+              className="p-1 rounded hover:bg-surface-2 transition-colors flex items-center justify-center"
             >
-              <IconDotsVertical size={16} stroke={1.75} color="var(--text-secondary)" />
+              <IconPencil size={15} stroke={1.75} color="var(--text-secondary)" />
             </button>
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                <div
-                  className={`absolute right-0 z-50 rounded-lg border border-border shadow-lg overflow-hidden ${
-                    isLast ? "bottom-full mb-1" : "top-full mt-1"
-                  }`}
-                  style={{ background: "var(--surface)", minWidth: 140 }}
-                >
-                  {onMoveToBag && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu((v) => !v)}
+                aria-label="팩 메뉴"
+                className="p-1 rounded hover:bg-surface-2 transition-colors flex items-center justify-center"
+              >
+                <IconDotsVertical size={16} stroke={1.75} color="var(--text-secondary)" />
+              </button>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div
+                    className={`absolute right-0 z-50 rounded-lg border border-border shadow-lg overflow-hidden ${
+                      isLast ? "bottom-full mb-1" : "top-full mt-1"
+                    }`}
+                    style={{ background: "var(--surface)", minWidth: 140 }}
+                  >
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onOpenEditor();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-surface-2"
+                    >
+                      <IconPencil size={15} stroke={1.75} />
+                      메모 편집
+                    </button>
+                    {onMoveToBag && (
                     <button
                       onClick={() => {
                         setShowMenu(false);
@@ -268,6 +287,7 @@ export default function NotebookEditorPackSection({
                 </div>
               </>
             )}
+            </div>
           </div>
         )}
       </div>
