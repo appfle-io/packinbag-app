@@ -18,7 +18,6 @@ import {
   OAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
-  sendEmailVerification,
   sendPasswordResetEmail,
   signInAnonymously,
   signInWithCredential,
@@ -41,6 +40,7 @@ import {
   clearIndexedDbPersistence,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
 import { UserProfile } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { stripUndefined } from "@/lib/firestoreSanitize";
@@ -392,10 +392,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       let sent = true;
       try {
-        await sendEmailVerification(cred.user);
+        // Resend(브랜드 도메인)로 먼저 시도하고, 실패하면 내부에서 자동으로
+        // Firebase 기본 발송으로 폴백한다 (lib/emailVerification.ts 참고).
+        await sendVerificationEmailWithFallback(cred.user);
       } catch (err) {
         // 계정 생성 자체는 성공했으니 가입을 막지는 않되, 원인 파악용으로 콘솔에 남긴다.
-        console.error("[팩인백] 인증 메일 발송 실패:", err);
+        console.error("[팩인백] 인증 메일 발송 실패(Resend/Firebase 둘 다):", err);
         sent = false;
       }
       // 이메일 인증 전에는 로그인 상태를 유지시키지 않는다. (인증 완료 후 직접 로그인해야 함)
@@ -521,9 +523,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
     let sent = true;
     try {
-      await sendEmailVerification(res.user);
+      await sendVerificationEmailWithFallback(res.user);
     } catch (err) {
-      console.error("[팩인백] 연동 후 인증 메일 발송 실패:", err);
+      console.error("[팩인백] 연동 후 인증 메일 발송 실패(Resend/Firebase 둘 다):", err);
       sent = false;
     }
     return sent;
@@ -879,9 +881,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const resendVerificationEmail = async () => {
     if (!user) return;
     try {
-      await sendEmailVerification(user);
+      await sendVerificationEmailWithFallback(user);
     } catch (err) {
-      console.error("[팩인백] 인증 메일 재발송 실패:", err);
+      console.error("[팩인백] 인증 메일 재발송 실패(Resend/Firebase 둘 다):", err);
       throw err;
     }
   };
@@ -894,7 +896,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       try {
         if (!cred.user.emailVerified) {
-          await sendEmailVerification(cred.user);
+          await sendVerificationEmailWithFallback(cred.user);
         }
       } finally {
         await signOut(auth);
