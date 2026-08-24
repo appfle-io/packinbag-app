@@ -448,60 +448,33 @@ export default function AppShell() {
 
     if (pendingImportPack) {
       sessionStorage.removeItem("pib_pending_import_pack");
-      getDoc(doc(db, "sharedPacks", pendingImportPack))
-        .then(async (snap) => {
-          if (!snap.exists()) {
-            show("공유가 종료되었거나 없는 팩이에요.");
+      (async () => {
+        try {
+          const idToken = await user.getIdToken();
+          const res = await fetch("/api/import-shared-pack", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ token: pendingImportPack }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            if (data?.code === "PACK_LIMIT_REACHED") {
+              setPremiumLimitMessage(data.error);
+              return;
+            }
+            show(data?.error || "팩을 가져오지 못했어요.");
             return;
           }
-          const data = snap.data() as SharedPackSnapshot;
-          if (data.type === "folder") {
-            const folderId = uid();
-            const newFolder: Pack = {
-              id: folderId,
-              name: data.title,
-              type: "folder",
-              items: [],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            await saveLibraryPackRemote(user, newFolder, true);
-            const childPacks = (data.packs ?? []).filter((p) => p.type !== "folder");
-            for (const cp of childPacks) {
-              const newChildPack: Pack = {
-                ...cp,
-                id: uid(),
-                parentId: folderId,
-                items: (cp.items ?? []).map((i) => ({ ...i, id: uid() })),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-              await saveLibraryPackRemote(user, newChildPack, true);
-            }
-            setShowPackTree(true);
-            show(`"${data.title}" 폴더와 팩들을 보관함으로 가져왔어요!`);
-          } else if (data.pack) {
-            const deserialized = deserializePack(data.pack);
-            const newPack: Pack = {
-              ...deserialized,
-              id: uid(),
-              parentId: undefined,
-              type: deserialized.type || "pack",
-              items: Array.isArray(deserialized.items)
-                ? deserialized.items.map((i) => ({ ...i, id: uid() }))
-                : [],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            await saveLibraryPackRemote(user, newPack, true);
-            setShowPackTree(true);
-            show(`"${newPack.name}" 팩을 보관함으로 가져왔어요!`);
-          }
-        })
-        .catch((err) => {
+          setShowPackTree(true);
+          show(data?.message || "팩을 보관함으로 가져왔어요!");
+        } catch (err) {
           console.error("[팩인백] 팩 가져오기 실패:", err);
           show("팩을 가져오지 못했어요.");
-        });
+        }
+      })();
       return;
     }
 
