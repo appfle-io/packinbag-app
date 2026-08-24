@@ -30,7 +30,7 @@ import {
   IconLink,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
-import PackShareModal from "@/components/PackShareModal";
+import MemoPackShareModal from "@/components/MemoPackShareModal";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
@@ -1074,8 +1074,12 @@ export default function PackNoteEditorScreen({
       </SlideUpSheet>
 
       {showShareModal && (
-        <PackShareModal
-          pack={pack}
+        <MemoPackShareModal
+          pack={{
+            ...pack,
+            editorDoc: editor?.getJSON() || pack.editorDoc,
+            editorPreviewText: editor ? extractPlainTextPreview(editor.getJSON()) : pack.editorPreviewText,
+          }}
           onClose={() => setShowShareModal(false)}
         />
       )}

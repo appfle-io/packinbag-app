@@ -13,6 +13,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 import GuestMemoPackView from "@/components/GuestMemoPackView";
+import GuestMemoArticleView from "@/components/GuestMemoArticleView";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,11 @@ export default async function GuestPackPage({ params }: GuestPackPageProps) {
       ? [snapshot.pack]
       : [];
   const displayPacks = rawPacks.map(deserializePack);
+
+  // 단일 메모팩(자유문서형 팩)인 경우: 노션/아티클 스타일의 깔끔한 웹 리딩 뷰로 렌더링
+  if (!isFolder && displayPacks.length === 1 && displayPacks[0].kind === "editor") {
+    return <GuestMemoArticleView pack={displayPacks[0]} token={token} />;
+  }
 
   const totalItems = displayPacks.reduce((acc, p) => acc + (p.items?.length ?? 0), 0);
 
