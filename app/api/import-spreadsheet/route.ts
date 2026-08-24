@@ -39,34 +39,47 @@ function parseGoogleSheetsUrl(rawUrl: string): string | null {
   }
 }
 
-const SYSTEM_PROMPT = `당신은 여행, 외출, 프로젝트, 업무 정리용 스프레드시트(구글 시트, 엑셀 표) 데이터를 분석하여 팩인백(PackInBag) 가방과 팩으로 정리해주는 전문 AI 도우미입니다.
-사용자가 제공한 스프레드시트 CSV 데이터를 분석하여 아래 JSON 형식으로만 응답하세요. 그 외의 설명, 인사말, 코드블록 기호(\`\`\`)는 절대 포함하지 마세요.
+function cleanCsv(rawCsv: string): string {
+  return rawCsv
+    .split(/\r?\n/)
+    .map((line) => line.replace(/,{2,}/g, ",").replace(/^,+|,+$/g, "").trim())
+    .filter((line) => line.length > 0)
+    .join("\n");
+}
 
+const SYSTEM_PROMPT = `당신은 모든 종류의 프로젝트, 업무 관리(WBS/스프린트), QA 점검, 기획/행사, 여행/출장 등 다양한 스프레드시트(구글 시트, 엑셀)를 분석하여 팩인백(PackInBag) 가방과 팩으로 완벽하게 정리해주는 전문 범용 AI 도우미입니다.
+
+사용자가 제공한 스프레드시트 데이터를 빠짐없이 꼼꼼하게 분석하여 모든 정보(업무 태스크, 담당자, 마감일, 상태, 스펙, 점검항목, 비용, 항공/숙소 등)를 의미 있는 팩과 항목으로 가득 채워주세요.
+
+응답 형식 (JSON):
 {
-  "bagName": "시트 내용에 어울리는 대표 가방 이름 (예: 2026.08 도쿄 여행, 백화점 POS 연동 프로젝트, 제주도 워크샵 등)",
+  "bagName": "시트 전체 주제를 대표하는 가방 이름 (예: [프로젝트] 백화점 POS 연동 WBS, 2026.09 하와이 여행, 신규 서버 배포 점검 등)",
+  "travelDate": "2026-09-09", // 시트에 프로젝트 마감일, 배포일, 행사일, 출발일 등 주요 목표 날짜가 있다면 YYYY-MM-DD 형식으로 추출 (없으면 생략)
   "packs": [
     {
-      "name": "카테고리 또는 작업 영역 이름",
-      "kind": "pack", // 단순 체크/준비물 목록인 경우 "pack", 일정표/R&R/회의록/다열 업무표인 경우 "editor"
+      "name": "카테고리 또는 작업 영역 이름 (예: 결제 모듈 연동, QA 점검 리스트, 항공편 정보, 숙소 예약, 사전 지출 등)",
       "items": [
-        { "text": "항목 내용", "checked": false }
-      ],
-      "tableData": [ // kind가 "editor"인 경우 표 데이터 (2차원 배열). 없을 경우 빈 배열
-        ["구분", "내용", "담당자"],
-        ["기능개발", "API 연동", "김철수"]
+        { "text": "완결성 있는 상세 업무 또는 항목 내용", "checked": false }
       ]
     }
   ]
 }
 
 규칙:
-1. bagName: 스프레드시트의 주제를 가장 잘 나타내는 간결하고 명확한 제목을 지어주세요.
-2. 팩 분류:
-   - 단순 할 일(To-do)이나 짐 목록 성격의 행들은 kind: "pack"으로 묶고, items 배열에 담으세요.
-   - 다열 표(3열 이상), 타임라인 일정표, 담당자별 R&R, 세부 스펙 문서는 kind: "editor"로 지정하고 tableData에 행과 열 데이터를 2차원 배열로 담으세요.
-3. 체크 여부(checked): 원본 시트에 완료 표시("O", "V", "완료", "Y", "TRUE", "☑", 취소선 등)가 있다면 checked: true, 미완료면 checked: false로 설정하세요.
-4. 팩은 최대 ${MAX_PACKS}개까지만 생성하세요.
-5. 불필요한 공백 행이나 헤더 찌꺼기는 정리하고 깔끔한 텍스트만 추출하세요.`;
+1. [필수] 빈 팩(items가 비어있는 팩)을 절대 만들지 마세요! 시트에 있는 모든 행과 데이터를 누락 없이 알맞은 팩의 항목(items)으로 가득 채워주세요.
+2. 업무/프로젝트 WBS 시트의 경우:
+   - 각 작업명(Task)에 담당자, 상태, 기한, 비고를 자연스럽게 결합하여 완결성 있는 텍스트로 만드세요.
+   - 예: "[진행중] PG사 결제 연동 API 개발 (담당: 김철수 | 기한: 8/30 | 비고: 테스트키 발급 완료)"
+3. 점검/체크리스트/QA 시트의 경우:
+   - 완료 여부(TRUE, O, 완료, Done, Pass, Y, 100% 등)가 표시된 항목은 checked: true, 미완료(대기, 진행중, Fail, TODO, FALSE 등)는 checked: false로 설정하세요.
+4. 여행/출장/행사/예산 시트의 경우:
+   - 비행/교통: 편명, 출발/도착 시간 및 터미널, 취소기한 등을 개별 항목으로 명확히 등록하세요.
+   - 숙소/장소: 숙소명, 체크인/아웃 시간, 룸타입, 결제금액, 예약사이트, 예약번호, 비고 등을 개별 항목으로 등록하세요.
+   - 예산/지출: 항목별 금액과 총합계를 상세 항목으로 등록하세요.
+   - 일정/투어: 세부 일정 및 활동을 개별 항목으로 등록하세요.
+5. 단일 시트 내 다중 표(블록) 구조:
+   - 빈 행이나 소제목(*, [], #)으로 구분된 각 표 블록을 논리적인 팩으로 분할하여 정리하세요.
+6. 팩은 최대 ${MAX_PACKS}개까지만 생성하세요.`;
 
 interface ParsedPackRaw {
   name?: string;
@@ -115,36 +128,28 @@ function sanitizeSpreadsheetResult(raw: unknown) {
   const obj = (raw ?? {}) as Record<string, unknown>;
   const bagNameRaw = typeof obj.bagName === "string" ? obj.bagName.trim() : "";
   const bagName = bagNameRaw.slice(0, 30) || "새 스프레드시트 가방";
+  const travelDate =
+    typeof obj.travelDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.travelDate.trim())
+      ? obj.travelDate.trim()
+      : undefined;
 
   const packsRaw = Array.isArray(obj.packs) ? (obj.packs as ParsedPackRaw[]) : [];
   const packs = packsRaw
     .filter((p) => p && typeof p === "object")
     .map((p, idx) => {
-      const name = (p.name || `팩 ${idx + 1}`).trim().slice(0, 20);
+      const name = (p.name || `팩 ${idx + 1}`).trim().slice(0, 25);
       const isEditor = p.kind === "editor";
 
-      if (isEditor && Array.isArray(p.tableData) && p.tableData.length > 0) {
-        const editorDoc = convertTableToTipTapDoc(p.tableData);
-        return {
-          id: `pack-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-          name,
-          kind: "editor" as const,
-          items: [],
-          editorDoc,
-          editorPreviewText: p.tableData[0]?.join(" | ") || "스프레드시트 표",
-        };
-      }
-
-      // 일반 체크리스트 팩
+      // 일반 체크리스트 항목들
       const itemsRaw = Array.isArray(p.items) ? p.items : [];
       const items = itemsRaw
         .map((item, itemIdx) => {
           if (typeof item === "string") {
-            const text = item.trim().slice(0, 60);
+            const text = item.trim().slice(0, 80);
             return text ? { id: `item-${Date.now()}-${itemIdx}`, text, checked: false, type: "check" as const } : null;
           }
           if (item && typeof item === "object") {
-            const text = (item.text || "").trim().slice(0, 60);
+            const text = (item.text || "").trim().slice(0, 80);
             if (!text) return null;
             return {
               id: `item-${Date.now()}-${itemIdx}`,
@@ -158,17 +163,30 @@ function sanitizeSpreadsheetResult(raw: unknown) {
         .filter((i): i is NonNullable<typeof i> => i !== null)
         .slice(0, MAX_ITEMS_PER_PACK);
 
+      if (isEditor && Array.isArray(p.tableData) && p.tableData.length > 0) {
+        const editorDoc = convertTableToTipTapDoc(p.tableData);
+        return {
+          id: `pack-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          name,
+          kind: "editor" as const,
+          items,
+          editorDoc,
+          editorPreviewText: p.tableData[0]?.join(" | ") || "스프레드시트 표",
+        };
+      }
+
       return {
         id: `pack-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
         name,
         kind: "normal" as const,
-        items: items.length > 0 ? items : [{ id: `item-${Date.now()}-0`, text: "준비물", checked: false, type: "check" as const }],
+        items: items.length > 0 ? items : [{ id: `item-${Date.now()}-0`, text: "내용 확인하기", checked: false, type: "check" as const }],
       };
     })
     .slice(0, MAX_PACKS);
 
   return {
     bagName,
+    travelDate,
     packs: packs.length > 0 ? packs : [
       {
         id: `pack-${Date.now()}-0`,
@@ -257,7 +275,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    csvText = responseText.slice(0, MAX_CSV_CHAR_LIMIT);
+    const cleaned = cleanCsv(responseText);
+    csvText = cleaned.slice(0, MAX_CSV_CHAR_LIMIT);
   } catch (fetchErr) {
     console.error("[스프레드시트 AI] 시트 데이터 가져오기 실패:", fetchErr);
     return NextResponse.json(
