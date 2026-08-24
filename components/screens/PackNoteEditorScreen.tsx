@@ -54,6 +54,7 @@ import {
 import { getCachedLinkMeta, setLinkMetaCache } from "@/lib/linkLabelCache";
 import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
 import { openExternalLink } from "@/lib/openExternalLink";
+import LinkActionMenu from "@/components/LinkActionMenu";
 import CustomUrlModal from "@/components/CustomUrlModal";
 import ShortenUrlModal from "@/components/ShortenUrlModal";
 import EditLinkModal from "@/components/EditLinkModal";
@@ -246,12 +247,42 @@ export default function PackNoteEditorScreen({
     nameRef.current = name;
   }, [name]);
 
+  // 링크(Link 마크)를 탭했을 때 띄우는 선택 시트의 대상 URL. "짧은 URL로 변경"이 가능한
+  // 링크(프리미엄 + 토글 ON + 아직 축약 전)만 이 메뉴를 띄우고, 그러지 않으면 바로 연다.
+  const [linkMenuUrl, setLinkMenuUrl] = useState<string | null>(null);
   // "커스텀 URL로 변경"을 누르면 이 값이 채워져 입력 시트(CustomUrlModal)가 열린다.
   const [customizeLinkUrl, setCustomizeLinkUrl] = useState<string | null>(null);
   // "짧은 URL로 변경"을 누르면 이 값이 채워져 표시 이름 입력 시트(ShortenUrlModal)가 열린다.
   const [shortenLinkUrl, setShortenLinkUrl] = useState<string | null>(null);
+  // 이미 축약된 링크를 탭했을 때, 본인이 만든 링크로 확인되면(fetchLinkMeta의 canEdit) 이
+  // 값이 채워져 "열기/수정" 선택 시트가 뜬다. 다른 사람이 만든 링크면 메뉴 없이 바로 열린다.
+  const [manageLinkTarget, setManageLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
   // "수정"을 누르면 이 값이 채워져 이름/주소 수정 시트(EditLinkModal)가 열린다.
   const [editLinkTarget, setEditLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
+
+  const handleLinkClick = useCallback((href: string) => {
+    if (isAlreadyShortLink(href)) {
+      if (!user) {
+        openExternalLink(href);
+        return;
+      }
+      fetchLinkMeta(href, user).then((meta) => {
+        if (meta?.canEdit) {
+          setManageLinkTarget({ url: href, meta });
+        } else {
+          openExternalLink(href);
+        }
+      });
+      return;
+    }
+
+    const canShorten = shortUrlFeatureEnabled && !!user;
+    if (canShorten) {
+      setLinkMenuUrl(href);
+    } else {
+      openExternalLink(href);
+    }
+  }, [user, shortUrlFeatureEnabled]);
 
   const editor = useEditor(
     {
@@ -279,7 +310,7 @@ export default function PackNoteEditorScreen({
             const href = anchor.getAttribute("href");
             if (href) {
               event.preventDefault();
-              openExternalLink(href);
+              handleLinkClick(href);
               return true;
             }
           }
@@ -1173,13 +1204,12 @@ export default function PackNoteEditorScreen({
           <div
             className="h-full overflow-y-auto px-4 py-4 md:px-10 md:py-8 scrollbar-thin"
             onClick={(e) => {
-              // 텍스트 내 링크 탭 시 외부 브라우저로 즉시 바로 열림
               const anchor = (e.target as HTMLElement).closest("a");
               if (!anchor) return;
               const href = anchor.getAttribute("href");
               if (!href) return;
               e.preventDefault();
-              openExternalLink(href);
+              handleLinkClick(href);
             }}
           >
             <div className="max-w-4xl mx-auto pb-20">
@@ -1223,6 +1253,36 @@ export default function PackNoteEditorScreen({
           </div>
         )}
       </div>
+
+      {linkMenuUrl && (
+        <LinkActionMenu
+          url={linkMenuUrl}
+          onOpen={() => openExternalLink(linkMenuUrl)}
+          onUnlink={() => handleUnlink(null)}
+          onShorten={() => setShortenLinkUrl(linkMenuUrl)}
+          onCustomize={() => setCustomizeLinkUrl(linkMenuUrl)}
+          onClose={() => setLinkMenuUrl(null)}
+        />
+      )}
+
+      {manageLinkTarget && (
+        <LinkActionMenu
+          url={manageLinkTarget.url}
+          onOpen={() => {
+            openExternalLink(manageLinkTarget.url);
+            setManageLinkTarget(null);
+          }}
+          onUnlink={() => {
+            handleUnlink(null);
+            setManageLinkTarget(null);
+          }}
+          onManage={() => {
+            setEditLinkTarget(manageLinkTarget);
+            setManageLinkTarget(null);
+          }}
+          onClose={() => setManageLinkTarget(null)}
+        />
+      )}
 
       {shortenLinkUrl && user && (
         <ShortenUrlModal
