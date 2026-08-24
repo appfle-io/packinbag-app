@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useState } from "react";
 import {
   IconDotsVertical,
   IconDeviceFloppy,
@@ -20,7 +19,6 @@ import {
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getPackColorHex } from "@/lib/packColors";
-import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import SwipeRenameField from "./SwipeRenameField";
@@ -29,6 +27,7 @@ import Avatar from "./Avatar";
 import ImageLightbox from "./ImageLightbox";
 import PdfPreviewModal from "./PdfPreviewModal";
 import PremiumLimitModal from "./PremiumLimitModal";
+import MemoRichTextView from "./MemoRichTextView";
 
 // 심플뷰(NotebookView)에서 "editor" 팩(자유문서형 메모 팩)을 보여주는 섹션.
 // NotebookPackSection과 헤더 구조(접기 토글/드래그핸들/색점/이름/⋯메뉴)는 동일하게
@@ -89,31 +88,7 @@ export default function NotebookEditorPackSection({
   const accentHex = getPackColorHex(pack.color);
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
   const packImages = pack.images ?? [];
-
-  const editor = useEditor({
-    extensions: getNoteEditorExtensions(),
-    content: pack.editorDoc ?? "",
-    editable: false,
-    immediatelyRender: false,
-  });
-
-  // 예전엔 useEditor 두 번째 인자(deps 배열)로 에디터 콘텐츠를 강제로 다시 만들었는데,
-  // 이 패턴이 React 19 + Tiptap 조합에서 "flushSync was called from inside a
-  // lifecycle method" 콘솔 에러를 일으키는 것으로 확인됨(NotebookView가 여러 
-  // NotebookEditorPackSection을 맵해서 렌더링할 때, 각 인스턴스가 독립적으로
-  // 에디터를 재생성하려 하면서 부모 리스트의 렌더링 도중에 동기화 충돌가 생김).
-  // 에디터는 한 번만 만들고, 내용 동기화는 이후에 이루어지는 effect로 분리해서
-  // 렌더링과 완전히 분리된 타이밍에서만 실행되게 한다.
-  useEffect(() => {
-    if (!editor || isCollapsed) return;
-    const targetContent = pack.editorDoc ?? "";
-    const timer = requestAnimationFrame(() => {
-      if (editor.isDestroyed) return;
-      editor.commands.setContent(targetContent, false);
-    });
-    return () => cancelAnimationFrame(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, isCollapsed, pack.editorDoc]);
+  const hasContent = Boolean(pack.editorDoc || pack.editorPreviewText);
 
   return (
     <div
@@ -387,12 +362,14 @@ export default function NotebookEditorPackSection({
           overflowY: "auto",
         }}
       >
-        {editor?.isEmpty && (
+        {hasContent ? (
+          <MemoRichTextView
+            doc={pack.editorDoc}
+            previewText={pack.editorPreviewText}
+          />
+        ) : (
           <p className="text-[13px] text-text-muted py-1">더블클릭해서 메모를 수정해보세요</p>
         )}
-        <div>
-          <EditorContent editor={editor} className="pib-note-editor pib-note-editor-readonly" />
-        </div>
       </div>
 
       {confirmDelete && (
