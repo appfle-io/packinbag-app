@@ -33,6 +33,7 @@ import BagSettingsScreen from "@/components/screens/BagSettingsScreen";
 import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
 import TrashScreen from "@/components/screens/TrashScreen";
 import InquiryScreen from "@/components/screens/InquiryScreen";
+import GuideScreen from "@/components/screens/GuideScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
@@ -65,7 +66,8 @@ type SettingsView =
   | "bagSettings"
   | "colorSettings"
   | "trash"
-  | "inquiries";
+  | "inquiries"
+  | "guide";
 
 // 데스크탑 모달 안에서는 하위화면이 SlideScreen(포털로 전체 화면을 덤는 오버레이)이 아니라
 // 이 모달 박스 안에만 머무는 전환이어야 한다 - 그래서 포털을 쓰지 않고 가장 가까운
@@ -403,8 +405,15 @@ export default function SettingsScreen({
         </div>
 
         <div className="mb-6">
-          <p className="text-[12px] text-text-secondary mb-2">고객지원</p>
+          <p className="text-[12px] text-text-secondary mb-2">가이드 & 고객지원</p>
           <div className="rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setView("guide")}
+              className="w-full flex items-center justify-between p-3 border-b border-border bg-accent-soft/10 text-left hover:bg-accent-soft/20 transition-colors"
+            >
+              <span className="text-[13px] font-medium text-foreground">팩인백 사용 가이드</span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+            </button>
             <button
               onClick={() => setShowAnnouncements(true)}
               className="w-full flex items-center justify-between p-3 border-b border-border"
@@ -560,6 +569,9 @@ export default function SettingsScreen({
           nickname={profile?.nickname ?? ""}
           onBack={() => setView("main")}
         />
+      </Slide>
+      <Slide active={view === "guide"} onBackdropClick={() => setView("main")}>
+        <GuideScreen onBack={() => setView("main")} />
       </Slide>
 
       {showInspectLogsModal && (

@@ -48,6 +48,7 @@ import BottomTabBar, { TabKey } from "@/components/BottomTabBar";
 import { NoteImportResult } from "@/components/NoteImportModal";
 import SplashScreen from "@/components/SplashScreen";
 import AnnouncementPopupStack from "@/components/AnnouncementPopupStack";
+import GuideModal from "@/components/guide/GuideModal";
 import HomeScreen from "@/components/screens/HomeScreen";
 import PacksScreen from "@/components/screens/PacksScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
@@ -195,7 +196,9 @@ export default function AppShell() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [splashMinTimeDone, setSplashMinTimeDone] = useState(false);
   const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const announcementPopupShownRef = useRef(false);
+  const guideCheckedRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
   const [showPremiumSyncOverlay, setShowPremiumSyncOverlay] = useState(false);
@@ -364,17 +367,45 @@ export default function AppShell() {
     .filter((a) => isAnnouncementActive(a))
     .filter((a) => !dismissedIds.includes(a.id));
 
-  // 앱 진입 시(로그인 이후) 아직 안 본 공지사항이 있으면 한 번 자동으로 띄운다.
-  // Firestore(외부 시스템)에서 온 값을 반영하는 의도된 동기화라 set-state-in-effect 규칙은 비활성화한다.
+  // 앱 진입 시(로그인 이후, 게스트 포함): 가이드를 아직 안 봤으면 가이드 모달을 먼저 띄운다.
   useEffect(() => {
-    if (announcementPopupShownRef.current) return;
+    if (guideCheckedRef.current) return;
     if (!profile) return;
-    if (activeUndismissed.length === 0) return;
-    announcementPopupShownRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShowAnnouncementPopup(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, announcements]);
+    guideCheckedRef.current = true;
+
+    const isGuideDismissed =
+      typeof window !== "undefined" &&
+      localStorage.getItem("pib_guide_dismissed") === "true";
+
+    if (!isGuideDismissed) {
+      setShowGuideModal(true);
+    } else if (activeUndismissed.length > 0 && !announcementPopupShownRef.current) {
+      // 이미 가이드를 본 상태면 공지사항을 바로 띄운다.
+      announcementPopupShownRef.current = true;
+      setShowAnnouncementPopup(true);
+    }
+  }, [profile, activeUndismissed]);
+
+  const handleCloseGuide = () => {
+    setShowGuideModal(false);
+    // 가이드 모달이 닫힌 뒤 미확인 공지사항이 있으면 순차적으로 띄운다.
+    if (activeUndismissed.length > 0 && !announcementPopupShownRef.current) {
+      announcementPopupShownRef.current = true;
+      setShowAnnouncementPopup(true);
+    }
+  };
+
+  const handleDismissGuideForever = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pib_guide_dismissed", "true");
+    }
+    setShowGuideModal(false);
+    // 가이드 모달이 닫힌 뒤 미확인 공지사항이 있으면 순차적으로 띄운다.
+    if (activeUndismissed.length > 0 && !announcementPopupShownRef.current) {
+      announcementPopupShownRef.current = true;
+      setShowAnnouncementPopup(true);
+    }
+  };
 
   // 1. URL 쿼리 파라미터(?invite=, ?join=, ?openBag=, ?importPack=)를 접속 즉시 sessionStorage에 보존하여 로그인/회원가입 후 유실 방지
   useEffect(() => {
@@ -1168,6 +1199,12 @@ export default function AppShell() {
           onRestorePack={handleRestorePack}
           onPermanentDeletePack={handlePermanentDeletePack}
         />
+        {showGuideModal && (
+          <GuideModal
+            onClose={handleCloseGuide}
+            onDismissForever={handleDismissGuideForever}
+          />
+        )}
         {showAnnouncementPopup && activeUndismissed.length > 0 && (
           <AnnouncementPopupStack
             announcements={activeUndismissed}
@@ -1461,6 +1498,12 @@ export default function AppShell() {
         )}
       </SlideUpSheet>
 
+      {showGuideModal && (
+        <GuideModal
+          onClose={handleCloseGuide}
+          onDismissForever={handleDismissGuideForever}
+        />
+      )}
       {showAnnouncementPopup && activeUndismissed.length > 0 && (
         <AnnouncementPopupStack
           announcements={activeUndismissed}

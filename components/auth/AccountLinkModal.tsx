@@ -8,6 +8,7 @@ import { friendlyAuthError } from "@/lib/authErrorMessage";
 import Portal from "@/components/Portal";
 import BackpackLogo from "@/components/BackpackLogo";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlayLayer";
 
 export default function AccountLinkModal({
   isOpen,
@@ -18,6 +19,8 @@ export default function AccountLinkModal({
 }) {
   const { linkAccountWithGoogle, linkAccountWithApple, linkAccountWithEmail, logout } = useAuth();
   const { show } = useToast();
+  const ambientLayer = useOverlayLayer();
+  const modalZIndex = Math.max(ambientLayer + LAYER_STEP, 150);
 
   const [mode, setMode] = useState<"options" | "email">("options");
   const [email, setEmail] = useState("");
@@ -108,16 +111,18 @@ export default function AccountLinkModal({
 
   return (
     <Portal>
-      <div
-        className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity"
-        onClick={(e) => {
-          if (e.target === e.currentTarget && !busy) onClose();
-        }}
-      >
+      <OverlayLayerProvider value={modalZIndex}>
         <div
-          className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-5 flex flex-col gap-4 shadow-xl border border-border"
-          style={{ maxHeight: "90vh", overflowY: "auto" }}
+          className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity"
+          style={{ zIndex: modalZIndex }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !busy) onClose();
+          }}
         >
+          <div
+            className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-5 flex flex-col gap-4 shadow-xl border border-border"
+            style={{ maxHeight: "90vh", overflowY: "auto" }}
+          >
           {emailSentSuccess ? (
             <div className="flex flex-col items-center text-center gap-3.5 py-2">
               <div
@@ -265,20 +270,21 @@ export default function AccountLinkModal({
         </div>
       </div>
 
-      {confirmLogout && (
-        <ConfirmDialog
-          title="게스트 모드를 종료하시겠어요?"
-          message="회원가입 없이 나가면 지금까지 작성한 가방과 팩이 모두 삭제될 수 있어요."
-          confirmLabel="데이터 삭제하고 나가기"
-          tone="danger"
-          onCancel={() => setConfirmLogout(false)}
-          onConfirm={() => {
-            setConfirmLogout(false);
-            onClose();
-            logout();
-          }}
-        />
-      )}
+        {confirmLogout && (
+          <ConfirmDialog
+            title="게스트 모드를 종료하시겠어요?"
+            message="회원가입 없이 나가면 지금까지 작성한 가방과 팩이 모두 삭제될 수 있어요."
+            confirmLabel="데이터 삭제하고 나가기"
+            tone="danger"
+            onCancel={() => setConfirmLogout(false)}
+            onConfirm={() => {
+              setConfirmLogout(false);
+              onClose();
+              logout();
+            }}
+          />
+        )}
+      </OverlayLayerProvider>
     </Portal>
   );
 }
