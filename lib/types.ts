@@ -422,6 +422,9 @@ export interface ImportedItemDraft {
 
 export interface ImportedPackDraft {
   name: string;
+  kind?: "checklist" | "editor";
+  editorDoc?: object;
+  editorPreviewText?: string;
   items: (string | ImportedItemDraft)[];
 }
 

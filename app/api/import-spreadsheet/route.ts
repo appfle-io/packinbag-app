@@ -178,7 +178,7 @@ function sanitizeSpreadsheetResult(raw: unknown) {
       return {
         id: `pack-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
         name,
-        kind: "normal" as const,
+        kind: "checklist" as const,
         items: items.length > 0 ? items : [{ id: `item-${Date.now()}-0`, text: "내용 확인하기", checked: false, type: "check" as const }],
       };
     })

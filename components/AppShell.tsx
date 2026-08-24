@@ -633,7 +633,7 @@ export default function AppShell() {
           ? result.packs.map((p) => ({
               id: uid(),
               name: p.name,
-              kind: p.kind ?? "normal",
+              kind: p.kind === "editor" ? ("editor" as const) : ("checklist" as const),
               editorDoc: p.editorDoc,
               editorPreviewText: p.editorPreviewText,
               items: Array.isArray(p.items)
