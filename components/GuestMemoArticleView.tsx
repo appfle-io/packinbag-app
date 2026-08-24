@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import MemoDocViewer from "@/components/MemoDocViewer";
+import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
 
 interface GuestMemoArticleViewProps {
   pack: Pack;
@@ -22,7 +23,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
   const [copied, setCopied] = useState(false);
 
   const handleCopyText = async () => {
-    const text = pack.editorPreviewText || pack.name;
+    const text = extractCleanFormattedText(pack);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -59,7 +60,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[12.5px] font-semibold transition-colors shadow-xs"
             >
               <IconPlus size={14} stroke={2.5} />
-              <span>내 가방에 담기</span>
+              <span>내 팩 보관함에 담기</span>
             </Link>
           </div>
         </div>
@@ -106,7 +107,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
             href={`/?importPack=${token}`}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-bold transition-all shrink-0 shadow-sm"
           >
-            <span>내 팩으로 가져오기</span>
+            <span>내 팩 보관함에 담기</span>
             <IconArrowRight size={15} />
           </Link>
         </div>

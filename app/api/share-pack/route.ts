@@ -48,10 +48,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1. 기존 토큰이 있는지 확인
+    // 1. 기존 토큰이 있는지 확인 (유저 보관함 문서 또는 넘어온 팩 객체에서 조회)
     const userDocRef = db.collection("users").doc(uid).collection("libraryPacks").doc(targetId);
     const existingSnap = await userDocRef.get();
-    let token = existingSnap.exists ? (existingSnap.data()?.publicShareToken as string | undefined) : undefined;
+    let token =
+      (existingSnap.exists ? (existingSnap.data()?.publicShareToken as string | undefined) : undefined) ||
+      pack?.publicShareToken ||
+      folder?.publicShareToken;
 
     if (!token) {
       token = generateShareToken();

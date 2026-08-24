@@ -167,20 +167,13 @@ export default async function GuestPackPage({ params }: GuestPackPageProps) {
 
       {/* 하단 고정 액션 바 */}
       <footer className="fixed bottom-0 inset-x-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 sm:p-4 z-40">
-        <div className="max-w-md mx-auto flex items-center gap-2">
+        <div className="max-w-md mx-auto flex items-center justify-center">
           <Link
             href={`/?importPack=${token}`}
-            className="flex-1 py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+            className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
           >
             <IconPlus size={18} stroke={2.5} />
-            내 보관함으로 가져오기
-          </Link>
-          <Link
-            href={`/?importPack=${token}&target=bag`}
-            className="py-3 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-[13.5px] flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
-          >
-            가방에 담기
-            <IconArrowRight size={15} stroke={2} />
+            <span>내 팩 보관함으로 가져오기</span>
           </Link>
         </div>
       </footer>

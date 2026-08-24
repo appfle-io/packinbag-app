@@ -18,10 +18,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않아요" }, { status: 400 });
   }
 
-  const draft = (body as { pack?: Pack })?.pack;
-  if (!draft?.id || typeof draft.name !== "string" || !Array.isArray(draft.items)) {
+  const rawDraft = (body as { pack?: Pack })?.pack;
+  if (!rawDraft?.id || typeof rawDraft.name !== "string") {
     return NextResponse.json({ error: "요청 데이터가 올바르지 않아요" }, { status: 400 });
   }
+
+  const draft: Pack = {
+    ...rawDraft,
+    type: rawDraft.type || "pack",
+    items: Array.isArray(rawDraft.items) ? rawDraft.items : [],
+  };
 
   let uid: string;
   let email: string | null;

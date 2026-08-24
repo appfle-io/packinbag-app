@@ -40,6 +40,7 @@ import {
   isAnnouncementActive,
 } from "@/lib/announcementsService";
 import { deleteBagImage } from "@/lib/storageService";
+import { deserializePack } from "@/lib/editorDocSerialize";
 import AuthScreen from "@/components/auth/AuthScreen";
 import GoogleProfileSetup from "@/components/auth/GoogleProfileSetup";
 import EmailVerifyBanner from "@/components/EmailVerifyBanner";
@@ -480,11 +481,15 @@ export default function AppShell() {
             setShowPackTree(true);
             show(`"${data.title}" 폴더와 팩들을 보관함으로 가져왔어요!`);
           } else if (data.pack) {
+            const deserialized = deserializePack(data.pack);
             const newPack: Pack = {
-              ...data.pack,
+              ...deserialized,
               id: uid(),
               parentId: undefined,
-              items: (data.pack.items ?? []).map((i) => ({ ...i, id: uid() })),
+              type: deserialized.type || "pack",
+              items: Array.isArray(deserialized.items)
+                ? deserialized.items.map((i) => ({ ...i, id: uid() }))
+                : [],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };

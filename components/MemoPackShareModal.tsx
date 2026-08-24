@@ -36,7 +36,7 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
 
   useEffect(() => {
     let active = true;
-    async function fetchShareToken() {
+    async function syncLatestShareSnapshot() {
       if (!user) return;
       setLoadingToken(true);
       try {
@@ -59,19 +59,17 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
           }
         }
       } catch (err) {
-        console.error("공유 토큰 발급 실패:", err);
+        console.error("공유 스냅샷 동기화 실패:", err);
       } finally {
         if (active) setLoadingToken(false);
       }
     }
 
-    if (!shareToken) {
-      fetchShareToken();
-    }
+    syncLatestShareSnapshot();
     return () => {
       active = false;
     };
-  }, [user, pack, shareToken]);
+  }, [user, pack]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = shareToken ? `${origin}/p/${shareToken}` : "";

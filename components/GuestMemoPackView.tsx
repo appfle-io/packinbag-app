@@ -16,6 +16,7 @@ import {
   RichBlock,
 } from "@/lib/editorDocPreview";
 import MemoRichTextView from "./MemoRichTextView";
+import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
 
 export default function GuestMemoPackView({ pack }: { pack: Pack }) {
   const [expanded, setExpanded] = useState(false);
@@ -41,11 +42,8 @@ export default function GuestMemoPackView({ pack }: { pack: Pack }) {
   }, [pack.editorDoc, pack.editorPreviewText]);
 
   const fullText = useMemo(() => {
-    if (richBlocks.length > 0) {
-      return richBlocks.map((b) => b.spans.map((s) => s.text).join("")).join("\n");
-    }
-    return pack.editorPreviewText || "";
-  }, [richBlocks, pack.editorPreviewText]);
+    return extractCleanFormattedText(pack);
+  }, [pack]);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
