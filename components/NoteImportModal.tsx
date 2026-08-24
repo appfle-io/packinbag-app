@@ -58,13 +58,21 @@ export default function NoteImportModal({
       // 하루 사용 한도 확인+증가는 서버(Admin SDK)가 로그인 토큰을 직접 검증해서
       // 처리한다 - 클라이언트는 우회할 수 없다 (lib/aiQuotaServer.ts 참고).
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/import-note", {
+      const trimmed = text.trim();
+      const isSpreadsheetUrl =
+        (trimmed.startsWith("http://") || trimmed.startsWith("https://")) &&
+        (trimmed.includes("docs.google.com/spreadsheets") || trimmed.includes("spreadsheet") || trimmed.endsWith(".csv"));
+
+      const apiEndpoint = isSpreadsheetUrl ? "/api/import-spreadsheet" : "/api/import-note";
+      const apiBody = isSpreadsheetUrl ? { url: trimmed } : { text };
+
+      const res = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(apiBody),
       });
       const data = await res.json();
       if (!res.ok) {

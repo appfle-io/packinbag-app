@@ -86,6 +86,28 @@ export default function AiClipboardModal({
 
     try {
       const idToken = await user.getIdToken();
+      const trimmed = text.trim();
+      const isSpreadsheetUrl =
+        (trimmed.startsWith("http://") || trimmed.startsWith("https://")) &&
+        (trimmed.includes("docs.google.com/spreadsheets") || trimmed.includes("spreadsheet") || trimmed.endsWith(".csv"));
+
+      if (isSpreadsheetUrl) {
+        const res = await fetch("/api/import-spreadsheet", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({ url: trimmed }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data?.error ?? "스프레드시트 분석에 실패했어요");
+        }
+        onApply({ packs: data.packs ?? [], skippedDuplicateCount: 0 });
+        return;
+      }
+
       const res = await fetch("/api/clipboard-organize", {
         method: "POST",
         headers: {

@@ -2,7 +2,7 @@
 
 import Portal from "@/components/Portal";
 
-import { IconEdit, IconLayoutGrid, IconSparkles, IconX, IconPlane } from "@tabler/icons-react";
+import { IconEdit, IconLayoutGrid, IconSparkles, IconX, IconTable } from "@tabler/icons-react";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
@@ -11,13 +11,13 @@ export default function NewBagOptionsSheet({
   onBlank,
   onFromSample,
   onFromNote,
-  onFromTicket,
+  onFromSpreadsheet,
 }: {
   onClose: () => void;
   onBlank: () => void;
   onFromSample: () => void;
   onFromNote: () => void;
-  onFromTicket: () => void;
+  onFromSpreadsheet: () => void;
 }) {
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
@@ -42,7 +42,7 @@ export default function NewBagOptionsSheet({
 
           <button
             onClick={onBlank}
-            className="flex items-center gap-3 rounded-lg bg-surface-2 p-3 text-left"
+            className="flex items-center gap-3 rounded-lg bg-surface-2 p-3 text-left hover:bg-surface-3 transition-colors cursor-pointer"
           >
             <IconEdit size={18} stroke={1.75} />
             <div>
@@ -55,7 +55,7 @@ export default function NewBagOptionsSheet({
 
           <button
             onClick={onFromSample}
-            className="flex items-center gap-3 rounded-lg bg-surface-2 p-3 text-left"
+            className="flex items-center gap-3 rounded-lg bg-surface-2 p-3 text-left hover:bg-surface-3 transition-colors cursor-pointer"
           >
             <IconLayoutGrid size={18} stroke={1.75} />
             <div className="flex items-center gap-1.5">
@@ -76,7 +76,7 @@ export default function NewBagOptionsSheet({
 
           <button
             onClick={onFromNote}
-            className="flex items-center gap-3 rounded-lg p-3 text-left"
+            className="flex items-center gap-3 rounded-lg p-3 text-left transition-colors cursor-pointer"
             style={{ background: "var(--accent-soft)" }}
           >
             <IconSparkles size={18} stroke={1.75} color="var(--accent-strong)" />
@@ -91,19 +91,19 @@ export default function NewBagOptionsSheet({
           </button>
 
           <button
-            onClick={onFromTicket}
-            className="flex items-center gap-3 rounded-lg p-3 text-left bg-accent-soft/60 border border-accent/20"
+            onClick={onFromSpreadsheet}
+            className="flex items-center gap-3 rounded-lg p-3 text-left bg-accent-soft/60 border border-accent/20 hover:bg-accent-soft transition-colors cursor-pointer"
           >
-            <IconPlane size={20} stroke={1.75} className="text-accent shrink-0" />
+            <IconTable size={20} stroke={1.75} className="text-accent shrink-0" />
             <div>
               <div className="text-[13px] font-bold text-accent-strong flex items-center gap-1.5">
-                항공권 / 티켓으로 만들기
+                스프레드시트 / 엑셀 링크
                 <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
                   AI
                 </span>
               </div>
               <div className="text-[11px] text-text-secondary">
-                탑승권/예약표 사진을 올리면 여행지와 짐 목록을 자동 생성해요
+                구글 시트/엑셀 링크를 넣으면 표와 체크리스트를 자동 분석해요
               </div>
             </div>
           </button>

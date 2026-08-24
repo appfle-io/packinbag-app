@@ -30,7 +30,7 @@ import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import SampleBagSheet from "@/components/SampleBagSheet";
-import AiTicketOcrModal from "@/components/AiTicketOcrModal";
+import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
@@ -127,7 +127,7 @@ export default function HomeScreen({
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
   const [showSampleSheet, setShowSampleSheet] = useState(false);
-  const [showTicketImport, setShowTicketImport] = useState(false);
+  const [showSpreadsheetImport, setShowSpreadsheetImport] = useState(false);
   const {
     user,
     profile,
@@ -1033,25 +1033,19 @@ export default function HomeScreen({
             setShowNewBagOptions(false);
             setShowNoteImport(true);
           }}
-          onFromTicket={() => {
+          onFromSpreadsheet={() => {
             setShowNewBagOptions(false);
-            setShowTicketImport(true);
+            setShowSpreadsheetImport(true);
           }}
         />
       )}
 
-      {showTicketImport && (
-        <AiTicketOcrModal
-          user={user}
-          onClose={() => setShowTicketImport(false)}
-          onCreateBagWithData={async (data) => {
-            setShowTicketImport(false);
-            onImportNote({
-              bagName: data.name,
-              travelDate: data.travelDate,
-              notice: data.notice,
-              packs: data.packs,
-            });
+      {showSpreadsheetImport && (
+        <SpreadsheetImportModal
+          onClose={() => setShowSpreadsheetImport(false)}
+          onResult={(result) => {
+            setShowSpreadsheetImport(false);
+            onImportNote(result);
           }}
         />
       )}
