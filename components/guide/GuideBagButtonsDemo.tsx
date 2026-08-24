@@ -202,26 +202,30 @@ export default function GuideBagButtonsDemo() {
         )}
       </div>
 
-      {/* 실시간 렌더링 */}
-      {viewMode === "pack" ? (
-        // 1) 팩뷰 (PackCard 카드 바둑판 형태)
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {packs.length === 0 ? (
-            <div className="col-span-2 text-center py-6 text-[12px] text-text-muted">
-              모든 팩이 삭제되었습니다.
-            </div>
-          ) : (
-            packs.map((p) => {
-              const packItems = filteredItems.filter((i) => i.packId === p.id);
-              const doneCount = packItems.filter((i) => i.checked).length;
-              return (
-                <div key={p.id} className="rounded-xl border border-border/50 bg-surface/20 p-3.5 flex flex-col gap-2 shadow-xs">
-                  <div className="flex items-center justify-between pb-2 border-b border-border/50">
-                    <span className="font-semibold text-[13px] text-foreground">{p.name}</span>
-                    <span className="text-[11px] text-text-muted">{doneCount}/{packItems.length}</span>
-                  </div>
+      {/* 실시간 렌더링 영역 */}
+      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+        {viewMode === "pack" ? (
+          // 1) 팩뷰 (PackCard 카드 바둑판 형태)
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {packs.length === 0 ? (
+              <div className="col-span-2 text-center py-6 text-[12px] text-text-muted bg-surface rounded-xl border border-border">
+                모든 팩이 삭제되었습니다.
+              </div>
+            ) : (
+              packs.map((p) => {
+                const packItems = filteredItems.filter((i) => i.packId === p.id);
+                const doneCount = packItems.filter((i) => i.checked).length;
+                return (
+                  <div key={p.id} className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2 shadow-xs">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${p.id === "p-1" ? "bg-blue-500" : "bg-emerald-500"}`} />
+                        <span className="font-bold text-[13px] text-foreground">{p.name}</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-text-muted">{doneCount}/{packItems.length}</span>
+                    </div>
 
-                  <div className="flex flex-col gap-1.5 min-h-[64px]">
+                    <div className="flex flex-col gap-1.5 min-h-[64px]">
                     {packItems.map((item) => (
                       <div
                         key={item.id}
@@ -330,21 +334,22 @@ export default function GuideBagButtonsDemo() {
           )}
         </div>
       ) : (
-        // 2) 실제 심플뷰 (NotebookPackSection - 헤더 + 둥근체크박스 + 우측 ⋯ 메뉴 드롭다운)
-        <div className="rounded-xl border border-border/50 bg-surface/20 divide-y divide-border/50 overflow-hidden">
+        // 2) 실제 심플뷰 (NotebookPackSection - 개별 팩 카드)
+        <div className="flex flex-col gap-3">
           {packs.length === 0 ? (
-            <div className="text-center py-6 text-[12px] text-text-muted">모든 팩이 삭제되었습니다.</div>
+            <div className="text-center py-6 text-[12px] text-text-muted bg-surface rounded-xl border border-border">모든 팩이 삭제되었습니다.</div>
           ) : (
             packs.map((p) => {
               const packItems = filteredItems.filter((i) => i.packId === p.id);
               const isMenuOpen = activeMenuPackId === p.id;
               return (
-                <div key={p.id} className="p-3.5 flex flex-col gap-2.5 bg-surface/10 relative">
+                <div key={p.id} className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2.5 shadow-xs relative">
                   {/* 심플뷰 팩 헤더 */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pb-2 border-b border-border">
                     <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${p.id === "p-1" ? "bg-blue-500" : "bg-emerald-500"}`} />
                       <span className="font-bold text-[13.5px] text-foreground">{p.name}</span>
-                      <span className="text-[11px] text-text-muted">({packItems.length})</span>
+                      <span className="text-[11px] font-mono text-text-muted">({packItems.length})</span>
                       {p.isSaved && (
                         <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-accent-soft text-accent font-medium">
                           보관함 저장됨
@@ -357,7 +362,7 @@ export default function GuideBagButtonsDemo() {
                       <button
                         type="button"
                         onClick={() => setActiveMenuPackId(isMenuOpen ? null : p.id)}
-                        className="text-text-muted hover:text-foreground p-1 rounded hover:bg-surface/50"
+                        className="text-text-muted hover:text-foreground p-1 rounded hover:bg-surface-2"
                       >
                         <IconDotsVertical size={16} />
                       </button>
@@ -386,48 +391,59 @@ export default function GuideBagButtonsDemo() {
                     </div>
                   </div>
 
-                  {/* 심플뷰 짐 목록 (둥근 체크박스) */}
-                  <div className="flex flex-col gap-2 pl-1">
-                    {packItems.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => handleToggleItem(item.id)}
-                        className="flex items-center justify-between text-[12.5px] p-1 rounded hover:bg-surface/30 cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                              item.checked ? "bg-accent text-white" : "border-1.5 border-border-strong bg-surface/60"
-                            }`}
-                          >
-                            {item.checked && <IconCheck size={11} stroke={3} />}
+                  {/* 심플뷰 리스트 본문 */}
+                  <div className="flex flex-col gap-1.5">
+                    {packItems.length === 0 ? (
+                      <span className="text-[11.5px] text-text-muted py-1">항목이 없습니다.</span>
+                    ) : (
+                      packItems.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => handleToggleItem(item.id)}
+                          className="flex items-center justify-between text-[12.5px] py-1 cursor-pointer hover:bg-surface-2/40 px-1 rounded transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 border ${
+                                item.checked
+                                  ? "bg-accent border-accent text-white"
+                                  : "border-border-strong bg-surface"
+                              }`}
+                            >
+                              {item.checked && <IconCheck size={11} stroke={3} />}
+                            </div>
+                            <span className={item.checked ? "line-through text-text-muted truncate" : "truncate text-foreground"}>
+                              {item.name}
+                            </span>
                           </div>
-                          <span className={item.checked ? "line-through text-text-muted truncate" : "text-foreground truncate"}>
-                            {item.name}
-                          </span>
+
+                          {item.assignee && (
+                            <span
+                              className={`text-[9.5px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                                item.assignee === "나" ? "bg-accent-soft text-accent" : "bg-surface-2 text-text-muted"
+                              }`}
+                            >
+                              {item.assignee}
+                            </span>
+                          )}
                         </div>
-                        {item.assignee && (
-                          <span className="text-[10px] text-accent font-medium shrink-0">
-                            {item.assignee}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                      ))
+                    )}
 
                     {/* 빠른 추가 인라인 입력창 */}
                     {quickAddPackId === p.id && (
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex items-center gap-1.5 mt-1.5">
                         <input
                           type="text"
                           autoFocus
-                          placeholder="새 항목 입력..."
+                          placeholder="새 짐 입력..."
                           value={quickAddText}
                           onChange={(e) => setQuickAddText(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") handleAddItem(p.id);
                             if (e.key === "Escape") setQuickAddPackId(null);
                           }}
-                          className="flex-1 rounded-md border border-border bg-surface/80 px-2 py-1 text-[12px] outline-none text-foreground"
+                          className="flex-1 rounded-md border border-border bg-surface px-2 py-1 text-[12px] outline-none text-foreground"
                         />
                         <button
                           type="button"
@@ -458,6 +474,7 @@ export default function GuideBagButtonsDemo() {
           )}
         </div>
       )}
+      </div>
 
       {/* 실제 앱의 집중 모드(패킹 모드) 풀스크린 모달 연동 */}
       {showPackingMode && (

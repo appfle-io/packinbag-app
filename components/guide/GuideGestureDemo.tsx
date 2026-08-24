@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { IconTrash, IconClick, IconRotate, IconCheck } from "@tabler/icons-react";
+import { IconTrash, IconClick, IconRefresh, IconCheck } from "@tabler/icons-react";
 import ItemEditModal from "@/components/ItemEditModal";
 import { GUIDE_SAMPLE_BAG, GUIDE_SAMPLE_ITEM, GUIDE_SAMPLE_MEMBERS } from "@/lib/guideSampleData";
 
@@ -96,7 +96,7 @@ export default function GuideGestureDemo() {
           onClick={handleRestore}
           className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface border border-border hover:border-accent text-accent font-medium transition-colors"
         >
-          <IconRotate size={13} />
+          <IconRefresh size={13} />
           <span>되살리기</span>
         </button>
       </div>
@@ -105,9 +105,11 @@ export default function GuideGestureDemo() {
 
   return (
     <div className="w-full flex flex-col gap-2.5 select-none">
-      {/* 1) 스와이프 및 더블클릭 대상 아이템 행 */}
-      <div
-        className="relative w-full overflow-hidden rounded-xl border border-border/50 bg-surface-2/30 cursor-grab active:cursor-grabbing touch-pan-y"
+      {/* 캔버스 배경 */}
+      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+        {/* 1) 스와이프 및 더블클릭 대상 아이템 행 */}
+        <div
+          className="relative w-full overflow-hidden rounded-xl border border-border/80 bg-red-500/10 cursor-grab active:cursor-grabbing touch-pan-y"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -138,15 +140,26 @@ export default function GuideGestureDemo() {
 
         {/* 전면 카드 행 */}
         <div
-          className="relative flex items-center justify-between p-3.5 bg-surface border-border transition-transform duration-200 ease-out"
+          className="relative flex items-center justify-between p-3.5 bg-surface border border-border rounded-xl transition-transform duration-200 ease-out shadow-2xs"
           style={{ transform: `translateX(${currentOffset}px)` }}
+          onClick={() => setItem((prev) => ({ ...prev, checked: !prev.checked }))}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-4 w-4 rounded border border-border-strong bg-surface/60 flex items-center justify-center shrink-0" />
+            <div
+              className={`h-4 w-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
+                item.checked
+                  ? "bg-accent border-accent text-white"
+                  : "border-border-strong bg-surface-2"
+              }`}
+            >
+              {item.checked && <IconCheck size={11} stroke={3} />}
+            </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[13px] font-medium text-foreground truncate">{item.text}</span>
+              <span className={`text-[13px] font-medium truncate ${item.checked ? "line-through text-text-muted" : "text-foreground"}`}>
+                {item.text}
+              </span>
               <span className="text-[10.5px] text-text-muted">
-                왼쪽으로 밀면 삭제 · 더블탭하면 상세 수정
+                탭하여 챙김 · 왼쪽 밀어 삭제 · 더블탭 상세수정
               </span>
             </div>
           </div>
@@ -197,6 +210,7 @@ export default function GuideGestureDemo() {
           <IconClick size={13} stroke={2} />
           <span>더블탭 수정 열기</span>
         </button>
+      </div>
       </div>
 
       {/* 실제 앱의 ItemEditModal */}

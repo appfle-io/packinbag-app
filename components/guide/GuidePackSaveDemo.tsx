@@ -46,33 +46,35 @@ export default function GuidePackSaveDemo() {
 
   return (
     <div className="w-full flex flex-col gap-3 select-none">
-      {/* 1단계: 가방 1에서 팩을 보관함에 저장하기 */}
-      <div className="rounded-xl border border-border/50 bg-surface/20 p-3.5 flex flex-col gap-2 shadow-xs">
-        <div className="flex items-center justify-between pb-2 border-b border-border/50">
+      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+        {/* 1단계: 가방 1에서 팩을 보관함에 저장하기 */}
+        <div className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2 shadow-xs">
+        <div className="flex items-center justify-between pb-2 border-b border-border">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-[13px] text-foreground">전자기기 & 충전</span>
+            <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+            <span className="font-bold text-[13px] text-foreground">전자기기 & 충전</span>
             {isSavedInLibrary && (
               <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-accent-soft text-accent font-medium">
                 보관함에 저장됨
               </span>
             )}
           </div>
-          <span className="text-[11px] text-text-muted">가방 1</span>
+          <span className="text-[11px] font-mono text-text-muted">가방 1</span>
         </div>
 
         <div className="py-1 flex flex-col gap-1.5 text-[12px] text-text-secondary">
           <div className="flex items-center gap-2">
-            <div className="h-3.5 w-3.5 rounded border border-border-strong bg-surface/50" />
+            <div className="h-3.5 w-3.5 rounded border border-border-strong bg-surface-2" />
             <span>110V 돼지코 어댑터</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3.5 w-3.5 rounded border border-border-strong bg-surface/50" />
+            <div className="h-3.5 w-3.5 rounded border border-border-strong bg-surface-2" />
             <span>보조배터리 20000mAh</span>
           </div>
         </div>
 
         {/* 실제 팩 카드 하단 툴바 */}
-        <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+        <div className="pt-2 border-t border-border flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-text-muted">
             <IconSquareCheck size={16} stroke={1.75} />
             <IconAlignLeft size={16} stroke={1.75} />
@@ -87,7 +89,7 @@ export default function GuidePackSaveDemo() {
             <button
               type="button"
               onClick={() => setIsSavedInLibrary(!isSavedInLibrary)}
-              className="p-1 rounded-md hover:bg-surface-2 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg hover:bg-surface-2 transition-colors cursor-pointer"
               title="보관함에 저장"
             >
               {isSavedInLibrary ? (
@@ -96,7 +98,7 @@ export default function GuidePackSaveDemo() {
                 <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
               )}
             </button>
-            <button type="button" className="p-1 text-text-muted">
+            <button type="button" className="p-1.5 text-text-muted">
               <IconTrash size={17} stroke={1.75} />
             </button>
           </div>
@@ -104,12 +106,12 @@ export default function GuidePackSaveDemo() {
       </div>
 
       {/* 2단계: 가방 2에서 "+ 팩 추가" 버튼을 눌러 보관함에서 실제 팩 카드 불러오기 */}
-      <div className="rounded-xl border border-border/50 bg-surface/20 p-3.5 flex flex-col gap-2.5 shadow-xs">
+      <div className="rounded-xl border border-border/80 bg-surface-2/40 p-3.5 flex flex-col gap-2.5 shadow-xs">
         <div className="flex items-center justify-between pb-1">
-          <span className="text-[12px] font-semibold text-text-secondary">
+          <span className="text-[12px] font-bold text-foreground">
             가방 2 (다음 여행)
           </span>
-          <span className="text-[10.5px] text-text-muted">
+          <span className="text-[10.5px] font-mono text-text-muted">
             {importedPacks.length}개 팩 담김
           </span>
         </div>
@@ -118,16 +120,17 @@ export default function GuidePackSaveDemo() {
         {importedPacks.map((p) => (
           <div
             key={p.id}
-            className="rounded-xl border border-border/60 bg-surface/40 p-3 flex flex-col gap-2 shadow-xs"
+            className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3 flex flex-col gap-2 shadow-xs"
           >
-            <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
+            <div className="flex items-center justify-between pb-1.5 border-b border-border">
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-[13px] text-foreground">{p.name}</span>
+                <div className="w-2 h-2 rounded-full bg-accent shrink-0" />
+                <span className="font-bold text-[13px] text-foreground">{p.name}</span>
                 <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-accent-soft text-accent font-medium">
                   보관함에서 불러옴
                 </span>
               </div>
-              <span className="text-[11px] text-text-muted">{p.items.length}개</span>
+              <span className="text-[11px] font-mono text-text-muted">{p.items.length}개</span>
             </div>
 
             <div className="flex flex-col gap-1.5 text-[12px]">
@@ -158,6 +161,7 @@ export default function GuidePackSaveDemo() {
           <IconPlus size={15} stroke={2.5} className="text-accent" />
           <span>팩 추가</span>
         </button>
+      </div>
       </div>
 
       {/* 실제 프로젝트의 PackImportModal 연동 */}

@@ -37,49 +37,50 @@ export default function GuideViewModeDemo() {
 
   return (
     <div className="w-full flex flex-col gap-3 select-none">
-      {/* 상단 뷰 모드 조작 바 */}
-      <div className="flex items-center justify-between p-2 rounded-xl bg-surface/40 border border-border/60">
-        <span className="text-[11.5px] text-text-muted">
-          상단 버튼을 눌러보세요:
-        </span>
-
-        <button
-          type="button"
-          onClick={() => {
-            setMode((prev) =>
-              prev === "large" ? "medium" : prev === "medium" ? "small" : "large"
-            );
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-foreground hover:border-accent text-[12px] font-semibold transition-all cursor-pointer shadow-2xs"
-        >
-          {mode === "large" ? (
-            <IconLayoutList size={15} className="text-accent" />
-          ) : mode === "small" ? (
-            <IconLayoutGrid size={15} stroke={2.4} className="text-accent" />
-          ) : (
-            <IconLayoutGrid size={15} className="text-accent" />
-          )}
-          <span>
-            {mode === "large" ? "1열 (크게)" : mode === "small" ? "3열 (작게)" : "2열 (보통)"}
+      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+        {/* 상단 뷰 모드 조작 바 */}
+        <div className="flex items-center justify-between p-2 rounded-xl bg-surface/60 border border-border/60">
+          <span className="text-[11.5px] text-text-muted">
+            상단 버튼을 눌러보세요:
           </span>
-        </button>
-      </div>
 
-      {/* 가방 카드 그리드 데모 */}
-      <div
-        className={`grid gap-2 transition-all duration-200 ${
-          mode === "large"
-            ? "grid-cols-1"
-            : mode === "small"
-            ? "grid-cols-3"
-            : "grid-cols-2"
-        }`}
-      >
-        {sampleBags.map((bag) => (
-          <div
-            key={bag.id}
-            className="rounded-xl border border-border/80 bg-surface p-3 flex flex-col gap-1.5 shadow-2xs relative overflow-hidden"
+          <button
+            type="button"
+            onClick={() => {
+              setMode((prev) =>
+                prev === "large" ? "medium" : prev === "medium" ? "small" : "large"
+              );
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-foreground hover:border-accent text-[12px] font-semibold transition-all cursor-pointer shadow-2xs"
           >
+            {mode === "large" ? (
+              <IconLayoutList size={15} className="text-accent" />
+            ) : mode === "small" ? (
+              <IconLayoutGrid size={15} stroke={2.4} className="text-accent" />
+            ) : (
+              <IconLayoutGrid size={15} className="text-accent" />
+            )}
+            <span>
+              {mode === "large" ? "1열 (크게)" : mode === "small" ? "3열 (작게)" : "2열 (보통)"}
+            </span>
+          </button>
+        </div>
+
+        {/* 가방 카드 그리드 데모 */}
+        <div
+          className={`grid gap-2.5 transition-all duration-200 ${
+            mode === "large"
+              ? "grid-cols-1"
+              : mode === "small"
+              ? "grid-cols-3"
+              : "grid-cols-2"
+          }`}
+        >
+          {sampleBags.map((bag) => (
+            <div
+              key={bag.id}
+              className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2 shadow-xs relative overflow-hidden"
+            >
             {/* 상단: 제목 & D-Day */}
             <div className="flex items-start justify-between gap-1">
               <span className="text-[12.5px] font-semibold text-foreground truncate">
@@ -124,6 +125,7 @@ export default function GuideViewModeDemo() {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );

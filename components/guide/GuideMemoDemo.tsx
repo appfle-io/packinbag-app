@@ -20,29 +20,30 @@ export default function GuideMemoDemo() {
 
   return (
     <div className="w-full flex flex-col gap-2.5 select-none">
-      {/* 투명/반투명 스타일의 메모팩 카드 */}
-      <div
-        onClick={() => setShowEditorModal(true)}
-        className="rounded-xl border border-dashed border-border-strong/60 p-3.5 bg-surface/20 hover:bg-surface-2/30 transition-colors cursor-pointer flex flex-col gap-2"
-        style={{ backdropFilter: "blur(4px)" }}
-      >
-        <div className="flex items-center justify-between pb-2 border-b border-border/50">
-          <div className="flex items-center gap-1.5 font-semibold text-[13px] text-foreground">
-            <IconFileText size={16} className="text-accent" />
-            <span>{memoTitle}</span>
+      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-2.5">
+        {/* 메모팩 카드 */}
+        <div
+          onClick={() => setShowEditorModal(true)}
+          className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs hover:border-accent/60 p-4 transition-all cursor-pointer flex flex-col gap-2.5 shadow-xs"
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <div className="flex items-center gap-1.5 font-bold text-[13.5px] text-foreground">
+              <IconFileText size={16} className="text-accent" />
+              <span>{memoTitle}</span>
+            </div>
+            <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-accent-soft text-accent font-medium">
+              터치하여 편집
+            </span>
           </div>
-          <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-accent-soft text-accent font-medium">
-            터치하여 편집
-          </span>
-        </div>
 
-        <p className="text-[12px] text-text-secondary line-clamp-2 leading-relaxed">
-          {memoContent}
-        </p>
+          <p className="text-[12px] text-text-secondary line-clamp-2 leading-relaxed">
+            {memoContent}
+          </p>
 
-        <div className="pt-1 flex items-center justify-between text-[11px] text-text-muted">
-          <span>서식, 표, 링크 지원</span>
-          <span className="text-accent font-medium">편집창 열기 &rarr;</span>
+          <div className="pt-1 flex items-center justify-between text-[11px] text-text-muted">
+            <span>서식, 표, 링크 지원</span>
+            <span className="text-accent font-medium">편집창 열기 &rarr;</span>
+          </div>
         </div>
       </div>
 
