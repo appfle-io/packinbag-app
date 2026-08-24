@@ -165,7 +165,7 @@ export default function NotebookEditorPackSection({
           value={pack.name}
           onChange={onRenamePack}
           readOnly={readOnly}
-          onDoubleClick={() => onChangeDisplayState?.(isCollapsed ? "normal" : "collapsed")}
+          onDoubleClick={onOpenEditor}
           className="text-[15px] font-semibold truncate text-left min-w-0 flex-1"
           inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />
@@ -373,8 +373,11 @@ export default function NotebookEditorPackSection({
           e.stopPropagation();
           openExternalLink(href);
         }}
-        onDoubleClick={onOpenEditor}
-        className="text-left w-full rounded-lg pl-6 pr-1 py-1"
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onOpenEditor();
+        }}
+        className="text-left w-full rounded-lg pl-6 pr-1 py-1 cursor-pointer"
         style={{
           cursor: "text",
           display: isCollapsed ? "none" : undefined,

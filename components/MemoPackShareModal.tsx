@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   IconX,
   IconCopy,
@@ -33,8 +33,13 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
   const [shareToken, setShareToken] = useState<string | null>(pack.publicShareToken ?? null);
   const [loadingToken, setLoadingToken] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const syncedPackIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!user || !pack?.id) return;
+    // 이미 이 팩의 공유 링크 토큰이 준비되었거나 방금 동기화했다면 다시 생성 로직을 태우지 않는다.
+    if (syncedPackIdRef.current === pack.id && shareToken) return;
+
     let active = true;
     async function syncLatestShareSnapshot() {
       if (!user) return;
@@ -56,6 +61,7 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
           const data = await res.json();
           if (active && data.token) {
             setShareToken(data.token);
+            syncedPackIdRef.current = pack.id;
           }
         }
       } catch (err) {
@@ -69,7 +75,7 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
     return () => {
       active = false;
     };
-  }, [user, pack]);
+  }, [user, pack.id]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = shareToken ? `${origin}/p/${shareToken}` : "";
