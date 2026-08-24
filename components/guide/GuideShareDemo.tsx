@@ -4,8 +4,10 @@ import { useState } from "react";
 import { IconShare, IconEye, IconCopy, IconCheck, IconExternalLink } from "@tabler/icons-react";
 import ShareCardModal from "@/components/ShareCardModal";
 import { GUIDE_SAMPLE_BAG } from "@/lib/guideSampleData";
+import { useToast } from "@/components/Toast";
 
 export default function GuideShareDemo() {
+  const { show } = useToast();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -15,10 +17,10 @@ export default function GuideShareDemo() {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedLink(true);
-      alert(`[보기 전용 링크 복사 완료!]\n\n${url}\n\n새 브라우저 탭에 붙여넣으면 수정/체크가 잠긴 실제 보기 전용 화면을 볼 수 있어요.`);
+      show("보기 전용 링크가 복사되었어요! 새 탭에 붙여넣어 보세요.");
       setTimeout(() => setCopiedLink(false), 3000);
     } catch {
-      alert(`[보기 전용 링크]\n\n${url}\n\n브라우저 주소창에 입력해보세요.`);
+      show("링크 복사에 실패했어요");
     }
   };
 
@@ -63,7 +65,7 @@ export default function GuideShareDemo() {
             <button
               type="button"
               onClick={handleCopyReadOnlyLink}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg border text-[11.5px] font-medium transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg border text-[11.5px] font-medium transition-colors cursor-pointer ${
                 copiedLink
                   ? "bg-accent text-white border-accent"
                   : "bg-surface/50 border-border/60 hover:border-accent text-foreground"
