@@ -428,6 +428,25 @@ aside {
   font-size: 13px;
   vertical-align: top;
   position: relative;
+  transition: padding 0.15s ease;
+}
+.pib-note-editor table[data-density="compact"] td,
+.pib-note-editor table[data-density="compact"] th {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.pib-note-editor table[data-density="spacious"] td,
+.pib-note-editor table[data-density="spacious"] th {
+  padding: 10px 12px;
+  font-size: 13.5px;
+}
+.pib-note-editor .selectedCell:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 165, 233, 0.18);
+  pointer-events: none;
+  z-index: 2;
 }
 /* 칼럼 너비 조절 손잡이(@tiptap/extension-table의 columnResizing 플러그인이 각 칸 오른쪽에
    삽입하는 decoration). 기본값은 커서/색상 스타일이 전혀 없어서 마우스를 올려도 이게

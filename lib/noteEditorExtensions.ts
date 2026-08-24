@@ -1,13 +1,83 @@
-// 에디터팩(자유문서형 팩)에서 쓰는 TipTap 확장 구성. 읽기전용 렌더(EditorPackCard 미리보기
-// 펼침)와 실제 편집 화면(PackNoteEditorScreen) 둘 다 같은 구성을 써야 저장된 문서가 항상
-// 동일하게 보인다 - 여기 한 곳에서만 관리한다.
-import StarterKit from "@tiptap/starter-kit";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
 import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
+import StarterKit from "@tiptap/starter-kit";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+const CustomTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (element) => element.style.backgroundColor || element.getAttribute("data-bg-color") || null,
+        renderHTML: (attributes) => {
+          if (!attributes.backgroundColor) return {};
+          return {
+            style: `background-color: ${attributes.backgroundColor}`,
+          };
+        },
+      },
+      alignment: {
+        default: null,
+        parseHTML: (element) => element.style.textAlign || element.getAttribute("data-align") || null,
+        renderHTML: (attributes) => {
+          if (!attributes.alignment) return {};
+          return {
+            style: `text-align: ${attributes.alignment}`,
+          };
+        },
+      },
+    };
+  },
+});
+
+const CustomTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (element) => element.style.backgroundColor || element.getAttribute("data-bg-color") || null,
+        renderHTML: (attributes) => {
+          if (!attributes.backgroundColor) return {};
+          return {
+            style: `background-color: ${attributes.backgroundColor}`,
+          };
+        },
+      },
+      alignment: {
+        default: null,
+        parseHTML: (element) => element.style.textAlign || element.getAttribute("data-align") || null,
+        renderHTML: (attributes) => {
+          if (!attributes.alignment) return {};
+          return {
+            style: `text-align: ${attributes.alignment}`,
+          };
+        },
+      },
+    };
+  },
+});
+
+const CustomTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      density: {
+        default: "normal",
+        parseHTML: (element) => element.getAttribute("data-density") || "normal",
+        renderHTML: (attributes) => {
+          if (!attributes.density || attributes.density === "normal") return {};
+          return {
+            "data-density": attributes.density,
+          };
+        },
+      },
+    };
+  },
+});
 import Placeholder from "@tiptap/extension-placeholder";
 import TextStyle from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
@@ -59,10 +129,10 @@ export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOp
     TaskList,
     TaskItem.configure({ nested: true }),
     IndentExtension,
-    Table.configure({ resizable: true, cellMinWidth: 72, handleWidth: 8 }),
+    CustomTable.configure({ resizable: true, cellMinWidth: 72, handleWidth: 8 }),
     TableRow,
-    TableHeader,
-    TableCell,
+    CustomTableHeader,
+    CustomTableCell,
     // Color는 TextStyle 마크 위에 style="color:..."를 얹는 방식이라 TextStyle이 먼저 필요하다.
     // FontSize도 동일하게 TextStyle 위에 style="font-size:..."를 얹는다(lib/fontSizeExtension.ts) -
     // 둘 다 전체 문서가 아니라 지금 선택(또는 커서 위치부터 새로 입력할)한 텍스트에만 적용된다.

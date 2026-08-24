@@ -34,6 +34,15 @@ import { WebrtcProvider } from "y-webrtc";
 import { Pack } from "@/lib/types";
 import MemoPackShareModal from "@/components/MemoPackShareModal";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
+import {
+  adjustColumnWidth,
+  distributeColumnWidths,
+  resetColumnWidths,
+  cycleTableDensity,
+  setCellBackgroundColor,
+  setCellTextAlignment,
+  getTableContext,
+} from "@/lib/noteEditorTableUtils";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
   isShortUrlFeatureEnabled,
@@ -136,6 +145,8 @@ export default function PackNoteEditorScreen({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [tableToolbarTab, setTableToolbarTab] = useState<"table" | "text">("table");
+  const [showTableCellColorPicker, setShowTableCellColorPicker] = useState(false);
   // 툴바 파일첨부(사진/PDF) 관련 상태 - BagEditorScreen의 가방 이미지 기능과 동일한 패턴.
   const [uploadingImages, setUploadingImages] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -582,6 +593,7 @@ export default function PackNoteEditorScreen({
       onClick={onClick}
       onMouseDown={(e) => e.preventDefault()}
       aria-label={label}
+      title={label}
       disabled={effectiveReadOnly || disabled}
       className="rounded-lg p-2 disabled:opacity-30"
       style={{ background: active ? "var(--accent-soft)" : "transparent" }}
@@ -771,170 +783,372 @@ export default function PackNoteEditorScreen({
 
       {!effectiveReadOnly && (
         <div className="flex items-center gap-1 px-3 pb-2 shrink-0 overflow-x-auto no-scrollbar border-b border-border">
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              onClick={() => changeFontSize(-1)}
-              onMouseDown={(e) => e.preventDefault()}
-              aria-label="글자 크기 줄이기"
-              disabled={getCurrentFontSize() <= 8}
-              className="rounded-lg p-1.5 disabled:opacity-30"
-            >
-              <IconMinus size={14} stroke={1.75} />
-            </button>
-            <span className="text-[11px] w-6 text-center tabular-nums" style={{ color: "var(--text-secondary)" }}>
-              {getCurrentFontSize()}
-            </span>
-            <button
-              onClick={() => changeFontSize(1)}
-              onMouseDown={(e) => e.preventDefault()}
-              aria-label="글자 크기 키우기"
-              disabled={getCurrentFontSize() >= 28}
-              className="rounded-lg p-1.5 disabled:opacity-30"
-            >
-              <IconPlus size={14} stroke={1.75} />
-            </button>
-          </div>
-          <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-            active={editor?.isActive("bold")}
-            label="굵게"
-          >
-            <IconBold size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-            active={editor?.isActive("italic")}
-            label="기울임"
-          >
-            <IconItalic size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleUnderline().run()}
-            active={editor?.isActive("underline")}
-            label="밑줄"
-          >
-            <IconUnderline size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleStrike().run()}
-            active={editor?.isActive("strike")}
-            label="취소선"
-          >
-            <IconStrikethrough size={17} stroke={1.75} />
-          </ToolbarButton>
-          <div className="relative">
-            <ToolbarButton
-              onClick={() => setShowColorPicker((v) => !v)}
-              active={showColorPicker || editor?.isActive("textStyle")}
-              label="글씨 색상"
-            >
-              <IconPalette size={17} stroke={1.75} />
-            </ToolbarButton>
-          </div>
-          <ToolbarButton
-            onClick={toggleLink}
-            active={editor?.isActive("link")}
-            label={editor?.isActive("link") ? "링크 해제 (일반 글자로 변경)" : "링크 삽입"}
-          >
-            <IconLink size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-            active={editor?.isActive("heading", { level: 1 })}
-            label="제목 1"
-          >
-            <IconH1 size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-            active={editor?.isActive("heading", { level: 2 })}
-            label="제목 2"
-          >
-            <IconH2 size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-            active={editor?.isActive("heading", { level: 3 })}
-            label="제목 3"
-          >
-            <IconH3 size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor?.chain().focus().toggleTaskList().run()}
-            active={editor?.isActive("taskList")}
-            label="체크박스"
-          >
-            <IconListCheck size={17} stroke={1.75} />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() =>
-              editor
-                ?.chain()
-                .focus()
-                .insertTable({ rows: 2, cols: 2, withHeaderRow: true })
-                .run()
-            }
-            label="표 삽입"
-          >
-            <IconTable size={17} stroke={1.75} />
-          </ToolbarButton>
-          {bagId && (
-            <ToolbarButton
-              onClick={() => {
-                if (!premium) {
-                  setShowPdfPremiumModal(true);
-                  return;
-                }
-                fileInputRef.current?.click();
-              }}
-              disabled={uploadingImages || (premium && packImages.length >= MAX_PACK_IMAGES)}
-              label={premium ? "파일 첨부" : "파일 첨부 (프리미엄 전용)"}
-            >
-              {uploadingImages ? (
-                <IconLoader2 size={17} stroke={1.75} className="animate-spin" />
-              ) : (
-                <div className="relative">
-                  <IconPaperclip size={17} stroke={1.75} />
-                  {!premium && (
-                    <span
-                      className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full flex items-center justify-center"
-                      style={{ background: "rgba(0,0,0,0.6)" }}
-                    >
-                      <IconLock size={7} stroke={2} color="#fff" />
-                    </span>
-                  )}
-                </div>
-              )}
-            </ToolbarButton>
-          )}
-          <ToolbarButton
-            onClick={() => {
-              const next = !noteSpellcheckEnabled;
-              updatePackSettings({ noteSpellcheckEnabled: next });
-              show(next ? "맞춤법 검사를 켰어요 (빨간 밑줄 표시)" : "맞춤법 검사를 껐어요 (빨간 밑줄 숨김)");
-            }}
-            active={noteSpellcheckEnabled}
-            label={noteSpellcheckEnabled ? "맞춤법 검사 끄기 (빨간 밑줄 숨김)" : "맞춤법 검사 켜기 (빨간 밑줄 표시)"}
-          >
-            <SpellcheckIcon size={17} stroke={1.75} />
-          </ToolbarButton>
-          {editor?.isActive("table") && (
+          {editor?.isActive("table") && tableToolbarTab === "table" ? (
+            /* ===== 표 전용 인라인 툴바 ===== */
             <>
-              <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} label="행 추가">
-                <span className="text-[12px] font-medium px-0.5">행+</span>
+              <button
+                onClick={() => setTableToolbarTab("text")}
+                onMouseDown={(e) => e.preventDefault()}
+                aria-label="글자 서식 툴바로 전환"
+                title="글자 서식 툴바로 전환 (굵게, 글자크기, 색상 등)"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold bg-surface-2 border border-border text-foreground hover:bg-surface shrink-0"
+              >
+                <span className="text-[13px] font-bold text-accent">T</span>
+                <span>글자서식</span>
+              </button>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 너비 조절 그룹 */}
+              <div className="flex items-center gap-0.5 bg-surface-2/60 rounded-lg p-0.5 border border-border/50 shrink-0">
+                <ToolbarButton
+                  onClick={() => {
+                    const ok = adjustColumnWidth(editor, -20);
+                    if (ok) show("현재 열 너비 축소 (-20px)");
+                  }}
+                  label="W- : 현재 열 너비 20px 감소"
+                >
+                  <span className="text-[11.5px] font-bold px-0.5">W-</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => {
+                    const ok = adjustColumnWidth(editor, 20);
+                    if (ok) show("현재 열 너비 확대 (+20px)");
+                  }}
+                  label="W+ : 현재 열 너비 20px 증가"
+                >
+                  <span className="text-[11.5px] font-bold px-0.5">W+</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => {
+                    const ok = distributeColumnWidths(editor);
+                    if (ok) show("모든 열 너비 균등 분할");
+                  }}
+                  label="W= : 모든 열 너비 균등 분할"
+                >
+                  <span className="text-[11.5px] font-bold px-0.5">W=</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => {
+                    const ok = resetColumnWidths(editor);
+                    if (ok) show("열 너비 자동 맞춤으로 초기화");
+                  }}
+                  label="자동 : 내용에 맞게 열 너비 자동 맞춤"
+                >
+                  <span className="text-[11px] font-medium px-0.5">자동</span>
+                </ToolbarButton>
+              </div>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 높이 / 밀도 조절 */}
+              <ToolbarButton
+                onClick={() => {
+                  const next = cycleTableDensity(editor);
+                  const label =
+                    next === "compact" ? "좁게 (콤팩트)" : next === "spacious" ? "넓게 (여유있게)" : "보통";
+                  show(`표 행 간격: ${label}`);
+                }}
+                label="H↕ : 행 높이(간격) 조절 (좁게 / 보통 / 넓게)"
+              >
+                <span className="text-[11.5px] font-bold px-0.5">H↕</span>
               </ToolbarButton>
-              <ToolbarButton onClick={() => editor.chain().focus().deleteRow().run()} label="행 삭제">
-                <span className="text-[12px] font-medium px-0.5">행-</span>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 셀 병합 & 분할 */}
+              <ToolbarButton
+                onClick={() => {
+                  editor?.chain().focus().mergeCells().run();
+                }}
+                label="셀 병합 : 선택한 여러 셀 합치기"
+              >
+                <span className="text-[11.5px] font-medium px-0.5">병합</span>
               </ToolbarButton>
-              <ToolbarButton onClick={() => editor.chain().focus().addColumnAfter().run()} label="열 추가">
-                <span className="text-[12px] font-medium px-0.5">열+</span>
+              <ToolbarButton
+                onClick={() => {
+                  editor?.chain().focus().splitCell().run();
+                }}
+                label="셀 분할 : 병합된 셀 원래대로 나누기"
+              >
+                <span className="text-[11.5px] font-medium px-0.5">분할</span>
               </ToolbarButton>
-              <ToolbarButton onClick={() => editor.chain().focus().deleteColumn().run()} label="열 삭제">
-                <span className="text-[12px] font-medium px-0.5">열-</span>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 행 관리 */}
+              <div className="flex items-center gap-0.5 bg-surface-2/60 rounded-lg p-0.5 border border-border/50 shrink-0">
+                <ToolbarButton
+                  onClick={() => editor?.chain().focus().addRowBefore().run()}
+                  label="행+↑ : 현재 행 위에 새 행 추가"
+                >
+                  <span className="text-[11.5px] font-medium px-0.5">행+↑</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => editor?.chain().focus().addRowAfter().run()}
+                  label="행+↓ : 현재 행 아래에 새 행 추가"
+                >
+                  <span className="text-[11.5px] font-medium px-0.5">행+↓</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => editor?.chain().focus().deleteRow().run()}
+                  label="행- : 현재 행 삭제"
+                >
+                  <span className="text-[11.5px] font-medium px-0.5 text-danger">행-</span>
+                </ToolbarButton>
+              </div>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 열 관리 */}
+              <div className="flex items-center gap-0.5 bg-surface-2/60 rounded-lg p-0.5 border border-border/50 shrink-0">
+                <ToolbarButton
+                  onClick={() => editor?.chain().focus().addColumnBefore().run()}
+                  label="열+← : 현재 열 왼쪽에 새 열 추가"
+                >
+                  <span className="text-[11.5px] font-medium px-0.5">열+←</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => editor?.chain().focus().addColumnAfter().run()}
+                  label="열+→ : 현재 열 오른쪽에 새 열 추가"
+                >
+                  <span className="text-[11.5px] font-medium px-0.5">열+→</span>
+                </ToolbarButton>
+                <ToolbarButton
+                  onClick={() => editor?.chain().focus().deleteColumn().run()}
+                  label="열- : 현재 열 삭제"
+                >
+                  <span className="text-[11.5px] font-medium px-0.5 text-danger">열-</span>
+                </ToolbarButton>
+              </div>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 정렬 & 배경색 */}
+              <ToolbarButton onClick={() => setCellTextAlignment(editor, "left")} label="좌측 정렬 : 셀 내용 왼쪽 정렬">
+                <span className="text-[11px] font-semibold px-0.5">좌</span>
               </ToolbarButton>
-              <ToolbarButton onClick={() => editor.chain().focus().deleteTable().run()} label="표 삭제">
-                <IconTablePlus size={17} stroke={1.75} style={{ transform: "rotate(45deg)" }} />
+              <ToolbarButton onClick={() => setCellTextAlignment(editor, "center")} label="가운데 정렬 : 셀 내용 중앙 정렬">
+                <span className="text-[11px] font-semibold px-0.5">중</span>
+              </ToolbarButton>
+              <ToolbarButton onClick={() => setCellTextAlignment(editor, "right")} label="우측 정렬 : 셀 내용 오른쪽 정렬 (금액/수량)">
+                <span className="text-[11px] font-semibold px-0.5">우</span>
+              </ToolbarButton>
+              <div className="relative">
+                <ToolbarButton
+                  onClick={() => setShowTableCellColorPicker((v) => !v)}
+                  active={showTableCellColorPicker}
+                  label="셀 배경색 : 선택한 셀에 하이라이트 색상 채우기"
+                >
+                  <IconPalette size={17} stroke={1.75} />
+                </ToolbarButton>
+                {showTableCellColorPicker && (
+                  <div
+                    className="absolute left-0 top-full mt-1 bg-surface border border-border rounded-xl shadow-xl p-2 z-30 flex gap-1.5 shrink-0"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {[
+                      { label: "기본 (투명)", color: null, bg: "transparent", border: true },
+                      { label: "파스텔 노랑", color: "#fef9c3", bg: "#fef9c3" },
+                      { label: "파스텔 초록", color: "#dcfce7", bg: "#dcfce7" },
+                      { label: "파스텔 파랑", color: "#e0f2fe", bg: "#e0f2fe" },
+                      { label: "파스텔 분홍", color: "#fce7f3", bg: "#fce7f3" },
+                      { label: "파스텔 보라", color: "#f3e8ff", bg: "#f3e8ff" },
+                      { label: "파스텔 주황", color: "#ffedd5", bg: "#ffedd5" },
+                      { label: "파스텔 회색", color: "#f3f4f6", bg: "#f3f4f6" },
+                    ].map((p, idx) => (
+                      <button
+                        key={idx}
+                        title={p.label}
+                        aria-label={p.label}
+                        onClick={() => {
+                          setCellBackgroundColor(editor, p.color);
+                          setShowTableCellColorPicker(false);
+                        }}
+                        className="w-6 h-6 rounded-full border border-border hover:scale-110 transition-transform flex items-center justify-center text-[10px]"
+                        style={{ backgroundColor: p.bg }}
+                      >
+                        {p.color === null && "✕"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+
+              {/* 표 삭제 */}
+              <ToolbarButton
+                onClick={() => {
+                  if (confirm("정말 이 표를 삭제할까요?")) {
+                    editor?.chain().focus().deleteTable().run();
+                  }
+                }}
+                label="표 삭제 : 표 전체를 삭제합니다"
+              >
+                <IconTrash size={16} stroke={1.75} className="text-danger" />
+              </ToolbarButton>
+            </>
+          ) : (
+            /* ===== 일반 서식 툴바 ===== */
+            <>
+              {editor?.isActive("table") && (
+                <>
+                  <button
+                    onClick={() => setTableToolbarTab("table")}
+                    onMouseDown={(e) => e.preventDefault()}
+                    aria-label="표 편집 툴바로 전환"
+                    title="표 편집 툴바로 전환 (너비, 높이, 행/열 조작 등)"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold bg-accent text-white shrink-0 shadow-sm"
+                  >
+                    <IconTable size={14} stroke={2} />
+                    <span>표 편집</span>
+                  </button>
+                  <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+                </>
+              )}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={() => changeFontSize(-1)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  aria-label="글자 크기 줄이기"
+                  title="글자 크기 줄이기"
+                  disabled={getCurrentFontSize() <= 8}
+                  className="rounded-lg p-1.5 disabled:opacity-30"
+                >
+                  <IconMinus size={14} stroke={1.75} />
+                </button>
+                <span className="text-[11px] w-6 text-center tabular-nums" style={{ color: "var(--text-secondary)" }}>
+                  {getCurrentFontSize()}
+                </span>
+                <button
+                  onClick={() => changeFontSize(1)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  aria-label="글자 크기 키우기"
+                  title="글자 크기 키우기"
+                  disabled={getCurrentFontSize() >= 28}
+                  className="rounded-lg p-1.5 disabled:opacity-30"
+                >
+                  <IconPlus size={14} stroke={1.75} />
+                </button>
+              </div>
+              <div className="w-px h-5 bg-border shrink-0 mx-0.5" />
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+                active={editor?.isActive("bold")}
+                label="굵게"
+              >
+                <IconBold size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                active={editor?.isActive("italic")}
+                label="기울임"
+              >
+                <IconItalic size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                active={editor?.isActive("underline")}
+                label="밑줄"
+              >
+                <IconUnderline size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleStrike().run()}
+                active={editor?.isActive("strike")}
+                label="취소선"
+              >
+                <IconStrikethrough size={17} stroke={1.75} />
+              </ToolbarButton>
+              <div className="relative">
+                <ToolbarButton
+                  onClick={() => setShowColorPicker((v) => !v)}
+                  active={showColorPicker || editor?.isActive("textStyle")}
+                  label="글씨 색상 변경"
+                >
+                  <IconPalette size={17} stroke={1.75} />
+                </ToolbarButton>
+              </div>
+              <ToolbarButton
+                onClick={toggleLink}
+                active={editor?.isActive("link")}
+                label={editor?.isActive("link") ? "링크 해제 (일반 글자로 변경)" : "링크 삽입"}
+              >
+                <IconLink size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                active={editor?.isActive("heading", { level: 1 })}
+                label="제목 1 (H1)"
+              >
+                <IconH1 size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                active={editor?.isActive("heading", { level: 2 })}
+                label="제목 2 (H2)"
+              >
+                <IconH2 size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+                active={editor?.isActive("heading", { level: 3 })}
+                label="제목 3 (H3)"
+              >
+                <IconH3 size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().toggleTaskList().run()}
+                active={editor?.isActive("taskList")}
+                label="체크박스 목록"
+              >
+                <IconListCheck size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() =>
+                  editor
+                    ?.chain()
+                    .focus()
+                    .insertTable({ rows: 2, cols: 2, withHeaderRow: true })
+                    .run()
+                }
+                label="표 삽입 (2x2)"
+              >
+                <IconTable size={17} stroke={1.75} />
+              </ToolbarButton>
+              {bagId && (
+                <ToolbarButton
+                  onClick={() => {
+                    if (!premium) {
+                      setShowPdfPremiumModal(true);
+                      return;
+                    }
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={uploadingImages || (premium && packImages.length >= MAX_PACK_IMAGES)}
+                  label={premium ? "사진 및 파일 첨부" : "사진 및 파일 첨부 (프리미엄 전용)"}
+                >
+                  {uploadingImages ? (
+                    <IconLoader2 size={17} stroke={1.75} className="animate-spin" />
+                  ) : (
+                    <div className="relative">
+                      <IconPaperclip size={17} stroke={1.75} />
+                      {!premium && (
+                        <span
+                          className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full flex items-center justify-center"
+                          style={{ background: "rgba(0,0,0,0.6)" }}
+                        >
+                          <IconLock size={7} stroke={2} color="#fff" />
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </ToolbarButton>
+              )}
+              <ToolbarButton
+                onClick={() => {
+                  const next = !noteSpellcheckEnabled;
+                  updatePackSettings({ noteSpellcheckEnabled: next });
+                  show(next ? "맞춤법 검사를 켰어요 (빨간 밑줄 표시)" : "맞춤법 검사를 껐어요 (빨간 밑줄 숨김)");
+                }}
+                active={noteSpellcheckEnabled}
+                label={noteSpellcheckEnabled ? "맞춤법 검사 끄기 (빨간 밑줄 숨김)" : "맞춤법 검사 켜기 (빨간 밑줄 표시)"}
+              >
+                <SpellcheckIcon size={17} stroke={1.75} />
               </ToolbarButton>
             </>
           )}
