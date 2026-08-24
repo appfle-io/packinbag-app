@@ -13,10 +13,19 @@ import { Capacitor } from "@capacitor/core";
 export function openExternalLink(url: string) {
   if (!url) return;
   try {
+    let targetUrl = url.trim();
+    if (
+      !targetUrl.startsWith("http://") &&
+      !targetUrl.startsWith("https://") &&
+      !targetUrl.startsWith("mailto:") &&
+      !targetUrl.startsWith("tel:")
+    ) {
+      targetUrl = `https://${targetUrl}`;
+    }
     // Capacitor.isNativePlatform() 체크는 지금 당장은 분기가 필요 없지만, 나중에 네이티브
     // 전용 브라우저 플러그인으로 바꿀 자리를 남겨두기 위해 남겨둔다.
     void Capacitor.isNativePlatform();
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
   } catch (err) {
     console.error("[팩인백] 링크 열기 실패:", err);
   }

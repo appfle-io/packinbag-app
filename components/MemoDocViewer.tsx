@@ -22,6 +22,21 @@ export default function MemoDocViewer({ pack, className = "" }: MemoDocViewerPro
       content: pack.editorDoc || pack.editorPreviewText || "",
       editable: false,
       immediatelyRender: false,
+      editorProps: {
+        handleClick: (_view, _pos, event) => {
+          const target = event.target as HTMLElement | null;
+          const anchor = target?.closest("a");
+          if (anchor) {
+            const href = anchor.getAttribute("href");
+            if (href) {
+              event.preventDefault();
+              openExternalLink(href);
+              return true;
+            }
+          }
+          return false;
+        },
+      },
     },
     [pack.editorDoc, pack.editorPreviewText]
   );

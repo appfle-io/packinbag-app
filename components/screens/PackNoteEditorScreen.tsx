@@ -272,6 +272,19 @@ export default function PackNoteEditorScreen({
       editable: !effectiveReadOnly,
       immediatelyRender: false,
       editorProps: {
+        handleClick: (_view, _pos, event) => {
+          const target = event.target as HTMLElement | null;
+          const anchor = target?.closest("a");
+          if (anchor) {
+            const href = anchor.getAttribute("href");
+            if (href) {
+              event.preventDefault();
+              openExternalLink(href);
+              return true;
+            }
+          }
+          return false;
+        },
         attributes: {
           spellcheck: noteSpellcheckEnabled ? "true" : "false",
           autocapitalize: "off",
