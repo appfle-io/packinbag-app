@@ -139,53 +139,75 @@ export default function BagCard({
           </span>
         </div>
       )}
+      {/* 가방 속 팩 미리보기 목록 (카드 너비에 따라 지능형 1열/2열 가변 배치 및 최대 개수 제한) */}
       {viewablePacks.length > 0 && (
-        <div className="flex-1 min-h-0 overflow-hidden mt-1.5">
-          <div className="grid grid-cols-2 gap-x-2 md:gap-x-3 gap-y-0.5 md:gap-y-1">
-            {viewablePacks.map((pack) => {
-              const packLabel = formatItemCountLabel(pack.items, false);
+        <div className="flex-1 min-h-0 overflow-hidden mt-1.5 flex flex-col justify-start">
+          <div className="flex flex-col gap-1 @[240px]:grid @[240px]:grid-cols-2 @[240px]:gap-x-2.5 @[240px]:gap-y-1">
+            {viewablePacks.slice(0, 4).map((pack) => {
+              const packLabel =
+                pack.kind === "editor"
+                  ? "메모"
+                  : formatItemCountLabel(pack.items, false);
               const dotHex = getPackColorHex(pack.color);
               return (
-                <span
+                <div
                   key={pack.id}
-                  className="flex items-center gap-1 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary truncate"
+                  className="flex items-center gap-1.5 text-[calc(11.5px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary min-w-0"
                 >
-                  {dotHex && (
+                  {dotHex ? (
                     <span
                       className="h-1.5 w-1.5 rounded-full shrink-0"
                       style={{ background: dotHex, transform: "scale(var(--bag-card-scale,1))" }}
                     />
+                  ) : (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full shrink-0 bg-text-muted/60"
+                      style={{ transform: "scale(var(--bag-card-scale,1))" }}
+                    />
                   )}
-                  <span className="truncate">
+                  <span className="truncate flex-1 font-normal text-text-secondary">
                     {pack.name}
-                    {packLabel && (
-                      <span className="text-text-muted">({packLabel})</span>
-                    )}
                   </span>
-                </span>
+                  {packLabel && (
+                    <span className="text-[10px] text-text-muted shrink-0 tabular-nums">
+                      {packLabel}
+                    </span>
+                  )}
+                </div>
               );
             })}
           </div>
+
+          {/* 4개 초과 시 간결한 +N개 뱃지 */}
+          {viewablePacks.length > 4 && (
+            <div className="mt-1 flex items-center">
+              <span className="text-[10px] font-medium text-text-muted px-1.5 py-0.5 rounded-md bg-surface-2/60">
+                +{viewablePacks.length - 4}개 더보기
+              </span>
+            </div>
+          )}
         </div>
       )}
+
+      {/* 카드 하단 정보 (멤버수, 프로그레스 링, 총 짐 수) */}
       <span className="flex items-center justify-end gap-2 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
         {bag.memberIds.length > 1 && (
-          <span className="flex items-center gap-1 text-text-muted">
+          <span className="flex items-center gap-1 text-text-muted text-[11px]">
             <IconUsers size={13} stroke={1.75} />
             <span>{bag.memberIds.length}</span>
           </span>
         )}
         {overallRatio !== null && (
           <span style={{ transform: "scale(var(--bag-card-scale,1))" }}>
-            <ProgressRing ratio={overallRatio} size={18} />
+            <ProgressRing ratio={overallRatio} size={17} />
           </span>
         )}
-        {totalLabel && <span className="font-medium">{totalLabel}</span>}
+        {totalLabel && <span className="font-medium text-[11.5px]">{totalLabel}</span>}
       </span>
 
       {/* 카드 하단 2px 미니멀 진행률 바 */}
       {overallRatio !== null && (
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-border/40 overflow-hidden rounded-b-xl">
+        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-border/40 overflow-hidden rounded-b-xl">
           <div
             className="h-full transition-all duration-300 ease-out"
             style={{

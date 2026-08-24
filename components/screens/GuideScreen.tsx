@@ -11,6 +11,7 @@ import GuidePackSaveDemo from "@/components/guide/GuidePackSaveDemo";
 import GuideMemoDemo from "@/components/guide/GuideMemoDemo";
 import GuideShareDemo from "@/components/guide/GuideShareDemo";
 import GuideShareCardsDemo from "@/components/guide/GuideShareCardsDemo";
+import GuideViewModeDemo from "@/components/guide/GuideViewModeDemo";
 
 export default function GuideScreen({ onBack }: { onBack: () => void }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
@@ -98,10 +99,10 @@ export default function GuideScreen({ onBack }: { onBack: () => void }) {
           <div>
             <span className="text-[11px] font-mono font-bold text-accent">05</span>
             <h2 className="text-[14px] font-semibold text-foreground mt-0.5">
-              자유 문서형 메모팩 (서식, 표, 링크)
+              자유 문서형 메모팩 (서식, 표, 링크 & 실시간 동시 수정)
             </h2>
             <p className="text-[12px] text-text-secondary mt-0.5">
-              체크리스트 대신 일정표나 맛집을 메모팩으로 써보세요. 카드를 누르면 직접 써볼 수 있어요.
+              체크리스트 대신 일정표나 맛집을 메모팩으로 작성해보세요. 멤버와 함께 열면 실시간 커서가 보이며 동시에 함께 작성할 수 있어요.
             </p>
           </div>
 
@@ -123,19 +124,34 @@ export default function GuideScreen({ onBack }: { onBack: () => void }) {
           <GuideShareDemo />
         </div>
 
-        {/* 7. 공유 카드 3종 */}
-        <div className="rounded-xl border border-border/40 bg-surface/15 p-4 flex flex-col gap-3 mb-4 shadow-xs">
+        {/* 7. 공유 카드 3종 & 메모팩 웹 문서 공유 */}
+        <div className="rounded-xl border border-border/40 bg-surface/15 p-4 flex flex-col gap-3 shadow-xs">
           <div>
             <span className="text-[11px] font-mono font-bold text-accent">07</span>
             <h2 className="text-[14px] font-semibold text-foreground mt-0.5">
               공유 카드 3종 & 메모팩 웹 문서 공유
             </h2>
             <p className="text-[12px] text-text-secondary mt-0.5">
-              SNS 공유 카드(탑승권/영수증/폴라로이드)와 메모팩 전용 웹 문서 공유 모달을 열어보세요.
+              SNS 공유 카드(탑승권/영수증/폴라로이드)와 가로폭이 넓어진 메모팩 전용 웹 문서 공유 모달을 열어보세요.
             </p>
           </div>
 
           <GuideShareCardsDemo />
+        </div>
+
+        {/* 8. 가방보관함 뷰 모드 & 화면 맞춤 (신규 추가) */}
+        <div className="rounded-xl border border-border/40 bg-surface/15 p-4 flex flex-col gap-3 mb-4 shadow-xs">
+          <div>
+            <span className="text-[11px] font-mono font-bold text-accent">08</span>
+            <h2 className="text-[14px] font-semibold text-foreground mt-0.5">
+              가방보관함 뷰 모드 (1열/2열/3열 빠른 전환)
+            </h2>
+            <p className="text-[12px] text-text-secondary mt-0.5">
+              메인 화면 상단의 뷰 버튼을 탭하여 시원한 1열 피드형과 컴팩트한 그리드형을 빠르게 전환해보세요. 설정 &gt; 화면설정에서 카드 크기와 글씨 크기도 조절할 수 있어요.
+            </p>
+          </div>
+
+          <GuideViewModeDemo />
         </div>
 
         {/* 하단 완료 버튼 */}

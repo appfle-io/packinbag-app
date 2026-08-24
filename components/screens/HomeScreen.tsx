@@ -13,6 +13,8 @@ import {
   IconChevronDown,
   IconArrowRight,
   IconEdit,
+  IconLayoutGrid,
+  IconLayoutList,
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -130,6 +132,7 @@ export default function HomeScreen({
     user,
     profile,
     updateBagSortBy,
+    updateBagCardSize,
     toggleBagPinned,
     toggleBagArchived,
     archiveBags,
@@ -565,7 +568,41 @@ export default function HomeScreen({
                   </div>
                 )}
                 {bags.length > 0 && (
-                  <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+                  <>
+                    <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+                    {/* 모바일 뷰 밀도 빠른 전환 버튼: 2열(medium) <-> 1열(large) <-> 3열(small) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextSize =
+                          bagCardSize === "large"
+                            ? "medium"
+                            : bagCardSize === "medium"
+                            ? "small"
+                            : "large";
+                        updateBagCardSize(nextSize).catch(() => {});
+                      }}
+                      title={
+                        bagCardSize === "large"
+                          ? "1열 크게 보기 (탭하여 2열로 변경)"
+                          : bagCardSize === "small"
+                          ? "3열 작게 보기 (탭하여 1열로 변경)"
+                          : "2열 보통 보기 (탭하여 3열로 변경)"
+                      }
+                      className="flex items-center gap-1 rounded-lg border border-border/80 px-2.5 py-1.5 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer shadow-2xs"
+                    >
+                      {bagCardSize === "large" ? (
+                        <IconLayoutList size={14} stroke={1.75} />
+                      ) : bagCardSize === "small" ? (
+                        <IconLayoutGrid size={14} stroke={2.4} />
+                      ) : (
+                        <IconLayoutGrid size={14} stroke={1.75} />
+                      )}
+                      <span className="text-[11.5px] font-medium">
+                        {bagCardSize === "large" ? "1열" : bagCardSize === "small" ? "3열" : "2열"}
+                      </span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
