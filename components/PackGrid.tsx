@@ -1,6 +1,7 @@
 "use client";
 
-import { IconNotes, IconChecklist } from "@tabler/icons-react";
+import { useState } from "react";
+import { IconNotes, IconChecklist, IconChevronDown } from "@tabler/icons-react";
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
@@ -112,6 +113,9 @@ export default function PackGrid({
   // 것으로 본다 - 실제 on/off 판단은 BagEditorScreen에서 null 여부로 관리한다.
   const selectionModeActive = !!selectedItemsByPack;
 
+  const [isMemoCollapsed, setIsMemoCollapsed] = useState(false);
+  const [isChecklistCollapsed, setIsChecklistCollapsed] = useState(false);
+
   const renderCard = (pack: Pack) => {
     if (pack.kind === "editor") {
       return (
@@ -202,30 +206,62 @@ export default function PackGrid({
       <div className="flex flex-col gap-6">
         {/* 상단: 메모/문서 팩 (시원한 2열 와이드 그리드) */}
         <section className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary">
-            <IconNotes size={15} className="text-accent shrink-0" />
-            <span>메모 · 참고자료</span>
-            <span className="text-[11px] font-mono text-text-muted font-normal">
-              {editorPacks.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 items-start">
-            {editorPacks.map(renderCard)}
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsMemoCollapsed((prev) => !prev)}
+            aria-expanded={!isMemoCollapsed}
+            aria-label={isMemoCollapsed ? "메모 섹션 펼치기" : "메모 섹션 접기"}
+            className="flex items-center justify-between group text-left cursor-pointer select-none py-1 px-1 -mx-1 rounded-lg hover:bg-surface-2/60 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary">
+              <IconNotes size={15} className="text-accent shrink-0" />
+              <span>메모</span>
+              <span className="text-[11px] font-mono text-text-muted font-normal">
+                {editorPacks.length}
+              </span>
+            </div>
+            <IconChevronDown
+              size={15}
+              className={`text-text-muted group-hover:text-text-secondary transition-transform duration-200 ${
+                isMemoCollapsed ? "-rotate-90" : "rotate-0"
+              }`}
+            />
+          </button>
+          {!isMemoCollapsed && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 items-start">
+              {editorPacks.map(renderCard)}
+            </div>
+          )}
         </section>
 
         {/* 하단: 체크리스트 팩 (3열 칸반 컬럼 그리드) */}
         <section className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary">
-            <IconChecklist size={15} className="text-accent shrink-0" />
-            <span>체크리스트 · 할 일</span>
-            <span className="text-[11px] font-mono text-text-muted font-normal">
-              {checklistPacks.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-start">
-            {checklistPacks.map(renderCard)}
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsChecklistCollapsed((prev) => !prev)}
+            aria-expanded={!isChecklistCollapsed}
+            aria-label={isChecklistCollapsed ? "체크리스트 섹션 펼치기" : "체크리스트 섹션 접기"}
+            className="flex items-center justify-between group text-left cursor-pointer select-none py-1 px-1 -mx-1 rounded-lg hover:bg-surface-2/60 transition-colors"
+          >
+            <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary">
+              <IconChecklist size={15} className="text-accent shrink-0" />
+              <span>체크리스트</span>
+              <span className="text-[11px] font-mono text-text-muted font-normal">
+                {checklistPacks.length}
+              </span>
+            </div>
+            <IconChevronDown
+              size={15}
+              className={`text-text-muted group-hover:text-text-secondary transition-transform duration-200 ${
+                isChecklistCollapsed ? "-rotate-90" : "rotate-0"
+              }`}
+            />
+          </button>
+          {!isChecklistCollapsed && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-start">
+              {checklistPacks.map(renderCard)}
+            </div>
+          )}
         </section>
       </div>
     );
