@@ -47,6 +47,7 @@ import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned } from "@/lib/listSort";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
+import { getUserBagsOnce } from "@/lib/bagsService";
 
 interface AuthContextValue {
   user: User | null;
@@ -540,7 +541,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isFirstTime = !profile?.nickname && !profile?.avatarId;
     if (isFirstTime) {
       try {
-        await seedSampleDataForNewUser(user, { nickname, avatarId });
+        // 추가 방어: 닉네임/아바타가 비어있어도 이미 실제로 쓰던 가방이 있으면(예: users/{uid}
+        // 문서의 nickname/avatarId 필드만 어떤 이유로 유실된 경우) 샘플 데이터를 새로 심지
+        // 않는다. 이 체크가 없으면 기존 가방/팩 위에 온보딩 샘플이 겹쳐서 보이는 사고가 난다.
+        const existingBags = await getUserBagsOnce(user.uid);
+        if (existingBags.length === 0) {
+          await seedSampleDataForNewUser(user, { nickname, avatarId });
+        } else {
+          console.warn(
+            "[팩인백] 닉네임/아바타는 비어있지만 기존 가방이 있어 샘플 데이터 생성을 건너뜁니다:",
+            user.uid
+          );
+        }
       } catch (err) {
         console.error("[팩인백] 샘플 데이터 생성 실패:", err);
       }
