@@ -521,6 +521,24 @@ export default function AppShell() {
     });
   };
 
+  // authBusy(회원가입/로그인-미인증체크/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할
+  // 사이 signOut하는 흐름) 체크를 loading보다 먼저 한다 - 원래는 loading을 먼저 체크했는데,
+  // 그 흐름 중 Firebase가 잠깐 로그인 상태로 만드는 순간 loading이 다시 true로 바뀌면서
+  // (아래 useEffect의 onAuthStateChanged 참고) 이 자리가 <AuthScreen/> 대신 <SplashScreen/>을
+  // 렌더링해버려 AuthScreen이 통째로 마운트 해제됐다가 새로 마운트되는 문제가 있었다.
+  // 그러면 AuthScreen 내부의 로컬 state(회원가입 완료 모달, "이메일 인증 안 됨" 에러 메시지
+  // 등)에 나중에 setState하는 게 이미 사라진(unmount된) 인스턴스에 하는 셈이 되어 화면에
+  // 아무것도 안 뜨고 사라지는 것처럼 보였다. authBusy를 먼저 체크해서 이 흐름 동안은
+  // loading 값과 무관하게 항상 같은 <AuthScreen/> 인스턴스를 유지시킨다.
+  if (authBusy)
+    return (
+      <>
+        <AuthScreen />
+        <InstallPrompt />
+        <SplashScreen visible={showSplash} />
+      </>
+    );
+
   if (loading) {
     return <SplashScreen visible={showSplash} />;
   }
@@ -528,7 +546,7 @@ export default function AppShell() {
   // 회원가입/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할 사이 signOut하는 흐름 동안은,
   // user가 잠시 생기더라도 홈 화면으로 넘어가면 안 된다(넘어갔다가 곧바로 되돌아오는
   // 부자연스러운 깜빡임이 생기기 때문). 계속 로그인 화면을 보여준다.
-  if (!user || authBusy)
+  if (!user)
     return (
       <>
         <AuthScreen />
