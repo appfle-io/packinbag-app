@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { IconArrowLeft, IconCheck, IconBan, IconChevronDown } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconBan, IconChevronDown, IconSun, IconMoon, IconDeviceDesktop } from "@tabler/icons-react";
 import {
   useTheme,
   DEFAULT_CARD_COLOR_ID,
   FontScale,
+  ThemeMode,
   PACK_CARD_SCALE_BASE,
   PACK_CARD_FONT_SCALE_BASE,
 } from "@/components/ThemeProvider";
@@ -15,13 +16,21 @@ import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
 import PercentSlider from "@/components/PercentSlider";
 import { useAuth } from "@/contexts/AuthProvider";
-import type { UserProfile } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import BagCard from "@/components/BagCard";
+import PackCard from "@/components/PackCard";
+import type { Bag, Item, Pack, UserProfile } from "@/lib/types";
 
 type Slot = "accent" | "bag" | "packGrid";
+
+const themeModes: { key: ThemeMode; label: string; icon: typeof IconSun }[] = [
+  { key: "system", label: "시스템", icon: IconDeviceDesktop },
+  { key: "light", label: "라이트", icon: IconSun },
+  { key: "dark", label: "다크", icon: IconMoon },
+];
 
 // 각 버튼이 실제로 그 크기로 보이는 시각적 미리보기 - 눌러보기 전에 얼마나
 // 커지고 작아지는지 바로 눈으로 확인할 수 있다.
@@ -232,6 +241,8 @@ function ColorSlotSection({
 
 export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) {
   const {
+    mode,
+    setMode,
     fontScale,
     setFontScale,
     accentId,
@@ -271,6 +282,85 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
   const { user, profile, updateBagCardSize } = useAuth();
   const [showColorLimitModal, setShowColorLimitModal] = useState(false);
 
+  // 화면 설정 미리보기용 예시 가방
+  const sampleBag: Bag = {
+    id: "preview-bag",
+    name: "제주도 3박 4일 여행",
+    travelDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    ddayCountTodayAsDayOne: false,
+    images: [],
+    memberIds: ["preview-user"],
+    ownerId: "preview-user",
+    inviteCode: "PREVIEW",
+    createdAt: "",
+    updatedAt: "",
+    packs: [
+      {
+        id: "p1",
+        name: "전자기기",
+        items: [
+          { id: "i1", type: "check", text: "보조배터리", checked: true },
+          { id: "i2", type: "check", text: "충전 케이블", checked: false },
+        ],
+      },
+      {
+        id: "p2",
+        name: "세면도구",
+        items: [
+          { id: "i3", type: "check", text: "칫솔/치약", checked: true },
+          { id: "i4", type: "check", text: "선크림", checked: false },
+        ],
+      },
+    ],
+  };
+
+  // 화면 설정 미리보기용 예시 팩 상태 및 인터랙션 핸들러
+  const [samplePackItems, setSamplePackItems] = useState<Item[]>([
+    { id: "preview-item-1", type: "check", text: "칫솔 및 치약", checked: true },
+    { id: "preview-item-2", type: "check", text: "보조배터리", checked: false },
+    { id: "preview-item-3", type: "text", text: "호텔 체크인 시간 확인하기" },
+  ]);
+  const [samplePackDisplayState, setSamplePackDisplayState] = useState<"normal" | "wide" | "collapsed">("normal");
+
+  const samplePack: Pack = {
+    id: "preview-pack",
+    name: "여행 필수품",
+    items: samplePackItems,
+    displayState: samplePackDisplayState,
+  };
+
+  const handleToggleSampleItem = (itemId: string) => {
+    setSamplePackItems((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, checked: !item.checked } : item))
+    );
+  };
+
+  const handleToggleAllSampleItems = (checked: boolean) => {
+    setSamplePackItems((prev) =>
+      prev.map((item) => (item.type === "check" ? { ...item, checked } : item))
+    );
+  };
+
+  const handleChangeSampleItemText = (
+    itemId: string,
+    text: string,
+    style?: { bold?: boolean; strike?: boolean; color?: string }
+  ) => {
+    setSamplePackItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              text,
+              bold: style?.bold ?? item.bold,
+              strike: style?.strike ?? item.strike,
+              color: style?.color !== undefined ? style.color : item.color,
+            }
+          : item
+      )
+    );
+  };
+
   // 헥사코드 직접입력(커스텀 색상 피커)은 프리미엄 전용 기능. 무료 사용자는 프리셋
   // 색상만 고를 수 있고, 커스텀 원을 눌러도 피커 대신 업그레이드 안내가 뜬다.
   const openCustomPicker = (slot: Slot) => {
@@ -298,6 +388,28 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-1 pb-6">
+        <div className="mb-4">
+          <p className="text-[12px] font-medium text-text-secondary mb-2">화면 모드</p>
+          <div className="flex rounded-lg border border-border overflow-hidden bg-surface-2 p-0.5 gap-1">
+            {themeModes.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMode(key)}
+                className="flex-1 py-1.5 flex items-center justify-center gap-1.5 text-[12px] font-medium rounded-md transition-colors"
+                style={{
+                  background: mode === key ? "var(--surface)" : "transparent",
+                  color: mode === key ? "var(--foreground)" : "var(--text-muted)",
+                  boxShadow: mode === key ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+                }}
+              >
+                <Icon size={14} stroke={1.75} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="mb-1">
           <SectionHeaderButton
             title="글자 크기"
@@ -394,7 +506,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
                 <p className="text-[11px] text-text-secondary">그리드 밀도</p>
                 <p className="text-[11px] text-text-muted mt-1">
                   작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
-                  줄어 카드 자체가 커져요 (아래 카드 크기/글씨 크기 슬라이더와는 별개예요)
+                  줄어 카드 자체가 커져요 (아래 카드 여백/글씨 크기 슬라이더와는 별개예요)
                 </p>
               </div>
               <select
@@ -421,7 +533,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setBagColorOpacity(pct / 100)}
           scalePct={Math.round(bagCardScale * 100)}
           onChangeScale={(pct) => setBagCardScale(pct / 100)}
-          scaleLabel="카드 크기"
+          scaleLabel="카드 여백"
           scaleMax={130}
           scale2Pct={Math.round(bagCardFontScale * 100)}
           onChangeScale2={(pct) => setBagCardFontScale(pct / 100)}
@@ -429,30 +541,12 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           scale2Max={120}
           preview={
             <div className="mt-3 flex justify-center">
-              {/* 실제 홈 화면의 grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 그리드에서
-                  카드 한 칸이 차지하는 폭을 그대로 calc()로 계산해서 쓴다 (빈 칸을
-                  채우는 방식 대신 폭 자체를 계산하면 가운데 정렬도 자연스럽게 된다). */}
-              <div
-                className="aspect-square rounded-xl border border-border shadow-sm flex flex-col p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2rem)/3)]"
-                style={{ background: "var(--bag-card-bg)" }}
-              >
-                <div className="flex items-start justify-between gap-1.5 shrink-0">
-                  <span className="text-[calc(13px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium">
-                    예시 가방
-                  </span>
-                  <span
-                    className="text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-1.5 py-0.5 shrink-0"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
-                  >
-                    D-3
-                  </span>
-                </div>
-                <p className="text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-1.5">
-                  전자기기, 세면도구
-                </p>
-                <p className="text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary mt-auto">
-                  0/12
-                </p>
+              <div className="w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2rem)/3)]">
+                <BagCard
+                  bag={sampleBag}
+                  onClick={() => {}}
+                  premium={true}
+                />
               </div>
             </div>
           }
@@ -466,7 +560,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           extraContent={
             <ul className="mt-2 space-y-1 text-[11px] text-text-muted list-none">
               <li>
-                <span className="font-medium text-text-secondary">카드 크기</span> — 카드 여백·짐 목록 높이·아이콘/체크박스 크기를 조절해요 (글자 크기는 안 바뀌어요)
+                <span className="font-medium text-text-secondary">체크박스·여백 크기</span> — 체크박스/아이콘 크기와 짐 목록의 여백을 조절해요 (글자 크기는 안 바뀌어요)
               </li>
               <li>
                 <span className="font-medium text-text-secondary">글씨 크기</span> — 제목·짐 텍스트·개수 표시의 글자만 따로 커지거나 작아져요
@@ -482,44 +576,30 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onChangeOpacity={(pct) => setPackGridColorOpacity(pct / 100)}
           scalePct={Math.round((packCardScale / PACK_CARD_SCALE_BASE) * 100)}
           onChangeScale={(pct) => setPackCardScale((pct / 100) * PACK_CARD_SCALE_BASE)}
-          scaleLabel="카드 크기"
+          scaleLabel="체크박스·여백 크기"
           scaleMin={50}
-          scaleMax={100}
+          scaleMax={130}
           scale2Pct={Math.round((packCardFontScale / PACK_CARD_FONT_SCALE_BASE) * 100)}
           onChangeScale2={(pct) => setPackCardFontScale((pct / 100) * PACK_CARD_FONT_SCALE_BASE)}
           scale2Label="글씨 크기"
           scale2Max={120}
           preview={
             <div className="mt-3 flex justify-center">
-              {/* 모바일에서는 실제처럼 폭 100%(세로 스택), md 이상에서는 실제 2열
-                  그리드(grid-cols-2 gap-4)와 동일한 폭을 calc()로 계산해서 쓴다. */}
-              <div
-                className="rounded-xl border border-border shadow-sm flex flex-col p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] w-full md:w-[calc((100%-1rem)/2)]"
-                style={{ background: "var(--pack-card-bg)" }}
-              >
-                <span className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate">
-                  예시 팩
-                </span>
-                <div className="flex flex-col justify-center gap-2 h-[calc(180px*var(--pack-card-scale,1))] md:h-[calc(228px*var(--pack-card-scale,1))] mt-1.5">
-                  {["칫솔", "치약"].map((label) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span
-                        className="shrink-0 rounded"
-                        style={{
-                          border: "1.5px solid var(--border-strong)",
-                          width: "calc(18px*var(--pack-card-scale,1))",
-                          height: "calc(18px*var(--pack-card-scale,1))",
-                        }}
-                      />
-                      <span className="text-[calc(15px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]">
-                        {label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="pt-2 mt-1.5 border-t border-border text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0">
-                  2개
-                </p>
+              <div className="w-full md:w-[calc((100%-1rem)/2)]">
+                <PackCard
+                  pack={samplePack}
+                  isSyncedWithLibrary={false}
+                  canDeleteFromLibrary={false}
+                  onToggleItem={handleToggleSampleItem}
+                  onChangeItemText={handleChangeSampleItemText}
+                  onDeleteItem={() => {}}
+                  onRenamePack={() => {}}
+                  onToggleAll={handleToggleAllSampleItems}
+                  onSaveToLibrary={() => {}}
+                  onRefreshFromLibrary={() => {}}
+                  onDeletePack={() => {}}
+                  onChangeDisplayState={setSamplePackDisplayState}
+                />
               </div>
             </div>
           }
@@ -570,7 +650,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
       {confirmReset && (
         <ConfirmDialog
           title="화면 설정을 초기화하시겠어요?"
-          message="글자 크기(보통), 강조 색상(오렌지), 투명도(30%), 카드 크기(100%), 글씨 크기(100%) 및 그리드 밀도가 모두 기본값으로 돌아가요."
+          message="글자 크기(보통), 강조 색상(오렌지), 투명도(30%), 여백·크기 및 그리드 밀도가 모두 기본값으로 돌아가요."
           confirmLabel="초기화"
           tone="accent"
           onCancel={() => setConfirmReset(false)}
