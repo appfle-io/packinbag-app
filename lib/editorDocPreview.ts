@@ -23,12 +23,17 @@ export interface RichTable {
 }
 
 export interface RichBlock {
-  type: "heading" | "paragraph" | "bullet" | "ordered" | "task" | "blockquote" | "code" | "hr" | "table";
+  type: "heading" | "paragraph" | "bullet" | "ordered" | "task" | "blockquote" | "code" | "hr" | "table" | "toggle";
   level?: number;
   checked?: boolean;
   orderNumber?: number;
+  depth?: number;
+  align?: "left" | "center" | "right" | "justify";
   spans: RichSpan[];
   table?: RichTable;
+  toggleOpen?: boolean;
+  toggleSummarySpans?: RichSpan[];
+  toggleChildren?: RichBlock[];
 }
 
 interface DocNode {
@@ -40,6 +45,8 @@ interface DocNode {
     start?: number;
     color?: string;
     href?: string;
+    open?: boolean;
+    textAlign?: "left" | "center" | "right" | "justify";
   };
   marks?: { type?: string; attrs?: { href?: string; color?: string } }[];
   content?: DocNode[];
@@ -155,55 +162,89 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
     return spans;
   };
 
-  const processNode = (node: DocNode, listContext?: { type: "bullet" | "ordered" | "task"; order?: number }) => {
+  const processNode = (
+    node: DocNode,
+    listContext?: { type: "bullet" | "ordered" | "task"; order?: number; depth?: number }
+  ) => {
     if (!node) return;
     const type = node.type;
+    const align = node.attrs?.textAlign;
+    const depth = listContext?.depth ?? 0;
 
     if (type === "heading") {
       const level = node.attrs?.level || 1;
       const spans = extractSpans(node);
-      if (spans.some((s) => s.text.trim().length > 0)) {
-        blocks.push({ type: "heading", level, spans });
-      }
+      blocks.push({ type: "heading", level, align, spans: spans.length > 0 ? spans : [{ text: "" }], depth });
     } else if (type === "paragraph") {
       const spans = extractSpans(node);
-      if (spans.some((s) => s.text.trim().length > 0)) {
+      if (spans.length === 0 || !spans.some((s) => s.text.length > 0)) {
+        // 엔터로 생성된 빈 줄 (빈 문단) 보존
+        if (!listContext) {
+          blocks.push({ type: "paragraph", align, spans: [{ text: "" }], depth });
+        }
+      } else {
         if (listContext?.type === "bullet") {
-          blocks.push({ type: "bullet", spans });
+          blocks.push({ type: "bullet", align, spans, depth });
         } else if (listContext?.type === "ordered") {
-          blocks.push({ type: "ordered", orderNumber: listContext.order, spans });
+          blocks.push({ type: "ordered", orderNumber: listContext.order, align, spans, depth });
         } else {
-          blocks.push({ type: "paragraph", spans });
+          blocks.push({ type: "paragraph", align, spans, depth });
         }
       }
+    } else if (type === "toggleBlock") {
+      const summaryNode = node.content?.find((c) => c.type === "toggleSummary");
+      const contentNode = node.content?.find((c) => c.type === "toggleContent");
+      const toggleSummarySpans = summaryNode ? extractSpans(summaryNode) : [{ text: "접기 / 펼치기" }];
+      const toggleChildren = contentNode ? collectEditorDocRichBlocks(contentNode) : [];
+      blocks.push({
+        type: "toggle",
+        toggleOpen: node.attrs?.open !== false,
+        toggleSummarySpans: toggleSummarySpans.length > 0 ? toggleSummarySpans : [{ text: "" }],
+        toggleChildren,
+        depth,
+        align,
+        spans: [],
+      });
     } else if (type === "toggleSummary") {
       const spans = extractSpans(node);
       if (spans.some((s) => s.text.trim().length > 0)) {
         blocks.push({
           type: "paragraph",
           spans: [{ text: "▶ ", bold: true }, ...spans],
+          depth,
+          align,
         });
       }
     } else if (type === "bulletList") {
+      const nextDepth = (listContext?.depth ?? 0) + 1;
       for (const item of node.content || []) {
         for (const child of item.content || []) {
-          processNode(child, { type: "bullet" });
+          processNode(child, { type: "bullet", depth: nextDepth });
         }
       }
     } else if (type === "orderedList") {
+      const nextDepth = (listContext?.depth ?? 0) + 1;
       let idx = node.attrs?.start || 1;
       for (const item of node.content || []) {
         for (const child of item.content || []) {
-          processNode(child, { type: "ordered", order: idx });
+          processNode(child, { type: "ordered", order: idx, depth: nextDepth });
         }
         idx++;
       }
     } else if (type === "taskList") {
+      const nextDepth = (listContext?.depth ?? 0) + 1;
       for (const item of node.content || []) {
         const checked = !!item.attrs?.checked;
         const spans = extractSpans(item);
-        if (spans.some((s) => s.text.trim().length > 0)) {
-          blocks.push({ type: "task", checked, spans });
+        blocks.push({ type: "task", checked, spans: spans.length > 0 ? spans : [{ text: "" }], depth: nextDepth });
+        for (const child of item.content || []) {
+          if (
+            child.type === "taskList" ||
+            child.type === "bulletList" ||
+            child.type === "orderedList"
+          ) {
+            processNode(child, { type: "task", depth: nextDepth });
+          }
         }
       }
     } else if (type === "table") {
@@ -229,23 +270,24 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
           type: "table",
           spans: [],
           table: { headers, rows: tableRows },
+          depth,
         });
       }
     } else if (type === "blockquote") {
       const spans = extractSpans(node);
       if (spans.some((s) => s.text.trim().length > 0)) {
-        blocks.push({ type: "blockquote", spans });
+        blocks.push({ type: "blockquote", spans, depth, align });
       }
     } else if (type === "codeBlock") {
       const spans = extractSpans(node);
       if (spans.some((s) => s.text.trim().length > 0)) {
-        blocks.push({ type: "code", spans });
+        blocks.push({ type: "code", spans, depth });
       }
     } else if (type === "horizontalRule") {
-      blocks.push({ type: "hr", spans: [] });
+      blocks.push({ type: "hr", spans: [], depth });
     } else if (node.content) {
       for (const child of node.content) {
-        processNode(child);
+        processNode(child, listContext);
       }
     }
   };

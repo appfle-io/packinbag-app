@@ -37,6 +37,9 @@ export const DEFAULT_CARD_COLOR_ID = "default";
 // 투명도/카드 크기 기본값 (기본 투명도 30%, 카드 크기 100%)
 export const DEFAULT_OPACITY = 0.3;
 export const DEFAULT_CARD_SCALE = 1;
+// 가방 속 팩카드 크기(packCardScale)의 기준점. 기존 80% 크기를 새 100% 기준으로 삼아
+// 슬라이더 100%가 실제 배율 0.8이 되며, 슬라이더는 50%~100% 범위를 조절한다.
+export const PACK_CARD_SCALE_BASE = 0.8;
 // 가방 속 팩카드 글자 크기(packCardFontScale)만 예외로 기준점을 다르게 잡는다. 기존에는
 // 슬라이더 "100%"가 실제 저장값 1.0을 그대로 쓰면서 체감상 너무 큰 문제(체감상
 // 120% 정도)가 있어서, 실제 저장값 = 표시값(%) * BASE 공식으로 기준점을 낮춰놓는다
@@ -255,7 +258,7 @@ const ThemeContext = createContext<{
   setCustomPackGridColor: () => {},
   packGridColorOpacity: DEFAULT_OPACITY,
   setPackGridColorOpacity: () => {},
-  packCardScale: DEFAULT_CARD_SCALE,
+  packCardScale: PACK_CARD_SCALE_BASE,
   setPackCardScale: () => {},
   packCardFontScale: PACK_CARD_FONT_SCALE_BASE,
   setPackCardFontScale: () => {},
@@ -329,9 +332,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return raw !== null ? Number(raw) : DEFAULT_OPACITY;
   });
   const [packCardScale, setPackCardScaleState] = useState<number>(() => {
-    if (typeof window === "undefined") return DEFAULT_CARD_SCALE;
+    if (typeof window === "undefined") return PACK_CARD_SCALE_BASE;
     const raw = window.localStorage.getItem(PACK_SCALE_KEY);
-    return raw !== null ? Number(raw) : DEFAULT_CARD_SCALE;
+    return raw !== null ? Number(raw) : PACK_CARD_SCALE_BASE;
   });
   const [packCardFontScale, setPackCardFontScaleState] = useState<number>(() => {
     if (typeof window === "undefined") return PACK_CARD_FONT_SCALE_BASE;
@@ -715,8 +718,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setPackGridColorOpacityState(DEFAULT_OPACITY);
     window.localStorage.setItem(PACK_GRID_OPACITY_KEY, String(DEFAULT_OPACITY));
 
-    setPackCardScaleState(DEFAULT_CARD_SCALE);
-    window.localStorage.setItem(PACK_SCALE_KEY, String(DEFAULT_CARD_SCALE));
+    setPackCardScaleState(PACK_CARD_SCALE_BASE);
+    window.localStorage.setItem(PACK_SCALE_KEY, String(PACK_CARD_SCALE_BASE));
 
     setPackCardFontScaleState(PACK_CARD_FONT_SCALE_BASE);
     window.localStorage.setItem(PACK_CARD_FONT_SCALE_KEY, String(PACK_CARD_FONT_SCALE_BASE));
@@ -755,7 +758,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyCardScale(
       DEFAULT_CARD_SCALE,
       DEFAULT_CARD_SCALE,
-      DEFAULT_CARD_SCALE,
+      PACK_CARD_SCALE_BASE,
       DEFAULT_CARD_SCALE,
       PACK_CARD_FONT_SCALE_BASE
     );
@@ -771,7 +774,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       packGridColorId: DEFAULT_CARD_COLOR_ID,
       customPackGridColorHex: DEFAULT_CUSTOM,
       packGridColorOpacity: DEFAULT_OPACITY,
-      packCardScale: DEFAULT_CARD_SCALE,
+      packCardScale: PACK_CARD_SCALE_BASE,
       packCardFontScale: PACK_CARD_FONT_SCALE_BASE,
       packLibraryColorId: DEFAULT_CARD_COLOR_ID,
       customPackLibraryColorHex: DEFAULT_CUSTOM,

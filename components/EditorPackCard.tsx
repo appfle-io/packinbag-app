@@ -140,8 +140,12 @@ export default function EditorPackCard({
             inputClassName="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
           {pack.autoSyncEnabled && (
-            <span className="shrink-0 text-[10.5px] font-medium px-2 py-0.5 rounded-full border border-accent/50 bg-accent/5 text-accent">
-              동기화됨
+            <span
+              className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded-md bg-accent-soft text-accent border border-accent/20"
+              title="보관함과 실시간 동기화 중"
+            >
+              <IconArrowsExchange size={12} stroke={2} />
+              <span>동기화</span>
             </span>
           )}
         </div>

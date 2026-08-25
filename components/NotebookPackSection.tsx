@@ -166,11 +166,11 @@ export default function NotebookPackSection({
         transition: "box-shadow 120ms ease, opacity 120ms ease",
       }}
     >
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="flex items-center gap-2 mb-1.5 px-1 py-1 rounded-lg hover:bg-surface-2/40 transition-colors">
         <button
           onClick={() => onChangeDisplayState?.(isCollapsed ? "normal" : "collapsed")}
           aria-label={isCollapsed ? "섹션 펼치기" : "섹션 접기"}
-          className="shrink-0"
+          className="shrink-0 p-0.5 rounded hover:bg-surface-2 transition-colors cursor-pointer"
         >
           {isCollapsed ? (
             <IconChevronRight size={15} stroke={1.75} color="var(--text-secondary)" />
@@ -214,7 +214,9 @@ export default function NotebookPackSection({
           </button>
         )}
         {ratio !== null && (
-          <span className="shrink-0 text-[12px] text-text-secondary">{pack.items.length}개</span>
+          <span className="shrink-0 text-[11px] font-medium font-mono text-text-muted px-1.5 py-0.5 rounded-md bg-surface-2">
+            {pack.items.length}개
+          </span>
         )}
         <div className="relative shrink-0">
           <button

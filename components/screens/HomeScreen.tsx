@@ -251,10 +251,10 @@ export default function HomeScreen({
   const bagCardSize = profile?.bagCardSize ?? "medium";
   const bagGridColsClass =
     bagCardSize === "small"
-      ? "grid-cols-3 sm:grid-cols-4"
+      ? "grid-cols-3"
       : bagCardSize === "large"
-      ? "grid-cols-1 sm:grid-cols-2"
-      : "grid-cols-2 sm:grid-cols-3";
+      ? "grid-cols-1"
+      : "grid-cols-2";
   const pinnedSet = new Set(pinnedIds);
 
   const commitCreateFolder = () => {

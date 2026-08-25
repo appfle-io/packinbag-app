@@ -3,7 +3,13 @@
 import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { IconArrowLeft, IconCheck, IconBan, IconChevronDown } from "@tabler/icons-react";
-import { useTheme, DEFAULT_CARD_COLOR_ID, FontScale, PACK_CARD_FONT_SCALE_BASE } from "@/components/ThemeProvider";
+import {
+  useTheme,
+  DEFAULT_CARD_COLOR_ID,
+  FontScale,
+  PACK_CARD_SCALE_BASE,
+  PACK_CARD_FONT_SCALE_BASE,
+} from "@/components/ThemeProvider";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { ACCENT_PRESETS } from "@/lib/accentColors";
 import ColorPickerPopover from "@/components/ColorPickerPopover";
@@ -86,12 +92,14 @@ function ColorSlotSection({
   scalePct,
   onChangeScale,
   scaleLabel,
+  scaleMin,
   scaleMax,
   // 카드 크기와 별도로 "글씨 크기"를 독립적으로 조절해야 하는 섹션에서만 쓰는
   // 두 번째 슬라이더. 없으면 렌더링하지 않는다.
   scale2Pct,
   onChangeScale2,
   scale2Label,
+  scale2Min,
   scale2Max,
   preview,
   defaultOpen,
@@ -112,10 +120,12 @@ function ColorSlotSection({
   scalePct?: number;
   onChangeScale?: (pct: number) => void;
   scaleLabel?: string;
+  scaleMin?: number;
   scaleMax?: number;
   scale2Pct?: number;
   onChangeScale2?: (pct: number) => void;
   scale2Label?: string;
+  scale2Min?: number;
   scale2Max?: number;
   preview?: ReactNode;
   defaultOpen?: boolean;
@@ -195,7 +205,7 @@ function ColorSlotSection({
           <PercentSlider
             label={scaleLabel ?? "크기"}
             value={scalePct}
-            min={70}
+            min={scaleMin ?? 70}
             max={scaleMax ?? 130}
             step={5}
             onChange={onChangeScale}
@@ -206,7 +216,7 @@ function ColorSlotSection({
           <PercentSlider
             label={scale2Label ?? "글씨 크기"}
             value={scale2Pct}
-            min={70}
+            min={scale2Min ?? 70}
             max={scale2Max ?? 130}
             step={5}
             onChange={onChangeScale2}
@@ -470,9 +480,11 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           onOpenCustomPicker={() => openCustomPicker("packGrid")}
           opacityPct={Math.round(packGridColorOpacity * 100)}
           onChangeOpacity={(pct) => setPackGridColorOpacity(pct / 100)}
-          scalePct={Math.round(packCardScale * 100)}
-          onChangeScale={(pct) => setPackCardScale(pct / 100)}
+          scalePct={Math.round((packCardScale / PACK_CARD_SCALE_BASE) * 100)}
+          onChangeScale={(pct) => setPackCardScale((pct / 100) * PACK_CARD_SCALE_BASE)}
           scaleLabel="카드 크기"
+          scaleMin={50}
+          scaleMax={100}
           scale2Pct={Math.round((packCardFontScale / PACK_CARD_FONT_SCALE_BASE) * 100)}
           onChangeScale2={(pct) => setPackCardFontScale((pct / 100) * PACK_CARD_FONT_SCALE_BASE)}
           scale2Label="글씨 크기"

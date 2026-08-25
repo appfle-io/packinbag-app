@@ -1,5 +1,6 @@
 "use client";
 
+import { IconNotes, IconChecklist } from "@tabler/icons-react";
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { canDeleteFromLibrary, isInSyncWithLibrary } from "@/lib/packSync";
 import PackCard from "./PackCard";
@@ -139,65 +140,106 @@ export default function PackGrid({
       );
     }
     return (
-    <PackCard
-      key={pack.id}
-      pack={pack}
-      isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
-      canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
-      onToggleItem={(itemId) => onToggleItem(pack.id, itemId)}
-      onChangeItemText={(itemId, text, style) =>
-        onChangeItemText(pack.id, itemId, text, style)
-      }
-      onDeleteItem={(itemId) => onDeleteItem(pack.id, itemId)}
-      onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
-      onRenamePack={(name) => onRenamePack(pack.id, name)}
-      onToggleAll={(checked) => onToggleAll(pack.id, checked)}
-      onSaveToLibrary={() => onSaveToLibrary(pack.id)}
-      onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
-      onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
-      onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
-      onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
-      onStartItemDrag={
-        onStartItemDrag
-          ? (itemId, text, x, y) => onStartItemDrag(pack.id, itemId, text, x, y)
-          : undefined
-      }
-      dragSourceItemId={dragSourceItemId}
-      dragOverItemId={dragOverItemId}
-      dragOverItemPosition={dragOverItemPosition}
-      isDragOver={dragOverPackId === pack.id}
-      isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
-      onStartPackDrag={
-        onStartPackDrag
-          ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y)
-          : undefined
-      }
-      isPackDragSource={dragSourcePackId === pack.id}
-      hideChecked={hideChecked}
-      onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
-      selectedItemIds={selectionModeActive ? selectedItemsByPack![pack.id] ?? new Set<string>() : null}
-      onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
-      getItemThreadInfo={getItemThreadInfo}
-      ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
-      memberProfiles={memberProfiles}
-      isShared={isShared}
-      onClickAssignee={onClickAssignee ? (itemId) => onClickAssignee(pack.id, itemId) : undefined}
-      /*
-      getItemReactionDoc={getItemReactionDoc}
-      currentUid={currentUid}
-      onToggleItemReaction={onToggleItemReaction}
-      onOpenReactionPicker={onOpenReactionPicker}
-      */
-    />
+      <PackCard
+        key={pack.id}
+        pack={pack}
+        isSyncedWithLibrary={isInSyncWithLibrary(pack, libraryPacks)}
+        canDeleteFromLibrary={canDeleteFromLibrary(pack, libraryPacks)}
+        onToggleItem={(itemId) => onToggleItem(pack.id, itemId)}
+        onChangeItemText={(itemId, text, style) =>
+          onChangeItemText(pack.id, itemId, text, style)
+        }
+        onDeleteItem={(itemId) => onDeleteItem(pack.id, itemId)}
+        onEditItem={onEditItem ? (itemId) => onEditItem(pack.id, itemId) : undefined}
+        onRenamePack={(name) => onRenamePack(pack.id, name)}
+        onToggleAll={(checked) => onToggleAll(pack.id, checked)}
+        onSaveToLibrary={() => onSaveToLibrary(pack.id)}
+        onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
+        onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
+        onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
+        onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
+        onStartItemDrag={
+          onStartItemDrag
+            ? (itemId, text, x, y) => onStartItemDrag(pack.id, itemId, text, x, y)
+            : undefined
+        }
+        dragSourceItemId={dragSourceItemId}
+        dragOverItemId={dragOverItemId}
+        dragOverItemPosition={dragOverItemPosition}
+        isDragOver={dragOverPackId === pack.id}
+        isPackDragOverPosition={dragOverPackId === pack.id ? dragOverPackPosition : null}
+        onStartPackDrag={
+          onStartPackDrag
+            ? (x, y) => onStartPackDrag(pack.id, pack.name, x, y)
+            : undefined
+        }
+        isPackDragSource={dragSourcePackId === pack.id}
+        hideChecked={hideChecked}
+        onAddItem={onAddItem ? (data) => onAddItem(pack.id, data) : undefined}
+        selectedItemIds={selectionModeActive ? selectedItemsByPack![pack.id] ?? new Set<string>() : null}
+        onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
+        getItemThreadInfo={getItemThreadInfo}
+        ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
+        memberProfiles={memberProfiles}
+        isShared={isShared}
+        onClickAssignee={onClickAssignee ? (itemId) => onClickAssignee(pack.id, itemId) : undefined}
+        /*
+        getItemReactionDoc={getItemReactionDoc}
+        currentUid={currentUid}
+        onToggleItemReaction={onToggleItemReaction}
+        onOpenReactionPicker={onOpenReactionPicker}
+        */
+      />
     );
   };
 
-  // 팩 카드 "넓히기"는 가로폭이 아니라 짐 영역의 높이만 늘어나는 방식이라, 컬럼 span
-  // 계산이 필요없다 - 그냥 흐르는 2열 그리드(items-start)로 두면 카드가 커진 행만
-  // 자연스럽게 높아지고, 옆 카드는 그대로 위쪽에 붙어 보인다. 예전의 4개씩 2x2
-  // 페이지네이션(가로 스크롤 스냅)은 카드 높이가 서로 달라지면 어색해져서 제거했다.
+  const editorPacks = packs.filter((p) => p.kind === "editor");
+  const checklistPacks = packs.filter((p) => p.kind !== "editor");
+  const hasBoth = editorPacks.length > 0 && checklistPacks.length > 0;
+
+  if (hasBoth) {
+    return (
+      <div className="flex flex-col gap-6">
+        {/* 상단: 메모/문서 팩 (시원한 2열 와이드 그리드) */}
+        <section className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary">
+            <IconNotes size={15} className="text-accent shrink-0" />
+            <span>메모 · 참고자료</span>
+            <span className="text-[11px] font-mono text-text-muted font-normal">
+              {editorPacks.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 items-start">
+            {editorPacks.map(renderCard)}
+          </div>
+        </section>
+
+        {/* 하단: 체크리스트 팩 (3열 칸반 컬럼 그리드) */}
+        <section className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-text-secondary">
+            <IconChecklist size={15} className="text-accent shrink-0" />
+            <span>체크리스트 · 할 일</span>
+            <span className="text-[11px] font-mono text-text-muted font-normal">
+              {checklistPacks.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-start">
+            {checklistPacks.map(renderCard)}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // 메모팩만 있거나 체크리스트만 있는 경우
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-4 items-start">
+    <div
+      className={`grid gap-3 md:gap-4 items-start ${
+        editorPacks.length > 0
+          ? "grid-cols-1 lg:grid-cols-2"
+          : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+      }`}
+    >
       {packs.map(renderCard)}
     </div>
   );

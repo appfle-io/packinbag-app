@@ -145,8 +145,12 @@ export default function NotebookEditorPackSection({
           inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />
         {pack.autoSyncEnabled && (
-          <span className="shrink-0 text-[10.5px] font-medium px-2 py-0.5 rounded-full border border-accent/50 bg-accent/5 text-accent">
-            동기화됨
+          <span
+            className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded-md bg-accent-soft text-accent border border-accent/20"
+            title="보관함과 실시간 동기화 중"
+          >
+            <IconArrowsExchange size={12} stroke={2} />
+            <span>동기화</span>
           </span>
         )}
         {editors && editors.length > 0 && (
@@ -352,14 +356,13 @@ export default function NotebookEditorPackSection({
           e.stopPropagation();
           onOpenEditor();
         }}
-        className="text-left w-full rounded-lg pl-6 pr-1 py-1 cursor-pointer"
+        className="text-left w-full rounded-xl ml-5 sm:ml-6 p-3 bg-surface-2/30 border border-border/50 cursor-pointer my-1.5 scrollbar-thin"
         style={{
           cursor: "text",
           display: isCollapsed ? "none" : undefined,
-          // 팝뷰(EditorPackCard)와 동일한 기본 최대높이 - 내용이 적으면 그만큼만 차지하고(auto),
-          // 이 값을 넘으면 이제 스크롤된다. 예전엔 높이 제한이 없어서 긴 문서면 리스트 전체가 끝없이 늘어났다.
-          maxHeight: 228,
+          maxHeight: 260,
           overflowY: "auto",
+          maxWidth: "calc(100% - 1.5rem)",
         }}
       >
         {hasContent ? (
