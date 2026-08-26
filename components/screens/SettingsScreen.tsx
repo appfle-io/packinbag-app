@@ -34,6 +34,7 @@ import ColorSettingsScreen from "@/components/screens/ColorSettingsScreen";
 import TrashScreen from "@/components/screens/TrashScreen";
 import InquiryScreen from "@/components/screens/InquiryScreen";
 import GuideScreen from "@/components/screens/GuideScreen";
+import InstallGuideScreen from "@/components/screens/InstallGuideScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import UnlockCodeDialog from "@/components/UnlockCodeDialog";
@@ -67,7 +68,8 @@ type SettingsView =
   | "colorSettings"
   | "trash"
   | "inquiries"
-  | "guide";
+  | "guide"
+  | "installGuide";
 
 // 데스크탑 모달 안에서는 하위화면이 SlideScreen(포털로 전체 화면을 덤는 오버레이)이 아니라
 // 이 모달 박스 안에만 머무는 전환이어야 한다 - 그래서 포털을 쓰지 않고 가장 가까운
@@ -415,6 +417,13 @@ export default function SettingsScreen({
               <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
             </button>
             <button
+              onClick={() => setView("installGuide")}
+              className="w-full flex items-center justify-between p-3 border-b border-border text-left hover:bg-surface-2 transition-colors"
+            >
+              <span className="text-[13px]">앱 설치 방법 (크롬 / 사파리)</span>
+              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+            </button>
+            <button
               onClick={() => setShowAnnouncements(true)}
               className="w-full flex items-center justify-between p-3 border-b border-border"
             >
@@ -572,6 +581,9 @@ export default function SettingsScreen({
       </Slide>
       <Slide active={view === "guide"} onBackdropClick={() => setView("main")}>
         <GuideScreen onBack={() => setView("main")} />
+      </Slide>
+      <Slide active={view === "installGuide"} onBackdropClick={() => setView("main")}>
+        <InstallGuideScreen onBack={() => setView("main")} />
       </Slide>
 
       {showInspectLogsModal && (

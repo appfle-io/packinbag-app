@@ -55,6 +55,24 @@ export function shouldShowInstallHint(): boolean {
   return true;
 }
 
+export function isDesktopBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isIpadOS = ua.includes("Macintosh") && navigator.maxTouchPoints > 1;
+  return !isMobile && !isIpadOS;
+}
+
+export function canShowInstallGuideModal(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isCapacitorNative()) return false;
+  if (isStandalonePWA()) return false;
+  if (isInAppBrowser()) return false;
+
+  // 데스크톱 환경이거나, Safari 지원 iOS 디바이스인 경우
+  return isDesktopBrowser() || isIosDevice();
+}
+
 export function snoozeInstallHint(): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(DISMISS_KEY, String(Date.now()));

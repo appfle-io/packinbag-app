@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { IconLoader2 } from "@tabler/icons-react";
@@ -50,6 +50,11 @@ import { NoteImportResult } from "@/components/NoteImportModal";
 import SplashScreen from "@/components/SplashScreen";
 import AnnouncementPopupStack from "@/components/AnnouncementPopupStack";
 import GuideModal from "@/components/guide/GuideModal";
+import InstallGuideModal from "@/components/guide/InstallGuideModal";
+import InitialGuideCarouselModal, {
+  IntroSlideItem,
+} from "@/components/guide/InitialGuideCarouselModal";
+import { canShowInstallGuideModal } from "@/lib/installPromptUtils";
 import HomeScreen from "@/components/screens/HomeScreen";
 import PacksScreen from "@/components/screens/PacksScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
@@ -196,10 +201,9 @@ export default function AppShell() {
   // 하단 중앙 "+" 버튼(빠른입력) 모달 표시 여부.
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [splashMinTimeDone, setSplashMinTimeDone] = useState(false);
-  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(false);
-  const [showGuideModal, setShowGuideModal] = useState(false);
-  const announcementPopupShownRef = useRef(false);
-  const guideCheckedRef = useRef(false);
+  const [showIntroModal, setShowIntroModal] = useState(false);
+  const [introSlides, setIntroSlides] = useState<IntroSlideItem[]>([]);
+  const introCheckedRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
   const [showPremiumSyncOverlay, setShowPremiumSyncOverlay] = useState(false);
@@ -362,51 +366,83 @@ export default function AppShell() {
     setPremiumLimitMessage(
       "이 팩은 읽기 전용이에요. 이용권 코드를 등록하면 다시 수정할 수 있어요."
     );
+  const handleDismissAnnouncement = useCallback(
+    (id: string) => {
+      if (!user) return;
+      dismissAnnouncementRemote(user.uid, id).catch((err) => {
+        console.error("[팩인백] 공지사항 다시 보지 않기 실패:", err);
+      });
+    },
+    [user]
+  );
 
   const dismissedIds = profile?.dismissedAnnouncementIds ?? [];
   const activeUndismissed = announcements
     .filter((a) => isAnnouncementActive(a))
     .filter((a) => !dismissedIds.includes(a.id));
 
-  // 앱 진입 시(로그인 이후, 게스트 포함): 가이드를 아직 안 봤으면 가이드 모달을 먼저 띄운다.
+  // 앱 진입 시(로그인 이후, 게스트 포함): 가이드 -> 앱 설치 안내 -> 공지사항을 하나의 슬라이더 모달로 조립하여 띄운다.
   useEffect(() => {
-    if (guideCheckedRef.current) return;
+    if (introCheckedRef.current) return;
     if (!profile) return;
-    guideCheckedRef.current = true;
+    introCheckedRef.current = true;
 
     const isGuideDismissed =
       typeof window !== "undefined" &&
       localStorage.getItem("pib_guide_dismissed") === "true";
 
+    const isInstallGuideDismissed =
+      typeof window !== "undefined" &&
+      localStorage.getItem("pib_install_guide_dismissed") === "true";
+
+    const slides: IntroSlideItem[] = [];
+
+    // 1순위: 가이드 (미확인 시)
     if (!isGuideDismissed) {
-      setShowGuideModal(true);
-    } else if (activeUndismissed.length > 0 && !announcementPopupShownRef.current) {
-      // 이미 가이드를 본 상태면 공지사항을 바로 띄운다.
-      announcementPopupShownRef.current = true;
-      setShowAnnouncementPopup(true);
+      slides.push({
+        id: "guide",
+        type: "guide",
+        title: "팩인백 사용 가이드",
+        onDismiss: () => {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("pib_guide_dismissed", "true");
+          }
+        },
+      });
     }
-  }, [profile, activeUndismissed]);
 
-  const handleCloseGuide = () => {
-    setShowGuideModal(false);
-    // 가이드 모달이 닫힌 뒤 미확인 공지사항이 있으면 순차적으로 띄운다.
-    if (activeUndismissed.length > 0 && !announcementPopupShownRef.current) {
-      announcementPopupShownRef.current = true;
-      setShowAnnouncementPopup(true);
+    // 2순위: 앱 설치 방법 (미확인 + 조건 충족 시)
+    if (canShowInstallGuideModal() && !isInstallGuideDismissed) {
+      slides.push({
+        id: "install",
+        type: "install",
+        title: "앱 설치 방법",
+        onDismiss: () => {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("pib_install_guide_dismissed", "true");
+          }
+        },
+      });
     }
-  };
 
-  const handleDismissGuideForever = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("pib_guide_dismissed", "true");
+    // 3순위: 미확인 공지사항 목록
+    activeUndismissed.forEach((a) => {
+      slides.push({
+        id: `announcement-${a.id}`,
+        type: "announcement",
+        title: a.title,
+        announcement: a,
+        onDismiss: () => {
+          handleDismissAnnouncement(a.id);
+        },
+      });
+    });
+
+    if (slides.length > 0) {
+      setIntroSlides(slides);
+      setShowIntroModal(true);
     }
-    setShowGuideModal(false);
-    // 가이드 모달이 닫힌 뒤 미확인 공지사항이 있으면 순차적으로 띄운다.
-    if (activeUndismissed.length > 0 && !announcementPopupShownRef.current) {
-      announcementPopupShownRef.current = true;
-      setShowAnnouncementPopup(true);
-    }
-  };
+  }, [profile, activeUndismissed, handleDismissAnnouncement]);
 
   // 1. URL 쿼리 파라미터(?invite=, ?join=, ?openBag=, ?importPack=)를 접속 즉시 sessionStorage에 보존하여 로그인/회원가입 후 유실 방지
   useEffect(() => {
@@ -513,13 +549,6 @@ export default function AppShell() {
       });
     }
   }, [user, profile?.nickname, profile?.avatarId, show]);
-
-  const handleDismissAnnouncement = (id: string) => {
-    if (!user) return;
-    dismissAnnouncementRemote(user.uid, id).catch((err) => {
-      console.error("[팩인백] 공지사항 다시 보지 않기 실패:", err);
-    });
-  };
 
   // authBusy(회원가입/로그인-미인증체크/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할
   // 사이 signOut하는 흐름) 체크를 loading보다 먼저 한다 - 원래는 loading을 먼저 체크했는데,
@@ -1200,17 +1229,10 @@ export default function AppShell() {
           onRestorePack={handleRestorePack}
           onPermanentDeletePack={handlePermanentDeletePack}
         />
-        {showGuideModal && (
-          <GuideModal
-            onClose={handleCloseGuide}
-            onDismissForever={handleDismissGuideForever}
-          />
-        )}
-        {showAnnouncementPopup && activeUndismissed.length > 0 && (
-          <AnnouncementPopupStack
-            announcements={activeUndismissed}
-            onDismiss={handleDismissAnnouncement}
-            onClose={() => setShowAnnouncementPopup(false)}
+        {showIntroModal && introSlides.length > 0 && (
+          <InitialGuideCarouselModal
+            slides={introSlides}
+            onClose={() => setShowIntroModal(false)}
           />
         )}
         {premiumLimitMessage && (
@@ -1499,17 +1521,10 @@ export default function AppShell() {
         )}
       </SlideUpSheet>
 
-      {showGuideModal && (
-        <GuideModal
-          onClose={handleCloseGuide}
-          onDismissForever={handleDismissGuideForever}
-        />
-      )}
-      {showAnnouncementPopup && activeUndismissed.length > 0 && (
-        <AnnouncementPopupStack
-          announcements={activeUndismissed}
-          onDismiss={handleDismissAnnouncement}
-          onClose={() => setShowAnnouncementPopup(false)}
+      {showIntroModal && introSlides.length > 0 && (
+        <InitialGuideCarouselModal
+          slides={introSlides}
+          onClose={() => setShowIntroModal(false)}
         />
       )}
       {premiumLimitMessage && (
