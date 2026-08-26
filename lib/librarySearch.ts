@@ -11,7 +11,8 @@ const MAX_RESULTS = 30;
 // 다시 뽑는 비용이 있지만(검색 타이핑마다), 팩 개수가 개인 라이브러리/가방 규모에서는
 // 충분히 가벼워서 캐싱 없이도 괜찮다.
 function packMatchesText(pack: Pack, q: string): boolean {
-  if (pack.name.toLowerCase().includes(q)) return true;
+  if (!pack) return false;
+  if (pack.name && pack.name.toLowerCase().includes(q)) return true;
   if (pack.kind === "editor" && pack.editorDoc) {
     return getEditorDocFullText(pack.editorDoc).toLowerCase().includes(q);
   }
@@ -48,13 +49,16 @@ export function searchBags(bags: Bag[], query: string): BagSearchOutput {
   const results: BagSearchResult[] = [];
 
   bagLoop:
-  for (const bag of bags) {
-    if (bag.name.toLowerCase().includes(q)) {
+  for (const bag of (bags || [])) {
+    if (!bag) continue;
+    if (bag.name && bag.name.toLowerCase().includes(q)) {
       results.push({ type: "bag", id: `bag-${bag.id}`, label: bag.name, bag });
       if (results.length > MAX_RESULTS) break bagLoop;
     }
-    for (const pack of bag.packs) {
-      if (pack.name.toLowerCase().includes(q)) {
+    const packs = Array.isArray(bag.packs) ? bag.packs : [];
+    for (const pack of packs) {
+      if (!pack) continue;
+      if (pack.name && pack.name.toLowerCase().includes(q)) {
         results.push({
           type: "pack",
           id: `pack-${bag.id}-${pack.id}`,
@@ -79,8 +83,9 @@ export function searchBags(bags: Bag[], query: string): BagSearchOutput {
           if (results.length > MAX_RESULTS) break bagLoop;
         }
       }
-      for (const item of pack.items) {
-        if (item.text && item.text.toLowerCase().includes(q)) {
+      const items = Array.isArray(pack.items) ? pack.items : [];
+      for (const item of items) {
+        if (item && item.text && item.text.toLowerCase().includes(q)) {
           results.push({
             type: "item",
             id: `item-${bag.id}-${pack.id}-${item.id}`,
@@ -136,8 +141,9 @@ export function searchLibraryPacks(
   const results: PackSearchResult[] = [];
 
   packLoop:
-  for (const pack of packs) {
-    if (pack.name.toLowerCase().includes(q)) {
+  for (const pack of (packs || [])) {
+    if (!pack) continue;
+    if (pack.name && pack.name.toLowerCase().includes(q)) {
       results.push({ type: "pack", id: `pack-${pack.id}`, label: pack.name, pack });
       if (results.length > MAX_RESULTS) break packLoop;
     } else if (pack.kind === "editor" && pack.editorDoc) {
@@ -153,8 +159,9 @@ export function searchLibraryPacks(
         if (results.length > MAX_RESULTS) break packLoop;
       }
     }
-    for (const item of pack.items) {
-      if (item.text && item.text.toLowerCase().includes(q)) {
+    const items = Array.isArray(pack.items) ? pack.items : [];
+    for (const item of items) {
+      if (item && item.text && item.text.toLowerCase().includes(q)) {
         results.push({
           type: "item",
           id: `item-${pack.id}-${item.id}`,
@@ -170,8 +177,9 @@ export function searchLibraryPacks(
 
   if (bags) {
     bagLoop:
-    for (const bag of bags) {
-      if (bag.name.toLowerCase().includes(q)) {
+    for (const bag of (bags || [])) {
+      if (!bag) continue;
+      if (bag.name && bag.name.toLowerCase().includes(q)) {
         results.push({
           type: "bag",
           id: `libbag-${bag.id}`,
@@ -181,7 +189,9 @@ export function searchLibraryPacks(
         });
         if (results.length > MAX_RESULTS) break bagLoop;
       }
-      for (const pack of bag.packs) {
+      const bagPacks = Array.isArray(bag.packs) ? bag.packs : [];
+      for (const pack of bagPacks) {
+        if (!pack) continue;
         if (packMatchesText(pack, q)) {
           results.push({
             type: "bag",
@@ -193,8 +203,9 @@ export function searchLibraryPacks(
           });
           if (results.length > MAX_RESULTS) break bagLoop;
         }
-        for (const item of pack.items) {
-          if (item.text && item.text.toLowerCase().includes(q)) {
+        const items = Array.isArray(pack.items) ? pack.items : [];
+        for (const item of items) {
+          if (item && item.text && item.text.toLowerCase().includes(q)) {
             results.push({
               type: "bag",
               id: `libbag-${bag.id}-${pack.id}-${item.id}`,

@@ -39,7 +39,16 @@ export function isEditorDocTooLarge(doc: object): boolean {
 // TipTap JSON 문서의 모든 text 노드를 순서대로 이어붙인 전체 텍스트(잘림 없음). 검색처럼
 // "본문 전체에 이 단어가 있는지" 확인해야 하는 용도로 쓴다 - 미리보기용 짧은 버전은
 // extractPlainTextPreview를 쓴다(둘 다 이 함수를 공유한다).
-export function getEditorDocFullText(doc: object): string {
+export function getEditorDocFullText(doc: object | string | null | undefined): string {
+  if (!doc) return "";
+  let parsedDoc: unknown = doc;
+  if (typeof doc === "string") {
+    try {
+      parsedDoc = JSON.parse(doc);
+    } catch {
+      return "";
+    }
+  }
   const parts: string[] = [];
 
   const walk = (node: unknown) => {
@@ -52,7 +61,7 @@ export function getEditorDocFullText(doc: object): string {
       if (n.type && n.type !== "text") parts.push(" ");
     }
   };
-  walk(doc);
+  walk(parsedDoc);
 
   return parts.join("").replace(/\s+/g, " ").trim();
 }
