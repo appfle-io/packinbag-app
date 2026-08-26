@@ -49,18 +49,6 @@ export default function GuideModal({
 
             {/* 가이드 공통 본문 */}
             <GuideContent />
-
-            {/* 모달 하단 닫기 바 */}
-            <div className="p-3 px-4 border-t border-border bg-surface flex justify-end gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full py-2.5 rounded-xl text-[13px] font-medium text-white shadow-xs transition-opacity hover:opacity-90 cursor-pointer"
-                style={{ background: "var(--accent)" }}
-              >
-                확인하고 닫기
-              </button>
-            </div>
           </div>
         </div>
       </OverlayLayerProvider>
