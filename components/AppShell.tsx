@@ -151,6 +151,49 @@ function CreatingPackOverlay({ visible }: { visible: boolean }) {
   );
 }
 
+// 가방 다중 삭제(또는 나가기) 중 진행률을 보여주는 오버레이
+function DeletingBagsOverlay({
+  visible,
+  total,
+  completed,
+}: {
+  visible: boolean;
+  total: number;
+  completed: number;
+}) {
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return (
+    <div
+      className="fixed inset-0 z-[215] flex flex-col items-center justify-center gap-3 px-6"
+      style={{
+        background: "rgba(0, 0, 0, 0.45)",
+        backdropFilter: "blur(4px)",
+        opacity: visible ? 1 : 0,
+        transition: "opacity 200ms ease",
+        pointerEvents: visible ? "auto" : "none",
+      }}
+    >
+      <div className="bg-surface border border-border rounded-2xl p-6 flex flex-col items-center gap-3.5 shadow-2xl max-w-[280px] w-full animate-in zoom-in-95 duration-150">
+        <IconLoader2 size={32} stroke={2} color="var(--accent)" className="animate-spin" />
+        <div className="text-center w-full">
+          <p className="text-[14px] font-semibold text-foreground">
+            가방을 정리하고 있어요
+          </p>
+          <p className="text-[12px] text-text-muted mt-1 tabular-nums">
+            {completed} / {total}개 완료 ({percent}%)
+          </p>
+        </div>
+        <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden border border-border/60">
+          <div
+            className="h-full transition-all duration-200"
+            style={{ width: `${percent}%`, background: "var(--accent)" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppShell() {
   const { user, profile, loading, authBusy } = useAuth();
   const { show } = useToast();
@@ -210,6 +253,11 @@ export default function AppShell() {
   // 새 가방을 Firestore에 쓰는 동안(openNewBag/openNewBagFromNote) true. CreatingBagOverlay를
   // 띄우는 용도로만 쓰이고, 실제 가방 생성 로직에는 영향을 주지 않는다.
   const [creatingBag, setCreatingBag] = useState(false);
+  // 가방보관함 화면(HomeScreen)에서 다중 선택 모드(롱프레스) 중일 때 true.
+  // 이 동안에는 하단 탭바와 팩트리 힌트 플로팅 버튼을 숨겨 가방 정리에만 집중시킨다.
+  const [homeSelectMode, setHomeSelectMode] = useState(false);
+  // 가방 다중 삭제/나가기 처리 중 진행률 ({ total, completed })
+  const [bulkDeleting, setBulkDeleting] = useState<{ total: number; completed: number } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinTimeDone(true), 900);
@@ -778,11 +826,23 @@ export default function AppShell() {
     const targets = bags.filter((b) => bagIds.includes(b.id));
     const owned = targets.filter((b) => b.ownerId === user.uid);
     const shared = targets.filter((b) => b.ownerId !== user.uid);
+    if (targets.length === 0) return;
+    setBulkDeleting({ total: targets.length, completed: 0 });
+    let completedCount = 0;
     try {
-      await Promise.all([
-        ...owned.map((bag) => trashBagRemote(bag.id)),
-        ...shared.map((bag) => leaveBagRemote(user.uid, bag.id)),
-      ]);
+      const promises = [
+        ...owned.map(async (bag) => {
+          await trashBagRemote(bag.id);
+          completedCount++;
+          setBulkDeleting({ total: targets.length, completed: completedCount });
+        }),
+        ...shared.map(async (bag) => {
+          await leaveBagRemote(user.uid, bag.id);
+          completedCount++;
+          setBulkDeleting({ total: targets.length, completed: completedCount });
+        }),
+      ];
+      await Promise.all(promises);
       const parts: string[] = [];
       if (owned.length > 0) parts.push(`${owned.length}개 휴지통 이동`);
       if (shared.length > 0) parts.push(`${shared.length}개 나가기`);
@@ -790,6 +850,10 @@ export default function AppShell() {
     } catch (err) {
       console.error("[팩인백] 가방 일괄 처리 실패:", err);
       show(`처리 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);
+    } finally {
+      setTimeout(() => {
+        setBulkDeleting(null);
+      }, 150);
     }
   };
 
@@ -1294,12 +1358,14 @@ export default function AppShell() {
     );
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (homeSelectMode) return;
     const ignore = isSwipeIgnoredTarget(e.target);
     const t = e.touches[0];
     swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (homeSelectMode) return;
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
@@ -1310,11 +1376,13 @@ export default function AppShell() {
   // 데스크톱 웹(마우스)에서도 동일한 탭전환/패 트리 열기 제스처가 되도록 마우스 드래그도
   // 동일한 로직으로 처리한다(onTouchStart/End는 모바일에서만 발생하고 마우스 이벤트는 따로 처리해야 함).
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (homeSelectMode) return;
     const ignore = isSwipeIgnoredTarget(e.target);
     swipeStartRef.current = { x: e.clientX, y: e.clientY, ignore };
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    if (homeSelectMode) return;
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
@@ -1358,6 +1426,7 @@ export default function AppShell() {
                 onJoinBag={handleJoinBag}
                 onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
                 onBulkDeleteBags={handleBulkDeleteBags}
+                onSelectModeChange={setHomeSelectMode}
               />
             </div>
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
@@ -1380,11 +1449,15 @@ export default function AppShell() {
             </div>
           </div>
         </div>
-        <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
-        <InstallPrompt />
-        {tab === "home" && !showPackTree && !editingBag && !editingPack && (
+        {!homeSelectMode && (
+          <>
+            <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
+            <InstallPrompt />
+          </>
+        )}
+        {tab === "home" && !showPackTree && !editingBag && !editingPack && !homeSelectMode && (
           <PackTreeSwipeHint
-            enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
+            enabled={profile?.bagSettings?.packTreeHintEnabled ?? profile?.packSettings?.packTreeHintEnabled ?? true}
             onOpen={() => setShowPackTree(true)}
           />
         )}
@@ -1422,7 +1495,7 @@ export default function AppShell() {
           onBulkDeletePacks={handleBulkDeletePacks}
         />
         <BagListSwipeHint
-          enabled={profile?.packSettings?.packTreeHintEnabled ?? true}
+          enabled={profile?.packSettings?.bagListHintEnabled ?? profile?.packSettings?.packTreeHintEnabled ?? true}
           onOpen={() => setShowPackTree(false)}
         />
       </SlideScreen>
@@ -1541,6 +1614,11 @@ export default function AppShell() {
       <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
       <CreatingBagOverlay visible={creatingBag} />
       <CreatingPackOverlay visible={creatingPack} />
+      <DeletingBagsOverlay
+        visible={bulkDeleting !== null}
+        total={bulkDeleting?.total ?? 0}
+        completed={bulkDeleting?.completed ?? 0}
+      />
     </>
   );
 }

@@ -317,6 +317,11 @@ export interface UserProfile {
   bagOrderByParent?: Record<string, string[]>;
   // 가방보관함 폴더 트리에서 펼쳐져있는 폴더 id 목록.
   expandedBagFolderIds?: string[];
+  // 가방 표시 관련 개인 설정
+  bagSettings?: {
+    // 가방보관함 왼쪽 가장자리에 뜨는 팩보관함 이동 플로팅 버튼(PackTreeSwipeHint) 표시 여부 (기본값 true)
+    packTreeHintEnabled?: boolean;
+  };
   // 팩(짐 목록) 표시 관련 개인 설정
   packSettings?: {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)
@@ -329,10 +334,10 @@ export interface UserProfile {
     itemMaxLines?: 1 | 2 | 3;
     // 짐 더블클릭 시 클립보드 복사 토스트를 몇 초간 띄울지 (없으면 3 기본값, 3~7 사이).
     itemCopyToastSeconds?: number;
-    // v69: 가방보관함 왼쪽 가장자리에 뜨는 물방울 모양 스와이프 힌트(PackTreeSwipeHint)를
-    // 보여줄지. 없으면 true(켜짐) 기본값. 힌트를 실제로 당겨서 팩 트리를 한 번 열면
-    // 자동으로 false로 꺼지고(계정에 저장되어 기기 간 동기화), 여기서 다시 켤 수 있다.
+    // v69: 가방보관함 왼쪽 가장자리에 뜨는 팩트리 이동 플로팅 버튼(PackTreeSwipeHint) 표시 여부 (기존 호환 유지)
     packTreeHintEnabled?: boolean;
+    // 팩보관함 오른쪽 가장자리에 뜨는 가방보관함 이동 플로팅 버튼(BagListSwipeHint) 표시 여부 (기본값 true)
+    bagListHintEnabled?: boolean;
     // 짐 마감일(Item.dueDate)을 리스트에서 어떤 형식으로 보여줄지 (없으면 "dday" 기본값).
     // "dday"면 D-3/D+1 같은 D-day 표기, "date"면 7/30 같은 실제 날짜로 보여준다.
     dueDateDisplayMode?: "dday" | "date";

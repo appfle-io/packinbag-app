@@ -45,9 +45,9 @@ const selectClassName = "shrink-0 rounded-lg border border-border px-2.5 py-1.5 
 const selectStyle: CSSProperties = { background: "var(--surface-2)", color: "var(--foreground)" };
 
 const bagCardSizes: { key: NonNullable<UserProfile["bagCardSize"]>; label: string }[] = [
-  { key: "small", label: "작게" },
-  { key: "medium", label: "보통" },
-  { key: "large", label: "크게" },
+  { key: "large", label: "1열" },
+  { key: "medium", label: "2열" },
+  { key: "small", label: "3열" },
 ];
 
 // 투명도 변화를 눈으로 비교할 수 있도록 미리보기 뒤에 깔아주는 좌우 2색 배경.
@@ -503,16 +503,15 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           extraContent={
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] text-text-secondary">그리드 밀도</p>
+                <p className="text-[11px] text-text-secondary">그리드 열 수 (1열 / 2열 / 3열)</p>
                 <p className="text-[11px] text-text-muted mt-1">
-                  작게 고르면 한 화면에 더 많은 가방이 보이도록 열이 늘어나고, 크게 고르면 열이
-                  줄어 카드 자체가 커져요 (아래 카드 여백/글씨 크기 슬라이더와는 별개예요)
+                  가방 보관함에서 한 줄에 보여줄 카드의 열 수를 설정해요 (1열 / 2열 / 3열).
                 </p>
               </div>
               <select
                 value={profile?.bagCardSize ?? "medium"}
                 onChange={(e) => updateBagCardSize(e.target.value as NonNullable<UserProfile["bagCardSize"]>).catch(() => {})}
-                aria-label="가방 보관함 그리드 밀도"
+                aria-label="가방 보관함 그리드 열 수"
                 className={selectClassName}
                 style={selectStyle}
               >

@@ -99,6 +99,7 @@ export default function HomeScreen({
   onJoinBag,
   onOpenQuickPack,
   onBulkDeleteBags,
+  onSelectModeChange,
 }: {
   // 알림종 배지/패널에 쓰임(NotificationBell). currentUid와 동일한 값이지만,
   // 이 프롭은 순수하게 NotificationBell에만 쓰이도록 이름을 따로 두었다.
@@ -122,6 +123,8 @@ export default function HomeScreen({
   // 길게 눌러 다중선택한 가방들을 한꺼번에 처리 (AppShell이 소유한 가방은 완전 삭제,
   // 공유받은(내 소유가 아닌) 가방은 나가기로 나눠서 처리한다).
   onBulkDeleteBags: (bagIds: string[]) => void;
+  // 선택 모드 상태 변경 시 상위(AppShell)에 알려 하단 탭바 및 힌트 플로팅을 숨긴다.
+  onSelectModeChange?: (active: boolean) => void;
 }) {
   const [showJoin, setShowJoin] = useState(!!initialInviteCode);
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
@@ -350,6 +353,10 @@ export default function HomeScreen({
     if (selectMode && selectedIds.size === 0) setSelectMode(false);
   }, [selectMode, selectedIds]);
 
+  useEffect(() => {
+    onSelectModeChange?.(selectMode);
+  }, [selectMode, onSelectModeChange]);
+
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -535,11 +542,27 @@ export default function HomeScreen({
             <div className="flex items-center justify-between mb-3 gap-2">
               <button
                 onClick={cancelSelectMode}
-                className="text-[12.5px] text-text-secondary hover:text-foreground px-1 py-1.5"
+                className="text-[12.5px] text-text-secondary hover:text-foreground px-1 py-1.5 font-medium"
               >
                 취소
               </button>
-              <span className="text-[12.5px] font-medium text-foreground">{selectedIds.size}개 선택됨</span>
+              <span className="text-[12.5px] font-semibold text-foreground">
+                {selectedIds.size}개 선택됨
+              </span>
+              <button
+                onClick={() => {
+                  if (arrangedBags.length > 0 && arrangedBags.every((b) => selectedIds.has(b.id))) {
+                    setSelectedIds(new Set());
+                  } else {
+                    setSelectedIds(new Set(arrangedBags.map((b) => b.id)));
+                  }
+                }}
+                className="text-[12.5px] text-accent hover:opacity-80 px-1 py-1.5 font-medium"
+              >
+                {arrangedBags.length > 0 && arrangedBags.every((b) => selectedIds.has(b.id))
+                  ? "선택 해제"
+                  : "전체 선택"}
+              </button>
             </div>
           ) : (
             <div className="flex items-center justify-between mb-3 gap-2">
@@ -894,22 +917,11 @@ export default function HomeScreen({
                     }
                     isDragSource={reorderDrag?.id === bag.id}
                     isDragOver={reorderDrag?.overId === bag.id}
+                    selectMode={selectMode}
+                    selected={selectedIds.has(bag.id)}
+                    compact={bagCardSize === "small"}
                     onClick={() => (selectMode ? toggleSelected(bag.id) : onOpenBag(bag))}
                   />
-                  {selectMode && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div
-                        className="h-9 w-9 rounded-full flex items-center justify-center"
-                        style={{
-                          background: selectedIds.has(bag.id) ? "var(--accent)" : "rgba(255,255,255,0.9)",
-                          border: selectedIds.has(bag.id) ? "none" : "1.5px solid var(--border-strong)",
-                          boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
-                        }}
-                      >
-                        {selectedIds.has(bag.id) && <IconCheck size={18} stroke={3} color="#fff" />}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
               {!selectMode && bagFilter === "active" && (
@@ -960,7 +972,7 @@ export default function HomeScreen({
         </Portal>
       )}
 
-      <QuickPackBar pack={quickPack} onClick={onOpenQuickPack} />
+      {!selectMode && <QuickPackBar pack={quickPack} onClick={onOpenQuickPack} />}
 
       {reorderDrag && (
         <div
@@ -977,33 +989,40 @@ export default function HomeScreen({
         </div>
       )}
 
-      {/* 다중선택 모드일 때 화면 가운데 하단에 떠 있는 삭제 버튼.
-          이 화면(HomeScreen) 루트가 relative라서 앱 컬럼 폭 기준으로 가운데 정렬된다.
-          bottom-24(96px)만큼 충분히 띄운 이유: 하단탭바 중앙에는 "+"(빠른입력) FAB가
-          nav 위로 44px 튀어나와 있는데(BottomTabBar.tsx), 이 화면 컨테이너 바닥이 곧
-          그 nav의 윗변과 같은 자리라서 bottom-4처럼 너무 가깝게 두면 삭제 버튼이 그
-          "+" 버튼과 겹쳐 보인다. 그 FAB 위로 확실히 떨어지도록 여유를 뒀다.
-      */}
+      {/* 다중선택 모드일 때 하단 탭바를 대체하여 화면 하단에 고정되는 바텀 액션 바 */}
       {selectMode && (
-        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center gap-3 pointer-events-none">
-          <button
-            onClick={() => selectedIds.size > 0 && setShowMoveSheet(true)}
-            disabled={selectedIds.size === 0}
-            aria-label="선택한 가방 폴더로 이동"
-            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90 disabled:opacity-40"
-            style={{ background: "var(--accent)" }}
-          >
-            <IconArrowRight size={22} stroke={1.75} color="#fff" />
-          </button>
-          <button
-            onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
-            disabled={selectedIds.size === 0}
-            aria-label="선택한 가방 삭제"
-            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90 disabled:opacity-40"
-            style={{ background: "var(--danger)" }}
-          >
-            <IconTrash size={24} stroke={1.75} color="#fff" />
-          </button>
+        <div
+          className="shrink-0 flex items-center justify-between px-4 py-2.5 backdrop-blur-md transition-all duration-200"
+          style={{
+            background: "color-mix(in srgb, var(--surface-2) 90%, transparent)",
+            borderTop: "1px solid var(--border)",
+            paddingBottom: "max(10px, env(safe-area-inset-bottom))",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-foreground">
+              {selectedIds.size}개 선택됨
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => selectedIds.size > 0 && setShowMoveSheet(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+            >
+              <IconFolder size={15} stroke={1.75} />
+              <span>폴더 이동</span>
+            </button>
+            <button
+              onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+              style={{ background: "var(--danger)" }}
+            >
+              <IconTrash size={15} stroke={1.75} />
+              <span>{sharedSelectedCount > 0 && ownedSelectedCount === 0 ? "나가기" : "삭제"}</span>
+            </button>
+          </div>
         </div>
       )}
 

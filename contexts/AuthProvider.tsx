@@ -117,6 +117,7 @@ interface AuthContextValue {
   moveBagsToFolder: (bagIds: string[], folderId: string | undefined) => Promise<void>;
   updateBagOrderByParent: (parentKey: string, order: string[]) => Promise<void>;
   updateExpandedBagFolderIds: (ids: string[]) => Promise<void>;
+  updateBagSettings: (settings: Partial<NonNullable<UserProfile["bagSettings"]>>) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
   updateSidebarWidth: (width: number) => Promise<void>;
@@ -246,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bagFolderAssignments: data?.bagFolderAssignments as UserProfile["bagFolderAssignments"],
         bagOrderByParent: data?.bagOrderByParent as UserProfile["bagOrderByParent"],
         expandedBagFolderIds: data?.expandedBagFolderIds as string[] | undefined,
+        bagSettings: data?.bagSettings as UserProfile["bagSettings"],
         packSettings: data?.packSettings as UserProfile["packSettings"],
         quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
         sidebarWidth: data?.sidebarWidth as number | undefined,
@@ -798,14 +800,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { expandedBagFolderIds: ids }, { merge: true });
   };
 
+  // 가방 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
+  const updateBagSettings = async (
+    settings: Partial<NonNullable<UserProfile["bagSettings"]>>
+  ) => {
+    if (!user) return;
+    const next = { ...(profile?.bagSettings ?? {}), ...settings };
+    setRawProfile((prev) => (prev ? { ...prev, bagSettings: next } : prev));
+    await setDoc(
+      doc(db, "users", user.uid),
+      { bagSettings: next },
+      { merge: true }
+    );
+  };
+
   // 팩(짐 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
   const updatePackSettings = async (
     settings: Partial<NonNullable<UserProfile["packSettings"]>>
   ) => {
     if (!user) return;
+    const next = { ...(profile?.packSettings ?? {}), ...settings };
+    setRawProfile((prev) => (prev ? { ...prev, packSettings: next } : prev));
     await setDoc(
       doc(db, "users", user.uid),
-      { packSettings: { ...(profile?.packSettings ?? {}), ...settings } },
+      { packSettings: next },
       { merge: true }
     );
   };
@@ -1010,6 +1028,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         moveBagsToFolder,
         updateBagOrderByParent,
         updateExpandedBagFolderIds,
+        updateBagSettings,
         updatePackSettings,
         updateQuickPackCollapsed,
         updateSidebarWidth,

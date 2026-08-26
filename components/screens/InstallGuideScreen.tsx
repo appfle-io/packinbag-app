@@ -1,6 +1,6 @@
 "use client";
 
-import { IconArrowLeft, IconDeviceDesktop, IconDeviceMobile } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import BackpackLogo from "@/components/BackpackLogo";
 import GuideInstallDemo from "@/components/guide/GuideInstallDemo";
@@ -41,25 +41,6 @@ export default function InstallGuideScreen({ onBack }: { onBack: () => void }) {
 
         {/* 인터랙티브 애니메이션 데모 */}
         <GuideInstallDemo />
-
-        {/* FAQ 및 추가 팁 */}
-        <div className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-3 text-[12.5px]">
-          <div className="font-semibold text-foreground">설치 시 장점</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-text-secondary">
-            <div className="p-2.5 rounded-lg bg-surface-2 flex items-start gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-              <div>
-                <strong className="text-foreground">전체 화면 모드:</strong> 브라우저 주소창과 툴바가 사라져 더 넓은 화면에서 짐을 체크할 수 있습니다.
-              </div>
-            </div>
-            <div className="p-2.5 rounded-lg bg-surface-2 flex items-start gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0" />
-              <div>
-                <strong className="text-foreground">빠른 바로가기:</strong> 홈 화면 또는 작업표시줄 아이콘을 눌러 1초 만에 가방을 열 수 있습니다.
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

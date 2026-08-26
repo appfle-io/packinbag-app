@@ -45,7 +45,7 @@ export default function GuideInstallDemo() {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const nextDelay =
-      chromeStep === 0 ? 1600 : chromeStep === 1 ? 1300 : chromeStep === 2 ? 1800 : 2800;
+      chromeStep === 0 ? 2200 : chromeStep === 1 ? 1900 : chromeStep === 2 ? 2500 : 3600;
 
     timerRef.current = setTimeout(() => {
       setChromeStep((prev) => (prev + 1) % 4);
@@ -65,14 +65,14 @@ export default function GuideInstallDemo() {
 
     const nextDelay =
       safariStep === 0
-        ? 1500
+        ? 2200
         : safariStep === 1
-        ? 2000 // 스크롤 강조 시간 여유있게
+        ? 2800 // 스크롤 강조 시간 여유있게
         : safariStep === 2
-        ? 1800
+        ? 2500
         : safariStep === 3
-        ? 1600
-        : 3000;
+        ? 2300
+        : 3800;
 
     timerRef.current = setTimeout(() => {
       setSafariStep((prev) => (prev + 1) % 5);

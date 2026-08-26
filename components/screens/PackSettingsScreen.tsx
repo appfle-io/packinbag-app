@@ -20,6 +20,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
         moveCompletedToBottom: true,
         alwaysCollapseOnEntry: false,
         itemMaxLines: 1,
+        bagListHintEnabled: true,
         packTreeHintEnabled: true,
         noteSpellcheckEnabled: false,
         dueDateDisplayMode: "dday",
@@ -38,9 +39,8 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const alwaysCollapseOnEntry = profile?.packSettings?.alwaysCollapseOnEntry ?? false;
   // 짐 최대 표시 줄 수 (없으면 1줄 기본값)
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
-  // 스와이프 힌트 물방울 보이기 여부 (명시적으로 꺼둔 적이 없으면 기본 켜짐)
-  // - 가방↔팩 보관함 양방향 스와이프 힌트 버튼을 이 값 하나로 같이 켜고 끈다.
-  const packTreeHintEnabled = profile?.packSettings?.packTreeHintEnabled ?? true;
+  // 팩보관함에서 가방보관함으로 이동하는 플로팅 버튼 보이기 여부 (기본 켜짐)
+  const bagListHintEnabled = profile?.packSettings?.bagListHintEnabled ?? profile?.packSettings?.packTreeHintEnabled ?? true;
   // 메모 맞춤법 검사 (없으면 기본 false 끄기)
   const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
 
@@ -169,15 +169,15 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-medium">가방 보관함 ↔ 팩 보관함 이동 버튼</p>
+            <p className="text-[13px] font-medium">가방 보관함 이동 버튼</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              가방 보관함 왼쪽, 팩 보관함 오른쪽 가장자리에 서로 오갈 수 있는 버튼을 띄워줘요. 꺼도 가장자리를 스와이프하면 버튼 없이도 화면을 오갈 수 있어요.
+              팩 보관함 오른쪽 가장자리에 가방 보관함으로 돌아가는 플로팅 버튼을 띄워줘요. 꺼도 가장자리를 스와이프하면 화면을 오갈 수 있어요.
             </p>
           </div>
           <ToggleSwitch
-            checked={packTreeHintEnabled}
-            onChange={(v) => updatePackSettings({ packTreeHintEnabled: v })}
-            ariaLabel="팩 보관함 열기 버튼"
+            checked={bagListHintEnabled}
+            onChange={(v) => updatePackSettings({ bagListHintEnabled: v })}
+            ariaLabel="가방 보관함 이동 버튼"
           />
         </div>
 

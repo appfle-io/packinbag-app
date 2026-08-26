@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff, IconUsers } from "@tabler/icons-react";
+import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff, IconUsers, IconCheck } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getPackColorHex } from "@/lib/packColors";
@@ -23,6 +23,9 @@ export default function BagCard({
   onToggleArchive,
   isDragSource,
   isDragOver,
+  selectMode,
+  selected,
+  compact,
 }: {
   bag: Bag;
   onClick: () => void;
@@ -40,6 +43,11 @@ export default function BagCard({
   onToggleArchive?: () => void;
   isDragSource?: boolean;
   isDragOver?: boolean;
+  // 다중 선택 모드 여부 및 선택 상태
+  selectMode?: boolean;
+  selected?: boolean;
+  // 3열 모드 등 작은 카드용 간소화 보기 (이름, 핀, 보관, 동기화/인원수 위주)
+  compact?: boolean;
 }) {
   // AI추천 팩(aiRecommendSource)은 무료회원에게는 목록/개수/진행률 어디에도 포함시키지 않는다.
   const viewablePacks = getViewablePacks(bag.packs, premium);
@@ -63,10 +71,18 @@ export default function BagCard({
       // 안에 여백만 남는 문제가 있었다. 이제는 '가방 카드크기(가로폭)'을 최대 높이로만
       // 쓰고(max-h-[100cqw] = 내 폭만큼), 내용이 적으면 카드가 그만큼 낮아지고, 내용이
       // 많으면 이 최대 높이에서 세로 스크롤이 생기게 한다.
-      className="relative max-h-[100cqw] overflow-y-auto rounded-xl border border-border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer"
+      className={`relative max-h-[100cqw] overflow-y-auto rounded-xl border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer ${
+        selected
+          ? "border-accent ring-2 ring-accent/30 scale-[0.98]"
+          : selectMode
+          ? "border-border/90 opacity-90"
+          : "border-border"
+      }`}
       style={{
-        background: "var(--bag-card-bg)",
-        opacity: isDragSource ? 0.4 : locked ? 0.6 : 1,
+        background: selected
+          ? "color-mix(in srgb, var(--accent) 7%, var(--bag-card-bg))"
+          : "var(--bag-card-bg)",
+        opacity: isDragSource ? 0.4 : locked ? 0.6 : undefined,
         boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
         // 카드를 길게 누르면 순서변경 드래그(HomeScreen)로 이어지는데, 이 카드에는
         // user-select/touch-callout 방지 처리가 없어서 그 전에 네이티브 텍스트 선택/복사
@@ -85,51 +101,68 @@ export default function BagCard({
           <IconLock size={11} stroke={2} color="#fff" />
         </span>
       )}
-      {/* 제목 줄: 제목은 왼쪽에서 최대한 넓게, 고정핀은 오른쪽 끝에 별도 자리를 차지한다
-          (D-Day 배지와 자리를 다투지 않도록 D-Day는 아예 다음 줄로 내려서 따로 보여준다). */}
-      <div className="flex items-start justify-between gap-1 shrink-0">
+      {/* 제목 줄: 제목은 왼쪽에서 최대한 넓게, 우측에는 핀/보관 버튼 또는 다중선택 체크박스 배치 */}
+      <div className="flex items-start justify-between gap-1.5 shrink-0">
         <span className="text-[calc(13px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0 flex-1">
           {bag.name}
         </span>
-        {(onTogglePin || onToggleArchive) && (
-          <div className="shrink-0 flex items-center gap-4">
-            {onToggleArchive && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleArchive();
-                }}
-                aria-label={archived ? "보관 해제" : "보관하기"}
-                className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
-              >
-                {archived ? (
-                  <IconArchiveOff size={14} stroke={1.75} color="var(--accent)" />
-                ) : (
-                  <IconArchive size={14} stroke={1.75} color="var(--text-muted)" />
-                )}
-              </button>
-            )}
-            {onTogglePin && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onTogglePin();
-                }}
-                aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
-                // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
-                // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
-                className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
-              >
-                {pinned ? (
-                  <IconPinFilled size={14} stroke={1.75} color="var(--accent)" />
-                ) : (
-                  <IconPin size={14} stroke={1.75} color="var(--text-muted)" />
-                )}
-              </button>
-            )}
+
+        {selectMode ? (
+          <div
+            className={`shrink-0 -mt-0.5 -mr-0.5 h-[20px] w-[20px] rounded-full flex items-center justify-center transition-all ${
+              selected
+                ? "shadow-2xs"
+                : "border-[1.5px] border-border-strong/70 bg-surface/80"
+            }`}
+            style={{
+              background: selected ? "var(--accent)" : undefined,
+              borderColor: selected ? "var(--accent)" : undefined,
+            }}
+          >
+            {selected && <IconCheck size={13} stroke={3} color="#fff" />}
           </div>
+        ) : (
+          (onTogglePin || onToggleArchive) && (
+            <div className="shrink-0 flex items-center gap-4">
+              {onToggleArchive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleArchive();
+                  }}
+                  aria-label={archived ? "보관 해제" : "보관하기"}
+                  className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+                >
+                  {archived ? (
+                    <IconArchiveOff size={14} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconArchive size={14} stroke={1.75} color="var(--text-muted)" />
+                  )}
+                </button>
+              )}
+              {onTogglePin && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePin();
+                  }}
+                  aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
+                  // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
+                  // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
+                  className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+                >
+                  {pinned ? (
+                    <IconPinFilled size={14} stroke={1.75} color="var(--accent)" />
+                  ) : (
+                    <IconPin size={14} stroke={1.75} color="var(--text-muted)" />
+                  )}
+                </button>
+              )}
+            </div>
+          )
         )}
       </div>
+
       {ddayLabel && (
         <div className="mt-1 shrink-0">
           <span
@@ -139,8 +172,9 @@ export default function BagCard({
           </span>
         </div>
       )}
-      {/* 가방 속 팩 미리보기 목록 (카드 너비에 따라 지능형 1열/2열 가변 배치 및 최대 개수 제한) */}
-      {viewablePacks.length > 0 && (
+
+      {/* 가방 속 팩 미리보기 목록 (선택 모드 및 3열 컴팩트 모드에서는 정보 과밀 방지를 위해 간소화) */}
+      {viewablePacks.length > 0 && !selectMode && !compact && (
         <div className="flex-1 min-h-0 overflow-hidden mt-1.5 flex flex-col justify-start">
           <div className="flex flex-col gap-1 @[240px]:grid @[240px]:grid-cols-2 @[240px]:gap-x-2.5 @[240px]:gap-y-1">
             {viewablePacks.slice(0, 4).map((pack) => {
