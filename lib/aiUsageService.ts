@@ -135,13 +135,29 @@ export function unlockCodeDisplayStatus(entry: UnlockCodeEntry): UnlockCodeDispl
   return "active";
 }
 
-export async function listUnlockCodes(): Promise<UnlockCodeEntry[]> {
-  const { collection, getDocs, query, orderBy } = await import("firebase/firestore");
-  const snap = await getDocs(query(collection(db, "unlockCodes"), orderBy("createdAt", "desc")));
-  return snap.docs.map((d) => {
+export async function listUnlockCodes(
+  limitCount = 100,
+  startAfterCreatedAt?: string | null
+): Promise<{ codes: UnlockCodeEntry[]; hasMore: boolean }> {
+  const { collection, getDocs, query, orderBy, limit, startAfter, Timestamp } = await import("firebase/firestore");
+  let q = query(collection(db, "unlockCodes"), orderBy("createdAt", "desc"), limit(limitCount + 1));
+  if (startAfterCreatedAt) {
+    q = query(
+      collection(db, "unlockCodes"),
+      orderBy("createdAt", "desc"),
+      startAfter(Timestamp.fromDate(new Date(startAfterCreatedAt))),
+      limit(limitCount + 1)
+    );
+  }
+  const snap = await getDocs(q);
+  const docs = snap.docs.slice(0, limitCount);
+  const hasMore = snap.docs.length > limitCount;
+
+  const toIso = (v: unknown) =>
+    v && typeof v === "object" && "toDate" in v ? (v as { toDate: () => Date }).toDate().toISOString() : null;
+
+  const codes = docs.map((d) => {
     const data = d.data();
-    const toIso = (v: unknown) =>
-      v && typeof v === "object" && "toDate" in v ? (v as { toDate: () => Date }).toDate().toISOString() : null;
     const claimedBy = data.claimedBy as { uid?: string; email?: string; claimedAt?: unknown } | undefined;
     return {
       code: d.id,
@@ -159,4 +175,6 @@ export async function listUnlockCodes(): Promise<UnlockCodeEntry[]> {
       invalidatedAt: toIso(data.invalidatedAt),
     };
   });
+
+  return { codes, hasMore };
 }

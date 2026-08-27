@@ -233,8 +233,14 @@ export default function BagEditorScreen({
   // targetId별로 개수/유무만 계산해 ItemRow/PackCard에 배지로 보여준다.
   const [comments, setComments] = useState<BagComment[]>([]);
   const [reactions, setReactions] = useState<BagReactionDoc[]>([]);
-  useEffect(() => subscribeToComments(bag.id, setComments), [bag.id]);
-  useEffect(() => subscribeToReactions(bag.id, setReactions), [bag.id]);
+  useEffect(() => {
+    if (isNew) return;
+    return subscribeToComments(bag.id, setComments);
+  }, [bag.id, isNew]);
+  useEffect(() => {
+    if (isNew) return;
+    return subscribeToReactions(bag.id, setReactions);
+  }, [bag.id, isNew]);
 
   // 댓글 작성자 중 진짜로 회원탈퇴(계정 삭제)한 사람이 누구인지 추적해서, 댓글 표시에서
   // 그만 익명화하는 데 쓴다(BagChatPreview/ItemThreadSheet/ItemEditModal에 그대로 전달되어 쓰임).

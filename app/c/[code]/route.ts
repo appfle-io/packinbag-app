@@ -20,5 +20,9 @@ export async function GET(
     return NextResponse.redirect(new URL("/?shortlink=notfound", req.url));
   }
 
-  return NextResponse.redirect(longUrl);
+  return NextResponse.redirect(longUrl, {
+    headers: {
+      "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600",
+    },
+  });
 }

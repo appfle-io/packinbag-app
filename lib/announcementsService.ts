@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -19,8 +20,19 @@ function announcementsCol() {
   return collection(db, "announcements");
 }
 
-// 전체 공지사항(과거/미래 포함)을 최신순으로 실시간 구독. 설정 화면의
-// "공지사항"(현재 노출기간인 것만 필터링해서 보여줌)과 마스터 관리화면(전체) 모두 이걸 쓴다.
+// 일반 사용자용 1회성 조회. 실시간 리스너 연결 비용을 절약하기 위해 앱 진입 시 한 번만 읽는다.
+export async function getAnnouncementsOnce(): Promise<Announcement[]> {
+  try {
+    const q = query(announcementsCol(), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Announcement));
+  } catch (err) {
+    console.error("[팩인백] 공지사항 조회 실패:", err);
+    return [];
+  }
+}
+
+// 전체 공지사항(과거/미래 포함)을 최신순으로 실시간 구독. 마스터 관리화면에서 쓴다.
 export function subscribeToAnnouncements(
   callback: (items: Announcement[]) => void
 ) {

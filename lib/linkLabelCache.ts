@@ -10,16 +10,47 @@ import { fetchLinkMeta, parseShortLinkUrl, type LinkMeta } from "@/lib/shortLink
 const cache = new Map<string, LinkMeta | null>();
 const listeners = new Map<string, Set<() => void>>();
 
+const SS_PREFIX = "pb_linkmeta:";
+
+function readSessionStorage(key: string): LinkMeta | null | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = window.sessionStorage.getItem(`${SS_PREFIX}${key}`);
+    if (raw === null) return undefined;
+    return JSON.parse(raw) as LinkMeta | null;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeSessionStorage(key: string, meta: LinkMeta | null) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(`${SS_PREFIX}${key}`, JSON.stringify(meta));
+  } catch {
+    // quota exceeded or disabled
+  }
+}
+
 function cacheKey(kind: "s" | "c", code: string): string {
   return `${kind}:${code}`;
 }
 
 // 캐시에 아직 없으면(요청 전) undefined, 조회했는데 없거나 우리 링크가 아니면 null,
-// 있으면 LinkMeta를 돌려준다.
+// 있으면 LinkMeta를 돌려준다. 메모리 Map -> sessionStorage 순으로 확인.
 export function getCachedLinkMeta(url: string): LinkMeta | null | undefined {
   const parsed = parseShortLinkUrl(url);
   if (!parsed) return null;
-  return cache.get(cacheKey(parsed.kind, parsed.code));
+  const key = cacheKey(parsed.kind, parsed.code);
+  if (cache.has(key)) {
+    return cache.get(key);
+  }
+  const fromSs = readSessionStorage(key);
+  if (fromSs !== undefined) {
+    cache.set(key, fromSs);
+    return fromSs;
+  }
+  return undefined;
 }
 
 // 링크를 새로 만들거나 수정한 직후, 서버 응답을 곧바로 캐시에 반영해서(재조회 없이) 화면에
@@ -27,18 +58,22 @@ export function getCachedLinkMeta(url: string): LinkMeta | null | undefined {
 export function setLinkMetaCache(kind: "s" | "c", code: string, meta: LinkMeta | null) {
   const key = cacheKey(kind, code);
   cache.set(key, meta);
+  writeSessionStorage(key, meta);
   listeners.get(key)?.forEach((fn) => fn());
 }
 
 // url이 우리 서비스 링크면(parseShortLinkUrl 성공) 아직 캐시에 없을 때만 백그라운드로 한 번
-// 조회해서 채워넣는다. 여러 컴포넌트가 거의 동시에 호출해도 캐시 존재 여부만 보고 판단하므로
-// (진행 중인 요청 자체를 잠그지는 않음) 아주 드물게 같은 코드로 중복 요청이 나갈 수 있지만,
-// 개인/소그룹용 앱 규모에서는 문제되지 않는 수준이다.
+// 조회해서 채워넣는다.
 export function ensureLinkMetaLoaded(url: string, user: User | null) {
   const parsed = parseShortLinkUrl(url);
   if (!parsed) return;
   const key = cacheKey(parsed.kind, parsed.code);
   if (cache.has(key)) return;
+  const fromSs = readSessionStorage(key);
+  if (fromSs !== undefined) {
+    cache.set(key, fromSs);
+    return;
+  }
   fetchLinkMeta(url, user).then((meta) => setLinkMetaCache(parsed.kind, parsed.code, meta));
 }
 

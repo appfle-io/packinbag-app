@@ -32,7 +32,7 @@ import {
   moveLibraryEntriesRemote,
 } from "@/lib/packsService";
 import {
-  subscribeToAnnouncements,
+  getAnnouncementsOnce,
   createAnnouncementRemote,
   updateAnnouncementRemote,
   deleteAnnouncementRemote,
@@ -322,7 +322,7 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!user) return;
-    return subscribeToAnnouncements(setAnnouncements);
+    getAnnouncementsOnce().then(setAnnouncements);
   }, [user]);
 
   // 설정 > 휴지통 보관기간(TRASH_RETENTION_DAYS, 30일)이 지난 가방/팩을 조용히 정리한다.

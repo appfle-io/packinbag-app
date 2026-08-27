@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
+import { collection, doc, limit, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { AppNotification } from "@/lib/types";
 
@@ -12,7 +12,7 @@ export function subscribeToNotifications(
   uidStr: string,
   callback: (items: AppNotification[]) => void
 ) {
-  const q = query(notificationsCol(uidStr), orderBy("createdAt", "desc"));
+  const q = query(notificationsCol(uidStr), orderBy("createdAt", "desc"), limit(30));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as AppNotification)));
   });

@@ -52,6 +52,8 @@ export default function UnlockCodeAdminScreen({
   const swipeBackRef = useSwipeBack<HTMLDivElement>(() => onBack());
   const { show } = useToast();
   const [codes, setCodes] = useState<UnlockCodeEntry[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
@@ -66,12 +68,30 @@ export default function UnlockCodeAdminScreen({
   const refresh = async () => {
     setLoading(true);
     try {
-      setCodes(await listUnlockCodes());
+      const res = await listUnlockCodes(100);
+      setCodes(res.codes);
+      setHasMore(res.hasMore);
     } catch (err) {
       console.error("[팩인백] 이용권 코드 조회 실패:", err);
       show("코드 목록을 불러오지 못했어요");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore || codes.length === 0) return;
+    setLoadingMore(true);
+    try {
+      const lastCode = codes[codes.length - 1];
+      const res = await listUnlockCodes(100, lastCode.createdAt);
+      setCodes((prev) => [...prev, ...res.codes]);
+      setHasMore(res.hasMore);
+    } catch (err) {
+      console.error("[팩인백] 이용권 코드 추가 조회 실패:", err);
+      show("코드 추가 목록을 불러오지 못했어요");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -393,6 +413,18 @@ export default function UnlockCodeAdminScreen({
                   </div>
                 )}
               </>
+            )}
+
+            {hasMore && (
+              <div className="pt-3 text-center">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="rounded-lg px-4 py-2 text-[12px] font-medium border border-border bg-surface-2 disabled:opacity-50"
+                >
+                  {loadingMore ? "불러오는 중..." : "이전 코드 더 보기"}
+                </button>
+              </div>
             )}
           </>
         )}

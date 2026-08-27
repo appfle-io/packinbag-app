@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -33,9 +34,9 @@ export function subscribeToMyInquiries(
   });
 }
 
-// 전체 문의 실시간 구독 (마스터 전용 - firestore.rules가 마스터 이메일만 허용).
+// 전체 문의 실시간 구독 (마스터 전용 - firestore.rules가 마스터 이메일만 허용). 최신 50개 우선 구독.
 export function subscribeToAllInquiries(callback: (items: Inquiry[]) => void) {
-  const q = query(inquiriesCol(), orderBy("createdAt", "desc"));
+  const q = query(inquiriesCol(), orderBy("createdAt", "desc"), limit(50));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Inquiry)));
   });
