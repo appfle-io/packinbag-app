@@ -237,6 +237,7 @@ export interface UserProfile {
   displayName: string | null;
   nickname: string | null; // 최대 12자, 설정에서 자유롭게 수정 가능
   avatarId: AvatarId | null;
+  role?: "master" | "user";
   createdAt?: string;
   // 화면 모드/강조 색상 - 계정에 저장해서 기기 간 동기화 (없으면 기기 로컬 값 사용)
   themeMode?: "system" | "light" | "dark";

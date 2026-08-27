@@ -178,12 +178,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // signOut하는 흐름 동안 true. AppShell이 이 값을 user와 함께 확인해서 그 사이엔
   const [authBusy, setAuthBusy] = useState(false);
   const [isMasterDoc, setIsMasterDoc] = useState(false);
+  const [isMasterToken, setIsMasterToken] = useState(false);
+  const [isMasterApi, setIsMasterApi] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setIsMasterDoc(false);
+      setIsMasterToken(false);
+      setIsMasterApi(false);
       return;
     }
+
+    // 1) Auth ID Token Custom Claims 확인
+    user.getIdTokenResult().then((res) => {
+      if (res.claims.role === "master" || res.claims.admin === true) {
+        setIsMasterToken(true);
+      }
+    }).catch(() => {});
+
+    // 2) 서버 API로 마스터 여부 확인 및 DB 동기화
+    user.getIdToken().then((token) => {
+      fetch("/api/auth/master-status", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.isMaster) {
+            setIsMasterApi(true);
+          }
+        })
+        .catch(() => {});
+    }).catch(() => {});
+
+    // 3) Firestore masters/{uid} 문서 구독
     const unsubMaster = onSnapshot(
       doc(db, "masters", user.uid),
       (snap) => {
@@ -230,6 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         displayName: user.displayName,
         nickname: (data?.nickname as string | undefined) ?? null,
         avatarId: (data?.avatarId as string | undefined) ?? null,
+        role: (data?.role as "master" | "user" | undefined) ?? undefined,
         themeMode: data?.themeMode as UserProfile["themeMode"],
         accentId: data?.accentId as string | undefined,
         customAccentHex: data?.customAccentHex as string | undefined,
@@ -1049,7 +1077,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isGuest: !!user?.isAnonymous,
         authBusy,
-        isMaster: isMasterDoc || isMasterEmail(user?.email),
+        isMaster:
+          isMasterApi ||
+          isMasterToken ||
+          profile?.role === "master" ||
+          isMasterDoc ||
+          isMasterEmail(user?.email),
         signInAsGuest,
         linkAccountWithGoogle,
         linkAccountWithApple,
