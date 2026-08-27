@@ -76,7 +76,7 @@ interface AuthContextValue {
   updateNickname: (nickname: string) => Promise<void>;
   updateAvatar: (avatarId: string) => Promise<void>;
   updateThemePrefs: (prefs: {
-    themeMode?: string;
+    themeMode?: UserProfile["themeMode"];
     accentId?: string;
     customAccentHex?: string;
     bagColorId?: string;
@@ -347,6 +347,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [rawProfile, unlockLiveStatus]);
 
   const packDisplayStatesRef = useRef<NonNullable<UserProfile["packDisplayStates"]>>({});
+  const packDisplayDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const themeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expandedPackFolderDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expandedBagFolderDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     packDisplayStatesRef.current = profile?.packDisplayStates ?? {};
   }, [profile?.packDisplayStates]);
@@ -576,9 +581,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { avatarId }, { merge: true });
   };
 
-  // 화면 모드/강조 색상을 계정에 저장 (기기 간 동기화용). 로그인 안 했으면 아무것도 안 함.
+  // 화면 모드/강조 색상을 계정에 저장 (기기 간 동기화용). 슬라이더/피커 조작 시
+  // 연쇄 쓰기를 방지하기 위해 로컬에 먼저 즉시 반영하고 서버 저장은 400ms 디바운스한다.
   const updateThemePrefs = async (prefs: {
-    themeMode?: string;
+    themeMode?: UserProfile["themeMode"];
     accentId?: string;
     customAccentHex?: string;
     bagColorId?: string;
@@ -598,7 +604,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     packCardFontScale?: number;
   }) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), prefs, { merge: true });
+    setRawProfile((prev) => (prev ? { ...prev, ...prefs } : prev));
+    if (themeDebounceTimerRef.current) clearTimeout(themeDebounceTimerRef.current);
+    themeDebounceTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, "users", user.uid), prefs, { merge: true }).catch((err) => {
+        console.error("[팩인백] 테마 설정 저장 실패:", err);
+      });
+    }, 400);
   };
 
   // 글자 크기 설정 (계정에 저장해서 기기 간 동기화)
@@ -702,11 +714,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  // 팩 트리에서 펼쳐져있는 폴더 id 목록. 폴더를 탭할 때마다 호출되므로 빈도가 높을 수 있지만,
-  // 배열 하나 쓰는 가벼운 쓰기라 부담이 크지 않다.
+  // 팩 트리에서 펼쳐져있는 폴더 id 목록. 연속 탭 시의 Firestore 쓰기/읽기를 줄이기 위해
+  // 로컬에 먼저 즉시 반영하고 서버 저장은 800ms 디바운스한다.
   const updateExpandedPackFolderIds = async (ids: string[]) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { expandedPackFolderIds: ids }, { merge: true });
+    setRawProfile((prev) => (prev ? { ...prev, expandedPackFolderIds: ids } : prev));
+    if (expandedPackFolderDebounceTimerRef.current) clearTimeout(expandedPackFolderDebounceTimerRef.current);
+    expandedPackFolderDebounceTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, "users", user.uid), { expandedPackFolderIds: ids }, { merge: true }).catch((err) => {
+        console.error("[팩인백] 팩 폴더 펼침 상태 저장 실패:", err);
+      });
+    }, 800);
   };
 
   // --- 가방보관함 폴더 (개인 메타데이터, 가방 문서 미수) -----------------------------
@@ -795,9 +813,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // 가방 폴더 펼침 상태 디바운스 저장
   const updateExpandedBagFolderIds = async (ids: string[]) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { expandedBagFolderIds: ids }, { merge: true });
+    setRawProfile((prev) => (prev ? { ...prev, expandedBagFolderIds: ids } : prev));
+    if (expandedBagFolderDebounceTimerRef.current) clearTimeout(expandedBagFolderDebounceTimerRef.current);
+    expandedBagFolderDebounceTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, "users", user.uid), { expandedBagFolderIds: ids }, { merge: true }).catch((err) => {
+        console.error("[팩인백] 가방 폴더 펼침 상태 저장 실패:", err);
+      });
+    }, 800);
   };
 
   // 가방 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
@@ -864,10 +889,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 가방 문서가 아니라 계정(users/{uid})에만 쓰기 때문에, 같은 사용자가 다른 기기에서도
   // 그대로 보이고 다른 그룹원에게는 전혀 영향을 주지 않는다. 키는 `${bagId}:${packId}`.
   // 낙관적(optimistic) 로컬 반영: Firestore 왕복(onSnapshot)을 기다리지 않고 로컬 rawProfile을
-  // 먼저 갱신한다. 안 그러면 handleChangeDisplayState에서 이 두 함수를 연달아 호출할 때(예:
-  // "가방 열 때 팩 접어서 보기" 오버라이드를 끄는 순간과 동시에) 화면 오버라이드는 즉시 꺼지는데
-  // 서버 값은 아직 반영 전이라, 그 사이(네트워크 왕복 시간) 잠깐 잘못된 기본값(collapsed 대신
-  // normal)으로 보이는 깜빡임 버그가 있었다.
+  // 먼저 갱신하고, 서버 저장은 800ms 디바운스하여 연속 클릭 시의 Write/Read 낭비를 차단한다.
   const updatePackDisplayState = async (
     bagId: string,
     packId: string,
@@ -877,7 +899,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const next = { ...packDisplayStatesRef.current, [`${bagId}:${packId}`]: state };
     packDisplayStatesRef.current = next;
     setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
-    await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
+    if (packDisplayDebounceTimerRef.current) clearTimeout(packDisplayDebounceTimerRef.current);
+    packDisplayDebounceTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, "users", user.uid), { packDisplayStates: packDisplayStatesRef.current }, { merge: true }).catch(
+        (err) => {
+          console.error("[팩인백] 팩 표시 상태 저장 실패:", err);
+        }
+      );
+    }, 800);
   };
 
   // 상단 "전체확장/전체접기" 컨트롤용 - 같은 가방 안 모든 팩을 한번에 같은 상태로 바꾼다.
@@ -891,7 +920,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     for (const packId of packIds) next[`${bagId}:${packId}`] = state;
     packDisplayStatesRef.current = next;
     setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
-    await setDoc(doc(db, "users", user.uid), { packDisplayStates: next }, { merge: true });
+    if (packDisplayDebounceTimerRef.current) clearTimeout(packDisplayDebounceTimerRef.current);
+    packDisplayDebounceTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, "users", user.uid), { packDisplayStates: packDisplayStatesRef.current }, { merge: true }).catch(
+        (err) => {
+          console.error("[팩인백] 전체 팩 표시 상태 저장 실패:", err);
+        }
+      );
+    }, 800);
   };
 
   // 이 가방만의 보기 방식(팩뷰/심플뷰) 개별 오버라이드. 이것도 사용자별 설정이라
