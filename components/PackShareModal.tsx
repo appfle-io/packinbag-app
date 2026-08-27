@@ -30,6 +30,8 @@ interface PackShareModalProps {
   pack?: Pack;
   folder?: Pack;
   folderPacks?: Pack[];
+  bagId?: string;
+  onTokenGenerated?: (token: string) => void;
   onClose: () => void;
 }
 
@@ -148,6 +150,8 @@ export default function PackShareModal({
   pack,
   folder,
   folderPacks = [],
+  bagId,
+  onTokenGenerated,
   onClose,
 }: PackShareModalProps) {
   const { user } = useAuth();
@@ -269,12 +273,14 @@ export default function PackShareModal({
             folderId: folder?.id,
             folder: folder ?? undefined,
             packs: isFolder ? displayPacks : undefined,
+            bagId,
           }),
         });
         if (res.ok) {
           const data = await res.json();
           if (active && data.token) {
             setShareToken(data.token);
+            onTokenGenerated?.(data.token);
           }
         }
       } catch (err) {
@@ -288,7 +294,7 @@ export default function PackShareModal({
     return () => {
       active = false;
     };
-  }, [user, pack, folder, isFolder, displayPacks]);
+  }, [user, pack, folder, isFolder, displayPacks, bagId, onTokenGenerated]);
 
   const shareUrl = shareToken
     ? typeof window !== "undefined"

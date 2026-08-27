@@ -1482,6 +1482,17 @@ export default function PackNoteEditorScreen({
             editorDoc: editor?.getJSON() || pack.editorDoc,
             editorPreviewText: editor ? extractPlainTextPreview(editor.getJSON()) : pack.editorPreviewText,
           }}
+          bagId={bagId}
+          onTokenGenerated={(token) => {
+            if (pack.publicShareToken !== token) {
+              onSave({
+                ...pack,
+                publicShareToken: token,
+                editorDoc: editor?.getJSON() || pack.editorDoc,
+                editorPreviewText: editor ? extractPlainTextPreview(editor.getJSON()) : pack.editorPreviewText,
+              });
+            }
+          }}
           onClose={() => setShowShareModal(false)}
         />
       )}

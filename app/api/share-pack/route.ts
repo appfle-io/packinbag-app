@@ -20,12 +20,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않아요" }, { status: 400 });
   }
 
-  const { pack, packs, folder, folderId, packId } = body as {
+  const { pack, packs, folder, folderId, packId, bagId } = body as {
     pack?: Pack;
     packs?: Pack[];
     folder?: Pack;
     folderId?: string;
     packId?: string;
+    bagId?: string;
   };
 
   let uid: string;
@@ -48,17 +49,45 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1. 기존 토큰이 있는지 확인 (유저 보관함 문서 또는 넘어온 팩 객체에서 조회)
-    const userDocRef = db.collection("users").doc(uid).collection("libraryPacks").doc(targetId);
-    const existingSnap = await userDocRef.get();
+    // 1. 기존 토큰이 있는지 확인 (가방 문서 또는 유저 보관함 문서 또는 넘어온 팩 객체에서 조회)
+    let bagRef: FirebaseFirestore.DocumentReference | null = null;
+    let bagData: FirebaseFirestore.DocumentData | null = null;
+    let packInBag: Pack | null = null;
+
+    if (bagId) {
+      bagRef = db.collection("bags").doc(bagId);
+      const bagSnap = await bagRef.get();
+      if (bagSnap.exists) {
+        bagData = bagSnap.data() || null;
+        const isMemberOrOwner =
+          bagData?.ownerId === uid ||
+          (Array.isArray(bagData?.members) && bagData.members.some((m: { uid: string }) => m.uid === uid));
+        if (isMemberOrOwner && Array.isArray(bagData?.packs)) {
+          packInBag = bagData.packs.find((p: Pack) => p.id === targetId) || null;
+        }
+      }
+    }
+
+    const userDocRef = !bagId ? db.collection("users").doc(uid).collection("libraryPacks").doc(targetId) : null;
+    const existingSnap = userDocRef ? await userDocRef.get() : null;
+
     let token =
-      (existingSnap.exists ? (existingSnap.data()?.publicShareToken as string | undefined) : undefined) ||
+      packInBag?.publicShareToken ||
+      (existingSnap?.exists ? (existingSnap.data()?.publicShareToken as string | undefined) : undefined) ||
       pack?.publicShareToken ||
       folder?.publicShareToken;
 
     if (!token) {
       token = generateShareToken();
-      if (existingSnap.exists) {
+      if (bagRef && bagData && Array.isArray(bagData.packs)) {
+        const updatedPacks = bagData.packs.map((p: Pack) =>
+          p.id === targetId ? { ...p, publicShareToken: token } : p
+        );
+        await bagRef.update({
+          packs: updatedPacks,
+          updatedAt: new Date().toISOString(),
+        });
+      } else if (existingSnap?.exists && userDocRef) {
         await userDocRef.update({ publicShareToken: token });
       }
     }

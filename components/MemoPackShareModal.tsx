@@ -20,10 +20,17 @@ import MemoDocViewer from "@/components/MemoDocViewer";
 
 interface MemoPackShareModalProps {
   pack: Pack;
+  bagId?: string;
+  onTokenGenerated?: (token: string) => void;
   onClose: () => void;
 }
 
-export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModalProps) {
+export default function MemoPackShareModal({
+  pack,
+  bagId,
+  onTokenGenerated,
+  onClose,
+}: MemoPackShareModalProps) {
   const { user } = useAuth();
   const { show } = useToast();
   const ambientLayer = useOverlayLayer();
@@ -55,6 +62,7 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
           body: JSON.stringify({
             packId: pack.id,
             pack,
+            bagId,
           }),
         });
         if (res.ok) {
@@ -62,6 +70,7 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
           if (active && data.token) {
             setShareToken(data.token);
             syncedPackIdRef.current = pack.id;
+            onTokenGenerated?.(data.token);
           }
         }
       } catch (err) {
@@ -75,7 +84,7 @@ export default function MemoPackShareModal({ pack, onClose }: MemoPackShareModal
     return () => {
       active = false;
     };
-  }, [user, pack.id]);
+  }, [user, pack.id, bagId, onTokenGenerated]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = shareToken ? `${origin}/p/${shareToken}` : "";
