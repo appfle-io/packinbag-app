@@ -40,10 +40,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 마스터(운영자) 이메일 판정 - 여러 match 블록에서 공통으로 쓴다.
-    function isMasterEmail() {
-      return request.auth.token.email in
-        ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+    // 마스터(운영자) 판정 - masters/{uid} 문서 존재 또는 role == 'master' 커스텀 클레임
+    function isMaster() {
+      return request.auth != null && (
+        request.auth.token.get('role', '') == 'master' ||
+        exists(/databases/$(database)/documents/masters/$(request.auth.uid))
+      );
+    }
+
+    // 마스터 권한 목록 컬렉션. 클라이언트는 쓰기 불가(서버 Admin SDK만 등록 가능).
+    match /masters/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
     }
 
     match /users/{uid} {
@@ -75,7 +83,7 @@ service cloud.firestore {
         // 지금은 마스터가 다른 사람의 notifications 하위 컬렉션에 쓰는
         // 유일한 경로(문의 답변 등록 시). 나중에 푸시용 서버 라우트가 생기면
         // Admin SDK를 쓰면 이 규칙을 그대로 통과한다.
-        allow create: if request.auth != null && isMasterEmail();
+        allow create: if isMaster();
 
         // 댓글 멘션 알림: 같은 가방 멤버끼리에게만 서로 알림을 남길 수 있다.
         // relatedBagId로 가리키는 가방을 조회해서 쓰는 사람(request.auth.uid)와
@@ -122,7 +130,7 @@ service cloud.firestore {
     // 세 필드만 바꿀 수 있다(질문 내용 자체는 위조 불가).
     match /inquiries/{inquiryId} {
       allow read: if request.auth != null &&
-        (resource.data.uid == request.auth.uid || isMasterEmail());
+        (resource.data.uid == request.auth.uid || isMaster());
 
       allow create: if request.auth != null &&
         request.resource.data.uid == request.auth.uid &&
@@ -133,7 +141,7 @@ service cloud.firestore {
         request.resource.data.content is string &&
         request.resource.data.content.size() > 0 && request.resource.data.content.size() <= 2000;
 
-      allow update: if request.auth != null && isMasterEmail() &&
+      allow update: if isMaster() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answer', 'answeredAt']) &&
         request.resource.data.status == 'answered' &&
         request.resource.data.answer is string && request.resource.data.answer.size() > 0;
@@ -149,26 +157,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // 공지사항: 로그인한 사람 누구나 읽을 수 있고, 마스터(운영자) 이메일만 쓸 수 있다.
+    // 공지사항: 로그인한 사람 누구나 읽을 수 있고, 마스터(운영자)만 쓸 수 있다.
     match /announcements/{announcementId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null &&
-        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+      allow write: if isMaster();
     }
 
     // AI 이용권 코드: 코드를 아는 사람이면 존재 여부만 조회 가능(get, 참여처럼 목록조회는 금지).
     // 마스터(운영자)는 전체 목록 조회 + 새 코드 생성이 가능 (이용권 코드 관리 화면용).
     match /unlockCodes/{code} {
       allow get: if request.auth != null;
-      allow list: if request.auth != null &&
-        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
-      allow create: if request.auth != null &&
-        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+      allow list, create: if isMaster();
 
       // 마스터가 "무효화" 버튼을 눌렀을 때만 허용: status/invalidatedAt 두 필드만 바꿀 수 있고,
       // 반드시 'invalidated'로 바꾸는 경우만 허용한다 (claimedBy 등 위조 불가).
-      allow update: if request.auth != null &&
-        request.auth.token.email in ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'] &&
+      allow update: if isMaster() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'invalidatedAt']) &&
         request.resource.data.status == 'invalidated';
 
@@ -180,14 +183,14 @@ service cloud.firestore {
     // app/api/admin/audit-logs(Admin SDK) 라우트를 통해서만 조회한다 - 아래 read 규칙은
     // 그 라우트가 아니라 혹시 모를 직접 클라이언트 조회를 대비한 이중 방어용이다.
     match /auditLogs/{logId} {
-      allow read: if request.auth != null && isMasterEmail();
+      allow read: if isMaster();
       allow write: if false;
     }
 
     // AI 템플릿 심사 및 모니터링 로그. 마스터(운영자)만 전체 목록을 읽고 삭제할 수 있다.
     // 생성(create)은 백엔드 API (app/api/inspect-template/route.ts, Admin SDK)에서만 수행한다.
     match /templateInspectLogs/{logId} {
-      allow read, delete: if request.auth != null && isMasterEmail();
+      allow read, delete: if isMaster();
       allow write, create: if false;
     }
 

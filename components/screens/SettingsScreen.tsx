@@ -16,7 +16,6 @@ const TemplateInspectLogsModal = dynamic(
 import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
-import { isMasterEmail } from "@/lib/masterEmails";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { APP_VERSION } from "@/lib/changelog";
 import {
@@ -156,7 +155,7 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { user, profile, updateDefaultTab, updateShortUrlEnabled, isGuest, logout } = useAuth();
+  const { user, profile, isMaster, updateDefaultTab, updateShortUrlEnabled, isGuest, logout } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -174,7 +173,6 @@ export default function SettingsScreen({
 
   const startTab = profile?.defaultTab ?? "home";
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
-  const isMaster = isMasterEmail(profile?.email);
   const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
   const premium = isPremiumUser(profile?.email, profile);
   const aiUsedCount = currentAiUsageCount(profile);

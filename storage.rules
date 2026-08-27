@@ -37,9 +37,11 @@ service firebase.storage {
       return request.auth.uid == bagDataOf(bagId).ownerId && bagDataOf(bagId).get('locked', false) == true;
     }
 
-    function isMasterEmail() {
-      return request.auth.token.email in
-        ['appfle.dev@gmail.com', 'appfle.io@gmail.com', 'dg931217@naver.com'];
+    function isMaster() {
+      return request.auth != null && (
+        request.auth.token.get('role', '') == 'master' ||
+        firestore.exists(/databases/(default)/documents/masters/$(request.auth.uid))
+      );
     }
 
     // 지금 요청 중인 사람(request.auth.uid)이 프리미엄인지 - app/api 라우트들의
@@ -49,7 +51,7 @@ service firebase.storage {
     function isPremium() {
       let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
       let code = userDoc.get('unlockCode', null);
-      return isMasterEmail() || (
+      return isMaster() || (
         code != null &&
         firestore.exists(/databases/(default)/documents/unlockCodes/$(code)) &&
         firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.get('status', 'active') != 'invalidated' &&

@@ -43,6 +43,7 @@ import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
 import { UserProfile } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
+import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned } from "@/lib/listSort";
 import { deleteAllUserData } from "@/lib/accountService";
@@ -59,6 +60,7 @@ interface AuthContextValue {
   // (넘어갔다가 마지막에 signOut하면서 다시 로그인 화면으로 튕기는 부자연스러운
   // 깜빡임이 생기기 때문 - AppShell에서 이 값을 user와 함께 확인해서 막는다).
   authBusy: boolean;
+  isMaster: boolean;
   signInAsGuest: () => Promise<void>;
   linkAccountWithGoogle: () => Promise<void>;
   linkAccountWithApple: () => Promise<void>;
@@ -174,8 +176,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   // signUpWithEmail/resendVerificationByCredential처럼 잠깐 로그인했다가 곧바로
   // signOut하는 흐름 동안 true. AppShell이 이 값을 user와 함께 확인해서 그 사이엔
-  // 절대 홈 화면으로 넘어가지 않게 막는다.
   const [authBusy, setAuthBusy] = useState(false);
+  const [isMasterDoc, setIsMasterDoc] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setIsMasterDoc(false);
+      return;
+    }
+    const unsubMaster = onSnapshot(
+      doc(db, "masters", user.uid),
+      (snap) => {
+        setIsMasterDoc(snap.exists());
+      },
+      () => {
+        setIsMasterDoc(false);
+      }
+    );
+    return () => unsubMaster();
+  }, [user]);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -1030,6 +1049,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isGuest: !!user?.isAnonymous,
         authBusy,
+        isMaster: isMasterDoc || isMasterEmail(user?.email),
         signInAsGuest,
         linkAccountWithGoogle,
         linkAccountWithApple,
