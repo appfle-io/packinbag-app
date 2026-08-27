@@ -2,7 +2,6 @@
 
 import { IconLock, IconPin, IconPinFilled } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
-import { getPackColorHex } from "@/lib/packColors";
 import { getProgressRatio } from "@/lib/itemStats";
 import ProgressRing from "@/components/ProgressRing";
 
@@ -26,7 +25,6 @@ export default function PackTile({
   isDragOver?: boolean;
 }) {
   const itemNames = pack.items.map((i) => i.text || "(빈 항목)");
-  const dotHex = getPackColorHex(pack.color);
   const ratio = getProgressRatio(pack.items);
 
   return (
@@ -39,7 +37,7 @@ export default function PackTile({
       }}
       className="relative aspect-square rounded-xl border border-border p-[calc(12px*var(--pack-library-card-scale,1))] md:p-[calc(16px*var(--pack-library-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer"
       style={{
-        background: dotHex ? `${dotHex}26` : "var(--pack-library-card-bg)",
+        background: "var(--pack-library-card-bg)",
         opacity: isDragSource ? 0.4 : locked ? 0.6 : 1,
         boxShadow: isDragOver ? "0 0 0 2px var(--accent)" : undefined,
         // 카드를 길게 누르면 순서변경 드래그(PacksScreen)로 이어지는데, 이 카드에는
@@ -62,12 +60,6 @@ export default function PackTile({
       {/* 제목 줄: 점(색상)+이름은 왼쪽에서 최대한 넓게, 고정핀은 오른쪽 끝에 별도 자리. */}
       <div className="flex items-start justify-between gap-1 shrink-0">
         <span className="flex items-center gap-1.5 min-w-0 flex-1">
-          {dotHex && (
-            <span
-              className="h-2 w-2 rounded-full shrink-0"
-              style={{ background: dotHex, transform: "scale(var(--pack-library-card-scale,1))" }}
-            />
-          )}
           <span className="text-[calc(13px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] md:text-[calc(14px*var(--pack-library-card-scale,1)*var(--font-scale-factor,1))] font-medium line-clamp-2 min-w-0">
             {pack.name}
           </span>

@@ -47,7 +47,6 @@ export default function DesktopShell({
   onRemoveItemsFromBagPack,
   onNewPack,
   onNewFolder,
-  onChangePackColor,
   onRenamePackEntry,
   onMovePackEntries,
   onSavePack,
@@ -97,7 +96,6 @@ export default function DesktopShell({
   onRemoveItemsFromBagPack: (bagId: string, packId: string, itemIds: Set<string>) => void;
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => Promise<Pack | void> | Pack | void;
   onNewFolder: (parentId?: string) => void;
-  onChangePackColor: (pack: Pack, colorId: string | undefined) => void;
   onRenamePackEntry: (pack: Pack, name: string) => void;
   onMovePackEntries: (packIds: string[], parentId: string | undefined) => void;
   onSavePack: (pack: Pack) => void;
@@ -256,7 +254,6 @@ export default function DesktopShell({
         onRenameBag={onRenameBag}
         onNewPack={handleNewPack}
         onNewFolder={onNewFolder}
-        onChangeColor={onChangePackColor}
         onRenamePackEntry={onRenamePackEntry}
         onMovePackEntries={onMovePackEntries}
         onDeletePackEntry={onDeletePack}

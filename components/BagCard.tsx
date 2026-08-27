@@ -3,7 +3,6 @@
 import { IconLock, IconPin, IconPinFilled, IconArchive, IconArchiveOff, IconUsers, IconCheck } from "@tabler/icons-react";
 import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
-import { getPackColorHex } from "@/lib/packColors";
 import { getViewablePacks } from "@/lib/premiumLimits";
 import { formatDDayLabel } from "@/lib/dday";
 import ProgressRing from "@/components/ProgressRing";
@@ -182,23 +181,15 @@ export default function BagCard({
                 pack.kind === "editor"
                   ? "메모"
                   : formatItemCountLabel(pack.items, false);
-              const dotHex = getPackColorHex(pack.color);
               return (
                 <div
                   key={pack.id}
                   className="flex items-center gap-1.5 text-[calc(11.5px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary min-w-0"
                 >
-                  {dotHex ? (
-                    <span
-                      className="h-1.5 w-1.5 rounded-full shrink-0"
-                      style={{ background: dotHex, transform: "scale(var(--bag-card-scale,1))" }}
-                    />
-                  ) : (
-                    <span
-                      className="h-1.5 w-1.5 rounded-full shrink-0 bg-text-muted/60"
-                      style={{ transform: "scale(var(--bag-card-scale,1))" }}
-                    />
-                  )}
+                  <span
+                    className="h-1.5 w-1.5 rounded-full shrink-0 bg-text-muted/60"
+                    style={{ transform: "scale(var(--bag-card-scale,1))" }}
+                  />
                   <span className="truncate flex-1 font-normal text-text-secondary">
                     {pack.name}
                   </span>

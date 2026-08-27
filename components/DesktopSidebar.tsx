@@ -186,7 +186,6 @@ export default function DesktopSidebar({
   onRenameBag,
   onNewPack,
   onNewFolder,
-  onChangeColor,
   onRenamePackEntry,
   onMovePackEntries,
   onDeletePackEntry,
@@ -203,7 +202,6 @@ export default function DesktopSidebar({
   onRenameBag: (bag: Bag, name: string) => void;
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
   onNewFolder: (parentId?: string) => void;
-  onChangeColor: (pack: Pack, colorId: string | undefined) => void;
   onRenamePackEntry: (pack: Pack, name: string) => void;
   onMovePackEntries: (packIds: string[], parentId: string | undefined) => void;
   onDeletePackEntry: (packId: string) => void;

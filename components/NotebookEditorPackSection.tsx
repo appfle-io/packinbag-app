@@ -18,7 +18,6 @@ import {
   IconPencil,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
-import { getPackColorHex } from "@/lib/packColors";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import SwipeRenameField from "./SwipeRenameField";
@@ -85,7 +84,6 @@ export default function NotebookEditorPackSection({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
-  const accentHex = getPackColorHex(pack.color);
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
   const packImages = pack.images ?? [];
   const hasContent = Boolean(pack.editorDoc || pack.editorPreviewText);
@@ -128,12 +126,6 @@ export default function NotebookEditorPackSection({
           >
             <IconGripVertical size={15} stroke={1.75} />
           </span>
-        )}
-        {accentHex && (
-          <span
-            className="shrink-0 h-1.5 w-1.5 rounded-full"
-            style={{ background: accentHex }}
-          />
         )}
         <IconNotes size={13} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
         <SwipeRenameField

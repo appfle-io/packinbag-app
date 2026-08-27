@@ -17,7 +17,6 @@ import {
   IconLock,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
-import { getPackColorHex } from "@/lib/packColors";
 import { collectEditorDocPreviewLines } from "@/lib/editorDocPreview";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
@@ -84,7 +83,6 @@ export default function EditorPackCard({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
-  const accentHex = getPackColorHex(pack.color);
   const displayState = pack.displayState ?? "normal";
   const isCollapsed = displayState === "collapsed";
   const packImages = pack.images ?? [];
@@ -104,9 +102,7 @@ export default function EditorPackCard({
             ? "0 2px 0 0 var(--accent)"
             : "0 -2px 0 0 var(--accent)"
           : undefined,
-        background: accentHex
-          ? `color-mix(in srgb, ${accentHex} var(--pack-card-bg-pct, 100%), transparent)`
-          : "var(--pack-card-bg)",
+        background: "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
         transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
       }}

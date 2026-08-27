@@ -1078,15 +1078,8 @@ export default function AppShell() {
   // 트리에서 직접 바꿀 때는 이 경로를 쓴다).
   const handleRenameLibraryEntry = (pack: Pack, name: string) => {
     saveLibraryPackRemote(user, { ...pack, name }).catch((err) => {
-      console.error("[팩인백] 이름 바꿀 실패:", err);
-      show(`이름 바꿀에 실패했어요 (${firebaseErrorCode(err)})`);
-    });
-  };
-
-  const handleChangePackColor = (pack: Pack, colorId: string | undefined) => {
-    saveLibraryPackRemote(user, { ...pack, color: colorId }).catch((err) => {
-      console.error("[팩인백] 색상 변경 실패:", err);
-      show(`색상 변경에 실패했어요 (${firebaseErrorCode(err)})`);
+      console.error("[팩인백] 이름 바꾸기 실패:", err);
+      show(`이름 바꾸기에 실패했어요 (${firebaseErrorCode(err)})`);
     });
   };
 
@@ -1275,7 +1268,6 @@ export default function AppShell() {
           onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
           onNewPack={openNewPack}
           onNewFolder={handleCreateFolder}
-          onChangePackColor={handleChangePackColor}
           onRenamePackEntry={handleRenameLibraryEntry}
           onMovePackEntries={handleMoveLibraryEntries}
           onSavePack={handleSavePack}
@@ -1489,7 +1481,6 @@ export default function AppShell() {
           onNewPack={openNewPack}
           onNewFolder={handleCreateFolder}
           onRenameEntry={handleRenameLibraryEntry}
-          onChangeColor={handleChangePackColor}
           onMoveEntries={handleMoveLibraryEntries}
           onBack={() => setShowPackTree(false)}
           onBulkDeletePacks={handleBulkDeletePacks}

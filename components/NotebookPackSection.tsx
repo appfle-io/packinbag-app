@@ -18,7 +18,6 @@ import {
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
-import { getPackColorHex } from "@/lib/packColors";
 import { useAuth } from "@/contexts/AuthProvider";
 import ItemRow from "./ItemRow";
 import SwipeRenameField from "./SwipeRenameField";
@@ -141,7 +140,6 @@ export default function NotebookPackSection({
   const { profile } = useAuth();
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   const ratio = getProgressRatio(pack.items);
-  const accentHex = getPackColorHex(pack.color);
   const checkItems = pack.items.filter((i) => i.type === "check");
   const allChecked = checkItems.length > 0 && checkItems.every((i) => i.checked);
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
@@ -191,12 +189,6 @@ export default function NotebookPackSection({
             <IconGripVertical size={15} stroke={1.75} />
           </span>
         )}
-        {accentHex && (
-          <span
-            className="shrink-0 h-1.5 w-1.5 rounded-full"
-            style={{ background: accentHex }}
-          />
-        )}
         <SwipeRenameField
           value={pack.name}
           onChange={onRenamePack}
@@ -210,7 +202,7 @@ export default function NotebookPackSection({
             aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
             className="shrink-0"
           >
-            <ProgressRing ratio={ratio} size={16} accentHex={accentHex ?? undefined} />
+            <ProgressRing ratio={ratio} size={16} />
           </button>
         )}
         {ratio !== null && (

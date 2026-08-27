@@ -19,7 +19,6 @@ import {
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
-import { getPackColorHex } from "@/lib/packColors";
 import { useAuth } from "@/contexts/AuthProvider";
 import ItemRow from "./ItemRow";
 import SwipeRenameField from "./SwipeRenameField";
@@ -153,7 +152,6 @@ export default function PackCard({
   const { profile } = useAuth();
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   const ratio = getProgressRatio(pack.items);
-  const accentHex = getPackColorHex(pack.color);
   const checkItems = pack.items.filter((i) => i.type === "check");
   const allChecked = checkItems.length > 0 && checkItems.every((i) => i.checked);
   const displayState = pack.displayState ?? "normal";
@@ -179,9 +177,7 @@ export default function PackCard({
             ? "0 2px 0 0 var(--accent)"
             : "0 -2px 0 0 var(--accent)"
           : undefined,
-        background: accentHex
-          ? `color-mix(in srgb, ${accentHex} var(--pack-card-bg-pct, 100%), transparent)`
-          : "var(--pack-card-bg)",
+        background: "var(--pack-card-bg)",
         opacity: isPackDragSource ? 0.4 : 1,
         transition: "box-shadow 120ms ease, border-color 120ms ease, opacity 120ms ease",
       }}
@@ -221,7 +217,7 @@ export default function PackCard({
               aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
               style={{ transform: "scale(var(--pack-card-scale,1))" }}
             >
-              <ProgressRing ratio={ratio} size={19} accentHex={accentHex ?? undefined} />
+              <ProgressRing ratio={ratio} size={19} />
             </button>
           )}
           <span className="text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">

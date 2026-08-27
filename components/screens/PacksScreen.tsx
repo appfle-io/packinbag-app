@@ -82,7 +82,6 @@ export default function PacksScreen({
   onNewPack,
   onNewFolder,
   onRenameEntry,
-  onChangeColor,
   onMoveEntries,
   onBack,
   onBulkDeletePacks,
@@ -104,7 +103,6 @@ export default function PacksScreen({
   onNewFolder: (parentId?: string) => void;
   // 트리 행에서 이름을 바꿀 때(폴더는 편집 화면이 없어서 이 경로가 유일한 이름 변경 수단).
   onRenameEntry: (pack: Pack, name: string) => void;
-  onChangeColor: (pack: Pack, colorId: string | undefined) => void;
   // 다중선택 후 "이동" 액션, 그리고 드래그로 다른 폴더에 떨어뜨렸을 때도 이 콜백을 쓴다.
   // 선택된 id들을 parentId(없으면 최상위)로 옮긴다.
   onMoveEntries: (packIds: string[], parentId: string | undefined) => void;

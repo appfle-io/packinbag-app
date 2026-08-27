@@ -58,7 +58,17 @@ import LinkActionMenu from "@/components/LinkActionMenu";
 import CustomUrlModal from "@/components/CustomUrlModal";
 import ShortenUrlModal from "@/components/ShortenUrlModal";
 import EditLinkModal from "@/components/EditLinkModal";
-import { PACK_COLORS } from "@/lib/packColors";
+
+const TEXT_COLORS = [
+  { id: "red", hex: "#ef4444", label: "레드" },
+  { id: "orange", hex: "#f97316", label: "오렌지" },
+  { id: "amber", hex: "#f59e0b", label: "옐로" },
+  { id: "green", hex: "#22c55e", label: "그린" },
+  { id: "teal", hex: "#14b8a6", label: "틸" },
+  { id: "blue", hex: "#3b82f6", label: "블루" },
+  { id: "purple", hex: "#a855f7", label: "퍼플" },
+  { id: "pink", hex: "#ec4899", label: "핑크" },
+];
 import {
   MAX_EDITOR_DOC_BYTES,
   checkEditorDocSizeForSave,
@@ -1369,7 +1379,7 @@ export default function PackNoteEditorScreen({
                 </button>
               </div>
               <div className="flex flex-wrap gap-2.5">
-                {PACK_COLORS.filter((c) => c.hex).map((c) => (
+                {TEXT_COLORS.map((c) => (
                   <button
                     key={c.id}
                     onMouseDown={(e) => e.preventDefault()}

@@ -75,7 +75,7 @@ export interface Pack {
   linkedLibraryUpdatedAt?: string;
   createdAt?: string; // 보관함 팩 정렬(생성일자)용. 최초 저장 시점에 서버에서 채워짐
   updatedAt?: string;
-  // 팩 카드/태그에 보여줄 색상 프리셋 id (lib/packColors.ts 참고). 없으면 무색.
+  // [사용 안 함 - 과거 호환용] 예전 팩별 개별 색상 지정 필드. 더 이상 UI에서 사용하지 않는다.
   color?: string;
   // [사용 안 함 - UserProfile.packDisplayStates로 이전됨] 예전에는 이 팩의 펼침/접힘/넓게보기
   // 상태를 여기(가방 문서, 그룹 전체 공유)에 저장했는데, 그룹원끼리 접고 펴는 상태가 서로
