@@ -109,6 +109,8 @@ export default function MemoPackShareModal({
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         <div
           onClick={(e) => e.stopPropagation()}

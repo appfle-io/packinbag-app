@@ -46,9 +46,9 @@ export default function GuidePackSaveDemo() {
 
   return (
     <div className="w-full flex flex-col gap-3 select-none">
-      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+      <div className="p-3.5 rounded-2xl bg-white dark:bg-surface border border-border flex flex-col gap-3">
         {/* 1단계: 가방 1에서 팩을 보관함에 저장하기 */}
-        <div className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2 shadow-xs">
+        <div className="rounded-xl border border-border bg-white dark:bg-surface-2 p-3.5 flex flex-col gap-2 shadow-xs">
         <div className="flex items-center justify-between pb-2 border-b border-border">
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
@@ -80,11 +80,7 @@ export default function GuidePackSaveDemo() {
             <IconAlignLeft size={16} stroke={1.75} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-text-muted">
-              {isSavedInLibrary ? "저장 완료!" : "우측 저장 아이콘 클릭"}
-            </span>
-
+          <div className="flex items-center gap-1">
             {/* 실제 앱의 저장 버튼 */}
             <button
               type="button"
@@ -93,9 +89,9 @@ export default function GuidePackSaveDemo() {
               title="보관함에 저장"
             >
               {isSavedInLibrary ? (
-                <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
+                <IconDeviceFloppyFilled size={18} stroke={1.75} className="text-accent" />
               ) : (
-                <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
+                <IconDeviceFloppy size={18} stroke={1.75} className="text-text-secondary" />
               )}
             </button>
             <button type="button" className="p-1.5 text-text-muted">
@@ -106,7 +102,7 @@ export default function GuidePackSaveDemo() {
       </div>
 
       {/* 2단계: 가방 2에서 "+ 팩 추가" 버튼을 눌러 보관함에서 실제 팩 카드 불러오기 */}
-      <div className="rounded-xl border border-border/80 bg-surface-2/40 p-3.5 flex flex-col gap-2.5 shadow-xs">
+      <div className="rounded-xl border border-border bg-surface-2/40 p-3.5 flex flex-col gap-2.5 shadow-xs">
         <div className="flex items-center justify-between pb-1">
           <span className="text-[12px] font-bold text-foreground">
             가방 2 (다음 여행)

@@ -11,6 +11,8 @@ import {
   IconPhoto,
 } from "@tabler/icons-react";
 
+import Portal from "@/components/Portal";
+
 export default function GuideMemoDemo() {
   const [showEditorModal, setShowEditorModal] = useState(false);
   const [memoTitle, setMemoTitle] = useState("도쿄 3박4일 여행 일정 & 맛집");
@@ -20,11 +22,11 @@ export default function GuideMemoDemo() {
 
   return (
     <div className="w-full flex flex-col gap-2.5 select-none">
-      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-2.5">
+      <div className="p-3.5 rounded-2xl bg-white dark:bg-surface border border-border flex flex-col gap-2.5">
         {/* 메모팩 카드 */}
         <div
           onClick={() => setShowEditorModal(true)}
-          className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs hover:border-accent/60 p-4 transition-all cursor-pointer flex flex-col gap-2.5 shadow-xs"
+          className="rounded-xl border border-border bg-white dark:bg-surface-2 hover:border-accent/60 p-4 transition-all cursor-pointer flex flex-col gap-2.5 shadow-xs"
         >
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <div className="flex items-center gap-1.5 font-bold text-[13.5px] text-foreground">
@@ -41,7 +43,7 @@ export default function GuideMemoDemo() {
           </p>
 
           <div className="pt-1 flex items-center justify-between text-[11px] text-text-muted">
-            <span>서식, 표, 링크 지원</span>
+            <span>서식 · 표 · 링크 지원</span>
             <span className="text-accent font-medium">편집창 열기 &rarr;</span>
           </div>
         </div>
@@ -49,77 +51,80 @@ export default function GuideMemoDemo() {
 
       {/* 실제 메모팩 에디터 팝업 모달 */}
       {showEditorModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
-          onClick={() => setShowEditorModal(false)}
-        >
+        <Portal>
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl bg-surface p-4 border border-border shadow-2xl flex flex-col gap-3 max-h-[85vh] overflow-hidden"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+            onClick={() => setShowEditorModal(false)}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <span className="font-semibold text-[14px] text-foreground">메모팩 에디터</span>
-              <button
-                type="button"
-                onClick={() => setShowEditorModal(false)}
-                className="text-text-muted text-[12px] p-1"
-              >
-                ✕
-              </button>
-            </div>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl bg-surface p-4 border border-border shadow-2xl flex flex-col gap-3 max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-border">
+                <span className="font-semibold text-[14px] text-foreground">메모팩 에디터</span>
+                <button
+                  type="button"
+                  onClick={() => setShowEditorModal(false)}
+                  className="text-text-muted hover:text-foreground text-[12px] p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
 
-            {/* 에디터 툴바 */}
-            <div className="flex items-center gap-1 p-1 bg-surface-2 rounded-lg border border-border overflow-x-auto">
-              <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary" title="굵게">
-                <IconBold size={15} />
-              </button>
-              <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary" title="기울임">
-                <IconItalic size={15} />
-              </button>
-              <div className="h-4 w-[1px] bg-border mx-1" />
-              <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary" title="체크리스트">
-                <IconListCheck size={15} />
-              </button>
-              <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary" title="표(테이블)">
-                <IconTable size={15} />
-              </button>
-              <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary" title="링크 추가">
-                <IconLink size={15} />
-              </button>
-              <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary" title="사진">
-                <IconPhoto size={15} />
-              </button>
-            </div>
+              {/* 에디터 툴바 */}
+              <div className="flex items-center gap-1 p-1 bg-surface-2 rounded-lg border border-border overflow-x-auto">
+                <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary cursor-pointer" title="굵게">
+                  <IconBold size={15} />
+                </button>
+                <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary cursor-pointer" title="기울임">
+                  <IconItalic size={15} />
+                </button>
+                <div className="h-4 w-[1px] bg-border mx-1" />
+                <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary cursor-pointer" title="체크리스트">
+                  <IconListCheck size={15} />
+                </button>
+                <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary cursor-pointer" title="표(테이블)">
+                  <IconTable size={15} />
+                </button>
+                <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary cursor-pointer" title="링크 추가">
+                  <IconLink size={15} />
+                </button>
+                <button type="button" className="p-1.5 rounded hover:bg-surface text-text-secondary cursor-pointer" title="사진">
+                  <IconPhoto size={15} />
+                </button>
+              </div>
 
-            {/* 제목 입력 */}
-            <input
-              type="text"
-              value={memoTitle}
-              onChange={(e) => setMemoTitle(e.target.value)}
-              placeholder="메모 제목"
-              className="w-full text-[15px] font-bold bg-transparent outline-none border-b border-border pb-2 text-foreground"
-            />
+              {/* 제목 입력 */}
+              <input
+                type="text"
+                value={memoTitle}
+                onChange={(e) => setMemoTitle(e.target.value)}
+                placeholder="메모 제목"
+                className="w-full text-[15px] font-bold bg-transparent outline-none border-b border-border pb-2 text-foreground"
+              />
 
-            {/* 본문 텍스트 영역 */}
-            <textarea
-              value={memoContent}
-              onChange={(e) => setMemoContent(e.target.value)}
-              rows={6}
-              className="w-full text-[13px] bg-surface-2/50 rounded-lg p-2.5 outline-none border border-border resize-none leading-relaxed text-foreground"
-            />
+              {/* 본문 텍스트 영역 */}
+              <textarea
+                value={memoContent}
+                onChange={(e) => setMemoContent(e.target.value)}
+                rows={6}
+                className="w-full text-[13px] bg-surface-2/50 rounded-lg p-2.5 outline-none border border-border resize-none leading-relaxed text-foreground"
+              />
 
-            <div className="pt-1 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowEditorModal(false)}
-                className="flex-1 rounded-xl py-2 text-[13px] text-white font-medium shadow-xs"
-                style={{ background: "var(--accent)" }}
-              >
-                저장 완료
-              </button>
+              <div className="pt-1 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditorModal(false)}
+                  className="flex-1 rounded-xl py-2 text-[13px] text-white font-medium shadow-xs bg-accent cursor-pointer"
+                >
+                  저장 완료
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
     </div>
   );

@@ -318,6 +318,8 @@ export default function ItemEditModal({
           background: "rgba(0,0,0,0.45)",
         }}
         onClick={onClose}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         <div
           onClick={(e) => e.stopPropagation()}

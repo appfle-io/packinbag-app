@@ -12,6 +12,8 @@ import {
 } from "@tabler/icons-react";
 import { Bag, Item, Pack } from "@/lib/types";
 import Confetti from "./Confetti";
+import Portal from "@/components/Portal";
+import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 
 interface PackingModeModalProps {
   bag: Bag;
@@ -140,10 +142,19 @@ export default function PackingModeModal({
     }
   };
 
+  const ambientLayer = useOverlayLayer();
+  const resolvedZIndex = ambientLayer + POPOVER_OFFSET;
+
   return (
-    <div className="fixed inset-0 z-50 bg-background text-foreground flex flex-col animate-in fade-in duration-200">
-      {/* 100% 달성 시 축하 콘페티 */}
-      {showConfetti && <Confetti onComplete={() => setShowConfetti(false)} />}
+    <Portal>
+      <div
+        className="fixed inset-0 bg-background text-foreground flex flex-col animate-in fade-in duration-200"
+        style={{ zIndex: resolvedZIndex }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
+        {/* 100% 달성 시 축하 콘페티 */}
+        {showConfetti && <Confetti onComplete={() => setShowConfetti(false)} />}
 
       {/* 상단 헤더 */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface shrink-0">
@@ -316,5 +327,6 @@ export default function PackingModeModal({
         )}
       </div>
     </div>
+    </Portal>
   );
 }

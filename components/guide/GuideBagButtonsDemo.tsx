@@ -189,21 +189,8 @@ export default function GuideBagButtonsDemo() {
         </div>
       </div>
 
-      {/* 상태 안내 뱃지 */}
-      <div className="flex items-center gap-2 text-[11px] text-text-muted px-1">
-        <span>모든 버튼/체크박스를 직접 눌러보세요:</span>
-        <span className="font-medium text-foreground">
-          {viewMode === "pack" ? "팩뷰 (카드형)" : "심플뷰 (문서형)"}
-        </span>
-        {onlyMine && (
-          <span className="px-1.5 py-0.2 rounded bg-accent-soft text-accent font-medium">
-            내 짐만 보는 중
-          </span>
-        )}
-      </div>
-
       {/* 실시간 렌더링 영역 */}
-      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+      <div className="p-3.5 rounded-2xl bg-white dark:bg-surface border border-border flex flex-col gap-3">
         {viewMode === "pack" ? (
           // 1) 팩뷰 (PackCard 카드 바둑판 형태)
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -216,7 +203,7 @@ export default function GuideBagButtonsDemo() {
                 const packItems = filteredItems.filter((i) => i.packId === p.id);
                 const doneCount = packItems.filter((i) => i.checked).length;
                 return (
-                  <div key={p.id} className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2 shadow-xs">
+                  <div key={p.id} className="rounded-xl border border-border bg-white dark:bg-surface-2 p-3.5 flex flex-col gap-2 shadow-xs">
                     <div className="flex items-center justify-between pb-2 border-b border-border">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full shrink-0 ${p.id === "p-1" ? "bg-blue-500" : "bg-emerald-500"}`} />
@@ -235,7 +222,7 @@ export default function GuideBagButtonsDemo() {
                         <div className="flex items-center gap-2 min-w-0">
                           <div
                             className={`h-3.5 w-3.5 rounded flex items-center justify-center shrink-0 ${
-                              item.checked ? "bg-accent text-white" : "border border-border-strong bg-surface/60"
+                              item.checked ? "bg-accent text-white" : "border border-border-strong bg-white dark:bg-surface"
                             }`}
                           >
                             {item.checked && <IconCheck size={10} stroke={3} />}
@@ -269,7 +256,7 @@ export default function GuideBagButtonsDemo() {
                             if (e.key === "Enter") handleAddItem(p.id);
                             if (e.key === "Escape") setQuickAddPackId(null);
                           }}
-                          className="flex-1 rounded-md border border-border bg-surface/80 px-2 py-1 text-[12px] outline-none text-foreground"
+                          className="flex-1 rounded-md border border-border bg-white dark:bg-surface px-2 py-1 text-[12px] outline-none text-foreground"
                         />
                         <button
                           type="button"
@@ -343,7 +330,7 @@ export default function GuideBagButtonsDemo() {
               const packItems = filteredItems.filter((i) => i.packId === p.id);
               const isMenuOpen = activeMenuPackId === p.id;
               return (
-                <div key={p.id} className="rounded-xl border border-border bg-surface/80 backdrop-blur-xs p-3.5 flex flex-col gap-2.5 shadow-xs relative">
+                <div key={p.id} className="rounded-xl border border-border bg-white dark:bg-surface-2 p-3.5 flex flex-col gap-2.5 shadow-xs relative">
                   {/* 심플뷰 팩 헤더 */}
                   <div className="flex items-center justify-between pb-2 border-b border-border">
                     <div className="flex items-center gap-2">
@@ -369,7 +356,7 @@ export default function GuideBagButtonsDemo() {
 
                       {/* 드롭다운 팝업 메뉴 */}
                       {isMenuOpen && (
-                        <div className="absolute right-0 top-7 z-20 w-32 rounded-xl bg-surface border border-border shadow-lg p-1 flex flex-col text-[12px]">
+                        <div className="absolute right-0 top-7 z-20 w-32 rounded-xl bg-white dark:bg-surface border border-border shadow-lg p-1 flex flex-col text-[12px]">
                           <button
                             type="button"
                             onClick={() => handleToggleSavePack(p.id)}

@@ -1259,12 +1259,14 @@ export default function ShareCardModal({
     <Portal>
       <OverlayLayerProvider value={resolvedZIndex}>
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-10 sm:pt-14 p-4 overflow-y-auto animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-150"
           style={{ zIndex: resolvedZIndex }}
           onClick={onClose}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
         >
           <div
-            className="w-full max-w-sm bg-surface border border-border rounded-2xl p-5 shadow-2xl flex flex-col max-h-[88vh] animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-surface border border-border rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 상단 모달 헤더 */}

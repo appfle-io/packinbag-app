@@ -207,6 +207,8 @@ export default function PackImportModal({
         className="fixed inset-0 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity"
         style={{ zIndex: ambientLayer + POPOVER_OFFSET }}
         onClick={onClose}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         <div
           onClick={(e) => e.stopPropagation()}

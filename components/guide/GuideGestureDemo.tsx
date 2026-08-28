@@ -106,7 +106,7 @@ export default function GuideGestureDemo() {
   return (
     <div className="w-full flex flex-col gap-2.5 select-none">
       {/* 캔버스 배경 */}
-      <div className="p-3.5 rounded-2xl bg-surface-2 border border-border/80 flex flex-col gap-3">
+      <div className="p-3.5 rounded-2xl bg-white dark:bg-surface border border-border flex flex-col gap-3">
         {/* 1) 스와이프 및 더블클릭 대상 아이템 행 */}
         <div
           className="relative w-full overflow-hidden rounded-xl border border-border/80 bg-red-500/10 cursor-grab active:cursor-grabbing touch-pan-y"
@@ -140,7 +140,7 @@ export default function GuideGestureDemo() {
 
         {/* 전면 카드 행 */}
         <div
-          className="relative flex items-center justify-between p-3.5 bg-surface border border-border rounded-xl transition-transform duration-200 ease-out shadow-2xs"
+          className="relative flex items-center justify-between p-3.5 bg-white dark:bg-surface border border-border rounded-xl transition-transform duration-200 ease-out shadow-xs cursor-pointer"
           style={{ transform: `translateX(${currentOffset}px)` }}
           onClick={() => setItem((prev) => ({ ...prev, checked: !prev.checked }))}
         >
@@ -149,67 +149,29 @@ export default function GuideGestureDemo() {
               className={`h-4 w-4 rounded flex items-center justify-center shrink-0 border transition-colors ${
                 item.checked
                   ? "bg-accent border-accent text-white"
-                  : "border-border-strong bg-surface-2"
+                  : "border-border-strong bg-surface"
               }`}
             >
               {item.checked && <IconCheck size={11} stroke={3} />}
             </div>
-            <div className="flex flex-col min-w-0">
-              <span className={`text-[13px] font-medium truncate ${item.checked ? "line-through text-text-muted" : "text-foreground"}`}>
-                {item.text}
-              </span>
-              <span className="text-[10.5px] text-text-muted">
-                탭하여 챙김 · 왼쪽 밀어 삭제 · 더블탭 상세수정
-              </span>
-            </div>
+            <span className={`text-[13.5px] font-medium truncate ${item.checked ? "line-through text-text-muted" : "text-foreground"}`}>
+              {item.text}
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowEditModal(true);
               }}
-              className="text-[11px] font-medium px-2 py-1 rounded-lg bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-foreground transition-colors cursor-pointer"
+              className="text-[11px] font-medium px-2 py-1 rounded-md bg-surface-2 text-text-secondary hover:text-foreground transition-colors cursor-pointer border border-border/60"
             >
-              수정 모달
+              상세 수정
             </button>
           </div>
         </div>
-      </div>
-
-      {/* 2) 인터랙션 제어 버튼 바 */}
-      <div className="flex items-center justify-between gap-1.5 pt-0.5">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => pauseAutoAndSetOffset(-56)}
-            className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors ${
-              currentOffset === -56
-                ? "bg-red-500/15 border-red-500/40 text-red-600 dark:text-red-400"
-                : "bg-surface/50 border-border/60 hover:border-border text-text-secondary"
-            }`}
-          >
-            ← 왼쪽으로 밀기 (삭제)
-          </button>
-          <button
-            type="button"
-            onClick={() => pauseAutoAndSetOffset(0)}
-            className="px-2.5 py-1 rounded-lg border border-border/60 bg-surface/50 hover:border-border text-[11px] text-text-secondary transition-colors"
-          >
-            제자리로
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowEditModal(true)}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent-soft text-accent text-[11px] font-semibold hover:bg-accent hover:text-white transition-colors cursor-pointer"
-        >
-          <IconClick size={13} stroke={2} />
-          <span>더블탭 수정 열기</span>
-        </button>
       </div>
       </div>
 
