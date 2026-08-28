@@ -193,7 +193,7 @@ function DeletingBagsOverlay({
 }
 
 export default function AppShell() {
-  const { user, profile, loading, authBusy } = useAuth();
+  const { user, profile, loading, authBusy, isMaster } = useAuth();
   const { show } = useToast();
   const isDesktop = useIsDesktop();
 
@@ -341,8 +341,11 @@ export default function AppShell() {
 
   // 지금 이 사용자가 프리미엄인지 - AuthProvider가 unlockCodes/{code} 문서까지 실시간
   // 구독해서 profile에 얹어주므로(unlockCodeLiveStatus), 관리자가 무효화하는 순간
-  // 이 값도 바로 바뀐다.
-  const premium = user && profile ? isPremiumUser(user.email, profile) : false;
+  // 이 값도 바로 바뀐다. 마스터 계정은 언제나 무조건 프리미엄이다.
+  const premium =
+    isMaster ||
+    profile?.role === "master" ||
+    (user && profile ? isPremiumUser(user.email, profile) : false);
 
   // 이용권 상태(premium)가 true<->false로 바뀌는 순간을 감지한다.
   // - 첫 렌더에서는 기준값만 저장하고 아무 동작도 하지 않는다(로그인 직후 로딩 중 잠깐
@@ -386,7 +389,7 @@ export default function AppShell() {
     }
   }, [premium, user, show]);
 
-  // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄이면 항상 빈 집합.
+  // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄/마스터이면 항상 빈 집합.
   // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
   const lockedPackIds = user && !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();

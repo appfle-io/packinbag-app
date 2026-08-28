@@ -2,7 +2,7 @@
 // "직전에" 반드시 거쳐야 하는 서버 측 검증.
 
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
-import { isMasterEmail } from "@/lib/masterEmails";
+import { checkIsMaster } from "@/lib/adminApiAuth";
 import { AI_FREE_DAILY_LIMIT, todayKstKey } from "@/lib/aiUsageConfig";
 
 export class AiAuthError extends Error {}
@@ -49,7 +49,8 @@ export async function verifyAndCheckAiQuota(req: Request): Promise<AiQuotaCheckR
 
     const ref = db.collection("users").doc(uid);
 
-    if (isMasterEmail(email)) {
+    const isMaster = await checkIsMaster(uid, email);
+    if (isMaster) {
       return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT, uid };
     }
 

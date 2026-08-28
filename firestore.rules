@@ -40,11 +40,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 마스터(운영자) 판정 - masters/{uid} 문서 존재 또는 role == 'master' 커스텀 클레임
+    // 마스터(운영자) 판정 - Custom Claims 또는 masters/{uid} 또는 users/{uid}.role == 'master'
     function isMaster() {
       return request.auth != null && (
         request.auth.token.get('role', '') == 'master' ||
-        exists(/databases/$(database)/documents/masters/$(request.auth.uid))
+        exists(/databases/$(database)/documents/masters/$(request.auth.uid)) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'master'
       );
     }
 
@@ -57,16 +58,13 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
 
-      // premiumPurchase(인앱결제 영구구매 여부)는 RevenueCat 웹훅(app/api/revenuecat-webhook,
-      // Admin SDK)만 쓸 수 있다 - 클라이언트가 devtools로 이 필드를 직접 써넣어
-      // 프리미엄을 자칭하는 것을 막기 위해, 일반 create/update에서는 이 필드를
-      // 절대 포함하거나 바꿀 수 없게 막는다(Admin SDK는 규칙 자체를 우회하므로
-      // 웹훅은 여기와 무관하게 정상 동작한다).
+      // premiumPurchase, role(마스터 권한)은 서버(Admin SDK)만 쓸 수 있다.
       allow create: if request.auth != null && request.auth.uid == uid &&
-        !('premiumPurchase' in request.resource.data);
+        !('premiumPurchase' in request.resource.data) &&
+        !('role' in request.resource.data);
 
       allow update: if request.auth != null && request.auth.uid == uid &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['premiumPurchase']);
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['premiumPurchase', 'role']);
 
       allow delete: if request.auth != null && request.auth.uid == uid;
 

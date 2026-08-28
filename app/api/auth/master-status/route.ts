@@ -1,6 +1,7 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { checkIsMaster, syncMasterStateBackground } from "@/lib/adminApiAuth";
+import { syncOwnedBagLocks } from "@/lib/bagLockSync";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,10 @@ export async function GET(req: NextRequest) {
 
     if (isMaster) {
       syncMasterStateBackground(verified.uid, verified.email);
+      // 마스터의 과거 잠겼던 가방들을 전부 unlocked로 즉시 복구
+      syncOwnedBagLocks(verified.uid).catch((err) => {
+        console.error("[팩인백] 마스터 가방 잠금 해제 실패:", err);
+      });
     }
 
     return NextResponse.json({ isMaster });
@@ -21,3 +26,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ isMaster: false }, { status: 200 });
   }
 }
+

@@ -40,6 +40,7 @@ export function isUnlimitedAiUser(
   email: string | null | undefined,
   profile: UserProfile | null
 ): boolean {
+  if (profile?.role === "master") return true;
   if (isMasterEmail(email)) return true;
   if (!profile?.unlockCode) return false;
   // 실시간 구독(AuthProvider)으로 방금 무효화/만료가 확인됐으면, 캐시된 unlockCodeExpiresAt
