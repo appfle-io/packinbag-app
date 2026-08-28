@@ -62,8 +62,6 @@ import BagEditorScreen from "@/components/screens/BagEditorScreen";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
-import PackTreeSwipeHint from "@/components/PackTreeSwipeHint";
-import BagListSwipeHint from "@/components/BagListSwipeHint";
 import SlideScreen from "@/components/SlideScreen";
 import SlideUpSheet from "@/components/SlideUpSheet";
 import { useToast } from "@/components/Toast";
@@ -233,14 +231,12 @@ export default function AppShell() {
     setDisplayedSheetPack(editingPack);
   }, [editingPack]);
   // 가방 보관함/팩 보관함 상단 검색 결과를 눌러서 들어왔을 때만 채워진다. 각각
-  // BagEditorScreen(focusTarget)/PackLibraryEditorScreen(focusItemId)에 그대로 넘겨서 해당
-  // 팩(+짐)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
-  const [bagFocus, setBagFocus] = useState<{ packId?: string; itemId?: string } | null>(null);
+  // BagEditorScreen(focusTarget)/PackLibraryEditorScreen(focusItemId)/PackNoteEditorScreen(initialSearchQuery)에 그대로 넘겨서 해당
+  // 팩(+짐/메모 텍스트)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
+  const [bagFocus, setBagFocus] = useState<{ packId?: string; itemId?: string; searchQuery?: string } | null>(null);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
-  // 설정은 이제 하단탭(오른쪽)이다. 팩 트리(PacksScreen)는 탭이 아니라 가방보관함에서
-  // 왼쪽에서 오른쪽으로 스와이프하면 풀스크린으로 열리는 화면이다(editingBag/editingPack과
-  // 동일한 "위로 쌓이는" 패턴) - 아래 handleTouchEnd의 스와이프 처리 참고.
-  const [showPackTree, setShowPackTree] = useState(false);
+  const [packFocusSearchQuery, setPackFocusSearchQuery] = useState<string | null>(null);
+  const [packsSelectMode, setPacksSelectMode] = useState(false);
   // 하단 중앙 "+" 버튼(빠른입력) 모달 표시 여부.
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [splashMinTimeDone, setSplashMinTimeDone] = useState(false);
@@ -266,23 +262,14 @@ export default function AppShell() {
 
 
   // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭 전환).
-  // "packs"(팩 보관함)는 실제 하단탭이 아니라 가방보관함 탭 위에 여는 오버레이라서,
-  // 탭 자체는 home으로 두고 showPackTree만 같이 켜준다.
-  // Firestore(외부 시스템)에서 온 값을 반영하는 의도된 동기화라 set-state-in-effect 규칙은 비활성화한다.
   useEffect(() => {
     if (!profile || appliedDefaultTabRef.current) return;
     if (!profile.defaultTab) return;
     appliedDefaultTabRef.current = true;
-    if (profile.defaultTab === "packs") {
+    if (profile.defaultTab === "home" || profile.defaultTab === "packs" || profile.defaultTab === "settings") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTab("home");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setShowPackTree(true);
-      return;
+      setTab(profile.defaultTab);
     }
-    if (profile.defaultTab !== "home" && profile.defaultTab !== "settings") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTab(profile.defaultTab);
   }, [profile]);
 
   const showSplash = loading || !splashMinTimeDone;
@@ -552,7 +539,7 @@ export default function AppShell() {
             show(data?.error || "팩을 가져오지 못했어요.");
             return;
           }
-          setShowPackTree(true);
+          setTab("packs");
           show(data?.message || "팩을 보관함으로 가져왔어요!");
         } catch (err) {
           console.error("[팩인백] 팩 가져오기 실패:", err);
@@ -1309,17 +1296,10 @@ export default function AppShell() {
     );
   }
 
-  const tabOrder: TabKey[] = ["home", "settings"];
+  const tabOrder: TabKey[] = ["packs", "home", "settings"];
   const tabIndex = tabOrder.indexOf(tab);
 
   // 빈 배경(카드/버튼/입력이 아닌 곳)을 좌우로 스와이프/드래그하면 탭이 전환된다.
-  // 터치(모바일)와 마우스(데스크톱/트랙패드 웹) 둘 다 동일하게 작동해야 하니, 좌표/무시 판단
-  // 로직을 공통 함수로 뿑아서 둘 다에서 재사용한다.
-  // 가방보관함(home, index 0) 화면에서 왼쪽에서 오른쪽으로 스와이프(dx>0)하는 건
-  // 원래 "이전 탭 없음"으로 아무 동작도 안 하던 빈 슬롯이다 - 이 자리를 팩 트리 화면
-  // 열기에 재활용해서(v68), 기존 탭전환 스와이프와 충돌 없이 깔끔하게 공존한다. 마우스로도
-  // 동일하게 동작하므로(handleMouseDown/Up), 데스크톱에서도 따로 버튼 없이 이 드래그만으로 팩
-  // 트리를 열 수 있다(v70: 헤더 폴더 아이콘 삭제됨 - 이제 이 스와이프/엣지 힌트(PackTreeSwipeHint)가 유일한 진입점).
   const handleSwipeGestureEnd = (dx: number, dy: number, isMouse = false) => {
     // 세로 이동(dy)이 45px 이상이거나, 가로/세로 비율이 1.7 미만이면 세로 스크롤로 간주
     if (Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 1.7) return;
@@ -1328,10 +1308,6 @@ export default function AppShell() {
     if (Math.abs(dx) < minThreshold) return;
 
     const currentIndex = tabOrder.indexOf(tab);
-    if (dx > 0 && currentIndex === 0) {
-      setShowPackTree(true);
-      return;
-    }
     if (dx < 0 && currentIndex < tabOrder.length - 1) {
       setTab(tabOrder[currentIndex + 1]);
     } else if (dx > 0 && currentIndex > 0) {
@@ -1350,14 +1326,14 @@ export default function AppShell() {
     );
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (homeSelectMode) return;
+    if (homeSelectMode || packsSelectMode) return;
     const ignore = isSwipeIgnoredTarget(e.target);
     const t = e.touches[0];
     swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (homeSelectMode) return;
+    if (homeSelectMode || packsSelectMode) return;
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
@@ -1365,16 +1341,15 @@ export default function AppShell() {
     handleSwipeGestureEnd(t.clientX - start.x, t.clientY - start.y, false);
   };
 
-  // 데스크톱 웹(마우스)에서도 동일한 탭전환/패 트리 열기 제스처가 되도록 마우스 드래그도
-  // 동일한 로직으로 처리한다(onTouchStart/End는 모바일에서만 발생하고 마우스 이벤트는 따로 처리해야 함).
+  // 데스크톱 웹(마우스)에서도 동일한 탭전환 제스처가 되도록 마우스 드래그도 처리
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (homeSelectMode) return;
+    if (homeSelectMode || packsSelectMode) return;
     const ignore = isSwipeIgnoredTarget(e.target);
     swipeStartRef.current = { x: e.clientX, y: e.clientY, ignore };
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (homeSelectMode) return;
+    if (homeSelectMode || packsSelectMode) return;
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     if (!start || start.ignore) return;
@@ -1395,15 +1370,43 @@ export default function AppShell() {
           <div
             className="flex h-full"
             style={{
-              width: "200%",
-              transform: `translateX(-${tabIndex * (100 / 2)}%)`,
-              transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+              width: "300%",
+              transform: `translateX(-${tabIndex * (100 / 3)}%)`,
+              transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
+            {/* 1. 팩 보관함 탭 */}
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
+              <PacksScreen
+                uid={user.uid}
+                packs={activePacks}
+                bags={activeBags}
+                quickPack={quickPack}
+                onOpenPack={(pack, focusItemId, searchQuery) => {
+                  setEditingPack(pack);
+                  setPackFocusItemId(focusItemId ?? null);
+                  setPackFocusSearchQuery(searchQuery ?? null);
+                }}
+                onOpenBag={(bag, focus) => {
+                  setIsNewBag(false);
+                  setEditingBag(bag);
+                  setBagFocus(focus ?? null);
+                }}
+                onNewPack={openNewPack}
+                onNewFolder={handleCreateFolder}
+                onRenameEntry={handleRenameLibraryEntry}
+                onMoveEntries={handleMoveLibraryEntries}
+                onBulkDeletePacks={handleBulkDeletePacks}
+                onSelectModeChange={setPacksSelectMode}
+              />
+            </div>
+
+            {/* 2. 가방 보관함 탭 */}
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
               <HomeScreen
                 uid={user.uid}
                 bags={activeBags}
+                packs={activePacks}
                 initialInviteCode={inviteCodeFromUrl()}
                 lockedBagIds={lockedBagIds}
                 quickPack={quickPack}
@@ -1413,6 +1416,11 @@ export default function AppShell() {
                   setEditingBag(bag);
                   setBagFocus(focus ?? null);
                 }}
+                onOpenPack={(pack, focusItemId, searchQuery) => {
+                  setEditingPack(pack);
+                  setPackFocusItemId(focusItemId ?? null);
+                  setPackFocusSearchQuery(searchQuery ?? null);
+                }}
                 onNewBag={openNewBag}
                 onImportNote={openNewBagFromNote}
                 onJoinBag={handleJoinBag}
@@ -1421,7 +1429,9 @@ export default function AppShell() {
                 onSelectModeChange={setHomeSelectMode}
               />
             </div>
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 2}%` }}>
+
+            {/* 3. 설정 탭 */}
+            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
               <SettingsScreen
                 uid={user.uid}
                 announcements={announcements}
@@ -1441,55 +1451,13 @@ export default function AppShell() {
             </div>
           </div>
         </div>
-        {!homeSelectMode && (
+        {!homeSelectMode && !packsSelectMode && (
           <>
             <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
             <InstallPrompt />
           </>
         )}
-        {tab === "home" && !showPackTree && !editingBag && !editingPack && !homeSelectMode && (
-          <PackTreeSwipeHint
-            enabled={profile?.bagSettings?.packTreeHintEnabled ?? profile?.packSettings?.packTreeHintEnabled ?? true}
-            onOpen={() => setShowPackTree(true)}
-          />
-        )}
       </div>
-
-      {/* 팩보관함(PacksScreen) - 가방보관함 탭 위에 오른쪽에서 슬라이드-인 되는 오버레이.
-          bags/packs는 항상 준비돼있는 데이터라 editingBag과 달리 별도 캐싱 없이 그대로 써도 된다. */}
-      <SlideScreen
-        active={showPackTree}
-        zIndex={60}
-        from="left"
-        innerClassName="relative flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top"
-      >
-        <PacksScreen
-          uid={user.uid}
-          packs={activePacks}
-          bags={activeBags}
-          quickPack={quickPack}
-          onOpenPack={(pack, focusItemId) => {
-            setEditingPack(pack);
-            setPackFocusItemId(focusItemId ?? null);
-          }}
-          onOpenBag={(bag, focus) => {
-            setShowPackTree(false);
-            setIsNewBag(false);
-            setEditingBag(bag);
-            setBagFocus(focus ?? null);
-          }}
-          onNewPack={openNewPack}
-          onNewFolder={handleCreateFolder}
-          onRenameEntry={handleRenameLibraryEntry}
-          onMoveEntries={handleMoveLibraryEntries}
-          onBack={() => setShowPackTree(false)}
-          onBulkDeletePacks={handleBulkDeletePacks}
-        />
-        <BagListSwipeHint
-          enabled={profile?.packSettings?.bagListHintEnabled ?? profile?.packSettings?.packTreeHintEnabled ?? true}
-          onOpen={() => setShowPackTree(false)}
-        />
-      </SlideScreen>
 
       {/* 가방 편집기 - 팩보관함보다 한 단계 더 위(zIndex 65)에서 슬라이드-인. editingBag이
           onBack에서 바로 null이 되므로, 닫히는 애니메이션 동안엔 캐싱해둔 displayedBag로 그린다. */}
@@ -1543,9 +1511,11 @@ export default function AppShell() {
           <PackNoteEditorScreen
             pack={displayedEditorPack}
             readOnly={false}
+            initialSearchQuery={packFocusSearchQuery ?? undefined}
             onBack={() => {
               setEditingPack(null);
               setPackFocusItemId(null);
+              setPackFocusSearchQuery(null);
             }}
             onSave={handleSavePack}
             onDeletePack={() => handleDeletePack(displayedEditorPack.id)}

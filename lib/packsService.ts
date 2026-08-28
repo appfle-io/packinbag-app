@@ -167,9 +167,21 @@ export async function getLibraryPacksOnce(uid: string): Promise<Pack[]> {
 
 // rootId의 모든 하위(직접 자식 + 손자...) id를 재귀로 모은다. allPacks에는 폴더 구조를
 // 다 잡아둬야 하니, 휴지통 예외 없이 항상 전체(필요시 휴지통 포함) 배열을 넘겨야 한다.
-export function collectDescendantPackIds(allPacks: Pack[], rootId: string): string[] {
-  const children = allPacks.filter((p) => p.parentId === rootId);
-  return children.flatMap((c) => [c.id, ...collectDescendantPackIds(allPacks, c.id)]);
+export function collectDescendantPackIds(
+  allPacks: Pack[],
+  rootId: string,
+  visited: Set<string> = new Set<string>()
+): string[] {
+  if (!rootId || visited.has(rootId)) return [];
+  visited.add(rootId);
+  const children = allPacks.filter((p) => p.parentId === rootId && !visited.has(p.id));
+  const result: string[] = [];
+  for (const c of children) {
+    result.push(c.id);
+    const sub = collectDescendantPackIds(allPacks, c.id, visited);
+    result.push(...sub);
+  }
+  return result;
 }
 
 // 팩/폴더를 다른 폴더로(또는 최상위로) 옮길 때 parentId 필드만 부분 업데이트한다.

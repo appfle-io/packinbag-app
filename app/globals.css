@@ -350,6 +350,20 @@ aside {
   border-radius: 10px;
 }
 
+@keyframes pib-text-highlight-pulse {
+  0%, 100% {
+    background-color: transparent;
+  }
+  15%, 45%, 75% {
+    background-color: var(--accent-soft);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+}
+.pib-text-search-highlight {
+  animation: pib-text-highlight-pulse 2.5s ease-in-out both;
+  border-radius: 4px;
+}
+
 /* 에디터팩(자유문서형 메모 팩)의 TipTap 렉더링 스타일. PackNoteEditorScreen(전체화면
    편집)과 EditorPackCard(가방 속 읽기전용 미리보기) 둘 다 이 클래스를 쓴다. */
 .pib-note-editor .ProseMirror {

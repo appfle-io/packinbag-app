@@ -166,6 +166,22 @@ export default function PackCard({
   // 이 패이 지금 다중선택 대상인지(selectedItemIds가 넘어옴).
   const selecting = !!selectedItemIds;
 
+  // 팩 카드 내부 세로 스크롤 제거 & 짐이 많을 때 인라인 더보기/접기 지원 (가방 전체 스크롤 충돌 해결)
+  const [isItemsExpanded, setIsItemsExpanded] = useState(false);
+  const DEFAULT_ITEM_LIMIT = isWide ? 12 : 8;
+  const needsExpand = displayItems.length > DEFAULT_ITEM_LIMIT;
+  // 선택 중이거나 드래그 중인 짐이 숨겨진 범위에 있으면 자동으로 펼쳐서 보여줌
+  const hasHiddenSelection =
+    selecting &&
+    Array.from(selectedItemIds || []).some(
+      (id) => displayItems.findIndex((i) => i.id === id) >= DEFAULT_ITEM_LIMIT
+    );
+  const isDragSourceHidden =
+    Boolean(dragSourceItemId) &&
+    displayItems.findIndex((i) => i.id === dragSourceItemId) >= DEFAULT_ITEM_LIMIT;
+  const isExpanded = isItemsExpanded || hasHiddenSelection || isDragSourceHidden;
+  const visibleItems = isExpanded || !needsExpand ? displayItems : displayItems.slice(0, DEFAULT_ITEM_LIMIT);
+
   return (
     <div
       data-pack-drop-id={pack.id}
@@ -198,6 +214,17 @@ export default function PackCard({
             </span>
           )}
           {/* 패 전체선택/해제는 이제 헤더의 진행률 링(ProgressRing)을 버튼으로 만들어 눈 - 아래 참고. */}
+          {ratio !== null && (
+            <button
+              onClick={() => onToggleAll(!allChecked)}
+              className="shrink-0 transition-transform active:scale-90 cursor-pointer"
+              title={allChecked ? "모두 완료 취소" : "모두 완료"}
+              aria-label={allChecked ? "모두 완료 취소" : "모두 완료"}
+              style={{ transform: "scale(var(--pack-card-scale,1))" }}
+            >
+              <ProgressRing ratio={ratio} size={19} />
+            </button>
+          )}
           <SwipeRenameField
             value={pack.name}
             onChange={onRenamePack}
@@ -211,15 +238,6 @@ export default function PackCard({
           />
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
-          {ratio !== null && (
-            <button
-              onClick={() => onToggleAll(!allChecked)}
-              aria-label={allChecked ? "이 팩 전체해제" : "이 팩 전체선택"}
-              style={{ transform: "scale(var(--pack-card-scale,1))" }}
-            >
-              <ProgressRing ratio={ratio} size={19} />
-            </button>
-          )}
           <span className="text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
             {pack.items.length}개
           </span>
@@ -255,20 +273,15 @@ export default function PackCard({
       {!isCollapsed && (
         <>
           <div
-            className={
-              isWide
-                ? "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] max-h-[calc(360px*var(--pack-card-scale,1))] md:max-h-[calc(456px*var(--pack-card-scale,1))]"
-                : "overflow-y-auto scrollbar-thin grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))] max-h-[calc(180px*var(--pack-card-scale,1))] md:max-h-[calc(228px*var(--pack-card-scale,1))]"
-            }
+            className="grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))]"
             style={{
-              overflowY: "auto",
               gridAutoRows: "min-content",
               gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",
               alignContent: "start",
               alignItems: "start",
             }}
           >
-            {displayItems.map((item) => {
+            {visibleItems.map((item) => {
               const isSelected = selecting && selectedItemIds!.has(item.id);
               return (
                 <div
@@ -307,23 +320,30 @@ export default function PackCard({
                     ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
                     assigneeNickname={item.assigneeUid ? memberProfiles?.[item.assigneeUid]?.nickname : undefined}
                     onClickAssignee={isShared && onClickAssignee ? () => onClickAssignee(item.id) : undefined}
-                    /*
-                    reactionDoc={getItemReactionDoc?.(item.id)}
-                    currentUid={currentUid}
-                    onToggleReaction={
-                      onToggleItemReaction
-                        ? (emoji, cur) => onToggleItemReaction(item.id, emoji, cur)
-                        : undefined
-                    }
-                    onOpenReactionPicker={
-                      onOpenReactionPicker ? () => onOpenReactionPicker(item.id, item.text) : undefined
-                    }
-                    */
                   />
                 </div>
               );
             })}
           </div>
+
+          {needsExpand && (
+            <button
+              type="button"
+              onClick={() => setIsItemsExpanded(!isItemsExpanded)}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-surface-2/60 hover:bg-surface-2 text-text-secondary text-[calc(11.5px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium transition-colors border border-border/40 cursor-pointer"
+            >
+              <span>
+                {isExpanded
+                  ? "간략히 접기"
+                  : `+ ${displayItems.length - DEFAULT_ITEM_LIMIT}개 짐 더보기 (총 ${displayItems.length}개)`}
+              </span>
+              <IconChevronDown
+                size={14}
+                stroke={2}
+                className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+              />
+            </button>
+          )}
 
           <div className="flex flex-col gap-1 pt-2.5 mt-2.5 border-t border-border shrink-0">
             <div className="flex items-center gap-2.5 text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">

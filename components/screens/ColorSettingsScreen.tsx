@@ -23,6 +23,7 @@ import { useToast } from "@/components/Toast";
 import BagCard from "@/components/BagCard";
 import PackCard from "@/components/PackCard";
 import type { Bag, Item, Pack, UserProfile } from "@/lib/types";
+import { useCanUse3Cols } from "@/lib/useCanUse3Cols";
 
 type Slot = "accent" | "bag" | "packGrid";
 
@@ -280,6 +281,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
   const [confirmReset, setConfirmReset] = useState(false);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { user, profile, updateBagCardSize } = useAuth();
+  const canUse3Cols = useCanUse3Cols();
   const [showColorLimitModal, setShowColorLimitModal] = useState(false);
 
   // 화면 설정 미리보기용 예시 가방
@@ -503,19 +505,23 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           extraContent={
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[11px] text-text-secondary">그리드 열 수 (1열 / 2열 / 3열)</p>
+                <p className="text-[11px] text-text-secondary">
+                  그리드 열 수 {canUse3Cols ? "(1열 / 2열 / 3열)" : "(1열 / 2열)"}
+                </p>
                 <p className="text-[11px] text-text-muted mt-1">
-                  가방 보관함에서 한 줄에 보여줄 카드의 열 수를 설정해요 (1열 / 2열 / 3열).
+                  {canUse3Cols
+                    ? "가방 보관함에서 한 줄에 보여줄 카드의 열 수를 설정해요 (1열 / 2열 / 3열)."
+                    : "화면 폭 550px 미만의 스마트폰에서는 최적의 가독성을 위해 1열과 2열만 제공돼요."}
                 </p>
               </div>
               <select
-                value={profile?.bagCardSize ?? "medium"}
+                value={!canUse3Cols && profile?.bagCardSize === "small" ? "medium" : profile?.bagCardSize ?? "medium"}
                 onChange={(e) => updateBagCardSize(e.target.value as NonNullable<UserProfile["bagCardSize"]>).catch(() => {})}
                 aria-label="가방 보관함 그리드 열 수"
                 className={selectClassName}
                 style={selectStyle}
               >
-                {bagCardSizes.map(({ key, label }) => (
+                {(canUse3Cols ? bagCardSizes : bagCardSizes.filter((s) => s.key !== "small")).map(({ key, label }) => (
                   <option key={key} value={key}>
                     {label}
                   </option>

@@ -182,7 +182,7 @@ export default function GuideContent({
   };
 
   return (
-    <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${className}`}>
+    <div className={`w-full flex flex-col overflow-hidden ${className}`}>
       {/* 1. 상단 카테고리 세그먼트 탭 (이모지/아이콘 제거) */}
       <div className="shrink-0 px-4 py-2.5 bg-surface border-b border-border/80 sticky top-0 z-10">
         <div className="max-w-xl mx-auto grid grid-cols-4 gap-1 p-1 bg-surface-2 rounded-xl border border-border/60 text-[12.5px]">
@@ -242,7 +242,7 @@ export default function GuideContent({
 
       {/* 2. 본문 카드 슬라이드 뷰 (단 1개 카드만 큼직하게 노출) */}
       <div
-        className="flex-1 overflow-y-auto px-4 py-4 max-w-xl mx-auto w-full flex flex-col justify-between gap-3 scrollbar-thin"
+        className="overflow-y-auto px-4 py-4 max-w-xl mx-auto w-full flex flex-col gap-3.5 scrollbar-thin"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

@@ -165,9 +165,21 @@ function buildBagRows(
 }
 
 // folderId(및 그 하위 폴더 전체)의 id 집합 - 순환 방지(자기 자신 하위로 옮기는 것 방지)용.
-function collectDescendantBagFolderIds(folders: Record<string, BagFolder>, rootId: string): string[] {
-  const children = Object.values(folders).filter((f) => f.parentId === rootId);
-  return children.flatMap((c) => [c.id, ...collectDescendantBagFolderIds(folders, c.id)]);
+function collectDescendantBagFolderIds(
+  folders: Record<string, BagFolder>,
+  rootId: string,
+  visited: Set<string> = new Set<string>()
+): string[] {
+  if (!rootId || visited.has(rootId)) return [];
+  visited.add(rootId);
+  const children = Object.values(folders).filter((f) => f.parentId === rootId && !visited.has(f.id));
+  const result: string[] = [];
+  for (const c of children) {
+    result.push(c.id);
+    const sub = collectDescendantBagFolderIds(folders, c.id, visited);
+    result.push(...sub);
+  }
+  return result;
 }
 
 export type DesktopSelection =
@@ -681,12 +693,23 @@ export default function DesktopSidebar({
   const pinnedBagIds = profile?.pinnedBagIds ?? [];
   const pinnedPackIds = profile?.pinnedPackIds ?? [];
 
+  const [sidebarExpandedPreviewIds, setSidebarExpandedPreviewIds] = useState<Set<string>>(new Set());
+  const toggleSidebarPreview = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSidebarExpandedPreviewIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const q = query.trim().toLowerCase();
 
   // 통합 검색 결과: 가방(가방이름, 가방속 팩, 가방속 짐, 가방 폴더)
   const bagSearchResults = useMemo(() => {
     if (!q) return [];
-    const base = searchBags(bags, q).results;
+    const base = searchBags(bags, q, treePacks).results;
     const matchingFolders = Object.values(bagFolders)
       .filter((f) => f.name.toLowerCase().includes(q))
       .map((f) => ({
@@ -697,7 +720,7 @@ export default function DesktopSidebar({
         folder: f,
       }));
     return [...matchingFolders, ...base];
-  }, [bags, bagFolders, q]);
+  }, [bags, bagFolders, treePacks, q]);
 
   // 통합 검색 결과: 팩 보관함(팩이름, 팩속 짐, 팩 메모내용, 팩 폴더)
   const packSearchResults = useMemo(() => {
@@ -1033,21 +1056,23 @@ export default function DesktopSidebar({
                       onClick={() => toggleBagFolderExpanded(res.folder.id)}
                       className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                     >
-                      <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{res.label}</span>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
-                        {isExpanded ? "펼쳐짐" : "폴더"}
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        폴더
+                      </span>
+                      <span className="text-[12.5px] font-semibold truncate min-w-0 flex-1">{res.label}</span>
+                      <span className="text-[10px] text-text-muted shrink-0">
+                        {isExpanded ? "펼쳐짐" : ""}
                       </span>
                     </div>
                   );
                 }
 
-                if (res.type === "bag") {
+                if (res.type === "bag" && res.bag) {
                   const isSelected = selection?.kind === "bag" && selection.bagId === res.bag.id && !selection.focusPackId;
                   return (
                     <div
                       key={res.id}
-                      onClick={() => onSelect({ kind: "bag", bagId: res.bag.id })}
+                      onClick={() => onSelect({ kind: "bag", bagId: res.bag!.id })}
                       className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                       style={{
                         background: isSelected ? "var(--accent-soft)" : undefined,
@@ -1055,35 +1080,72 @@ export default function DesktopSidebar({
                         fontWeight: isSelected ? 600 : undefined,
                       }}
                     >
-                      <IconBackpack size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{res.label}</span>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/80 bg-surface-2 text-text-secondary shrink-0">
                         가방
                       </span>
+                      <span className="text-[12.5px] font-semibold truncate min-w-0 flex-1">{res.label}</span>
                     </div>
                   );
                 }
 
                 if (res.type === "pack") {
-                  const isSelected = selection?.kind === "bag" && selection.bagId === res.bag.id && selection.focusPackId === res.packId;
+                  const isSelected =
+                    res.bag
+                      ? selection?.kind === "bag" && selection.bagId === res.bag.id && selection.focusPackId === res.packId
+                      : selection?.kind === "pack" && selection.packId === res.pack?.id;
+                  const isPreviewOpen = sidebarExpandedPreviewIds.has(res.id);
+                  const isEditor = res.isEditorPack;
                   return (
                     <div
                       key={res.id}
-                      onClick={() => onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId })}
-                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                      onClick={() => {
+                        if (res.bag) {
+                          onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId });
+                        } else if (res.pack) {
+                          onSelect({ kind: "pack", packId: res.pack.id });
+                        }
+                      }}
+                      className="flex flex-col gap-1 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                       style={{
                         background: isSelected ? "var(--accent-soft)" : undefined,
                         color: isSelected ? "var(--accent)" : undefined,
                       }}
                     >
-                      <IconNotes size={14} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-medium truncate">{res.label}</div>
-                        {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${
+                              isEditor
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                            }`}
+                          >
+                            {isEditor ? "메모" : "팩"}
+                          </span>
+                          <span className="text-[12.5px] font-semibold truncate text-foreground">{res.label}</span>
+                        </div>
+
+                        {res.fullSnippet && (
+                          <button
+                            type="button"
+                            onClick={(e) => toggleSidebarPreview(res.id, e)}
+                            className="text-[10.5px] text-accent hover:opacity-80 px-1.5 py-0.5 rounded bg-accent-soft shrink-0 font-medium"
+                          >
+                            {isPreviewOpen ? "접기" : "미리보기"}
+                          </button>
+                        )}
                       </div>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
-                        팩
-                      </span>
+
+                      {res.subtitle && <div className="text-[10.5px] text-text-muted truncate pl-0.5">{res.subtitle}</div>}
+
+                      {res.fullSnippet && isPreviewOpen && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] text-text-secondary bg-surface-2/80 rounded-lg p-2 whitespace-pre-wrap leading-relaxed border border-border/60 mt-0.5"
+                        >
+                          {res.fullSnippet}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -1092,17 +1154,22 @@ export default function DesktopSidebar({
                 return (
                   <div
                     key={res.id}
-                    onClick={() => onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId })}
-                    className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                    onClick={() => {
+                      if (res.bag) {
+                        onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId });
+                      } else if (res.pack) {
+                        onSelect({ kind: "pack", packId: res.pack.id });
+                      }
+                    }}
+                    className="flex flex-col gap-0.5 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                   >
-                    <IconCheck size={13} stroke={2} color="var(--text-muted)" className="shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] font-medium truncate text-foreground">{res.label}</div>
-                      {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/60 bg-surface-2 text-text-muted shrink-0">
+                        짐
+                      </span>
+                      <span className="text-[12.5px] font-semibold truncate text-foreground flex-1">{res.label}</span>
                     </div>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
-                      짐
-                    </span>
+                    {res.subtitle && <div className="text-[10.5px] text-text-muted truncate pl-0.5">{res.subtitle}</div>}
                   </div>
                 );
               })
@@ -1430,36 +1497,76 @@ export default function DesktopSidebar({
                       onClick={() => togglePackExpanded(res.pack.id)}
                       className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                     >
-                      <IconFolder size={15} stroke={1.75} color="var(--text-secondary)" className="shrink-0" />
-                      <span className="text-[13px] font-medium truncate min-w-0 flex-1">{res.label}</span>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
-                        {isExpanded ? "펼쳐짐" : "폴더"}
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                        폴더
+                      </span>
+                      <span className="text-[12.5px] font-semibold truncate min-w-0 flex-1">{res.label}</span>
+                      <span className="text-[10px] text-text-muted shrink-0">
+                        {isExpanded ? "펼쳐짐" : ""}
                       </span>
                     </div>
                   );
                 }
 
-                if (res.type === "pack" && res.pack) {
-                  const isSelected = selection?.kind === "pack" && selection.packId === res.pack.id;
+                if (res.type === "pack") {
+                  const isSelected =
+                    res.bag
+                      ? selection?.kind === "bag" && selection.bagId === res.bag.id && selection.focusPackId === res.packId
+                      : selection?.kind === "pack" && selection.packId === res.pack?.id;
+                  const isPreviewOpen = sidebarExpandedPreviewIds.has(res.id);
+                  const isEditor = res.isEditorPack;
                   return (
                     <div
                       key={res.id}
-                      onClick={() => onSelect({ kind: "pack", packId: res.pack!.id })}
-                      className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                      onClick={() => {
+                        if (res.bag) {
+                          onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId });
+                        } else if (res.pack) {
+                          onSelect({ kind: "pack", packId: res.pack.id });
+                        }
+                      }}
+                      className="flex flex-col gap-1 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                       style={{
                         background: isSelected ? "var(--accent-soft)" : undefined,
                         color: isSelected ? "var(--accent)" : undefined,
                         fontWeight: isSelected ? 600 : undefined,
                       }}
                     >
-                      <IconNotes size={14} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-medium truncate">{res.label}</div>
-                        {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${
+                              isEditor
+                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                            }`}
+                          >
+                            {isEditor ? "메모" : "팩"}
+                          </span>
+                          <span className="text-[12.5px] font-semibold truncate text-foreground">{res.label}</span>
+                        </div>
+
+                        {res.fullSnippet && (
+                          <button
+                            type="button"
+                            onClick={(e) => toggleSidebarPreview(res.id, e)}
+                            className="text-[10.5px] text-accent hover:opacity-80 px-1.5 py-0.5 rounded bg-accent-soft shrink-0 font-medium"
+                          >
+                            {isPreviewOpen ? "접기" : "미리보기"}
+                          </button>
+                        )}
                       </div>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
-                        팩
-                      </span>
+
+                      {res.subtitle && <div className="text-[10.5px] text-text-muted truncate pl-0.5">{res.subtitle}</div>}
+
+                      {res.fullSnippet && isPreviewOpen && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[11px] text-text-secondary bg-surface-2/80 rounded-lg p-2 whitespace-pre-wrap leading-relaxed border border-border/60 mt-0.5"
+                        >
+                          {res.fullSnippet}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -1468,17 +1575,22 @@ export default function DesktopSidebar({
                 return (
                   <div
                     key={res.id}
-                    onClick={() => res.pack && onSelect({ kind: "pack", packId: res.pack.id })}
-                    className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
+                    onClick={() => {
+                      if (res.bag) {
+                        onSelect({ kind: "bag", bagId: res.bag.id, focusPackId: res.packId });
+                      } else if (res.pack) {
+                        onSelect({ kind: "pack", packId: res.pack.id });
+                      }
+                    }}
+                    className="flex flex-col gap-0.5 rounded-xl px-2.5 py-1.5 cursor-pointer transition-all hover:bg-surface-2/70"
                   >
-                    <IconCheck size={13} stroke={2} color="var(--text-muted)" className="shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] font-medium truncate text-foreground">{res.label}</div>
-                      {res.subtitle && <div className="text-[10.5px] text-text-muted truncate">{res.subtitle}</div>}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/60 bg-surface-2 text-text-muted shrink-0">
+                        짐
+                      </span>
+                      <span className="text-[12.5px] font-semibold truncate text-foreground flex-1">{res.label}</span>
                     </div>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
-                      짐
-                    </span>
+                    {res.subtitle && <div className="text-[10.5px] text-text-muted truncate pl-0.5">{res.subtitle}</div>}
                   </div>
                 );
               })

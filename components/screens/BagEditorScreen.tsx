@@ -170,8 +170,8 @@ export default function BagEditorScreen({
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
   onTransferOwnership: (bagId: string, targetUid: string) => Promise<void>;
   // 검색 결과를 눌러서 들어왔을 때만 넘어온다. 있으면 그 팩(+짐)까지 자동 스크롤하고
-  // 잠깐 하이라이트한다 (AppShell이 HomeScreen 검색 결과 클릭을 중계).
-  focusTarget?: { packId?: string; itemId?: string } | null;
+  // 잠깐 하이라이트한다. 메모팩의 경우 searchQuery로 해당 텍스트 위치까지 스크롤한다.
+  focusTarget?: { packId?: string; itemId?: string; searchQuery?: string } | null;
   onFocusHandled?: () => void;
 }) {
   const isDesktop = useIsDesktop();
@@ -847,6 +847,14 @@ export default function BagEditorScreen({
       updatePackDisplayState(bag.id, packId, "normal").catch(() => {});
     }
 
+    const targetPack = bag.packs.find((p) => p.id === packId);
+    if (targetPack?.kind === "editor") {
+      setNoteSearchQuery(focusTarget.searchQuery ?? null);
+      setEditingNotePackId(packId);
+      onFocusHandled?.();
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       const selector = itemId ? `[data-item-id="${itemId}"]` : `[data-pack-drop-id="${packId}"]`;
       const el = document.querySelector(selector) as HTMLElement | null;
@@ -1078,6 +1086,7 @@ export default function BagEditorScreen({
   // 라이브러리 쪽(AppShell/PacksScreen)과 달리, 가방 안에서는 별도 화면 전환 없이 이 화면
   // 위에 풀스크린 오버레이로 띄우고 바로 이 가방의 자동저장 파이프라인(updatePacks)으로 반영한다.
   const [editingNotePackId, setEditingNotePackId] = useState<string | null>(null);
+  const [noteSearchQuery, setNoteSearchQuery] = useState<string | null>(null);
   // editingNotePackId는 닫을 때 바로 null이 되므로, 슬라이드 아웃 애니메이션이 끝날 때까지
   // 어느 팩을 보여주고 있었는지 기억해두기 위한 캐시.
   const [displayedNotePackId, setDisplayedNotePackId] = useState<string | null>(null);
@@ -3079,10 +3088,15 @@ export default function BagEditorScreen({
               pack={notePack}
               readOnly={readOnly}
               otherEditorNickname={otherNoteEditor?.nickname ?? null}
-              onBack={() => setEditingNotePackId(null)}
+              initialSearchQuery={noteSearchQuery ?? undefined}
+              onBack={() => {
+                setEditingNotePackId(null);
+                setNoteSearchQuery(null);
+              }}
               onSave={handleSaveNotePack}
               onDeletePack={() => {
                 setEditingNotePackId(null);
+                setNoteSearchQuery(null);
                 handleDeletePack(notePack.id, false);
               }}
               bagId={bag.id}

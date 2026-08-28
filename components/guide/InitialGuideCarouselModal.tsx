@@ -117,10 +117,10 @@ export default function InitialGuideCarouselModal({
   return (
     <Portal>
       <OverlayLayerProvider value={190}>
-        <div className="fixed inset-0 z-[190] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[190] flex justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-xs">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl h-[90vh] max-h-[780px] rounded-2xl bg-background border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 select-none"
+            className="w-full max-w-xl mt-[6vh] sm:mt-[9vh] mb-auto max-h-[86vh] sm:max-h-[82vh] rounded-2xl bg-background border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 select-none"
           >
             {/* 상단 헤더 바 */}
             <div className="flex items-center justify-between p-3.5 px-4 border-b border-border bg-surface shrink-0 gap-2">
@@ -191,19 +191,17 @@ export default function InitialGuideCarouselModal({
 
             {/* 슬라이드 본문 컨텐츠 (터치 스와이프 지원) */}
             <div
-              className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 transition-transform"
+              className="flex-1 overflow-y-auto overflow-x-hidden transition-transform flex flex-col min-h-0"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
               {currentSlide.type === "guide" && (
-                <div className="flex flex-col gap-3">
-                  <GuideContent />
-                </div>
+                <GuideContent />
               )}
 
               {currentSlide.type === "install" && (
-                <div className="flex flex-col gap-4">
+                <div className="p-4 sm:p-5 flex flex-col gap-4">
                   <div>
                     <h3 className="text-[15px] font-bold text-foreground mb-1">
                       홈 화면에 앱으로 설치하기
@@ -217,7 +215,7 @@ export default function InitialGuideCarouselModal({
               )}
 
               {currentSlide.type === "announcement" && currentSlide.announcement && (
-                <div className="flex flex-col gap-3 py-1">
+                <div className="p-4 sm:p-5 flex flex-col gap-3 py-1">
                   <div className="flex items-center gap-1.5 text-accent font-semibold text-[12px]">
                     <IconSparkles size={16} stroke={2} />
                     <span>공지사항</span>

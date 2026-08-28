@@ -55,18 +55,22 @@ function buildRows(
   expandedIds: Set<string>,
   sortBy: ListSortOption | undefined,
   pinnedIds: string[],
-  orderByParent: Record<string, string[]> | undefined
+  orderByParent: Record<string, string[]> | undefined,
+  visited: Set<string> = new Set<string>()
 ): TreeRow[] {
-  const siblings = allPacks.filter((p) => (p.parentId ?? undefined) === parentId);
+  if (depth > 20) return [];
+  const siblings = allPacks.filter((p) => (p.parentId ?? undefined) === parentId && !visited.has(p.id));
   const parentKey = parentId ?? "root";
   const order = orderByParent?.[parentKey] ?? [];
   // 팩은 v69부터 고정핀 개수 제한이 없어서(무제한) maxPinned로 Infinity를 넘긴다.
   const arranged = arrangeList(siblings, { sortBy, pinnedIds, order, maxPinned: Infinity });
   const rows: TreeRow[] = [];
   for (const entry of arranged) {
+    if (visited.has(entry.id)) continue;
+    visited.add(entry.id);
     rows.push({ kind: "entry", entry, depth });
     if (entry.type === "folder" && expandedIds.has(entry.id)) {
-      rows.push(...buildRows(allPacks, entry.id, depth + 1, expandedIds, sortBy, pinnedIds, orderByParent));
+      rows.push(...buildRows(allPacks, entry.id, depth + 1, expandedIds, sortBy, pinnedIds, orderByParent, visited));
     }
   }
   return rows;
@@ -85,6 +89,7 @@ export default function PacksScreen({
   onMoveEntries,
   onBack,
   onBulkDeletePacks,
+  onSelectModeChange,
 }: {
   // 빠른팩(quickPack)은 이 배열에 이미 섞여있을 수 있어서, 트리를 그리기 전에 걸러낸다 -
   // 빠른팩은 트리가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
@@ -94,9 +99,9 @@ export default function PacksScreen({
   bags: Bag[];
   quickPack?: Pack;
   // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다.
-  onOpenPack: (pack: Pack, focusItemId?: string) => void;
+  onOpenPack: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
   // 검색 결과가 가방(속 팩/짐)일 때 그 가방을 열면서 해당 팩/짐까지 이동한다.
-  onOpenBag: (bag: Bag, focus?: { packId?: string; itemId?: string }) => void;
+  onOpenBag: (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string }) => void;
   // parentId를 넘기면 그 폴더 바로 안에 새 팩/폴더를 만든다(없으면 최상위). kind를 "editor"로
   // 넘기면 체크리스트 팩이 아니라 아이폰 메모처럼 자유문서형인 에디터팩을 만든다(없으면 "checklist").
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
@@ -106,11 +111,11 @@ export default function PacksScreen({
   // 다중선택 후 "이동" 액션, 그리고 드래그로 다른 폴더에 떨어뜨렸을 때도 이 콜백을 쓴다.
   // 선택된 id들을 parentId(없으면 최상위)로 옮긴다.
   onMoveEntries: (packIds: string[], parentId: string | undefined) => void;
-  // v68: 이 화면은 탭이 아니라 가방보관함에서 스와이프로 열리는 풀스크린 화면이라 뒤로가기 버튼이 필요하다.
-  onBack: () => void;
+  onBack?: () => void;
   // 길게 눌러 다중선택한 팩/폴더를 한꺼번에 삭제(폴더는 재귀적으로). alsoDeleteFromBags가
   // true면 가방 속에 연결된 사본도 함께 삭제해달라는 뜻(아래 확인창의 체크박스).
   onBulkDeletePacks: (packIds: string[], alsoDeleteFromBags?: boolean) => void;
+  onSelectModeChange?: (active: boolean) => void;
 }) {
   const {
     profile,
@@ -123,25 +128,6 @@ export default function PacksScreen({
   // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
   // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 검색 결과에서 숨긴다.
   const premium = isPremiumUser(profile?.email, profile ?? null);
-  // 패 보관함은 가방보관함에서 왼→우 스와이프로 열리므로(AppShell의 handleSwipeGestureEnd),
-  // 닫을 때는 반대로 우→왼로 쓰는 것이 즐기는 방향과 자연스럽게 이어진다. useSwipeBack(왼엣지리
-  // 오른쪽 스와이프 전용)을 그대로 쓰지 않고, 전체 화면 어디서든(드래그/버튼 제외) 왼쪽으로
-  // 밀면 뒤로가기를 직접 구현한다.
-  const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
-  const isSwipeIgnoredTarget = (target: EventTarget | null) =>
-    !!(target as HTMLElement)?.closest?.('button, a, input, textarea, [role="button"], [data-row-id], .fixed');
-  const handleRootPointerDown = (e: React.PointerEvent) => {
-    swipeStartRef.current = { x: e.clientX, y: e.clientY, ignore: isSwipeIgnoredTarget(e.target) };
-  };
-  const handleRootPointerUp = (e: React.PointerEvent) => {
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!start || start.ignore) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (dx < 0) onBack();
-  };
   const sortBy = profile?.packSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedPackIds ?? [];
   const treePacks = packs.filter((p) => !p.isQuickPack);
@@ -200,7 +186,18 @@ export default function PacksScreen({
   // --- 검색 --------------------------------------------------------------
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedPreviewIds, setExpandedPreviewIds] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const togglePreview = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedPreviewIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // 폴더는 items가 없어서(내용물이 아니라 껍데기) 검색 대상에서 제외한다 - 이름/짐 검색
   // 모두 실제 팩만 대상으로 한다.
@@ -229,16 +226,24 @@ export default function PacksScreen({
     setSearchQuery("");
   };
   const handleResultClick = (result: PackSearchResult) => {
+    const currentQuery = searchQuery.trim();
     closeSearch();
     if (result.type === "bag" && result.bag) {
-      // result.bag은 검색용으로 필터링된(AI추천 팩이 빠진) 사본일 수 있어, 그대로 열면 그 상태로
-      // 저장될 때 실제 AI추천 팩이 지워질 수 있다. 반드시 원본 bags에서 같은 id를 다시 찾아서 연다.
       const originalBag = bags.find((b) => b.id === result.bag?.id) ?? result.bag;
-      onOpenBag(originalBag, { packId: result.packId, itemId: result.itemId });
+      onOpenBag(originalBag);
+      return;
+    }
+    if (result.bag) {
+      const originalBag = bags.find((b) => b.id === result.bag?.id) ?? result.bag;
+      onOpenBag(originalBag, {
+        packId: result.packId,
+        itemId: result.itemId,
+        searchQuery: result.isEditorPack ? currentQuery : undefined,
+      });
       return;
     }
     if (result.pack) {
-      onOpenPack(result.pack, result.itemId);
+      onOpenPack(result.pack, result.itemId, result.isEditorPack ? currentQuery : undefined);
     }
   };
 
@@ -265,7 +270,8 @@ export default function PacksScreen({
 
   useEffect(() => {
     if (selectMode && selectedIds.size === 0) setSelectMode(false);
-  }, [selectMode, selectedIds]);
+    onSelectModeChange?.(selectMode);
+  }, [selectMode, selectedIds, onSelectModeChange]);
 
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
@@ -486,11 +492,7 @@ export default function PacksScreen({
   const isEmpty = treePacks.length === 0;
 
   return (
-    <div
-      onPointerDown={handleRootPointerDown}
-      onPointerUp={handleRootPointerUp}
-      className="relative flex-1 flex flex-col overflow-hidden"
-    >
+    <div className="relative flex-1 flex flex-col overflow-hidden">
       <div className="shrink-0 p-4 pb-0">
         <div className="flex items-center justify-between mb-3.5 gap-2">
           {searchOpen ? (
@@ -535,10 +537,29 @@ export default function PacksScreen({
         {!searchOpen &&
           (selectMode ? (
             <div className="flex items-center justify-between mb-3 gap-2">
-              <button onClick={cancelSelectMode} className="text-[12.5px] text-text-secondary hover:text-foreground px-1 py-1.5">
+              <button
+                onClick={cancelSelectMode}
+                className="text-[12.5px] text-text-secondary hover:text-foreground px-1 py-1.5 font-medium"
+              >
                 취소
               </button>
-              <span className="text-[12.5px] font-medium text-foreground">{selectedIds.size}개 선택됨</span>
+              <span className="text-[12.5px] font-semibold text-foreground">
+                {selectedIds.size}개 선택됨
+              </span>
+              <button
+                onClick={() => {
+                  if (treePacks.length > 0 && treePacks.every((p) => selectedIds.has(p.id))) {
+                    setSelectedIds(new Set());
+                  } else {
+                    setSelectedIds(new Set(treePacks.map((p) => p.id)));
+                  }
+                }}
+                className="text-[12.5px] text-accent hover:opacity-80 px-1 py-1.5 font-medium"
+              >
+                {treePacks.length > 0 && treePacks.every((p) => selectedIds.has(p.id))
+                  ? "선택 해제"
+                  : "전체 선택"}
+              </button>
             </div>
           ) : (
             !isEmpty && (
@@ -593,21 +614,90 @@ export default function PacksScreen({
               검색 결과가 없어요.
             </p>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {searchResults.map((result) => (
-                <button
-                  key={result.id}
-                  onClick={() => handleResultClick(result)}
-                  className="flex flex-col items-start rounded-lg bg-surface-2 px-3 py-2.5 text-left"
-                >
-                  <span className="text-[13px] font-medium truncate w-full">{result.label}</span>
-                  {result.subtitle && (
-                    <span className="text-[11px] text-text-muted truncate w-full">
-                      {result.subtitle}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div className="flex flex-col gap-2">
+              {searchResults.map((result) => {
+                const isExpanded = expandedPreviewIds.has(result.id);
+                const isEditor = result.isEditorPack;
+                const badgeLabel =
+                  result.type === "bag"
+                    ? "가방"
+                    : result.type === "pack"
+                    ? isEditor
+                      ? "메모"
+                      : "팩"
+                    : "짐";
+
+                const badgeStyle =
+                  result.type === "bag"
+                    ? "bg-surface-2 text-text-secondary border-border/80"
+                    : result.type === "pack"
+                    ? isEditor
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                      : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                    : "bg-surface-2 text-text-muted border-border/60";
+
+                return (
+                  <div
+                    key={result.id}
+                    onClick={() => handleResultClick(result)}
+                    className="flex flex-col gap-1.5 rounded-xl bg-surface border border-border/80 p-3 hover:bg-surface-2 cursor-pointer transition-colors text-left shadow-2xs group"
+                  >
+                    {/* 상단: 타입 칩 + 항목 이름 + 미리보기 토글 */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${badgeStyle}`}>
+                          {badgeLabel}
+                        </span>
+                        <span className="text-[13px] font-semibold text-foreground truncate group-hover:text-accent transition-colors">
+                          {result.label}
+                        </span>
+                      </div>
+
+                      {result.fullSnippet && (
+                        <button
+                          type="button"
+                          onClick={(e) => togglePreview(result.id, e)}
+                          className="flex items-center gap-0.5 text-[11px] font-semibold text-accent hover:opacity-80 px-2 py-0.5 rounded-md bg-accent-soft shrink-0 cursor-pointer transition-colors"
+                        >
+                          <span>{isExpanded ? "접기" : "미리보기"}</span>
+                          <IconChevronDown
+                            size={13}
+                            stroke={2.2}
+                            className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 소속 경로 (가방명 또는 가방명 > 팩명) */}
+                    {result.subtitle && (
+                      <div className="text-[11px] text-text-muted truncate pl-0.5">
+                        {result.subtitle}
+                      </div>
+                    )}
+
+                    {/* 1줄 짧은 스니펫 (접혀있을 때) */}
+                    {result.snippet && !isExpanded && (
+                      <div className="text-[11px] text-text-secondary bg-surface-2/60 rounded-md p-1.5 px-2 font-mono line-clamp-1 border border-border/40">
+                        {result.snippet}
+                      </div>
+                    )}
+
+                    {/* 상세 문맥 스니펫 (펼쳤을 때) */}
+                    {result.fullSnippet && isExpanded && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[11.5px] text-text-secondary bg-surface-2/80 rounded-lg p-2.5 whitespace-pre-wrap leading-relaxed border border-border/60 animate-in fade-in duration-150"
+                      >
+                        <div className="text-[10.5px] font-semibold text-text-muted mb-1 pb-1 border-b border-border/40">
+                          메모 내용
+                        </div>
+                        {result.fullSnippet}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {searchTruncated && (
                 <p className="text-[11px] text-text-muted text-center py-2">
                   결과가 많아 상위 30개만 보여드려요
@@ -767,55 +857,68 @@ export default function PacksScreen({
         </div>
       )}
 
-      <QuickPackBar pack={quickPack} onClick={() => quickPack && onOpenPack(quickPack)} />
+      {!selectMode && (
+        <QuickPackBar pack={quickPack} onClick={() => quickPack && onOpenPack(quickPack)} />
+      )}
 
-      {/* 다중선택 모드 하단 액션바: 이름변경(1개 선택일 때만)/공유(폴더 1개일 때)/이동/삭제 */}
-      {selectMode && !showMoveSheet && !showBulkDeleteConfirm && !renamingEntry && (
-        <div className="absolute inset-x-0 bottom-24 z-[96] flex justify-center gap-3 pointer-events-none">
-          {selectedIds.size === 1 && (
+      {/* 다중선택 모드일 때 하단 탭바를 대체하여 화면 하단에 고정되는 바텀 액션 바 */}
+      {selectMode && (
+        <div
+          className="shrink-0 flex items-center justify-between px-4 py-2.5 backdrop-blur-md transition-all duration-200"
+          style={{
+            background: "color-mix(in srgb, var(--surface-2) 90%, transparent)",
+            borderTop: "1px solid var(--border)",
+            paddingBottom: "max(10px, env(safe-area-inset-bottom))",
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-foreground">
+              {selectedIds.size}개 선택됨
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedIds.size === 1 && (() => {
+              const only = treePacks.find((p) => selectedIds.has(p.id));
+              if (!only) return null;
+              return (
+                <>
+                  <button
+                    onClick={() => setRenamingEntry(only)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-border bg-surface text-text-secondary hover:text-foreground"
+                  >
+                    <IconEdit size={14} stroke={1.75} />
+                    <span>이름 변경</span>
+                  </button>
+                  {only.type === "folder" && (
+                    <button
+                      onClick={() => setSharingFolder(only)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+                    >
+                      <IconShare size={14} stroke={1.75} />
+                      <span>공유</span>
+                    </button>
+                  )}
+                </>
+              );
+            })()}
             <button
-              onClick={() => {
-                const only = treePacks.find((p) => selectedIds.has(p.id));
-                if (only) setRenamingEntry(only);
-              }}
-              aria-label="이름 변경"
-              className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
-              style={{ background: "var(--surface-2)" }}
+              onClick={() => selectedIds.size > 0 && setShowMoveSheet(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
             >
-              <IconEdit size={22} stroke={1.75} color="var(--text-secondary)" />
+              <IconFolder size={15} stroke={1.75} />
+              <span>이동</span>
             </button>
-          )}
-          {selectedIds.size === 1 && (
             <button
-              onClick={() => {
-                const only = treePacks.find((p) => selectedIds.has(p.id));
-                if (only && only.type === "folder") {
-                  setSharingFolder(only);
-                }
-              }}
-              aria-label="공유"
-              className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
-              style={{ background: "var(--surface-2)" }}
+              onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+              style={{ background: "var(--danger)" }}
             >
-              <IconShare size={22} stroke={1.75} color="var(--text-secondary)" />
+              <IconTrash size={15} stroke={1.75} />
+              <span>삭제</span>
             </button>
-          )}
-          <button
-            onClick={() => setShowMoveSheet(true)}
-            aria-label="이동"
-            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
-            style={{ background: "var(--accent)" }}
-          >
-            <IconArrowRight size={22} stroke={1.75} color="#fff" />
-          </button>
-          <button
-            onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
-            aria-label="선택한 항목 삭제"
-            className="pointer-events-auto h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90"
-            style={{ background: "var(--danger)" }}
-          >
-            <IconTrash size={22} stroke={1.75} color="#fff" />
-          </button>
+          </div>
         </div>
       )}
 

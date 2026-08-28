@@ -16,10 +16,10 @@ export default function GuideModal({
   return (
     <Portal>
       <OverlayLayerProvider value={190}>
-        <div className="fixed inset-0 z-[190] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[190] flex justify-center p-3 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-xs">
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg h-[90vh] max-h-[750px] rounded-2xl bg-background border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full max-w-lg mt-[6vh] sm:mt-[9vh] mb-auto max-h-[86vh] sm:max-h-[82vh] rounded-2xl bg-background border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           >
             {/* 모달 상단 헤더: 제목 + 다시 보지 않기 + 닫기 */}
             <div className="flex items-center justify-between p-3.5 px-4 border-b border-border bg-surface shrink-0">

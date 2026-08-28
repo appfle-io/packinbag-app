@@ -120,6 +120,12 @@ export default function BagCard({
           >
             {selected && <IconCheck size={13} stroke={3} color="#fff" />}
           </div>
+        ) : compact ? (
+          pinned && (
+            <span className="shrink-0 -mt-0.5 text-accent" title="고정된 가방">
+              <IconPinFilled size={13} stroke={1.75} />
+            </span>
+          )
         ) : (
           (onTogglePin || onToggleArchive) && (
             <div className="shrink-0 flex items-center gap-4">
@@ -146,8 +152,6 @@ export default function BagCard({
                     onTogglePin();
                   }}
                   aria-label={pinned ? "고정 해제" : "이 가방 고정하기"}
-                  // 시각적으로는 아이콘만 작게 보이지만, 터치 영역은 패딩만큼 더 넓다 -
-                  // 음수 마진으로 레이아웃에 미치는 영향(제목이 밀리는 정도)은 원래 크기로 되돌린다.
                   className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
                 >
                   {pinned ? (
@@ -215,19 +219,23 @@ export default function BagCard({
       )}
 
       {/* 카드 하단 정보 (멤버수, 프로그레스 링, 총 짐 수) */}
-      <span className="flex items-center justify-end gap-2 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
+      <span
+        className={`flex items-center ${
+          compact && bag.memberIds.length > 1 ? "justify-between" : "justify-end"
+        } gap-2 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5`}
+      >
         {bag.memberIds.length > 1 && (
-          <span className="flex items-center gap-1 text-text-muted text-[11px]">
+          <span className="flex items-center gap-1 text-text-muted text-[11px] shrink-0">
             <IconUsers size={13} stroke={1.75} />
             <span>{bag.memberIds.length}</span>
           </span>
         )}
-        {overallRatio !== null && (
+        {!compact && overallRatio !== null && (
           <span style={{ transform: "scale(var(--bag-card-scale,1))" }}>
             <ProgressRing ratio={overallRatio} size={17} />
           </span>
         )}
-        {totalLabel && <span className="font-medium text-[11.5px]">{totalLabel}</span>}
+        {totalLabel && <span className="font-medium text-[11px] truncate shrink-0">{totalLabel}</span>}
       </span>
 
       {/* 카드 하단 2px 미니멀 진행률 바 */}

@@ -127,6 +127,7 @@ export default function PackNoteEditorScreen({
   onDeletePack,
   bagId,
   premium,
+  initialSearchQuery,
 }: {
   pack: Pack;
   readOnly?: boolean;
@@ -146,6 +147,8 @@ export default function PackNoteEditorScreen({
   // 지금 이 사용자가 프리미엄인지 - 이미지가 아닌 파일(PDF 포함) 첨부/미리보기는 프리미엄 전용이라 BagEditorScreen이
   // 계산해둔 premium을 그대로 넘겨받는다.
   premium?: boolean;
+  // 검색창에서 메모 결과를 눌러 들어왔을 때 해당 검색어 위치로 자동 스크롤 & 블록 선택
+  initialSearchQuery?: string;
 }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
@@ -391,6 +394,88 @@ export default function PackNoteEditorScreen({
     editor.chain().focus().setTextSelection(pos + 1).scrollIntoView().run();
     setTocOpen(false);
   };
+
+  // 검색 결과를 통해 들어왔을 때 해당 검색어 위치로 스크롤 & 블록 선택 & 펄스 하이라이트
+  useEffect(() => {
+    if (!editor || !initialSearchQuery) return;
+    const query = initialSearchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    const performHighlight = () => {
+      if (!editor || editor.isDestroyed) return;
+      const editorDom = editor.view?.dom;
+      if (!editorDom) return;
+
+      let foundPos: number | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (foundPos !== null) return false;
+        if (node.isText && node.text) {
+          const idx = node.text.toLowerCase().indexOf(query);
+          if (idx !== -1) {
+            foundPos = pos + idx;
+            return false;
+          }
+        }
+      });
+
+      // DOM 요소 찾기
+      let targetElement: HTMLElement | null = null;
+      if (foundPos !== null) {
+        try {
+          const domPos = editor.view.nodeDOM(foundPos) as HTMLElement | null;
+          if (domPos && domPos instanceof HTMLElement) {
+            targetElement = domPos;
+          } else {
+            const resolved = editor.view.domAtPos(foundPos);
+            targetElement = (resolved.node instanceof HTMLElement)
+              ? resolved.node
+              : resolved.node.parentElement;
+          }
+        } catch {
+          // fallback
+        }
+      }
+
+      // fallback: TreeWalker로 텍스트 노드 탐색 (100% 보장)
+      if (!targetElement) {
+        const walker = document.createTreeWalker(editorDom, NodeFilter.SHOW_TEXT);
+        let textNode: Node | null;
+        while ((textNode = walker.nextNode())) {
+          if (textNode.nodeValue && textNode.nodeValue.toLowerCase().includes(query)) {
+            targetElement = textNode.parentElement;
+            break;
+          }
+        }
+      }
+
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetElement.classList.remove("pib-text-search-highlight");
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        targetElement.offsetWidth;
+        targetElement.classList.add("pib-text-search-highlight");
+        window.setTimeout(() => {
+          targetElement?.classList.remove("pib-text-search-highlight");
+        }, 2800);
+      }
+
+      if (foundPos !== null) {
+        editor
+          .chain()
+          .focus()
+          .setTextSelection({ from: foundPos, to: foundPos + query.length })
+          .run();
+      }
+    };
+
+    const timer1 = window.setTimeout(performHighlight, 150);
+    const timer2 = window.setTimeout(performHighlight, 500);
+
+    return () => {
+      window.clearTimeout(timer1);
+      window.clearTimeout(timer2);
+    };
+  }, [editor, initialSearchQuery]);
 
   const lastSyncedDocRef = useRef(pack.editorDoc);
   useEffect(() => {

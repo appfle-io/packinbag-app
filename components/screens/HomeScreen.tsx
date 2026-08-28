@@ -34,6 +34,7 @@ import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
+import { useCanUse3Cols } from "@/lib/useCanUse3Cols";
 
 // 길게 누른(롱프레스) 걸로 판정하는 시간. 이보다 짧게 떼면 그냥 탭(가방 열기)으로 처리한다.
 const LONG_PRESS_MS = 400;
@@ -68,11 +69,14 @@ function buildFolderNavRows(
 ): FolderNavRow[] {
   const countFor = (id: string) => bags.filter((b) => assignments[b.id] === id).length;
   const rows: FolderNavRow[] = [];
+  const visited = new Set<string>();
   const walk = (parentId: string | undefined, depth: number) => {
+    if (depth > 20) return;
     Object.values(folders)
-      .filter((f) => (f.parentId ?? undefined) === parentId)
+      .filter((f) => (f.parentId ?? undefined) === parentId && !visited.has(f.id))
       .sort((a, b) => a.name.localeCompare(b.name, "ko"))
       .forEach((f) => {
+        visited.add(f.id);
         rows.push({ folder: f, depth, count: countFor(f.id) });
         walk(f.id, depth + 1);
       });
@@ -82,18 +86,20 @@ function buildFolderNavRows(
 }
 
 // 검색 결과를 눌렀을 때 어디로 이동할지 알려주는 정보. packId가 있으면 해당 팩까지
-// 자동 스크롤 + 하이라이트하고, itemId까지 있으면 짐 자체를 하이라이트한다
-// (BagEditorScreen이 focusTarget prop으로 받아서 처리 - AppShell이 중계).
-export type BagOpenFocus = { packId?: string; itemId?: string };
+// 자동 스크롤 + 하이라이트하고, itemId까지 있으면 짐 자체를 하이라이트한다.
+// 메모팩의 경우 searchQuery가 있으면 에디터 내 해당 텍스트로 스크롤 및 하이라이트한다.
+export type BagOpenFocus = { packId?: string; itemId?: string; searchQuery?: string };
 
 export default function HomeScreen({
   uid,
   bags,
+  packs = [],
   initialInviteCode,
   lockedBagIds,
   quickPack,
   currentUid,
   onOpenBag,
+  onOpenPack,
   onNewBag,
   onImportNote,
   onJoinBag,
@@ -105,6 +111,7 @@ export default function HomeScreen({
   // 이 프롭은 순수하게 NotificationBell에만 쓰이도록 이름을 따로 두었다.
   uid: string;
   bags: Bag[];
+  packs?: Pack[];
   initialInviteCode?: string;
   // 무료 전환으로 잠긴(내가 소유한) 가방 id 목록. 카드에 자물쇠 표시만 하고, 탭하면
   // 여전히 열린다 - 실제 읽기 전용 처리는 BagEditorScreen(AppShell이 계산해서 넘긴 readOnly)이 한다.
@@ -116,6 +123,7 @@ export default function HomeScreen({
   // focus가 있으면 가방을 연 뒤 그 팩(또는 짐)까지 자동 스크롤 + 하이라이트한다
   // (상단 검색 결과를 눌렀을 때만 넘어옴 - 평소 카드 탭은 focus 없이 호출).
   onOpenBag: (bag: Bag, focus?: BagOpenFocus) => void;
+  onOpenPack?: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
   onNewBag: () => void;
   onImportNote: (result: NoteImportResult) => void;
   onJoinBag: (code: string) => Promise<void>;
@@ -249,13 +257,14 @@ export default function HomeScreen({
     pinnedIds,
     order: folderScopeKey !== undefined ? profile?.bagOrderByParent?.[folderScopeKey] ?? [] : profile?.bagOrder,
   });
-  // 설정 > 화면설정 > 가방 > 카드 크기. "작게"를 고르면 한 화면에 더 많은 가방이 보이도록
-  // 그리드 열이 늘어나고, "크게"를 고르면 열이 줄어 카드 하나하나가 커진다.
+  // 설정 > 화면설정 > 가방 > 카드 크기. 550px 미만의 일반 모바일 화면에서는 3열이 너무 좁아지므로 1/2열만 적용한다.
+  const canUse3Cols = useCanUse3Cols();
   const bagCardSize = profile?.bagCardSize ?? "medium";
+  const effectiveCardSize = !canUse3Cols && bagCardSize === "small" ? "medium" : bagCardSize;
   const bagGridColsClass =
-    bagCardSize === "small"
+    effectiveCardSize === "small"
       ? "grid-cols-3"
-      : bagCardSize === "large"
+      : effectiveCardSize === "large"
       ? "grid-cols-1"
       : "grid-cols-2";
   const pinnedSet = new Set(pinnedIds);
@@ -291,17 +300,26 @@ export default function HomeScreen({
   // 보여주고, 결과를 누르면 onOpenBag으로 그 가방을 열면서 팩까지 이동시킨다.
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedPreviewIds, setExpandedPreviewIds] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 검색도 화면 미리보기와 동일하게 무료회원에게는 다른 멤버의 AI추천 팩 내용이 결과로
-  // 새어나가지 않도록, 검색 대상 자체를 뷰어 기준으로 걸러낸 사본으로 바꿔서 넘긴다.
+  const togglePreview = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedPreviewIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const searchableBags = useMemo(
     () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
     [bags, premium]
   );
   const { results: searchResults, truncated: searchTruncated } = useMemo(
-    () => searchBags(searchableBags, searchQuery),
-    [searchableBags, searchQuery]
+    () => searchBags(searchableBags, searchQuery, packs),
+    [searchableBags, searchQuery, packs]
   );
 
   const openSearch = () => {
@@ -316,11 +334,29 @@ export default function HomeScreen({
   };
 
   const handleResultClick = (result: BagSearchResult) => {
+    const currentQuery = searchQuery.trim();
     closeSearch();
-    // result.bag은 검색용으로 필터링된(AI추천 팩이 빠진) 사본일 수 있어, 그대로 열면 그 상태로
-    // 저장될 때 실제 AI추천 팩이 지워질 수 있다. 반드시 원본 bags에서 같은 id를 다시 찾아서 연다.
-    const originalBag = bags.find((b) => b.id === result.bag.id) ?? result.bag;
-    onOpenBag(originalBag, { packId: result.packId, itemId: result.itemId });
+    if (result.type === "bag" && result.bag) {
+      const originalBag = bags.find((b) => b.id === result.bag?.id) ?? result.bag;
+      onOpenBag(originalBag);
+      return;
+    }
+    if (result.bag) {
+      const originalBag = bags.find((b) => b.id === result.bag?.id) ?? result.bag;
+      onOpenBag(originalBag, {
+        packId: result.packId,
+        itemId: result.itemId,
+        searchQuery: result.isEditorPack ? currentQuery : undefined,
+      });
+      return;
+    }
+    if (result.pack) {
+      if (onOpenPack) {
+        onOpenPack(result.pack, result.itemId, result.isEditorPack ? currentQuery : undefined);
+      } else {
+        onOpenQuickPack();
+      }
+    }
   };
 
   // --- 길게 눌러서 순서 바꾸기 / 폴더로 이동 / 다중선택 --------------------------
@@ -593,36 +629,41 @@ export default function HomeScreen({
                 {bags.length > 0 && (
                   <>
                     <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-                    {/* 모바일 뷰 밀도 빠른 전환 버튼: 2열(medium) <-> 1열(large) <-> 3열(small) */}
+                    {/* 모바일 뷰 밀도 빠른 전환 버튼: 550px 미만은 2열 <-> 1열, 550px 이상은 2열 <-> 1열 <-> 3열 */}
                     <button
                       type="button"
                       onClick={() => {
-                        const nextSize =
-                          bagCardSize === "large"
-                            ? "medium"
-                            : bagCardSize === "medium"
-                            ? "small"
-                            : "large";
+                        let nextSize: "small" | "medium" | "large";
+                        if (!canUse3Cols) {
+                          nextSize = effectiveCardSize === "large" ? "medium" : "large";
+                        } else {
+                          nextSize =
+                            bagCardSize === "large"
+                              ? "medium"
+                              : bagCardSize === "medium"
+                              ? "small"
+                              : "large";
+                        }
                         updateBagCardSize(nextSize).catch(() => {});
                       }}
                       title={
-                        bagCardSize === "large"
+                        effectiveCardSize === "large"
                           ? "1열 크게 보기 (탭하여 2열로 변경)"
-                          : bagCardSize === "small"
+                          : effectiveCardSize === "small"
                           ? "3열 작게 보기 (탭하여 1열로 변경)"
-                          : "2열 보통 보기 (탭하여 3열로 변경)"
+                          : "2열 보통 보기"
                       }
                       className="flex items-center gap-1 rounded-lg border border-border/80 px-2.5 py-1.5 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer shadow-2xs"
                     >
-                      {bagCardSize === "large" ? (
+                      {effectiveCardSize === "large" ? (
                         <IconLayoutList size={14} stroke={1.75} />
-                      ) : bagCardSize === "small" ? (
+                      ) : effectiveCardSize === "small" ? (
                         <IconLayoutGrid size={14} stroke={2.4} />
                       ) : (
                         <IconLayoutGrid size={14} stroke={1.75} />
                       )}
                       <span className="text-[11.5px] font-medium">
-                        {bagCardSize === "large" ? "1열" : bagCardSize === "small" ? "3열" : "2열"}
+                        {effectiveCardSize === "large" ? "1열" : effectiveCardSize === "small" ? "3열" : "2열"}
                       </span>
                     </button>
                   </>
@@ -801,21 +842,90 @@ export default function HomeScreen({
               검색 결과가 없어요.
             </p>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              {searchResults.map((result) => (
-                <button
-                  key={result.id}
-                  onClick={() => handleResultClick(result)}
-                  className="flex flex-col items-start rounded-lg bg-surface-2 px-3 py-2.5 text-left"
-                >
-                  <span className="text-[13px] font-medium truncate w-full">{result.label}</span>
-                  {result.subtitle && (
-                    <span className="text-[11px] text-text-muted truncate w-full">
-                      {result.subtitle}
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div className="flex flex-col gap-2">
+              {searchResults.map((result) => {
+                const isExpanded = expandedPreviewIds.has(result.id);
+                const isEditor = result.isEditorPack;
+                const badgeLabel =
+                  result.type === "bag"
+                    ? "가방"
+                    : result.type === "pack"
+                    ? isEditor
+                      ? "메모"
+                      : "팩"
+                    : "짐";
+
+                const badgeStyle =
+                  result.type === "bag"
+                    ? "bg-surface-2 text-text-secondary border-border/80"
+                    : result.type === "pack"
+                    ? isEditor
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                      : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                    : "bg-surface-2 text-text-muted border-border/60";
+
+                return (
+                  <div
+                    key={result.id}
+                    onClick={() => handleResultClick(result)}
+                    className="flex flex-col gap-1.5 rounded-xl bg-surface border border-border/80 p-3 hover:bg-surface-2 cursor-pointer transition-colors text-left shadow-2xs group"
+                  >
+                    {/* 상단: 타입 칩 + 항목 이름 + 미리보기 토글 */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${badgeStyle}`}>
+                          {badgeLabel}
+                        </span>
+                        <span className="text-[13px] font-semibold text-foreground truncate group-hover:text-accent transition-colors">
+                          {result.label}
+                        </span>
+                      </div>
+
+                      {result.fullSnippet && (
+                        <button
+                          type="button"
+                          onClick={(e) => togglePreview(result.id, e)}
+                          className="flex items-center gap-0.5 text-[11px] font-semibold text-accent hover:opacity-80 px-2 py-0.5 rounded-md bg-accent-soft shrink-0 cursor-pointer transition-colors"
+                        >
+                          <span>{isExpanded ? "접기" : "미리보기"}</span>
+                          <IconChevronDown
+                            size={13}
+                            stroke={2.2}
+                            className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 소속 경로 (가방명 또는 가방명 > 팩명) */}
+                    {result.subtitle && (
+                      <div className="text-[11px] text-text-muted truncate pl-0.5">
+                        {result.subtitle}
+                      </div>
+                    )}
+
+                    {/* 1줄 짧은 스니펫 (접혀있을 때) */}
+                    {result.snippet && !isExpanded && (
+                      <div className="text-[11px] text-text-secondary bg-surface-2/60 rounded-md p-1.5 px-2 font-mono line-clamp-1 border border-border/40">
+                        {result.snippet}
+                      </div>
+                    )}
+
+                    {/* 상세 문맥 스니펫 (펼쳤을 때) */}
+                    {result.fullSnippet && isExpanded && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[11.5px] text-text-secondary bg-surface-2/80 rounded-lg p-2.5 whitespace-pre-wrap leading-relaxed border border-border/60 animate-in fade-in duration-150"
+                      >
+                        <div className="text-[10.5px] font-semibold text-text-muted mb-1 pb-1 border-b border-border/40">
+                          메모 내용
+                        </div>
+                        {result.fullSnippet}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {searchTruncated && (
                 <p className="text-[11px] text-text-muted text-center py-2">
                   결과가 많아 상위 30개만 보여드려요
@@ -919,7 +1029,7 @@ export default function HomeScreen({
                     isDragOver={reorderDrag?.overId === bag.id}
                     selectMode={selectMode}
                     selected={selectedIds.has(bag.id)}
-                    compact={bagCardSize === "small"}
+                    compact={effectiveCardSize === "small"}
                     onClick={() => (selectMode ? toggleSelected(bag.id) : onOpenBag(bag))}
                   />
                 </div>
