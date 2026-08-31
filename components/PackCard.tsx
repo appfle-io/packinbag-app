@@ -273,7 +273,7 @@ export default function PackCard({
       {!isCollapsed && (
         <>
           <div
-            className="grid grid-cols-[repeat(auto-fit,minmax(max(calc(154px*var(--pack-card-scale,1)),46%),1fr))] md:grid-cols-[repeat(auto-fit,minmax(calc(180px*var(--pack-card-scale,1)),1fr))]"
+            className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,calc(280px*var(--pack-card-scale,1))),1fr))]"
             style={{
               gridAutoRows: "min-content",
               gap: "calc(8px * var(--pack-card-scale,1)) calc(10px * var(--pack-card-scale,1))",

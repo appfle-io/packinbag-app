@@ -258,7 +258,7 @@ export default function PackGrid({
             />
           </button>
           {!isChecklistCollapsed && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 items-start">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] gap-3 md:gap-4 items-start">
               {checklistPacks.map(renderCard)}
             </div>
           )}
@@ -272,8 +272,8 @@ export default function PackGrid({
     <div
       className={`grid gap-3 md:gap-4 items-start ${
         editorPacks.length > 0
-          ? "grid-cols-1 lg:grid-cols-2"
-          : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+          ? "grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))]"
+          : "grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))]"
       }`}
     >
       {packs.map(renderCard)}
