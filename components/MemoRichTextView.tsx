@@ -132,6 +132,44 @@ export default function MemoRichTextView({
           return <hr key={bIdx} className="border-border my-2 border-dashed" />;
         }
 
+        if (block.type === "image") {
+          if (block.src) {
+            return (
+              <div key={bIdx} className={`my-1.5 ${alignClass}`} style={indentStyle}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={block.src}
+                  alt={block.alt || "첨부 이미지"}
+                  loading="lazy"
+                  className="max-h-36 max-w-full rounded-lg object-contain border border-border bg-surface-2 shadow-2xs select-none"
+                />
+              </div>
+            );
+          }
+          return (
+            <div
+              key={bIdx}
+              className={`inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded-md bg-surface-2/80 border border-border/60 text-[11.5px] text-text-secondary font-mono select-none ${alignClass}`}
+              style={indentStyle}
+            >
+              {renderSpans(block.spans)}
+            </div>
+          );
+        }
+
+        if (block.type === "file") {
+          return (
+            <div key={bIdx} className={`my-1 ${alignClass}`} style={indentStyle}>
+              <div className="inline-flex items-center gap-2 p-1.5 px-2.5 rounded-md border border-border/70 bg-surface-2/60 text-[12px] text-foreground select-none max-w-full">
+                <span className="w-5 h-5 rounded bg-accent-soft text-accent font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+                  {block.fileExtension || "FILE"}
+                </span>
+                <span className="truncate max-w-[200px] font-medium">{block.fileName || "첨부파일"}</span>
+              </div>
+            </div>
+          );
+        }
+
         if (block.type === "toggle") {
           return (
             <details

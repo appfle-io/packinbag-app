@@ -23,7 +23,7 @@ export interface RichTable {
 }
 
 export interface RichBlock {
-  type: "heading" | "paragraph" | "bullet" | "ordered" | "task" | "blockquote" | "code" | "hr" | "table" | "toggle";
+  type: "heading" | "paragraph" | "bullet" | "ordered" | "task" | "blockquote" | "code" | "hr" | "table" | "toggle" | "image" | "file";
   level?: number;
   checked?: boolean;
   orderNumber?: number;
@@ -34,6 +34,11 @@ export interface RichBlock {
   toggleOpen?: boolean;
   toggleSummarySpans?: RichSpan[];
   toggleChildren?: RichBlock[];
+  src?: string;
+  alt?: string;
+  fileName?: string;
+  fileKind?: string;
+  fileExtension?: string;
 }
 
 interface DocNode {
@@ -285,6 +290,37 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
       }
     } else if (type === "horizontalRule") {
       blocks.push({ type: "hr", spans: [], depth });
+    } else if (type === "imageAttachment" || type === "image") {
+      const attrs = (node.attrs || {}) as { src?: string; alt?: string };
+      const alt = attrs.alt || "사진";
+      const src = attrs.src;
+      blocks.push({
+        type: "image",
+        src,
+        alt,
+        spans: [{ text: `[사진: ${alt}]` }],
+        depth,
+      });
+    } else if (type === "fileAttachment") {
+      const attrs = (node.attrs || {}) as {
+        src?: string;
+        fileName?: string;
+        fileKind?: string;
+        fileExtension?: string;
+      };
+      const fileName = attrs.fileName || "파일";
+      const src = attrs.src;
+      const fileKind = attrs.fileKind || "file";
+      const fileExtension = attrs.fileExtension || "FILE";
+      blocks.push({
+        type: "file",
+        src,
+        fileName,
+        fileKind,
+        fileExtension,
+        spans: [{ text: `[파일: ${fileName}]` }],
+        depth,
+      });
     } else if (node.content) {
       for (const child of node.content) {
         processNode(child, listContext);

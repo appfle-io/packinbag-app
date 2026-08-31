@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import {
   IconArrowLeft,
   IconBold,
@@ -76,8 +76,9 @@ import {
   extractPlainTextPreview,
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
+import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
 import { MAX_PACK_IMAGES } from "@/lib/premiumLimits";
-import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
+import { getFileKind, getFileExtensionLabel, getDisplayFileName } from "@/lib/fileUrlUtils";
 import { uploadPackImage, deletePackImage } from "@/lib/storageService";
 import EditableText from "@/components/EditableText";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -163,7 +164,9 @@ export default function PackNoteEditorScreen({
   const [showTableCellColorPicker, setShowTableCellColorPicker] = useState(false);
   // 툴바 파일첨부(사진/PDF) 관련 상태 - BagEditorScreen의 가방 이미지 기능과 동일한 패턴.
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadProgressMessage, setUploadProgressMessage] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
@@ -297,6 +300,113 @@ export default function PackNoteEditorScreen({
     }
   }, [user, shortUrlFeatureEnabled]);
 
+  // 기존 pack.images에 있던 첨부파일들을 본문(editorDoc) 상단으로 자동 마이그레이션
+  const initialMigratedDoc = useMemo(() => {
+    if (pack.images && pack.images.length > 0) {
+      const { doc } = migratePackImagesToDoc(pack.editorDoc, pack.images);
+      return doc;
+    }
+    return pack.editorDoc ?? "";
+  }, [pack.images, pack.editorDoc]);
+
+  const editorRef = useRef<Editor | null>(null);
+
+  // 툴바 파일 첨부 / 붙여넣기(Paste) / 드래그 앤 드롭(Drop)으로 커서/지정 위치에 파일 삽입
+  const handleUploadAndInsertFiles = useCallback(
+    async (files: FileList | File[] | null, insertPos?: number) => {
+      const uploadTargetId = bagId || user?.uid;
+      if (effectiveReadOnly || !uploadTargetId) return;
+      if (!files || files.length === 0) return;
+
+      // 메모팩 첨부파일은 프리미엄 전용 기능 (무료 회원은 첨부 불가)
+      if (!premium) {
+        setShowPdfPremiumModal(true);
+        return;
+      }
+
+      const fileArray = Array.from(files);
+      const isNonImageFile = (f: File) => !f.type.startsWith("image/");
+      const oversized = fileArray.find(
+        (f) => isNonImageFile(f) && f.size > MAX_PACK_ATTACHMENT_FILE_BYTES
+      );
+      if (oversized) {
+        show("이미지가 아닌 파일은 10MB 이하만 첨부할 수 있어요");
+        return;
+      }
+
+      const isImg = fileArray.every((f) => f.type.startsWith("image/"));
+      const msg = isImg
+        ? fileArray.length === 1
+          ? "이미지를 첨부하고 있어요..."
+          : `${fileArray.length}장의 이미지를 첨부하고 있어요...`
+        : "파일을 첨부하고 있어요...";
+      setUploadProgressMessage(msg);
+      setUploadingImages(true);
+      try {
+        const ed = editorRef.current;
+        for (const file of fileArray) {
+          const url = await uploadPackImage(uploadTargetId, packRef.current.id, file, !!bagId);
+          const kind = getFileKind(url);
+          if (!ed) continue;
+
+          if (kind === "image") {
+            if (typeof insertPos === "number") {
+              ed.chain()
+                .focus()
+                .insertContentAt(insertPos, {
+                  type: "imageAttachment",
+                  attrs: { src: url, alt: file.name },
+                })
+                .run();
+            } else {
+              ed.chain()
+                .focus()
+                .setImageAttachment({
+                  src: url,
+                  alt: file.name,
+                })
+                .run();
+            }
+          } else {
+            const ext = getFileExtensionLabel(url) || "FILE";
+            if (typeof insertPos === "number") {
+              ed.chain()
+                .focus()
+                .insertContentAt(insertPos, {
+                  type: "fileAttachment",
+                  attrs: {
+                    src: url,
+                    fileName: file.name,
+                    fileKind: kind === "pdf" ? "pdf" : "file",
+                    fileExtension: ext,
+                  },
+                })
+                .run();
+            } else {
+              ed.chain()
+                .focus()
+                .setFileAttachment({
+                  src: url,
+                  fileName: file.name,
+                  fileKind: kind === "pdf" ? "pdf" : "file",
+                  fileExtension: ext,
+                })
+                .run();
+            }
+          }
+        }
+        show("본문에 추가했어요");
+      } catch {
+        show("파일 업로드에 실패했어요");
+      } finally {
+        setUploadingImages(false);
+        setUploadProgressMessage(null);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [effectiveReadOnly, bagId, user, premium]
+  );
+
   const editor = useEditor(
     {
       extensions: getNoteEditorExtensions({
@@ -312,12 +422,14 @@ export default function PackNoteEditorScreen({
             }
           : undefined,
       }),
-      content: pack.editorDoc ?? "",
+      content: initialMigratedDoc,
       editable: !effectiveReadOnly,
       immediatelyRender: false,
       editorProps: {
         handleClick: (_view, _pos, event) => {
           const target = event.target as HTMLElement | null;
+
+          // 1. 링크 클릭
           const anchor = target?.closest("a");
           if (anchor) {
             const href = anchor.getAttribute("href");
@@ -326,6 +438,82 @@ export default function PackNoteEditorScreen({
               handleLinkClick(href);
               return true;
             }
+          }
+
+          // 2. 이미지 클릭 -> 라이트박스 열람
+          const img = target?.closest<HTMLElement>("img[data-image-src], [data-image-src]");
+          if (img) {
+            const src = img.getAttribute("data-image-src") || (img as HTMLImageElement).src;
+            if (src) {
+              event.preventDefault();
+              const allDocImages = extractDocAttachmentUrls(editorRef.current?.getJSON()).filter(
+                (u) => getFileKind(u) === "image"
+              );
+              const list = allDocImages.length > 0 ? allDocImages : [src];
+              const idx = list.indexOf(src);
+              setLightboxImages(list);
+              setLightboxIndex(idx >= 0 ? idx : 0);
+              return true;
+            }
+          }
+
+          // 3. 파일 카드 클릭 -> PDF 미리보기 또는 다운로드
+          const fileCard = target?.closest<HTMLElement>("[data-file-src]");
+          if (fileCard) {
+            const src = fileCard.getAttribute("data-file-src");
+            const kind = fileCard.getAttribute("data-file-kind");
+            if (src) {
+              event.preventDefault();
+              if (kind === "pdf") {
+                setPdfPreviewUrl(src);
+              } else {
+                openExternalLink(src);
+              }
+              return true;
+            }
+          }
+
+          return false;
+        },
+        handlePaste: (_view, event) => {
+          const clipboardData = event.clipboardData;
+          if (!clipboardData) return false;
+
+          const files: File[] = [];
+
+          // 1. files 검사
+          if (clipboardData.files && clipboardData.files.length > 0) {
+            for (let i = 0; i < clipboardData.files.length; i++) {
+              const f = clipboardData.files[i];
+              if (f) files.push(f);
+            }
+          }
+
+          // 2. files가 비어있을 때 items에서 이미지 추출 (Windows 캡처 도구, PrintScreen, 브라우저 이미지 복사 등)
+          if (files.length === 0 && clipboardData.items && clipboardData.items.length > 0) {
+            for (let i = 0; i < clipboardData.items.length; i++) {
+              const item = clipboardData.items[i];
+              if (item.kind === "file" || item.type.startsWith("image/")) {
+                const f = item.getAsFile();
+                if (f) files.push(f);
+              }
+            }
+          }
+
+          if (files.length > 0) {
+            event.preventDefault();
+            handleUploadAndInsertFiles(files);
+            return true;
+          }
+
+          return false;
+        },
+        handleDrop: (view, event, _slice, moved) => {
+          if (!moved && event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+            event.preventDefault();
+            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            handleUploadAndInsertFiles(event.dataTransfer.files, coordinates?.pos);
+            return true;
           }
           return false;
         },
@@ -336,20 +524,40 @@ export default function PackNoteEditorScreen({
         },
       },
     },
-    [collab, effectiveReadOnly, noteSpellcheckEnabled]
+    [collab, effectiveReadOnly, noteSpellcheckEnabled, handleUploadAndInsertFiles]
   );
+  editorRef.current = editor;
+
+  // 마운트 시 기존 pack.images에 있던 파일들이 본문으로 마이그레이션되었으면 즉시 원격 저장에 반영
+  useEffect(() => {
+    if (!pack.images || pack.images.length === 0) return;
+    const { doc, migrated } = migratePackImagesToDoc(pack.editorDoc, pack.images);
+    if (migrated) {
+      const updated: Pack = {
+        ...packRef.current,
+        editorDoc: doc,
+        editorPreviewText: extractPlainTextPreview(doc),
+        images: [], // 본문으로 일원화 완료
+        updatedAt: new Date().toISOString(),
+      };
+      packRef.current = updated;
+      onSave(updated);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 기존 작성된 메모팩 내용이 마운트 시 즉시 정상 렌더링되도록 보장
   const initialContentSeededRef = useRef(false);
   useEffect(() => {
     if (!editor) return;
-    if (pack.editorDoc && (editor.isEmpty || !initialContentSeededRef.current)) {
+    const targetDoc = initialMigratedDoc || pack.editorDoc;
+    if (targetDoc && (editor.isEmpty || !initialContentSeededRef.current)) {
       if (editor.isEmpty) {
-        editor.commands.setContent(pack.editorDoc, false);
+        editor.commands.setContent(targetDoc, false);
       }
       initialContentSeededRef.current = true;
     }
-  }, [editor, collab, pack.editorDoc]);
+  }, [editor, collab, pack.editorDoc, initialMigratedDoc]);
 
   // 맞춤법 검사 On/Off 변경 시 에디터 DOM에 즉시 반영
   useEffect(() => {
@@ -781,87 +989,17 @@ export default function PackNoteEditorScreen({
         )}
       </div>
 
-      {bagId && (
+      {(!effectiveReadOnly && (bagId || user)) && (
         <input
           ref={fileInputRef}
           type="file"
           multiple
           hidden
-          onChange={(e) => handleAddAttachments(e.target.files)}
+          onChange={(e) => {
+            handleUploadAndInsertFiles(e.target.files);
+            if (e.target) e.target.value = "";
+          }}
         />
-      )}
-
-      {bagId && packImages.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 mb-3 shrink-0">
-          {packImages.map((src, idx) => {
-            const kind = getFileKind(src);
-            return (
-              <div
-                key={idx}
-                className="relative shrink-0 h-14 w-14 rounded-lg overflow-hidden bg-surface-2"
-              >
-                {kind === "image" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={src}
-                    alt=""
-                    onClick={() => setLightboxIndex(idx)}
-                    className="h-full w-full object-cover"
-                  />
-                ) : kind === "pdf" ? (
-                  <button
-                    onClick={() =>
-                      premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true)
-                    }
-                    className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary"
-                    aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
-                  >
-                    <IconFileText size={20} stroke={1.75} />
-                    <span className="text-[9px]">PDF</span>
-                    {!premium && (
-                      <span
-                        className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
-                        style={{ background: "rgba(0,0,0,0.55)" }}
-                      >
-                        <IconLock size={9} stroke={2} color="#fff" />
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() =>
-                      premium ? openExternalLink(src) : setShowPdfPremiumModal(true)
-                    }
-                    className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary px-1"
-                    aria-label={premium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
-                  >
-                    <IconFileText size={20} stroke={1.75} />
-                    <span className="text-[8px] truncate max-w-full">
-                      {getFileExtensionLabel(src) || "FILE"}
-                    </span>
-                    {!premium && (
-                      <span
-                        className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full flex items-center justify-center"
-                        style={{ background: "rgba(0,0,0,0.55)" }}
-                      >
-                        <IconLock size={9} stroke={2} color="#fff" />
-                      </span>
-                    )}
-                  </button>
-                )}
-                {!effectiveReadOnly && (
-                  <button
-                    onClick={() => setImageDeleteIndex(idx)}
-                    className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(0,0,0,0.5)" }}
-                  >
-                    <IconX size={10} stroke={2} color="#fff" />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
       )}
 
       {activePeers.length > 0 ? (
@@ -1249,7 +1387,7 @@ export default function PackNoteEditorScreen({
               >
                 <IconTable size={17} stroke={1.75} />
               </ToolbarButton>
-              {bagId && (
+              {(!effectiveReadOnly && (bagId || user)) && (
                 <ToolbarButton
                   onClick={() => {
                     if (!premium) {
@@ -1258,7 +1396,7 @@ export default function PackNoteEditorScreen({
                     }
                     fileInputRef.current?.click();
                   }}
-                  disabled={uploadingImages || (premium && packImages.length >= MAX_PACK_IMAGES)}
+                  disabled={uploadingImages}
                   label={premium ? "사진 및 파일 첨부" : "사진 및 파일 첨부 (프리미엄 전용)"}
                 >
                   {uploadingImages ? (
@@ -1296,6 +1434,12 @@ export default function PackNoteEditorScreen({
 
       <div className="flex-1 flex overflow-hidden">
         <div className="relative flex-1 overflow-hidden">
+          {uploadingImages && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/90 text-white dark:bg-white/95 dark:text-slate-900 shadow-xl backdrop-blur-md text-[13px] font-medium pointer-events-none transition-all duration-200 border border-white/10 dark:border-black/10 animate-in fade-in slide-in-from-top-2">
+              <IconLoader2 size={16} stroke={2.2} className="animate-spin text-accent" />
+              <span>{uploadProgressMessage || "파일을 첨부하고 있어요..."}</span>
+            </div>
+          )}
           <div
             className="h-full overflow-y-auto px-4 py-4 md:px-10 md:py-8 scrollbar-thin"
             onClick={(e) => {
@@ -1519,7 +1663,7 @@ export default function PackNoteEditorScreen({
 
       {lightboxIndex !== null && (
         <ImageLightbox
-          images={packImages}
+          images={lightboxImages.length > 0 ? lightboxImages : packImages}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onNavigate={setLightboxIndex}

@@ -29,17 +29,19 @@ export async function deleteBagImage(url: string) {
   }
 }
 
-// 가방 "안"의 메모팩(kind==='editor')에 첨부하는 사진/PDF. 경로를 bags/{bagId}/packs/{packId}/...
-// 로 둬서, storage.rules가 가방 이미지와 동일한 멤버 검증 함수(isMemberOf)를 그대로
-// 재사용할 수 있게 한다(가방 하위 트리 안이라 가방 멤버십만 확인하면 되기 때문).
+// 메모팩(kind==='editor')에 첨부하는 사진/파일.
+// 가방 안의 메모팩이면 bags/{bagId}/packs/{packId}/..., 보관함 메모팩이면 users/{uid}/packs/{packId}/... 로 저장.
 export async function uploadPackImage(
-  bagId: string,
+  bagIdOrUid: string,
   packId: string,
-  file: File
+  file: File,
+  isBagPack = true
 ): Promise<string> {
   const toUpload = await compressImageFile(file, MAX_UPLOAD_BYTES);
   const safeName = toUpload.name.replace(/[^a-zA-Z0-9.]/g, "_");
-  const path = `bags/${bagId}/packs/${packId}/${Date.now()}-${safeName}`;
+  const path = isBagPack
+    ? `bags/${bagIdOrUid}/packs/${packId}/${Date.now()}-${safeName}`
+    : `users/${bagIdOrUid}/packs/${packId}/${Date.now()}-${safeName}`;
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, toUpload);
   return getDownloadURL(storageRef);

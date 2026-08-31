@@ -88,6 +88,7 @@ import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { FontSize } from "./fontSizeExtension";
 import { ToggleBlock, ToggleSummary, ToggleContent } from "./toggleBlockExtension";
 import { IndentExtension } from "./indentExtension";
+import { ImageAttachment, FileAttachment } from "./noteEditorAttachmentExtensions";
 
 export interface NoteEditorExtensionOptions {
   placeholder?: string;
@@ -129,6 +130,8 @@ export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOp
     TaskList,
     TaskItem.configure({ nested: true }),
     IndentExtension,
+    ImageAttachment,
+    FileAttachment,
     CustomTable.configure({ resizable: true, cellMinWidth: 72, handleWidth: 8 }),
     TableRow,
     CustomTableHeader,

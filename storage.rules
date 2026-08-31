@@ -106,5 +106,23 @@ service firebase.storage {
           (!isImage(request.resource.contentType) && request.resource.size < 10 * 1024 * 1024)
         );
     }
+
+    // 팩 보관함(개인 공간) 메모팩의 첨부파일: 프리미엄 회원 본인 전용
+    match /users/{userId}/packs/{packId}/{fileName} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId || isMaster()) &&
+        (
+          isImage(resource.contentType) ||
+          (!isImage(resource.contentType) && isPremium())
+        );
+
+      allow write: if request.auth != null &&
+        (request.auth.uid == userId || isMaster()) &&
+        isPremium() &&
+        (
+          (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
+          (!isImage(request.resource.contentType) && request.resource.size < 10 * 1024 * 1024)
+        );
+    }
   }
 }

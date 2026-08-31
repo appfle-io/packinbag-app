@@ -16,6 +16,8 @@ import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
 import { PremiumLimitError } from "@/lib/premiumLimits";
+import { extractDocAttachmentUrls } from "@/lib/editorDocAttachmentUtils";
+import { deletePackImage } from "@/lib/storageService";
 
 // 팩 보관함은 공유되지 않는 개인 전용 공간이다.
 // 가방은 여러 명이 같이 쓰지만, 그 가방 안에서 누가 불러온 팩이든
@@ -228,5 +230,13 @@ export async function restoreLibraryEntryRecursive(user: User, allPacks: Pack[],
 // 휴지통에서 완전삭제(되돌릴 수 없음)도 동일하게 재귀로 처리한다.
 export async function deleteLibraryEntryRecursive(uid: string, allPacks: Pack[], rootId: string) {
   const ids = [rootId, ...collectDescendantPackIds(allPacks, rootId)];
+  for (const id of ids) {
+    const pack = allPacks.find((p) => p.id === id);
+    if (pack) {
+      const docUrls = extractDocAttachmentUrls(pack.editorDoc);
+      const allUrls = [...(pack.images ?? []), ...docUrls];
+      allUrls.forEach((url) => deletePackImage(url));
+    }
+  }
   await Promise.all(ids.map((id) => deleteLibraryPackRemote(uid, id)));
 }
