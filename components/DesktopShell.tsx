@@ -321,7 +321,7 @@ export default function DesktopShell({
               key={selectedPack.id}
               variant="sheet"
               initialPack={selectedPack}
-              libraryPacks={libraryPacks.filter((p) => p.type !== "folder")}
+              libraryPacks={libraryPacks}
               bags={bags}
               lockedBagIds={lockedBagIds}
               readOnly={!!selectedPack.locked}

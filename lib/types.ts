@@ -320,8 +320,7 @@ export interface UserProfile {
   expandedBagFolderIds?: string[];
   // 가방 표시 관련 개인 설정
   bagSettings?: {
-    // 가방보관함 왼쪽 가장자리에 뜨는 팩보관함 이동 플로팅 버튼(PackTreeSwipeHint) 표시 여부 (기본값 true)
-    packTreeHintEnabled?: boolean;
+    [key: string]: unknown;
   };
   // 팩(짐 목록) 표시 관련 개인 설정
   packSettings?: {
@@ -335,10 +334,6 @@ export interface UserProfile {
     itemMaxLines?: 1 | 2 | 3;
     // 짐 더블클릭 시 클립보드 복사 토스트를 몇 초간 띄울지 (없으면 3 기본값, 3~7 사이).
     itemCopyToastSeconds?: number;
-    // v69: 가방보관함 왼쪽 가장자리에 뜨는 팩트리 이동 플로팅 버튼(PackTreeSwipeHint) 표시 여부 (기존 호환 유지)
-    packTreeHintEnabled?: boolean;
-    // 팩보관함 오른쪽 가장자리에 뜨는 가방보관함 이동 플로팅 버튼(BagListSwipeHint) 표시 여부 (기본값 true)
-    bagListHintEnabled?: boolean;
     // 짐 마감일(Item.dueDate)을 리스트에서 어떤 형식으로 보여줄지 (없으면 "dday" 기본값).
     // "dday"면 D-3/D+1 같은 D-day 표기, "date"면 7/30 같은 실제 날짜로 보여준다.
     dueDateDisplayMode?: "dday" | "date";

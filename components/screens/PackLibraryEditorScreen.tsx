@@ -188,7 +188,7 @@ export default function PackLibraryEditorScreen({
     libraryPacks.some((p) => p.id === pack.id)
       ? libraryPacks.map((p) => (p.id === pack.id ? pack : p))
       : [pack, ...libraryPacks]
-  ).filter((p) => p.id === pack.id || (!lockedPackIds?.has(p.id) && p.kind !== "editor"));
+  ).filter((p) => p.type !== "folder" && (p.id === pack.id || (!lockedPackIds?.has(p.id) && p.kind !== "editor")));
 
   // 빠른팩 이동 목적지로 보여줄 가방 목록: 잠긴(읽기 전용) 가방과 팩이 하나도 없는
   // 가방은 제외한다.
@@ -752,7 +752,8 @@ export default function PackLibraryEditorScreen({
       {itemModal && (
         <ItemFormModal
           packs={displayPacks}
-          selectionMode="multi"
+          allPacks={libraryPacks}
+          selectionMode={itemModal.mode === "edit" ? "single" : "multi"}
           initialSelectedPackIds={[pack.id]}
           mode={itemModal.mode}
           initialType={itemModal.mode === "edit" ? itemModal.item.type : "check"}

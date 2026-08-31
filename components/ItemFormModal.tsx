@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   IconX,
   IconSquareCheck,
   IconAlignLeft,
   IconCalendarEvent,
+  IconFolder,
+  IconChevronDown,
 } from "@tabler/icons-react";
 import Portal from "@/components/Portal";
-import PackChipBar from "@/components/PackChipBar";
 import ItemRichTextField from "@/components/ItemRichTextField";
 import { getItemSpans, spansToPlainText } from "@/lib/richText";
 import { ItemType, Pack, RichSpan } from "@/lib/types";
 import { TEXT_COLORS } from "@/components/ItemRow";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import PackTreePickerModal from "@/components/PackTreePickerModal";
 
 export interface ItemFormSaveData {
   type: ItemType;
@@ -70,6 +72,7 @@ function useVisualViewport() {
 // 필드가 없어서(굵게/밑줄/취소선만) 부분별 색상까지는 지원하지 않는다.
 export default function ItemFormModal({
   packs,
+  allPacks,
   selectionMode,
   initialSelectedPackIds,
   mode,
@@ -84,6 +87,7 @@ export default function ItemFormModal({
   onSave,
 }: {
   packs: Pack[];
+  allPacks?: Pack[];
   selectionMode: "single" | "multi";
   initialSelectedPackIds: string[];
   mode: "add" | "edit";
@@ -99,7 +103,29 @@ export default function ItemFormModal({
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
 }) {
+  const packMap = useMemo(() => {
+    const map = new Map<string, Pack>();
+    (allPacks ?? packs).forEach((p) => map.set(p.id, p));
+    packs.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [allPacks, packs]);
+
+  const getPackFullPath = (packId: string): string => {
+    const p = packMap.get(packId);
+    if (!p) return "팩";
+    const parts: string[] = [];
+    let cur = p.parentId ? packMap.get(p.parentId) : undefined;
+    const visited = new Set<string>();
+    while (cur && !visited.has(cur.id)) {
+      visited.add(cur.id);
+      parts.unshift(cur.name || "폴더");
+      cur = cur.parentId ? packMap.get(cur.parentId) : undefined;
+    }
+    return parts.length > 0 ? `${parts.join(" > ")} > ${p.name || "팩"}` : p.name || "팩";
+  };
+
   const [selectedPackIds, setSelectedPackIds] = useState<string[]>(initialSelectedPackIds);
+  const [showTreePicker, setShowTreePicker] = useState(false);
   const [type, setType] = useState<ItemType>(initialType);
   const [spans, setSpans] = useState<RichSpan[]>(() =>
     getItemSpans({ text: initialText, spans: initialSpans, bold: initialBold, strike: initialStrike })
@@ -113,16 +139,6 @@ export default function ItemFormModal({
   const { height: viewportHeight, offsetTop: viewportOffsetTop } = useVisualViewport();
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
-
-  const handleSelectPack = (packId: string) => {
-    if (selectionMode === "single") {
-      setSelectedPackIds([packId]);
-      return;
-    }
-    setSelectedPackIds((prev) =>
-      prev.includes(packId) ? prev.filter((id) => id !== packId) : [...prev, packId]
-    );
-  };
 
   const plainText = type === "check" ? checkText : spansToPlainText(spans);
   const textEmpty = plainText.trim() === "";
@@ -158,46 +174,85 @@ export default function ItemFormModal({
   };
 
   return (
-    <Portal>
-      <div
-        className="fixed inset-x-0 flex items-center justify-center p-4"
-        style={{
-          top: viewportOffsetTop,
-          height: viewportHeight,
-          zIndex: ambientLayer + POPOVER_OFFSET,
-          background: "rgba(0,0,0,0.45)",
-        }}
-        onClick={onClose}
-      >
+    <>
+      <Portal>
         <div
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
-          style={{ maxHeight: "100%" }}
+          className="fixed inset-x-0 flex items-center justify-center p-4"
+          style={{
+            top: viewportOffsetTop,
+            height: viewportHeight,
+            zIndex: ambientLayer + POPOVER_OFFSET,
+            background: "rgba(0,0,0,0.45)",
+          }}
+          onClick={onClose}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[16px] font-medium">
-              {mode === "add" ? "짐 추가" : "짐 수정"}
-            </span>
-            <button onClick={onClose} aria-label="닫기">
-              <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
-            </button>
-          </div>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
+            style={{ maxHeight: "100%" }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[16px] font-medium">
+                {mode === "add" ? "짐 추가" : "짐 수정"}
+              </span>
+              <button onClick={onClose} aria-label="닫기">
+                <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+              </button>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <PackChipBar
-              packs={packs}
-              label={selectionMode === "single" ? "담을 팩" : "담을 팩 (여러개 선택 가능)"}
-              onSelectPack={handleSelectPack}
-              getState={(packId) =>
-                selectedPackIds.includes(packId) ? "selected" : "normal"
-              }
-            />
-            {noPackSelected && (
-              <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
-                담을 팩을 선택해주세요.
-              </p>
-            )}
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between pl-1">
+                <span className="text-[12px] text-text-muted">
+                  담을 팩 {selectedPackIds.length > 0 && `(${selectedPackIds.length}개)`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTreePicker(true)}
+                  className="text-[11.5px] text-accent hover:underline cursor-pointer flex items-center gap-1 font-medium"
+                >
+                  <IconFolder size={13} />
+                  팩 추가/변경
+                </button>
+              </div>
+
+              {selectedPackIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 rounded-xl border border-border bg-surface-2/40">
+                  {selectedPackIds.map((id) => (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-border/80 text-[12px] font-medium text-foreground shadow-2xs"
+                    >
+                      <span className="truncate max-w-[200px]" title={getPackFullPath(id)}>
+                        {getPackFullPath(id)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPackIds((prev) => prev.filter((pId) => pId !== id))}
+                        className="p-0.5 -mr-1 rounded text-text-muted hover:text-danger cursor-pointer"
+                        aria-label="선택 해제"
+                      >
+                        <IconX size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowTreePicker(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong hover:border-accent bg-surface-2/40 hover:bg-surface-2/70 py-3 text-[13px] text-text-secondary hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <IconFolder size={16} className="text-accent" />
+                  <span>담을 팩을 선택해주세요</span>
+                </button>
+              )}
+
+              {noPackSelected && (
+                <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
+                  담을 팩을 최소 1개 이상 선택해주세요.
+                </p>
+              )}
+            </div>
 
           <div className="flex gap-2">
             <button
@@ -321,5 +376,17 @@ export default function ItemFormModal({
         </div>
       </div>
     </Portal>
+
+    {showTreePicker && (
+      <PackTreePickerModal
+        allPacks={allPacks ?? packs}
+        selectablePacks={packs}
+        selectedPackIds={selectedPackIds}
+        selectionMode={selectionMode}
+        onSelectPack={(packIds) => setSelectedPackIds(packIds)}
+        onClose={() => setShowTreePicker(false)}
+      />
+    )}
+  </>
   );
 }

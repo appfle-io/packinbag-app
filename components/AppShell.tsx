@@ -1538,7 +1538,7 @@ export default function AppShell() {
           <PackLibraryEditorScreen
             variant="sheet"
             initialPack={displayedSheetPack}
-            libraryPacks={realPacksOnly}
+            libraryPacks={activePacks}
             bags={activeBags}
             lockedBagIds={lockedBagIds}
             readOnly={false}
