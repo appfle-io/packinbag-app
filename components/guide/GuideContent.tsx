@@ -50,9 +50,10 @@ export default function GuideContent({
     basics: [
       {
         id: "gesture",
-        title: "탭하여 체크, 밀어서 삭제",
+        title: "탭하여 체크, 밀어서 복사·삭제",
         badges: [
           { label: "탭: 완료", variant: "default" },
+          { label: "오른쪽 밀기: 텍스트 복사", variant: "accent" },
           { label: "왼쪽 밀기: 삭제", variant: "default" },
           { label: "더블 탭: 수정", variant: "default" },
         ],

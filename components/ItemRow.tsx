@@ -14,6 +14,8 @@ import { IconUser } from "@tabler/icons-react";
 
 const DELETE_SWIPE_THRESHOLD = -30;
 const DELETE_SWIPE_MAX = -60;
+const COPY_SWIPE_THRESHOLD = 30;
+const COPY_SWIPE_MAX = 60;
 const SWIPE_BUTTON_WIDTH = 60;
 
 // 스와이프로 판정되려면 필요한 최소 가로 이동거리 / 세로 대비 배율.
@@ -106,6 +108,7 @@ export default function ItemRow({
   onToggle,
   onChangeText,
   onDelete,
+  onCopy,
   onEdit,
   onStartDrag,
   isDragSource,
@@ -135,6 +138,7 @@ export default function ItemRow({
     style?: { bold?: boolean; strike?: boolean; color?: string; spans?: RichSpan[] }
   ) => void;
   onDelete: () => void;
+  onCopy?: () => void;
   onEdit?: () => void;
   onStartDrag?: (clientX: number, clientY: number) => void;
   isDragSource?: boolean;
@@ -217,6 +221,29 @@ export default function ItemRow({
       return;
     }
     openEdit();
+  };
+
+  const handleCopyText = async () => {
+    const textToCopy = item.text.trim();
+    if (!textToCopy) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = textToCopy;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      showToast("텍스트를 복사했어요");
+    } catch {
+      showToast("복사에 실패했어요");
+    }
+    onCopy?.();
   };
   const startX = useRef(0);
   const startY = useRef(0);
@@ -412,9 +439,8 @@ export default function ItemRow({
     // click이 열려있는 버튼을 즉시 닫아버리는 것을 막기 위함).
     swipedRef.current = true;
 
-    // 오른쪽 스와이프는 더 이상 쓰이지 않는다(수정/댓글은 더블탭 통합 모달로 이동) -
-    // 오른쪽으로는 0까지만, 왼쪽(삭제)으로는 그대로 허용한다.
-    const next = Math.min(0, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
+    // 오른쪽 스와이프는 텍스트 복사(handleCopyText), 왼쪽 스와이프는 삭제(onDelete)
+    const next = Math.min(COPY_SWIPE_MAX, Math.max(DELETE_SWIPE_MAX, baseOffset.current + dx));
     setDragX(next);
   };
 
@@ -433,6 +459,7 @@ export default function ItemRow({
     setDragging(false);
     setDragX((current) => {
       if (current <= DELETE_SWIPE_THRESHOLD) return DELETE_SWIPE_MAX;
+      if (current >= COPY_SWIPE_THRESHOLD) return COPY_SWIPE_MAX;
       return 0;
     });
   };
@@ -521,6 +548,25 @@ export default function ItemRow({
       className={`shrink-0 ${item.type === "text" ? "col-span-full" : ""}`}
     >
       <div className="relative overflow-hidden rounded-lg">
+        {(dragging || dragX !== 0) && dragX > 0 && (
+          <button
+            onClick={() => {
+              setDragX(0);
+              handleCopyText();
+            }}
+            className="absolute left-0 top-0 h-full flex items-center justify-start overflow-hidden text-[calc(13px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))]"
+            style={{
+              width: Math.min(SWIPE_BUTTON_WIDTH, dragX),
+              background: "var(--accent)",
+              color: "#fff",
+            }}
+          >
+            <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center font-medium">
+              복사
+            </span>
+          </button>
+        )}
+
         {(dragging || dragX !== 0) && dragX < 0 && (
           <button
             onClick={() => {
@@ -538,7 +584,7 @@ export default function ItemRow({
               color: "#fff",
             }}
           >
-            <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center">
+            <span style={{ width: SWIPE_BUTTON_WIDTH }} className="shrink-0 flex items-center justify-center font-medium">
               삭제
             </span>
           </button>
