@@ -407,6 +407,9 @@ export default function PackNoteEditorScreen({
     [effectiveReadOnly, bagId, user, premium]
   );
 
+  const handleUploadRef = useRef(handleUploadAndInsertFiles);
+  handleUploadRef.current = handleUploadAndInsertFiles;
+
   const editor = useEditor(
     {
       extensions: getNoteEditorExtensions({
@@ -502,7 +505,7 @@ export default function PackNoteEditorScreen({
 
           if (files.length > 0) {
             event.preventDefault();
-            handleUploadAndInsertFiles(files);
+            handleUploadRef.current(files);
             return true;
           }
 
@@ -512,7 +515,7 @@ export default function PackNoteEditorScreen({
           if (!moved && event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
             event.preventDefault();
             const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-            handleUploadAndInsertFiles(event.dataTransfer.files, coordinates?.pos);
+            handleUploadRef.current(event.dataTransfer.files, coordinates?.pos);
             return true;
           }
           return false;
@@ -524,7 +527,7 @@ export default function PackNoteEditorScreen({
         },
       },
     },
-    [collab, effectiveReadOnly, noteSpellcheckEnabled, handleUploadAndInsertFiles]
+    [collab, effectiveReadOnly]
   );
   editorRef.current = editor;
 
@@ -546,18 +549,16 @@ export default function PackNoteEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 기존 작성된 메모팩 내용이 마운트 시 즉시 정상 렌더링되도록 보장
+  // 기존 작성된 메모팩 내용이 마운트 시 즉시 정상 렌더링되도록 보장 (마운트 시 1회만 실행)
   const initialContentSeededRef = useRef(false);
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || initialContentSeededRef.current) return;
     const targetDoc = initialMigratedDoc || pack.editorDoc;
-    if (targetDoc && (editor.isEmpty || !initialContentSeededRef.current)) {
-      if (editor.isEmpty) {
-        editor.commands.setContent(targetDoc, false);
-      }
-      initialContentSeededRef.current = true;
+    if (targetDoc && editor.isEmpty) {
+      editor.commands.setContent(targetDoc, false);
     }
-  }, [editor, collab, pack.editorDoc, initialMigratedDoc]);
+    initialContentSeededRef.current = true;
+  }, [editor, initialMigratedDoc, pack.editorDoc]);
 
   // 맞춤법 검사 On/Off 변경 시 에디터 DOM에 즉시 반영
   useEffect(() => {
@@ -735,11 +736,6 @@ export default function PackNoteEditorScreen({
       editor.off("update", applyLinkLabels);
     };
   }, [editor, applyLinkLabels]);
-
-  useEffect(() => {
-    if (!editor) return;
-    applyLinkLabels();
-  }, [editor, pack.editorDoc, applyLinkLabels]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
