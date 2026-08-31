@@ -128,7 +128,7 @@ export default function NotebookQuickAddModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
+          className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
           style={{ maxHeight: "100%" }}
         >
           <div className="flex items-center justify-between">
@@ -146,7 +146,7 @@ export default function NotebookQuickAddModal({
                   key={p.id}
                   type="button"
                   onClick={() => setSelectedId(p.id)}
-                  className="shrink-0 rounded-full px-4 py-2.5 text-[14px] font-medium whitespace-nowrap"
+                  className="shrink-0 rounded-md px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap"
                   style={{
                     background: selectedId === p.id ? "var(--accent)" : "var(--surface-2)",
                     color: selectedId === p.id ? "#fff" : undefined,
@@ -158,23 +158,24 @@ export default function NotebookQuickAddModal({
               <button
                 type="button"
                 onClick={() => setSelectedId(NEW_PACK_ID)}
-                className="shrink-0 flex items-center gap-1 rounded-full px-4 py-2.5 text-[14px] font-medium whitespace-nowrap"
+                className="shrink-0 flex items-center gap-1 rounded-md px-3.5 py-2 text-[13.5px] font-medium whitespace-nowrap"
                 style={{
                   background: selectedId === NEW_PACK_ID ? "var(--accent)" : "var(--surface-2)",
-                  color: selectedId === NEW_PACK_ID ? "#fff" : "var(--accent)",
+                  color: selectedId === NEW_PACK_ID ? "#fff" : undefined,
                 }}
               >
-                <IconPlus size={14} stroke={2} />
+                <IconPlus size={16} stroke={2} />
                 새 팩
               </button>
             </div>
             {selectedId === NEW_PACK_ID && (
               <input
+                type="text"
                 value={newPackName}
                 onChange={(e) => setNewPackName(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 placeholder="새 팩 이름"
-                className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-[14px] outline-none"
+                className="mt-1 w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-[14px] outline-none"
               />
             )}
           </div>
@@ -183,7 +184,7 @@ export default function NotebookQuickAddModal({
             <button
               type="button"
               onClick={() => setType("check")}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-medium"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[13px] font-medium"
               style={{
                 background: type === "check" ? "var(--accent)" : "var(--surface-2)",
                 color: type === "check" ? "#fff" : "var(--text-secondary)",
@@ -195,7 +196,7 @@ export default function NotebookQuickAddModal({
             <button
               type="button"
               onClick={() => setType("text")}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-medium"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[13px] font-medium"
               style={{
                 background: type === "text" ? "var(--accent)" : "var(--surface-2)",
                 color: type === "text" ? "#fff" : "var(--text-secondary)",
@@ -269,7 +270,7 @@ export default function NotebookQuickAddModal({
               }
             }}
             placeholder={type === "check" ? "짐 이름" : "텍스트 입력"}
-            className="min-w-0 w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none"
+            className="min-w-0 w-full rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none"
             style={{
               fontWeight: type === "text" && bold ? 700 : 400,
               textDecoration: type === "text" && strike ? "line-through" : "none",
@@ -286,7 +287,7 @@ export default function NotebookQuickAddModal({
             <button
               onClick={handleSave}
               disabled={!canSave}
-              className="rounded-lg px-6 py-2.5 text-[14px] font-medium"
+              className="rounded-md px-6 py-2.5 text-[14px] font-medium"
               style={{
                 background: canSave ? "var(--accent)" : "var(--surface-2)",
                 color: canSave ? "#fff" : "var(--text-muted)",

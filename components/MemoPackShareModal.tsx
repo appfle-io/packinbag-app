@@ -114,12 +114,12 @@ export default function MemoPackShareModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-2xl md:max-w-3xl max-h-[90vh] rounded-2xl bg-surface border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          className="w-full max-w-2xl md:max-w-3xl max-h-[90vh] rounded-xl bg-surface border border-border flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between p-3.5 px-4 sm:px-5 border-b border-border bg-surface shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-xl bg-accent-soft text-accent">
+              <div className="p-1.5 rounded-lg bg-accent-soft text-accent">
                 <IconNotes size={19} />
               </div>
               <div>
@@ -131,7 +131,7 @@ export default function MemoPackShareModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
               aria-label="닫기"
             >
               <IconX size={18} />
@@ -141,7 +141,7 @@ export default function MemoPackShareModal({
           {/* 상단 링크 복사 & 공유 바 (항상 노출) */}
           <div className="p-3.5 px-4 sm:px-5 bg-surface-2/50 border-b border-border flex flex-col gap-2.5 shrink-0">
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center px-3.5 py-2 rounded-xl bg-surface border border-border text-[12.5px] text-text-secondary truncate shadow-2xs">
+              <div className="flex-1 flex items-center px-3.5 py-2 rounded-md bg-surface border border-border text-[12.5px] text-text-secondary truncate shadow-2xs">
                 {loadingToken ? (
                   <span className="flex items-center gap-1.5 text-text-muted">
                     <IconLoader2 size={13} className="animate-spin" /> 웹 공유 링크를 생성하고 있어요...
@@ -155,7 +155,7 @@ export default function MemoPackShareModal({
                 type="button"
                 onClick={handleCopyLink}
                 disabled={!shareUrl}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors cursor-pointer shrink-0 shadow-2xs ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12.5px] font-medium transition-colors cursor-pointer shrink-0 shadow-2xs ${
                   linkCopied
                     ? "bg-accent text-white"
                     : "bg-surface border border-border hover:border-accent text-foreground disabled:opacity-50"
@@ -170,7 +170,7 @@ export default function MemoPackShareModal({
                   href={shareUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2.5 rounded-xl bg-surface border border-border hover:border-accent text-text-secondary hover:text-foreground transition-colors shrink-0 shadow-2xs"
+                  className="p-2.5 rounded-md bg-surface border border-border hover:border-accent text-text-secondary hover:text-foreground transition-colors shrink-0 shadow-2xs"
                   title="새 브라우저 탭에서 웹 문서 열기"
                 >
                   <IconExternalLink size={16} />
@@ -192,7 +192,7 @@ export default function MemoPackShareModal({
 
           {/* 본문 미리보기 페이퍼 (Document Paper Preview) */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-surface-2/20 flex flex-col items-center">
-            <div className="w-full max-w-2xl rounded-2xl bg-surface border border-border/80 p-6 sm:p-8 shadow-sm flex flex-col gap-4">
+            <div className="w-full max-w-2xl rounded-lg bg-surface border border-border/80 p-6 sm:p-8 shadow-sm flex flex-col gap-4">
               {/* 문서 헤더 */}
               <div className="flex flex-col gap-1 pb-3 border-b border-border/60">
                 <span className="text-[11px] font-semibold text-accent uppercase tracking-wider">
@@ -216,7 +216,7 @@ export default function MemoPackShareModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-[12.5px] font-medium bg-surface-2 hover:bg-surface-3 text-foreground transition-colors cursor-pointer shrink-0"
+              className="px-4 py-2 rounded-md text-[12.5px] font-medium bg-surface-2 hover:bg-surface-3 text-foreground transition-colors cursor-pointer shrink-0"
             >
               닫기
             </button>

@@ -103,13 +103,13 @@ export default function AiBagAuditModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-surface border border-border rounded-2xl p-5 shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-surface border border-border rounded-xl p-5 shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 모달 헤더 */}
         <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <IconSparkles size={18} />
             </div>
             <div>

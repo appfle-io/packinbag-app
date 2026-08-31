@@ -50,7 +50,7 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
             value={defaultBagViewMode}
             onChange={(e) => updateDefaultBagViewMode(e.target.value as "pack" | "notebook")}
             aria-label="가방 기본 보기"
-            className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none"
+            className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] outline-none"
             style={{ background: "var(--surface-2)", color: "var(--foreground)" }}
           >
             <option value="pack">팩뷰</option>
@@ -62,7 +62,7 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
           <button
             type="button"
             onClick={() => setConfirmReset(true)}
-            className="rounded-lg border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
+            className="rounded-md border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
           >
             가방 설정 초기화
           </button>

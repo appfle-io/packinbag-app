@@ -200,7 +200,7 @@ export default function PackTreePickerModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md rounded-2xl bg-surface border border-border flex flex-col gap-3 shadow-2xl max-h-[85vh] p-4 sm:p-5 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          className="w-full max-w-md rounded-xl bg-surface border border-border flex flex-col gap-3 shadow-2xl max-h-[85vh] p-4 sm:p-5 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between shrink-0">
@@ -214,7 +214,7 @@ export default function PackTreePickerModal({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-text-muted hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
               aria-label="닫기"
             >
               <IconX size={18} />
@@ -223,7 +223,7 @@ export default function PackTreePickerModal({
 
           {/* 선택된 팩 실시간 칩 영역 (어떤 게 추가되었는지 한눈에 직관적으로 확인) */}
           {selectedArray.length > 0 ? (
-            <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-surface-2/50 border border-border/80 shrink-0">
+            <div className="flex flex-col gap-1.5 p-2 rounded-lg bg-surface-2/50 border border-border/80 shrink-0">
               <div className="flex items-center justify-between text-[11.5px]">
                 <span className="font-semibold text-accent">
                   선택된 팩 ({selectedArray.length}개)
@@ -240,7 +240,7 @@ export default function PackTreePickerModal({
                 {selectedArray.map((id) => (
                   <span
                     key={id}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-surface border border-accent/30 text-[11.5px] font-medium text-foreground shadow-2xs"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface border border-accent/30 text-[11.5px] font-medium text-foreground shadow-2xs"
                   >
                     <span className="truncate max-w-[170px]" title={getPackPath(id)}>
                       {getPackPath(id)}
@@ -258,7 +258,7 @@ export default function PackTreePickerModal({
               </div>
             </div>
           ) : (
-            <div className="px-3 py-2 rounded-xl bg-surface-2/30 border border-dashed border-border text-[12px] text-text-muted text-center shrink-0">
+            <div className="px-3 py-2 rounded-lg bg-surface-2/30 border border-dashed border-border text-[12px] text-text-muted text-center shrink-0">
               선택된 팩이 없어요. 아래 목록에서 체크해 주세요.
             </div>
           )}
@@ -269,7 +269,7 @@ export default function PackTreePickerModal({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="팩 또는 폴더 이름 검색"
-              className="w-full rounded-xl border border-border bg-surface-2/60 hover:bg-surface-2 focus:bg-surface px-3.5 py-2 text-[13px] text-foreground outline-none transition-all placeholder:text-text-muted focus:border-accent"
+              className="w-full rounded-md border border-border bg-surface-2/60 hover:bg-surface-2 focus:bg-surface px-3.5 py-2 text-[13px] text-foreground outline-none transition-all placeholder:text-text-muted focus:border-accent"
             />
             {query ? (
               <button
@@ -323,7 +323,7 @@ export default function PackTreePickerModal({
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center gap-2 rounded-xl py-1.5 px-2 transition-colors bg-surface-2/30 hover:bg-surface-2/60 my-0.5"
+                    className="flex items-center gap-2 rounded-md py-1.5 px-2 transition-colors bg-surface-2/30 hover:bg-surface-2/60 my-0.5"
                     style={{ paddingLeft: 8 + depth * 16 }}
                   >
                     {!q && (
@@ -379,7 +379,7 @@ export default function PackTreePickerModal({
                 <div
                   key={entry.id}
                   onClick={() => handlePackClick(entry.id)}
-                  className={`flex items-center gap-2.5 rounded-xl py-2 px-2.5 transition-colors cursor-pointer my-0.5 ${
+                  className={`flex items-center gap-2.5 rounded-md py-2 px-2.5 transition-colors cursor-pointer my-0.5 ${
                     isSelected
                       ? "bg-accent/10 text-foreground font-semibold"
                       : "hover:bg-surface-2 text-foreground"
@@ -408,14 +408,14 @@ export default function PackTreePickerModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-xl text-[13px] text-text-secondary hover:text-foreground transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-md text-[13px] text-text-secondary hover:text-foreground transition-colors cursor-pointer"
             >
               취소
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="px-4 py-2 rounded-xl text-[13px] font-medium bg-accent text-white hover:opacity-90 transition-opacity cursor-pointer"
+              className="px-4 py-2 rounded-md text-[13px] font-medium bg-accent text-white hover:opacity-90 transition-opacity cursor-pointer"
             >
               선택 완료 ({selected.size}개)
             </button>

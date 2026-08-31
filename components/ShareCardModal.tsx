@@ -1266,7 +1266,7 @@ export default function ShareCardModal({
           onTouchMove={(e) => e.stopPropagation()}
         >
           <div
-            className="w-full max-w-sm bg-surface border border-border rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
+            className="w-full max-w-sm bg-surface border border-border rounded-xl p-4 sm:p-5 shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 상단 모달 헤더 */}
@@ -1698,7 +1698,7 @@ export default function ShareCardModal({
                   <img
                     src={previewDataUrl}
                     alt={`${bag.name} 공유 카드 확대`}
-                    className="max-h-[76vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-all duration-200"
+                    className="max-h-[76vh] w-auto max-w-full object-contain rounded-xl shadow-2xl transition-all duration-200"
                     draggable={false}
                   />
                 )}

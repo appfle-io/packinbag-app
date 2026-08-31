@@ -106,7 +106,7 @@ export default function AiOrganizeModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-3"
+          className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-3"
         >
           <div className="flex items-center justify-between">
             <span className="text-[16px] font-medium">AI로 정리하기</span>
@@ -164,7 +164,7 @@ export default function AiOrganizeModal({
             <button
               onClick={handleRun}
               disabled={!canRun}
-              className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[14px] font-medium"
               style={{
                 background: canRun ? "var(--accent)" : "var(--surface-2)",
                 color: canRun ? "#fff" : "var(--text-muted)",

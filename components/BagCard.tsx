@@ -70,7 +70,7 @@ export default function BagCard({
       // 안에 여백만 남는 문제가 있었다. 이제는 '가방 카드크기(가로폭)'을 최대 높이로만
       // 쓰고(max-h-[100cqw] = 내 폭만큼), 내용이 적으면 카드가 그만큼 낮아지고, 내용이
       // 많으면 이 최대 높이에서 세로 스크롤이 생기게 한다.
-      className={`relative max-h-[100cqw] overflow-y-auto rounded-xl border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer ${
+      className={`relative max-h-[100cqw] overflow-y-auto rounded-lg border p-[calc(12px*var(--bag-card-scale,1))] md:p-[calc(16px*var(--bag-card-scale,1))] flex flex-col text-left shadow-sm transition-all duration-150 active:scale-[0.97] active:shadow-none cursor-pointer ${
         selected
           ? "border-accent ring-2 ring-accent/30 scale-[0.98]"
           : selectMode
@@ -136,7 +136,7 @@ export default function BagCard({
                     onToggleArchive();
                   }}
                   aria-label={archived ? "보관 해제" : "보관하기"}
-                  className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-full active:bg-black/5"
+                  className="shrink-0 -m-2 p-2 flex items-center justify-center rounded-md active:bg-black/5"
                 >
                   {archived ? (
                     <IconArchiveOff size={14} stroke={1.75} color="var(--accent)" />
@@ -169,7 +169,7 @@ export default function BagCard({
       {ddayLabel && (
         <div className="mt-1 shrink-0">
           <span
-            className="inline-block text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-full px-2 py-0.5 border border-accent/40 bg-accent/5 text-accent"
+            className="inline-block text-[calc(10px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] font-medium rounded-md px-2 py-0.5 border border-accent/40 bg-accent/5 text-accent"
           >
             {ddayLabel}
           </span>
@@ -210,7 +210,7 @@ export default function BagCard({
           {/* 4개 초과 시 간결한 +N개 뱃지 */}
           {viewablePacks.length > 4 && (
             <div className="mt-1 flex items-center">
-              <span className="text-[10px] font-medium text-text-muted px-1.5 py-0.5 rounded-md bg-surface-2/60">
+              <span className="text-[10px] font-medium text-text-muted px-1.5 py-0.5 rounded bg-surface-2/60">
                 +{viewablePacks.length - 4}개 더보기
               </span>
             </div>
@@ -240,7 +240,7 @@ export default function BagCard({
 
       {/* 카드 하단 2px 미니멀 진행률 바 */}
       {overallRatio !== null && (
-        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-border/40 overflow-hidden rounded-b-xl">
+        <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-border/40 overflow-hidden rounded-b-lg">
           <div
             className="h-full transition-all duration-300 ease-out"
             style={{

@@ -137,7 +137,7 @@ export default function AiClipboardModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-3"
+          className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-3"
         >
           <div className="flex items-center justify-between">
             <span className="text-[16px] font-medium flex items-center gap-1.5">
@@ -153,7 +153,7 @@ export default function AiClipboardModal({
 
           <p className="text-[12px] text-text-secondary">
             클립보드 내용을 보고, 지금 이 가방에 없는 항목만 새로 추가해드려요. 이미 있는 항목은
-            자동으로 제외돼요.
+            건너뜁니다.
           </p>
 
           {clipboardReadFailed && !text && !loading && (
@@ -169,19 +169,15 @@ export default function AiClipboardModal({
           )}
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-lg py-8">
-              <div
-                className="pib-note-spin flex items-center justify-center rounded-full"
-                style={{ width: 40, height: 40, background: "var(--accent-soft)" }}
-              >
-                <IconSparkles size={18} stroke={1.75} color="var(--accent)" />
-              </div>
-              <p
-                key={loadingStep}
-                className="pib-note-fade text-[13px]"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {LOADING_MESSAGES[loadingStep]}
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <IconSparkles
+                size={24}
+                stroke={1.75}
+                className="animate-spin"
+                color="var(--accent)"
+              />
+              <p className="text-[13px] text-text-secondary">
+                새 항목만 골라내는 중...
               </p>
             </div>
           ) : (
@@ -190,7 +186,7 @@ export default function AiClipboardModal({
               onChange={(e) => setText(e.target.value)}
               placeholder="여기에 길게 눌러 붙여넣기"
               rows={8}
-              className="rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[13px] outline-none resize-none"
+              className="rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[13px] outline-none resize-none"
             />
           )}
 
@@ -204,7 +200,7 @@ export default function AiClipboardModal({
             <button
               onClick={handleAnalyze}
               disabled={!text.trim()}
-              className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[14px] font-medium"
               style={{
                 background: text.trim() ? "var(--accent)" : "var(--surface-2)",
                 color: text.trim() ? "#fff" : "var(--text-muted)",

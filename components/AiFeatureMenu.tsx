@@ -37,7 +37,7 @@ export default function AiFeatureMenu({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-3"
+          className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-3"
         >
           <div className="flex items-center justify-between">
             <span className="text-[16px] font-medium flex items-center gap-1.5">
@@ -54,7 +54,7 @@ export default function AiFeatureMenu({
               onClose();
               onSelectOrganize();
             }}
-            className="flex items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-surface-2"
+            className="flex items-center gap-3 rounded-lg border border-border p-3 text-left hover:bg-surface-2"
           >
             <div
               className="shrink-0 flex items-center justify-center rounded-full"
@@ -67,7 +67,7 @@ export default function AiFeatureMenu({
                 <span className="text-[14px] font-medium">AI 정리</span>
                 {!premium && (
                   <span
-                    className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                    className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
                     style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                   >
                     프리미엄
@@ -86,7 +86,7 @@ export default function AiFeatureMenu({
               onClose();
               onSelectRecommend();
             }}
-            className="flex items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-surface-2"
+            className="flex items-center gap-3 rounded-lg border border-border p-3 text-left hover:bg-surface-2"
           >
             <div
               className="shrink-0 flex items-center justify-center rounded-full"
@@ -99,7 +99,7 @@ export default function AiFeatureMenu({
                 <span className="text-[14px] font-medium">AI 추천</span>
                 {!premium && (
                   <span
-                    className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                    className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
                     style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                   >
                     프리미엄
@@ -118,7 +118,7 @@ export default function AiFeatureMenu({
               onClose();
               onSelectClipboard();
             }}
-            className="flex items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-surface-2"
+            className="flex items-center gap-3 rounded-lg border border-border p-3 text-left hover:bg-surface-2"
           >
             <div
               className="shrink-0 flex items-center justify-center rounded-full"
@@ -131,7 +131,7 @@ export default function AiFeatureMenu({
                 <span className="text-[14px] font-medium">AI 클립보드</span>
                 {!premium && (
                   <span
-                    className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                    className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
                     style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                   >
                     프리미엄
@@ -150,7 +150,7 @@ export default function AiFeatureMenu({
               onClose();
               onSelectAudit();
             }}
-            className="flex items-center gap-3 rounded-xl border border-border p-3 text-left hover:bg-surface-2"
+            className="flex items-center gap-3 rounded-lg border border-border p-3 text-left hover:bg-surface-2"
           >
             <div
               className="shrink-0 flex items-center justify-center rounded-full bg-amber-500/15"
@@ -161,7 +161,7 @@ export default function AiFeatureMenu({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-[14px] font-medium">AI 짐 누락 검수</span>
-                <span className="shrink-0 text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                <span className="shrink-0 text-[10px] font-bold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-400">
                   추천
                 </span>
               </div>

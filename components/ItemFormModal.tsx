@@ -188,7 +188,7 @@ export default function ItemFormModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
+            className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
             style={{ maxHeight: "100%" }}
           >
             <div className="flex items-center justify-between">
@@ -216,7 +216,7 @@ export default function ItemFormModal({
               </div>
 
               {selectedPackIds.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 rounded-xl border border-border bg-surface-2/40">
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 rounded-lg border border-border bg-surface-2/40">
                   {selectedPackIds.map((id) => (
                     <span
                       key={id}
@@ -258,7 +258,7 @@ export default function ItemFormModal({
             <button
               type="button"
               onClick={() => setType("check")}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-medium"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[13px] font-medium"
               style={{
                 background: type === "check" ? "var(--accent)" : "var(--surface-2)",
                 color: type === "check" ? "#fff" : "var(--text-secondary)",
@@ -270,7 +270,7 @@ export default function ItemFormModal({
             <button
               type="button"
               onClick={() => setType("text")}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-medium"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[13px] font-medium"
               style={{
                 background: type === "text" ? "var(--accent)" : "var(--surface-2)",
                 color: type === "text" ? "#fff" : "var(--text-secondary)",
@@ -289,7 +289,7 @@ export default function ItemFormModal({
                 value={checkText}
                 onChange={(e) => setCheckText(e.target.value)}
                 placeholder="짐 이름"
-                className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
+                className="w-full rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
               />
               {textEmpty && (
                 <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
@@ -344,7 +344,7 @@ export default function ItemFormModal({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
+              className="flex-1 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-[13px] outline-none"
             />
             {dueDate && (
               <button onClick={() => setDueDate("")} aria-label="마감일 삭제" className="p-1">
@@ -356,7 +356,7 @@ export default function ItemFormModal({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="flex-1 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex-1 rounded-md py-2.5 text-[14px] font-medium"
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
             >
               취소
@@ -364,7 +364,7 @@ export default function ItemFormModal({
             <button
               onClick={handleSave}
               disabled={!canSave}
-              className="flex-1 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex-1 rounded-md py-2.5 text-[14px] font-medium"
               style={{
                 background: canSave ? "var(--accent)" : "var(--surface-2)",
                 color: canSave ? "#fff" : "var(--text-muted)",

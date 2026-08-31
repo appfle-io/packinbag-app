@@ -185,7 +185,7 @@ export default function PackCard({
   return (
     <div
       data-pack-drop-id={pack.id}
-      className="flex flex-col rounded-xl border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
+      className="flex flex-col rounded-lg border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
       style={{
         borderColor: isDragOver ? "var(--accent)" : "var(--border)",
         boxShadow: isDragOver

@@ -92,7 +92,7 @@ export default function EditorPackCard({
   return (
     <div
       data-pack-drop-id={pack.id}
-      className="flex flex-col rounded-xl border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
+      className="flex flex-col rounded-lg border p-[calc(14px*var(--pack-card-scale,1))] md:p-[calc(20px*var(--pack-card-scale,1))] min-h-0 shadow-sm"
       style={{
         borderColor: isDragOver
           ? "var(--accent)"
@@ -137,7 +137,7 @@ export default function EditorPackCard({
           />
           {pack.autoSyncEnabled && (
             <span
-              className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded-md bg-accent-soft text-accent border border-accent/20"
+              className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded bg-accent-soft text-accent border border-accent/20"
               title="보관함과 실시간 동기화 중"
             >
               <IconArrowsExchange size={12} stroke={2} />
@@ -246,7 +246,7 @@ export default function EditorPackCard({
 
       <div
         onDoubleClick={onOpenEditor}
-        className="text-left rounded-lg -mx-1 px-1 py-1"
+        className="text-left rounded-md -mx-1 px-1 py-1"
         style={{
           maxHeight: "calc(228px * var(--pack-card-scale,1))",
           overflowY: "auto",

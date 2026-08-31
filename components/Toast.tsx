@@ -73,7 +73,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         >
           <div
             key={toast.key}
-            className="pib-toast-pop flex flex-col items-center gap-2.5 rounded-2xl px-6 py-5 text-center shadow-lg"
+            className="pib-toast-pop flex flex-col items-center gap-2.5 rounded-xl px-6 py-5 text-center shadow-lg"
             style={{
               background: "var(--surface)",
               border: "1px solid var(--border)",

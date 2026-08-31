@@ -711,21 +711,21 @@ export default function PackLibraryEditorScreen({
         >
           <button
             onClick={cancelSelection}
-            className="rounded-lg px-4 py-2.5 text-[14px]"
+            className="rounded-md px-4 py-2.5 text-[14px]"
             style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
           >
             취소
           </button>
           <button
             onClick={commitDeleteSelected}
-            className="rounded-lg px-4 py-2.5 text-[14px] font-medium"
+            className="rounded-md px-4 py-2.5 text-[14px] font-medium"
             style={{ background: "var(--danger)", color: "#fff" }}
           >
             삭제
           </button>
           <button
             onClick={() => setShowMoveSheet(true)}
-            className="flex-1 rounded-lg py-2.5 text-[14px] font-medium"
+            className="flex-1 rounded-md py-2.5 text-[14px] font-medium"
             style={{ background: "var(--accent)", color: "#fff" }}
           >
             이동
@@ -739,7 +739,7 @@ export default function PackLibraryEditorScreen({
           >
             <button
               onClick={openAddModal}
-              className="flex items-center justify-center gap-1.5 rounded-full px-8 py-3 text-[15px] font-medium"
+              className="flex items-center justify-center gap-1.5 rounded-md px-8 py-3 text-[15px] font-medium"
               style={{ background: "var(--accent)", color: "#fff" }}
             >
               <IconPlus size={18} stroke={2} />
@@ -779,7 +779,7 @@ export default function PackLibraryEditorScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               {moveSheetBagId ? (
@@ -812,7 +812,7 @@ export default function PackLibraryEditorScreen({
                           <button
                             key={p.id}
                             onClick={() => commitMove({ kind: "bag", bagId: bag!.id, packId: p.id })}
-                            className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                            className="flex items-center justify-between rounded-md px-3 py-2.5 text-left"
                             style={{ background: "var(--surface-2)" }}
                           >
                             <span className="text-[13px] font-medium truncate">{p.name}</span>
@@ -853,7 +853,7 @@ export default function PackLibraryEditorScreen({
                             <button
                               key={p.id}
                               onClick={() => commitMove({ kind: "library", packId: p.id })}
-                              className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                              className="flex items-center justify-between rounded-md px-3 py-2.5 text-left"
                               style={{ background: "var(--surface-2)" }}
                             >
                               <span className="text-[13px] font-medium truncate">{p.name}</span>
@@ -876,7 +876,7 @@ export default function PackLibraryEditorScreen({
                           <button
                             key={b.id}
                             onClick={() => setMoveSheetBagId(b.id)}
-                            className="flex items-center justify-between rounded-lg px-3 py-2.5 text-left"
+                            className="flex items-center justify-between rounded-md px-3 py-2.5 text-left"
                             style={{ background: "var(--surface-2)" }}
                           >
                             <span className="min-w-0">

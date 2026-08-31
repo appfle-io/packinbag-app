@@ -2534,7 +2534,7 @@ export default function BagEditorScreen({
             <button
               onClick={() => setShowImport(true)}
               aria-label="팩 불러오기"
-              className="rounded-lg border border-border p-2"
+              className="rounded-md border border-border p-2"
             >
               <IconPackageImport size={17} stroke={1.75} />
             </button>
@@ -2542,11 +2542,11 @@ export default function BagEditorScreen({
               onClick={() => setShowAddPackKindSheet(true)}
               disabled={bag.packs.length >= 10}
               aria-label="새 팩 추가"
-              className="relative rounded-lg border border-border p-2 disabled:opacity-40"
+              className="relative rounded-md border border-border p-2 disabled:opacity-40"
             >
               <IconPackage size={17} stroke={1.75} />
               <span
-                className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full flex items-center justify-center"
+                className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-[3px] flex items-center justify-center"
                 style={{ background: "var(--accent)" }}
               >
                 <IconPlus size={9} stroke={3} color="#fff" />
@@ -2556,7 +2556,7 @@ export default function BagEditorScreen({
             <div className="relative">
               <button
                 onClick={() => setShowViewMenu((v) => !v)}
-                className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-medium flex items-center gap-1.5 transition-all shadow-2xs ${
+                className={`rounded-md border px-2.5 py-1.5 text-[12px] font-medium flex items-center gap-1.5 transition-all shadow-2xs ${
                   filterOnlyMyItems
                     ? "border-accent bg-accent/10 text-accent font-bold"
                     : "border-border bg-surface hover:bg-surface-2 text-foreground"
@@ -2590,7 +2590,7 @@ export default function BagEditorScreen({
                     onClick={() => setShowViewMenu(false)}
                   />
                   <div
-                    className="absolute top-full left-0 mt-1.5 z-50 w-48 rounded-2xl border border-border bg-surface p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-0.5"
+                    className="absolute top-full left-0 mt-1.5 z-50 w-48 rounded-lg border border-border bg-surface p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-0.5"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="px-2.5 py-1 text-[10.5px] font-bold text-text-muted uppercase tracking-wider">
@@ -2602,7 +2602,7 @@ export default function BagEditorScreen({
                         if (viewMode !== "pack") handleToggleViewMode();
                         setShowViewMenu(false);
                       }}
-                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors ${
+                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-[12.5px] font-medium transition-colors ${
                         viewMode === "pack" && !filterOnlyMyItems
                           ? "bg-accent/10 text-accent font-bold"
                           : "text-foreground hover:bg-surface-2"
@@ -2622,7 +2622,7 @@ export default function BagEditorScreen({
                         if (viewMode !== "notebook") handleToggleViewMode();
                         setShowViewMenu(false);
                       }}
-                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors ${
+                      className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-[12.5px] font-medium transition-colors ${
                         viewMode === "notebook" && !filterOnlyMyItems
                           ? "bg-accent/10 text-accent font-bold"
                           : "text-foreground hover:bg-surface-2"
@@ -2648,7 +2648,7 @@ export default function BagEditorScreen({
                         setShowPackingMode(true);
                         setShowViewMenu(false);
                       }}
-                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-[12.5px] font-medium text-foreground hover:bg-surface-2 transition-colors"
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-[12.5px] font-medium text-foreground hover:bg-surface-2 transition-colors"
                     >
                       <IconChecklist size={15} stroke={1.75} className="text-accent" />
                       <span>집중 패킹 모드</span>
@@ -2660,7 +2660,7 @@ export default function BagEditorScreen({
                           setFilterOnlyMyItems((v) => !v);
                           setShowViewMenu(false);
                         }}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-[12.5px] font-medium transition-colors ${
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-[12.5px] font-medium transition-colors ${
                           filterOnlyMyItems
                             ? "bg-accent/10 text-accent font-bold"
                             : "text-foreground hover:bg-surface-2"
@@ -2678,7 +2678,7 @@ export default function BagEditorScreen({
               )}
             </div>
             {bag.packs.length > 0 && (
-              <div className="flex items-center gap-2.5 ml-auto rounded-lg border border-border px-2 py-1">
+              <div className="flex items-center gap-2.5 ml-auto rounded-md border border-border px-2 py-1">
                 <button
                   onClick={() => handleToggleAllInBag(!allBagChecked)}
                   aria-label={allBagChecked ? "가방 전체 체크 해제" : "가방 전체 체크"}
@@ -3003,7 +3003,7 @@ export default function BagEditorScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <span className="text-[15px] font-medium mb-1">어떤 팩을 만들까요?</span>
@@ -3047,7 +3047,7 @@ export default function BagEditorScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-2"
               style={{
                 paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))",
                 maxHeight: "70vh",

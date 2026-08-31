@@ -529,7 +529,7 @@ export default function HomeScreen({
         <div className="flex items-center justify-between mb-3.5 gap-2">
           {searchOpen ? (
             <>
-              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
+              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
                 <IconSearch size={15} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
                 <input
                   ref={searchInputRef}
@@ -563,7 +563,7 @@ export default function HomeScreen({
                 <button
                   onClick={openSearch}
                   aria-label="검색"
-                  className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
+                  className="p-1.5 rounded-md text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
                 >
                   <IconSearch size={18} stroke={1.75} />
                 </button>
@@ -604,7 +604,7 @@ export default function HomeScreen({
             <div className="flex items-center justify-between mb-3 gap-2">
               <button
                 onClick={() => setShowJoin(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs"
+                className="flex items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs"
               >
                 <IconTicket size={13} stroke={1.75} />
                 코드로 참여
@@ -612,7 +612,7 @@ export default function HomeScreen({
               <div className="flex items-center gap-1.5 shrink-0">
                 {(archivedBagsAll.length > 0 || bagFilter === "archived") && (
                   <div
-                    className="flex items-center gap-1 rounded-lg border border-border/80 px-2 py-1.5 bg-surface"
+                    className="flex items-center gap-1 rounded-md border border-border/80 px-2 py-1.5 bg-surface"
                   >
                     <IconArchive size={13} stroke={1.75} color="var(--text-secondary)" />
                     <select
@@ -653,7 +653,7 @@ export default function HomeScreen({
                           ? "3열 작게 보기 (탭하여 1열로 변경)"
                           : "2열 보통 보기"
                       }
-                      className="flex items-center gap-1 rounded-lg border border-border/80 px-2.5 py-1.5 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer shadow-2xs"
+                      className="flex items-center gap-1 rounded-md border border-border/80 px-2.5 py-1.5 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer shadow-2xs"
                     >
                       {effectiveCardSize === "large" ? (
                         <IconLayoutList size={14} stroke={1.75} />
@@ -868,12 +868,12 @@ export default function HomeScreen({
                   <div
                     key={result.id}
                     onClick={() => handleResultClick(result)}
-                    className="flex flex-col gap-1.5 rounded-xl bg-surface border border-border/80 p-3 hover:bg-surface-2 cursor-pointer transition-colors text-left shadow-2xs group"
+                    className="flex flex-col gap-1.5 rounded-lg bg-surface border border-border/80 p-3 hover:bg-surface-2 cursor-pointer transition-colors text-left shadow-2xs group"
                   >
                     {/* 상단: 타입 칩 + 항목 이름 + 미리보기 토글 */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${badgeStyle}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeStyle}`}>
                           {badgeLabel}
                         </span>
                         <span className="text-[13px] font-semibold text-foreground truncate group-hover:text-accent transition-colors">
@@ -1037,7 +1037,7 @@ export default function HomeScreen({
               {!selectMode && bagFilter === "active" && (
                 <button
                   onClick={() => setShowNewBagOptions(true)}
-                  className="aspect-square rounded-xl border border-dashed border-border-strong flex items-center justify-center text-text-muted"
+                  className="aspect-square rounded-lg border border-dashed border-border-strong flex items-center justify-center text-text-muted"
                 >
                   <IconPlus size={22} stroke={1.75} />
                 </button>
@@ -1055,7 +1055,7 @@ export default function HomeScreen({
           >
             <span
               data-bag-folder-drop-id="root"
-              className="shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium"
+              className="shrink-0 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12.5px] font-medium"
               style={{
                 borderColor: reorderDrag.overFolderId === "root" ? "var(--accent)" : "var(--border)",
                 background: reorderDrag.overFolderId === "root" ? "var(--accent-soft)" : "var(--surface-2)",
@@ -1068,7 +1068,7 @@ export default function HomeScreen({
               <span
                 key={folder.id}
                 data-bag-folder-drop-id={folder.id}
-                className="shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium"
+                className="shrink-0 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12.5px] font-medium"
                 style={{
                   borderColor: reorderDrag.overFolderId === folder.id ? "var(--accent)" : "var(--border)",
                   background: reorderDrag.overFolderId === folder.id ? "var(--accent-soft)" : "var(--surface-2)",
@@ -1086,7 +1086,7 @@ export default function HomeScreen({
 
       {reorderDrag && (
         <div
-          className="fixed z-[95] pointer-events-none rounded-lg px-3 py-2 text-[13px] shadow-lg"
+          className="fixed z-[95] pointer-events-none rounded-md px-3 py-2 text-[13px] shadow-lg"
           style={{
             left: reorderDrag.x,
             top: reorderDrag.y,
@@ -1118,7 +1118,7 @@ export default function HomeScreen({
             <button
               onClick={() => selectedIds.size > 0 && setShowMoveSheet(true)}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
             >
               <IconFolder size={15} stroke={1.75} />
               <span>폴더 이동</span>
@@ -1126,7 +1126,7 @@ export default function HomeScreen({
             <button
               onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
               style={{ background: "var(--danger)" }}
             >
               <IconTrash size={15} stroke={1.75} />
@@ -1224,7 +1224,7 @@ export default function HomeScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))", maxHeight: "70vh", overflowY: "auto" }}
             >
               <span className="text-[15px] font-medium mb-1">이동할 곳</span>

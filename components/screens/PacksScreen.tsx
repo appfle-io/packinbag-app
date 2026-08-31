@@ -497,7 +497,7 @@ export default function PacksScreen({
         <div className="flex items-center justify-between mb-3.5 gap-2">
           {searchOpen ? (
             <>
-              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
+              <div className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border/80 bg-surface-2/60 focus-within:bg-background focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 px-2.5 py-1.5 transition-all">
                 <IconSearch size={15} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
                 <input
                   ref={searchInputRef}
@@ -640,12 +640,12 @@ export default function PacksScreen({
                   <div
                     key={result.id}
                     onClick={() => handleResultClick(result)}
-                    className="flex flex-col gap-1.5 rounded-xl bg-surface border border-border/80 p-3 hover:bg-surface-2 cursor-pointer transition-colors text-left shadow-2xs group"
+                    className="flex flex-col gap-1.5 rounded-lg bg-surface border border-border/80 p-3 hover:bg-surface-2 cursor-pointer transition-colors text-left shadow-2xs group"
                   >
                     {/* 상단: 타입 칩 + 항목 이름 + 미리보기 토글 */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${badgeStyle}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${badgeStyle}`}>
                           {badgeLabel}
                         </span>
                         <span className="text-[13px] font-semibold text-foreground truncate group-hover:text-accent transition-colors">
@@ -884,7 +884,7 @@ export default function PacksScreen({
                 <>
                   <button
                     onClick={() => setRenamingEntry(only)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-border bg-surface text-text-secondary hover:text-foreground"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-border bg-surface text-text-secondary hover:text-foreground"
                   >
                     <IconEdit size={14} stroke={1.75} />
                     <span>이름 변경</span>
@@ -892,7 +892,7 @@ export default function PacksScreen({
                   {only.type === "folder" && (
                     <button
                       onClick={() => setSharingFolder(only)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
                     >
                       <IconShare size={14} stroke={1.75} />
                       <span>공유</span>
@@ -904,7 +904,7 @@ export default function PacksScreen({
             <button
               onClick={() => selectedIds.size > 0 && setShowMoveSheet(true)}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
             >
               <IconFolder size={15} stroke={1.75} />
               <span>이동</span>
@@ -912,7 +912,7 @@ export default function PacksScreen({
             <button
               onClick={() => selectedIds.size > 0 && setShowBulkDeleteConfirm(true)}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12.5px] font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-2xs"
               style={{ background: "var(--danger)" }}
             >
               <IconTrash size={15} stroke={1.75} />
@@ -952,7 +952,7 @@ export default function PacksScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <div className="flex items-center justify-between mb-1">
@@ -1000,7 +1000,7 @@ export default function PacksScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <div className="flex items-center justify-between mb-1">
@@ -1058,7 +1058,7 @@ export default function PacksScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-3"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-3"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <span className="text-[15px] font-medium">이름 변경</span>
@@ -1124,7 +1124,7 @@ export default function PacksScreen({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-2"
+              className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-2"
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <div className="flex items-center justify-between mb-1 px-1">
@@ -1142,7 +1142,7 @@ export default function PacksScreen({
                     setFolderMenuEntry(null);
                     setRenamingEntry(target);
                   }}
-                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                  className="flex items-center gap-2.5 rounded-md px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
                   style={{ background: "var(--surface-2)" }}
                 >
                   <IconEdit size={17} stroke={1.75} className="text-text-secondary" />
@@ -1154,7 +1154,7 @@ export default function PacksScreen({
                     setFolderMenuEntry(null);
                     setSharingFolder(target);
                   }}
-                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                  className="flex items-center gap-2.5 rounded-md px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
                   style={{ background: "var(--surface-2)" }}
                 >
                   <IconShare size={17} stroke={1.75} className="text-accent" />
@@ -1167,7 +1167,7 @@ export default function PacksScreen({
                     setSelectedIds(new Set([target.id]));
                     setShowMoveSheet(true);
                   }}
-                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                  className="flex items-center gap-2.5 rounded-md px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
                   style={{ background: "var(--surface-2)" }}
                 >
                   <IconArrowRight size={17} stroke={1.75} className="text-text-secondary" />
@@ -1180,7 +1180,7 @@ export default function PacksScreen({
                     setSelectedIds(new Set([target.id]));
                     setShowBulkDeleteConfirm(true);
                   }}
-                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-left hover:bg-danger/10 transition-colors active:scale-[0.99]"
+                  className="flex items-center gap-2.5 rounded-md px-3.5 py-3 text-left hover:bg-danger/10 transition-colors active:scale-[0.99]"
                   style={{ background: "var(--surface-2)" }}
                 >
                   <IconTrash size={17} stroke={1.75} className="text-danger" />

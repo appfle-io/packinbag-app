@@ -1192,12 +1192,12 @@ export default function PackShareModal({
             onClick={handleOpenEnlargedPreview}
             onTouchStart={(e) => handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)}
             onTouchEnd={(e) => handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
-            className="group relative flex items-center justify-center rounded-2xl bg-surface-2/60 border border-border/60 p-3 overflow-hidden cursor-zoom-in transition-transform active:scale-[0.99] select-none"
+            className="group relative flex items-center justify-center rounded-xl bg-surface-2/60 border border-border/60 p-3 overflow-hidden cursor-zoom-in transition-transform active:scale-[0.99] select-none"
             title="클릭하여 크게 보기 (좌우 스와이프로 카드 전환)"
           >
             <canvas
               ref={setCanvasRef}
-              className="w-full max-h-[250px] object-contain rounded-lg drop-shadow-md"
+              className="w-full max-h-[250px] object-contain rounded-md drop-shadow-md"
             />
             {/* 좌우 이동 버튼 */}
             <button
@@ -1232,7 +1232,7 @@ export default function PackShareModal({
           </div>
 
           {/* 웹 링크 복사 박스 */}
-          <div className="flex flex-col gap-1.5 rounded-2xl bg-surface-2/70 border border-border/70 p-3.5">
+          <div className="flex flex-col gap-1.5 rounded-lg bg-surface-2/70 border border-border/70 p-3.5">
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-semibold text-text-secondary">
                 웹 공유 링크
@@ -1245,13 +1245,13 @@ export default function PackShareModal({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-surface border border-border text-[12px] text-text-secondary truncate font-mono select-all">
+              <div className="flex-1 min-w-0 px-2.5 py-1.5 rounded-md bg-surface border border-border text-[12px] text-text-secondary truncate font-mono select-all">
                 {shareUrl || "링크를 불러오는 중입니다..."}
               </div>
               <button
                 onClick={handleCopyLink}
                 disabled={!shareUrl}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-accent text-white text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1"
+                className="shrink-0 px-3 py-1.5 rounded-md bg-accent text-white text-[12.5px] font-medium transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1"
               >
                 {linkCopied ? (
                   <>
@@ -1275,14 +1275,14 @@ export default function PackShareModal({
           <div className="flex items-center gap-2 pt-1">
             <button
               onClick={handleDownload}
-              className="flex-1 py-3 rounded-2xl bg-surface-2 text-foreground font-medium text-[13.5px] flex items-center justify-center gap-2 border border-border/80 hover:bg-surface-3 transition-colors active:scale-95"
+              className="flex-1 py-3 rounded-md bg-surface-2 text-foreground font-medium text-[13.5px] flex items-center justify-center gap-2 border border-border/80 hover:bg-surface-3 transition-colors active:scale-95"
             >
               <IconDownload size={17} stroke={2} />
               이미지 저장
             </button>
             <button
               onClick={handleShareImage}
-              className="flex-1 py-3 rounded-2xl bg-accent text-white font-medium text-[13.5px] flex items-center justify-center gap-2 shadow-lg shadow-accent/20 hover:opacity-95 transition-opacity active:scale-95"
+              className="flex-1 py-3 rounded-md bg-accent text-white font-medium text-[13.5px] flex items-center justify-center gap-2 shadow-lg shadow-accent/20 hover:opacity-95 transition-opacity active:scale-95"
             >
               <IconShare size={17} stroke={2} />
               공유하기
@@ -1380,7 +1380,7 @@ export default function PackShareModal({
                 <img
                   src={previewDataUrl}
                   alt={`${targetTitle} 공유 카드 확대`}
-                  className="max-h-[76vh] w-auto max-w-full object-contain rounded-2xl shadow-2xl transition-all duration-200"
+                  className="max-h-[76vh] w-auto max-w-full object-contain rounded-xl shadow-2xl transition-all duration-200"
                   draggable={false}
                 />
               )}

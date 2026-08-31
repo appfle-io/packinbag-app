@@ -323,7 +323,7 @@ export default function ItemEditModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
+          className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-4 overflow-y-auto"
           style={{ maxHeight: "100%" }}
         >
           <div className="flex items-center justify-between">
@@ -343,7 +343,7 @@ export default function ItemEditModal({
                   value={selectedPackIds[0] ?? ""}
                   onChange={(e) => handleSelectPack(e.target.value)}
                   aria-label="담을 팩"
-                  className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[14px] outline-none"
+                  className="w-full rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[14px] outline-none"
                 >
                   {packs.length === 0 && <option value="">팩이 없어요</option>}
                   {packs.map((p) => (
@@ -375,7 +375,7 @@ export default function ItemEditModal({
               type="button"
               onClick={() => setType("check")}
               aria-label="체크항목"
-              className="flex items-center justify-center rounded-lg shrink-0"
+              className="flex items-center justify-center rounded-md shrink-0"
               style={{
                 background: type === "check" ? "var(--accent)" : "var(--surface-2)",
                 color: type === "check" ? "#fff" : "var(--text-secondary)",
@@ -389,7 +389,7 @@ export default function ItemEditModal({
               type="button"
               onClick={() => setType("text")}
               aria-label="텍스트"
-              className="flex items-center justify-center rounded-lg shrink-0"
+              className="flex items-center justify-center rounded-md shrink-0"
               style={{
                 background: type === "text" ? "var(--accent)" : "var(--surface-2)",
                 color: type === "text" ? "#fff" : "var(--text-secondary)",
@@ -408,7 +408,7 @@ export default function ItemEditModal({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2 py-2 text-[13px] outline-none"
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2 py-2 text-[13px] outline-none"
             />
             {dueDate && (
               <button onClick={() => setDueDate("")} aria-label="마감일 삭제" className="shrink-0 p-1">
@@ -424,7 +424,7 @@ export default function ItemEditModal({
                 <button
                   type="button"
                   onClick={() => setAssigneeUid(undefined)}
-                  className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border transition-colors ${
+                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium border transition-colors ${
                     !assigneeUid
                       ? "bg-accent-soft text-accent-strong border-accent/40"
                       : "bg-surface-2 border-border text-text-secondary hover:text-foreground"
@@ -437,7 +437,7 @@ export default function ItemEditModal({
                     key={m.uid}
                     type="button"
                     onClick={() => setAssigneeUid(m.uid)}
-                    className={`px-2.5 py-1 rounded-lg text-[12px] font-medium border flex items-center gap-1 transition-colors ${
+                    className={`px-2.5 py-1 rounded-md text-[12px] font-medium border flex items-center gap-1 transition-colors ${
                       assigneeUid === m.uid
                         ? "bg-accent text-white border-accent"
                         : "bg-surface-2 border-border text-text-secondary hover:text-foreground"
@@ -458,7 +458,7 @@ export default function ItemEditModal({
                 value={checkText}
                 onChange={(e) => setCheckText(e.target.value)}
                 placeholder="짐 이름"
-                className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
+                className="w-full rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
               />
               {textEmpty && (
                 <p className="text-[11px] pl-1" style={{ color: "var(--danger)" }}>
@@ -510,7 +510,7 @@ export default function ItemEditModal({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="flex-1 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex-1 rounded-md py-2.5 text-[14px] font-medium"
               style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
             >
               취소
@@ -518,7 +518,7 @@ export default function ItemEditModal({
             <button
               onClick={handleSave}
               disabled={!canSave}
-              className="flex-1 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex-1 rounded-md py-2.5 text-[14px] font-medium"
               style={{
                 background: canSave ? "var(--accent)" : "var(--surface-2)",
                 color: canSave ? "#fff" : "var(--text-muted)",

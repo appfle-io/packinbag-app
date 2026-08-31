@@ -40,7 +40,7 @@ export default function BottomTabBar({
         }}
       >
         <div
-          className="h-full rounded-2xl border border-accent/20"
+          className="h-full rounded-lg border border-accent/20"
           style={{ width: "76%", background: "var(--accent-soft)" }}
         />
       </div>

@@ -248,7 +248,7 @@ export default function PackTemplateGalleryModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="flex flex-col w-full max-w-2xl max-h-[85vh] max-sm:max-h-[88vh] rounded-2xl max-sm:rounded-b-none max-sm:rounded-t-2xl bg-surface border border-border shadow-2xl overflow-hidden animate-in fade-in max-sm:slide-in-from-bottom-4 duration-200"
+          className="flex flex-col w-full max-w-2xl max-h-[85vh] max-sm:max-h-[88vh] rounded-xl max-sm:rounded-b-none max-sm:rounded-t-xl bg-surface border border-border shadow-2xl overflow-hidden animate-in fade-in max-sm:slide-in-from-bottom-4 duration-200"
         >
           {/* 모바일 바텀시트 드래그 핸들바 */}
           <div className="hidden max-sm:flex items-center justify-center pt-2.5 pb-1 shrink-0">
@@ -303,7 +303,7 @@ export default function PackTemplateGalleryModal({
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
-                      className="flex items-center px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all"
+                      className="flex items-center px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-all"
                       style={{
                         background: active ? "var(--accent)" : "var(--surface)",
                         color: active ? "#fff" : "var(--text-secondary)",
@@ -323,20 +323,20 @@ export default function PackTemplateGalleryModal({
                   return (
                     <div
                       key={template.id}
-                      className="flex flex-col justify-between p-3.5 rounded-xl border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
+                      className="flex flex-col justify-between p-3.5 rounded-lg border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="text-[13.5px] font-semibold text-foreground truncate">{template.name}</span>
                           </div>
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-border/70 bg-surface-2 text-text-muted shrink-0">
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-border/70 bg-surface-2 text-text-muted shrink-0">
                             {template.categoryLabel}
                           </span>
                         </div>
                         <p className="text-[11.5px] text-text-muted mb-2.5 line-clamp-1">{template.description}</p>
 
-                        <div className="flex flex-col gap-1 mb-3 bg-surface-2/50 p-2.5 rounded-lg border border-border/40">
+                        <div className="flex flex-col gap-1 mb-3 bg-surface-2/50 p-2.5 rounded-md border border-border/40">
                           {template.items.slice(0, 4).map((item, idx) => (
                             <div key={idx} className="flex items-center gap-2 text-[12px] text-text-secondary">
                               <span className="w-1 h-1 rounded-full bg-text-muted shrink-0" />
@@ -354,7 +354,7 @@ export default function PackTemplateGalleryModal({
                       <button
                         onClick={() => handleImport(template)}
                         disabled={isImported}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12.5px] font-medium transition-all shadow-2xs disabled:opacity-80"
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md text-[12.5px] font-medium transition-all shadow-2xs disabled:opacity-80"
                         style={{
                           background: isImported ? "var(--surface-2)" : "var(--accent)",
                           color: isImported ? "var(--text-muted)" : "#fff",
@@ -394,7 +394,7 @@ export default function PackTemplateGalleryModal({
                     .map((pack) => (
                       <div
                         key={pack.id}
-                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
+                        className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:border-border-strong transition-all shadow-2xs"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="min-w-0 flex-1">
@@ -406,7 +406,7 @@ export default function PackTemplateGalleryModal({
                         </div>
                         <button
                           onClick={() => handleRegisterMyPack(pack)}
-                          className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-accent text-white hover:opacity-90 transition-opacity shadow-2xs"
+                          className="shrink-0 px-3 py-1.5 rounded-md text-[12px] font-medium bg-accent text-white hover:opacity-90 transition-opacity shadow-2xs"
                         >
                           템플릿 공유
                         </button>

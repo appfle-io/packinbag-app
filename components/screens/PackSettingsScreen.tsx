@@ -49,7 +49,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
 
   // select 공통 스타일 - 라벨 옆에 붙는 작은 드롭다운 (토글 스위치와 같은 자리에 놓인다)
   const selectClassName =
-    "shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[13px] outline-none";
+    "shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] outline-none";
   const selectStyle = { background: "var(--surface-2)", color: "var(--foreground)" };
 
   return (
@@ -181,7 +181,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
           <button
             type="button"
             onClick={() => setConfirmReset(true)}
-            className="rounded-lg border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
+            className="rounded-md border border-border px-4 py-2 text-[12.5px] text-text-secondary hover:text-foreground bg-surface-2 transition-colors"
           >
             팩 설정 초기화
           </button>

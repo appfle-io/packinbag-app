@@ -97,7 +97,7 @@ export default function AiHashtagModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-2xl bg-surface p-4 flex flex-col gap-3"
+          className="w-full max-w-sm rounded-xl bg-surface p-4 flex flex-col gap-3"
         >
           <div className="flex items-center justify-between">
             <span className="text-[16px] font-medium">해시태그로 AI가 만들기</span>
@@ -142,7 +142,7 @@ export default function AiHashtagModal({
                   {tags.map((t) => (
                     <span
                       key={t}
-                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px]"
+                      className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[12px]"
                       style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
                     >
                       #{t}
@@ -165,7 +165,7 @@ export default function AiHashtagModal({
                   }}
                   onBlur={addTag}
                   placeholder="해시태그 입력 후 엔터 (예: 캠핑)"
-                  className="rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[13px] outline-none"
+                  className="rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[13px] outline-none"
                 />
               )}
             </>
@@ -181,7 +181,7 @@ export default function AiHashtagModal({
             <button
               onClick={handleGenerate}
               disabled={tags.length === 0}
-              className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[14px] font-medium"
+              className="flex items-center justify-center gap-1.5 rounded-md py-2.5 text-[14px] font-medium"
               style={{
                 background: tags.length > 0 ? "var(--accent)" : "var(--surface-2)",
                 color: tags.length > 0 ? "#fff" : "var(--text-muted)",

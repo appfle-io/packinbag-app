@@ -49,7 +49,7 @@ export default function QuickAddModal({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-surface p-4 flex flex-col gap-3"
+          className="w-full max-w-sm rounded-t-xl sm:rounded-xl bg-surface p-4 flex flex-col gap-3"
           style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
         >
           <div className="flex items-center justify-between">
@@ -59,7 +59,7 @@ export default function QuickAddModal({
             </button>
           </div>
 
-          <div className="flex rounded-lg border border-border overflow-hidden">
+          <div className="flex rounded-md border border-border overflow-hidden">
             <button
               type="button"
               onClick={() => setType("check")}
@@ -69,8 +69,8 @@ export default function QuickAddModal({
                 color: type === "check" ? "#fff" : "var(--foreground)",
               }}
             >
-              <IconSquareCheck size={15} stroke={1.75} />
-              체크형
+              <IconSquareCheck size={16} stroke={1.75} />
+              체크
             </button>
             <button
               type="button"
@@ -81,13 +81,13 @@ export default function QuickAddModal({
                 color: type === "text" ? "#fff" : "var(--foreground)",
               }}
             >
-              <IconAlignLeft size={15} stroke={1.75} />
-              텍스트형
+              <IconAlignLeft size={16} stroke={1.75} />
+              텍스트
             </button>
           </div>
 
           {justAdded.length > 0 && (
-            <div className="flex flex-col gap-1 max-h-28 overflow-y-auto rounded-lg bg-surface-2 p-2">
+            <div className="flex flex-col gap-1 max-h-28 overflow-y-auto rounded-md bg-surface-2 p-2">
               {justAdded.map((entry, idx) => (
                 <span key={idx} className="text-[12px] text-text-secondary truncate">
                   ✓ {entry.text}
@@ -108,7 +108,7 @@ export default function QuickAddModal({
                 }
               }}
               placeholder="짐 이름을 입력하고 엔터"
-              className="min-w-0 flex-1 rounded-lg border border-border bg-transparent px-3 py-2.5 text-[15px] outline-none"
+              className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-3 py-2.5 text-[15px] outline-none"
             />
             <button
               type="button"

@@ -40,7 +40,7 @@ export default function ConfirmDialog({
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-xs rounded-2xl bg-surface p-4 flex flex-col gap-3"
+          className="w-full max-w-xs rounded-xl bg-surface p-4 flex flex-col gap-3"
         >
           <div>
             <p className="text-[14px] font-medium mb-1">{title}</p>
@@ -61,13 +61,13 @@ export default function ConfirmDialog({
           <div className="flex gap-2">
             <button
               onClick={onCancel}
-              className="flex-1 rounded-lg border border-border py-2 text-[13px]"
+              className="flex-1 rounded-md border border-border py-2 text-[13px]"
             >
               취소
             </button>
             <button
               onClick={() => onConfirm(checked)}
-              className="flex-1 rounded-lg py-2 text-[13px] font-medium"
+              className="flex-1 rounded-md py-2 text-[13px] font-medium"
               style={{ background: tone === "accent" ? "var(--accent)" : "var(--danger)", color: "#fff" }}
             >
               {confirmLabel}

@@ -101,7 +101,7 @@ const TravelDateField = forwardRef<
               <button
                 key={key}
                 onClick={() => toggleOffset(key)}
-                className="rounded-full px-2.5 py-1 text-[11px] border"
+                className="rounded-md px-2.5 py-1 text-[11px] border"
                 style={{
                   borderColor: draftOffsets.includes(key) ? "var(--accent)" : "var(--border)",
                   background: draftOffsets.includes(key) ? "var(--accent-soft)" : "transparent",
@@ -167,11 +167,11 @@ const TravelDateField = forwardRef<
 
   const badge = formatDDayLabel(travelDate, ddayCountTodayAsDayOne);
 
-  // 디데이답게 - 캘린더 아이콘 + D배지 + 날짜를 한 알약(버튼)으로 꾸며서 눈에 띄게 한다.
+  // 디데이 뱃지 - 단정하고 깔끔한 rounded-md 라운드
   return (
     <button
       onClick={openEditor}
-      className="inline-flex items-center gap-1.5 rounded-full pl-2 pr-3 py-1"
+      className="inline-flex items-center gap-1.5 rounded-md pl-2 pr-3 py-1"
       style={{
         background: "var(--accent-soft)",
         border: "1px solid var(--accent)",

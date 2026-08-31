@@ -213,7 +213,7 @@ export default function SettingsScreen({
                   </p>
                   {isGuest && (
                     <span
-                      className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                      className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
                       style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                     >
                       게스트
@@ -343,7 +343,7 @@ export default function SettingsScreen({
                     }
                     setShowUnlockCode(true);
                   }}
-                  className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[12px]"
+                  className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12px]"
                 >
                   이용권 코드 입력
                 </button>
@@ -356,7 +356,7 @@ export default function SettingsScreen({
                   <span className="text-[13px] font-medium">짧은 URL 사용하기</span>
                   {!premium && (
                     <span
-                      className="shrink-0 text-[10px] font-medium rounded-full px-1.5 py-0.5"
+                      className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
                       style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                     >
                       프리미엄
@@ -393,7 +393,7 @@ export default function SettingsScreen({
             <span className="flex items-center gap-1.5">
               {trashCount > 0 && (
                 <span
-                  className="text-[11px] font-medium rounded-full px-1.5 py-0.5"
+                  className="text-[11px] font-medium rounded px-1.5 py-0.5"
                   style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
                 >
                   {trashCount}
@@ -500,7 +500,7 @@ export default function SettingsScreen({
           <button
             type="button"
             onClick={() => setConfirmLogout(true)}
-            className="rounded-lg border border-border px-4 py-2 text-[12px] text-text-muted hover:text-red-500 transition-colors"
+            className="rounded-md border border-border px-4 py-2 text-[12px] text-text-muted hover:text-red-500 transition-colors"
           >
             {isGuest ? "게스트 모드 종료 (로그아웃)" : "로그아웃"}
           </button>

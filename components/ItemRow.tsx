@@ -547,7 +547,7 @@ export default function ItemRow({
     <div
       className={`shrink-0 ${item.type === "text" ? "col-span-full" : ""}`}
     >
-      <div className="relative overflow-hidden rounded-lg">
+      <div className="relative overflow-hidden rounded-md">
         {(dragging || dragX !== 0) && dragX > 0 && (
           <button
             onClick={() => {
@@ -620,7 +620,7 @@ export default function ItemRow({
               : undefined,
             touchAction: "none",
           }}
-          className={`flex items-center gap-2 rounded-lg px-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] ${
+          className={`flex items-center gap-2 rounded-md px-[calc(12px*var(--pack-card-scale,1))] md:px-[calc(14px*var(--pack-card-scale,1))] ${
             noBackground
               ? "py-[calc(6px*var(--pack-card-scale,1))] md:py-[calc(7px*var(--pack-card-scale,1))]"
               : "py-[calc(12px*var(--pack-card-scale,1))] md:py-[calc(14px*var(--pack-card-scale,1))]"
@@ -806,7 +806,7 @@ export default function ItemRow({
           {!editing && assigneeNickname && (
             <span
               onPointerDown={(e) => e.stopPropagation()}
-              className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-accent-soft text-accent-strong border border-accent/20"
+              className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-soft text-accent-strong border border-accent/20"
               title={`담당자: ${assigneeNickname}`}
             >
               {assigneeNickname}
