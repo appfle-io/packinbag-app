@@ -34,12 +34,29 @@ export default function GuestBagClientView({
   bag,
   activeInviteCode,
 }: GuestBagClientViewProps) {
-  // 1. 다크/라이트 테마 관리
+  // 1. 다크/라이트 테마 관리 (확실한 class + data-theme 동기화)
   const [isDark, setIsDark] = useState<boolean>(false);
 
   useEffect(() => {
-    const isDarkMode = document.documentElement.classList.contains("dark");
-    setIsDark(isDarkMode);
+    try {
+      const stored = localStorage.getItem("packinbag-theme");
+      const isSystemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const resolvedDark =
+        stored === "dark"
+          ? true
+          : stored === "light"
+          ? false
+          : isSystemDark || document.documentElement.classList.contains("dark");
+
+      setIsDark(resolvedDark);
+      if (resolvedDark) {
+        document.documentElement.classList.add("dark");
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    } catch {}
   }, []);
 
   const handleToggleTheme = () => {
@@ -121,16 +138,22 @@ export default function GuestBagClientView({
     });
   };
 
-  // 4. 팩별 접기/펴기 (Accordion)
-  const [collapsedPacks, setCollapsedPacks] = useState<Record<string, boolean>>({});
-
+  // 4. 팩별 접기/펴기 (Accordion) - 최초 진입 시 기본으로 모두 접힌 상태
   const validPacks = useMemo(() => {
     return (bag.packs || []).filter((p) => p.type !== "folder");
   }, [bag.packs]);
 
+  const [collapsedPacks, setCollapsedPacks] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    (bag.packs || []).forEach((p) => {
+      initial[p.id] = true; // 최초 진입 시 모두 접힌 상태를 기본값으로 지정
+    });
+    return initial;
+  });
+
   const allCollapsed = useMemo(() => {
-    if (validPacks.length === 0) return false;
-    return validPacks.every((p) => collapsedPacks[p.id]);
+    if (validPacks.length === 0) return true;
+    return validPacks.every((p) => collapsedPacks[p.id] !== false);
   }, [validPacks, collapsedPacks]);
 
   const togglePackCollapse = (packId: string) => {
@@ -188,8 +211,8 @@ export default function GuestBagClientView({
   // 폰트 크기 스타일 배율
   const fontClasses = {
     normal: {
-      bagTitle: "text-[20px]",
-      packTitle: "text-[15px]",
+      bagTitle: "text-[20px] md:text-[22px]",
+      packTitle: "text-[15px] md:text-[16px]",
       itemText: "text-[14px]",
       checkbox: "w-5 h-5",
       checkIcon: 14,
@@ -197,8 +220,8 @@ export default function GuestBagClientView({
       meta: "text-[12px]",
     },
     large: {
-      bagTitle: "text-[22px]",
-      packTitle: "text-[17px]",
+      bagTitle: "text-[22px] md:text-[24px]",
+      packTitle: "text-[17px] md:text-[18px]",
       itemText: "text-[16px]",
       checkbox: "w-5.5 h-5.5",
       checkIcon: 16,
@@ -206,8 +229,8 @@ export default function GuestBagClientView({
       meta: "text-[13.5px]",
     },
     xlarge: {
-      bagTitle: "text-[24px]",
-      packTitle: "text-[19px]",
+      bagTitle: "text-[24px] md:text-[26px]",
+      packTitle: "text-[19px] md:text-[20px]",
       itemText: "text-[18px]",
       checkbox: "w-6 h-6",
       checkIcon: 18,
@@ -217,10 +240,10 @@ export default function GuestBagClientView({
   }[fontScale];
 
   return (
-    <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-36 font-sans select-none md:select-auto">
+    <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-36 font-sans select-none md:select-auto transition-colors duration-200">
       {/* 상단 헤더 */}
-      <header className="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-2.5">
-        <div className="max-w-md mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 transition-colors duration-200">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
               <IconBackpack size={16} />
@@ -233,11 +256,13 @@ export default function GuestBagClientView({
             <button
               type="button"
               onClick={handleToggleFontScale}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[12px] font-semibold transition-colors border border-slate-200/60 dark:border-slate-700/60"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[12px] font-semibold transition-colors border border-slate-200/80 dark:border-slate-700/80"
               title="글씨 크기 변경"
               aria-label="글씨 크기 변경"
             >
-              <span className="font-bold text-[11px] px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700">A</span>
+              <span className="font-bold text-[11px] px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700">
+                A
+              </span>
               <span>{FONT_SCALE_LABELS[fontScale]}</span>
             </button>
 
@@ -245,7 +270,7 @@ export default function GuestBagClientView({
             <button
               type="button"
               onClick={handleToggleTheme}
-              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors border border-slate-200/60 dark:border-slate-700/60"
+              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors border border-slate-200/80 dark:border-slate-700/80"
               title={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
               aria-label="화면 모드 전환"
             >
@@ -255,9 +280,9 @@ export default function GuestBagClientView({
         </div>
       </header>
 
-      <div className="max-w-md mx-auto p-4 space-y-4">
+      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-4">
         {/* 가방 메인 타이틀 카드 */}
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-3">
+        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 md:p-6 shadow-xs space-y-3 transition-colors duration-200">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1">
@@ -271,7 +296,9 @@ export default function GuestBagClientView({
                 {bag.name}
               </h1>
               {bag.travelDate && (
-                <p className={`${fontClasses.notice} text-slate-500 flex items-center gap-1.5 mt-1 font-medium`}>
+                <p
+                  className={`${fontClasses.notice} text-slate-500 flex items-center gap-1.5 mt-1 font-medium`}
+                >
                   <IconCalendar size={14} />
                   {bag.travelDate}
                 </p>
@@ -286,7 +313,7 @@ export default function GuestBagClientView({
 
           {bag.notice && (
             <div
-              className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 ${fontClasses.notice} text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed`}
+              className={`p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 ${fontClasses.notice} text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed border border-slate-100 dark:border-slate-800/40`}
             >
               {bag.notice}
             </div>
@@ -322,7 +349,7 @@ export default function GuestBagClientView({
             <button
               type="button"
               onClick={handleToggleAllPacks}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-300 text-[12px] font-medium transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-300 text-[12px] font-medium transition-colors"
             >
               {allCollapsed ? (
                 <>
@@ -339,8 +366,8 @@ export default function GuestBagClientView({
           )}
         </div>
 
-        {/* 팩 목록 */}
-        <div className="space-y-3.5">
+        {/* 팩 목록: 모바일 1열, 태블릿 2열, 데스크탑 최대 3열 반응형 그리드 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 items-start">
           {validPacks.map((pack) => {
             const isCollapsed = !!collapsedPacks[pack.id];
             const isMemo = pack.kind === "editor";
@@ -351,13 +378,13 @@ export default function GuestBagClientView({
             return (
               <section
                 key={pack.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden transition-all"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden transition-colors duration-200"
               >
                 {/* 팩 헤더 (클릭 시 접기/펴기 아코디언) */}
                 <button
                   type="button"
                   onClick={() => togglePackCollapse(pack.id)}
-                  className="w-full text-left p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-slate-850/60 transition-colors"
+                  className="w-full text-left p-4 flex items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors"
                   aria-expanded={!isCollapsed}
                 >
                   <div className="min-w-0 flex-1 flex items-center gap-2">
@@ -368,7 +395,7 @@ export default function GuestBagClientView({
                     </span>
                     {!isMemo && items.length > 0 && (
                       <span
-                        className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${
+                        className={`text-[12px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
                           allItemsPacked
                             ? "bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60"
                             : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
@@ -396,7 +423,10 @@ export default function GuestBagClientView({
                   <div className="px-4 pb-4 pt-1 border-t border-slate-100 dark:border-slate-800/60">
                     {isMemo ? (
                       <div className="mt-1">
-                        <GuestMemoPackView pack={pack} className={fontClasses.itemText} />
+                        <GuestMemoPackView
+                          pack={pack}
+                          className={fontClasses.itemText}
+                        />
                       </div>
                     ) : items.length === 0 ? (
                       <p className="text-[13px] text-slate-400 py-2 italic">
@@ -449,8 +479,8 @@ export default function GuestBagClientView({
       </div>
 
       {/* 하단 고정 온보딩 & 가방 열기/참여 배너 */}
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-white/92 dark:bg-slate-900/92 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-40 shadow-lg">
-        <div className="max-w-md mx-auto flex items-center justify-between gap-3">
+      <div className="fixed bottom-0 inset-x-0 p-4 bg-white/92 dark:bg-slate-900/92 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-40 shadow-lg transition-colors duration-200">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-bold text-slate-900 dark:text-white truncate">
               {activeInviteCode ? "그룹원으로 함께 패킹하기" : "팩인백에서 가방 열기"}
