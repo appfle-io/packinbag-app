@@ -5,6 +5,11 @@ import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag } from "@/lib/editorDocSerialize";
+import crypto from "crypto";
+
+function generateShareToken(): string {
+  return crypto.randomBytes(8).toString("hex"); // 16-char hex token
+}
 
 // 가방 생성을 서버에서만 처리하도록 만든 라우트.
 //
@@ -100,6 +105,7 @@ export async function POST(req: NextRequest) {
     memberIds: [uid],
     memberProfiles: { [uid]: joinedAt },
     inviteCode,
+    publicShareToken: generateShareToken(),
     updatedAt: now,
   };
 

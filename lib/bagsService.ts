@@ -335,3 +335,26 @@ export async function transferBagOwnershipRemote(
     throw new Error((data?.error as string | undefined) ?? "그룹장 위임에 실패했어요");
   }
 }
+
+// 가방 보기 전용 난수 토큰(publicShareToken)이 없으면 생성하여 저장
+export async function ensureBagPublicShareToken(
+  bagId: string,
+  currentToken?: string
+): Promise<string> {
+  if (currentToken && currentToken.trim().length > 0) {
+    return currentToken;
+  }
+  const array = new Uint8Array(8);
+  window.crypto.getRandomValues(array);
+  const token = Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+  try {
+    await updateDoc(doc(bagsCol(), bagId), {
+      publicShareToken: token,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("[팩인백] publicShareToken 발급 실패:", err);
+  }
+  return token;
+}
+

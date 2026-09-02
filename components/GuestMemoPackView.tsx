@@ -18,7 +18,13 @@ import {
 import MemoRichTextView from "./MemoRichTextView";
 import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
 
-export default function GuestMemoPackView({ pack }: { pack: Pack }) {
+export default function GuestMemoPackView({
+  pack,
+  className,
+}: {
+  pack: Pack;
+  className?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -95,7 +101,7 @@ export default function GuestMemoPackView({ pack }: { pack: Pack }) {
         {displayedBlocks.length === 0 ? (
           <p className="text-[13px] text-slate-400 italic py-1">작성된 메모 내용이 없어요</p>
         ) : (
-          <MemoRichTextView blocks={displayedBlocks} />
+          <MemoRichTextView blocks={displayedBlocks} className={className} />
         )}
 
         {/* 5줄 초과 시 접힘 페이드 & 더보기 버튼 */}

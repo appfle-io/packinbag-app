@@ -32,6 +32,7 @@ import {
 import Portal from "@/components/Portal";
 import { OverlayLayerProvider, useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { ensureBagPublicShareToken } from "@/lib/bagsService";
 
 interface ShareCardModalProps {
   bag: Bag;
@@ -176,9 +177,20 @@ export default function ShareCardModal({
   const [mainTab, setMainTab] = useState<MainTab>(initialTab);
   const [theme, setTheme] = useState<CardTheme>("boarding");
   const [includeInvite, setIncludeInvite] = useState(true);
+  const [publicShareToken, setPublicShareToken] = useState<string>(bag.publicShareToken || "");
   const [copied, setCopied] = useState(false);
   const [guestLinkCopied, setGuestLinkCopied] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
+
+  useEffect(() => {
+    if (!bag.publicShareToken) {
+      ensureBagPublicShareToken(bag.id).then((token) => {
+        if (token) setPublicShareToken(token);
+      });
+    } else {
+      setPublicShareToken(bag.publicShareToken);
+    }
+  }, [bag.id, bag.publicShareToken]);
 
   const [confirmRemoveUid, setConfirmRemoveUid] = useState<string | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
@@ -1133,8 +1145,13 @@ export default function ShareCardModal({
   };
 
   const handleCopyGuestLink = async () => {
-    const token = bag.publicShareToken || bag.inviteCode;
-    const url = `${window.location.origin}/v/${token}${includeInvite ? `?code=${bag.inviteCode}` : ""}`;
+    let token = publicShareToken || bag.publicShareToken;
+    if (!token) {
+      token = await ensureBagPublicShareToken(bag.id);
+      if (token) setPublicShareToken(token);
+    }
+    const finalToken = token || bag.inviteCode;
+    const url = `${window.location.origin}/v/${finalToken}${includeInvite ? `?code=${bag.inviteCode}` : ""}`;
     try {
       await navigator.clipboard.writeText(url);
       setGuestLinkCopied(true);
@@ -1174,8 +1191,13 @@ export default function ShareCardModal({
           /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         const file = new File([blob], `${bag.name}_card.png`, { type: "image/png" });
 
-        const token = bag.publicShareToken || bag.inviteCode;
-        const guestUrl = `${window.location.origin}/v/${token}${
+        let token = publicShareToken || bag.publicShareToken;
+        if (!token) {
+          token = await ensureBagPublicShareToken(bag.id);
+          if (token) setPublicShareToken(token);
+        }
+        const finalToken = token || bag.inviteCode;
+        const guestUrl = `${window.location.origin}/v/${finalToken}${
           includeInvite ? `?code=${bag.inviteCode}` : ""
         }`;
         const shareText = `[${bag.name}]\n${guestUrl}`;

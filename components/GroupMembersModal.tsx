@@ -21,6 +21,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { OverlayLayerProvider, useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { ensureBagPublicShareToken } from "@/lib/bagsService";
 
 export default function GroupMembersModal({
   bag,
@@ -199,7 +200,11 @@ export default function GroupMembersModal({
           <div className="flex gap-2 shrink-0 pt-1">
             <button
               onClick={async () => {
-                const guestUrl = `${window.location.origin}/v/${bag.publicShareToken || bag.inviteCode}`;
+                let token = bag.publicShareToken;
+                if (!token) {
+                  token = await ensureBagPublicShareToken(bag.id);
+                }
+                const guestUrl = `${window.location.origin}/v/${token || bag.inviteCode}`;
                 await navigator.clipboard.writeText(guestUrl);
                 show("보기 전용 웹 링크를 복사했어요");
               }}
