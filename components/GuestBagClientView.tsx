@@ -12,9 +12,6 @@ import {
   IconMoon,
   IconChevronDown,
   IconChevronUp,
-  IconArrowsCollapse,
-  IconArrowsExpand,
-  IconTextSize,
   IconInfoCircle,
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
@@ -240,7 +237,7 @@ export default function GuestBagClientView({
               title="글씨 크기 변경"
               aria-label="글씨 크기 변경"
             >
-              <IconTextSize size={14} />
+              <span className="font-bold text-[11px] px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-700">A</span>
               <span>{FONT_SCALE_LABELS[fontScale]}</span>
             </button>
 
@@ -329,12 +326,12 @@ export default function GuestBagClientView({
             >
               {allCollapsed ? (
                 <>
-                  <IconArrowsExpand size={14} />
+                  <IconChevronDown size={14} />
                   <span>모두 펴기</span>
                 </>
               ) : (
                 <>
-                  <IconArrowsCollapse size={14} />
+                  <IconChevronUp size={14} />
                   <span>모두 접기</span>
                 </>
               )}
