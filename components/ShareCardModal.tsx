@@ -176,6 +176,7 @@ export default function ShareCardModal({
 
   const [mainTab, setMainTab] = useState<MainTab>(initialTab);
   const [theme, setTheme] = useState<CardTheme>("boarding");
+  const [includeCardImage, setIncludeCardImage] = useState(true);
   const [includeInvite, setIncludeInvite] = useState(true);
   const [publicShareToken, setPublicShareToken] = useState<string>(bag.publicShareToken || "");
   const [copied, setCopied] = useState(false);
@@ -1179,6 +1180,53 @@ export default function ShareCardModal({
   };
 
   const handleShare = async () => {
+    let token = publicShareToken || bag.publicShareToken;
+    if (!token) {
+      token = await ensureBagPublicShareToken(bag.id);
+      if (token) setPublicShareToken(token);
+    }
+    const finalToken = token || bag.inviteCode;
+    const guestUrl = `${window.location.origin}/v/${finalToken}${
+      includeInvite ? `?code=${bag.inviteCode}` : ""
+    }`;
+    const shareText = `[${bag.name}]\n${guestUrl}`;
+
+    // 카드 이미지 미포함 시: 텍스트 및 링크만 공유
+    if (!includeCardImage) {
+      const isMobile =
+        typeof window !== "undefined" &&
+        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      if (isMobile && navigator.share) {
+        try {
+          await navigator.share({
+            title: bag.name,
+            text: shareText,
+            url: guestUrl,
+          });
+          return;
+        } catch {
+          return;
+        }
+      }
+
+      // 모바일이 아니거나 취소 시 클립보드에 링크 복사
+      try {
+        await navigator.clipboard.writeText(guestUrl);
+        setCopied(true);
+        show(
+          includeInvite
+            ? "초대 권한이 포함된 보기 링크가 복사되었어요"
+            : "보기 전용 링크가 클립보드에 복사되었어요"
+        );
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        show("링크 복사에 실패했어요");
+      }
+      return;
+    }
+
+    // 카드 이미지 포함 시: 캔버스 이미지 생성 후 공유
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1190,17 +1238,6 @@ export default function ShareCardModal({
           typeof window !== "undefined" &&
           /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         const file = new File([blob], `${bag.name}_card.png`, { type: "image/png" });
-
-        let token = publicShareToken || bag.publicShareToken;
-        if (!token) {
-          token = await ensureBagPublicShareToken(bag.id);
-          if (token) setPublicShareToken(token);
-        }
-        const finalToken = token || bag.inviteCode;
-        const guestUrl = `${window.location.origin}/v/${finalToken}${
-          includeInvite ? `?code=${bag.inviteCode}` : ""
-        }`;
-        const shareText = `[${bag.name}]\n${guestUrl}`;
 
         if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
@@ -1335,102 +1372,117 @@ export default function ShareCardModal({
             {/* TAB 1: 공유 (여행 카드) */}
             {mainTab === "card" && (
               <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pr-0.5">
-                {/* 테마 선택 서브 탭 (Pill 형태) */}
-                <div className="grid grid-cols-3 gap-1 p-1 bg-surface-2 rounded-xl mb-2.5 text-[11.5px] font-medium shrink-0">
-                  <button
-                    onClick={() => setTheme("boarding")}
-                    className={`py-1.5 rounded-lg transition-all ${
-                      theme === "boarding"
-                        ? "bg-surface text-accent font-bold shadow-xs"
-                        : "text-text-secondary hover:text-foreground"
-                    }`}
-                  >
-                    보딩패스
-                  </button>
-                  <button
-                    onClick={() => setTheme("receipt")}
-                    className={`py-1.5 rounded-lg transition-all ${
-                      theme === "receipt"
-                        ? "bg-surface text-accent font-bold shadow-xs"
-                        : "text-text-secondary hover:text-foreground"
-                    }`}
-                  >
-                    영수증
-                  </button>
-                  <button
-                    onClick={() => setTheme("polaroid")}
-                    className={`py-1.5 rounded-lg transition-all ${
-                      theme === "polaroid"
-                        ? "bg-surface text-accent font-bold shadow-xs"
-                        : "text-text-secondary hover:text-foreground"
-                    }`}
-                  >
-                    폴라로이드
-                  </button>
-                </div>
+                {/* 공유 옵션 체크박스들 */}
+                <div className="mb-3 p-2.5 bg-surface-2 rounded-xl border border-border space-y-2 shrink-0">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-[12.5px] text-foreground font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={includeCardImage}
+                      onChange={(e) => setIncludeCardImage(e.target.checked)}
+                      className="w-4 h-4 rounded-sm border-border text-accent focus:ring-accent accent-accent cursor-pointer"
+                    />
+                    <span>카드 이미지 함께 공유</span>
+                  </label>
 
-                {/* 캔버스 프리뷰 (클릭 시 크게 보기 + 좌우 스와이프로 전환) */}
-                <div
-                  onClick={handleOpenEnlargedPreview}
-                  onTouchStart={(e) => handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)}
-                  onTouchEnd={(e) => handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
-                  title="클릭하여 크게 보기 (좌우 스와이프로 카드 전환)"
-                  className="group relative flex items-center justify-center p-2 bg-surface-2 rounded-xl mb-2.5 border border-border min-h-[220px] max-h-[280px] cursor-pointer hover:border-accent/50 transition-all select-none"
-                >
-                  <canvas
-                    ref={setCanvasRef}
-                    className="w-full max-h-[260px] object-contain rounded-lg shadow-sm"
-                  />
-                  {/* 좌우 이동 버튼 */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePrevTheme();
-                    }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
-                    aria-label="이전 카드"
-                  >
-                    <IconChevronLeft size={16} stroke={2.5} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleNextTheme();
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
-                    aria-label="다음 카드"
-                  >
-                    <IconChevronRight size={16} stroke={2.5} />
-                  </button>
-
-                  <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center pointer-events-none">
-                    <div className="bg-black/75 text-white text-[12px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg backdrop-blur-xs">
-                      <IconZoomIn size={15} />
-                      <span>크게 보기</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 초대코드 포함 옵션 체크박스 */}
-                <div className="mb-2 px-1 flex items-center shrink-0">
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-foreground font-medium">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-[12px] text-text-secondary font-medium">
                     <input
                       type="checkbox"
                       checked={includeInvite}
                       onChange={(e) => setIncludeInvite(e.target.checked)}
-                      className="w-4 h-4 rounded-sm border-border text-accent focus:ring-accent accent-accent"
+                      className="w-4 h-4 rounded-sm border-border text-accent focus:ring-accent accent-accent cursor-pointer"
                     />
                     <span>그룹원 참여 권한(초대코드) 함께 공유</span>
                   </label>
                 </div>
 
+                {/* 카드 이미지 섹션: includeCardImage가 true일 때만 표시 */}
+                {includeCardImage && (
+                  <div className="flex flex-col shrink-0 animate-in fade-in duration-150">
+                    {/* 테마 선택 서브 탭 (Pill 형태) */}
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-surface-2 rounded-xl mb-2.5 text-[11.5px] font-medium shrink-0">
+                      <button
+                        onClick={() => setTheme("boarding")}
+                        className={`py-1.5 rounded-lg transition-all ${
+                          theme === "boarding"
+                            ? "bg-surface text-accent font-bold shadow-xs"
+                            : "text-text-secondary hover:text-foreground"
+                        }`}
+                      >
+                        보딩패스
+                      </button>
+                      <button
+                        onClick={() => setTheme("receipt")}
+                        className={`py-1.5 rounded-lg transition-all ${
+                          theme === "receipt"
+                            ? "bg-surface text-accent font-bold shadow-xs"
+                            : "text-text-secondary hover:text-foreground"
+                        }`}
+                      >
+                        영수증
+                      </button>
+                      <button
+                        onClick={() => setTheme("polaroid")}
+                        className={`py-1.5 rounded-lg transition-all ${
+                          theme === "polaroid"
+                            ? "bg-surface text-accent font-bold shadow-xs"
+                            : "text-text-secondary hover:text-foreground"
+                        }`}
+                      >
+                        폴라로이드
+                      </button>
+                    </div>
+
+                    {/* 캔버스 프리뷰 (클릭 시 크게 보기 + 좌우 스와이프로 전환) */}
+                    <div
+                      onClick={handleOpenEnlargedPreview}
+                      onTouchStart={(e) => handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY)}
+                      onTouchEnd={(e) => handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}
+                      title="클릭하여 크게 보기 (좌우 스와이프로 카드 전환)"
+                      className="group relative flex items-center justify-center p-2 bg-surface-2 rounded-xl mb-2.5 border border-border min-h-[220px] max-h-[280px] cursor-pointer hover:border-accent/50 transition-all select-none"
+                    >
+                      <canvas
+                        ref={setCanvasRef}
+                        className="w-full max-h-[260px] object-contain rounded-lg shadow-sm"
+                      />
+                      {/* 좌우 이동 버튼 */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrevTheme();
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                        aria-label="이전 카드"
+                      >
+                        <IconChevronLeft size={16} stroke={2.5} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNextTheme();
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 hover:bg-black/70 active:scale-90 text-white opacity-0 group-hover:opacity-100 transition-all shadow-md z-10"
+                        aria-label="다음 카드"
+                      >
+                        <IconChevronRight size={16} stroke={2.5} />
+                      </button>
+
+                      <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center pointer-events-none">
+                        <div className="bg-black/75 text-white text-[12px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg backdrop-blur-xs">
+                          <IconZoomIn size={15} />
+                          <span>크게 보기</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* 보기 전용 웹 링크 복사 박스 */}
-                <div className="mb-3 p-2.5 rounded-xl bg-surface-2 border border-border flex items-center justify-between gap-2 shrink-0">
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-bold text-foreground truncate">보기 전용 웹 링크</p>
-                    <p className="text-[10px] text-text-muted truncate">
+                <div className="mb-3 p-3 rounded-xl bg-surface-2 border border-border flex items-center justify-between gap-2 shrink-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-bold text-foreground truncate">보기 전용 웹 링크</p>
+                    <p className="text-[11px] text-text-muted truncate">
                       {includeInvite
                         ? "초대코드가 포함되어 앱/웹에서 바로 그룹원으로 참여 가능"
                         : "로그인 없이 누구나 웹에서 읽기 전용으로 볼 수 있어요"}
@@ -1439,16 +1491,16 @@ export default function ShareCardModal({
                   <button
                     type="button"
                     onClick={handleCopyGuestLink}
-                    className="shrink-0 px-2.5 py-1.5 rounded-lg bg-surface border border-border hover:bg-surface-3 active:scale-95 text-[11px] font-bold text-accent flex items-center gap-1 transition-all shadow-xs"
+                    className="shrink-0 px-3 py-2 rounded-lg bg-surface border border-border hover:bg-surface-3 active:scale-95 text-[12px] font-bold text-accent flex items-center gap-1.5 transition-all shadow-xs"
                   >
                     {guestLinkCopied ? (
                       <>
-                        <IconCheck size={13} className="text-emerald-500" stroke={2.5} />
+                        <IconCheck size={14} className="text-emerald-500" stroke={2.5} />
                         <span className="text-emerald-600 dark:text-emerald-400">복사됨</span>
                       </>
                     ) : (
                       <>
-                        <IconLink size={13} stroke={2} />
+                        <IconLink size={14} stroke={2} />
                         <span>링크 복사</span>
                       </>
                     )}
@@ -1457,20 +1509,45 @@ export default function ShareCardModal({
 
                 {/* 하단 액션 버튼 */}
                 <div className="grid grid-cols-2 gap-2 mt-auto shrink-0 pt-1">
-                  <button
-                    onClick={handleDownload}
-                    className="py-2.5 rounded-xl border border-border hover:bg-surface-2 active:scale-[0.98] font-bold text-[13px] text-foreground flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <IconDownload size={16} />
-                    이미지 저장
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    className="py-2.5 rounded-xl bg-accent text-white hover:brightness-105 active:scale-[0.98] font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-sm transition-all"
-                  >
-                    {copied ? <IconCheck size={16} stroke={2.5} /> : <IconShare size={16} />}
-                    {copied ? "복사 완료" : "공유하기"}
-                  </button>
+                  {includeCardImage ? (
+                    <>
+                      <button
+                        onClick={handleDownload}
+                        className="py-2.5 rounded-xl border border-border hover:bg-surface-2 active:scale-[0.98] font-bold text-[13px] text-foreground flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <IconDownload size={16} />
+                        이미지 저장
+                      </button>
+                      <button
+                        onClick={handleShare}
+                        className="py-2.5 rounded-xl bg-accent text-white hover:brightness-105 active:scale-[0.98] font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      >
+                        {copied ? <IconCheck size={16} stroke={2.5} /> : <IconShare size={16} />}
+                        {copied ? "복사 완료" : "공유하기"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleCopyGuestLink}
+                        className="py-2.5 rounded-xl border border-border hover:bg-surface-2 active:scale-[0.98] font-bold text-[13px] text-foreground flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        {guestLinkCopied ? (
+                          <IconCheck size={16} className="text-emerald-500" stroke={2.5} />
+                        ) : (
+                          <IconLink size={16} />
+                        )}
+                        {guestLinkCopied ? "복사 완료" : "링크 복사"}
+                      </button>
+                      <button
+                        onClick={handleShare}
+                        className="py-2.5 rounded-xl bg-accent text-white hover:brightness-105 active:scale-[0.98] font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      >
+                        {copied ? <IconCheck size={16} stroke={2.5} /> : <IconShare size={16} />}
+                        {copied ? "공유 완료" : "공유하기"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
