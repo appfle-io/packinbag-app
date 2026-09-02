@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   IconBackpack,
@@ -104,7 +104,75 @@ export default function GuestBagClientView({
     } catch {}
   };
 
-  // 3. 로컬 체크박스 상태 (방안 A: 로컬 개인 임시 체크 + localStorage 보관)
+  // 3. 화면 꺼짐 방지 (Screen Wake Lock API)
+  const [wakeLockEnabled, setWakeLockEnabled] = useState(false);
+  const wakeLockSentinelRef = useRef<any>(null);
+
+  const requestWakeLock = async () => {
+    if (typeof window !== "undefined" && "wakeLock" in navigator) {
+      try {
+        const sentinel = await (navigator as any).wakeLock.request("screen");
+        wakeLockSentinelRef.current = sentinel;
+        sentinel.addEventListener("release", () => {
+          wakeLockSentinelRef.current = null;
+        });
+        return true;
+      } catch (err) {
+        console.warn("[팩인백] 화면 꺼짐 방지 활성화 실패:", err);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockSentinelRef.current) {
+      try {
+        await wakeLockSentinelRef.current.release();
+      } catch {}
+      wakeLockSentinelRef.current = null;
+    }
+  };
+
+  const handleToggleWakeLock = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setWakeLockEnabled(checked);
+    if (checked) {
+      if (typeof window !== "undefined" && "wakeLock" in navigator) {
+        const ok = await requestWakeLock();
+        if (!ok) {
+          alert("이 브라우저에서는 화면 꺼짐 방지를 활성화할 수 없어요.");
+          setWakeLockEnabled(false);
+        }
+      } else {
+        alert("현재 브라우저는 화면 꺼짐 방지 기능을 지원하지 않아요.");
+        setWakeLockEnabled(false);
+      }
+    } else {
+      await releaseWakeLock();
+    }
+  };
+
+  // 모바일 화면 전환(다른 탭/앱 전환 후 복귀 시) 자동 재획득
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (
+        wakeLockEnabled &&
+        document.visibilityState === "visible" &&
+        !wakeLockSentinelRef.current
+      ) {
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [wakeLockEnabled]);
+
+  // 4. 로컬 체크박스 상태 (방안 A: 로컬 개인 임시 체크 + localStorage 보관)
   const [localChecks, setLocalChecks] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     (bag.packs || []).forEach((p) => {
@@ -265,6 +333,25 @@ export default function GuestBagClientView({
               </span>
               <span>{FONT_SCALE_LABELS[fontScale]}</span>
             </button>
+
+            {/* 화면 꺼짐 방지 체크박스 */}
+            <label
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[12px] font-semibold transition-colors border cursor-pointer select-none ${
+                wakeLockEnabled
+                  ? "bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                  : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700/80"
+              }`}
+              title="화면 꺼짐 방지 (체크 시 모바일에서 화면이 꺼지지 않아요)"
+            >
+              <input
+                type="checkbox"
+                checked={wakeLockEnabled}
+                onChange={handleToggleWakeLock}
+                className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+              />
+              <span className="hidden sm:inline">화면 꺼짐 방지</span>
+              <span className="sm:hidden">화면유지</span>
+            </label>
 
             {/* 라이트/다크모드 토글 버튼 */}
             <button
