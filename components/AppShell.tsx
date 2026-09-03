@@ -1522,6 +1522,7 @@ export default function AppShell() {
             }}
             onSave={handleSavePack}
             onDeletePack={() => handleDeletePack(displayedEditorPack.id)}
+            premium={premium}
           />
         )}
       </SlideScreen>

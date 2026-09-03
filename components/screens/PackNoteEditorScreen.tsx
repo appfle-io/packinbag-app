@@ -58,13 +58,32 @@ import ShortenUrlModal from "@/components/ShortenUrlModal";
 import EditLinkModal from "@/components/EditLinkModal";
 
 const TEXT_COLORS = [
+  // 기본/무채색 계열
+  { id: "default", hex: "#1f2937", label: "기본 다크" },
+  { id: "gray", hex: "#6b7280", label: "그레이" },
+  { id: "darkgray", hex: "#374151", label: "다크 그레이" },
+  { id: "brown", hex: "#92400e", label: "브라운" },
+  // 레드/오렌지/옐로 계열
   { id: "red", hex: "#ef4444", label: "레드" },
+  { id: "darkred", hex: "#991b1b", label: "다크 레드" },
+  { id: "rose", hex: "#f43f5e", label: "로즈" },
   { id: "orange", hex: "#f97316", label: "오렌지" },
-  { id: "amber", hex: "#f59e0b", label: "옐로" },
-  { id: "green", hex: "#22c55e", label: "그린" },
+  { id: "amber", hex: "#f59e0b", label: "앰버" },
+  { id: "yellow", hex: "#eab308", label: "옐로" },
+  // 그린/시안 계열
+  { id: "lime", hex: "#84cc16", label: "라임" },
+  { id: "green", hex: "#10b981", label: "그린" },
+  { id: "darkgreen", hex: "#15803d", label: "다크 그린" },
   { id: "teal", hex: "#14b8a6", label: "틸" },
+  { id: "cyan", hex: "#06b6d4", label: "시안" },
+  // 블루/퍼플/핑크 계열
+  { id: "skyblue", hex: "#0ea5e9", label: "스카이블루" },
   { id: "blue", hex: "#3b82f6", label: "블루" },
-  { id: "purple", hex: "#a855f7", label: "퍼플" },
+  { id: "navy", hex: "#1e40af", label: "네이비" },
+  { id: "indigo", hex: "#6366f1", label: "인디고" },
+  { id: "purple", hex: "#8b5cf6", label: "바이올렛" },
+  { id: "darkpurple", hex: "#5b21b6", label: "딥 퍼플" },
+  { id: "magenta", hex: "#d946ef", label: "마젠타" },
   { id: "pink", hex: "#ec4899", label: "핑크" },
 ];
 import {
@@ -75,7 +94,7 @@ import {
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
 import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
-import { MAX_PACK_IMAGES } from "@/lib/premiumLimits";
+import { isPremiumUser, MAX_PACK_IMAGES } from "@/lib/premiumLimits";
 import { getFileKind, getFileExtensionLabel, getDisplayFileName } from "@/lib/fileUrlUtils";
 import { uploadPackImage, deletePackImage } from "@/lib/storageService";
 import EditableText from "@/components/EditableText";
@@ -152,12 +171,19 @@ export default function PackNoteEditorScreen({
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
   const { user, profile, updatePackSettings } = useAuth();
+  // 사용자의 유료(프리미엄) 여부: prop이 있으면 우선 사용하고, 없으면 AuthProvider의 user/profile로 직접 판정
+  const isEffectivePremium =
+    premium !== undefined
+      ? premium
+      : profile?.role === "master" || (user && profile ? isPremiumUser(user.email, profile) : false);
+
   const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerContainerRef = useRef<HTMLDivElement>(null);
   const [tableToolbarTab, setTableToolbarTab] = useState<"table" | "text">("table");
   const [showTableCellColorPicker, setShowTableCellColorPicker] = useState(false);
   // 툴바 파일첨부(사진/PDF) 관련 상태 - BagEditorScreen의 가방 이미지 기능과 동일한 패턴.
@@ -189,6 +215,21 @@ export default function PackNoteEditorScreen({
   useEffect(() => {
     nameRef.current = name;
   }, [name]);
+
+  // 데스크탑에서 글씨 색상 팝오버 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showColorPicker || !isDesktop) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        colorPickerContainerRef.current &&
+        !colorPickerContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowColorPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showColorPicker, isDesktop]);
 
   // 링크(Link 마크)를 탭했을 때 띄우는 선택 시트의 대상 URL. "짧은 URL로 변경"이 가능한
   // 링크(프리미엄 + 토글 ON + 아직 축약 전)만 이 메뉴를 띄우고, 그러지 않으면 바로 연다.
@@ -246,7 +287,7 @@ export default function PackNoteEditorScreen({
       if (!files || files.length === 0) return;
 
       // 메모팩 첨부파일은 프리미엄 전용 기능 (무료 회원은 첨부 불가)
-      if (!premium) {
+      if (!isEffectivePremium) {
         setShowPdfPremiumModal(true);
         return;
       }
@@ -331,7 +372,7 @@ export default function PackNoteEditorScreen({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [effectiveReadOnly, bagId, user, premium]
+    [effectiveReadOnly, bagId, user, isEffectivePremium]
   );
 
   const handleUploadRef = useRef(handleUploadAndInsertFiles);
@@ -794,7 +835,7 @@ export default function PackNoteEditorScreen({
     if (!files || files.length === 0) return;
 
     // 메모팩 첨부파일은 프리미엄 전용 기능 (무료 회원은 첨부 불가)
-    if (!premium) {
+    if (!isEffectivePremium) {
       setShowPdfPremiumModal(true);
       return;
     }
@@ -1221,7 +1262,7 @@ export default function PackNoteEditorScreen({
               >
                 <IconStrikethrough size={17} stroke={1.75} />
               </ToolbarButton>
-              <div className="relative">
+              <div className="relative" ref={colorPickerContainerRef}>
                 <ToolbarButton
                   onClick={() => setShowColorPicker((v) => !v)}
                   active={showColorPicker || editor?.isActive("textStyle")}
@@ -1229,6 +1270,78 @@ export default function PackNoteEditorScreen({
                 >
                   <IconPalette size={17} stroke={1.75} />
                 </ToolbarButton>
+
+                {isDesktop && showColorPicker && (
+                  <div
+                    className="absolute left-0 top-full mt-1.5 z-50 bg-surface border border-border rounded-2xl shadow-2xl p-3.5 w-[280px] animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3 select-none"
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-bold text-foreground">글씨 색상</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowColorPicker(false)}
+                        aria-label="닫기"
+                        className="p-1 rounded-full hover:bg-surface-2 text-text-muted hover:text-foreground transition-colors"
+                      >
+                        <IconX size={15} stroke={2} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-6 gap-2">
+                      {TEXT_COLORS.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            editor?.chain().focus().setColor(c.hex).run();
+                            setShowColorPicker(false);
+                          }}
+                          title={c.label}
+                          aria-label={c.label}
+                          className="h-7 w-7 rounded-full border border-border/80 hover:scale-115 active:scale-95 transition-transform shadow-2xs flex items-center justify-center cursor-pointer"
+                          style={{ background: c.hex }}
+                        />
+                      ))}
+
+                      {/* 커스텀 색상 선택 버튼 */}
+                      <label
+                        title="직접 색상 선택"
+                        className="h-7 w-7 rounded-full border border-border/80 hover:scale-115 active:scale-95 transition-transform shadow-2xs flex items-center justify-center cursor-pointer relative overflow-hidden"
+                        style={{
+                          background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+                        }}
+                      >
+                        <input
+                          type="color"
+                          className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                          onChange={(e) => {
+                            const hex = e.target.value;
+                            if (hex) {
+                              editor?.chain().focus().setColor(hex).run();
+                              setShowColorPicker(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="pt-2 border-t border-border flex items-center justify-between">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          editor?.chain().focus().unsetColor().run();
+                          setShowColorPicker(false);
+                        }}
+                        className="text-[12px] font-medium text-text-secondary hover:text-foreground transition-colors py-0.5"
+                      >
+                        기본색으로 복원 (지우기)
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <ToolbarButton
                 onClick={toggleLink}
@@ -1280,21 +1393,21 @@ export default function PackNoteEditorScreen({
               {(!effectiveReadOnly && (bagId || user)) && (
                 <ToolbarButton
                   onClick={() => {
-                    if (!premium) {
+                    if (!isEffectivePremium) {
                       setShowPdfPremiumModal(true);
                       return;
                     }
                     fileInputRef.current?.click();
                   }}
                   disabled={uploadingImages}
-                  label={premium ? "사진 및 파일 첨부" : "사진 및 파일 첨부 (프리미엄 전용)"}
+                  label={isEffectivePremium ? "사진 및 파일 첨부" : "사진 및 파일 첨부 (프리미엄 전용)"}
                 >
                   {uploadingImages ? (
                     <IconLoader2 size={17} stroke={1.75} className="animate-spin" />
                   ) : (
                     <div className="relative">
                       <IconPaperclip size={17} stroke={1.75} />
-                      {!premium && (
+                      {!isEffectivePremium && (
                         <span
                           className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full flex items-center justify-center"
                           style={{ background: "rgba(0,0,0,0.6)" }}
@@ -1479,7 +1592,7 @@ export default function PackNoteEditorScreen({
         />
       )}
 
-      {showColorPicker && (
+      {!isDesktop && showColorPicker && (
         <Portal>
           <div
             className="fixed inset-0 flex items-end justify-center"
@@ -1492,35 +1605,68 @@ export default function PackNoteEditorScreen({
               style={{ paddingBottom: "max(16px, calc(env(safe-area-inset-bottom) + 12px))" }}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium">글씨 색상</span>
-                <button onClick={() => setShowColorPicker(false)} aria-label="닫기">
-                  <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
+                <span className="text-[14px] font-bold text-foreground">글씨 색상</span>
+                <button
+                  type="button"
+                  onClick={() => setShowColorPicker(false)}
+                  aria-label="닫기"
+                  className="p-1 rounded-full hover:bg-surface-2 text-text-muted hover:text-foreground transition-colors"
+                >
+                  <IconX size={18} stroke={1.75} />
                 </button>
               </div>
-              <div className="flex flex-wrap gap-2.5">
+              <div className="grid grid-cols-6 gap-2.5 py-1">
                 {TEXT_COLORS.map((c) => (
                   <button
                     key={c.id}
+                    type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       editor?.chain().focus().setColor(c.hex).run();
                       setShowColorPicker(false);
                     }}
+                    title={c.label}
                     aria-label={c.label}
-                    className="h-9 w-9 rounded-full border border-border"
+                    className="h-9 w-9 rounded-full border border-border/80 hover:scale-110 active:scale-95 transition-transform shadow-2xs flex items-center justify-center cursor-pointer"
                     style={{ background: c.hex }}
                   />
                 ))}
+
+                {/* 모바일 직접 색상 선택 버튼 */}
+                <label
+                  title="직접 색상 선택"
+                  className="h-9 w-9 rounded-full border border-border/80 hover:scale-110 active:scale-95 transition-transform shadow-2xs flex items-center justify-center cursor-pointer relative overflow-hidden"
+                  style={{
+                    background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+                  }}
+                >
+                  <input
+                    type="color"
+                    className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      if (hex) {
+                        editor?.chain().focus().setColor(hex).run();
+                        setShowColorPicker(false);
+                      }
+                    }}
+                  />
+                </label>
               </div>
-              <button
-                onClick={() => {
-                  editor?.chain().focus().unsetColor().run();
-                  setShowColorPicker(false);
-                }}
-                className="text-[13px] text-text-secondary text-left py-1"
-              >
-                색상 지우기
-              </button>
+
+              <div className="pt-2 border-t border-border flex items-center justify-between">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    editor?.chain().focus().unsetColor().run();
+                    setShowColorPicker(false);
+                  }}
+                  className="text-[13px] font-medium text-text-secondary hover:text-foreground transition-colors py-1"
+                >
+                  기본색으로 복원 (지우기)
+                </button>
+              </div>
             </div>
           </div>
         </Portal>

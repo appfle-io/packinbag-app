@@ -313,6 +313,7 @@ export default function DesktopShell({
                 onDeletePack(selectedPack.id);
                 onSelectionChange(null);
               }}
+              premium={premium}
             />
           )}
 
