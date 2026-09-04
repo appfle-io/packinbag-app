@@ -41,7 +41,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
-import { UserProfile } from "@/lib/types";
+import { UserProfile, StartPageConfig } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
@@ -107,6 +107,7 @@ interface AuthContextValue {
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
   updateDefaultTab: (defaultTab: "home" | "settings" | "packs") => Promise<void>;
+  updateStartPage: (startPage: StartPageConfig) => Promise<void>;
   updateBagSortBy: (sortBy: UserProfile["bagSortBy"]) => Promise<void>;
   updateBagCardSize: (size: UserProfile["bagCardSize"]) => Promise<void>;
   updatePackSortBy: (sortBy: UserProfile["packSortBy"]) => Promise<void>;
@@ -746,6 +747,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { defaultTab }, { merge: true });
   };
 
+  // 앱 실행 시 처음 보여줄 시작페이지 설정 (가방보관함, 팩보관함, 또는 특정 가방/팩)
+  const updateStartPage = async (startPage: StartPageConfig) => {
+    if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, startPage } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ startPage });
+      return;
+    }
+    await setDoc(doc(db, "users", user.uid), { startPage }, { merge: true });
+  };
+
   const updateBagSortBy = async (sortBy: UserProfile["bagSortBy"]) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), { bagSortBy: sortBy }, { merge: true });
@@ -1193,6 +1205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateThemePrefs,
         updateFontScale,
         updateDefaultTab,
+        updateStartPage,
         updateBagSortBy,
         updateBagCardSize,
         updatePackSortBy,

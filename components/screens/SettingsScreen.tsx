@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import StartPageSelectModal from "@/components/StartPageSelectModal";
 import {
   IconChevronRight,
   IconArrowLeft,
@@ -59,10 +60,6 @@ const modes: { key: ThemeMode; label: string }[] = [
   { key: "dark", label: "다크" },
 ];
 
-const startTabs: { key: "home" | "packs"; label: string }[] = [
-  { key: "home", label: "가방보관함" },
-  { key: "packs", label: "팩 보관함" },
-];
 
 type SettingsView =
   | "main"
@@ -171,6 +168,7 @@ export default function SettingsScreen({
     profile,
     isMaster,
     updateDefaultTab,
+    updateStartPage,
     updateShortUrlEnabled,
     isGuest,
     logout,
@@ -179,6 +177,7 @@ export default function SettingsScreen({
   } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
+  const [showStartPageModal, setShowStartPageModal] = useState(false);
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
@@ -274,8 +273,25 @@ export default function SettingsScreen({
       setConfirmReset(false);
     }
   };
-
-  const startTab = profile?.defaultTab ?? "home";
+  const startPageConfig = profile?.startPage;
+  const startPageLabel = useMemo(() => {
+    if (!startPageConfig || startPageConfig.type === "home") {
+      if (profile?.defaultTab === "packs" && !startPageConfig) {
+        return "팩 보관함";
+      }
+      return "가방 보관함 (기본)";
+    }
+    if (startPageConfig.type === "packs") return "팩 보관함";
+    if (startPageConfig.type === "bag") {
+      const bag = (bags || []).find((b) => b.id === startPageConfig.id);
+      return bag ? `[가방] ${bag.name}` : "가방 보관함 (기본)";
+    }
+    if (startPageConfig.type === "pack") {
+      const pack = (libraryPacks || []).find((p) => p.id === startPageConfig.id);
+      return pack ? `${pack.kind === "editor" ? "[메모]" : "[팩]"} ${pack.name}` : "가방 보관함 (기본)";
+    }
+    return "가방 보관함 (기본)";
+  }, [startPageConfig, profile?.defaultTab, bags, libraryPacks]);
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
   const premium = isPremiumUser(profile?.email, profile);
@@ -391,24 +407,21 @@ export default function SettingsScreen({
 
         <div className="mb-6">
           <p className="text-[12px] text-text-secondary mb-2">시작 화면</p>
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            {startTabs.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => updateDefaultTab(key).catch(() => show("변경사항을 저장하지 못했어요"))}
-                className="flex-1 py-2 text-[13px]"
-                style={{
-                  background: startTab === key ? "var(--accent)" : "var(--surface-2)",
-                  color: startTab === key ? "#fff" : "var(--foreground)",
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="rounded-lg border border-border p-3 flex items-center justify-between bg-surface-2">
+            <div className="min-w-0 flex-1 pr-3">
+              <p className="text-[13px] font-medium truncate">{startPageLabel}</p>
+              <p className="text-[11px] text-text-muted mt-0.5">
+                앱을 열었을 때 처음 보여줄 화면이에요
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowStartPageModal(true)}
+              className="px-3 py-1.5 rounded-md text-[12px] font-medium bg-surface border border-border hover:bg-surface-2 transition-colors shrink-0"
+            >
+              설정
+            </button>
           </div>
-          <p className="text-[11px] text-text-muted mt-2">
-            앱을 열었을 때 처음 보여줄 화면이에요
-          </p>
         </div>
 
         <div className="mb-6">
@@ -759,6 +772,23 @@ export default function SettingsScreen({
 
       {showInspectLogsModal && (
         <TemplateInspectLogsModal onClose={() => setShowInspectLogsModal(false)} />
+      )}
+
+      {showStartPageModal && (
+        <StartPageSelectModal
+          currentConfig={profile?.startPage}
+          bags={bags || []}
+          libraryPacks={libraryPacks || []}
+          onClose={() => setShowStartPageModal(false)}
+          onSelect={async (config) => {
+            try {
+              await updateStartPage(config);
+              show("시작페이지 설정을 저장했어요");
+            } catch {
+              show("시작페이지 설정을 저장하지 못했어요");
+            }
+          }}
+        />
       )}
 
       {showAccountLinkModal && (

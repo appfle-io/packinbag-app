@@ -217,7 +217,9 @@ export default function AppShell() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [tab, setTab] = useState<TabKey>("home");
-  const appliedDefaultTabRef = useRef(false);
+  const appliedStartPageRef = useRef(false);
+  const [bagsLoaded, setBagsLoaded] = useState(false);
+  const [packsLoaded, setPacksLoaded] = useState(false);
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
@@ -276,16 +278,89 @@ export default function AppShell() {
   }, []);
 
 
-  // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭 전환).
+  // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭/가방/팩 전환).
   useEffect(() => {
-    if (!profile || appliedDefaultTabRef.current) return;
-    if (!profile.defaultTab) return;
-    appliedDefaultTabRef.current = true;
-    if (profile.defaultTab === "home" || profile.defaultTab === "packs" || profile.defaultTab === "settings") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTab(profile.defaultTab);
+    if (!profile || appliedStartPageRef.current) return;
+
+    const startPage = profile.startPage;
+
+    // 시작페이지 설정이 없는 경우: 기존 defaultTab 하위 호환 처리
+    if (!startPage) {
+      if (profile.defaultTab === "packs") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("packs");
+      } else if (profile.defaultTab === "settings") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("settings");
+      } else if (profile.defaultTab === "home") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("home");
+      }
+      appliedStartPageRef.current = true;
+      return;
     }
-  }, [profile]);
+
+    // 1. 기본 가방 보관함
+    if (startPage.type === "home") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab("home");
+      appliedStartPageRef.current = true;
+      return;
+    }
+
+    // 2. 기본 팩 보관함
+    if (startPage.type === "packs") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab("packs");
+      appliedStartPageRef.current = true;
+      return;
+    }
+
+    // 3. 특정 가방
+    if (startPage.type === "bag") {
+      if (!bagsLoaded) return;
+      appliedStartPageRef.current = true;
+      const targetBag = bags.find(
+        (b) => b.id === startPage.id && !(user && b.ownerId === user.uid && b.trashedByOwnerAt)
+      );
+      if (targetBag) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("home");
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setEditingBag(targetBag);
+      } else {
+        // 대상 가방이 삭제되었거나 휴지통에 있음 -> 안전하게 기본 가방 보관함으로 폴백
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("home");
+      }
+      return;
+    }
+
+    // 4. 특정 팩
+    if (startPage.type === "pack") {
+      if (!packsLoaded) return;
+      appliedStartPageRef.current = true;
+      const targetPack = libraryPacks.find(
+        (p) => p.id === startPage.id && !p.trashedAt
+      );
+      if (targetPack) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("packs");
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setEditingPack(targetPack);
+      } else {
+        // 대상 팩이 삭제되었거나 휴지통에 있음 -> 안전하게 기본 가방 보관함으로 폴백
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("home");
+      }
+      return;
+    }
+
+    // 알 수 없는 설정값 -> 기본 가방 보관함으로 폴백
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTab("home");
+    appliedStartPageRef.current = true;
+  }, [profile, bagsLoaded, packsLoaded, bags, libraryPacks, user]);
 
   const showSplash = loading || !splashMinTimeDone;
 
@@ -293,11 +368,15 @@ export default function AppShell() {
     if (!user) return;
     if (isOfflineMode) {
       setBags(getLocalBags());
+      setBagsLoaded(true);
       return subscribeLocalData(() => {
         setBags(getLocalBags());
       });
     }
-    return subscribeToUserBags(user.uid, setBags);
+    return subscribeToUserBags(user.uid, (b) => {
+      setBags(b);
+      setBagsLoaded(true);
+    });
   }, [user, isOfflineMode]);
 
   const lastSyncedProfileRef = useRef<string | null>(null);
@@ -327,11 +406,15 @@ export default function AppShell() {
     if (!user) return;
     if (isOfflineMode) {
       setLibraryPacks(getLocalLibraryPacks());
+      setPacksLoaded(true);
       return subscribeLocalData(() => {
         setLibraryPacks(getLocalLibraryPacks());
       });
     }
-    return subscribeToLibraryPacks(user.uid, setLibraryPacks);
+    return subscribeToLibraryPacks(user.uid, (p) => {
+      setLibraryPacks(p);
+      setPacksLoaded(true);
+    });
   }, [user, isOfflineMode]);
 
   useEffect(() => {

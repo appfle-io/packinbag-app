@@ -231,6 +231,14 @@ export type AvatarId = string;
 // 시작하는 순간 자동으로 이 값으로 전환된다.
 export type ListSortOption = "createdAt" | "nameAsc" | "nameDesc" | "updatedAt" | "custom";
 
+export type StartPageType = "home" | "packs" | "bag" | "pack";
+
+export interface StartPageConfig {
+  type: StartPageType;
+  id?: string;
+  title?: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string | null;
@@ -282,6 +290,8 @@ export interface UserProfile {
   // v68: 하단탑이 가방보관함/설정 2개로 재개편되어 "packs" 옵션은 사라졌다(팩 트리는
   // 이제 스와이프로 열리는 풀스크린 화면임). 앱 실행 시 처음 보여줄 탭(없으면 "home" 기본값).
   defaultTab?: "home" | "settings" | "packs";
+  // 앱 실행 시 처음 열릴 시작페이지 설정 (기본 가방보관함, 팩보관함, 또는 특정 가방/팩)
+  startPage?: StartPageConfig;
   // "다시 보지 않기" 처리한 공지사항 id 목록
   dismissedAnnouncementIds?: string[];
   // 가방/팩 목록 정렬 기준 (없으면 "createdAt" 기본값)
