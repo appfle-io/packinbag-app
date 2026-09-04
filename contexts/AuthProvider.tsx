@@ -171,8 +171,38 @@ async function ensureUserDoc(user: User) {
   );
 }
 
+const LOCAL_DEVICE_START_PAGE_KEY = "pib_device_start_page";
+
+function getDeviceStartPage(): StartPageConfig {
+  if (typeof window === "undefined") {
+    return { type: "home", title: "가방 보관함 (기본)" };
+  }
+  try {
+    const saved = localStorage.getItem(LOCAL_DEVICE_START_PAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === "object" && parsed.type) {
+        return parsed as StartPageConfig;
+      }
+    }
+  } catch {}
+  return { type: "home", title: "가방 보관함 (기본)" };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [deviceStartPage, setDeviceStartPage] = useState<StartPageConfig>(getDeviceStartPage);
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === LOCAL_DEVICE_START_PAGE_KEY) {
+        setDeviceStartPage(getDeviceStartPage());
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   // users/{uid} 문서에서 그대로 읽어온 값. 이용권이 실제로 지금 유효한지(무효화/만료
   // 여부)는 여기 없다 - 아래 unlockLiveStatus가 따로 담당한다 (그 이유는 바로 아래 주석 참고).
   const [rawProfile, setRawProfile] = useState<UserProfile | null>(null);
@@ -452,8 +482,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 여기서 하나로 합쳐야 lib/premiumLimits.ts 등 기존 호출부를 안 건드리고 바로 반영된다.
   const profile = useMemo<UserProfile | null>(() => {
     if (!rawProfile) return null;
-    return { ...rawProfile, unlockCodeLiveStatus: unlockLiveStatus };
-  }, [rawProfile, unlockLiveStatus]);
+    return {
+      ...rawProfile,
+      unlockCodeLiveStatus: unlockLiveStatus,
+      startPage: deviceStartPage,
+    };
+  }, [rawProfile, unlockLiveStatus, deviceStartPage]);
 
   const packDisplayStatesRef = useRef<NonNullable<UserProfile["packDisplayStates"]>>({});
   const packDisplayDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -748,20 +782,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, "users", user.uid), { defaultTab }, { merge: true });
   };
 
-  // 앱 실행 시 처음 보여줄 시작페이지 설정 (가방보관함, 팩보관함, 또는 특정 가방/팩)
+  // 앱 실행 시 처음 보여줄 시작페이지 설정 (디바이스별 독립 로컬 스토리지 저장)
   const updateStartPage = async (startPage: StartPageConfig) => {
-    if (!user) return;
-    const syncedDefaultTab = startPage.type === "packs" ? "packs" : "home";
-    setRawProfile((prev) => (prev ? { ...prev, startPage, defaultTab: syncedDefaultTab } : prev));
-    if (isOfflineMode) {
-      saveLocalProfile({ startPage, defaultTab: syncedDefaultTab });
-      return;
+    setDeviceStartPage(startPage);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(LOCAL_DEVICE_START_PAGE_KEY, JSON.stringify(startPage));
+      } catch (err) {
+        console.error("[AuthProvider] 로컬 스토리지 시작페이지 저장 실패:", err);
+      }
     }
-    await setDoc(
-      doc(db, "users", user.uid),
-      { startPage, defaultTab: syncedDefaultTab },
-      { merge: true }
-    );
   };
 
   const updateBagSortBy = async (sortBy: UserProfile["bagSortBy"]) => {

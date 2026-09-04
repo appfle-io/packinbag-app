@@ -276,9 +276,6 @@ export default function SettingsScreen({
   const startPageConfig = profile?.startPage;
   const startPageLabel = useMemo(() => {
     if (!startPageConfig || startPageConfig.type === "home") {
-      if (profile?.defaultTab === "packs" && !startPageConfig) {
-        return "팩 보관함";
-      }
       return "가방 보관함 (기본)";
     }
     if (startPageConfig.type === "packs") return "팩 보관함";
@@ -291,7 +288,7 @@ export default function SettingsScreen({
       return pack ? `${pack.kind === "editor" ? "[메모]" : "[팩]"} ${pack.name}` : "가방 보관함 (기본)";
     }
     return "가방 보관함 (기본)";
-  }, [startPageConfig, profile?.defaultTab, bags, libraryPacks]);
+  }, [startPageConfig, bags, libraryPacks]);
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
   const premium = isPremiumUser(profile?.email, profile);

@@ -278,30 +278,14 @@ export default function AppShell() {
   }, []);
 
 
-  // 계정에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭/가방/팩 전환).
+  // 디바이스에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭/가방/팩 전환).
   useEffect(() => {
     if (!profile || appliedStartPageRef.current) return;
 
     const startPage = profile.startPage;
 
-    // 시작페이지 설정이 없는 경우: 기존 defaultTab 하위 호환 처리
-    if (!startPage) {
-      if (profile.defaultTab === "packs") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("packs");
-      } else if (profile.defaultTab === "settings") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("settings");
-      } else if (profile.defaultTab === "home") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("home");
-      }
-      appliedStartPageRef.current = true;
-      return;
-    }
-
-    // 1. 기본 가방 보관함
-    if (startPage.type === "home") {
+    // 1. 기본 가방 보관함 (설정이 없거나 type === "home")
+    if (!startPage || startPage.type === "home") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTab("home");
       appliedStartPageRef.current = true;
