@@ -318,8 +318,8 @@ export default function HomeScreen({
     [bags, premium]
   );
   const { results: searchResults, truncated: searchTruncated } = useMemo(
-    () => searchBags(searchableBags, searchQuery, packs),
-    [searchableBags, searchQuery, packs]
+    () => searchBags(searchableBags, searchQuery),
+    [searchableBags, searchQuery]
   );
 
   const openSearch = () => {
@@ -567,7 +567,7 @@ export default function HomeScreen({
                 >
                   <IconSearch size={18} stroke={1.75} />
                 </button>
-                <NotificationBell uid={uid} />
+                {!isOfflineMode && <NotificationBell uid={uid} />}
               </div>
             </>
           )}
@@ -602,13 +602,15 @@ export default function HomeScreen({
             </div>
           ) : (
             <div className="flex items-center justify-between mb-3 gap-2">
-              <button
-                onClick={() => setShowJoin(true)}
-                className="flex items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs"
-              >
-                <IconTicket size={13} stroke={1.75} />
-                코드로 참여
-              </button>
+              {!isOfflineMode ? (
+                <button
+                  onClick={() => setShowJoin(true)}
+                  className="flex items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs"
+                >
+                  <IconTicket size={13} stroke={1.75} />
+                  코드로 참여
+                </button>
+              ) : <div />}
               <div className="flex items-center gap-1.5 shrink-0">
                 {(archivedBagsAll.length > 0 || bagFilter === "archived") && (
                   <div
@@ -1136,7 +1138,7 @@ export default function HomeScreen({
         </div>
       )}
 
-      {showJoin && (
+      {!isOfflineMode && showJoin && (
         <JoinBagDialog
           initialCode={initialInviteCode}
           onCancel={() => setShowJoin(false)}

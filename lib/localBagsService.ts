@@ -60,6 +60,30 @@ export function saveLocalProfile(profile: Partial<UserProfile>) {
 
 // ----------------- Bags -----------------
 export function getLocalBags(): Bag[] {
+  // 이전 버전의 LOCAL_TRASHED_BAGS_KEY가 남아있다면 통합 마이그레이션
+  if (typeof window !== "undefined") {
+    try {
+      const oldTrashed = localStorage.getItem(LOCAL_TRASHED_BAGS_KEY);
+      if (oldTrashed) {
+        const parsed = JSON.parse(oldTrashed) as Bag[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const current = safeGetItem<Bag[]>(LOCAL_BAGS_KEY, []);
+          const existingIds = new Set(current.map((b) => b.id));
+          const migrated = [
+            ...current,
+            ...parsed
+              .filter((b) => !existingIds.has(b.id))
+              .map((b) => ({
+                ...b,
+                trashedByOwnerAt: b.trashedByOwnerAt || new Date().toISOString(),
+              })),
+          ];
+          localStorage.setItem(LOCAL_BAGS_KEY, JSON.stringify(migrated));
+        }
+        localStorage.removeItem(LOCAL_TRASHED_BAGS_KEY);
+      }
+    } catch {}
+  }
   return safeGetItem<Bag[]>(LOCAL_BAGS_KEY, []);
 }
 
@@ -102,36 +126,52 @@ export function deleteLocalBag(bagId: string) {
   const list = getLocalBags();
   const target = list.find((b) => b.id === bagId);
   if (!target) return;
-  const filtered = list.filter((b) => b.id !== bagId);
-  safeSetItem(LOCAL_BAGS_KEY, filtered);
-
-  // 휴지통으로 이동
-  const trashed = safeGetItem<Bag[]>(LOCAL_TRASHED_BAGS_KEY, []);
-  trashed.unshift({ ...target, updatedAt: new Date().toISOString() });
-  safeSetItem(LOCAL_TRASHED_BAGS_KEY, trashed);
+  target.trashedByOwnerAt = new Date().toISOString();
+  target.updatedAt = new Date().toISOString();
+  safeSetItem(LOCAL_BAGS_KEY, list);
 }
 
 export function restoreLocalBag(bagId: string) {
-  const trashed = safeGetItem<Bag[]>(LOCAL_TRASHED_BAGS_KEY, []);
-  const target = trashed.find((b) => b.id === bagId);
+  const list = getLocalBags();
+  const target = list.find((b) => b.id === bagId);
   if (!target) return;
-  safeSetItem(
-    LOCAL_TRASHED_BAGS_KEY,
-    trashed.filter((b) => b.id !== bagId)
-  );
-  saveLocalBag(target);
+  delete target.trashedByOwnerAt;
+  target.updatedAt = new Date().toISOString();
+  safeSetItem(LOCAL_BAGS_KEY, list);
 }
 
 export function permanentDeleteLocalBag(bagId: string) {
-  const trashed = safeGetItem<Bag[]>(LOCAL_TRASHED_BAGS_KEY, []);
-  safeSetItem(
-    LOCAL_TRASHED_BAGS_KEY,
-    trashed.filter((b) => b.id !== bagId)
-  );
+  const list = getLocalBags();
+  const filtered = list.filter((b) => b.id !== bagId);
+  safeSetItem(LOCAL_BAGS_KEY, filtered);
 }
 
 // ----------------- Library Packs -----------------
 export function getLocalLibraryPacks(): Pack[] {
+  // 이전 버전의 LOCAL_TRASHED_PACKS_KEY가 남아있다면 통합 마이그레이션
+  if (typeof window !== "undefined") {
+    try {
+      const oldTrashed = localStorage.getItem(LOCAL_TRASHED_PACKS_KEY);
+      if (oldTrashed) {
+        const parsed = JSON.parse(oldTrashed) as Pack[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const current = safeGetItem<Pack[]>(LOCAL_LIBRARY_PACKS_KEY, []);
+          const existingIds = new Set(current.map((p) => p.id));
+          const migrated = [
+            ...current,
+            ...parsed
+              .filter((p) => !existingIds.has(p.id))
+              .map((p) => ({
+                ...p,
+                trashedAt: p.trashedAt || new Date().toISOString(),
+              })),
+          ];
+          localStorage.setItem(LOCAL_LIBRARY_PACKS_KEY, JSON.stringify(migrated));
+        }
+        localStorage.removeItem(LOCAL_TRASHED_PACKS_KEY);
+      }
+    } catch {}
+  }
   return safeGetItem<Pack[]>(LOCAL_LIBRARY_PACKS_KEY, []);
 }
 
@@ -161,45 +201,64 @@ export function createLocalLibraryPack(name: string, kind: "checklist" | "editor
   return newPack;
 }
 
+function collectSubPackIds(packs: Pack[], parentId: string): Set<string> {
+  const result = new Set<string>([parentId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const p of packs) {
+      if (p.parentId && result.has(p.parentId) && !result.has(p.id)) {
+        result.add(p.id);
+        changed = true;
+      }
+    }
+  }
+  return result;
+}
+
 export function deleteLocalLibraryPack(packId: string) {
   const list = getLocalLibraryPacks();
   const target = list.find((p) => p.id === packId);
   if (!target) return;
-  safeSetItem(
-    LOCAL_LIBRARY_PACKS_KEY,
-    list.filter((p) => p.id !== packId)
-  );
-
-  // 휴지통으로 이동
-  const trashed = safeGetItem<Pack[]>(LOCAL_TRASHED_PACKS_KEY, []);
-  trashed.unshift({ ...target, trashedAt: new Date().toISOString() });
-  safeSetItem(LOCAL_TRASHED_PACKS_KEY, trashed);
+  const now = new Date().toISOString();
+  const idsToTrash = target.type === "folder" ? collectSubPackIds(list, packId) : new Set([packId]);
+  for (const p of list) {
+    if (idsToTrash.has(p.id)) {
+      p.trashedAt = now;
+      p.updatedAt = now;
+    }
+  }
+  safeSetItem(LOCAL_LIBRARY_PACKS_KEY, list);
 }
 
 export function restoreLocalLibraryPack(packId: string) {
-  const trashed = safeGetItem<Pack[]>(LOCAL_TRASHED_PACKS_KEY, []);
-  const target = trashed.find((p) => p.id === packId);
+  const list = getLocalLibraryPacks();
+  const target = list.find((p) => p.id === packId);
   if (!target) return;
-  safeSetItem(
-    LOCAL_TRASHED_PACKS_KEY,
-    trashed.filter((p) => p.id !== packId)
-  );
-  const { trashedAt: _, ...rest } = target;
-  saveLocalLibraryPack(rest as Pack);
+  const now = new Date().toISOString();
+  const idsToRestore = target.type === "folder" ? collectSubPackIds(list, packId) : new Set([packId]);
+  for (const p of list) {
+    if (idsToRestore.has(p.id)) {
+      delete p.trashedAt;
+      p.updatedAt = now;
+    }
+  }
+  safeSetItem(LOCAL_LIBRARY_PACKS_KEY, list);
 }
 
 export function permanentDeleteLocalLibraryPack(packId: string) {
-  const trashed = safeGetItem<Pack[]>(LOCAL_TRASHED_PACKS_KEY, []);
-  safeSetItem(
-    LOCAL_TRASHED_PACKS_KEY,
-    trashed.filter((p) => p.id !== packId)
-  );
+  const list = getLocalLibraryPacks();
+  const target = list.find((p) => p.id === packId);
+  if (!target) return;
+  const idsToDelete = target.type === "folder" ? collectSubPackIds(list, packId) : new Set([packId]);
+  const filtered = list.filter((p) => !idsToDelete.has(p.id));
+  safeSetItem(LOCAL_LIBRARY_PACKS_KEY, filtered);
 }
 
 export function getLocalTrashedItems(): { bags: Bag[]; packs: Pack[] } {
   return {
-    bags: safeGetItem<Bag[]>(LOCAL_TRASHED_BAGS_KEY, []),
-    packs: safeGetItem<Pack[]>(LOCAL_TRASHED_PACKS_KEY, []),
+    bags: getLocalBags().filter((b) => Boolean(b.trashedByOwnerAt)),
+    packs: getLocalLibraryPacks().filter((p) => Boolean(p.trashedAt)),
   };
 }
 

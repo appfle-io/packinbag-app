@@ -33,7 +33,6 @@ import NotificationBell from "@/components/NotificationBell";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
-import PackTemplateGalleryModal, { registerPackAsTemplate } from "@/components/PackTemplateGalleryModal";
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 10;
@@ -123,11 +122,11 @@ export default function PacksScreen({
     togglePackPinned,
     updatePackOrderByParent,
     updateExpandedPackFolderIds,
+    isOfflineMode,
   } = useAuth();
   const { show } = useToast();
-  // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
-  // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 검색 결과에서 숨긴다.
-  const premium = isPremiumUser(profile?.email, profile ?? null);
+  // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부.
+  const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
   const sortBy = profile?.packSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedPackIds ?? [];
   const treePacks = packs.filter((p) => !p.isQuickPack);
@@ -143,7 +142,6 @@ export default function PacksScreen({
     }
     return new Set(profile?.expandedPackFolderIds ?? []);
   });
-  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
 
   const saveLocalExpanded = (set: Set<string>) => {
     if (typeof window !== "undefined") {
@@ -205,16 +203,9 @@ export default function PacksScreen({
     const realPacks = treePacks.filter((p) => p.type !== "folder");
     return quickPack ? [...realPacks, quickPack] : realPacks;
   }, [treePacks, quickPack]);
-
-  // 가방 보관함(HomeScreen)과 동일하게, 무료회원에게는 다른 멤버의 AI추천 팩 내용이 검색
-  // 결과로 새어나가지 않도록, 검색 대상 자체를 뷰어 기준으로 걸러낸 사본으로 바꿔서 넘긴다.
-  const searchableBags = useMemo(
-    () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
-    [bags, premium]
-  );
   const { results: searchResults, truncated: searchTruncated } = useMemo(
-    () => searchLibraryPacks(searchablePacks, searchQuery, searchableBags),
-    [searchablePacks, searchQuery, searchableBags]
+    () => searchLibraryPacks(searchablePacks, searchQuery),
+    [searchablePacks, searchQuery]
   );
 
   const openSearch = () => {
@@ -528,7 +519,7 @@ export default function PacksScreen({
                 <button onClick={openSearch} aria-label="검색" className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors">
                   <IconSearch size={18} stroke={1.75} />
                 </button>
-                <NotificationBell uid={uid} />
+                {!isOfflineMode && <NotificationBell uid={uid} />}
               </div>
             </>
           )}
@@ -586,12 +577,6 @@ export default function PacksScreen({
                     className="flex items-center justify-center rounded-md border border-dashed border-border-strong p-1"
                   >
                     <IconPlus size={17} stroke={1.75} color="var(--text-secondary)" />
-                  </button>
-                  <button
-                    onClick={() => setShowTemplateGallery(true)}
-                    className="flex items-center gap-1 rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[12px] font-semibold text-accent"
-                  >
-                    <span>템플릿</span>
                   </button>
                 </div>
                 <SortSelect
@@ -889,7 +874,7 @@ export default function PacksScreen({
                     <IconEdit size={14} stroke={1.75} />
                     <span>이름 변경</span>
                   </button>
-                  {only.type === "folder" && (
+                  {!isOfflineMode && only.type === "folder" && (
                     <button
                       onClick={() => setSharingFolder(only)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-all active:scale-95 shadow-2xs border border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
@@ -1103,17 +1088,6 @@ export default function PacksScreen({
         </Portal>
       )}
 
-      {showTemplateGallery && (
-        <PackTemplateGalleryModal
-          userPacks={treePacks}
-          onClose={() => setShowTemplateGallery(false)}
-          onImportToLibrary={(newPack) => {
-            onNewPack(undefined);
-            onRenameEntry(newPack, newPack.name);
-          }}
-        />
-      )}
-
       {/* 폴더 옵션 메뉴 모달 */}
       {folderMenuEntry && (
         <Portal>
@@ -1148,18 +1122,20 @@ export default function PacksScreen({
                   <IconEdit size={17} stroke={1.75} className="text-text-secondary" />
                   <span className="text-[13.5px] font-medium text-foreground">이름 바꾸기</span>
                 </button>
-                <button
-                  onClick={() => {
-                    const target = folderMenuEntry;
-                    setFolderMenuEntry(null);
-                    setSharingFolder(target);
-                  }}
-                  className="flex items-center gap-2.5 rounded-md px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
-                  style={{ background: "var(--surface-2)" }}
-                >
-                  <IconShare size={17} stroke={1.75} className="text-accent" />
-                  <span className="text-[13.5px] font-medium text-accent">공유</span>
-                </button>
+                {!isOfflineMode && (
+                  <button
+                    onClick={() => {
+                      const target = folderMenuEntry;
+                      setFolderMenuEntry(null);
+                      setSharingFolder(target);
+                    }}
+                    className="flex items-center gap-2.5 rounded-md px-3.5 py-3 text-left hover:bg-surface-2 transition-colors active:scale-[0.99]"
+                    style={{ background: "var(--surface-2)" }}
+                  >
+                    <IconShare size={17} stroke={1.75} className="text-accent" />
+                    <span className="text-[13.5px] font-medium text-accent">공유</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     const target = folderMenuEntry;
@@ -1193,7 +1169,7 @@ export default function PacksScreen({
       )}
 
       {/* 폴더 공유 모달 */}
-      {sharingFolder && (
+      {!isOfflineMode && sharingFolder && (
         <PackShareModal
           folder={sharingFolder}
           folderPacks={treePacks.filter((p) => {

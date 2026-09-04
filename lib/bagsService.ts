@@ -20,7 +20,15 @@ import { db } from "@/lib/firebase";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
-import { PremiumLimitError } from "@/lib/premiumLimits";
+import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
+import {
+  getLocalBags,
+  saveLocalBag,
+  deleteLocalBag,
+  restoreLocalBag,
+  permanentDeleteLocalBag,
+  subscribeLocalData,
+} from "@/lib/localBagsService";
 
 function bagsCol() {
   return collection(db, "bags");
@@ -74,6 +82,10 @@ export async function createBagRemote(
 }
 
 export async function saveBagRemote(bag: Bag) {
+  if (isOfflineEnvironment()) {
+    saveLocalBag(bag);
+    return;
+  }
   const serialized = serializeBag(bag);
   await setDoc(
     doc(bagsCol(), bag.id),
@@ -91,6 +103,24 @@ export async function updateBagPackEditorContent(
   packId: string,
   patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
 ) {
+  if (isOfflineEnvironment()) {
+    const list = getLocalBags();
+    const bag = list.find((b) => b.id === bagId);
+    if (!bag) return;
+    const packs = bag.packs.map((p) =>
+      p.id === packId
+        ? serializePack({
+            ...p,
+            name: patch.name,
+            editorDoc: patch.editorDoc ?? undefined,
+            editorPreviewText: patch.editorPreviewText,
+            updatedAt: patch.updatedAt,
+          })
+        : p
+    );
+    saveLocalBag({ ...bag, packs });
+    return;
+  }
   const ref = doc(bagsCol(), bagId);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -117,6 +147,14 @@ export function subscribeToBag(
   bagId: string,
   callback: (bag: Bag | null) => void
 ) {
+  if (isOfflineEnvironment()) {
+    const list = getLocalBags();
+    callback(list.find((b) => b.id === bagId) ?? null);
+    return subscribeLocalData(() => {
+      const updatedList = getLocalBags();
+      callback(updatedList.find((b) => b.id === bagId) ?? null);
+    });
+  }
   return onSnapshot(doc(bagsCol(), bagId), (snap) => {
     callback(snap.exists() ? deserializeBag({ id: snap.id, ...snap.data() } as Bag) : null);
   });
@@ -131,6 +169,20 @@ export async function movePackBetweenBagsRemote(
   toBagId: string,
   packId: string
 ): Promise<{ ok: true } | { ok: false; reason: "not-found" | "target-full" }> {
+  if (isOfflineEnvironment()) {
+    const list = getLocalBags();
+    const fromBag = list.find((b) => b.id === fromBagId);
+    const toBag = list.find((b) => b.id === toBagId);
+    if (!fromBag || !toBag) return { ok: false, reason: "not-found" as const };
+    const movingPack = fromBag.packs.find((p) => p.id === packId);
+    if (!movingPack) return { ok: false, reason: "not-found" as const };
+    if (toBag.packs.length >= 10) return { ok: false, reason: "target-full" as const };
+    fromBag.packs = fromBag.packs.filter((p) => p.id !== packId);
+    toBag.packs = [...toBag.packs, movingPack];
+    saveLocalBag(fromBag);
+    saveLocalBag(toBag);
+    return { ok: true as const };
+  }
   const fromRef = doc(bagsCol(), fromBagId);
   const toRef = doc(bagsCol(), toBagId);
   return await runTransaction(db, async (tx) => {
@@ -169,6 +221,10 @@ export async function getUserBagsOnce(uid: string): Promise<Bag[]> {
 
 // 가방 자체와 초대코드 매핑까지 함께 삭제 (이미지는 호출하는 쪽에서 별도 삭제)
 export async function deleteBagWithInviteCodeRemote(bag: Bag) {
+  if (isOfflineEnvironment()) {
+    permanentDeleteLocalBag(bag.id);
+    return;
+  }
   if (bag.inviteCode) {
     try {
       await deleteDoc(doc(db, "inviteCodes", bag.inviteCode));
@@ -180,6 +236,10 @@ export async function deleteBagWithInviteCodeRemote(bag: Bag) {
 }
 
 export async function deleteBagRemote(bagId: string) {
+  if (isOfflineEnvironment()) {
+    deleteLocalBag(bagId);
+    return;
+  }
   await deleteDoc(doc(bagsCol(), bagId));
 }
 
@@ -188,12 +248,20 @@ export async function deleteBagRemote(bagId: string) {
 // firestore.rules에서 소유자만 이 필드를 null->값으로 바꿀 수 있게 막아둔다(다른 그룹원은
 // 이 필드와 무관하게 가방을 그대로 볼 수 있다).
 export async function trashBagRemote(bagId: string) {
+  if (isOfflineEnvironment()) {
+    deleteLocalBag(bagId);
+    return;
+  }
   await updateDoc(doc(bagsCol(), bagId), { trashedByOwnerAt: new Date().toISOString() });
 }
 
 // 휴지통에서 복구. 무료 동시 진행 개수 제한(FREE_MAX_ACTIVE_BAGS)을 서버에서 다시 검증해야
 // 하고(firestore.rules가 클라이언트의 직접 복구를 막아둔다) app/api/restore-bag를 거친다.
 export async function restoreBagRemote(user: User, bagId: string) {
+  if (isOfflineEnvironment()) {
+    restoreLocalBag(bagId);
+    return;
+  }
   const idToken = await user.getIdToken();
   const res = await fetch("/api/restore-bag", {
     method: "POST",

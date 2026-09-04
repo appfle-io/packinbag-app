@@ -28,7 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { Bag, BagFolder, Pack, ListSortOption } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
-import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
+import { isPremiumUser, getViewablePacks, isOfflineEnvironment } from "@/lib/premiumLimits";
 import { arrangeList, SORT_OPTIONS, SORT_OPTION_LABELS } from "@/lib/listSort";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { saveBagRemote } from "@/lib/bagsService";
@@ -38,7 +38,6 @@ import PackShareModal from "@/components/PackShareModal";
 import Portal from "@/components/Portal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import NotificationBell from "@/components/NotificationBell";
-import PackTemplateGalleryModal from "@/components/PackTemplateGalleryModal";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
@@ -242,7 +241,8 @@ export default function DesktopSidebar({
 
   // 지금 이 사이드바를 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
   // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 트리 미리보기에서 숨긴다.
-  const premium = isPremiumUser(profile?.email, profile ?? null);
+  const isOfflineMode = isOfflineEnvironment();
+  const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
 
   // 사이드바 폭/접힌 상태 - 계정(profile)에서 초기값을 가져오고, 드래그 중에는 네트워크
   // 왕복 없이 로컬 state만 바꾸다가 놓았을 때만 계정에 저장한다.
@@ -370,7 +370,6 @@ export default function DesktopSidebar({
   };
 
   const { show } = useToast();
-  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [activeDragData, setActiveDragData] = useState<{
     type: "bag" | "bag-folder" | "pack" | "pack-folder" | "bag-pack";
     id: string;
@@ -710,10 +709,10 @@ export default function DesktopSidebar({
 
   const q = query.trim().toLowerCase();
 
-  // 통합 검색 결과: 가방(가방이름, 가방속 팩, 가방속 짐, 가방 폴더)
+  // 가방 검색 결과: 가방(가방이름, 가방속 팩, 가방속 짐, 가방 폴더)
   const bagSearchResults = useMemo(() => {
     if (!q) return [];
-    const base = searchBags(bags, q, treePacks).results;
+    const base = searchBags(bags, q).results;
     const matchingFolders = Object.values(bagFolders)
       .filter((f) => f.name.toLowerCase().includes(q))
       .map((f) => ({
@@ -724,12 +723,12 @@ export default function DesktopSidebar({
         folder: f,
       }));
     return [...matchingFolders, ...base];
-  }, [bags, bagFolders, treePacks, q]);
+  }, [bags, bagFolders, q]);
 
-  // 통합 검색 결과: 팩 보관함(팩이름, 팩속 짐, 팩 메모내용, 팩 폴더)
+  // 팩 보관함 검색 결과: 팩 보관함(팩이름, 팩속 짐, 팩 메모내용, 팩 폴더)
   const packSearchResults = useMemo(() => {
     if (!q) return [];
-    const base = searchLibraryPacks(treePacks, q).results.filter((r) => r.type !== "bag");
+    const base = searchLibraryPacks(treePacks, q).results;
     const matchingFolders = treePacks
       .filter((p) => p.type === "folder" && p.name.toLowerCase().includes(q))
       .map((f) => ({
@@ -986,7 +985,7 @@ export default function DesktopSidebar({
         >
           <IconChevronsLeft size={15} stroke={1.75} />
         </button>
-        <NotificationBell uid={uid} />
+        {!isOfflineMode && <NotificationBell uid={uid} />}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-3">
@@ -1435,14 +1434,6 @@ export default function DesktopSidebar({
               className="p-1 rounded-md hover:bg-black/5"
             >
               <IconArrowsSort size={14} stroke={1.75} color="var(--text-muted)" />
-            </button>
-            <button
-              onClick={() => setShowTemplateGallery(true)}
-              aria-label="추천 템플릿 둘러보기"
-              title="추천 템플릿 둘러보기"
-              className="p-1 rounded-md hover:bg-black/5 flex items-center text-[11.5px] font-medium text-text-secondary hover:text-foreground transition-colors"
-            >
-              <span>템플릿</span>
             </button>
             <button
               onClick={() => onNewFolder(undefined)}
@@ -2054,16 +2045,18 @@ export default function DesktopSidebar({
                       <IconEdit size={15} stroke={1.75} />
                       이름 바꾸기
                     </button>
-                    <button
-                      onClick={() => {
-                        setPackMenuFor(null);
-                        setSharingPackOrFolder(entry);
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5 text-accent"
-                    >
-                      <IconShare size={15} stroke={1.75} />
-                      공유
-                    </button>
+                    {!isOfflineMode && (
+                      <button
+                        onClick={() => {
+                          setPackMenuFor(null);
+                          setSharingPackOrFolder(entry);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-left hover:bg-black/5 text-accent"
+                      >
+                        <IconShare size={15} stroke={1.75} />
+                        공유
+                      </button>
+                    )}
                   </>
                 );
               })()}
@@ -2138,19 +2131,7 @@ export default function DesktopSidebar({
         />
       )}
 
-      {showTemplateGallery && (
-        <PackTemplateGalleryModal
-          userPacks={treePacks}
-          onClose={() => setShowTemplateGallery(false)}
-          onImportToLibrary={(newPack) => {
-            onNewPack(undefined);
-            // 팩 보관함 추가
-            onRenamePackEntry(newPack, newPack.name);
-          }}
-        />
-      )}
-
-      {sharingPackOrFolder && (
+      {!isOfflineMode && sharingPackOrFolder && (
         <PackShareModal
           pack={sharingPackOrFolder.type !== "folder" ? sharingPackOrFolder : undefined}
           folder={sharingPackOrFolder.type === "folder" ? sharingPackOrFolder : undefined}

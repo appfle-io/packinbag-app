@@ -3308,7 +3308,7 @@ export default function BagEditorScreen({
         />
       )}
 
-      {(showShareCard || showMembers) && (
+      {!isOfflineMode && (showShareCard || showMembers) && (
         <ShareCardModal
           bag={bag}
           currentUid={currentUid}

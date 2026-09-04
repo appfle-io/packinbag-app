@@ -68,25 +68,12 @@ export type PackSearchResultType = SearchResultType;
 export type PackSearchResult = GlobalSearchResult;
 export type PackSearchOutput = GlobalSearchOutput;
 
-// 글로벌 통합 검색 엔진:
-// 1) 가방 이름 검색
-// 2) 가방 속 팩/메모/짐 검색
-// 3) 팩 보관함(독립 팩) 속 팩/메모/짐 검색
-export function searchGlobal(
-  bags: Bag[] = [],
-  libraryPacks: Pack[] = [],
-  query: string
-): GlobalSearchOutput {
+// 1. 가방 검색 전용 (가방 이름, 가방 속 팩 / 메모 / 짐)
+export function searchBags(bags: Bag[] = [], query: string): GlobalSearchOutput {
   const q = query.trim().toLowerCase();
   if (!q) return { results: [], truncated: false };
   const results: GlobalSearchResult[] = [];
 
-  // 보관함에 존재하는 실제 팩 ID 목록 (동기화된 가방 메모팩 중복 제외용)
-  const libraryPackIdSet = new Set(
-    (libraryPacks || []).filter((p) => p && p.type !== "folder").map((p) => p.id)
-  );
-
-  // 1. 가방 이름 검색
   bagLoop:
   for (const bag of bags) {
     if (!bag) continue;
@@ -100,17 +87,10 @@ export function searchGlobal(
       if (results.length > MAX_RESULTS) break bagLoop;
     }
 
-    // 2. 가방 속 팩 / 메모 / 짐 검색
     const packs = Array.isArray(bag.packs) ? bag.packs : [];
     for (const pack of packs) {
       if (!pack) continue;
       const isEditor = pack.kind === "editor";
-
-      // 가방에 들어있는 메모팩 중 보관함 팩과 동기화(연결)된 메모팩은 팩 보관함 원본으로 이동하면 되므로 중복 제외
-      if (isEditor && pack.linkedLibraryPackId && libraryPackIdSet.has(pack.linkedLibraryPackId)) {
-        continue;
-      }
-
       const nameMatched = Boolean(pack.name && pack.name.toLowerCase().includes(q));
       const noteText = isEditor && pack.editorDoc ? getEditorDocFullText(pack.editorDoc) : "";
       const docMatched = Boolean(noteText && noteText.toLowerCase().includes(q));
@@ -161,7 +141,16 @@ export function searchGlobal(
     }
   }
 
-  // 3. 팩 보관함(라이브러리 팩) 속 팩 / 메모 / 짐 검색
+  const truncated = results.length > MAX_RESULTS;
+  return { results: results.slice(0, MAX_RESULTS), truncated };
+}
+
+// 2. 팩 보관함 검색 전용 (팩 이름, 팩 메모, 팩 속 짐)
+export function searchLibraryPacks(libraryPacks: Pack[] = [], query: string): GlobalSearchOutput {
+  const q = query.trim().toLowerCase();
+  if (!q) return { results: [], truncated: false };
+  const results: GlobalSearchResult[] = [];
+
   libPackLoop:
   for (const pack of libraryPacks) {
     if (!pack || pack.type === "folder") continue;
@@ -216,16 +205,16 @@ export function searchGlobal(
   return { results: results.slice(0, MAX_RESULTS), truncated };
 }
 
-// 하위 호환 래퍼
-export function searchBags(bags: Bag[], query: string, libraryPacks: Pack[] = []): GlobalSearchOutput {
-  return searchGlobal(bags, libraryPacks, query);
-}
-
-export function searchLibraryPacks(
-  packs: Pack[],
-  query: string,
-  bags: Bag[] = []
+// 3. 글로벌 통합 검색 (가방 + 팩보관함 모두 검색)
+export function searchGlobal(
+  bags: Bag[] = [],
+  libraryPacks: Pack[] = [],
+  query: string
 ): GlobalSearchOutput {
-  return searchGlobal(bags, packs, query);
+  const bagRes = searchBags(bags, query);
+  const packRes = searchLibraryPacks(libraryPacks, query);
+  const combined = [...bagRes.results, ...packRes.results];
+  const truncated = bagRes.truncated || packRes.truncated || combined.length > MAX_RESULTS;
+  return { results: combined.slice(0, MAX_RESULTS), truncated };
 }
 

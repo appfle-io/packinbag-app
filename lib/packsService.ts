@@ -15,7 +15,14 @@ import { db } from "@/lib/firebase";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
-import { PremiumLimitError } from "@/lib/premiumLimits";
+import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
+import {
+  getLocalLibraryPacks,
+  saveLocalLibraryPack,
+  deleteLocalLibraryPack,
+  restoreLocalLibraryPack,
+  permanentDeleteLocalLibraryPack,
+} from "@/lib/localBagsService";
 import { extractDocAttachmentUrls } from "@/lib/editorDocAttachmentUtils";
 import { deletePackImage } from "@/lib/storageService";
 
@@ -43,6 +50,10 @@ export function subscribeToLibraryPacks(
 // 자동저장이라 매번 서버를 거치면 타이핑마다 왕복이 생기기 때문. firestore.rules에서도
 // libraryPacks의 client-side create는 막아둬서, 새 팩은 이 경로 말고는 생성이 안 된다.
 export async function saveLibraryPackRemote(user: User, pack: Pack, isNew?: boolean) {
+  if (isOfflineEnvironment()) {
+    saveLocalLibraryPack(pack);
+    return pack;
+  }
   const ref = doc(packsCol(user.uid), pack.id);
 
   // 새 팩 생성이거나 createdAt이 아직 없는 경우에만 생성 API(무료 개수 검증)를 호출한다.
@@ -81,6 +92,10 @@ export async function saveLibraryPackRemote(user: User, pack: Pack, isNew?: bool
 }
 
 export async function deleteLibraryPackRemote(uid: string, packId: string) {
+  if (isOfflineEnvironment()) {
+    permanentDeleteLocalLibraryPack(packId);
+    return;
+  }
   await deleteDoc(doc(packsCol(uid), packId));
 }
 
@@ -92,6 +107,19 @@ export async function updateLibraryPackEditorContent(
   packId: string,
   patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
 ) {
+  if (isOfflineEnvironment()) {
+    const list = getLocalLibraryPacks();
+    const pack = list.find((p) => p.id === packId);
+    if (!pack) return;
+    saveLocalLibraryPack({
+      ...pack,
+      name: patch.name,
+      editorDoc: patch.editorDoc ?? undefined,
+      editorPreviewText: patch.editorPreviewText,
+      updatedAt: patch.updatedAt,
+    });
+    return;
+  }
   const serialized = serializePack({
     id: packId,
     name: patch.name,
@@ -111,11 +139,19 @@ export async function updateLibraryPackEditorContent(
 // 완전삭제 대신 휴지통으로 보낸다. trashedAt만 채우고 문서 자체는 그대로 둔다 - 30일 뒤
 // 자동 영구삭제되거나, 그 전에 복구/영구삭제할 수 있다.
 export async function trashLibraryPackRemote(uid: string, packId: string) {
+  if (isOfflineEnvironment()) {
+    deleteLocalLibraryPack(packId);
+    return;
+  }
   await updateDoc(doc(packsCol(uid), packId), { trashedAt: new Date().toISOString() });
 }
 
 // 휴지통에서 복구. firestore.rules가 클라이언트의 직접 복구를 막아둬서 app/api/restore-library-pack을 거친다.
 export async function restoreLibraryPackRemote(user: User, packId: string) {
+  if (isOfflineEnvironment()) {
+    restoreLocalLibraryPack(packId);
+    return;
+  }
   const idToken = await user.getIdToken();
   const res = await fetch("/api/restore-library-pack", {
     method: "POST",

@@ -190,7 +190,7 @@ export default function PackNoteEditorScreen({
         : profile?.role === "master" || (user && profile ? isPremiumUser(user.email, profile) : false);
 
   const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
-  const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
+  const shortUrlFeatureEnabled = !isOfflineMode && isShortUrlFeatureEnabled(user?.email, profile);
   const [name, setName] = useState(pack.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -948,7 +948,7 @@ export default function PackNoteEditorScreen({
             {percentOfLimit}%
           </span>
         )}
-        {!pack.isQuickPack && (
+        {!isOfflineMode && !pack.isQuickPack && (
           <button
             onClick={() => setShowShareModal(true)}
             aria-label="팩 공유"
@@ -1480,7 +1480,7 @@ export default function PackNoteEditorScreen({
         />
       )}
 
-      {shortenLinkUrl && user && (
+      {!isOfflineMode && shortenLinkUrl && user && (
         <ShortenUrlModal
           url={shortenLinkUrl}
           user={user}
@@ -1503,7 +1503,7 @@ export default function PackNoteEditorScreen({
         />
       )}
 
-      {customizeLinkUrl && user && (
+      {!isOfflineMode && customizeLinkUrl && user && (
         <CustomUrlModal
           url={customizeLinkUrl}
           user={user}
@@ -1790,7 +1790,7 @@ export default function PackNoteEditorScreen({
         </div>
       </SlideUpSheet>
 
-      {showShareModal && (
+      {!isOfflineMode && showShareModal && (
         <MemoPackShareModal
           pack={{
             ...pack,

@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { isPremiumUser } from "@/lib/premiumLimits";
+import { isPremiumUser, isOfflineEnvironment } from "@/lib/premiumLimits";
 import type { UserProfile } from "@/lib/types";
 
 // app/api/shorten-url(Admin SDK)를 호출해서 숏 URL을 발급받는다. label(표시 이름)은 선택
@@ -28,6 +28,7 @@ export function isShortUrlFeatureEnabled(
   email: string | null | undefined,
   profile: UserProfile | null
 ): boolean {
+  if (isOfflineEnvironment()) return false;
   return isPremiumUser(email, profile) && !!profile?.shortUrlEnabled;
 }
 
