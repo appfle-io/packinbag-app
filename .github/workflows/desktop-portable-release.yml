@@ -1,0 +1,97 @@
+name: Build Offline Portable Desktop Apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*offline*"
+      - "v*portable*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} Portable
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target_cmd: npm run dist:win:portable
+            artifact_pattern: "dist-desktop/*.zip"
+          - os: macos-latest
+            target_cmd: npm run dist:mac:portable
+            artifact_pattern: "dist-desktop/*.zip"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js standalone
+        env:
+          NEXT_STANDALONE: "true"
+        run: npm run build
+
+      - name: Prepare standalone assets
+        run: npm run prepare:standalone
+
+      - name: Package with Electron Builder
+        run: ${{ matrix.target_cmd }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable-${{ matrix.os }}
+          path: ${{ matrix.artifact_pattern }}
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect zip files
+        run: |
+          mkdir -p release-files
+          find artifacts -name "*.zip" -exec cp {} release-files/ \;
+          ls -la release-files/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || 'v1.0.0-offline' }}
+          name: "Packinbag Offline Portable ${{ github.ref_name || '1.0.0' }}"
+          body: |
+            ## [팩인백 오프라인 무설치(Portable) 배포판]
+
+            인터넷이 없는 환경에서도 가방과 팩을 자유롭게 사용할 수 있는 무설치 포터블 버전입니다.
+            다운로드 후 압축을 풀고 실행 파일을 더블클릭하면 즉시 실행됩니다.
+
+            ### 다운로드
+            - Windows: `Packinbag-offline-win-portable_1.0.0.zip`
+            - macOS: `Packinbag-offline-mac-portable_1.0.0.zip`
+
+            ### 주요 안내
+            - 설치가 필요 없는 무설치 포터블 버전
+            - 데이터가 내 PC 로컬 스토리지에 안전하게 보관됨
+            - 설정 > 데이터 백업 및 복원에서 .json 백업 파일 내보내기/불러오기 지원
+            - 온라인 팩인백으로 복원하거나 다른 PC로 간편하게 이동 가능
+          files: release-files/*.zip
+          draft: false
+          prerelease: false

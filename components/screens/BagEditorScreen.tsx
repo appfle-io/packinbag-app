@@ -180,7 +180,7 @@ export default function BagEditorScreen({
   // 된다(하드코딩된 z-[93]/[94]/[95]/[85]를 쓰면 데스크톱 등 중첩 깊이가 달라지는 화면에서
   // 어긍나는 문제가 있었다).
   const ambientLayer = useOverlayLayer();
-  const { user } = useAuth();
+  const { user, isOfflineMode } = useAuth();
   const [bag, setBag] = useState<Bag>(initialBag);
   // 이 가방을 내가 만들었는지(소유자)인지 여부. 소유자가 아니면(그룹원으로 참여한
   // 공유 가방) 트래시 버튼의 동작이 "삭제"가 아니라 "나가기"로 바뀐다 - 공유 문서를
@@ -234,13 +234,13 @@ export default function BagEditorScreen({
   const [comments, setComments] = useState<BagComment[]>([]);
   const [reactions, setReactions] = useState<BagReactionDoc[]>([]);
   useEffect(() => {
-    if (isNew) return;
+    if (isNew || isOfflineMode) return;
     return subscribeToComments(bag.id, setComments);
-  }, [bag.id, isNew]);
+  }, [bag.id, isNew, isOfflineMode]);
   useEffect(() => {
-    if (isNew) return;
+    if (isNew || isOfflineMode) return;
     return subscribeToReactions(bag.id, setReactions);
-  }, [bag.id, isNew]);
+  }, [bag.id, isNew, isOfflineMode]);
 
   // 댓글 작성자 중 진짜로 회원탈퇴(계정 삭제)한 사람이 누구인지 추적해서, 댓글 표시에서
   // 그만 익명화하는 데 쓴다(BagChatPreview/ItemThreadSheet/ItemEditModal에 그대로 전달되어 쓰임).
@@ -1118,7 +1118,7 @@ export default function BagEditorScreen({
   const [presenceEntries, setPresenceEntries] = useState<RawPresence[]>([]);
 
   useEffect(() => {
-    if (!isSharedBag || isNew) {
+    if (!isSharedBag || isNew || isOfflineMode) {
       setPresenceEntries([]);
       return;
     }
@@ -1128,18 +1128,18 @@ export default function BagEditorScreen({
       unsub();
       leave();
     };
-  }, [bag.id, currentUid, nickname, avatarId, isSharedBag, isNew]);
+  }, [bag.id, currentUid, nickname, avatarId, isSharedBag, isNew, isOfflineMode]);
 
   // 지금 내가 열고 있는 메모팩 id를 presence에 알린다(닫거나 다른 팩으로 바꿀 때 자동으로 지우고
   // 새로 알림). 공유 가방에서만 동작하며, 다른 사람이 같은 팩을 편집 중이면(otherNoteEditor 아래) 배지로 보여준다.
   useEffect(() => {
-    if (!isSharedBag || !editingNotePackId) return;
+    if (!isSharedBag || !editingNotePackId || isOfflineMode) return;
     setEditingNotePack(bag.id, currentUid, editingNotePackId);
     return () => {
       setEditingNotePack(bag.id, currentUid, null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingNotePackId, bag.id, currentUid, isSharedBag]);
+  }, [editingNotePackId, bag.id, currentUid, isSharedBag, isOfflineMode]);
 
   const otherNoteEditor = editingNotePackId
     ? presenceEntries.find(
@@ -2058,6 +2058,26 @@ export default function BagEditorScreen({
       show("이미지가 아닌 파일은 10MB 이하만 첨부할 수 있어요");
       return;
     }
+    if (isOfflineMode) {
+      setUploadingImages(true);
+      try {
+        const toBase64 = (file: File): Promise<string> =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        const dataUrls = await Promise.all(selected.map((f) => toBase64(f)));
+        setBag((prev) => ({ ...prev, images: [...prev.images, ...dataUrls] }));
+      } catch {
+        show("파일을 불러오지 못했어요");
+      } finally {
+        setUploadingImages(false);
+      }
+      return;
+    }
+
     setUploadingImages(true);
     try {
       const urls = await Promise.all(
@@ -2078,7 +2098,9 @@ export default function BagEditorScreen({
       ...prev,
       images: prev.images.filter((_, i) => i !== idx),
     }));
-    deleteBagImage(url);
+    if (!isOfflineMode) {
+      deleteBagImage(url);
+    }
   };
 
   const handleLeave = async () => {
@@ -2194,7 +2216,7 @@ export default function BagEditorScreen({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!isNew && <PresenceBar entries={presenceEntries} uid={currentUid} />}
+          {!isNew && !isOfflineMode && <PresenceBar entries={presenceEntries} uid={currentUid} />}
           {!readOnly && (
             <button
               onClick={() => setConfirmDeleteBag(true)}
@@ -2208,7 +2230,7 @@ export default function BagEditorScreen({
               )}
             </button>
           )}
-          {!readOnly && (
+          {!readOnly && !isOfflineMode && (
             <button
               onClick={() => setShowAiFeatureMenu(true)}
               aria-label="AI 기능"
@@ -2220,13 +2242,15 @@ export default function BagEditorScreen({
               <IconSparkles size={14} stroke={1.75} color="var(--accent)" />
             </button>
           )}
-          <button
-            onClick={() => setShowShareCard(true)}
-            aria-label="가방 공유 및 멤버"
-            className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
-          >
-            <IconShare size={18} stroke={1.75} />
-          </button>
+          {!isOfflineMode && (
+            <button
+              onClick={() => setShowShareCard(true)}
+              aria-label="가방 공유 및 멤버"
+              className="p-1.5 rounded-lg text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
+            >
+              <IconShare size={18} stroke={1.75} />
+            </button>
+          )}
         </div>
 
         {/* 2px 상단 미니멀 진행률 바 */}
@@ -2249,13 +2273,13 @@ export default function BagEditorScreen({
       >
         {/* AI 추천은 상단 "AI" 버튼 > "AI 추천"을 직접 선택했을 때만 뜬다(2026-07부터 제목 변경 시
             자동 실행은 하지 않음 - 숫자만으로 된 제목이 엉뚱한 나라로 오탐되는 문제 때문). */}
-        {premium && resolvingWeather && (
+        {!isOfflineMode && premium && resolvingWeather && (
           <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex items-center gap-2 shrink-0">
             <IconSparkles size={15} stroke={1.75} color="var(--accent)" className="animate-pulse" />
             <span className="text-[12.5px] text-text-secondary">가방 제목에서 여행지를 찾고 있어요...</span>
           </div>
         )}
-        {premium && !resolvingWeather && weatherInfo && (
+        {!isOfflineMode && premium && !resolvingWeather && weatherInfo && (
           <div className="mb-3 p-3 rounded-xl border border-accent/30 bg-accent/5 flex flex-col gap-2 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-[13px] font-semibold text-text-primary min-w-0">
@@ -2372,8 +2396,8 @@ export default function BagEditorScreen({
         <BagQuickAddRow
           showFile={!readOnly && bag.images.length === 0}
           showTravelDate={!readOnly && !bag.travelDate}
-          showNotice={!readOnly && !(bag.notice && bag.notice.trim())}
-          showComment={!readOnly && bagLevelComments.length === 0}
+          showNotice={!isOfflineMode && !readOnly && !(bag.notice && bag.notice.trim())}
+          showComment={!isOfflineMode && !readOnly && bagLevelComments.length === 0}
           onAddFile={() => fileInputRef.current?.click()}
           onAddTravelDate={() => travelDateRef.current?.open()}
           onAddNotice={() => bagNoticeRef.current?.open()}
@@ -2484,7 +2508,7 @@ export default function BagEditorScreen({
 
         <div
           className={
-            bag.travelDate || (bag.notice && bag.notice.trim()) ? "flex flex-col gap-1.5 mb-3" : ""
+            bag.travelDate || (!isOfflineMode && bag.notice && bag.notice.trim()) ? "flex flex-col gap-1.5 mb-3" : ""
           }
         >
           <TravelDateField
@@ -2497,34 +2521,38 @@ export default function BagEditorScreen({
             hideEmptyPrompt
           />
 
-          <BagNotice
-            ref={bagNoticeRef}
-            value={bag.notice ?? ""}
-            onChange={(notice) => {
-              pushUndoSnapshot();
-              setBag((prev) => ({ ...prev, notice }));
-            }}
-            readOnly={readOnly}
-            hideEmptyPrompt
-          />
+          {!isOfflineMode && (
+            <BagNotice
+              ref={bagNoticeRef}
+              value={bag.notice ?? ""}
+              onChange={(notice) => {
+                pushUndoSnapshot();
+                setBag((prev) => ({ ...prev, notice }));
+              }}
+              readOnly={readOnly}
+              hideEmptyPrompt
+            />
+          )}
         </div>
 
-        <BagChatPreview
-          comments={bagLevelComments}
-          onOpen={() => setShowBagThread(true)}
-          hideEmptyPrompt
-          currentUid={currentUid}
-          deletedAccountIds={deletedAuthorIds}
-          allReactions={reactions}
-          onToggleCommentReaction={(commentId, emoji, currentlyReacted) => {
-            toggleReaction(bag.id, "comment", commentId, currentUid, emoji, currentlyReacted).catch((err) => {
-              console.error("[팩인백] 댓글 리액션 실패:", err);
-            });
-          }}
-          onOpenCommentReactionPicker={(commentId, authorNickname) => {
-            setReactionPickerCommentTarget({ commentId, authorNickname });
-          }}
-        />
+        {!isOfflineMode && (
+          <BagChatPreview
+            comments={bagLevelComments}
+            onOpen={() => setShowBagThread(true)}
+            hideEmptyPrompt
+            currentUid={currentUid}
+            deletedAccountIds={deletedAuthorIds}
+            allReactions={reactions}
+            onToggleCommentReaction={(commentId, emoji, currentlyReacted) => {
+              toggleReaction(bag.id, "comment", commentId, currentUid, emoji, currentlyReacted).catch((err) => {
+                console.error("[팩인백] 댓글 리액션 실패:", err);
+              });
+            }}
+            onOpenCommentReactionPicker={(commentId, authorNickname) => {
+              setReactionPickerCommentTarget({ commentId, authorNickname });
+            }}
+          />
+        )}
 
         {!readOnly && (
           <div

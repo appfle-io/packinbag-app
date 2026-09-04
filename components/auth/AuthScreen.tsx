@@ -38,6 +38,7 @@ export default function AuthScreen() {
     signInWithGoogle,
     signInWithApple,
     signInAsGuest,
+    startOfflineMode,
     resendVerificationByCredential,
     sendPasswordReset,
   } = useAuth();
@@ -372,12 +373,20 @@ export default function AuthScreen() {
           </button>
 
           <button
-            type="button"
             onClick={handleGuest}
             disabled={busy}
-            className="rounded-lg border border-dashed border-border py-2.5 text-[13px] text-text-secondary hover:text-foreground disabled:opacity-50"
+            className="w-full rounded-lg py-2.5 text-[13px] disabled:opacity-50 text-text-secondary"
+            style={{ background: "var(--surface-2)" }}
           >
             로그인 없이 둘러보기 (게스트)
+          </button>
+
+          <button
+            type="button"
+            onClick={startOfflineMode}
+            className="w-full rounded-lg py-2.5 text-[13px] border border-border text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
+          >
+            오프라인 모드로 시작하기
           </button>
 
           <button

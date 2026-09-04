@@ -49,18 +49,26 @@ import { togglePinned } from "@/lib/listSort";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
 import { getUserBagsOnce } from "@/lib/bagsService";
+import {
+  OFFLINE_USER_UID,
+  getLocalProfile,
+  saveLocalProfile,
+} from "@/lib/localBagsService";
 
 interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
   isGuest: boolean;
+  isOfflineMode: boolean;
   // 회원가입 처리 중(계정 생성 -> 샘플데이터/인증메일 -> 로그아웃) true. 이 사이에는
   // Firebase가 잠깐 로그인 상태가 되지만, 화면은 절대 홈으로 넘어가면 안 된다
   // (넘어갔다가 마지막에 signOut하면서 다시 로그인 화면으로 튕기는 부자연스러운
   // 깜빡임이 생기기 때문 - AppShell에서 이 값을 user와 함께 확인해서 막는다).
   authBusy: boolean;
   isMaster: boolean;
+  startOfflineMode: () => void;
+  exitOfflineMode: () => void;
   signInAsGuest: () => Promise<void>;
   linkAccountWithGoogle: () => Promise<void>;
   linkAccountWithApple: () => Promise<void>;
@@ -174,6 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     "active" | "invalidated" | "expired" | null
   >(null);
   const [loading, setLoading] = useState(true);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   // signUpWithEmail/resendVerificationByCredential처럼 잠깐 로그인했다가 곧바로
   // signOut하는 흐름 동안 true. AppShell이 이 값을 user와 함께 확인해서 그 사이엔
   const [authBusy, setAuthBusy] = useState(false);
@@ -181,8 +190,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isMasterToken, setIsMasterToken] = useState(false);
   const [isMasterApi, setIsMasterApi] = useState(false);
 
+  const startOfflineMode = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pib_offline_mode", "true");
+    }
+    setIsOfflineMode(true);
+    setUser({
+      uid: OFFLINE_USER_UID,
+      email: "offline@local",
+      displayName: "오프라인 사용자",
+    } as unknown as User);
+    setRawProfile(getLocalProfile());
+    setLoading(false);
+  };
+
+  const exitOfflineMode = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pib_offline_mode");
+    }
+    setIsOfflineMode(false);
+    setUser(null);
+    setRawProfile(null);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    if (!user) {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isElectron = navigator.userAgent.toLowerCase().includes("electron");
+      if (
+        localStorage.getItem("pib_offline_mode") === "true" ||
+        urlParams.get("offline") === "true" ||
+        isElectron
+      ) {
+        startOfflineMode();
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || isOfflineMode) {
       setIsMasterDoc(false);
       setIsMasterToken(false);
       setIsMasterApi(false);
@@ -652,6 +699,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     if (!user) return;
     setRawProfile((prev) => (prev ? { ...prev, ...prefs } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile(prefs);
+      return;
+    }
     if (themeDebounceTimerRef.current) clearTimeout(themeDebounceTimerRef.current);
     themeDebounceTimerRef.current = setTimeout(() => {
       setDoc(doc(db, "users", user.uid), prefs, { merge: true }).catch((err) => {
@@ -663,12 +714,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 글자 크기 설정 (계정에 저장해서 기기 간 동기화)
   const updateFontScale = async (fontScale: "sm" | "md" | "lg") => {
     if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, fontScale } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ fontScale });
+      return;
+    }
     await setDoc(doc(db, "users", user.uid), { fontScale }, { merge: true });
   };
 
   // 앱 실행 시 처음 보여줄 탭
   const updateDefaultTab = async (defaultTab: "home" | "settings" | "packs") => {
     if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, defaultTab } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ defaultTab });
+      return;
+    }
     await setDoc(doc(db, "users", user.uid), { defaultTab }, { merge: true });
   };
 
@@ -1035,6 +1096,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 쓸 때 이전 계정의 캐시된 화면이 잠깐 보이는 걸 줄이기 위한 처리. 아직 리스너가 다 정리되기
   // 전이라 실패할 수 있는데, 실패해도 치명적이지 않다(다음 로그인 시 캐시가 새 값으로 덮어써짐).
   const logout = async () => {
+    if (isOfflineMode) {
+      exitOfflineMode();
+      return;
+    }
     await signOut(auth);
     try {
       await clearIndexedDbPersistence(db);
@@ -1075,7 +1140,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         loading,
-        isGuest: !!user?.isAnonymous,
+        isGuest: isOfflineMode || !!user?.isAnonymous,
+        isOfflineMode,
+        startOfflineMode,
+        exitOfflineMode,
         authBusy,
         isMaster:
           isMasterApi ||

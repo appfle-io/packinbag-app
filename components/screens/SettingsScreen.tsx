@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   IconChevronRight,
   IconArrowLeft,
+  IconDownload,
+  IconUpload,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
@@ -23,6 +25,8 @@ import {
   currentAiUsageCount,
   isUnlimitedAiUser,
 } from "@/lib/aiUsageService";
+import { exportBackupData, parseBackupFile, restoreBackupData } from "@/lib/backupService";
+import { getLocalBags, getLocalLibraryPacks } from "@/lib/localBagsService";
 import Avatar from "@/components/Avatar";
 import ProfileEditScreen from "@/components/screens/ProfileEditScreen";
 import VersionInfoScreen from "@/components/screens/VersionInfoScreen";
@@ -123,6 +127,8 @@ function ContainedSlide({
 // 뒤로가기로 닫는 풀스크린 화면(BagEditorScreen/PackLibraryEditorScreen과 동일한 패턴)이다.
 export default function SettingsScreen({
   uid,
+  bags,
+  libraryPacks,
   announcements,
   dismissedAnnouncementIds,
   onDismissAnnouncement,
@@ -137,6 +143,8 @@ export default function SettingsScreen({
   embedded,
 }: {
   uid: string;
+  bags?: Bag[];
+  libraryPacks?: Pack[];
   announcements: Announcement[];
   dismissedAnnouncementIds: string[];
   onDismissAnnouncement: (id: string) => void;
@@ -155,7 +163,17 @@ export default function SettingsScreen({
   embedded?: boolean;
 }) {
   const { mode, setMode } = useTheme();
-  const { user, profile, isMaster, updateDefaultTab, updateShortUrlEnabled, isGuest, logout } = useAuth();
+  const {
+    user,
+    profile,
+    isMaster,
+    updateDefaultTab,
+    updateShortUrlEnabled,
+    isGuest,
+    logout,
+    isOfflineMode,
+    exitOfflineMode,
+  } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
   const [showInspectLogsModal, setShowInspectLogsModal] = useState(false);
@@ -170,6 +188,32 @@ export default function SettingsScreen({
   // 두 군데서 겹쳐 처리돼서(설정->홈으로 바뀐 뒤, 그 홈 상태 기준으로 AppShell 스와이프가
   // 한 번 더 반응해 팩보관함까지 열려버리는 문제가 있었다) - 그래서 main엔 걸지 않는다.
   // 하위 화면(프로필 수정, 화면설정 등)은 진짜 스택 화면이라 각자 자기 onBack으로 따로 건다.
+
+  const handleExportBackup = () => {
+    const currentBags = bags ?? (isOfflineMode ? getLocalBags() : []);
+    const currentPacks = libraryPacks ?? (isOfflineMode ? getLocalLibraryPacks() : []);
+    exportBackupData(currentBags, currentPacks);
+    show("백업 파일을 다운로드했어요");
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = await parseBackupFile(file);
+      const result = await restoreBackupData(
+        parsed,
+        isOfflineMode ? "local" : "cloud",
+        user
+      );
+      show(`가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 복원했어요`);
+    } catch (err) {
+      console.error("[팩인백] 백업 복원 실패:", err);
+      show(err instanceof Error ? err.message : "백업 파일을 불러오지 못했어요");
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   const startTab = profile?.defaultTab ?? "home";
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
@@ -189,7 +233,7 @@ export default function SettingsScreen({
           <IconArrowLeft size={20} stroke={1.75} />
         </button>
         <h1 className="text-[18px] font-medium flex-1">설정</h1>
-        {!hideNotificationBell && <NotificationBell uid={uid} />}
+        {!hideNotificationBell && !isOfflineMode && <NotificationBell uid={uid} />}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-6">
@@ -209,9 +253,17 @@ export default function SettingsScreen({
               >
                 <div className="flex items-center gap-2">
                   <p className="text-[14px] font-medium truncate">
-                    {profile.nickname ?? "닉네임 설정하기"}
+                    {profile.nickname ?? (isOfflineMode ? "오프라인 사용자" : "닉네임 설정하기")}
                   </p>
-                  {isGuest && (
+                  {isOfflineMode && (
+                    <span
+                      className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
+                      style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                    >
+                      오프라인 모드
+                    </span>
+                  )}
+                  {!isOfflineMode && isGuest && (
                     <span
                       className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
                       style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
@@ -221,7 +273,11 @@ export default function SettingsScreen({
                   )}
                 </div>
                 <p className="text-[12px] text-text-secondary truncate mt-0.5">
-                  {isGuest ? "기기에만 저장됨 (계정 연동하기)" : profile.email}
+                  {isOfflineMode
+                    ? "데이터가 이 기기에만 안전하게 저장돼요"
+                    : isGuest
+                    ? "기기에만 저장됨 (계정 연동하기)"
+                    : profile.email}
                 </p>
               </button>
               <button
@@ -233,7 +289,7 @@ export default function SettingsScreen({
               </button>
             </div>
 
-            {isGuest && (
+            {!isOfflineMode && isGuest && (
               <div className="flex items-center gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
@@ -322,67 +378,69 @@ export default function SettingsScreen({
           </div>
         </div>
 
-        <div className="mb-6">
-          <p className="text-[12px] text-text-secondary mb-2">AI 기능</p>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[13px]">
-                  {aiUnlimited
-                    ? "무제한 이용 중"
-                    : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
-                </span>
-              </div>
-              {!aiUnlimited && (
-                <button
-                  onClick={() => {
-                    if (isGuest) {
-                      show("회원가입 후 이용권을 등록할 수 있어요");
-                      setShowAccountLinkModal(true);
-                      return;
-                    }
-                    setShowUnlockCode(true);
-                  }}
-                  className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12px]"
-                >
-                  이용권 코드 입력
-                </button>
-              )}
-            </div>
-
-            <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[13px] font-medium">짧은 URL 사용하기</span>
-                  {!premium && (
-                    <span
-                      className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
-                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                    >
-                      프리미엄
-                    </span>
-                  )}
+        {!isOfflineMode && (
+          <div className="mb-6">
+            <p className="text-[12px] text-text-secondary mb-2">AI 기능</p>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[13px]">
+                    {aiUnlimited
+                      ? "무제한 이용 중"
+                      : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회 사용`}
+                  </span>
                 </div>
-                <p className="text-[11px] text-text-muted mt-1">
-                  짐이나 메모에 긴 링크를 붙여넣으면 자동으로 짧은 URL로 바꿔드려요.
-                </p>
+                {!aiUnlimited && (
+                  <button
+                    onClick={() => {
+                      if (isGuest) {
+                        show("회원가입 후 이용권을 등록할 수 있어요");
+                        setShowAccountLinkModal(true);
+                        return;
+                      }
+                      setShowUnlockCode(true);
+                    }}
+                    className="shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12px]"
+                  >
+                    이용권 코드 입력
+                  </button>
+                )}
               </div>
-              <ToggleSwitch
-                checked={premium && !!profile?.shortUrlEnabled}
-                disabled={!premium}
-                onChange={(next) => updateShortUrlEnabled(next).catch(() => show("변경사항을 저장하지 못했어요"))}
-                ariaLabel="짧은 URL 사용하기"
-              />
+
+              <div className="p-3 flex items-center justify-between gap-3 border-b border-border">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium">짧은 URL 사용하기</span>
+                    {!premium && (
+                      <span
+                        className="shrink-0 text-[10px] font-medium rounded px-1.5 py-0.5"
+                        style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                      >
+                        프리미엄
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-1">
+                    짐이나 메모에 긴 링크를 붙여넣으면 자동으로 짧은 URL로 바꿔드려요.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  checked={premium && !!profile?.shortUrlEnabled}
+                  disabled={!premium}
+                  onChange={(next) => updateShortUrlEnabled(next).catch(() => show("변경사항을 저장하지 못했어요"))}
+                  ariaLabel="짧은 URL 사용하기"
+                />
+              </div>
+              <button
+                onClick={() => setShowMyShortLinks(true)}
+                className="w-full flex items-center justify-between p-3"
+              >
+                <span className="text-[13px]">내가 만든 URL 관리</span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </button>
             </div>
-            <button
-              onClick={() => setShowMyShortLinks(true)}
-              className="w-full flex items-center justify-between p-3"
-            >
-              <span className="text-[13px]">내가 만든 URL 관리</span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
           </div>
-        </div>
+        )}
 
         <div className="mb-6">
           <button
@@ -405,50 +463,85 @@ export default function SettingsScreen({
         </div>
 
         <div className="mb-6">
-          <p className="text-[12px] text-text-secondary mb-2">가이드 & 고객지원</p>
+          <p className="text-[12px] text-text-secondary mb-2">데이터 백업 및 복원</p>
           <div className="rounded-lg border border-border overflow-hidden">
             <button
-              onClick={() => setView("guide")}
-              className="w-full flex items-center justify-between p-3 border-b border-border bg-accent-soft/10 text-left hover:bg-accent-soft/20 transition-colors"
+              onClick={handleExportBackup}
+              className="w-full flex items-center justify-between p-3 border-b border-border hover:bg-surface-2 transition-colors text-left"
             >
-              <span className="text-[13px] font-medium text-foreground">팩인백 사용 가이드</span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+              <div>
+                <span className="text-[13px] font-medium">백업 파일 내보내기 (.json)</span>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  현재 가방과 팩 데이터를 백업 파일로 저장해요
+                </p>
+              </div>
+              <IconDownload size={18} stroke={1.75} color="var(--text-muted)" />
             </button>
-            <button
-              onClick={() => setView("installGuide")}
-              className="w-full flex items-center justify-between p-3 border-b border-border text-left hover:bg-surface-2 transition-colors"
-            >
-              <span className="text-[13px]">앱 설치 방법 (크롬 / 사파리)</span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
-            <button
-              onClick={() => setShowAnnouncements(true)}
-              className="w-full flex items-center justify-between p-3 border-b border-border"
-            >
-              <span className="text-[13px]">공지사항</span>
-              <span className="flex items-center gap-1">
-                {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
-                )}
-                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-              </span>
-            </button>
-            <button
-              onClick={() => setShowFaq(true)}
-              className="w-full flex items-center justify-between p-3 border-b border-border"
-            >
-              <span className="text-[13px]">자주 묻는 질문</span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
-            <button
-              onClick={() => setView("inquiries")}
-              className="w-full flex items-center justify-between p-3"
-            >
-              <span className="text-[13px]">문의하기</span>
-              <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
-            </button>
+            <label className="w-full flex items-center justify-between p-3 hover:bg-surface-2 transition-colors cursor-pointer text-left">
+              <div>
+                <span className="text-[13px] font-medium">백업 파일 불러오기</span>
+                <p className="text-[11px] text-text-muted mt-0.5">
+                  백업 파일(.json)에서 가방과 팩을 복원해요
+                </p>
+              </div>
+              <IconUpload size={18} stroke={1.75} color="var(--text-muted)" />
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleImportBackup}
+              />
+            </label>
           </div>
         </div>
+
+        {!isOfflineMode && (
+          <div className="mb-6">
+            <p className="text-[12px] text-text-secondary mb-2">가이드 & 고객지원</p>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setView("guide")}
+                className="w-full flex items-center justify-between p-3 border-b border-border bg-accent-soft/10 text-left hover:bg-accent-soft/20 transition-colors"
+              >
+                <span className="text-[13px] font-medium text-foreground">팩인백 사용 가이드</span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+              </button>
+              <button
+                onClick={() => setView("installGuide")}
+                className="w-full flex items-center justify-between p-3 border-b border-border text-left hover:bg-surface-2 transition-colors"
+              >
+                <span className="text-[13px]">앱 설치 방법 (크롬 / 사파리)</span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </button>
+              <button
+                onClick={() => setShowAnnouncements(true)}
+                className="w-full flex items-center justify-between p-3 border-b border-border"
+              >
+                <span className="text-[13px]">공지사항</span>
+                <span className="flex items-center gap-1">
+                  {activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id)) && (
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--danger)" }} />
+                  )}
+                  <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+                </span>
+              </button>
+              <button
+                onClick={() => setShowFaq(true)}
+                className="w-full flex items-center justify-between p-3 border-b border-border"
+              >
+                <span className="text-[13px]">자주 묻는 질문</span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </button>
+              <button
+                onClick={() => setView("inquiries")}
+                className="w-full flex items-center justify-between p-3"
+              >
+                <span className="text-[13px]">문의하기</span>
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border overflow-hidden mb-6">
           <button
@@ -470,7 +563,7 @@ export default function SettingsScreen({
           </button>
         </div>
 
-        {isMaster && (
+        {!isOfflineMode && isMaster && (
           <div className="mb-2">
             <p className="text-[12px] font-semibold text-accent mb-2">관리자 전용 메뉴</p>
             <div className="rounded-lg border border-accent/40 bg-accent/5 overflow-hidden">
@@ -497,13 +590,23 @@ export default function SettingsScreen({
         )}
 
         <div className="pt-2 pb-6 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setConfirmLogout(true)}
-            className="rounded-md border border-border px-4 py-2 text-[12px] text-text-muted hover:text-red-500 transition-colors"
-          >
-            {isGuest ? "게스트 모드 종료 (로그아웃)" : "로그아웃"}
-          </button>
+          {isOfflineMode ? (
+            <button
+              type="button"
+              onClick={exitOfflineMode}
+              className="rounded-md border border-border px-4 py-2 text-[12px] text-text-muted hover:text-foreground transition-colors"
+            >
+              오프라인 모드 종료
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmLogout(true)}
+              className="rounded-md border border-border px-4 py-2 text-[12px] text-text-muted hover:text-red-500 transition-colors"
+            >
+              {isGuest ? "게스트 모드 종료 (로그아웃)" : "로그아웃"}
+            </button>
+          )}
         </div>
       </div>
 

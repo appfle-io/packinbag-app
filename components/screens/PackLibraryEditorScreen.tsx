@@ -104,7 +104,7 @@ export default function PackLibraryEditorScreen({
   const [itemModal, setItemModal] = useState<
     { mode: "add" } | { mode: "edit"; item: Item } | null
   >(null);
-  const { profile } = useAuth();
+  const { profile, isOfflineMode } = useAuth();
   const { show } = useToast();
   const listRef = useRef<HTMLDivElement>(null);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
@@ -588,7 +588,7 @@ export default function PackLibraryEditorScreen({
               >
                 저장됨
               </span>
-              {!pack.isQuickPack && (
+              {!isOfflineMode && !pack.isQuickPack && (
                 <button
                   onClick={() => setShowShareModal(true)}
                   aria-label="팩 공유"

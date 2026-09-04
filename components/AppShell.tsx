@@ -41,6 +41,21 @@ import {
 } from "@/lib/announcementsService";
 import { deleteBagImage } from "@/lib/storageService";
 import { deserializePack } from "@/lib/editorDocSerialize";
+import {
+  getLocalBags,
+  saveLocalBag,
+  createLocalBag,
+  deleteLocalBag,
+  restoreLocalBag,
+  permanentDeleteLocalBag,
+  getLocalLibraryPacks,
+  saveLocalLibraryPack,
+  deleteLocalLibraryPack,
+  restoreLocalLibraryPack,
+  permanentDeleteLocalLibraryPack,
+  getLocalTrashedItems,
+  subscribeLocalData,
+} from "@/lib/localBagsService";
 import AuthScreen from "@/components/auth/AuthScreen";
 import GoogleProfileSetup from "@/components/auth/GoogleProfileSetup";
 import EmailVerifyBanner from "@/components/EmailVerifyBanner";
@@ -193,7 +208,7 @@ function DeletingBagsOverlay({
 }
 
 export default function AppShell() {
-  const { user, profile, loading, authBusy, isMaster } = useAuth();
+  const { user, profile, loading, authBusy, isMaster, isOfflineMode } = useAuth();
   const { show } = useToast();
   const isDesktop = useIsDesktop();
 
@@ -276,8 +291,14 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!user) return;
+    if (isOfflineMode) {
+      setBags(getLocalBags());
+      return subscribeLocalData(() => {
+        setBags(getLocalBags());
+      });
+    }
     return subscribeToUserBags(user.uid, setBags);
-  }, [user]);
+  }, [user, isOfflineMode]);
 
   const lastSyncedProfileRef = useRef<string | null>(null);
 
@@ -285,7 +306,7 @@ export default function AppShell() {
   // 최신 프로필과 다르면 그 가방만 가볍게 고쳐쓴다. 프로필(닉네임/아바타)이 실제로 변경된 순간에만
   // 실행되고, 휴지통으로 들어간 가방은 제외하여 불필요한 연속 쓰기를 방지한다.
   useEffect(() => {
-    if (!user || !profile?.nickname || !profile.avatarId) return;
+    if (!user || isOfflineMode || !profile?.nickname || !profile.avatarId) return;
     const profileKey = `${profile.nickname}:${profile.avatarId}`;
     if (lastSyncedProfileRef.current === profileKey) return;
     lastSyncedProfileRef.current = profileKey;
@@ -300,17 +321,26 @@ export default function AppShell() {
         avatarId: profile.avatarId!,
       }).catch(() => {});
     });
-  }, [bags, user, profile?.nickname, profile?.avatarId]);
+  }, [bags, user, isOfflineMode, profile?.nickname, profile?.avatarId]);
 
   useEffect(() => {
     if (!user) return;
+    if (isOfflineMode) {
+      setLibraryPacks(getLocalLibraryPacks());
+      return subscribeLocalData(() => {
+        setLibraryPacks(getLocalLibraryPacks());
+      });
+    }
     return subscribeToLibraryPacks(user.uid, setLibraryPacks);
-  }, [user]);
+  }, [user, isOfflineMode]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isOfflineMode) {
+      setAnnouncements([]);
+      return;
+    }
     getAnnouncementsOnce().then(setAnnouncements);
-  }, [user]);
+  }, [user, isOfflineMode]);
 
   // 설정 > 휴지통 보관기간(TRASH_RETENTION_DAYS, 30일)이 지난 가방/팩을 조용히 정리한다.
   // 별도 서버 배치/크론 없이, 그 항목의 삭제 권한을 가진 계정(가방은 소유자, 팩은 본인)의
@@ -318,7 +348,7 @@ export default function AppShell() {
   // 정확한 그 순간이 아니라 "그 이후 다음 접속 시점"에 지워진다(대부분의 개인용 앱에서는
   // 이 정도 지연이 실사용에 문제되지 않는다).
   useEffect(() => {
-    if (!user) return;
+    if (!user || isOfflineMode) return;
     const expiredBags = bags.filter(
       (b) => b.ownerId === user.uid && isTrashExpired(b.trashedByOwnerAt)
     );
@@ -337,12 +367,14 @@ export default function AppShell() {
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bags, libraryPacks, user]);
+  }, [bags, libraryPacks, user, isOfflineMode]);
 
   // 지금 이 사용자가 프리미엄인지 - AuthProvider가 unlockCodes/{code} 문서까지 실시간
   // 구독해서 profile에 얹어주므로(unlockCodeLiveStatus), 관리자가 무효화하는 순간
   // 이 값도 바로 바뀐다. 마스터 계정은 언제나 무조건 프리미엄이다.
+  // 오프라인 모드에서는 모든 로컬 기능이 무제한으로 지원된다.
   const premium =
+    isOfflineMode ||
     isMaster ||
     profile?.role === "master" ||
     (user && profile ? isPremiumUser(user.email, profile) : false);
@@ -355,7 +387,7 @@ export default function AppShell() {
   //   짧은 오버레이 + 안내 토스트로 "뭔가 바뀌었다"는 걸 직관적으로 알린다.
   const premiumRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (!user) {
+    if (!user || isOfflineMode) {
       premiumRef.current = null;
       return;
     }
@@ -421,7 +453,7 @@ export default function AppShell() {
 
   // 앱 진입 시(로그인 이후, 게스트 포함): 가이드 -> 앱 설치 안내 -> 공지사항을 하나의 슬라이더 모달로 조립하여 띄운다.
   useEffect(() => {
-    if (introCheckedRef.current) return;
+    if (introCheckedRef.current || isOfflineMode) return;
     if (!profile) return;
     introCheckedRef.current = true;
 
@@ -648,6 +680,12 @@ export default function AppShell() {
   const ownedBagCount = activeBags.filter((b) => b.ownerId === user.uid).length;
 
   const openNewBag = async () => {
+    if (isOfflineMode) {
+      const created = createLocalBag("새 가방");
+      setEditingBag(created);
+      setIsNewBag(false);
+      return created;
+    }
     if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
         `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
@@ -750,6 +788,13 @@ export default function AppShell() {
       createdAt: now,
       updatedAt: now,
     };
+    if (isOfflineMode) {
+      saveLocalBag(draft);
+      setEditingBag(draft);
+      setIsNewBag(false);
+      show("가방을 만들었어요");
+      return draft;
+    }
     setIsNewBag(true);
     setCreatingBag(true);
     try {
@@ -776,6 +821,12 @@ export default function AppShell() {
   // 가방은 openNewBag(Note) 단계에서 이미 Firestore에 만들어져 있으므로,
   // 저장 시에는 항상 덮어쓰기만 하면 된다 (다시 createBagRemote를 부르면 초대코드가 중복 생성됨).
   const handleSaveBag = async (bag: Bag) => {
+    if (isOfflineMode) {
+      saveLocalBag(bag);
+      setIsNewBag(false);
+      show("가방을 저장했어요");
+      return;
+    }
     const wasNew = isNewBag;
     try {
       await saveBagRemote(bag);
@@ -794,6 +845,14 @@ export default function AppShell() {
   const handleDeleteBag = (bag: Bag) => {
     setEditingBag(null);
     setIsNewBag(false);
+    if (isOfflineMode) {
+      deleteLocalBag(bag.id);
+      show("가방을 휴지통으로 보냈어요", {
+        actionLabel: "실행취소",
+        onAction: () => handleRestoreBag(bag.id),
+      });
+      return;
+    }
     trashBagRemote(bag.id)
       .then(() =>
         show("가방을 휴지통으로 보냈어요", {
@@ -813,6 +872,11 @@ export default function AppShell() {
   // 소유자만의 것이라 의미가 다름) 그룹에서 나가는 게 맞으므로 "나가기"로 처리한다
   // (BagEditorScreen의 개별 삭제 버튼과 동일한 규칙 - isOwner 여부에 따라 갈린다).
   const handleBulkDeleteBags = async (bagIds: string[]) => {
+    if (isOfflineMode) {
+      bagIds.forEach((id) => deleteLocalBag(id));
+      show(`${bagIds.length}개를 휴지통으로 보냈어요`);
+      return;
+    }
     const targets = bags.filter((b) => bagIds.includes(b.id));
     const owned = targets.filter((b) => b.ownerId === user.uid);
     const shared = targets.filter((b) => b.ownerId !== user.uid);
@@ -851,6 +915,11 @@ export default function AppShell() {
   // (app/api/restore-bag) 한도에 걸리면 PremiumLimitError로 던져지고, 그 경우 일반 실패
   // 토스트 대신 이용권 등록을 유도하는 PremiumLimitModal을 띄운다.
   const handleRestoreBag = async (bagId: string) => {
+    if (isOfflineMode) {
+      restoreLocalBag(bagId);
+      show("가방을 복구했어요");
+      return;
+    }
     try {
       await restoreBagRemote(user, bagId);
       show("가방을 복구했어요");
@@ -867,6 +936,11 @@ export default function AppShell() {
   // 설정 > 휴지통에서 "완전삭제" - 여기서부터는 되돌릴 수 없다. 이미지까지 함께 정리하고
   // 초대코드 매핑도 지운다(예전 handleDeleteBag과 동일한 정리 작업).
   const handlePermanentDeleteBag = async (bag: Bag) => {
+    if (isOfflineMode) {
+      permanentDeleteLocalBag(bag.id);
+      show("가방을 완전히 삭제했어요");
+      return;
+    }
     try {
       await Promise.all(bag.images.map((url) => deleteBagImage(url)));
       await deleteBagWithInviteCodeRemote(bag);
@@ -885,6 +959,12 @@ export default function AppShell() {
     setEditingBag(null);
     setIsNewBag(false);
     setBagFocus(null);
+    if (isOfflineMode) {
+      if (wasNew) {
+        permanentDeleteLocalBag(currentBag.id);
+      }
+      return;
+    }
     if (wasNew) {
       Promise.all(currentBag.images.map((url) => deleteBagImage(url)))
         .then(() => deleteBagWithInviteCodeRemote(currentBag))
@@ -953,6 +1033,10 @@ export default function AppShell() {
 
   // 데스크톱 사이드바 가방 "..." 메뉴에서 바로 이름 바꾸기 - 편집화면을 열지 않고도 가능하게.
   const handleRenameBag = (bag: Bag, name: string) => {
+    if (isOfflineMode) {
+      saveLocalBag({ ...bag, name });
+      return;
+    }
     saveBagRemote({ ...bag, name }).catch((err) => {
       console.error("[팩인백] 가방 이름 변경 실패:", err);
       show(`이름 변경에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -960,6 +1044,11 @@ export default function AppShell() {
   };
 
   const handleSaveAsLibraryPack = (pack: Pack) => {
+    if (isOfflineMode) {
+      saveLocalLibraryPack(pack);
+      show("팩 보관함에 저장했어요");
+      return;
+    }
     saveLibraryPackRemote(user, pack).catch((err) => {
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
@@ -974,6 +1063,15 @@ export default function AppShell() {
   // 팩 보관함의 휴지통으로 사본을 하나 남겨서 설정 > 휴지통에서 복구할 수 있게 한다.
   // 실패해도 가방 쪽 삭제 자체는 이미 끝난 상태라 토스트로만 안내한다.
   const handleTrashPackFromBag = (pack: Pack, sourceBagId: string, sourceBagName: string) => {
+    if (isOfflineMode) {
+      saveLocalLibraryPack({
+        ...pack,
+        id: uid(),
+        name: `${sourceBagName} - ${pack.name}`,
+        trashedAt: new Date().toISOString(),
+      });
+      return;
+    }
     trashBagPackRemote(user, pack, sourceBagId, sourceBagName).catch((err) => {
       console.error("[팩인백] 가방 팩 휴지통 이동 실패:", err);
       show(`휴지통으로 옮기지 못했어요 (${firebaseErrorCode(err)})`);
@@ -1020,6 +1118,11 @@ export default function AppShell() {
       parentId,
       ...(kind ? { kind } : {}),
     };
+    if (isOfflineMode) {
+      setEditingPack(draft);
+      saveLocalLibraryPack(draft);
+      return draft;
+    }
     setEditingPack(draft);
     setCreatingPack(true);
     try {
@@ -1048,6 +1151,10 @@ export default function AppShell() {
       type: "folder",
       parentId,
     };
+    if (isOfflineMode) {
+      saveLocalLibraryPack(draft);
+      return;
+    }
     setCreatingPack(true);
     try {
       await saveLibraryPackRemote(user, draft);
@@ -1067,6 +1174,10 @@ export default function AppShell() {
   // 이 경로로만 이름을 바꿀 수 있다(팩은 편집 화면 안 EditableText로도 바꿀 수 있지만
   // 트리에서 직접 바꿀 때는 이 경로를 쓴다).
   const handleRenameLibraryEntry = (pack: Pack, name: string) => {
+    if (isOfflineMode) {
+      saveLocalLibraryPack({ ...pack, name });
+      return;
+    }
     saveLibraryPackRemote(user, { ...pack, name }).catch((err) => {
       console.error("[팩인백] 이름 바꾸기 실패:", err);
       show(`이름 바꾸기에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1077,6 +1188,16 @@ export default function AppShell() {
   // 2026-07-30: 전체 문서를 setDoc으로 덮어쓰는 대신 parentId 필드만 바꾸는 안전한
   // moveLibraryEntriesRemote를 쓴다(이동 순간 다른 순량에서 저장된 변경을 덮어쓰는 사고 방지).
   const handleMoveLibraryEntries = (packIds: string[], parentId: string | undefined) => {
+    if (isOfflineMode) {
+      const allPacks = getLocalLibraryPacks();
+      packIds.forEach((id) => {
+        const p = allPacks.find((item) => item.id === id);
+        if (p) {
+          saveLocalLibraryPack({ ...p, parentId });
+        }
+      });
+      return;
+    }
     moveLibraryEntriesRemote(user.uid, packIds, parentId).catch((err) => {
       console.error("[팩인백] 폴더 이동 실패:", err);
       show(`이동에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1084,6 +1205,10 @@ export default function AppShell() {
   };
 
   const handleSavePack = (pack: Pack) => {
+    if (isOfflineMode) {
+      saveLocalLibraryPack(pack);
+      return;
+    }
     saveLibraryPackRemote(user, pack).catch((err) => {
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
@@ -1099,6 +1224,11 @@ export default function AppShell() {
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
   const handleDeletePack = (packId: string) => {
     setEditingPack(null);
+    if (isOfflineMode) {
+      deleteLocalLibraryPack(packId);
+      show("팩을 휴지통으로 보냈어요");
+      return;
+    }
     trashLibraryEntryRecursive(user.uid, activePacks, packId)
       .then(() => show("팩을 휴지통으로 보냈어요"))
       .catch((err) => {
@@ -1110,6 +1240,11 @@ export default function AppShell() {
   // 팩 보관함에서 길게 눌러 다중선택한 팩/폴더를 한꺼번에 휴지통으로 보낸다. 폴더를 선택했으면
   // 아이폰 메모처럼 하위 팩/폴더까지 모두 함께 보낸다(trashLibraryEntryRecursive).
   const handleBulkDeletePacks = async (packIds: string[]) => {
+    if (isOfflineMode) {
+      packIds.forEach((id) => deleteLocalLibraryPack(id));
+      show(`${packIds.length}개를 휴지통으로 보냈어요`);
+      return;
+    }
     try {
       await Promise.all(packIds.map((id) => trashLibraryEntryRecursive(user.uid, activePacks, id)));
       show(`${packIds.length}개를 휴지통으로 보냈어요`);
@@ -1123,6 +1258,11 @@ export default function AppShell() {
   // (restoreLibraryEntryRecursive). 트리 순회를 위해 휴지통에 있는 항목까지 포함된
   // libraryPacks(전체)를 넘겨야 한다.
   const handleRestorePack = async (packId: string) => {
+    if (isOfflineMode) {
+      restoreLocalLibraryPack(packId);
+      show("팩을 복구했어요");
+      return;
+    }
     try {
       await restoreLibraryEntryRecursive(user, libraryPacks, packId);
       show("팩을 복구했어요");
@@ -1135,6 +1275,11 @@ export default function AppShell() {
   // 설정 > 휴지통에서 "완전삭제" - 되돌릴 수 없다. 폴더면 하위 팩/폴더도 함께 영구삭제된다
   // (deleteLibraryEntryRecursive).
   const handlePermanentDeletePack = async (packId: string) => {
+    if (isOfflineMode) {
+      permanentDeleteLocalLibraryPack(packId);
+      show("팩을 완전히 삭제했어요");
+      return;
+    }
     try {
       await deleteLibraryEntryRecursive(user.uid, libraryPacks, packId);
       show("팩을 완전히 삭제했어요");
@@ -1157,6 +1302,10 @@ export default function AppShell() {
       ),
       updatedAt: new Date().toISOString(),
     };
+    if (isOfflineMode) {
+      saveLocalBag(updated);
+      return;
+    }
     saveBagRemote(updated).catch((err) => {
       console.error("[팩인백] 가방으로 짐 이동 실패:", err);
       show(`가방으로 이동하는 데 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1175,6 +1324,10 @@ export default function AppShell() {
       ),
       updatedAt: new Date().toISOString(),
     };
+    if (isOfflineMode) {
+      saveLocalBag(updated);
+      return;
+    }
     saveBagRemote(updated).catch((err) => {
       console.error("[팩인백] 가방 이동 되돌리기 실패:", err);
     });
@@ -1189,6 +1342,10 @@ export default function AppShell() {
     const draft: Pack = quickPack
       ? { ...quickPack, items: [...quickPack.items, newItem] }
       : { id: QUICK_PACK_ID, name: "빠른팩", items: [newItem], isQuickPack: true };
+    if (isOfflineMode) {
+      saveLocalLibraryPack(draft);
+      return;
+    }
     saveLibraryPackRemote(user, draft).catch((err) => {
       console.error("[팩인백] 빠른입력 저장 실패:", err);
       show(`빠른입력 저장에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1437,6 +1594,8 @@ export default function AppShell() {
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
               <SettingsScreen
                 uid={user.uid}
+                bags={activeBags}
+                libraryPacks={activePacks}
                 announcements={announcements}
                 dismissedAnnouncementIds={dismissedIds}
                 onDismissAnnouncement={handleDismissAnnouncement}

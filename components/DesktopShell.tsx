@@ -362,6 +362,8 @@ export default function DesktopShell({
             >
               <SettingsScreen
                 uid={user.uid}
+                bags={bags}
+                libraryPacks={libraryPacks}
                 announcements={announcements}
                 dismissedAnnouncementIds={dismissedAnnouncementIds}
                 onDismissAnnouncement={onDismissAnnouncement}
