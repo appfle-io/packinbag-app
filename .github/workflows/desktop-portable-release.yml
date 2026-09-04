@@ -53,6 +53,8 @@ jobs:
         run: npm run prepare:standalone
 
       - name: Package with Electron Builder
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ${{ matrix.target_cmd }}
 
       - name: Upload Artifact
