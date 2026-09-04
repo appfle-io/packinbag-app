@@ -86,7 +86,18 @@ import Link from "@tiptap/extension-link";
 import { FontSize } from "./fontSizeExtension";
 import { ToggleBlock, ToggleSummary, ToggleContent } from "./toggleBlockExtension";
 import { IndentExtension } from "./indentExtension";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { lowlight } from "./lowlightSetup";
+import CodeBlockComponent from "@/components/editor/CodeBlockComponent";
+
 import { ImageAttachment, FileAttachment } from "./noteEditorAttachmentExtensions";
+
+const CustomCodeBlock = CodeBlockLowlight.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(CodeBlockComponent);
+  },
+});
 
 export interface NoteEditorExtensionOptions {
   placeholder?: string;
@@ -104,6 +115,13 @@ export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOp
       // blockquote가 기본으로 "> " 입력을 가로채여 인용구로 바꾸는데, 이 입력을
       // 토글 블록(ToggleBlock, 다음 줄)이 대신 쓰게 하려고 blockquote 자체를 끈다.
       blockquote: false,
+      // 기본 codeBlock 대신 문법 강조(lowlight)와 언어 선택 및 복사 기능이 포함된
+      // CustomCodeBlock을 사용한다.
+      codeBlock: false,
+    }),
+    CustomCodeBlock.configure({
+      lowlight,
+      defaultLanguage: "plaintext",
     }),
     ToggleBlock,
     ToggleSummary,

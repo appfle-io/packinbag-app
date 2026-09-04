@@ -37,6 +37,12 @@ export function extractCleanFormattedText(pack: Pack): string {
           return `> ${text}`;
         }
 
+        if (block.type === "code") {
+          const rawCode = block.spans.map((s) => s.text).join("");
+          const lang = block.language || "";
+          return `\n\`\`\`${lang}\n${rawCode}\n\`\`\`\n`;
+        }
+
         return text;
       });
 

@@ -28,6 +28,7 @@ import {
   IconLock,
   IconLoader2,
   IconLink,
+  IconCode,
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import MemoPackShareModal from "@/components/MemoPackShareModal";
@@ -1315,6 +1316,16 @@ export default function PackNoteEditorScreen({
                 label="표 삽입 (2x2)"
               >
                 <IconTable size={17} stroke={1.75} />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => {
+                  if (!editor) return;
+                  editor.chain().focus().toggleCodeBlock().run();
+                }}
+                active={editor?.isActive("codeBlock")}
+                label="코드 블럭 (txt, sql, java, py 등)"
+              >
+                <IconCode size={17} stroke={1.75} />
               </ToolbarButton>
               {(!effectiveReadOnly && (bagId || user)) && (
                 <ToolbarButton

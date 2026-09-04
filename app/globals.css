@@ -498,6 +498,108 @@ aside {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* 코드블럭 및 구문 강조 (Syntax Highlighting) */
+.pib-note-editor pre {
+  margin: 0.75rem 0;
+  border-radius: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.pib-note-editor code {
+  font-family: inherit;
+}
+
+/* highlight.js 클래스 구문 강조 색상 (VS Code / One Dark 스타일) */
+.hljs-comment,
+.hljs-quote {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #f472b6;
+  font-weight: 600;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #fb923c;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #4ade80;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.hljs-title.class_,
+.hljs-class .hljs-title,
+.hljs-type {
+  color: #38bdf8;
+}
+
+.hljs-title.function_,
+.hljs-function .hljs-title {
+  color: #818cf8;
+}
+
+.hljs-params {
+  color: #e2e8f0;
+}
+
+.hljs-attr,
+.hljs-attribute {
+  color: #38bdf8;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: #a78bfa;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #facc15;
+}
+
+.hljs-meta {
+  color: #cbd5e1;
+}
+
+.hljs-deletion {
+  background: #f87171;
+  color: #fff;
+}
+
+.hljs-addition {
+  background: #4ade80;
+  color: #fff;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
+
 .pib-note-editor-readonly .ProseMirror {
   cursor: default;
 }

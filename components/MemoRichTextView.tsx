@@ -1,9 +1,72 @@
 "use client";
 
-import { useMemo } from "react";
-import { IconChevronRight } from "@tabler/icons-react";
+import { useMemo, useState } from "react";
+import { IconChevronRight, IconCopy, IconCheck } from "@tabler/icons-react";
 import { RichBlock, RichSpan, collectEditorDocRichBlocks } from "@/lib/editorDocPreview";
 import { openExternalLink } from "@/lib/openExternalLink";
+import { getLanguageBadge } from "@/lib/lowlightSetup";
+
+function MemoCodeBlockView({
+  block,
+  indentStyle,
+  renderSpans,
+}: {
+  block: RichBlock;
+  indentStyle?: React.CSSProperties;
+  renderSpans: (spans: RichSpan[]) => React.ReactNode;
+}) {
+  const [copied, setCopied] = useState(false);
+  const codeText = block.spans.map((s) => s.text).join("");
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!codeText) return;
+    try {
+      await navigator.clipboard.writeText(codeText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <div
+      className="my-2 rounded-xl border border-slate-700/60 bg-slate-900 text-slate-100 overflow-hidden shadow-2xs text-left select-text"
+      style={indentStyle}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between px-3 py-1 bg-slate-800/80 border-b border-slate-700/50 text-[11px] select-none">
+        <span className="px-1.5 py-0.5 rounded bg-slate-700/70 text-slate-300 font-mono text-[10px] font-bold tracking-wider">
+          {getLanguageBadge(block.language)}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
+          title="코드 복사"
+          aria-label="코드 복사"
+        >
+          {copied ? (
+            <>
+              <IconCheck size={12} className="text-emerald-400" />
+              <span className="text-emerald-400 font-medium">복사됨</span>
+            </>
+          ) : (
+            <>
+              <IconCopy size={12} />
+              <span>복사</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
+        {renderSpans(block.spans)}
+      </pre>
+    </div>
+  );
+}
 
 interface MemoRichTextViewProps {
   blocks?: RichBlock[];
@@ -347,13 +410,12 @@ export default function MemoRichTextView({
 
         if (block.type === "code") {
           return (
-            <pre
+            <MemoCodeBlockView
               key={bIdx}
-              className="bg-surface-2 border border-border/60 rounded-lg p-2 my-1 font-mono text-[12px] text-foreground overflow-x-auto whitespace-pre"
-              style={indentStyle}
-            >
-              {renderSpans(block.spans)}
-            </pre>
+              block={block}
+              indentStyle={indentStyle}
+              renderSpans={renderSpans}
+            />
           );
         }
 

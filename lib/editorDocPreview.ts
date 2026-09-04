@@ -39,6 +39,7 @@ export interface RichBlock {
   fileName?: string;
   fileKind?: string;
   fileExtension?: string;
+  language?: string;
 }
 
 interface DocNode {
@@ -52,6 +53,7 @@ interface DocNode {
     href?: string;
     open?: boolean;
     textAlign?: "left" | "center" | "right" | "justify";
+    language?: string;
   };
   marks?: { type?: string; attrs?: { href?: string; color?: string } }[];
   content?: DocNode[];
@@ -285,8 +287,9 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
       }
     } else if (type === "codeBlock") {
       const spans = extractSpans(node);
+      const language = node.attrs?.language;
       if (spans.some((s) => s.text.trim().length > 0)) {
-        blocks.push({ type: "code", spans, depth });
+        blocks.push({ type: "code", spans, depth, language });
       }
     } else if (type === "horizontalRule") {
       blocks.push({ type: "hr", spans: [], depth });
