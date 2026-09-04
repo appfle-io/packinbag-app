@@ -209,3 +209,12 @@ export function subscribeLocalData(callback: () => void): () => void {
     window.removeEventListener("storage", handler);
   };
 }
+
+export function resetLocalAllData() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LOCAL_BAGS_KEY);
+  localStorage.removeItem(LOCAL_LIBRARY_PACKS_KEY);
+  localStorage.removeItem(LOCAL_TRASHED_BAGS_KEY);
+  localStorage.removeItem(LOCAL_TRASHED_PACKS_KEY);
+  window.dispatchEvent(new CustomEvent(LOCAL_CHANGE_EVENT, { detail: { key: "all" } }));
+}

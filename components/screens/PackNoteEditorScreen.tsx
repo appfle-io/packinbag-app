@@ -115,6 +115,15 @@ const AUTOSAVE_DEBOUNCE_MS = 600;
 // 올라가므로, 큰 파일을 막기 위해 따로 크기 상한을 둔다(2026-08~ 10MB로 상향).
 const MAX_PACK_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function SpellcheckIcon({ size = 17, stroke = 1.75 }: { size?: number; stroke?: number }) {
   return (
     <svg
@@ -171,7 +180,7 @@ export default function PackNoteEditorScreen({
 }) {
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
-  const { user, profile, updatePackSettings } = useAuth();
+  const { user, profile, updatePackSettings, isOfflineMode } = useAuth();
   // 사용자의 유료(프리미엄) 여부: prop이 있으면 우선 사용하고, 없으면 AuthProvider의 user/profile로 직접 판정
   const isEffectivePremium =
     premium !== undefined
@@ -314,7 +323,9 @@ export default function PackNoteEditorScreen({
       try {
         const ed = editorRef.current;
         for (const file of fileArray) {
-          const url = await uploadPackImage(uploadTargetId, packRef.current.id, file, !!bagId);
+          const url = isOfflineMode
+            ? await readFileAsDataUrl(file)
+            : await uploadPackImage(uploadTargetId, packRef.current.id, file, !!bagId);
           const kind = getFileKind(url);
           if (!ed) continue;
 
@@ -859,7 +870,11 @@ export default function PackNoteEditorScreen({
     setUploadingImages(true);
     try {
       const urls = await Promise.all(
-        toUpload.map((f) => uploadPackImage(bagId, packRef.current.id, f))
+        toUpload.map((f) =>
+          isOfflineMode
+            ? readFileAsDataUrl(f)
+            : uploadPackImage(bagId, packRef.current.id, f)
+        )
       );
       const updated: Pack = { ...packRef.current, images: [...currentImages, ...urls] };
       packRef.current = updated;

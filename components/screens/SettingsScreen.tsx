@@ -26,7 +26,10 @@ import {
   isUnlimitedAiUser,
 } from "@/lib/aiUsageService";
 import { exportBackupData, parseBackupFile, restoreBackupData } from "@/lib/backupService";
-import { getLocalBags, getLocalLibraryPacks } from "@/lib/localBagsService";
+import { getLocalBags, getLocalLibraryPacks, resetLocalAllData } from "@/lib/localBagsService";
+import { deleteBagWithInviteCodeRemote, leaveBagRemote } from "@/lib/bagsService";
+import { deleteLibraryPackRemote } from "@/lib/packsService";
+import { deleteBagImage } from "@/lib/storageService";
 import Avatar from "@/components/Avatar";
 import ProfileEditScreen from "@/components/screens/ProfileEditScreen";
 import VersionInfoScreen from "@/components/screens/VersionInfoScreen";
@@ -204,14 +207,71 @@ export default function SettingsScreen({
       const result = await restoreBackupData(
         parsed,
         isOfflineMode ? "local" : "cloud",
-        user
+        user,
+        {
+          nickname: profile?.nickname || user?.displayName || "사용자",
+          avatarId: profile?.avatarId || "avatar-1",
+        }
       );
-      show(`가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 복원했어요`);
+      if (isOfflineMode && result.hasExcludedRemoteMedia) {
+        show(
+          `가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 복원했어요 (오프라인 환경에서는 온라인 이미지/파일은 제외되었어요)`
+        );
+      } else {
+        show(`가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 복원했어요`);
+      }
     } catch (err) {
       console.error("[팩인백] 백업 복원 실패:", err);
       show(err instanceof Error ? err.message : "백업 파일을 불러오지 못했어요");
     } finally {
       e.target.value = "";
+    }
+  };
+
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetAllData = async () => {
+    if (isResetting) return;
+    setIsResetting(true);
+    try {
+      if (isOfflineMode) {
+        resetLocalAllData();
+        show("모든 데이터가 초기화되었어요");
+      } else {
+        if (trashedBags && onPermanentDeleteBag) {
+          for (const bag of trashedBags) {
+            await onPermanentDeleteBag(bag);
+          }
+        }
+        if (trashedPacks && onPermanentDeletePack) {
+          for (const pack of trashedPacks) {
+            await onPermanentDeletePack(pack.id);
+          }
+        }
+        if (libraryPacks && uid) {
+          for (const p of libraryPacks) {
+            await deleteLibraryPackRemote(uid, p.id);
+          }
+        }
+        if (bags) {
+          for (const bag of bags) {
+            if (bag.memberIds.length <= 1) {
+              await Promise.all((bag.images ?? []).map((url) => deleteBagImage(url)));
+              await deleteBagWithInviteCodeRemote(bag);
+            } else if (uid) {
+              await leaveBagRemote(uid, bag.id);
+            }
+          }
+        }
+        show("모든 데이터가 초기화되었어요");
+      }
+    } catch (err) {
+      console.error("[팩인백] 데이터 초기화 실패:", err);
+      show("데이터 초기화에 실패했어요");
+    } finally {
+      setIsResetting(false);
+      setConfirmReset(false);
     }
   };
 
@@ -481,7 +541,9 @@ export default function SettingsScreen({
               <div>
                 <span className="text-[13px] font-medium">백업 파일 불러오기</span>
                 <p className="text-[11px] text-text-muted mt-0.5">
-                  백업 파일(.json)에서 가방과 팩을 복원해요
+                  {isOfflineMode
+                    ? "백업 파일(.json)에서 복원해요 (온라인 이미지/파일 제외)"
+                    : "백업 파일(.json)에서 가방과 팩을 복원해요"}
                 </p>
               </div>
               <IconUpload size={18} stroke={1.75} color="var(--text-muted)" />
@@ -589,7 +651,15 @@ export default function SettingsScreen({
           </div>
         )}
 
-        <div className="pt-2 pb-6 flex justify-center">
+        <div className="pt-2 pb-6 flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="text-[12px] text-danger/80 hover:text-danger underline decoration-dotted transition-colors"
+          >
+            데이터 초기화
+          </button>
+
           {isOfflineMode ? (
             <button
               type="button"
@@ -713,6 +783,19 @@ export default function SettingsScreen({
             setConfirmLogout(false);
             logout();
           }}
+        />
+      )}
+
+      {confirmReset && (
+        <ConfirmDialog
+          title="모든 데이터를 초기화하시겠어요?"
+          message="가방 보관함, 팩 보관함, 휴지통의 모든 데이터가 영구히 삭제되며 복구할 수 없습니다."
+          confirmLabel={isResetting ? "초기화 중..." : "모든 데이터 영구 삭제"}
+          tone="danger"
+          onCancel={() => {
+            if (!isResetting) setConfirmReset(false);
+          }}
+          onConfirm={handleResetAllData}
         />
       )}
     </div>
