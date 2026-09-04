@@ -205,7 +205,7 @@ export default function BagEditorScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
   const { profile, updatePackDisplayState, updateAllPackDisplayStates, updateBagViewMode } = useAuth();
-  const premium = isPremiumUser(profile?.email, profile ?? null);
+  const premium = isOfflineMode ? true : isPremiumUser(profile?.email, profile ?? null);
   // AI 기능(정리/추천) 통합 메뉴 - 상단 "AI" 버튼을 누르면 이 메뉴가 뜨고, 여기서 어떤 기능을
   // 쓸지 고른다(2026-07). AI 추천은 프리미엄 전용이라 무료회원이 고르면 showAiPremiumModal로
   // 이용권 구매를 유도한다.
@@ -3134,7 +3134,7 @@ export default function BagEditorScreen({
         })()}
       </SlideScreen>
 
-      {showAiFeatureMenu && (
+      {!isOfflineMode && showAiFeatureMenu && (
         <AiFeatureMenu
           premium={premium}
           onClose={() => setShowAiFeatureMenu(false)}
@@ -3165,7 +3165,7 @@ export default function BagEditorScreen({
         />
       )}
 
-      {showAiPremiumModal && (
+      {!isOfflineMode && showAiPremiumModal && (
         <PremiumLimitModal
           message="AI 정리·AI 추천·AI 클립보드는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."
           onClose={() => setShowAiPremiumModal(false)}
@@ -3178,7 +3178,7 @@ export default function BagEditorScreen({
         />
       )}
 
-      {showAiOrganize && (
+      {!isOfflineMode && showAiOrganize && (
         <AiOrganizeModal
           bag={bag}
           onClose={() => setShowAiOrganize(false)}
@@ -3191,7 +3191,7 @@ export default function BagEditorScreen({
         />
       )}
 
-      {showAiClipboard && (
+      {!isOfflineMode && showAiClipboard && (
         <AiClipboardModal
           bag={bag}
           onClose={() => setShowAiClipboard(false)}
@@ -3333,7 +3333,7 @@ export default function BagEditorScreen({
         />
       )}
 
-      {showAiAudit && (
+      {!isOfflineMode && showAiAudit && (
         <AiBagAuditModal
           bag={bag}
           user={user}

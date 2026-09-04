@@ -206,7 +206,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       getIdTokenResult: async () => ({ token: "offline-token", claims: {} }),
       reload: async () => {},
     } as unknown as User);
-    setRawProfile(getLocalProfile());
+    setRawProfile({
+      ...getLocalProfile(),
+      role: "master",
+      premiumPurchase: {
+        purchased: true,
+        purchasedAt: new Date().toISOString(),
+      },
+    });
     setLoading(false);
   };
 
@@ -971,6 +978,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 화면(팩/가방)에서도 동일하게 적용된다.
   const updateQuickPackCollapsed = async (collapsed: boolean) => {
     if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, quickPackCollapsed: collapsed } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ quickPackCollapsed: collapsed });
+      return;
+    }
     await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
   };
 
@@ -978,11 +990,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 로컬 state만 바꾸다), 매번 쓰기가 일어나지 않아 다른 설정값들과 달리 디바운스가 필요하지 않다.
   const updateSidebarWidth = async (width: number) => {
     if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, sidebarWidth: width } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ sidebarWidth: width });
+      return;
+    }
     await setDoc(doc(db, "users", user.uid), { sidebarWidth: width }, { merge: true });
   };
 
   const updateSidebarCollapsed = async (collapsed: boolean) => {
     if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, sidebarCollapsed: collapsed } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ sidebarCollapsed: collapsed });
+      return;
+    }
     await setDoc(doc(db, "users", user.uid), { sidebarCollapsed: collapsed }, { merge: true });
   };
 

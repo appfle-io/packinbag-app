@@ -266,10 +266,14 @@ export default function DesktopSidebar({
     e.preventDefault();
     const startX = e.clientX;
     const startWidth = sidebarWidth;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
     const handleMouseMove = (moveEvent: MouseEvent) => {
       setSidebarWidth(clampSidebarWidth(startWidth + (moveEvent.clientX - startX)));
     };
     const handleMouseUp = () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
       setSidebarWidth((current) => {
@@ -2161,6 +2165,16 @@ export default function DesktopSidebar({
           onClose={() => setSharingPackOrFolder(null)}
         />
       )}
+
+      {/* 사이드바 우측 리사이즈 드래그 핸들 */}
+      <div
+        onMouseDown={handleSidebarResizeStart}
+        className="absolute top-0 -right-1 bottom-0 w-2.5 cursor-col-resize z-20 group flex items-center justify-center transition-colors hover:bg-accent/20 active:bg-accent/40 select-none"
+        title="드래그하여 사이드바 폭 조절"
+        aria-label="드래그하여 사이드바 폭 조절"
+      >
+        <div className="w-[3px] h-8 rounded-full bg-transparent group-hover:bg-accent/60 group-active:bg-accent transition-colors" />
+      </div>
     </div>
   );
 }

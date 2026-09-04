@@ -23,10 +23,18 @@ import { Bag, Pack, UserProfile } from "@/lib/types";
 // 일반 에러와 구분해서 catch하면, 실패 토스트 대신 PremiumLimitModal을 띄울 수 있다.
 export class PremiumLimitError extends Error {}
 
+export function isOfflineEnvironment(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean((window as unknown as { electronAPI?: unknown }).electronAPI) || localStorage.getItem("pib_offline_mode") === "true";
+}
+
 export function isPremiumUser(
   email: string | null | undefined,
   profile: UserProfile | null
 ): boolean {
+  // 오프라인 모드에서는 모든 기능 무제한
+  if (isOfflineEnvironment()) return true;
+  if (profile?.uid === "local-offline-user" || email === "offline@local") return true;
   if (profile?.role === "master") return true;
   // 인앱결제(RevenueCat 웹훅이 기록한 영구구매)로 프리미엄이면 이용권 코드와 무관하게
   // 언제나 프리미엄이다(lib/types.ts UserProfile.premiumPurchase 주석 참고).

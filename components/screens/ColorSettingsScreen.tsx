@@ -280,7 +280,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
   const [baseOpacityOpen, setBaseOpacityOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
-  const { user, profile, updateBagCardSize } = useAuth();
+  const { user, profile, updateBagCardSize, isOfflineMode } = useAuth();
   const canUse3Cols = useCanUse3Cols();
   const [showColorLimitModal, setShowColorLimitModal] = useState(false);
 
@@ -366,7 +366,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
   // 헥사코드 직접입력(커스텀 색상 피커)은 프리미엄 전용 기능. 무료 사용자는 프리셋
   // 색상만 고를 수 있고, 커스텀 원을 눌러도 피커 대신 업그레이드 안내가 뜬다.
   const openCustomPicker = (slot: Slot) => {
-    if (!isPremiumUser(user?.email, profile)) {
+    if (!isOfflineMode && !isPremiumUser(user?.email, profile)) {
       setShowColorLimitModal(true);
       return;
     }

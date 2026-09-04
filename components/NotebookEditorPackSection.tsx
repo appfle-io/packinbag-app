@@ -20,6 +20,7 @@ import {
 import { Pack } from "@/lib/types";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
+import { isOfflineEnvironment } from "@/lib/premiumLimits";
 import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import Avatar from "./Avatar";
@@ -84,6 +85,7 @@ export default function NotebookEditorPackSection({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
+  const isEffectivePremium = isOfflineEnvironment() || Boolean(premium);
   const isCollapsed = (pack.displayState ?? "normal") === "collapsed";
   const packImages = pack.images ?? [];
   const hasContent = Boolean(pack.editorDoc || pack.editorPreviewText);
@@ -287,13 +289,13 @@ export default function NotebookEditorPackSection({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      premium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true);
+                      isEffectivePremium ? setPdfPreviewUrl(src) : setShowPdfPremiumModal(true);
                     }}
                     className="relative h-full w-full flex items-center justify-center text-text-secondary"
-                    aria-label={premium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
+                    aria-label={isEffectivePremium ? "PDF 미리보기" : "PDF 미리보기 (프리미엄 전용)"}
                   >
                     <IconFileText size={17} stroke={1.75} />
-                    {!premium && (
+                    {!isEffectivePremium && (
                       <span
                         className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full flex items-center justify-center"
                         style={{ background: "rgba(0,0,0,0.55)" }}
@@ -306,16 +308,16 @@ export default function NotebookEditorPackSection({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      premium ? openExternalLink(src) : setShowPdfPremiumModal(true);
+                      isEffectivePremium ? openExternalLink(src) : setShowPdfPremiumModal(true);
                     }}
                     className="relative h-full w-full flex flex-col items-center justify-center gap-0.5 text-text-secondary px-0.5"
-                    aria-label={premium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
+                    aria-label={isEffectivePremium ? "파일 열기" : "파일 열기 (프리미엄 전용)"}
                   >
                     <IconFileText size={17} stroke={1.75} />
                     <span className="text-[7px] truncate max-w-full">
                       {getFileExtensionLabel(src) || "FILE"}
                     </span>
-                    {!premium && (
+                    {!isEffectivePremium && (
                       <span
                         className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full flex items-center justify-center"
                         style={{ background: "rgba(0,0,0,0.55)" }}

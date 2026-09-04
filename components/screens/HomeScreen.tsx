@@ -153,11 +153,11 @@ export default function HomeScreen({
     renameBagFolder,
     deleteBagFolder,
     moveBagsToFolder,
+    isOfflineMode,
   } = useAuth();
   const { show } = useToast();
-  // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부. 다른 멤버가 만든 AI추천
-  // 팩(Pack.aiRecommendSource)을 이 사람이 무료회원이면 카드 미리보기/검색 결과에서 숨긴다.
-  const premium = isPremiumUser(profile?.email, profile ?? null);
+  // 지금 이 화면을 보는 사람(로그인한 본인) 기준 프리미엄 여부.
+  const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
   const sortBy = profile?.bagSortBy ?? "createdAt";
   const pinnedIds = profile?.pinnedBagIds ?? [];
   // "보관" 처리된 가방은 삭제가 아니라 그냥 메인 목록("진행중" 탭)에서 숨기고 "보관" 탭으로
@@ -1169,7 +1169,7 @@ export default function HomeScreen({
         />
       )}
 
-      {showSpreadsheetImport && (
+      {!isOfflineMode && showSpreadsheetImport && (
         <SpreadsheetImportModal
           onClose={() => setShowSpreadsheetImport(false)}
           onResult={(result) => {
@@ -1189,7 +1189,7 @@ export default function HomeScreen({
         />
       )}
 
-      {showNoteImport && (
+      {!isOfflineMode && showNoteImport && (
         <NoteImportModal
           onClose={() => setShowNoteImport(false)}
           onResult={(result) => {

@@ -5,6 +5,7 @@ import Portal from "@/components/Portal";
 import { IconEdit, IconLayoutGrid, IconSparkles, IconX, IconTable } from "@tabler/icons-react";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { useAuth } from "@/contexts/AuthProvider";
 
 export default function NewBagOptionsSheet({
   onClose,
@@ -19,6 +20,7 @@ export default function NewBagOptionsSheet({
   onFromNote: () => void;
   onFromSpreadsheet: () => void;
 }) {
+  const { isOfflineMode } = useAuth();
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
 
@@ -74,42 +76,46 @@ export default function NewBagOptionsSheet({
             </div>
           </button>
 
-          <button
-            onClick={onFromNote}
-            className="flex items-center gap-3 rounded-lg p-3 text-left transition-colors cursor-pointer"
-            style={{ background: "var(--accent-soft)" }}
-          >
-            <IconSparkles size={18} stroke={1.75} color="var(--accent-strong)" />
-            <div>
-              <div className="text-[13px] font-bold flex items-center gap-1.5" style={{ color: "var(--accent-strong)" }}>
-                클립보드에서 가져오기
-                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
-                  AI
-                </span>
-              </div>
-              <div className="text-[11px] text-text-secondary">
-                메모장에서 복사한 내용을 붙여넣으면 AI가 자동으로 분류해줘요
-              </div>
-            </div>
-          </button>
+          {!isOfflineMode && (
+            <>
+              <button
+                onClick={onFromNote}
+                className="flex items-center gap-3 rounded-lg p-3 text-left transition-colors cursor-pointer"
+                style={{ background: "var(--accent-soft)" }}
+              >
+                <IconSparkles size={18} stroke={1.75} color="var(--accent-strong)" />
+                <div>
+                  <div className="text-[13px] font-bold flex items-center gap-1.5" style={{ color: "var(--accent-strong)" }}>
+                    클립보드에서 가져오기
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
+                      AI
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
+                    메모장에서 복사한 내용을 붙여넣으면 AI가 자동으로 분류해줘요
+                  </div>
+                </div>
+              </button>
 
-          <button
-            onClick={onFromSpreadsheet}
-            className="flex items-center gap-3 rounded-lg p-3 text-left bg-accent-soft/60 border border-accent/20 hover:bg-accent-soft transition-colors cursor-pointer"
-          >
-            <IconTable size={20} stroke={1.75} className="text-accent shrink-0" />
-            <div>
-              <div className="text-[13px] font-bold text-accent-strong flex items-center gap-1.5">
-                스프레드시트 / 엑셀 링크
-                <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
-                  AI
-                </span>
-              </div>
-              <div className="text-[11px] text-text-secondary">
-                구글 시트/엑셀 링크를 넣으면 표와 체크리스트를 자동 분석해요
-              </div>
-            </div>
-          </button>
+              <button
+                onClick={onFromSpreadsheet}
+                className="flex items-center gap-3 rounded-lg p-3 text-left bg-accent-soft/60 border border-accent/20 hover:bg-accent-soft transition-colors cursor-pointer"
+              >
+                <IconTable size={20} stroke={1.75} className="text-accent shrink-0" />
+                <div>
+                  <div className="text-[13px] font-bold text-accent-strong flex items-center gap-1.5">
+                    스프레드시트 / 엑셀 링크
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-accent text-white">
+                      AI
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-text-secondary">
+                    구글 시트/엑셀 링크를 넣으면 표와 체크리스트를 자동 분석해요
+                  </div>
+                </div>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </Portal>

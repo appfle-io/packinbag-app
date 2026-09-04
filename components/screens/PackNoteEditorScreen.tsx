@@ -181,11 +181,13 @@ export default function PackNoteEditorScreen({
   const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
   const { show } = useToast();
   const { user, profile, updatePackSettings, isOfflineMode } = useAuth();
-  // 사용자의 유료(프리미엄) 여부: prop이 있으면 우선 사용하고, 없으면 AuthProvider의 user/profile로 직접 판정
+  // 사용자의 유료(프리미엄) 여부: 오프라인 모드는 무조건 무제한
   const isEffectivePremium =
-    premium !== undefined
-      ? premium
-      : profile?.role === "master" || (user && profile ? isPremiumUser(user.email, profile) : false);
+    isOfflineMode
+      ? true
+      : premium !== undefined
+        ? premium
+        : profile?.role === "master" || (user && profile ? isPremiumUser(user.email, profile) : false);
 
   const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
@@ -1396,7 +1398,7 @@ export default function PackNoteEditorScreen({
             </div>
           )}
           <div
-            className="h-full overflow-y-auto px-4 py-4 md:px-10 md:py-8 scrollbar-thin"
+            className="h-full overflow-y-auto px-4 py-4 md:px-6 md:py-6 scrollbar-thin"
             onClick={(e) => {
               const anchor = (e.target as HTMLElement).closest("a");
               if (!anchor) return;
@@ -1406,7 +1408,7 @@ export default function PackNoteEditorScreen({
               handleLinkClick(href);
             }}
           >
-            <div className="max-w-4xl mx-auto pb-20">
+            <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto pb-20">
               <EditorContent editor={editor} className="pib-note-editor" />
             </div>
           </div>

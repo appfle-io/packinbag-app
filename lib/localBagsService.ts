@@ -18,6 +18,11 @@ export const DEFAULT_OFFLINE_PROFILE: UserProfile = {
   avatarId: "avatar_1",
   themeMode: "system",
   defaultTab: "home",
+  role: "master",
+  premiumPurchase: {
+    purchased: true,
+    purchasedAt: new Date().toISOString(),
+  },
   createdAt: new Date().toISOString(),
 };
 

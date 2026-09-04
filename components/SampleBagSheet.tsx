@@ -14,6 +14,7 @@ import { ImportedBagResult } from "@/lib/types";
 import AiHashtagModal from "@/components/AiHashtagModal";
 import { OverlayLayerProvider, useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { useAuth } from "@/contexts/AuthProvider";
 
 export default function SampleBagSheet({
   onClose,
@@ -22,6 +23,7 @@ export default function SampleBagSheet({
   onClose: () => void;
   onSelect: (result: ImportedBagResult) => void;
 }) {
+  const { isOfflineMode } = useAuth();
   const [category, setCategory] = useState<SampleCategory | "all">("all");
   const [showAiHashtag, setShowAiHashtag] = useState(false);
   const ambientLayer = useOverlayLayer();
@@ -99,18 +101,20 @@ export default function SampleBagSheet({
             </div>
           </div>
 
-          <button
-            onClick={() => setShowAiHashtag(true)}
-            className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-medium shrink-0"
-            style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
-          >
-            <IconSparkles size={15} stroke={1.75} />
-            원하는 게 없나요? 해시태그로 AI에게 만들어달라기
-          </button>
+          {!isOfflineMode && (
+            <button
+              onClick={() => setShowAiHashtag(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-[13px] font-medium shrink-0"
+              style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+            >
+              <IconSparkles size={15} stroke={1.75} />
+              원하는 게 없나요? 해시태그로 AI에게 만들어달라기
+            </button>
+          )}
         </div>
       </div>
 
-      {showAiHashtag && (
+      {!isOfflineMode && showAiHashtag && (
         <AiHashtagModal
           onClose={() => setShowAiHashtag(false)}
           onResult={(result) => {

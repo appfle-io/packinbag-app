@@ -114,10 +114,10 @@ export default function DesktopShell({
   onPermanentDeletePack: (packId: string) => Promise<void>;
 }) {
   const { show } = useToast();
-  const { moveBagToFolder } = useAuth();
+  const { moveBagToFolder, isOfflineMode } = useAuth();
   // 지금 드래그하는 본인 기준 프리미엄 여부 - 빠른팩 항목을 드롭할 때
   // 다른 멤버가 만든 AI추천 팩(aiRecommendSource)이 안 보이는데도 그쪽으로 들어가는 일을 막는다.
-  const premium = isPremiumUser(user.email, profile);
+  const premium = isOfflineMode || isPremiumUser(user.email, profile);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   // 설정은 우측 패널 전체를 바꾸지 않고 모달로 띄운다 - 지금 보고 있던 가방/팝이 그대로 뒤에 남아있고, 닫으면 다시 그 화면으로 돌아온다.
   const [settingsOpen, setSettingsOpen] = useState(false);
