@@ -5,6 +5,20 @@
 
 **"매번 반복되는 준비물 챙기기, 필요한 것만 쏙쏙 골라 담으세요."**
 
+---
+
+### 최신 릴리즈 다운로드 (Offline Portable Assets)
+
+| 플랫폼 | 파일명 | 다운로드 링크 | 파일 크기 |
+| :--- | :--- | :--- | :--- |
+| **Windows** | `Packinbag-offline-win-portable_1.0.0.zip` | [**다운로드 (Windows .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.0-offline-portable/Packinbag-offline-win-portable_1.0.0.zip) | 245 MB |
+| **macOS** | `Packinbag-offline-mac-portable_1.0.0.zip` | [**다운로드 (macOS .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.0-offline-portable/Packinbag-offline-mac-portable_1.0.0.zip) | 232 MB |
+
+> **안내**: 별도 설치 없이 압축을 풀고 실행 파일(`Pack In Bag.exe` / `Pack In Bag.app`)을 더블클릭하면 즉시 실행됩니다.  
+> [최신 릴리즈 페이지(Releases) 및 소스코드 보기](https://github.com/appfle-io/packinbag-app/releases/latest)
+
+---
+
 팩인백은 일상의 모든 반복적인 체크리스트와 짐 싸기를 위해 만든 **모듈형 공유 체크리스트 & 메모 서비스**입니다.  
 아기 기저귀 가방부터 운동, 캠핑, 장보기, 여행까지 상황마다 필요한 짐 묶음(팩)을 레고 블록처럼 가방에 담아 준비할 수 있습니다.
 
@@ -70,16 +84,6 @@
 
 ---
 
-## 다운로드 (Download & Releases)
-
-인터넷 연결이 없는 환경에서도 모든 기능을 사용할 수 있는 **오프라인 무설치(Portable) 데스크톱 앱**을 제공합니다.  
-별도의 설치 과정 없이 다운로드 후 압축을 풀고 실행 파일을 더블클릭하면 즉시 실행됩니다.
-
-* **[최신 릴리즈 페이지 및 다운로드 (GitHub Releases)](https://github.com/appfle-io/packinbag-app/releases/latest)**
-  * **Windows**: `Packinbag-offline-win-portable_*.zip` (압축 해제 후 `Pack In Bag.exe` 실행)
-  * **macOS**: `Packinbag-offline-mac-portable_*.zip` (압축 해제 후 `Pack In Bag.app` 실행)
-
----
 
 ## 기술 스택 (Tech Stack)
 
