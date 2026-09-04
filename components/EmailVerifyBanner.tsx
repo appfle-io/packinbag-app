@@ -5,14 +5,14 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 
 export default function EmailVerifyBanner() {
-  const { user, resendVerificationEmail } = useAuth();
+  const { user, isOfflineMode, resendVerificationEmail } = useAuth();
   const [dismissed, setDismissed] = useState(false);
   const [sending, setSending] = useState(false);
   const { show } = useToast();
 
-  // 구글로 가입한 사람이나 게스트는 배너가 필요 없음
-  if (!user || user.isAnonymous || user.emailVerified || dismissed) return null;
-  const isPasswordAccount = user.providerData.some(
+  // 오프라인 모드, 구글 가입자, 게스트는 배너가 필요 없음
+  if (isOfflineMode || !user || user.isAnonymous || user.emailVerified || dismissed) return null;
+  const isPasswordAccount = user.providerData?.some(
     (p) => p.providerId === "password"
   );
   if (!isPasswordAccount) return null;

@@ -199,6 +199,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       uid: OFFLINE_USER_UID,
       email: "offline@local",
       displayName: "오프라인 사용자",
+      emailVerified: true,
+      isAnonymous: false,
+      providerData: [],
+      getIdToken: async () => "offline-token",
+      getIdTokenResult: async () => ({ token: "offline-token", claims: {} }),
+      reload: async () => {},
     } as unknown as User);
     setRawProfile(getLocalProfile());
     setLoading(false);

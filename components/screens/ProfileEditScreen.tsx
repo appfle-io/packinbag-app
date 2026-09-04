@@ -25,7 +25,7 @@ export default function ProfileEditScreen({ onBack }: { onBack: () => void }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [showAccountLinkModal, setShowAccountLinkModal] = useState(false);
 
-  const isPasswordAccount = !!user?.providerData.some((p) => p.providerId === "password");
+  const isPasswordAccount = !!user?.providerData?.some((p) => p.providerId === "password");
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
