@@ -9,6 +9,9 @@ import {
   IconNotes,
   IconListCheck,
   IconFolder,
+  IconChevronDown,
+  IconChevronUp,
+  IconLayersLinked,
 } from "@tabler/icons-react";
 import Portal from "@/components/Portal";
 import { Bag, Pack, StartPageConfig } from "@/lib/types";
@@ -30,10 +33,17 @@ export default function StartPageSelectModal({
   onSelect,
   onClose,
 }: StartPageSelectModalProps) {
-  const [searchQuery, setSearchQuery] = useState("");
   const ambientLayer = useOverlayLayer();
   const zIndex = ambientLayer + POPOVER_OFFSET;
   useEscapeToClose(onClose);
+
+  const currentType = currentConfig?.type || "home";
+  const currentId = currentConfig?.id;
+  const isCustomSelected = currentType === "bag" || currentType === "pack";
+
+  // "특정 가방/팩 선택" 펼침 상태 (기존에 특정 가방/팩이 선택되어 있으면 기본으로 열림)
+  const [showCustomPicker, setShowCustomPicker] = useState(isCustomSelected);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const q = searchQuery.trim().toLowerCase();
 
@@ -49,19 +59,47 @@ export default function StartPageSelectModal({
     [libraryPacks]
   );
 
-  // 검색어 필터링 (검색어가 없으면 전체 리스트 표시)
+  // 체크팩 리스트 (editor형 제외)
+  const checklistPacks = useMemo(
+    () => activePacks.filter((p) => p.kind !== "editor"),
+    [activePacks]
+  );
+
+  // 메모팩 리스트 (editor형)
+  const memoPacks = useMemo(
+    () => activePacks.filter((p) => p.kind === "editor"),
+    [activePacks]
+  );
+
+  // 검색어 필터링
   const filteredBags = useMemo(() => {
     if (!q) return activeBags;
     return activeBags.filter((b) => b.name.toLowerCase().includes(q));
   }, [activeBags, q]);
 
-  const filteredPacks = useMemo(() => {
-    if (!q) return activePacks;
-    return activePacks.filter((p) => p.name.toLowerCase().includes(q));
-  }, [activePacks, q]);
+  const filteredChecklistPacks = useMemo(() => {
+    if (!q) return checklistPacks;
+    return checklistPacks.filter((p) => p.name.toLowerCase().includes(q));
+  }, [checklistPacks, q]);
 
-  const currentType = currentConfig?.type || "home";
-  const currentId = currentConfig?.id;
+  const filteredMemoPacks = useMemo(() => {
+    if (!q) return memoPacks;
+    return memoPacks.filter((p) => p.name.toLowerCase().includes(q));
+  }, [memoPacks, q]);
+
+  // 현재 선택된 특정 항목 라벨
+  const selectedCustomLabel = useMemo(() => {
+    if (currentType === "bag" && currentId) {
+      const b = activeBags.find((bag) => bag.id === currentId);
+      return b ? `[가방] ${b.name}` : currentConfig?.title || "선택된 가방";
+    }
+    if (currentType === "pack" && currentId) {
+      const p = activePacks.find((pack) => pack.id === currentId);
+      if (p) return `${p.kind === "editor" ? "[메모]" : "[체크팩]"} ${p.name}`;
+      return currentConfig?.title || "선택된 팩";
+    }
+    return null;
+  }, [currentType, currentId, activeBags, activePacks, currentConfig]);
 
   const isHomeSelected = currentType === "home";
   const isPacksSelected = currentType === "packs";
@@ -94,235 +132,328 @@ export default function StartPageSelectModal({
             </button>
           </div>
 
-          {/* 검색창 */}
-          <div className="p-3 border-b border-border/60 bg-surface-2/40 shrink-0">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
-              <IconSearch size={16} stroke={1.75} className="text-text-muted shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="가방 또는 팩 이름 검색..."
-                className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-text-muted outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="text-text-muted hover:text-foreground"
-                >
-                  <IconX size={14} stroke={2} />
-                </button>
-              )}
+          {/* 메인 선택 영역 */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {/* 기본 화면 선택 목록 */}
+            <div className="space-y-1.5">
+              {/* 1. 가방 보관함 버튼 */}
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect({ type: "home", title: "가방 보관함 (기본)" });
+                  onClose();
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                  isHomeSelected
+                    ? "bg-accent-soft/30 border-accent text-accent font-semibold"
+                    : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-lg bg-surface-2 text-text-secondary shrink-0">
+                    <IconBackpack size={20} stroke={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
+                        기본
+                      </span>
+                      <span className="text-[13px] truncate">가방 보관함</span>
+                    </div>
+                    <p className="text-[11px] text-text-muted mt-0.5">전체 가방 목록 화면</p>
+                  </div>
+                </div>
+                {isHomeSelected && (
+                  <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
+                )}
+              </button>
+
+              {/* 2. 팩 보관함 버튼 */}
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect({ type: "packs", title: "팩 보관함" });
+                  onClose();
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                  isPacksSelected
+                    ? "bg-accent-soft/30 border-accent text-accent font-semibold"
+                    : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-lg bg-surface-2 text-text-secondary shrink-0">
+                    <IconFolder size={20} stroke={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
+                        보관함
+                      </span>
+                      <span className="text-[13px] truncate">팩 보관함</span>
+                    </div>
+                    <p className="text-[11px] text-text-muted mt-0.5">전체 팩 및 메모 목록 화면</p>
+                  </div>
+                </div>
+                {isPacksSelected && (
+                  <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
+                )}
+              </button>
+
+              {/* 3. 특정 가방/팩 선택 버튼 */}
+              <button
+                type="button"
+                onClick={() => setShowCustomPicker((prev) => !prev)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                  isCustomSelected
+                    ? "bg-accent-soft/20 border-accent/70 text-foreground"
+                    : showCustomPicker
+                    ? "bg-surface-2 border-border text-foreground font-medium"
+                    : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`p-2 rounded-lg shrink-0 ${
+                      isCustomSelected
+                        ? "bg-accent-soft text-accent"
+                        : "bg-surface-2 text-text-secondary"
+                    }`}
+                  >
+                    <IconLayersLinked size={20} stroke={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
+                        지정
+                      </span>
+                      <span className="text-[13px] font-medium truncate">
+                        특정 가방/팩 선택
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      {selectedCustomLabel
+                        ? `선택됨: ${selectedCustomLabel}`
+                        : "원하는 가방이나 팩을 직접 골라요"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 ml-2 text-text-muted">
+                  {isCustomSelected && (
+                    <span className="text-[11px] font-semibold text-accent px-1.5 py-0.5 rounded bg-accent-soft/40">
+                      적용중
+                    </span>
+                  )}
+                  {showCustomPicker ? (
+                    <IconChevronUp size={18} stroke={2} />
+                  ) : (
+                    <IconChevronDown size={18} stroke={2} />
+                  )}
+                </div>
+              </button>
             </div>
-          </div>
 
-          {/* 리스트 영역 */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-4">
-            {/* 1. 기본 화면 섹션 */}
-            {!q && (
-              <div>
-                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider px-1 mb-1.5">
-                  기본 화면
-                </p>
-                <div className="space-y-1">
-                  {/* 가방 보관함 (기본) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSelect({ type: "home", title: "가방 보관함 (기본)" });
-                      onClose();
-                    }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
-                      isHomeSelected
-                        ? "bg-accent-soft/30 border-accent text-accent font-semibold"
-                        : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-1.5 rounded-lg bg-surface-2 text-text-secondary shrink-0">
-                        <IconBackpack size={18} stroke={1.75} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
-                            기본
-                          </span>
-                          <span className="text-[13px] truncate">가방 보관함</span>
-                        </div>
-                        <p className="text-[11px] text-text-muted mt-0.5">전체 가방 목록 화면</p>
-                      </div>
-                    </div>
-                    {isHomeSelected && (
-                      <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
-                    )}
-                  </button>
+            {/* "특정 가방/팩 선택"이 활성화되었을 때 아래에 노출되는 3개 구간 */}
+            {showCustomPicker && (
+              <div className="pt-2 space-y-4 border-t border-border/70 animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* 검색창 */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-2/60 border border-border">
+                  <IconSearch size={16} stroke={1.75} className="text-text-muted shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="가방 또는 팩 이름 검색..."
+                    className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-text-muted outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="text-text-muted hover:text-foreground"
+                    >
+                      <IconX size={14} stroke={2} />
+                    </button>
+                  )}
+                </div>
 
-                  {/* 팩 보관함 */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onSelect({ type: "packs", title: "팩 보관함" });
-                      onClose();
-                    }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
-                      isPacksSelected
-                        ? "bg-accent-soft/30 border-accent text-accent font-semibold"
-                        : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-1.5 rounded-lg bg-surface-2 text-text-secondary shrink-0">
-                        <IconFolder size={18} stroke={1.75} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
-                            보관함
-                          </span>
-                          <span className="text-[13px] truncate">팩 보관함</span>
-                        </div>
-                        <p className="text-[11px] text-text-muted mt-0.5">전체 팩 및 메모 목록</p>
-                      </div>
+                {/* 구간 1: 가방 리스트 */}
+                <div>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <p className="text-[12px] font-bold text-text-secondary flex items-center gap-1.5">
+                      <span>가방 리스트</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-surface-2 text-text-muted">
+                        {filteredBags.length}
+                      </span>
+                    </p>
+                  </div>
+                  {filteredBags.length === 0 ? (
+                    <div className="p-3 text-center rounded-xl border border-dashed border-border text-[12px] text-text-muted">
+                      {q ? "일치하는 가방이 없어요." : "생성된 가방이 없어요."}
                     </div>
-                    {isPacksSelected && (
-                      <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
-                    )}
-                  </button>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredBags.map((bag) => {
+                        const isSelected = currentType === "bag" && currentId === bag.id;
+                        const packCount = bag.packs?.length || 0;
+                        return (
+                          <button
+                            key={bag.id}
+                            type="button"
+                            onClick={() => {
+                              onSelect({ type: "bag", id: bag.id, title: bag.name });
+                              onClose();
+                            }}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                              isSelected
+                                ? "bg-accent-soft/30 border-accent text-accent font-semibold"
+                                : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-surface-2 text-text-secondary shrink-0">
+                                <IconBackpack size={18} stroke={1.75} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
+                                    가방
+                                  </span>
+                                  <span className="text-[13px] truncate">{bag.name}</span>
+                                </div>
+                                <p className="text-[11px] text-text-muted mt-0.5">
+                                  팩 {packCount}개 포함
+                                </p>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 구간 2: 체크팩 리스트 */}
+                <div>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <p className="text-[12px] font-bold text-text-secondary flex items-center gap-1.5">
+                      <span>체크팩 리스트</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-surface-2 text-text-muted">
+                        {filteredChecklistPacks.length}
+                      </span>
+                    </p>
+                  </div>
+                  {filteredChecklistPacks.length === 0 ? (
+                    <div className="p-3 text-center rounded-xl border border-dashed border-border text-[12px] text-text-muted">
+                      {q ? "일치하는 체크팩이 없어요." : "등록된 체크팩이 없어요."}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredChecklistPacks.map((pack) => {
+                        const isSelected = currentType === "pack" && currentId === pack.id;
+                        const itemCount = pack.items?.length || 0;
+                        return (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            onClick={() => {
+                              onSelect({ type: "pack", id: pack.id, title: pack.name });
+                              onClose();
+                            }}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                              isSelected
+                                ? "bg-accent-soft/30 border-accent text-accent font-semibold"
+                                : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                                <IconListCheck size={18} stroke={1.75} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                                    체크팩
+                                  </span>
+                                  <span className="text-[13px] truncate">{pack.name}</span>
+                                </div>
+                                <p className="text-[11px] text-text-muted mt-0.5">
+                                  체크리스트 {itemCount}개
+                                </p>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 구간 3: 메모팩 리스트 */}
+                <div>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <p className="text-[12px] font-bold text-text-secondary flex items-center gap-1.5">
+                      <span>메모팩 리스트</span>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-surface-2 text-text-muted">
+                        {filteredMemoPacks.length}
+                      </span>
+                    </p>
+                  </div>
+                  {filteredMemoPacks.length === 0 ? (
+                    <div className="p-3 text-center rounded-xl border border-dashed border-border text-[12px] text-text-muted">
+                      {q ? "일치하는 메모팩이 없어요." : "등록된 메모팩이 없어요."}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredMemoPacks.map((pack) => {
+                        const isSelected = currentType === "pack" && currentId === pack.id;
+                        return (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            onClick={() => {
+                              onSelect({ type: "pack", id: pack.id, title: pack.name });
+                              onClose();
+                            }}
+                            className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                              isSelected
+                                ? "bg-accent-soft/30 border-accent text-accent font-semibold"
+                                : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                                <IconNotes size={18} stroke={1.75} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                                    메모팩
+                                  </span>
+                                  <span className="text-[13px] truncate">{pack.name}</span>
+                                </div>
+                                <p className="text-[11px] text-text-muted mt-0.5">
+                                  자유 메모
+                                </p>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-
-            {/* 2. 가방 목록 섹션 */}
-            <div>
-              <div className="flex items-center justify-between px-1 mb-1.5">
-                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
-                  특정 가방으로 시작
-                </p>
-                <span className="text-[11px] text-text-muted">{filteredBags.length}개</span>
-              </div>
-              {filteredBags.length === 0 ? (
-                <div className="p-3 text-center rounded-xl border border-dashed border-border text-[12px] text-text-muted">
-                  {q ? "일치하는 가방이 없어요." : "생성된 가방이 없어요."}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredBags.map((bag) => {
-                    const isSelected = currentType === "bag" && currentId === bag.id;
-                    const packCount = bag.packs?.length || 0;
-                    return (
-                      <button
-                        key={bag.id}
-                        type="button"
-                        onClick={() => {
-                          onSelect({ type: "bag", id: bag.id, title: bag.name });
-                          onClose();
-                        }}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? "bg-accent-soft/30 border-accent text-accent font-semibold"
-                            : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="p-1.5 rounded-lg bg-surface-2 text-text-secondary shrink-0">
-                            <IconBackpack size={18} stroke={1.75} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border/80 bg-surface-2 text-text-secondary shrink-0">
-                                가방
-                              </span>
-                              <span className="text-[13px] truncate">{bag.name}</span>
-                            </div>
-                            <p className="text-[11px] text-text-muted mt-0.5">
-                              팩 {packCount}개 포함
-                            </p>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* 3. 팩 목록 섹션 */}
-            <div>
-              <div className="flex items-center justify-between px-1 mb-1.5">
-                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
-                  특정 팩으로 시작
-                </p>
-                <span className="text-[11px] text-text-muted">{filteredPacks.length}개</span>
-              </div>
-              {filteredPacks.length === 0 ? (
-                <div className="p-3 text-center rounded-xl border border-dashed border-border text-[12px] text-text-muted">
-                  {q ? "일치하는 팩이 없어요." : "보관함에 등록된 팩이 없어요."}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredPacks.map((pack) => {
-                    const isSelected = currentType === "pack" && currentId === pack.id;
-                    const isEditor = pack.kind === "editor";
-                    const itemCount = pack.items?.length || 0;
-                    return (
-                      <button
-                        key={pack.id}
-                        type="button"
-                        onClick={() => {
-                          onSelect({ type: "pack", id: pack.id, title: pack.name });
-                          onClose();
-                        }}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? "bg-accent-soft/30 border-accent text-accent font-semibold"
-                            : "bg-surface border-border/70 text-foreground hover:bg-surface-2"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className={`p-1.5 rounded-lg shrink-0 ${
-                              isEditor
-                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            }`}
-                          >
-                            {isEditor ? (
-                              <IconNotes size={18} stroke={1.75} />
-                            ) : (
-                              <IconListCheck size={18} stroke={1.75} />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
-                                  isEditor
-                                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                                    : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                                }`}
-                              >
-                                {isEditor ? "메모" : "팩"}
-                              </span>
-                              <span className="text-[13px] truncate">{pack.name}</span>
-                            </div>
-                            <p className="text-[11px] text-text-muted mt-0.5">
-                              {isEditor ? "자유 메모팩" : `체크리스트 ${itemCount}개`}
-                            </p>
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <IconCheck size={18} stroke={2.5} className="text-accent shrink-0 ml-2" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
