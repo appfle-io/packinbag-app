@@ -33,25 +33,25 @@ function MemoCodeBlockView({
 
   return (
     <div
-      className="my-2 rounded-xl border border-slate-700/60 bg-slate-900 text-slate-100 overflow-hidden shadow-2xs text-left select-text"
+      className="my-2 rounded-xl border border-border/80 bg-surface-2/40 dark:bg-slate-900/90 text-foreground dark:text-slate-100 overflow-hidden shadow-2xs text-left select-text"
       style={indentStyle}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between px-3 py-1 bg-slate-800/80 border-b border-slate-700/50 text-[11px] select-none">
-        <span className="px-1.5 py-0.5 rounded bg-slate-700/70 text-slate-300 font-mono text-[10px] font-bold tracking-wider">
+      <div className="flex items-center justify-between px-3 py-1 bg-surface-2/80 dark:bg-slate-800/80 border-b border-border/70 dark:border-slate-700/50 text-[11px] select-none">
+        <span className="px-1.5 py-0.5 rounded bg-surface dark:bg-slate-700/70 text-text-secondary dark:text-slate-300 font-mono text-[10px] font-bold tracking-wider border border-border/60 dark:border-transparent">
           {getLanguageBadge(block.language)}
         </span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
           title="코드 복사"
           aria-label="코드 복사"
         >
           {copied ? (
             <>
-              <IconCheck size={12} className="text-emerald-400" />
-              <span className="text-emerald-400 font-medium">복사됨</span>
+              <IconCheck size={12} className="text-emerald-500 dark:text-emerald-400" />
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">복사됨</span>
             </>
           ) : (
             <>
@@ -61,7 +61,7 @@ function MemoCodeBlockView({
           )}
         </button>
       </div>
-      <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
+      <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-foreground dark:text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
         {renderSpans(block.spans)}
       </pre>
     </div>
