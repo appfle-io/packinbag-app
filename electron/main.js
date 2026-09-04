@@ -87,7 +87,7 @@ function createWindow(url) {
     minWidth: 440,
     minHeight: 640,
     title: "Packinbag Offline",
-    icon: path.join(__dirname, "../public/icon.png"),
+    icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

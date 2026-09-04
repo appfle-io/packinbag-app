@@ -9,10 +9,12 @@ extraResources:
   - from: ".next/standalone"
     to: "standalone"
 win:
+  icon: "electron/icon.png"
   target:
     - target: zip
   artifactName: "Packinbag-offline-win-portable_1.0.0.${ext}"
 mac:
+  icon: "electron/icon.png"
   target:
     - target: zip
   artifactName: "Packinbag-offline-mac-portable_1.0.0.${ext}"
