@@ -339,6 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         packCardFontScale: data?.packCardFontScale as number | undefined,
         fontScale: data?.fontScale as UserProfile["fontScale"],
         defaultTab: data?.defaultTab as UserProfile["defaultTab"],
+        startPage: data?.startPage as UserProfile["startPage"],
         dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
         bagSortBy: data?.bagSortBy as UserProfile["bagSortBy"],
         bagCardSize: data?.bagCardSize as UserProfile["bagCardSize"],
@@ -750,12 +751,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 앱 실행 시 처음 보여줄 시작페이지 설정 (가방보관함, 팩보관함, 또는 특정 가방/팩)
   const updateStartPage = async (startPage: StartPageConfig) => {
     if (!user) return;
-    setRawProfile((prev) => (prev ? { ...prev, startPage } : prev));
+    const syncedDefaultTab = startPage.type === "packs" ? "packs" : "home";
+    setRawProfile((prev) => (prev ? { ...prev, startPage, defaultTab: syncedDefaultTab } : prev));
     if (isOfflineMode) {
-      saveLocalProfile({ startPage });
+      saveLocalProfile({ startPage, defaultTab: syncedDefaultTab });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { startPage }, { merge: true });
+    await setDoc(
+      doc(db, "users", user.uid),
+      { startPage, defaultTab: syncedDefaultTab },
+      { merge: true }
+    );
   };
 
   const updateBagSortBy = async (sortBy: UserProfile["bagSortBy"]) => {

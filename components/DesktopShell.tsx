@@ -132,11 +132,12 @@ export default function DesktopShell({
       : null;
 
   // 선택된 가방/팩이 목록에서 사라지면(삭제 등) 우측 패널도 자동으로 비운다.
+  // 단, 목록이 비어있는 초기 로딩 타이밍에는 성급히 비우지 않는다.
   useEffect(() => {
-    if (selection?.kind === "bag" && !selectedBag) onSelectionChange(null);
-    if (selection?.kind === "pack" && !selectedPack) onSelectionChange(null);
+    if (selection?.kind === "bag" && !selectedBag && bags.length > 0) onSelectionChange(null);
+    if (selection?.kind === "pack" && !selectedPack && libraryPacks.length > 0) onSelectionChange(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBag, selectedPack, selection?.kind]);
+  }, [selectedBag, selectedPack, selection?.kind, bags.length, libraryPacks.length]);
 
   const handleNewBag = (folderId?: string) => {
     onNewBag().then((created) => {
