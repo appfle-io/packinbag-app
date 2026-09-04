@@ -1,5 +1,8 @@
 # 팩인백 (Pack In Bag)
 
+[![Latest Release](https://img.shields.io/github/v/release/appfle-io/packinbag-app?color=blue&label=Latest%20Release)](https://github.com/appfle-io/packinbag-app/releases/latest)
+[![GitHub Releases](https://img.shields.io/github/downloads/appfle-io/packinbag-app/total?color=success&label=Downloads)](https://github.com/appfle-io/packinbag-app/releases)
+
 **"매번 반복되는 준비물 챙기기, 필요한 것만 쏙쏙 골라 담으세요."**
 
 팩인백은 일상의 모든 반복적인 체크리스트와 짐 싸기를 위해 만든 **모듈형 공유 체크리스트 & 메모 서비스**입니다.  
@@ -63,6 +66,18 @@
   * **메모 스마트 변환**: 자유롭게 적어둔 텍스트 메모나 엑셀 표를 붙여넣으면 팩과 짐 목록으로 알아서 예쁘게 구조화해 줍니다.
 * **내 취향에 맞춘 테마**: 팩 뷰(카드형)와 심플 뷰(노트형) 전환, 다크 모드, 12가지 포인트 컬러와 투명도 조절을 지원합니다.
 * **모바일 & 데스크톱 모두 지원**: 모바일 PWA/iOS 앱은 물론, 데스크톱에서는 3패널 화면으로 넓게 보며 드래그 앤 드롭으로 편하게 정리할 수 있습니다.
+* **완전한 오프라인 모드 지원**: 인터넷이 없는 환경에서도 가방과 팩을 자유롭게 생성, 편집, 백업/복원할 수 있는 데스크톱 전용 무설치(Portable) 버전을 지원합니다.
+
+---
+
+## 다운로드 (Download & Releases)
+
+인터넷 연결이 없는 환경에서도 모든 기능을 사용할 수 있는 **오프라인 무설치(Portable) 데스크톱 앱**을 제공합니다.  
+별도의 설치 과정 없이 다운로드 후 압축을 풀고 실행 파일을 더블클릭하면 즉시 실행됩니다.
+
+* **[최신 릴리즈 페이지 및 다운로드 (GitHub Releases)](https://github.com/appfle-io/packinbag-app/releases/latest)**
+  * **Windows**: `Packinbag-offline-win-portable_*.zip` (압축 해제 후 `Pack In Bag.exe` 실행)
+  * **macOS**: `Packinbag-offline-mac-portable_*.zip` (압축 해제 후 `Pack In Bag.app` 실행)
 
 ---
 
