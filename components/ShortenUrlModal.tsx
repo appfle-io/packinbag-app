@@ -83,7 +83,7 @@ export default function ShortenUrlModal({
                 if (e.key === "Enter") handleSave();
               }}
               maxLength={LINK_LABEL_MAX_LENGTH}
-              placeholder="예: 백화점POSA_정리내용 (비워두면 링크 그대로 보여요)"
+              placeholder="예: 참고자료_정리내용 (비워두면 링크 그대로 보여요)"
               className="rounded-lg border border-border px-3 py-2.5 text-[13px] outline-none"
               style={{ background: "var(--surface-2)" }}
             />

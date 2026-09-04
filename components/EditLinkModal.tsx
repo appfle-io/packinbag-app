@@ -92,7 +92,7 @@ export default function EditLinkModal({
                 if (error) setError(null);
               }}
               maxLength={LINK_LABEL_MAX_LENGTH}
-              placeholder="예: 백화점POSA_정리내용"
+              placeholder="예: 참고자료_정리내용"
               className="rounded-lg border border-border px-3 py-2.5 text-[13px] outline-none"
               style={{ background: "var(--surface-2)" }}
             />
