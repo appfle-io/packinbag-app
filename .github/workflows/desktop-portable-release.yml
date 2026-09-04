@@ -41,6 +41,12 @@ jobs:
       - name: Build Next.js standalone
         env:
           NEXT_STANDALONE: "true"
+          NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDehl5IukN6jpkPDVo9ZJwkKqWclDDkTPI"
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "packinbag-f1983.firebaseapp.com"
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "packinbag-f1983"
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "packinbag-f1983.firebasestorage.app"
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "510272302140"
+          NEXT_PUBLIC_FIREBASE_APP_ID: "1:510272302140:web:a4fdc4f672d1297b7ce739"
         run: npm run build
 
       - name: Prepare standalone assets
