@@ -140,6 +140,6 @@ npm run build
 
 ## 관련 문서 (Documentation)
 
-* [앱스토어 배포 가이드](APP_STORE_GUIDE.md)
-* [환경 설정 및 셋업 가이드](SETUP.md)
+* [앱스토어 배포 가이드](docs/app_store_guide.md)
+* [환경 설정 및 셋업 가이드](docs/setup_guide.md)
 * [QA 체크리스트](docs/qa_checklist.md)

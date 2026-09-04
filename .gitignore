@@ -18,6 +18,8 @@
 /out/
 /build
 /dist
+/dist-desktop/
+*.blockmap
 
 # environment & secrets (절대 commit 금지)
 .env*
