@@ -207,15 +207,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // users/{uid} 문서에서 그대로 읽어온 값. 이용권이 실제로 지금 유효한지(무효화/만료
   // 여부)는 여기 없다 - 아래 unlockLiveStatus가 따로 담당한다 (그 이유는 바로 아래 주석 참고).
-  const [rawProfile, setRawProfile] = useState<UserProfile | null>(null);
+  const isInitialOffline = () => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (
+        urlParams.get("offline") === "true" ||
+        localStorage.getItem("pib_offline_mode") === "true"
+      ) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const [rawProfile, setRawProfile] = useState<UserProfile | null>(() => {
+    if (isInitialOffline()) {
+      return {
+        ...getLocalProfile(),
+        role: "master",
+        premiumPurchase: {
+          purchased: true,
+          purchasedAt: new Date().toISOString(),
+        },
+      };
+    }
+    return null;
+  });
   // unlockCodes/{code} 문서를 실시간 구독해서 얻는 값. 마스터가 "무효화" 버튼을 누르면
   // unlockCodes/{code}.status만 바뀌고 users/{uid} 문서는 안 건드리기 때문에, users/{uid}
   // 구독만으로는 무효화를 실시간으로 알 수 없다 - 그래서 이 문서도 별도로 구독해야 한다.
   const [unlockLiveStatus, setUnlockLiveStatus] = useState<
     "active" | "invalidated" | "expired" | null
   >(null);
-  const [loading, setLoading] = useState(true);
-  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [loading, setLoading] = useState(() => !isInitialOffline());
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(isInitialOffline);
   // signUpWithEmail/resendVerificationByCredential처럼 잠깐 로그인했다가 곧바로
   // signOut하는 흐름 동안 true. AppShell이 이 값을 user와 함께 확인해서 그 사이엔
   const [authBusy, setAuthBusy] = useState(false);
@@ -225,11 +250,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkInternetReachable = async (timeoutMs = 1500): Promise<boolean> => {
     if (typeof window === "undefined") return true;
+    if ((window as any).electronAPI?.checkInternet) {
+      try {
+        const ok = await (window as any).electronAPI.checkInternet();
+        return Boolean(ok);
+      } catch {
+        return false;
+      }
+    }
     if (!navigator.onLine) return false;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      await fetch(`https://www.gstatic.com/generate_204?t=${Date.now()}`, {
+      await fetch(`https://packinbag-f1983.firebaseapp.com?t=${Date.now()}`, {
         method: "HEAD",
         mode: "no-cors",
         cache: "no-store",
@@ -286,7 +319,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchToOnlineMode = () => {
     exitOfflineMode();
     if (typeof window !== "undefined") {
-      window.location.reload();
+      window.location.href = window.location.origin + window.location.pathname;
     }
   };
 
@@ -302,15 +335,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Portable Zip (PC Electron) 환경에서만:
-    // 로그인 화면을 띄우기 전 인터넷 연결을 확인하여, 오프라인이면 바로 오프라인 모드로 진입
-    const isElectron = navigator.userAgent.toLowerCase().includes("electron");
+    // Portable Zip (PC Electron) 환경:
+    // 시작 전 메인 프로세스 검증 외에도 런타임에 오프라인 여부를 이중 체크
+    const isElectron =
+      Boolean((window as any).electronAPI?.isElectron) ||
+      navigator.userAgent.toLowerCase().includes("electron");
+
     if (isElectron) {
-      if (!navigator.onLine) {
-        startOfflineMode();
-        return;
-      }
-      checkInternetReachable(1500).then((reachable) => {
+      checkInternetReachable(1200).then((reachable) => {
         if (!reachable) {
           startOfflineMode();
         }
@@ -362,6 +394,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      // 오프라인 모드일 때는 Firebase Auth 상태(null)로 덮어쓰지 않음
+      const isCurrentlyOffline =
+        isOfflineMode ||
+        (typeof window !== "undefined" &&
+          (localStorage.getItem("pib_offline_mode") === "true" ||
+            new URLSearchParams(window.location.search).get("offline") === "true"));
+      if (isCurrentlyOffline) {
+        return;
+      }
+
       setUser(firebaseUser);
       if (!firebaseUser) {
         setRawProfile(null);

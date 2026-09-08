@@ -1,8 +1,57 @@
-const { app, BrowserWindow, shell, Menu } = require("electron");
+const { app, BrowserWindow, shell, Menu, ipcMain } = require("electron");
 const path = require("path");
 const http = require("http");
+const https = require("https");
 const net = require("net");
 const { fork } = require("child_process");
+
+// 실제 인터넷 연결 확인 (폐쇄망 및 사내망 가짜 응답 차단)
+function checkInternet(timeoutMs = 1200) {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const finish = (result) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(result);
+      }
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    try {
+      const req = https.get(
+        "https://packinbag-f1983.firebaseapp.com",
+        {
+          headers: { "User-Agent": "Packinbag-Desktop-HealthCheck" },
+          rejectUnauthorized: true,
+        },
+        (res) => {
+          clearTimeout(timer);
+          finish(res.statusCode >= 200 && res.statusCode < 400);
+        }
+      );
+
+      req.on("error", () => {
+        clearTimeout(timer);
+        finish(false);
+      });
+
+      req.on("timeout", () => {
+        req.destroy();
+        clearTimeout(timer);
+        finish(false);
+      });
+    } catch {
+      clearTimeout(timer);
+      finish(false);
+    }
+  });
+}
+
+// 렌더러에서 실시간 인터넷 연결 감지용 IPC
+ipcMain.handle("check-internet", async () => {
+  return await checkInternet(1500);
+});
 
 let mainWindow = null;
 let serverProcess = null;
@@ -172,8 +221,10 @@ function createMenu() {
 app.whenReady().then(async () => {
   createMenu();
   try {
-    const url = await startServerAndGetUrl();
-    createWindow(url);
+    const baseUrl = await startServerAndGetUrl();
+    const isOnline = await checkInternet(1000);
+    const initialUrl = isOnline ? baseUrl : `${baseUrl}?offline=true`;
+    createWindow(initialUrl);
   } catch (err) {
     console.error("[Electron] 시작 실패:", err);
     app.quit();
