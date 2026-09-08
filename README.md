@@ -11,8 +11,8 @@
 
 | 플랫폼 | 파일명 | 다운로드 링크 | 파일 크기 |
 | :--- | :--- | :--- | :--- |
-| **Windows** | `Packinbag-offline-win-portable_1.0.0.zip` | [**다운로드 (Windows .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.0-offline-portable/Packinbag-offline-win-portable_1.0.0.zip) | 245 MB |
-| **macOS** | `Packinbag-offline-mac-portable_1.0.0.zip` | [**다운로드 (macOS .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.0-offline-portable/Packinbag-offline-mac-portable_1.0.0.zip) | 232 MB |
+| **Windows** | `Packinbag-offline-win-portable_1.0.1.zip` | [**다운로드 (Windows .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.1-offline-portable/Packinbag-offline-win-portable_1.0.1.zip) | ~245 MB |
+| **macOS** | `Packinbag-offline-mac-portable_1.0.1.zip` | [**다운로드 (macOS .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.1-offline-portable/Packinbag-offline-mac-portable_1.0.1.zip) | ~232 MB |
 
 > **안내**: 별도 설치 없이 압축을 풀고 실행 파일(`Pack In Bag.exe` / `Pack In Bag.app`)을 더블클릭하면 즉시 실행됩니다.  
 > [최신 릴리즈 페이지(Releases) 및 소스코드 보기](https://github.com/appfle-io/packinbag-app/releases/latest)
