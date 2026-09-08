@@ -8,9 +8,12 @@ import {
   IconArrowLeft,
   IconDownload,
   IconUpload,
+  IconCloudUpload,
 } from "@tabler/icons-react";
 import dynamic from "next/dynamic";
 import { useTheme, ThemeMode } from "@/components/ThemeProvider";
+import OfflineDataImportModal from "@/components/OfflineDataImportModal";
+import { getOfflineDataSummary } from "@/lib/offlineImportService";
 
 const TemplateInspectLogsModal = dynamic(
   () => import("@/components/TemplateInspectLogsModal"),
@@ -174,6 +177,8 @@ export default function SettingsScreen({
     logout,
     isOfflineMode,
     exitOfflineMode,
+    switchToOfflineMode,
+    switchToOnlineMode,
   } = useAuth();
   const { show } = useToast();
   const [view, setView] = useState<SettingsView>("main");
@@ -184,7 +189,12 @@ export default function SettingsScreen({
   const [showUnlockCode, setShowUnlockCode] = useState(false);
   const [showMyShortLinks, setShowMyShortLinks] = useState(false);
   const [showAccountLinkModal, setShowAccountLinkModal] = useState(false);
+  const [showOfflineImportModal, setShowOfflineImportModal] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const offlineSummary = useMemo(
+    () => getOfflineDataSummary(),
+    [showOfflineImportModal, isOfflineMode]
+  );
   // v68부터 설정은 하단탭이라, 이 화면(main)에서 스와이프로 뒤로가는 것(설정->가방보관함)은
   // AppShell이 탭 전환 스와이프로 이미 처리한다. 여기서 또 useSwipeBack을 걸면 같은 제스처가
   // 두 군데서 겹쳐 처리돼서(설정->홈으로 바뀐 뒤, 그 홈 상태 기준으로 AppShell 스와이프가
@@ -279,6 +289,7 @@ export default function SettingsScreen({
       return "가방 보관함 (기본)";
     }
     if (startPageConfig.type === "packs") return "팩 보관함";
+    if (startPageConfig.type === "last_used") return "마지막으로 사용한 가방/팩";
     if (startPageConfig.type === "bag") {
       const bag = (bags || []).find((b) => b.id === startPageConfig.id);
       return bag ? `[가방] ${bag.name}` : "가방 보관함 (기본)";
@@ -533,8 +544,63 @@ export default function SettingsScreen({
         </div>
 
         <div className="mb-6">
-          <p className="text-[12px] text-text-secondary mb-2">데이터 백업 및 복원</p>
+          <p className="text-[12px] text-text-secondary mb-2">데이터 관리 & 백업</p>
           <div className="rounded-lg border border-border overflow-hidden">
+            {/* 온/오프라인 보관함 전환 버튼 */}
+            {!isOfflineMode ? (
+              <button
+                type="button"
+                onClick={switchToOfflineMode}
+                className="w-full flex items-center justify-between p-3 border-b border-border hover:bg-surface-2 transition-colors text-left cursor-pointer"
+              >
+                <div>
+                  <span className="text-[13px] font-medium">오프라인 보관함 보기</span>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    로그아웃 없이 기기에 저장된 오프라인 전용 가방과 팩을 확인해요
+                  </p>
+                </div>
+                <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={switchToOnlineMode}
+                className="w-full flex items-center justify-between p-3 border-b border-border hover:bg-surface-2 transition-colors text-left cursor-pointer"
+              >
+                <div>
+                  <span className="text-[13px] font-medium text-accent font-semibold">온라인 계정으로 전환</span>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    클라우드 동기화 계정으로 로그인하여 사용해요
+                  </p>
+                </div>
+                <IconChevronRight size={16} stroke={1.75} color="var(--accent)" />
+              </button>
+            )}
+
+            {/* 온라인 모드에서 오프라인 데이터가 감지되면 가져오기 버튼 노출 */}
+            {!isOfflineMode && (offlineSummary.bags.length > 0 || offlineSummary.packs.length > 0) && (
+              <button
+                type="button"
+                onClick={() => setShowOfflineImportModal(true)}
+                className="w-full flex items-center justify-between p-3 border-b border-border hover:bg-surface-2 transition-colors text-left cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium">오프라인 데이터 가져오기</span>
+                    {offlineSummary.totalUnimportedCount > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-accent text-accent-contrast">
+                        {offlineSummary.totalUnimportedCount}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-text-muted mt-0.5">
+                    오프라인에서 작성한 가방과 팩을 내 계정으로 복사해요 (오프라인 데이터는 유지돼요)
+                  </p>
+                </div>
+                <IconCloudUpload size={18} stroke={1.75} color="var(--text-muted)" />
+              </button>
+            )}
+
             <button
               onClick={handleExportBackup}
               className="w-full flex items-center justify-between p-3 border-b border-border hover:bg-surface-2 transition-colors text-left"
@@ -785,6 +851,12 @@ export default function SettingsScreen({
               show("시작페이지 설정을 저장하지 못했어요");
             }
           }}
+        />
+      )}
+
+      {showOfflineImportModal && (
+        <OfflineDataImportModal
+          onClose={() => setShowOfflineImportModal(false)}
         />
       )}
 

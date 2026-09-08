@@ -95,6 +95,8 @@ import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import DesktopShell from "@/components/DesktopShell";
 import type { DesktopSelection } from "@/components/DesktopSidebar";
+import OfflineStatusBar from "@/components/OfflineStatusBar";
+import { getOfflineDataSummary } from "@/lib/offlineImportService";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -300,7 +302,50 @@ export default function AppShell() {
       return;
     }
 
-    // 3. 특정 가방
+    // 3. 마지막으로 사용한 가방/팩
+    if (startPage.type === "last_used") {
+      if (!bagsLoaded || !packsLoaded) return;
+      appliedStartPageRef.current = true;
+      let lastViewed: { type: string; id?: string } | null = null;
+      try {
+        const raw = localStorage.getItem("pib_last_viewed");
+        if (raw) lastViewed = JSON.parse(raw);
+      } catch {}
+
+      if (lastViewed?.type === "bag" && lastViewed.id) {
+        const targetBag = bags.find(
+          (b) => b.id === lastViewed!.id && !(user && b.ownerId === user.uid && b.trashedByOwnerAt)
+        );
+        if (targetBag) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setTab("home");
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setEditingBag(targetBag);
+          return;
+        }
+      } else if (lastViewed?.type === "pack" && lastViewed.id) {
+        const targetPack = libraryPacks.find(
+          (p) => p.id === lastViewed!.id && !p.trashedAt
+        );
+        if (targetPack) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setTab("packs");
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setEditingPack(targetPack);
+          return;
+        }
+      } else if (lastViewed?.type === "packs") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setTab("packs");
+        return;
+      }
+      // 기록이 없거나 대상이 없음 -> 기본 가방 보관함으로 폴백
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab("home");
+      return;
+    }
+
+    // 4. 특정 가방
     if (startPage.type === "bag") {
       if (!bagsLoaded) return;
       appliedStartPageRef.current = true;
@@ -320,7 +365,7 @@ export default function AppShell() {
       return;
     }
 
-    // 4. 특정 팩
+    // 5. 특정 팩
     if (startPage.type === "pack") {
       if (!packsLoaded) return;
       appliedStartPageRef.current = true;
@@ -345,6 +390,22 @@ export default function AppShell() {
     setTab("home");
     appliedStartPageRef.current = true;
   }, [profile, bagsLoaded, packsLoaded, bags, libraryPacks, user]);
+
+  // 마지막으로 사용한 화면 실시간 기록 (StartPageType "last_used" 지원용)
+  useEffect(() => {
+    if (!appliedStartPageRef.current || typeof window === "undefined") return;
+    try {
+      if (editingBag) {
+        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "bag", id: editingBag.id }));
+      } else if (editingPack) {
+        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "pack", id: editingPack.id }));
+      } else if (tab === "packs") {
+        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "packs" }));
+      } else if (tab === "home") {
+        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "home" }));
+      }
+    } catch {}
+  }, [editingBag, editingPack, tab]);
 
   const showSplash = loading || !splashMinTimeDone;
 
@@ -686,6 +747,23 @@ export default function AppShell() {
       });
     }
   }, [user, profile?.nickname, profile?.avatarId, show]);
+
+  // 온라인 로그인 시 로컬 스토리지에 미가져온 오프라인 데이터가 있으면 1회 토스트 안내
+  useEffect(() => {
+    if (isOfflineMode || !user || user.isAnonymous) return;
+    try {
+      const summary = getOfflineDataSummary();
+      if (summary.totalUnimportedCount > 0) {
+        const alerted = sessionStorage.getItem("pib_offline_import_notified");
+        if (!alerted) {
+          sessionStorage.setItem("pib_offline_import_notified", "true");
+          show(
+            `오프라인에서 작성한 데이터 ${summary.totalUnimportedCount}개가 있어요. [설정 > 오프라인 데이터 가져오기]에서 내 계정으로 가져올 수 있어요.`
+          );
+        }
+      }
+    } catch {}
+  }, [isOfflineMode, user, show]);
 
   // authBusy(회원가입/로그인-미인증체크/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할
   // 사이 signOut하는 흐름) 체크를 loading보다 먼저 한다 - 원래는 loading을 먼저 체크했는데,
@@ -1455,71 +1533,74 @@ export default function AppShell() {
 
   if (isDesktop) {
     return (
-      <>
-        <DesktopShell
-          user={user}
-          profile={profile}
-          bags={activeBags}
-          libraryPacks={activePacks}
-          quickPack={quickPack}
-          lockedBagIds={lockedBagIds}
-          selection={desktopSelection}
-          onSelectionChange={handleDesktopSelectionChange}
-          isNewBag={isNewBag}
-          requestUnlockForBag={requestUnlockForBag}
-          requestUnlockForPack={requestUnlockForPack}
-          onNewBag={openNewBag}
-          onSaveBag={handleSaveBag}
-          onDeleteBag={handleDeleteBag}
-          onRenameBag={handleRenameBag}
-          onSaveAsLibraryPack={handleSaveAsLibraryPack}
-          onTrashPackFromBag={handleTrashPackFromBag}
-          onLeaveBag={handleLeaveBag}
-          onRemoveMember={handleRemoveMember}
-          onRegenerateInviteCode={handleRegenerateInviteCode}
-          onTransferOwnership={handleTransferOwnership}
-          onAddItemsToBagPack={handleAddItemsToBagPack}
-          onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-          onNewPack={openNewPack}
-          onNewFolder={handleCreateFolder}
-          onRenamePackEntry={handleRenameLibraryEntry}
-          onMovePackEntries={handleMoveLibraryEntries}
-          onSavePack={handleSavePack}
-          onDeletePack={handleDeletePack}
-          announcements={announcements}
-          dismissedAnnouncementIds={dismissedIds}
-          onDismissAnnouncement={handleDismissAnnouncement}
-          onCreateAnnouncement={handleCreateAnnouncement}
-          onUpdateAnnouncement={handleUpdateAnnouncement}
-          onDeleteAnnouncement={handleDeleteAnnouncement}
-          trashedBags={trashedBags}
-          trashedPacks={trashedPacks}
-          onRestoreBag={handleRestoreBag}
-          onPermanentDeleteBag={handlePermanentDeleteBag}
-          onRestorePack={handleRestorePack}
-          onPermanentDeletePack={handlePermanentDeletePack}
-        />
-        {showIntroModal && introSlides.length > 0 && (
-          <InitialGuideCarouselModal
-            slides={introSlides}
-            onClose={() => setShowIntroModal(false)}
+      <div className="flex flex-col h-dvh overflow-hidden bg-background">
+        <OfflineStatusBar />
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          <DesktopShell
+            user={user}
+            profile={profile}
+            bags={activeBags}
+            libraryPacks={activePacks}
+            quickPack={quickPack}
+            lockedBagIds={lockedBagIds}
+            selection={desktopSelection}
+            onSelectionChange={handleDesktopSelectionChange}
+            isNewBag={isNewBag}
+            requestUnlockForBag={requestUnlockForBag}
+            requestUnlockForPack={requestUnlockForPack}
+            onNewBag={openNewBag}
+            onSaveBag={handleSaveBag}
+            onDeleteBag={handleDeleteBag}
+            onRenameBag={handleRenameBag}
+            onSaveAsLibraryPack={handleSaveAsLibraryPack}
+            onTrashPackFromBag={handleTrashPackFromBag}
+            onLeaveBag={handleLeaveBag}
+            onRemoveMember={handleRemoveMember}
+            onRegenerateInviteCode={handleRegenerateInviteCode}
+            onTransferOwnership={handleTransferOwnership}
+            onAddItemsToBagPack={handleAddItemsToBagPack}
+            onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+            onNewPack={openNewPack}
+            onNewFolder={handleCreateFolder}
+            onRenamePackEntry={handleRenameLibraryEntry}
+            onMovePackEntries={handleMoveLibraryEntries}
+            onSavePack={handleSavePack}
+            onDeletePack={handleDeletePack}
+            announcements={announcements}
+            dismissedAnnouncementIds={dismissedIds}
+            onDismissAnnouncement={handleDismissAnnouncement}
+            onCreateAnnouncement={handleCreateAnnouncement}
+            onUpdateAnnouncement={handleUpdateAnnouncement}
+            onDeleteAnnouncement={handleDeleteAnnouncement}
+            trashedBags={trashedBags}
+            trashedPacks={trashedPacks}
+            onRestoreBag={handleRestoreBag}
+            onPermanentDeleteBag={handlePermanentDeleteBag}
+            onRestorePack={handleRestorePack}
+            onPermanentDeletePack={handlePermanentDeletePack}
           />
-        )}
-        {premiumLimitMessage && (
-          <PremiumLimitModal
-            message={premiumLimitMessage}
-            onClose={() => setPremiumLimitMessage(null)}
-            onUnlocked={() => {
-              setPremiumLimitMessage(null);
-              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
-            }}
-          />
-        )}
-        <SplashScreen visible={showSplash} />
-        <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-        <CreatingBagOverlay visible={creatingBag} />
-        <CreatingPackOverlay visible={creatingPack} />
-      </>
+          {showIntroModal && introSlides.length > 0 && (
+            <InitialGuideCarouselModal
+              slides={introSlides}
+              onClose={() => setShowIntroModal(false)}
+            />
+          )}
+          {premiumLimitMessage && (
+            <PremiumLimitModal
+              message={premiumLimitMessage}
+              onClose={() => setPremiumLimitMessage(null)}
+              onUnlocked={() => {
+                setPremiumLimitMessage(null);
+                show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+              }}
+            />
+          )}
+          <SplashScreen visible={showSplash} />
+          <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
+          <CreatingBagOverlay visible={creatingBag} />
+          <CreatingPackOverlay visible={creatingPack} />
+        </div>
+      </div>
     );
   }
 
@@ -1585,7 +1666,8 @@ export default function AppShell() {
 
   return (
     <>
-      <div className="relative flex flex-col h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top">
+      <OfflineStatusBar />
+      <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top overflow-hidden">
         <EmailVerifyBanner />
         <div
           className="flex-1 overflow-hidden"

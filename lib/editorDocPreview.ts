@@ -40,6 +40,7 @@ export interface RichBlock {
   fileKind?: string;
   fileExtension?: string;
   language?: string;
+  isCollapsed?: boolean;
 }
 
 interface DocNode {
@@ -54,6 +55,7 @@ interface DocNode {
     open?: boolean;
     textAlign?: "left" | "center" | "right" | "justify";
     language?: string;
+    isCollapsed?: boolean;
   };
   marks?: { type?: string; attrs?: { href?: string; color?: string } }[];
   content?: DocNode[];
@@ -288,8 +290,9 @@ export function collectEditorDocRichBlocks(doc: unknown): RichBlock[] {
     } else if (type === "codeBlock") {
       const spans = extractSpans(node);
       const language = node.attrs?.language;
+      const isCollapsed = Boolean(node.attrs?.isCollapsed);
       if (spans.some((s) => s.text.trim().length > 0)) {
-        blocks.push({ type: "code", spans, depth, language });
+        blocks.push({ type: "code", spans, depth, language, isCollapsed });
       }
     } else if (type === "horizontalRule") {
       blocks.push({ type: "hr", spans: [], depth });

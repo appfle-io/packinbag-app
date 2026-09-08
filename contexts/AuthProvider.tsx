@@ -69,6 +69,8 @@ interface AuthContextValue {
   isMaster: boolean;
   startOfflineMode: () => void;
   exitOfflineMode: () => void;
+  switchToOfflineMode: () => void;
+  switchToOnlineMode: () => void;
   signInAsGuest: () => Promise<void>;
   linkAccountWithGoogle: () => Promise<void>;
   linkAccountWithApple: () => Promise<void>;
@@ -221,6 +223,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isMasterToken, setIsMasterToken] = useState(false);
   const [isMasterApi, setIsMasterApi] = useState(false);
 
+  const checkInternetReachable = async (timeoutMs = 1500): Promise<boolean> => {
+    if (typeof window === "undefined") return true;
+    if (!navigator.onLine) return false;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      await fetch(`https://www.gstatic.com/generate_204?t=${Date.now()}`, {
+        method: "HEAD",
+        mode: "no-cors",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const startOfflineMode = () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("pib_offline_mode", "true");
@@ -258,17 +279,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  useEffect(() => {
+  const switchToOfflineMode = () => {
+    startOfflineMode();
+  };
+
+  const switchToOnlineMode = () => {
+    exitOfflineMode();
     if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isElectron = navigator.userAgent.toLowerCase().includes("electron");
-      if (
-        localStorage.getItem("pib_offline_mode") === "true" ||
-        urlParams.get("offline") === "true" ||
-        isElectron
-      ) {
+      window.location.reload();
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isExplicitOffline =
+      localStorage.getItem("pib_offline_mode") === "true" ||
+      urlParams.get("offline") === "true";
+
+    if (isExplicitOffline) {
+      startOfflineMode();
+      return;
+    }
+
+    // Portable Zip (PC Electron) 환경에서만:
+    // 로그인 화면을 띄우기 전 인터넷 연결을 확인하여, 오프라인이면 바로 오프라인 모드로 진입
+    const isElectron = navigator.userAgent.toLowerCase().includes("electron");
+    if (isElectron) {
+      if (!navigator.onLine) {
         startOfflineMode();
+        return;
       }
+      checkInternetReachable(1500).then((reachable) => {
+        if (!reachable) {
+          startOfflineMode();
+        }
+      });
     }
   }, []);
 
@@ -1220,6 +1266,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isOfflineMode,
         startOfflineMode,
         exitOfflineMode,
+        switchToOfflineMode,
+        switchToOnlineMode,
         authBusy,
         isMaster:
           isMasterApi ||

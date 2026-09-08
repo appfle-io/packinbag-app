@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { IconChevronRight, IconCopy, IconCheck } from "@tabler/icons-react";
+import { IconChevronRight, IconCopy, IconCheck, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { RichBlock, RichSpan, collectEditorDocRichBlocks } from "@/lib/editorDocPreview";
 import { openExternalLink } from "@/lib/openExternalLink";
 import { getLanguageBadge } from "@/lib/lowlightSetup";
@@ -16,6 +16,7 @@ function MemoCodeBlockView({
   renderSpans: (spans: RichSpan[]) => React.ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(Boolean(block.isCollapsed));
   const codeText = block.spans.map((s) => s.text).join("");
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -31,39 +32,75 @@ function MemoCodeBlockView({
     }
   };
 
+  const handleToggleFold = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCollapsed((prev) => !prev);
+  };
+
   return (
     <div
       className="my-2 rounded-xl border border-border/80 bg-surface-2/40 dark:bg-slate-900/90 text-foreground dark:text-slate-100 overflow-hidden shadow-2xs text-left select-text"
       style={indentStyle}
       onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center justify-between px-3 py-1 bg-surface-2/80 dark:bg-slate-800/80 border-b border-border/70 dark:border-slate-700/50 text-[11px] select-none">
+      <div
+        className={`flex items-center justify-between px-3 py-1 bg-surface-2/80 dark:bg-slate-800/80 ${
+          isCollapsed ? "" : "border-b border-border/70 dark:border-slate-700/50"
+        } text-[11px] select-none`}
+      >
         <span className="px-1.5 py-0.5 rounded bg-surface dark:bg-slate-700/70 text-text-secondary dark:text-slate-300 font-mono text-[10px] font-bold tracking-wider border border-border/60 dark:border-transparent">
           {getLanguageBadge(block.language)}
         </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
-          title="코드 복사"
-          aria-label="코드 복사"
-        >
-          {copied ? (
-            <>
-              <IconCheck size={12} className="text-emerald-500 dark:text-emerald-400" />
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">복사됨</span>
-            </>
-          ) : (
-            <>
-              <IconCopy size={12} />
-              <span>복사</span>
-            </>
-          )}
-        </button>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleToggleFold}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
+            title={isCollapsed ? "코드 펼치기" : "코드 접기"}
+            aria-label={isCollapsed ? "코드 펼치기" : "코드 접기"}
+          >
+            {isCollapsed ? (
+              <>
+                <IconChevronDown size={12} />
+                <span>펼치기</span>
+              </>
+            ) : (
+              <>
+                <IconChevronUp size={12} />
+                <span>접기</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
+            title="코드 복사"
+            aria-label="코드 복사"
+          >
+            {copied ? (
+              <>
+                <IconCheck size={12} className="text-emerald-500 dark:text-emerald-400" />
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">복사됨</span>
+              </>
+            ) : (
+              <>
+                <IconCopy size={12} />
+                <span>복사</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
-      <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-foreground dark:text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
-        {renderSpans(block.spans)}
-      </pre>
+      {!isCollapsed && (
+        <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-foreground dark:text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
+          {renderSpans(block.spans)}
+        </pre>
+      )}
     </div>
   );
 }

@@ -94,6 +94,19 @@ import CodeBlockComponent from "@/components/editor/CodeBlockComponent";
 import { ImageAttachment, FileAttachment } from "./noteEditorAttachmentExtensions";
 
 const CustomCodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      isCollapsed: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-collapsed") === "true",
+        renderHTML: (attributes) => {
+          if (!attributes.isCollapsed) return {};
+          return { "data-collapsed": "true" };
+        },
+      },
+    };
+  },
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockComponent);
   },

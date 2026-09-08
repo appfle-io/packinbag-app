@@ -12,9 +12,9 @@ win:
   icon: "electron/icon.ico"
   target:
     - target: zip
-  artifactName: "Packinbag-offline-win-portable_1.0.0.${ext}"
+  artifactName: "Packinbag-offline-win-portable_${version}.${ext}"
 mac:
   icon: "electron/icon.png"
   target:
     - target: zip
-  artifactName: "Packinbag-offline-mac-portable_1.0.0.${ext}"
+  artifactName: "Packinbag-offline-mac-portable_${version}.${ext}"

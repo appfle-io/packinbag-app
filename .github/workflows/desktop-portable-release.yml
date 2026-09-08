@@ -92,8 +92,9 @@ jobs:
             다운로드 후 압축을 풀고 실행 파일을 더블클릭하면 즉시 실행됩니다.
 
             ### 다운로드
-            - Windows: `Packinbag-offline-win-portable_1.0.0.zip`
-            - macOS: `Packinbag-offline-mac-portable_1.0.0.zip`
+            - 하단 Assets 영역에서 각 OS별 무설치 압축 파일(.zip)을 다운로드하세요.
+            - Windows: `Packinbag-offline-win-portable_*.zip`
+            - macOS: `Packinbag-offline-mac-portable_*.zip`
 
             ### 주요 안내
             - 설치가 필요 없는 무설치 포터블 버전

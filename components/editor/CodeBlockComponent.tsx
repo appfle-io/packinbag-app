@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
-import { IconCopy, IconCheck, IconChevronDown } from "@tabler/icons-react";
+import { IconCopy, IconCheck, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import {
   SUPPORTED_CODE_LANGUAGES,
   normalizeLanguage,
@@ -17,6 +17,7 @@ export default function CodeBlockComponent({
 }: NodeViewProps) {
   const [copied, setCopied] = useState(false);
   const rawLang = node.attrs.language as string | undefined;
+  const isCollapsed = Boolean(node.attrs.isCollapsed);
   const currentLang = normalizeLanguage(rawLang || extension.options.defaultLanguage);
   const isEditable = editor.isEditable;
 
@@ -34,6 +35,12 @@ export default function CodeBlockComponent({
     }
   };
 
+  const handleToggleFold = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    updateAttributes({ isCollapsed: !isCollapsed });
+  };
+
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const nextLang = e.target.value;
     updateAttributes({ language: nextLang });
@@ -41,10 +48,12 @@ export default function CodeBlockComponent({
 
   return (
     <NodeViewWrapper className="code-block-wrapper relative my-3 rounded-xl border border-border/80 bg-surface-2/40 dark:bg-slate-900/90 text-foreground dark:text-slate-100 overflow-hidden shadow-xs select-text">
-      {/* 상단 툴바 헤더 (언어 선택 & 복사 버튼) */}
+      {/* 상단 툴바 헤더 (언어 선택 & 접기/펼치기 & 복사 버튼) */}
       <div
         contentEditable={false}
-        className="flex items-center justify-between px-3 py-1.5 bg-surface-2/80 dark:bg-slate-800/80 border-b border-border/70 dark:border-slate-700/50 text-[11.5px] select-none"
+        className={`flex items-center justify-between px-3 py-1.5 bg-surface-2/80 dark:bg-slate-800/80 ${
+          isCollapsed ? "" : "border-b border-border/70 dark:border-slate-700/50"
+        } text-[11.5px] select-none`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {isEditable ? (
@@ -74,30 +83,57 @@ export default function CodeBlockComponent({
           </span>
         )}
 
-        <button
-          type="button"
-          onClick={handleCopy}
-          onMouseDown={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
-          title="코드 복사"
-          aria-label="코드 복사"
-        >
-          {copied ? (
-            <>
-              <IconCheck size={13} className="text-emerald-500 dark:text-emerald-400" />
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">복사됨</span>
-            </>
-          ) : (
-            <>
-              <IconCopy size={13} />
-              <span>복사</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleToggleFold}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
+            title={isCollapsed ? "코드 펼치기" : "코드 접기"}
+            aria-label={isCollapsed ? "코드 펼치기" : "코드 접기"}
+          >
+            {isCollapsed ? (
+              <>
+                <IconChevronDown size={13} />
+                <span>펼치기</span>
+              </>
+            ) : (
+              <>
+                <IconChevronUp size={13} />
+                <span>접기</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
+            title="코드 복사"
+            aria-label="코드 복사"
+          >
+            {copied ? (
+              <>
+                <IconCheck size={13} className="text-emerald-500 dark:text-emerald-400" />
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">복사됨</span>
+              </>
+            ) : (
+              <>
+                <IconCopy size={13} />
+                <span>복사</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 코드 본문 */}
-      <pre className="p-3 text-[13px] font-mono leading-relaxed overflow-x-auto whitespace-pre bg-transparent m-0">
+      <pre
+        className={`p-3 text-[13px] font-mono leading-relaxed overflow-x-auto whitespace-pre bg-transparent m-0 ${
+          isCollapsed ? "hidden" : ""
+        }`}
+      >
         <NodeViewContent as="code" className={`hljs language-${currentLang}`} />
       </pre>
     </NodeViewWrapper>

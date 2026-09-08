@@ -231,7 +231,7 @@ export type AvatarId = string;
 // 시작하는 순간 자동으로 이 값으로 전환된다.
 export type ListSortOption = "createdAt" | "nameAsc" | "nameDesc" | "updatedAt" | "custom";
 
-export type StartPageType = "home" | "packs" | "bag" | "pack";
+export type StartPageType = "home" | "packs" | "last_used" | "bag" | "pack";
 
 export interface StartPageConfig {
   type: StartPageType;
