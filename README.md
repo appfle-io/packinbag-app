@@ -1,8 +1,5 @@
 # 팩인백 (Pack In Bag)
 
-[![Latest Release](https://img.shields.io/github/v/release/appfle-io/packinbag-app?color=blue&label=Latest%20Release)](https://github.com/appfle-io/packinbag-app/releases/latest)
-[![GitHub Releases](https://img.shields.io/github/downloads/appfle-io/packinbag-app/total?color=success&label=Downloads)](https://github.com/appfle-io/packinbag-app/releases)
-
 **"매번 반복되는 준비물 챙기기, 필요한 것만 쏙쏙 골라 담으세요."**
 
 ---
