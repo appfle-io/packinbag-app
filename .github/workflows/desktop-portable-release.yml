@@ -69,6 +69,9 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -82,35 +85,7 @@ jobs:
 
       - name: Generate Release Body
         run: |
-          TAG_NAME="${{ github.ref_name || 'v1.0.3-offline-portable' }}"
-          VERSION=$(echo "$TAG_NAME" | sed -E 's/^v([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
-          echo "Extracting release notes for version $VERSION..."
-
-          awk -v ver="$VERSION" '
-            $0 ~ "^## \\[" ver "\\]" { flag=1; print; next }
-            flag && /^## \\[/ { flag=0 }
-            flag { print }
-          ' CHANGELOG.md > release-body.md
-
-          if [ ! -s release-body.md ]; then
-            echo "## [팩인백 오프라인 무설치 배포판 $TAG_NAME]" > release-body.md
-          fi
-
-          cat << 'EOF' >> release-body.md
-
----
-
-### 다운로드 및 실행 안내
-- 하단 **Assets** 영역에서 사용 중인 OS의 압축 파일(.zip)을 다운로드하세요.
-- **Windows**: `Packinbag-offline-win-portable_*.zip` (압축 해제 후 `Pack In Bag.exe` 실행)
-- **macOS**: `Packinbag-offline-mac-portable_*.zip` (압축 해제 후 `Pack In Bag.app` 실행)
-
-### 주요 특징
-- 별도의 설치 과정 없이 즉시 실행되는 포터블 에디션
-- 모든 데이터가 내 PC 로컬에 안전하게 보관됨 (인터넷/로그인 불필요)
-- 설정 > 데이터 백업 및 복원에서 .json 백업 파일 내보내기/불러오기 지원
-EOF
-
+          node scripts/generate-release-body.js "${{ github.ref_name }}"
           cat release-body.md
 
       - name: Create Release
