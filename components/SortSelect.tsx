@@ -13,15 +13,14 @@ export default function SortSelect({
 }) {
   return (
     <div
-      className="relative flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 shrink-0"
-      style={{ background: "var(--surface-2)" }}
+      className="relative flex items-center rounded-md border border-border/80 px-2 py-1 shrink-0"
+      style={{ background: "var(--surface)" }}
     >
-      <IconArrowsSort size={14} stroke={1.75} color="var(--text-secondary)" />
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as ListSortOption)}
         aria-label="정렬 기준"
-        className="bg-transparent text-[12px] pr-1 outline-none"
+        className="bg-transparent text-[11.5px] pr-0.5 outline-none font-medium"
         style={{ color: "var(--text-secondary)" }}
       >
         {SORT_OPTIONS.map((opt) => (

@@ -99,24 +99,82 @@ export function saveLocalBag(bag: Bag) {
   safeSetItem(LOCAL_BAGS_KEY, list);
 }
 
-export function createLocalBag(name: string): Bag {
+export function createLocalBag(name: string, isKanban: boolean = false): Bag {
+  const now = new Date().toISOString();
+  const baseId = `local_bag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  
+  let initialPacks: Pack[] = [];
+  if (isKanban) {
+    initialPacks = [
+      {
+        id: `pack_${Date.now()}_1`,
+        name: "업무노트",
+        kind: "editor",
+        systemRole: "memo",
+        editorDoc: { type: "doc", content: [{ type: "paragraph" }] },
+        items: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: `pack_${Date.now()}_2`,
+        name: "대기",
+        kind: "checklist",
+        systemRole: "todo",
+        items: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: `pack_${Date.now()}_3`,
+        name: "진행중",
+        kind: "checklist",
+        systemRole: "in_progress",
+        items: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: `pack_${Date.now()}_4`,
+        name: "완료",
+        kind: "checklist",
+        systemRole: "done",
+        isDonePack: true,
+        items: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: `pack_${Date.now()}_5`,
+        name: "보류",
+        kind: "checklist",
+        systemRole: "on_hold",
+        items: [],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+
   const newBag: Bag = {
-    id: `local_bag_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    name: name.trim() || "새 가방",
+    id: baseId,
+    name: name.trim() || (isKanban ? "새 칸반보드" : "새 가방"),
     images: [],
-    packs: [],
+    packs: initialPacks,
+    isKanban: isKanban,
+    autoMoveDoneItems: isKanban ? true : false,
     memberIds: [OFFLINE_USER_UID],
     memberProfiles: {
       [OFFLINE_USER_UID]: {
         nickname: "오프라인 사용자",
         avatarId: "avatar-1",
-        joinedAt: new Date().toISOString(),
+        joinedAt: now,
       },
     },
     ownerId: OFFLINE_USER_UID,
     inviteCode: "OFFLINE",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
   saveLocalBag(newBag);
   return newBag;

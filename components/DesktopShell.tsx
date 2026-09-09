@@ -10,6 +10,8 @@ import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScree
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import DesktopQuickPackChatView from "@/components/DesktopQuickPackChatView";
+import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
+import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { useToast } from "@/components/Toast";
 import Portal from "@/components/Portal";
@@ -34,6 +36,8 @@ export default function DesktopShell({
   requestUnlockForBag,
   requestUnlockForPack,
   onNewBag,
+  onNewKanbanBag,
+  onImportNote,
   onSaveBag,
   onDeleteBag,
   onRenameBag,
@@ -83,6 +87,8 @@ export default function DesktopShell({
   requestUnlockForBag: () => void;
   requestUnlockForPack: () => void;
   onNewBag: () => Promise<Bag | void>;
+  onNewKanbanBag: () => Promise<Bag | void>;
+  onImportNote?: (result: NoteImportResult) => void;
   onSaveBag: (bag: Bag) => void;
   onDeleteBag: (bag: Bag) => void;
   onRenameBag: (bag: Bag, name: string) => void;
@@ -139,11 +145,31 @@ export default function DesktopShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBag, selectedPack, selection?.kind, bags.length, libraryPacks.length]);
 
-  const handleNewBag = (folderId?: string) => {
+  const [showNewBagOptions, setShowNewBagOptions] = useState(false);
+  const [showNoteImport, setShowNoteImport] = useState(false);
+  const [pendingFolderId, setPendingFolderId] = useState<string | undefined>();
+
+  const handleOpenNewBagOptions = (folderId?: string) => {
+    setPendingFolderId(folderId);
+    setShowNewBagOptions(true);
+  };
+
+  const handleCreateBlankBag = () => {
+    setShowNewBagOptions(false);
     onNewBag().then((created) => {
       if (created) {
         onSelectionChange({ kind: "bag", bagId: created.id });
-        if (folderId) moveBagToFolder(created.id, folderId).catch(() => {});
+        if (pendingFolderId) moveBagToFolder(created.id, pendingFolderId).catch(() => {});
+      }
+    });
+  };
+
+  const handleCreateKanbanBag = () => {
+    setShowNewBagOptions(false);
+    onNewKanbanBag().then((created) => {
+      if (created) {
+        onSelectionChange({ kind: "bag", bagId: created.id });
+        if (pendingFolderId) moveBagToFolder(created.id, pendingFolderId).catch(() => {});
       }
     });
   };
@@ -250,7 +276,7 @@ export default function DesktopShell({
         libraryPacks={libraryPacks}
         selection={selection}
         onSelect={handleSidebarSelect}
-        onNewBag={handleNewBag}
+        onNewBag={handleOpenNewBagOptions}
         onDeleteBag={onDeleteBag}
         onRenameBag={onRenameBag}
         onNewPack={handleNewPack}
@@ -384,6 +410,28 @@ export default function DesktopShell({
             </div>
           </div>
         </Portal>
+      )}
+
+      {showNewBagOptions && (
+        <NewBagOptionsSheet
+          onClose={() => setShowNewBagOptions(false)}
+          onBlank={handleCreateBlankBag}
+          onKanban={handleCreateKanbanBag}
+          onFromNote={() => {
+            setShowNewBagOptions(false);
+            setShowNoteImport(true);
+          }}
+        />
+      )}
+
+      {!isOfflineMode && showNoteImport && onImportNote && (
+        <NoteImportModal
+          onClose={() => setShowNoteImport(false)}
+          onResult={(result) => {
+            setShowNoteImport(false);
+            onImportNote(result);
+          }}
+        />
       )}
     </div>
   );

@@ -49,6 +49,7 @@ import PackChipBar from "@/components/PackChipBar";
 import ItemEditModal from "@/components/ItemEditModal";
 import PackImportModal from "@/components/PackImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import ChangeDonePackModal from "@/components/ChangeDonePackModal";
 import SaveAsDialog from "@/components/SaveAsDialog";
 import PackUpdateDialog from "@/components/PackUpdateDialog";
 import GroupMembersModal from "@/components/GroupMembersModal";
@@ -202,6 +203,10 @@ export default function BagEditorScreen({
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [premiumModalMessage, setPremiumModalMessage] = useState<string | null>(null);
   const [refreshConfirmTarget, setRefreshConfirmTarget] = useState<string | null>(null);
+  const [donePackDeleteTarget, setDonePackDeleteTarget] = useState<{
+    packId: string;
+    alsoDeleteLibrary: boolean;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { show } = useToast();
   const { profile, updatePackDisplayState, updateAllPackDisplayStates, updateBagViewMode } = useAuth();
@@ -872,6 +877,31 @@ export default function BagEditorScreen({
 
   const handleToggleItem = (packId: string, itemId: string) => {
     if (guardReadOnly()) return;
+
+    if (bag.isKanban && bag.autoMoveDoneItems) {
+      const sourcePack = bag.packs.find((p) => p.id === packId);
+      const item = sourcePack?.items.find((i) => i.id === itemId);
+      const isChecking = item && !item.checked;
+      const donePack = bag.packs.find((p) => p.isDonePack && p.kind !== "editor");
+
+      if (isChecking && donePack && donePack.id !== packId) {
+        const updatedItem = { ...item, checked: true };
+        updatePacks((packs) =>
+          packs.map((p) => {
+            if (p.id === packId) {
+              return { ...p, items: p.items.filter((i) => i.id !== itemId) };
+            }
+            if (p.id === donePack.id) {
+              return { ...p, items: [...p.items, updatedItem] };
+            }
+            return p;
+          })
+        );
+        show(`'${donePack.name}' 팩으로 이동했어요`);
+        return;
+      }
+    }
+
     updatePacks((packs) =>
       packs.map((p) =>
         p.id !== packId
@@ -1234,8 +1264,19 @@ export default function BagEditorScreen({
     return newPackId;
   };
 
-  const handleDeletePack = (packId: string, alsoDeleteLibrary: boolean) => {
+  const handleSetDonePack = (packId: string) => {
     if (guardReadOnly()) return;
+    updatePacks((packs) =>
+      packs.map((p) => ({
+        ...p,
+        isDonePack: p.id === packId,
+      }))
+    );
+    const targetPack = bag.packs.find((p) => p.id === packId);
+    show(`'${targetPack?.name ?? "팩"}'을 완료 팩으로 지정했어요`);
+  };
+
+  const executeDeletePack = (packId: string, alsoDeleteLibrary: boolean) => {
     const pack = bag.packs.find((p) => p.id === packId);
     updatePacks((packs) => packs.filter((p) => p.id !== packId));
     if (alsoDeleteLibrary && pack?.linkedLibraryPackId) {
@@ -1244,14 +1285,26 @@ export default function BagEditorScreen({
         show("보관함에서는 삭제하지 못했어요");
       });
     }
-    // 가방에서 지운 팩은 완전히 사라지는 게 아니라 팩 보관함 휴지통으로 사본이
-    // 옮겨간다(어느 가방에서 지웠는지도 함께 기록돼서 휴지통에서 바로 보인다).
-    // "보관함에서도 삭제" 옵션은 이미 연동돼있던 별도의 보관함 팩(위에서 처리)만
-    // 대상으로 하고, 이 휴지통 사본과는 무관하다.
     if (pack) {
       onTrashPackFromBag(pack, bag.id, bag.name);
     }
     show(alsoDeleteLibrary ? "팩을 가방과 보관함에서 모두 삭제했어요" : "팩을 휴지통으로 옮겼어요");
+  };
+
+  const handleDeletePack = (packId: string, alsoDeleteLibrary: boolean) => {
+    if (guardReadOnly()) return;
+    const pack = bag.packs.find((p) => p.id === packId);
+    // 완료 팩을 삭제하려고 할 때 다른 체크리스트 팩이 남아있다면 새 완료 팩 선택 유도
+    if (pack?.isDonePack) {
+      const otherChecklistPacks = bag.packs.filter(
+        (p) => p.id !== packId && p.kind !== "editor"
+      );
+      if (otherChecklistPacks.length > 0) {
+        setDonePackDeleteTarget({ packId, alsoDeleteLibrary });
+        return;
+      }
+    }
+    executeDeletePack(packId, alsoDeleteLibrary);
   };
 
   // 팩 카드 개별 토글(넓히기/접기)에서 호출되는 경우와, 상단 전체 컨트롤(접기/기본/펼치기)에서
@@ -2559,18 +2612,20 @@ export default function BagEditorScreen({
             className="flex gap-2 mb-4 flex-wrap sticky top-0 z-10 py-2"
             style={{ background: "var(--background)" }}
           >
-            <button
-              onClick={() => setShowImport(true)}
-              aria-label="팩 불러오기"
-              className="rounded-md border border-border p-2"
-            >
-              <IconPackageImport size={17} stroke={1.75} />
-            </button>
+            {!bag.isKanban && (
+              <button
+                onClick={() => setShowImport(true)}
+                aria-label="팩 불러오기"
+                className="rounded-md border border-border p-2 hover:bg-surface-2 transition-colors"
+              >
+                <IconPackageImport size={17} stroke={1.75} />
+              </button>
+            )}
             <button
               onClick={() => setShowAddPackKindSheet(true)}
               disabled={bag.packs.length >= 10}
               aria-label="새 팩 추가"
-              className="relative rounded-md border border-border p-2 disabled:opacity-40"
+              className="relative rounded-md border border-border p-2 disabled:opacity-40 hover:bg-surface-2 transition-colors"
             >
               <IconPackage size={17} stroke={1.75} />
               <span
@@ -2701,10 +2756,62 @@ export default function BagEditorScreen({
                         {filterOnlyMyItems && <IconCheck size={14} stroke={2.5} />}
                       </button>
                     )}
+                    {bag.isKanban && (
+                      <button
+                        onClick={() => {
+                          const nextVal = !bag.autoMoveDoneItems;
+                          setBag((prev) => ({ ...prev, autoMoveDoneItems: nextVal }));
+                          show(
+                            nextVal
+                              ? "체크 시 완료 팩으로 자동 이동해요"
+                              : "완료 팩 자동 이동을 껐어요"
+                          );
+                          setShowViewMenu(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-[12.5px] font-medium transition-colors ${
+                          bag.autoMoveDoneItems
+                            ? "bg-accent/10 text-accent font-bold"
+                            : "text-foreground hover:bg-surface-2"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <IconChecklist size={15} stroke={1.75} />
+                          <span>완료 팩 자동 이동</span>
+                        </div>
+                        {bag.autoMoveDoneItems && <IconCheck size={14} stroke={2.5} />}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
             </div>
+            {bag.isKanban && (
+              <button
+                onClick={() => {
+                  const nextVal = !bag.autoMoveDoneItems;
+                  setBag((prev) => ({ ...prev, autoMoveDoneItems: nextVal }));
+                  show(
+                    nextVal
+                      ? "체크 시 완료 팩으로 자동 이동해요"
+                      : "완료 팩 자동 이동을 껐어요"
+                  );
+                }}
+                className={`rounded-md border px-2.5 py-1.5 text-[12px] font-medium flex items-center gap-1.5 transition-all shadow-2xs ${
+                  bag.autoMoveDoneItems
+                    ? "border-accent bg-accent/10 text-accent font-bold"
+                    : "border-border bg-surface hover:bg-surface-2 text-foreground"
+                }`}
+                title="체크 시 완료 팩으로 자동 이동"
+              >
+                <IconChecklist size={13} stroke={1.75} />
+                <span>완료 자동이동</span>
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    bag.autoMoveDoneItems ? "bg-accent" : "bg-border"
+                  }`}
+                />
+              </button>
+            )}
             {bag.packs.length > 0 && (
               <div className="flex items-center gap-2.5 ml-auto rounded-md border border-border px-2 py-1">
                 <button
@@ -2787,7 +2894,9 @@ export default function BagEditorScreen({
             onRenamePack={handleRenamePack}
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
+            onSetDonePack={handleSetDonePack}
             onDeletePack={handleDeletePack}
+            isKanban={bag.isKanban}
             onChangeDisplayState={handleChangeDisplayState}
             onRefreshFromLibrary={(packId: string) => {
               if (guardReadOnly()) return;
@@ -2832,7 +2941,9 @@ export default function BagEditorScreen({
             onRenamePack={handleRenamePack}
             onToggleAll={handleToggleAllInPack}
             onSaveToLibrary={handleSaveToLibrary}
+            onSetDonePack={handleSetDonePack}
             onDeletePack={handleDeletePack}
+            isKanban={bag.isKanban}
             onChangeDisplayState={handleChangeDisplayState}
             onRefreshFromLibrary={(packId: string) => {
               if (guardReadOnly()) return;
@@ -3305,6 +3416,36 @@ export default function BagEditorScreen({
           onCancel={() => setUpdateChoiceTarget(null)}
           onSaveAsNew={() => handleChooseSaveAsNew(updateChoiceTarget.packId)}
           onOverwrite={() => commitOverwriteToLibrary(updateChoiceTarget.packId)}
+          onRefresh={() => {
+            const packId = updateChoiceTarget.packId;
+            setUpdateChoiceTarget(null);
+            handleRefreshFromLibrary(packId);
+          }}
+        />
+      )}
+
+      {donePackDeleteTarget && (
+        <ChangeDonePackModal
+          currentDonePackName={
+            bag.packs.find((p) => p.id === donePackDeleteTarget.packId)?.name || "완료 팩"
+          }
+          availablePacks={bag.packs.filter(
+            (p) => p.id !== donePackDeleteTarget.packId && p.kind !== "editor"
+          )}
+          onCancel={() => setDonePackDeleteTarget(null)}
+          onConfirm={(newDonePackId) => {
+            const { packId, alsoDeleteLibrary } = donePackDeleteTarget;
+            setDonePackDeleteTarget(null);
+            // 새 완료 팩 지정
+            updatePacks((packs) =>
+              packs.map((p) => ({
+                ...p,
+                isDonePack: p.id === newDonePackId,
+              }))
+            );
+            // 기존 팩 삭제 실행
+            executeDeletePack(packId, alsoDeleteLibrary);
+          }}
         />
       )}
 

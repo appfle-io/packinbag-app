@@ -5,7 +5,6 @@ import {
   IconDotsVertical,
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
-  IconRefresh,
   IconTrash,
   IconGripVertical,
   IconChevronDown,
@@ -14,6 +13,7 @@ import {
   IconAlignLeft,
   IconX,
   IconArrowRight,
+  IconCheck,
 } from "@tabler/icons-react";
 import { /* BagReactionDoc, */ Pack, /* ReactionEmoji */ } from "@/lib/types";
 import { getProgressRatio } from "@/lib/itemStats";
@@ -43,7 +43,6 @@ export default function NotebookPackSection({
   onRenamePack,
   onToggleAll,
   onSaveToLibrary,
-  onRefreshFromLibrary,
   onDeletePack,
   onChangeDisplayState,
   onMoveToBag,
@@ -54,6 +53,8 @@ export default function NotebookPackSection({
   onStartPackDrag,
   isPackDragSource,
   isLast,
+  isKanban,
+  onSetDonePack,
   dragOverItemPosition,
   isPackDragOverPosition,
   hideChecked,
@@ -97,6 +98,8 @@ export default function NotebookPackSection({
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
   isLast?: boolean;
+  isKanban?: boolean;
+  onSetDonePack?: (packId: string) => void;
   dragOverItemPosition?: "before" | "after" | null;
   // 드래그한 팩을 이 섹션 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
   isPackDragOverPosition?: "before" | "after" | null;
@@ -196,6 +199,14 @@ export default function NotebookPackSection({
           className="text-[15px] font-semibold truncate text-left min-w-0 flex-1"
           inputClassName="text-[15px] font-semibold min-w-0 flex-1"
         />
+        {pack.isDonePack && (
+          <span
+            className="shrink-0 text-[10.5px] font-semibold rounded-md px-1.5 py-0.5"
+            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+          >
+            완료 팩
+          </span>
+        )}
         {ratio !== null && (
           <button
             onClick={() => onToggleAll(!allChecked)}
@@ -264,36 +275,55 @@ export default function NotebookPackSection({
                     다른 가방으로 이동
                   </button>
                 )}
-                {pack.linkedLibraryPackId && (
+                {isKanban && (
+                  pack.isDonePack ? (
+                    <div className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-text-muted cursor-default">
+                      <IconCheck size={15} stroke={1.75} color="var(--accent)" />
+                      <span>완료 팩으로 지정됨</span>
+                    </div>
+                  ) : onSetDonePack ? (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        onSetDonePack(pack.id);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-surface-2 transition-colors cursor-pointer"
+                    >
+                      <IconCheck size={15} stroke={1.75} />
+                      <span>이 팩을 완료 팩으로 지정</span>
+                    </button>
+                  ) : null
+                )}
+                {(!isKanban || pack.kind === "editor") && (
                   <button
                     onClick={() => {
                       setShowMenu(false);
-                      onRefreshFromLibrary();
+                      onSaveToLibrary();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left relative hover:bg-surface-2 transition-colors cursor-pointer"
                   >
-                    <IconRefresh size={15} stroke={1.75} />
-                    다시 불러오기
+                    {isSyncedWithLibrary ? (
+                      <IconDeviceFloppyFilled size={15} stroke={1.75} color="var(--accent)" />
+                    ) : (
+                      <IconDeviceFloppy size={15} stroke={1.75} />
+                    )}
+                    <span>팩 보관함 저장 / 동기화</span>
+                    {pack.linkedLibraryPackId && !isSyncedWithLibrary && (
+                      <span
+                        className="ml-auto h-2 w-2 rounded-full animate-pulse"
+                        style={{ background: "var(--danger)" }}
+                      />
+                    )}
                   </button>
                 )}
                 <button
                   onClick={() => {
                     setShowMenu(false);
-                    onSaveToLibrary();
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
-                >
-                  {isSyncedWithLibrary ? (
-                    <IconDeviceFloppyFilled size={15} stroke={1.75} color="var(--accent)" />
-                  ) : (
-                    <IconDeviceFloppy size={15} stroke={1.75} />
-                  )}
-                  팩으로 저장
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    setConfirmDelete(true);
+                    if (pack.isDonePack) {
+                      onDeletePack(false);
+                    } else {
+                      setConfirmDelete(true);
+                    }
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left"
                   style={{ color: "var(--danger)" }}

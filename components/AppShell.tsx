@@ -79,6 +79,7 @@ import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
 import SlideScreen from "@/components/SlideScreen";
 import SlideUpSheet from "@/components/SlideUpSheet";
+import TodayTasksModal, { TodayTaskItem } from "@/components/TodayTasksModal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
@@ -273,6 +274,45 @@ export default function AppShell() {
   const [homeSelectMode, setHomeSelectMode] = useState(false);
   // 가방 다중 삭제/나가기 처리 중 진행률 ({ total, completed })
   const [bulkDeleting, setBulkDeleting] = useState<{ total: number; completed: number } | null>(null);
+  const [todayTasksList, setTodayTasksList] = useState<TodayTaskItem[]>([]);
+  const [showTodayTasksModal, setShowTodayTasksModal] = useState(false);
+  const checkedTodayTasksStartupRef = useRef(false);
+
+  useEffect(() => {
+    if (checkedTodayTasksStartupRef.current || !bags || bags.length === 0) return;
+    if (profile?.bagSettings?.showTodayTasksOnStartup === false) return;
+
+    checkedTodayTasksStartupRef.current = true;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const todayStr = `${y}-${m}-${d}`;
+
+    const tasks: TodayTaskItem[] = [];
+    for (const b of bags) {
+      if (b.trashedByOwnerAt || profile?.archivedBagIds?.includes(b.id)) continue;
+      for (const p of b.packs) {
+        if (!p.items) continue;
+        for (const item of p.items) {
+          if (item.dueDate === todayStr) {
+            tasks.push({
+              bagId: b.id,
+              bagName: b.name,
+              packId: p.id,
+              packName: p.name,
+              item,
+            });
+          }
+        }
+      }
+    }
+
+    if (tasks.length > 0) {
+      setTodayTasksList(tasks);
+      setShowTodayTasksModal(true);
+    }
+  }, [bags, profile]);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinTimeDone(true), 900);
@@ -874,6 +914,103 @@ export default function AppShell() {
         return;
       }
       console.error("[팩인백] 가방 생성 실패:", err);
+      show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
+    } finally {
+      setCreatingBag(false);
+    }
+  };
+
+  const openNewKanbanBag = async () => {
+    if (isOfflineMode) {
+      const created = createLocalBag("새 칸반보드", true);
+      setEditingBag(created);
+      setIsNewBag(false);
+      return created;
+    }
+    if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
+      setPremiumLimitMessage(
+        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
+      );
+      return;
+    }
+    const now = new Date().toISOString();
+    const draft: Bag = {
+      id: uid(),
+      name: "새 칸반보드",
+      images: [],
+      isKanban: true,
+      autoMoveDoneItems: true,
+      packs: [
+        {
+          id: uid(),
+          name: "업무노트",
+          kind: "editor",
+          systemRole: "memo",
+          editorDoc: { type: "doc", content: [{ type: "paragraph" }] },
+          items: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: uid(),
+          name: "대기",
+          kind: "checklist",
+          systemRole: "todo",
+          items: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: uid(),
+          name: "진행중",
+          kind: "checklist",
+          systemRole: "in_progress",
+          items: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: uid(),
+          name: "완료",
+          kind: "checklist",
+          systemRole: "done",
+          isDonePack: true,
+          items: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: uid(),
+          name: "보류",
+          kind: "checklist",
+          systemRole: "on_hold",
+          items: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      memberIds: [user.uid],
+      ownerId: user.uid,
+      inviteCode: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    setIsNewBag(true);
+    setCreatingBag(true);
+    try {
+      const created = await createBagRemote(user, draft, {
+        nickname: profile.nickname!,
+        avatarId: profile.avatarId!,
+      });
+      setEditingBag(created);
+      return created;
+    } catch (err) {
+      setIsNewBag(false);
+      if (err instanceof PremiumLimitError) {
+        setPremiumLimitMessage(err.message);
+        return;
+      }
+      console.error("[팩인백] 칸반보드 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
     } finally {
       setCreatingBag(false);
@@ -1549,6 +1686,8 @@ export default function AppShell() {
             requestUnlockForBag={requestUnlockForBag}
             requestUnlockForPack={requestUnlockForPack}
             onNewBag={openNewBag}
+            onNewKanbanBag={openNewKanbanBag}
+            onImportNote={openNewBagFromNote}
             onSaveBag={handleSaveBag}
             onDeleteBag={handleDeleteBag}
             onRenameBag={handleRenameBag}
@@ -1731,6 +1870,7 @@ export default function AppShell() {
                   setPackFocusSearchQuery(searchQuery ?? null);
                 }}
                 onNewBag={openNewBag}
+                onNewKanbanBag={openNewKanbanBag}
                 onImportNote={openNewBagFromNote}
                 onJoinBag={handleJoinBag}
                 onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
@@ -1871,6 +2011,19 @@ export default function AppShell() {
         <InitialGuideCarouselModal
           slides={introSlides}
           onClose={() => setShowIntroModal(false)}
+        />
+      )}
+      {showTodayTasksModal && todayTasksList.length > 0 && (
+        <TodayTasksModal
+          tasks={todayTasksList}
+          onClose={() => setShowTodayTasksModal(false)}
+          onOpenTask={(bagId, packId, itemId) => {
+            const targetBag = bags.find((b) => b.id === bagId);
+            if (targetBag) {
+              setEditingBag(targetBag);
+              setBagFocus({ packId, itemId });
+            }
+          }}
         />
       )}
       {premiumLimitMessage && (

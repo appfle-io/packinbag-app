@@ -118,6 +118,9 @@ export interface Pack {
   trashSourceBagName?: string;
   // 팩 보관함 공개 공유용 난수 토큰
   publicShareToken?: string;
+  // 칸반보드 전용 역할 식별자 및 완료 팩 플래그
+  systemRole?: "todo" | "in_progress" | "done" | "on_hold" | "memo";
+  isDonePack?: boolean;
 }
 
 // 팩/폴더 웹 공개 공유 스냅샷 문서 (/sharedPacks/{token})
@@ -204,6 +207,9 @@ export interface Bag {
   // 비로그인 게스트 보기 전용 공개 웹 링크 설정
   publicShareToken?: string;
   publicShareEnabled?: boolean;
+  // 칸반보드(업무) 가방 여부 및 완료 항목 자동 이동 옵션
+  isKanban?: boolean;
+  autoMoveDoneItems?: boolean;
 }
 
 // 가방 보관함 폴더. 팩 폴더(Pack, type:"folder")와 달리 가방은 여러 명이 함께 쓰는
@@ -330,6 +336,8 @@ export interface UserProfile {
   expandedBagFolderIds?: string[];
   // 가방 표시 관련 개인 설정
   bagSettings?: {
+    // 앱 시작 시 오늘 마감 업무/짐 알림 모달 노출 여부 (기본값: 켜짐 true)
+    showTodayTasksOnStartup?: boolean;
     [key: string]: unknown;
   };
   // 팩(짐 목록) 표시 관련 개인 설정

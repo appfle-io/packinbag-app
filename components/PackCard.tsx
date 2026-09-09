@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import {
   IconDeviceFloppy,
   IconDeviceFloppyFilled,
-  IconRefresh,
   IconTrash,
   IconGripVertical,
   IconArrowsMaximize,
@@ -40,7 +39,7 @@ export default function PackCard({
   onRenamePack,
   onToggleAll,
   onSaveToLibrary,
-  onRefreshFromLibrary,
+  onSetDonePack,
   onDeletePack,
   onChangeDisplayState,
   onMoveToBag,
@@ -60,6 +59,7 @@ export default function PackCard({
   ddayCountTodayAsDayOne,
   memberProfiles,
   isShared,
+  isKanban,
   onClickAssignee,
   /*
   getItemReactionDoc,
@@ -72,6 +72,7 @@ export default function PackCard({
   isSyncedWithLibrary: boolean;
   memberProfiles?: Record<string, import("@/lib/types").BagMemberProfile>;
   isShared?: boolean;
+  isKanban?: boolean;
   onClickAssignee?: (itemId: string) => void;
   // linkedLibraryPackId가 "내" 보관함에 실제로 있을 때만 true - 이때만 삭제
   // 다이얼로그에 "보관함도 함께 삭제" 옵션을 보여줄 수 있다.
@@ -88,7 +89,8 @@ export default function PackCard({
   onRenamePack: (name: string) => void;
   onToggleAll: (checked: boolean) => void;
   onSaveToLibrary: () => void;
-  onRefreshFromLibrary: () => void;
+  onRefreshFromLibrary?: () => void;
+  onSetDonePack?: (packId: string) => void;
   // alsoDeleteLibrary가 true면 연동된 보관함 원본도 함께 삭제해달라는 뜻.
   onDeletePack: (alsoDeleteLibrary: boolean) => void;
   // 있으면 "다른 가방으로 이동" 버튼이 보인다(내가 속한 다른 가방이 있을 때만 BagEditorScreen이
@@ -236,6 +238,14 @@ export default function PackCard({
             className="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium truncate text-left min-w-0"
             inputClassName="text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] font-medium min-w-0 flex-1"
           />
+          {pack.isDonePack && (
+            <span
+              className="shrink-0 text-[10.5px] font-semibold rounded-md px-1.5 py-0.5"
+              style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+            >
+              완료 팩
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-[calc(14px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary">
@@ -398,6 +408,17 @@ export default function PackCard({
                   입력 중 옆의 버튼을 잘못 눌러 팩 자체가 삭제/저장되는 걸 막기 위함. */}
               {!quickAddType && (
                 <div className="flex items-center gap-3 ml-auto">
+                  {isKanban && pack.kind !== "editor" && !pack.isDonePack && onSetDonePack && (
+                    <button
+                      onClick={() => onSetDonePack(pack.id)}
+                      aria-label="이 팩을 완료 팩으로 지정"
+                      title="이 팩을 완료 팩으로 지정"
+                      className="text-[11.5px] font-medium px-2 py-0.5 rounded border border-border/80 hover:border-accent hover:text-accent transition-colors"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      완료 팩 지정
+                    </button>
+                  )}
                   {onMoveToBag && (
                     <button onClick={onMoveToBag} aria-label="다른 가방으로 이동">
                       <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
@@ -405,16 +426,17 @@ export default function PackCard({
                       </span>
                     </button>
                   )}
-                  {pack.linkedLibraryPackId && (
-                    <button onClick={onRefreshFromLibrary} aria-label="팩 다시 불러오기" className="relative">
+                  {/* 칸반보드 가방일 때는 체크리스트 팩의 보관함 저장/연동 숨김 (메모팩은 유지) */}
+                  {(!isKanban || pack.kind === "editor") && (
+                    <button onClick={onSaveToLibrary} aria-label="팩 보관함 저장 및 동기화" className="relative cursor-pointer">
                       <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                        <IconRefresh
-                          size={18}
-                          stroke={!isSyncedWithLibrary ? 2.2 : 1.75}
-                          color={!isSyncedWithLibrary ? "var(--danger)" : "var(--text-secondary)"}
-                        />
+                        {isSyncedWithLibrary ? (
+                          <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
+                        ) : (
+                          <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
+                        )}
                       </span>
-                      {!isSyncedWithLibrary && (
+                      {pack.linkedLibraryPackId && !isSyncedWithLibrary && (
                         <span
                           className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full animate-pulse"
                           style={{ background: "var(--danger)" }}
@@ -422,16 +444,16 @@ export default function PackCard({
                       )}
                     </button>
                   )}
-                  <button onClick={onSaveToLibrary} aria-label="팩 저장">
-                    <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
-                      {isSyncedWithLibrary ? (
-                        <IconDeviceFloppyFilled size={18} stroke={1.75} color="var(--accent)" />
-                      ) : (
-                        <IconDeviceFloppy size={18} stroke={1.75} color="var(--text-secondary)" />
-                      )}
-                    </span>
-                  </button>
-                  <button onClick={() => setConfirmDelete(true)} aria-label="팩 삭제">
+                  <button
+                    onClick={() => {
+                      if (pack.isDonePack) {
+                        onDeletePack(false);
+                      } else {
+                        setConfirmDelete(true);
+                      }
+                    }}
+                    aria-label="팩 삭제"
+                  >
                     <span style={{ transform: "scale(var(--pack-card-scale,1))" }}>
                       <IconTrash size={18} stroke={1.75} color="var(--text-secondary)" />
                     </span>

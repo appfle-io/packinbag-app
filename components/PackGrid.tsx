@@ -20,6 +20,7 @@ export default function PackGrid({
   onDeletePack,
   onChangeDisplayState,
   onRefreshFromLibrary,
+  onSetDonePack,
   onSyncEditorPack,
   onMoveToBag,
   onStartItemDrag,
@@ -38,6 +39,7 @@ export default function PackGrid({
   onOpenNotePackEditor,
   getNoteEditors,
   premium,
+  isKanban,
   ddayCountTodayAsDayOne,
   memberProfiles,
   isShared,
@@ -51,6 +53,7 @@ export default function PackGrid({
 }: {
   packs: Pack[];
   libraryPacks: Pack[];
+  isKanban?: boolean;
   onToggleItem: (packId: string, itemId: string) => void;
   onChangeItemText: (
     packId: string,
@@ -67,6 +70,7 @@ export default function PackGrid({
   onDeletePack: (packId: string, alsoDeleteLibrary: boolean) => void;
   onChangeDisplayState: (packId: string, nextState: "normal" | "wide" | "collapsed") => void;
   onRefreshFromLibrary: (packId: string) => void;
+  onSetDonePack?: (packId: string) => void;
   // 링크된 메모팩만 대상으로, 보관함과 계속 맞춰질지(pack.autoSyncEnabled) 켜고/끄는 토글.
   onSyncEditorPack?: (packId: string) => void;
   // 있으면 모든 팩 카드에 "다른 가방으로 이동" 버튼이 보인다(내가 속한
@@ -158,9 +162,9 @@ export default function PackGrid({
         onRenamePack={(name) => onRenamePack(pack.id, name)}
         onToggleAll={(checked) => onToggleAll(pack.id, checked)}
         onSaveToLibrary={() => onSaveToLibrary(pack.id)}
+        onSetDonePack={onSetDonePack ? () => onSetDonePack(pack.id) : undefined}
         onDeletePack={(alsoDeleteLibrary) => onDeletePack(pack.id, alsoDeleteLibrary)}
         onChangeDisplayState={(nextState) => onChangeDisplayState(pack.id, nextState)}
-        onRefreshFromLibrary={() => onRefreshFromLibrary(pack.id)}
         onMoveToBag={onMoveToBag ? () => onMoveToBag(pack.id) : undefined}
         onStartItemDrag={
           onStartItemDrag
@@ -186,6 +190,7 @@ export default function PackGrid({
         ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
         memberProfiles={memberProfiles}
         isShared={isShared}
+        isKanban={isKanban}
         onClickAssignee={onClickAssignee ? (itemId) => onClickAssignee(pack.id, itemId) : undefined}
         /*
         getItemReactionDoc={getItemReactionDoc}

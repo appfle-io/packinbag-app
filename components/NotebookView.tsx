@@ -39,6 +39,8 @@ export default function NotebookView({
   onOpenNotePackEditor,
   getNoteEditors,
   premium,
+  isKanban,
+  onSetDonePack,
   ddayCountTodayAsDayOne,
   /*
   getItemReactionDoc,
@@ -89,6 +91,8 @@ export default function NotebookView({
   // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다.
   getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
   premium?: boolean;
+  isKanban?: boolean;
+  onSetDonePack?: (packId: string) => void;
   // 이 가방의 D-day 계산 기준. 각 짐의 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   /*
@@ -168,6 +172,8 @@ export default function NotebookView({
           onToggleSelectItem={onToggleSelectItem ? (itemId) => onToggleSelectItem(pack.id, itemId) : undefined}
           getItemThreadInfo={getItemThreadInfo}
           ddayCountTodayAsDayOne={ddayCountTodayAsDayOne}
+          isKanban={isKanban}
+          onSetDonePack={onSetDonePack}
           /*
           getItemReactionDoc={getItemReactionDoc}
           currentUid={currentUid}

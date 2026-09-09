@@ -29,8 +29,6 @@ import NotificationBell from "@/components/NotificationBell";
 import JoinBagDialog from "@/components/JoinBagDialog";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
-import SampleBagSheet from "@/components/SampleBagSheet";
-import SpreadsheetImportModal from "@/components/SpreadsheetImportModal";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import Portal from "@/components/Portal";
 import { useToast } from "@/components/Toast";
@@ -101,6 +99,7 @@ export default function HomeScreen({
   onOpenBag,
   onOpenPack,
   onNewBag,
+  onNewKanbanBag,
   onImportNote,
   onJoinBag,
   onOpenQuickPack,
@@ -125,6 +124,7 @@ export default function HomeScreen({
   onOpenBag: (bag: Bag, focus?: BagOpenFocus) => void;
   onOpenPack?: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
   onNewBag: () => void;
+  onNewKanbanBag: () => void;
   onImportNote: (result: NoteImportResult) => void;
   onJoinBag: (code: string) => Promise<void>;
   onOpenQuickPack: () => void;
@@ -137,8 +137,6 @@ export default function HomeScreen({
   const [showJoin, setShowJoin] = useState(!!initialInviteCode);
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
-  const [showSampleSheet, setShowSampleSheet] = useState(false);
-  const [showSpreadsheetImport, setShowSpreadsheetImport] = useState(false);
   const {
     user,
     profile,
@@ -229,18 +227,27 @@ export default function HomeScreen({
     ? "폴더 없음"
     : bagFolders[selectedFolderId]?.name ?? "전체";
 
-  const [bagFilter, setBagFilter] = useState<"active" | "archived">(() => {
+  const [bagFilter, setBagFilter] = useState<"all" | "active" | "kanban" | "archived">(() => {
     // 모바일에서만 쓰는 화면(HomeScreen)이라 이 저장은 자연스럽게 모바일 전용이다.
-    // 계정에 동기화하지 않고 이 기기(브라우저)에만 남는 값이라 localStorage를 쓴다.
-    if (typeof window === "undefined") return "active";
-    return window.localStorage.getItem(BAG_FILTER_STORAGE_KEY) === "archived" ? "archived" : "active";
+    if (typeof window === "undefined") return "all";
+    const saved = window.localStorage.getItem(BAG_FILTER_STORAGE_KEY);
+    return saved === "active" || saved === "kanban" || saved === "archived" ? saved : "all";
   });
   useEffect(() => {
     window.localStorage.setItem(BAG_FILTER_STORAGE_KEY, bagFilter);
   }, [bagFilter]);
   const activeBagsAll = bags.filter((b) => !archivedSet.has(b.id));
+  const generalBagsAll = activeBagsAll.filter((b) => !b.isKanban);
+  const kanbanBagsAll = activeBagsAll.filter((b) => !!b.isKanban);
   const archivedBagsAll = bags.filter((b) => archivedSet.has(b.id));
-  const baseBags = bagFilter === "archived" ? archivedBagsAll : activeBagsAll;
+  const baseBags =
+    bagFilter === "archived"
+      ? archivedBagsAll
+      : bagFilter === "active"
+      ? generalBagsAll
+      : bagFilter === "kanban"
+      ? kanbanBagsAll
+      : activeBagsAll;
   const visibleBags = !selectedFolderId
     ? baseBags
     : selectedFolderId === UNFILED_KEY
@@ -601,75 +608,101 @@ export default function HomeScreen({
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between mb-3 gap-2">
-              {!isOfflineMode ? (
+            <div className="flex flex-col mb-3 gap-2">
+              {/* 1단: 가방 분류 세그먼트 탭 [전체 | 진행중 | 업무 | 보관] */}
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-surface-2">
                 <button
-                  onClick={() => setShowJoin(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs"
+                  type="button"
+                  onClick={() => setBagFilter("all")}
+                  className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors text-center cursor-pointer ${
+                    bagFilter === "all"
+                      ? "bg-surface text-foreground shadow-2xs font-semibold"
+                      : "text-text-secondary hover:text-foreground"
+                  }`}
                 >
-                  <IconTicket size={13} stroke={1.75} />
-                  코드로 참여
+                  전체 ({activeBagsAll.length})
                 </button>
-              ) : <div />}
-              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setBagFilter("active")}
+                  className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors text-center cursor-pointer ${
+                    bagFilter === "active"
+                      ? "bg-surface text-foreground shadow-2xs font-semibold"
+                      : "text-text-secondary hover:text-foreground"
+                  }`}
+                >
+                  진행중 ({generalBagsAll.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBagFilter("kanban")}
+                  className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors text-center cursor-pointer ${
+                    bagFilter === "kanban"
+                      ? "bg-surface text-foreground shadow-2xs font-semibold"
+                      : "text-text-secondary hover:text-foreground"
+                  }`}
+                >
+                  업무 ({kanbanBagsAll.length})
+                </button>
                 {(archivedBagsAll.length > 0 || bagFilter === "archived") && (
-                  <div
-                    className="flex items-center gap-1 rounded-md border border-border/80 px-2 py-1.5 bg-surface"
+                  <button
+                    type="button"
+                    onClick={() => setBagFilter("archived")}
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-md transition-colors text-center cursor-pointer ${
+                      bagFilter === "archived"
+                        ? "bg-surface text-foreground shadow-2xs font-semibold"
+                        : "text-text-secondary hover:text-foreground"
+                    }`}
                   >
-                    <IconArchive size={13} stroke={1.75} color="var(--text-secondary)" />
-                    <select
-                      value={bagFilter}
-                      onChange={(e) => setBagFilter(e.target.value as "active" | "archived")}
-                      aria-label="진행중/보관"
-                      className="bg-transparent text-[11.5px] pr-1 outline-none text-text-secondary"
-                    >
-                      <option value="active">진행중 ({activeBagsAll.length})</option>
-                      <option value="archived">보관 ({archivedBagsAll.length})</option>
-                    </select>
-                  </div>
+                    보관 ({archivedBagsAll.length})
+                  </button>
                 )}
-                {bags.length > 0 && (
-                  <>
-                    <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
-                    {/* 모바일 뷰 밀도 빠른 전환 버튼: 550px 미만은 2열 <-> 1열, 550px 이상은 2열 <-> 1열 <-> 3열 */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        let nextSize: "small" | "medium" | "large";
-                        if (!canUse3Cols) {
-                          nextSize = effectiveCardSize === "large" ? "medium" : "large";
-                        } else {
-                          nextSize =
-                            bagCardSize === "large"
-                              ? "medium"
-                              : bagCardSize === "medium"
-                              ? "small"
-                              : "large";
+              </div>
+
+              {/* 2단: 도구 컨트롤 (코드 참여 / 정렬 / 보기 밀도) */}
+              <div className="flex items-center justify-between gap-2">
+                {!isOfflineMode ? (
+                  <button
+                    onClick={() => setShowJoin(true)}
+                    className="rounded-md border border-border/80 bg-surface px-2.5 py-1 text-[11.5px] font-medium text-text-secondary hover:text-foreground hover:bg-surface-2 shrink-0 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    코드 참여
+                  </button>
+                ) : <div />}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {bags.length > 0 && (
+                    <>
+                      <SortSelect value={sortBy} onChange={(v) => updateBagSortBy(v).catch(() => show("변경사항을 저장하지 못했어요"))} />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          let nextSize: "small" | "medium" | "large";
+                          if (!canUse3Cols) {
+                            nextSize = effectiveCardSize === "large" ? "medium" : "large";
+                          } else {
+                            nextSize =
+                              bagCardSize === "large"
+                                ? "medium"
+                                : bagCardSize === "medium"
+                                ? "small"
+                                : "large";
+                          }
+                          updateBagCardSize(nextSize).catch(() => {});
+                        }}
+                        title={
+                          effectiveCardSize === "large"
+                            ? "1열 크게 보기 (탭하여 2열로 변경)"
+                            : effectiveCardSize === "small"
+                            ? "3열 작게 보기 (탭하여 1열로 변경)"
+                            : "2열 보통 보기"
                         }
-                        updateBagCardSize(nextSize).catch(() => {});
-                      }}
-                      title={
-                        effectiveCardSize === "large"
-                          ? "1열 크게 보기 (탭하여 2열로 변경)"
-                          : effectiveCardSize === "small"
-                          ? "3열 작게 보기 (탭하여 1열로 변경)"
-                          : "2열 보통 보기"
-                      }
-                      className="flex items-center gap-1 rounded-md border border-border/80 px-2.5 py-1.5 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer shadow-2xs"
-                    >
-                      {effectiveCardSize === "large" ? (
-                        <IconLayoutList size={14} stroke={1.75} />
-                      ) : effectiveCardSize === "small" ? (
-                        <IconLayoutGrid size={14} stroke={2.4} />
-                      ) : (
-                        <IconLayoutGrid size={14} stroke={1.75} />
-                      )}
-                      <span className="text-[11.5px] font-medium">
+                        className="rounded-md border border-border/80 px-2 py-1 bg-surface text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer shadow-2xs text-[11.5px] font-medium"
+                      >
                         {effectiveCardSize === "large" ? "1열" : effectiveCardSize === "small" ? "3열" : "2열"}
-                      </span>
-                    </button>
-                  </>
-                )}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -1156,37 +1189,13 @@ export default function HomeScreen({
             setShowNewBagOptions(false);
             onNewBag();
           }}
-          onFromSample={() => {
+          onKanban={() => {
             setShowNewBagOptions(false);
-            setShowSampleSheet(true);
+            onNewKanbanBag();
           }}
           onFromNote={() => {
             setShowNewBagOptions(false);
             setShowNoteImport(true);
-          }}
-          onFromSpreadsheet={() => {
-            setShowNewBagOptions(false);
-            setShowSpreadsheetImport(true);
-          }}
-        />
-      )}
-
-      {!isOfflineMode && showSpreadsheetImport && (
-        <SpreadsheetImportModal
-          onClose={() => setShowSpreadsheetImport(false)}
-          onResult={(result) => {
-            setShowSpreadsheetImport(false);
-            onImportNote(result);
-          }}
-        />
-      )}
-
-      {showSampleSheet && (
-        <SampleBagSheet
-          onClose={() => setShowSampleSheet(false)}
-          onSelect={(result) => {
-            setShowSampleSheet(false);
-            onImportNote(result);
           }}
         />
       )}
