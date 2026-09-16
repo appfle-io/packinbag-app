@@ -11,6 +11,8 @@ export function friendlyAuthError(raw: string): string {
     return "잠시 후 다시 시도해주세요. 시도 횟수가 너무 많아요.";
   if (raw.includes("requires-recent-login"))
     return "보안을 위해 로그아웃 후 다시 로그인한 뒤 시도해주세요.";
+  if (raw.includes("unauthorized-domain"))
+    return "승인되지 않은 도메인 환경이에요. Firebase 콘솔 설정을 확인하거나 오프라인 모드를 이용해주세요.";
   if (raw.includes("popup-closed-by-user")) return "";
   return "문제가 발생했어요. 다시 시도해주세요.";
 }

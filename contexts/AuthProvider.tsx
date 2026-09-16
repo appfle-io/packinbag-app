@@ -335,19 +335,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Portable Zip (PC Electron) 환경:
-    // 시작 전 메인 프로세스 검증 외에도 런타임에 오프라인 여부를 체크 (기존 로그인 유저가 없을 때만)
-    const isElectron =
-      Boolean((window as any).electronAPI?.isElectron) ||
-      navigator.userAgent.toLowerCase().includes("electron");
-
-    if (isElectron) {
-      checkInternetReachable(1200).then((reachable) => {
-        if (!reachable && !auth.currentUser) {
-          startOfflineMode();
-        }
-      });
-    }
   }, []);
 
   useEffect(() => {
@@ -412,6 +399,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           startOfflineMode();
           return;
         }
+
+        const isElectron =
+          typeof window !== "undefined" &&
+          (Boolean((window as any).electronAPI?.isElectron) ||
+            navigator.userAgent.toLowerCase().includes("electron"));
+
+        if (isElectron) {
+          checkInternetReachable(1000).then((reachable) => {
+            if (!reachable) {
+              startOfflineMode();
+            } else {
+              setLoading(false);
+            }
+          });
+          return;
+        }
+
         setLoading(false);
       } else {
         // 재로그인 시 이전 세션의 profile(null)이 잠깐 남아있는 상태에서

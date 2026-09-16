@@ -124,8 +124,8 @@ async function startServerAndGetUrl() {
     console.error("[Electron] Next.js 서버 실행 실패:", err);
   });
 
-  const url = `http://127.0.0.1:${port}`;
-  await waitForServer(`http://127.0.0.1:${port}`);
+  const url = `http://localhost:${port}`;
+  await waitForServer(url);
   return url;
 }
 
@@ -222,9 +222,7 @@ app.whenReady().then(async () => {
   createMenu();
   try {
     const baseUrl = await startServerAndGetUrl();
-    const isOnline = await checkInternet(1000);
-    const initialUrl = isOnline ? baseUrl : `${baseUrl}?offline=true`;
-    createWindow(initialUrl);
+    createWindow(baseUrl);
   } catch (err) {
     console.error("[Electron] 시작 실패:", err);
     app.quit();
