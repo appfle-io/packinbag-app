@@ -212,7 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const urlParams = new URLSearchParams(window.location.search);
       if (
         urlParams.get("offline") === "true" ||
-        localStorage.getItem("pib_offline_mode") === "true"
+        localStorage.getItem("pib_offline_mode") === "true" ||
+        !navigator.onLine
       ) {
         return true;
       }
@@ -330,24 +331,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.getItem("pib_offline_mode") === "true" ||
       urlParams.get("offline") === "true";
 
-    if (isExplicitOffline) {
+    if (isExplicitOffline || !navigator.onLine) {
       startOfflineMode();
       return;
     }
 
-    // Portable Zip (PC Electron) 환경:
-    // 시작 전 메인 프로세스 검증 외에도 런타임에 오프라인 여부를 이중 체크
+    // Portable Zip (PC Electron) 및 PWA/웹 환경 런타임 오프라인 이중 체크:
+    // 가짜 온라인(포털 로그인 필요/신호 끊김 등) 상태에서 Firebase 무한 대기 방지
     const isElectron =
       Boolean((window as any).electronAPI?.isElectron) ||
       navigator.userAgent.toLowerCase().includes("electron");
 
-    if (isElectron) {
-      checkInternetReachable(1200).then((reachable) => {
-        if (!reachable) {
-          startOfflineMode();
-        }
-      });
-    }
+    checkInternetReachable(isElectron ? 1200 : 1500).then((reachable) => {
+      if (!reachable) {
+        startOfflineMode();
+      }
+    });
   }, []);
 
   useEffect(() => {

@@ -10,6 +10,23 @@ const nextConfig: NextConfig = {
   // Next가 서버 코드를 번들링(트레이싱)할 때 ERR_REQUIRE_ESM 오류가 난다.
   // firebase-admin은 번들링 대상에서 빼고 Node가 node_modules에서 직접 require하게 한다.
   serverExternalPackages: ["firebase-admin"],
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
