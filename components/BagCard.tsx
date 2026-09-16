@@ -5,7 +5,6 @@ import { Bag } from "@/lib/types";
 import { formatItemCountLabel, getProgressRatio } from "@/lib/itemStats";
 import { getViewablePacks } from "@/lib/premiumLimits";
 import { formatDDayLabel } from "@/lib/dday";
-import ProgressRing from "@/components/ProgressRing";
 
 // 설정 > 화면설정 > 가방 카드 크기 슬라이더 값(--bag-card-scale)에 맞춰 패딩/간격/아이콘을
 // 조절하고, 가방 글씨 크기 슬라이더 값(--bag-card-font-scale)에 맞춰 글자 크기를 조절한다 -
@@ -51,7 +50,6 @@ export default function BagCard({
   // AI추천 팩(aiRecommendSource)은 무료회원에게는 목록/개수/진행률 어디에도 포함시키지 않는다.
   const viewablePacks = getViewablePacks(bag.packs, premium);
   const allItems = viewablePacks.flatMap((p) => p.items);
-  const totalLabel = formatItemCountLabel(allItems, bag.images.length > 0);
   const overallRatio = getProgressRatio(allItems);
   const ddayLabel = formatDDayLabel(bag.travelDate, bag.ddayCountTodayAsDayOne);
 
@@ -218,25 +216,15 @@ export default function BagCard({
         </div>
       )}
 
-      {/* 카드 하단 정보 (멤버수, 프로그레스 링, 총 짐 수) */}
-      <span
-        className={`flex items-center ${
-          compact && bag.memberIds.length > 1 ? "justify-between" : "justify-end"
-        } gap-2 text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5`}
-      >
-        {bag.memberIds.length > 1 && (
+      {/* 카드 하단 정보 (공유 멤버 수) */}
+      {bag.memberIds.length > 1 && (
+        <div className="flex items-center justify-end text-[calc(11px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(12px*var(--bag-card-font-scale,1)*var(--font-scale-factor,1))] text-text-secondary shrink-0 mt-auto pt-1.5">
           <span className="flex items-center gap-1 text-text-muted text-[11px] shrink-0">
             <IconUsers size={13} stroke={1.75} />
             <span>{bag.memberIds.length}</span>
           </span>
-        )}
-        {!compact && overallRatio !== null && (
-          <span style={{ transform: "scale(var(--bag-card-scale,1))" }}>
-            <ProgressRing ratio={overallRatio} size={17} />
-          </span>
-        )}
-        {totalLabel && <span className="font-medium text-[11px] truncate shrink-0">{totalLabel}</span>}
-      </span>
+        </div>
+      )}
 
       {/* 카드 하단 2px 미니멀 진행률 바 */}
       {overallRatio !== null && (

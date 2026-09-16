@@ -1,9 +1,9 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 
-const tagName = process.env.TAG_NAME || process.argv[2] || "v1.0.3-offline-portable";
+const tagName = process.env.TAG_NAME || process.argv[2] || "v1.0.4-offline-portable";
 const match = tagName.match(/^v(\d+\.\d+\.\d+)/);
-const version = match ? match[1] : "1.0.3";
+const version = match ? match[1] : "1.0.4";
 console.log(`Extracting release notes for version ${version} (tag: ${tagName})...`);
 
 let notes = "";
