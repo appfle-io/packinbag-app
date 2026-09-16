@@ -212,8 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const urlParams = new URLSearchParams(window.location.search);
       if (
         urlParams.get("offline") === "true" ||
-        localStorage.getItem("pib_offline_mode") === "true" ||
-        !navigator.onLine
+        localStorage.getItem("pib_offline_mode") === "true"
       ) {
         return true;
       }
@@ -331,22 +330,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.getItem("pib_offline_mode") === "true" ||
       urlParams.get("offline") === "true";
 
-    if (isExplicitOffline || !navigator.onLine) {
+    if (isExplicitOffline) {
       startOfflineMode();
       return;
     }
 
-    // Portable Zip (PC Electron) 및 PWA/웹 환경 런타임 오프라인 이중 체크:
-    // 가짜 온라인(포털 로그인 필요/신호 끊김 등) 상태에서 Firebase 무한 대기 방지
+    // Portable Zip (PC Electron) 환경:
+    // 시작 전 메인 프로세스 검증 외에도 런타임에 오프라인 여부를 체크 (기존 로그인 유저가 없을 때만)
     const isElectron =
       Boolean((window as any).electronAPI?.isElectron) ||
       navigator.userAgent.toLowerCase().includes("electron");
 
-    checkInternetReachable(isElectron ? 1200 : 1500).then((reachable) => {
-      if (!reachable) {
-        startOfflineMode();
-      }
-    });
+    if (isElectron) {
+      checkInternetReachable(1200).then((reachable) => {
+        if (!reachable && !auth.currentUser) {
+          startOfflineMode();
+        }
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -406,6 +407,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(firebaseUser);
       if (!firebaseUser) {
         setRawProfile(null);
+        // 비로그인 상태인데 네트워크가 없으면(오프라인), 로그인 화면에서 멈추지 않고 오프라인 게스트 모드로 자동 시작!
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          startOfflineMode();
+          return;
+        }
         setLoading(false);
       } else {
         // 재로그인 시 이전 세션의 profile(null)이 잠깐 남아있는 상태에서
@@ -427,69 +433,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
     const ref = doc(db, "users", user.uid);
-    const unsubDoc = onSnapshot(ref, (snap) => {
-      const data = snap.data();
-      setRawProfile({
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        nickname: (data?.nickname as string | undefined) ?? null,
-        avatarId: (data?.avatarId as string | undefined) ?? null,
-        role: (data?.role as "master" | "user" | undefined) ?? undefined,
-        themeMode: data?.themeMode as UserProfile["themeMode"],
-        accentId: data?.accentId as string | undefined,
-        customAccentHex: data?.customAccentHex as string | undefined,
-        bagColorId: data?.bagColorId as string | undefined,
-        customBagColorHex: data?.customBagColorHex as string | undefined,
-        packGridColorId: data?.packGridColorId as string | undefined,
-        customPackGridColorHex: data?.customPackGridColorHex as string | undefined,
-        packLibraryColorId: data?.packLibraryColorId as string | undefined,
-        customPackLibraryColorHex: data?.customPackLibraryColorHex as string | undefined,
-        bagColorOpacity: data?.bagColorOpacity as number | undefined,
-        packGridColorOpacity: data?.packGridColorOpacity as number | undefined,
-        packLibraryColorOpacity: data?.packLibraryColorOpacity as number | undefined,
-        baseOpacity: data?.baseOpacity as number | undefined,
-        bagCardScale: data?.bagCardScale as number | undefined,
-        bagCardFontScale: data?.bagCardFontScale as number | undefined,
-        packCardScale: data?.packCardScale as number | undefined,
-        packLibraryCardScale: data?.packLibraryCardScale as number | undefined,
-        packCardFontScale: data?.packCardFontScale as number | undefined,
-        fontScale: data?.fontScale as UserProfile["fontScale"],
-        defaultTab: data?.defaultTab as UserProfile["defaultTab"],
-        startPage: data?.startPage as UserProfile["startPage"],
-        dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
-        bagSortBy: data?.bagSortBy as UserProfile["bagSortBy"],
-        bagCardSize: data?.bagCardSize as UserProfile["bagCardSize"],
-        packSortBy: data?.packSortBy as UserProfile["packSortBy"],
-        pinnedBagIds: data?.pinnedBagIds as string[] | undefined,
-        pinnedPackIds: data?.pinnedPackIds as string[] | undefined,
-        archivedBagIds: data?.archivedBagIds as string[] | undefined,
-        archiveSuggestionDismissedIds: data?.archiveSuggestionDismissedIds as string[] | undefined,
-        bagOrder: data?.bagOrder as string[] | undefined,
-        packOrder: data?.packOrder as string[] | undefined,
-        packOrderByParent: data?.packOrderByParent as UserProfile["packOrderByParent"],
-        expandedPackFolderIds: data?.expandedPackFolderIds as string[] | undefined,
-        bagFolders: data?.bagFolders as UserProfile["bagFolders"],
-        bagFolderAssignments: data?.bagFolderAssignments as UserProfile["bagFolderAssignments"],
-        bagOrderByParent: data?.bagOrderByParent as UserProfile["bagOrderByParent"],
-        expandedBagFolderIds: data?.expandedBagFolderIds as string[] | undefined,
-        bagSettings: data?.bagSettings as UserProfile["bagSettings"],
-        packSettings: data?.packSettings as UserProfile["packSettings"],
-        quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
-        sidebarWidth: data?.sidebarWidth as number | undefined,
-        sidebarCollapsed: data?.sidebarCollapsed as boolean | undefined,
-        packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
-        bagViewMode: data?.bagViewMode as UserProfile["bagViewMode"],
-        defaultBagViewMode: data?.defaultBagViewMode as UserProfile["defaultBagViewMode"],
-        aiUsage: data?.aiUsage as UserProfile["aiUsage"],
-        shortUrlEnabled: data?.shortUrlEnabled as boolean | undefined,
-        regionRecommendEnabled: data?.regionRecommendEnabled as boolean | undefined,
-        unlockCode: data?.unlockCode as string | undefined,
-        unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
-      });
+    // 오프라인 상태이거나 네트워크 지연 시 스플래시 화면이 무한정 멈추지 않도록 안전 타이머 설정
+    const safetyTimer = setTimeout(() => {
       setLoading(false);
-    });
-    return unsubDoc;
+    }, 2500);
+
+    const unsubDoc = onSnapshot(
+      ref,
+      (snap) => {
+        clearTimeout(safetyTimer);
+        const data = snap.data();
+        setRawProfile({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          nickname: (data?.nickname as string | undefined) ?? null,
+          avatarId: (data?.avatarId as string | undefined) ?? null,
+          role: (data?.role as "master" | "user" | undefined) ?? undefined,
+          themeMode: data?.themeMode as UserProfile["themeMode"],
+          accentId: data?.accentId as string | undefined,
+          customAccentHex: data?.customAccentHex as string | undefined,
+          bagColorId: data?.bagColorId as string | undefined,
+          customBagColorHex: data?.customBagColorHex as string | undefined,
+          packGridColorId: data?.packGridColorId as string | undefined,
+          customPackGridColorHex: data?.customPackGridColorHex as string | undefined,
+          packLibraryColorId: data?.packLibraryColorId as string | undefined,
+          customPackLibraryColorHex: data?.customPackLibraryColorHex as string | undefined,
+          bagColorOpacity: data?.bagColorOpacity as number | undefined,
+          packGridColorOpacity: data?.packGridColorOpacity as number | undefined,
+          packLibraryColorOpacity: data?.packLibraryColorOpacity as number | undefined,
+          baseOpacity: data?.baseOpacity as number | undefined,
+          bagCardScale: data?.bagCardScale as number | undefined,
+          bagCardFontScale: data?.bagCardFontScale as number | undefined,
+          packCardScale: data?.packCardScale as number | undefined,
+          packLibraryCardScale: data?.packLibraryCardScale as number | undefined,
+          packCardFontScale: data?.packCardFontScale as number | undefined,
+          fontScale: data?.fontScale as UserProfile["fontScale"],
+          defaultTab: data?.defaultTab as UserProfile["defaultTab"],
+          startPage: data?.startPage as UserProfile["startPage"],
+          dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
+          bagSortBy: data?.bagSortBy as UserProfile["bagSortBy"],
+          bagCardSize: data?.bagCardSize as UserProfile["bagCardSize"],
+          packSortBy: data?.packSortBy as UserProfile["packSortBy"],
+          pinnedBagIds: data?.pinnedBagIds as string[] | undefined,
+          pinnedPackIds: data?.pinnedPackIds as string[] | undefined,
+          archivedBagIds: data?.archivedBagIds as string[] | undefined,
+          archiveSuggestionDismissedIds: data?.archiveSuggestionDismissedIds as string[] | undefined,
+          bagOrder: data?.bagOrder as string[] | undefined,
+          packOrder: data?.packOrder as string[] | undefined,
+          packOrderByParent: data?.packOrderByParent as UserProfile["packOrderByParent"],
+          expandedPackFolderIds: data?.expandedPackFolderIds as string[] | undefined,
+          bagFolders: data?.bagFolders as UserProfile["bagFolders"],
+          bagFolderAssignments: data?.bagFolderAssignments as UserProfile["bagFolderAssignments"],
+          bagOrderByParent: data?.bagOrderByParent as UserProfile["bagOrderByParent"],
+          expandedBagFolderIds: data?.expandedBagFolderIds as string[] | undefined,
+          bagSettings: data?.bagSettings as UserProfile["bagSettings"],
+          packSettings: data?.packSettings as UserProfile["packSettings"],
+          quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
+          sidebarWidth: data?.sidebarWidth as number | undefined,
+          sidebarCollapsed: data?.sidebarCollapsed as boolean | undefined,
+          packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
+          bagViewMode: data?.bagViewMode as UserProfile["bagViewMode"],
+          defaultBagViewMode: data?.defaultBagViewMode as UserProfile["defaultBagViewMode"],
+          aiUsage: data?.aiUsage as UserProfile["aiUsage"],
+          shortUrlEnabled: data?.shortUrlEnabled as boolean | undefined,
+          regionRecommendEnabled: data?.regionRecommendEnabled as boolean | undefined,
+          unlockCode: data?.unlockCode as string | undefined,
+          unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
+        });
+        setLoading(false);
+      },
+      (err) => {
+        clearTimeout(safetyTimer);
+        console.warn("[AuthProvider] user doc onSnapshot error/offline:", err);
+        setLoading(false);
+      }
+    );
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubDoc();
+    };
   }, [user]);
 
   // unlockCodes/{code} 문서를 실시간 구독해서, 관리자가 "무효화" 버튼을 누르는 순간

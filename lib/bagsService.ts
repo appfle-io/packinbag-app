@@ -122,23 +122,50 @@ export async function updateBagPackEditorContent(
     return;
   }
   const ref = doc(bagsCol(), bagId);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) return;
-    const data = snap.data() as Bag;
-    const packs = data.packs.map((p) =>
-      p.id === packId
-        ? serializePack({
-            ...p,
-            name: patch.name,
-            editorDoc: patch.editorDoc ?? undefined,
-            editorPreviewText: patch.editorPreviewText,
-            updatedAt: patch.updatedAt,
-          })
-        : p
-    );
-    tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
-  });
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return;
+      const data = snap.data() as Bag;
+      const packs = data.packs.map((p) =>
+        p.id === packId
+          ? serializePack({
+              ...p,
+              name: patch.name,
+              editorDoc: patch.editorDoc ?? undefined,
+              editorPreviewText: patch.editorPreviewText,
+              updatedAt: patch.updatedAt,
+            })
+          : p
+      );
+      tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
+    });
+  } catch (err) {
+    // 오프라인 상태(비행기 모드 등)에서는 Firestore runTransaction이 실패하므로,
+    // getDoc(IndexedDB 캐시) + updateDoc으로 폴백하여 로컬 캐시에 즉시 반영하고
+    // 온라인 복귀 시 서버로 자동 동기화되게 한다.
+    try {
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data() as Bag;
+        const packs = data.packs.map((p) =>
+          p.id === packId
+            ? serializePack({
+                ...p,
+                name: patch.name,
+                editorDoc: patch.editorDoc ?? undefined,
+                editorPreviewText: patch.editorPreviewText,
+                updatedAt: patch.updatedAt,
+              })
+            : p
+        );
+        await updateDoc(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
+      }
+    } catch (fallbackErr) {
+      console.error("[updateBagPackEditorContent] fallback updateDoc failed:", fallbackErr);
+      throw err;
+    }
+  }
 }
 
 // 가방 하나를 실시간 구독 (다른 멤버의 변경을 편집 화면에서 바로 반영하기 위함).

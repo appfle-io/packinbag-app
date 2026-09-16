@@ -1070,11 +1070,16 @@ export default function AppShell() {
       createdAt: now,
       updatedAt: now,
     };
-    if (isOfflineMode) {
+    const isOffline = isOfflineMode || (typeof navigator !== "undefined" && !navigator.onLine);
+    if (isOffline) {
       saveLocalBag(draft);
       setEditingBag(draft);
       setIsNewBag(false);
-      show("가방을 만들었어요");
+      show(
+        isOfflineMode
+          ? "가방을 만들었어요"
+          : "오프라인 상태에서 로컬 가방으로 만들었어요. 인터넷 연결 후 [설정 > 오프라인 데이터 가져오기]로 계정에 보관할 수 있어요"
+      );
       return draft;
     }
     setIsNewBag(true);
@@ -1400,7 +1405,8 @@ export default function AppShell() {
       parentId,
       ...(kind ? { kind } : {}),
     };
-    if (isOfflineMode) {
+    const isOffline = isOfflineMode || (typeof navigator !== "undefined" && !navigator.onLine);
+    if (isOffline) {
       setEditingPack(draft);
       saveLocalLibraryPack(draft);
       return draft;
@@ -1433,7 +1439,8 @@ export default function AppShell() {
       type: "folder",
       parentId,
     };
-    if (isOfflineMode) {
+    const isOffline = isOfflineMode || (typeof navigator !== "undefined" && !navigator.onLine);
+    if (isOffline) {
       saveLocalLibraryPack(draft);
       return;
     }
