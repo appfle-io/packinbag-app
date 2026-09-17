@@ -88,12 +88,20 @@ jobs:
           node scripts/generate-release-body.js "${{ github.ref_name }}"
           cat release-body.md
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name || 'v1.0.3-offline-portable' }}
-          name: "Packinbag Offline Portable ${{ github.ref_name || '1.0.3' }}"
-          body_path: release-body.md
-          files: release-files/*.zip
-          draft: false
-          prerelease: false
+      - name: Create or Update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name || 'v1.0.7-offline-portable' }}"
+          TITLE="Packinbag Offline Portable ${TAG}"
+          echo "Checking if release $TAG exists..."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists, updating notes and assets..."
+            gh release edit "$TAG" --title "$TITLE" --notes-file release-body.md
+            gh release upload "$TAG" release-files/*.zip --clobber
+          else
+            echo "Creating new release $TAG..."
+            gh release create "$TAG" release-files/*.zip \
+              --title "$TITLE" \
+              --notes-file release-body.md
+          fi
