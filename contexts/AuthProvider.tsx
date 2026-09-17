@@ -381,7 +381,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      // 오프라인 모드일 때는 Firebase Auth 상태(null)로 덮어쓰지 않음
+      // 1. 유효한 로그인 계정 세션이 감지된 경우:
+      // 기존 오프라인 플래그(pib_offline_mode)에 가로막히지 않고 세션을 최우선 적용.
+      // 케이스 1-2(오프라인 캐시 이어쓰기), 3-1(로그인 후 계정 진입), 3-2(자동 동기화) 완벽 보장.
+      if (firebaseUser) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("pib_offline_mode");
+        }
+        setIsOfflineMode(false);
+        setUser(firebaseUser);
+        // 재로그인 시 이전 세션의 profile(null)이 잠깐 남아있는 상태에서
+        // "닉네임 정하기" 화면이 한 프레임 스치듯 보이는 걸 막기 위해
+        // 새 프로필 문서를 읽어올 때까지 로딩 상태 유지
+        setLoading(true);
+        ensurePurchasesConfigured(firebaseUser.uid).catch((err) => {
+          console.error("[팩인백] RevenueCat 초기화 실패:", err);
+        });
+        return;
+      }
+
+      // 2. 비로그인 상태일 때:
+      // 이미 명시적 오프라인 모드인 경우 null로 덮어쓰지 않고 유지
       const isCurrentlyOffline =
         isOfflineMode ||
         (typeof window !== "undefined" &&
@@ -391,45 +411,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setUser(firebaseUser);
-      if (!firebaseUser) {
-        setRawProfile(null);
-        // 비로그인 상태인데 네트워크가 없으면(오프라인), 로그인 화면에서 멈추지 않고 오프라인 게스트 모드로 자동 시작!
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
-          startOfflineMode();
-          return;
-        }
+      setUser(null);
+      setRawProfile(null);
 
-        const isElectron =
-          typeof window !== "undefined" &&
-          (Boolean((window as any).electronAPI?.isElectron) ||
-            navigator.userAgent.toLowerCase().includes("electron"));
-
-        if (isElectron) {
-          checkInternetReachable(1000).then((reachable) => {
-            if (!reachable) {
-              startOfflineMode();
-            } else {
-              setLoading(false);
-            }
-          });
-          return;
-        }
-
-        setLoading(false);
-      } else {
-        // 재로그인 시 이전 세션의 profile(null)이 잠깐 남아있는 상태에서
-        // "닉네임 정하기" 화면이 한 프레임 스치듯 보이는 걸 막기 위해
-        // 새 프로필 문서를 읽어올 때까지 다시 로딩 상태로 되돌린다.
-        setLoading(true);
-        // 인앱결제(RevenueCat)을 로그인한 uid로 초기화한다 - appUserID를 항상 Firebase uid로
-        // 고정해야 웹훅이 보내주는 app_user_id가 이 uid와 일치해서 별도 매핑 없이 Firestore에
-        // 바로 기록할 수 있다(lib/purchaseService.ts, app/api/revenuecat-webhook 참고). 웹에서는 이 함수 내부에서
-        // 자동으로 무력화되므로(isNativePlatform() 검사) 안전하게 항상 호출해도 된다.
-        ensurePurchasesConfigured(firebaseUser.uid).catch((err) => {
-          console.error("[팩인백] RevenueCat 초기화 실패:", err);
-        });
+      // 비로그인 상태인데 네트워크가 없으면(오프라인), 로그인 화면에서 멈추지 않고 오프라인 게스트 모드로 자동 시작!
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        startOfflineMode();
+        return;
       }
+
+      const isElectron =
+        typeof window !== "undefined" &&
+        (Boolean((window as any).electronAPI?.isElectron) ||
+          navigator.userAgent.toLowerCase().includes("electron"));
+
+      if (isElectron) {
+        checkInternetReachable(1000).then((reachable) => {
+          if (!reachable) {
+            startOfflineMode();
+          } else {
+            setLoading(false);
+          }
+        });
+        return;
+      }
+
+      setLoading(false);
     });
     return unsubAuth;
   }, []);
@@ -674,12 +681,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    // signUpWithEmail/resendVerificationByCredential과 동일한 이유로 authBusy로 감싸야 한다.
-    // signInWithEmailAndPassword가 성공하는 순간 Firebase는 이메일 인증 여부와 무관하게
-    // 일단 로그인 상태로 만들어버리고 onAuthStateChanged가 즉시 발동되는데, authBusy
-    // 가드가 없으면 우리 코드가 emailVerified를 확인하고 다시 로그아웃시키는 그 짧은 순간
-    // 동안 AppShell이 홈 화면을 잠깐 보여줬다가 다시 로그인 화면으로 튕겨나가는
-    // 깜빡임이 생긴다(이메일 인증 안 된 계정으로 로그인 시도할 때만 해당).
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pib_offline_mode");
+    }
+    setIsOfflineMode(false);
     setAuthBusy(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -693,6 +698,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pib_offline_mode");
+    }
+    setIsOfflineMode(false);
     if (isNativePlatform()) {
       // WKWebView 안에서는 구글이 signInWithPopup을 정책적으로 막기 때문에,
       // 네이티브 앱에서는 OS 네이티브 로그인 창(플러그인)에서 idToken만 받아와서
@@ -714,6 +723,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 애플 로그인. 구글 로그인을 제공하면서 애플 로그인을 제공하지 않으면 심사 가이드라인
   // 4.8 위반으로 거절될 수 있어서 추가한다 (APP_STORE_GUIDE.md 9번 참고).
   const signInWithApple = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pib_offline_mode");
+    }
+    setIsOfflineMode(false);
     if (isNativePlatform()) {
       const { idToken, rawNonce } = await nativeAppleIdToken();
       const provider = new OAuthProvider("apple.com");
@@ -733,6 +746,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 게스트(익명) 로그인: 이메일/비밀번호 없이 로컬 전용 임시 세션으로 시작
   const signInAsGuest = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pib_offline_mode");
+    }
+    setIsOfflineMode(false);
     setAuthBusy(true);
     try {
       const cred = await signInAnonymously(auth);
