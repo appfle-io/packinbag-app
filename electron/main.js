@@ -124,7 +124,7 @@ async function startServerAndGetUrl() {
     console.error("[Electron] Next.js 서버 실행 실패:", err);
   });
 
-  const url = `http://localhost:${port}`;
+  const url = `http://127.0.0.1:${port}`;
   await waitForServer(url);
   return url;
 }
