@@ -151,7 +151,7 @@ C타입 충전선, 110V 돼지코 어댑터`}
           {clipboardStep === "loading" && (
             <div className="py-6 flex flex-col items-center justify-center gap-2 text-text-muted text-[12px] bg-white dark:bg-surface-2 rounded-xl border border-border shadow-xs">
               <IconLoader2 size={20} className="animate-spin text-accent" />
-              <span>AI가 팩과 짐으로 분류하고 있어요...</span>
+              <span>AI가 팩과 아이템으로 분류하고 있어요...</span>
             </div>
           )}
 
@@ -290,7 +290,7 @@ C타입 충전선, 110V 돼지코 어댑터`}
       {activeTab === "audit" && (
         <div className="p-3.5 rounded-2xl border border-border bg-white dark:bg-surface flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-[12.5px] font-bold text-foreground">빠진 짐 AI 감사</span>
+            <span className="text-[12.5px] font-bold text-foreground">빠진 아이템 AI 감사</span>
             {auditStep === "done" && (
               <button
                 type="button"

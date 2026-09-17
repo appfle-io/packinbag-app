@@ -62,7 +62,7 @@ export default function PackGrid({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (packId: string, itemId: string) => void;
-  // 있으면 짐 수정 진입시 모달을 여는 콜백 (없으면 PackCard가 기존 인라인 편집 유지)
+  // 있으면 아이템 수정 진입시 모달을 여는 콜백 (없으면 PackCard가 기존 인라인 편집 유지)
   onEditItem?: (packId: string, itemId: string) => void;
   onRenamePack: (packId: string, name: string) => void;
   onToggleAll: (packId: string, checked: boolean) => void;
@@ -86,13 +86,13 @@ export default function PackGrid({
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
   onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
-  // 다중선택 중이면 packId -> 그 팩에서 선택된 짐 id 집합 전체 맵. null/undefined면
+  // 다중선택 중이면 packId -> 그 팩에서 선택된 아이템 id 집합 전체 맵. null/undefined면
   // 다중선택 모드 자체가 아님. 특정 팩이 아직 하나도 선택되지 않았어도 모드가 켜져
   // 있으면 그 팩도 "선택 가능" 상태로 보여줘야 하므로(다른 팩으로 선택을 넘길 수
   // 있게), 각 카드에는 이 맵에 없는 팩도 빈 Set을 내려준다(아래 renderCard 참고).
   selectedItemsByPack?: Record<string, Set<string>> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
-  // 짐 댓글 조회용. 없으면(undefined) 각 ItemRow에 밑줄 표시가 안 붙는다.
+  // 아이템 댓글 조회용. 없으면(undefined) 각 ItemRow에 밑줄 표시가 안 붙는다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
   // 에디터팩(자유문서형) 카드의 연필 버튼 탭 - 있으면 EditorPackCard가 렌더된다(없으면
   // kind==='editor' 팩은 일반 PackCard로 폴백된다 - 상위 화면이 아직 이 콜백을 연결하지
@@ -101,7 +101,7 @@ export default function PackGrid({
   // 이 팩을 지금 편집 중인 다른 사람들(최대 3명)을 조회한다. 없으면 아바타가 안 보인다.
   getNoteEditors?: (packId: string) => { uid: string; nickname: string; avatarId: string }[];
   premium?: boolean;
-  // 이 가방의 D-day 계산 기준. 각 짐의 마감일 뱃지 표시에 그대로 전달된다.
+  // 이 가방의 D-day 계산 기준. 각 아이템의 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   memberProfiles?: Record<string, import("@/lib/types").BagMemberProfile>;
   isShared?: boolean;

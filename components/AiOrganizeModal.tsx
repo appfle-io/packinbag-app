@@ -15,7 +15,7 @@ import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
 const LOADING_MESSAGES = [
-  "짐 목록을 훑어보고 있어요",
+  "아이템 목록을 훑어보고 있어요",
   "비슷한 항목끼리 묶고 있어요",
   "팩 이름을 다듬고 있어요",
   "새 구조로 정리하고 있어요",
@@ -118,15 +118,15 @@ export default function AiOrganizeModal({
           </div>
 
           <p className="text-[12px] text-text-secondary">
-            지금 이 가방에 있는 짐 {flatItems.length}개를 AI가 훑어보고, 문구·체크 상태는
+            지금 이 가방에 있는 아이템 {flatItems.length}개를 AI가 훑어보고, 문구·체크 상태는
             그대로 둔 채 더 어울리는 팩(카테고리)으로 다시 묶어드려요.
           </p>
 
           {!canRun && !loading && (
             <p className="text-[12px]" style={{ color: "var(--danger)" }}>
               {flatItems.length < 2
-                ? "정리할 짐이 너무 적어요 (2개 이상 필요해요)"
-                : "빈 짐 항목을 채우거나 삭제한 뒤 다시 시도해주세요"}
+                ? "정리할 아이템이 너무 적어요 (2개 이상 필요해요)"
+                : "빈 아이템 항목을 채우거나 삭제한 뒤 다시 시도해주세요"}
             </p>
           )}
 

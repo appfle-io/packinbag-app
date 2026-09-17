@@ -85,16 +85,16 @@ function useVisualViewport() {
   return rect;
 }
 
-// 짐 추가/수정 + 댓글을 한 화면에서 같이 보여주는 통합 모달(2026-07~).
+// 아이템 추가/수정 + 댓글을 한 화면에서 같이 보여주는 통합 모달(2026-07~).
 // 예전엔 수정(ItemFormModal)과 댓글(ItemThreadSheet)이 서로 다른 진입점(스와이프/더블탭)
-// 으로 열리는 별도 모달이었는데, 댓글 버튼이 짐 목록 폭을 차지해 내용이 잘려 보이는
+// 으로 열리는 별도 모달이었는데, 댓글 버튼이 아이템 목록 폭을 차지해 내용이 잘려 보이는
 // 문제 + 두 창을 오가야 하는 불편 때문에 하나로 합쳤다. thread prop이 있으면(=가방
 // 맥락이 있는 곳) 수정 필드 아래에 댓글 섹션이 함께 뜨고, 없으면(팩 보관함 편집처럼
 // 가방/댓글 개념이 없는 곳) 예전처럼 수정 필드만 보여준다.
 // - selectionMode="single": 가방 속 팩 편집 - 담을 팩을 하나만 고른다(라디오형).
 // - selectionMode="multi": 팩 보관함 편집 - 보관함의 모든 팩을 체크박스로
 //   보여주고, 체크된 모든 팩에 동시에 추가/복사된다.
-// 삭제는 이 모달의 책임이 아니다 - 짐 목록의 왼쪽 스와이프 삭제로만 가능하고,
+// 삭제는 이 모달의 책임이 아니다 - 아이템 목록의 왼쪽 스와이프 삭제로만 가능하고,
 // 이 모달에서는 필수값(텍스트/팩 선택)이 비어있으면 저장을 막고 안내만 보여준다.
 //
 // 2026-08~: 텍스트형(type:"text") 항목은 전체 텍스트가 아니라 선택한 부분에만 굵게/밑줄/
@@ -129,7 +129,7 @@ export default function ItemEditModal({
   initialBold?: boolean;
   initialStrike?: boolean;
   initialColor?: string;
-  // 있으면 부분 서식이 적용된 기존 짐을 그대로 불러온다. 없으면(예전 데이터 등)
+  // 있으면 부분 서식이 적용된 기존 아이템을 그대로 불러온다. 없으면(예전 데이터 등)
   // initialBold/initialStrike로 전체 텍스트를 감싸서 보여준다.
   initialSpans?: RichSpan[];
   initialDueDate?: string;
@@ -137,7 +137,7 @@ export default function ItemEditModal({
   members?: Array<{ uid: string; nickname?: string; avatarId?: import("@/lib/types").AvatarId }>;
   onClose: () => void;
   onSave: (targetPackIds: string[], data: ItemFormSaveData) => void;
-  // 있으면 이 짐의 댓글 스레드를 수정 필드 아래에 함께 보여준다.
+  // 있으면 이 아이템의 댓글 스레드를 수정 필드 아래에 함께 보여준다.
   thread?: {
     bagId: string;
     targetId: string; // itemId
@@ -278,7 +278,7 @@ export default function ItemEditModal({
         authorAvatarId: thread.currentAvatarId,
         text: value,
         mentions,
-        mentionTargetLabel: plainText || "짐",
+        mentionTargetLabel: plainText || "아이템",
       });
     } catch (err) {
       console.error("[팩인백] 댓글 작성 실패:", err);
@@ -328,7 +328,7 @@ export default function ItemEditModal({
         >
           <div className="flex items-center justify-between">
             <span className="text-[16px] font-medium">
-              {mode === "add" ? "짐 추가" : "짐 수정"}
+              {mode === "add" ? "아이템 추가" : "아이템 수정"}
             </span>
             <button onClick={onClose} aria-label="닫기">
               <IconX size={18} stroke={1.75} color="var(--text-secondary)" />
@@ -457,7 +457,7 @@ export default function ItemEditModal({
                 rows={3}
                 value={checkText}
                 onChange={(e) => setCheckText(e.target.value)}
-                placeholder="짐 이름"
+                placeholder="아이템 이름"
                 className="w-full rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none resize-none"
               />
               {textEmpty && (

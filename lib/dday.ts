@@ -31,8 +31,8 @@ export function formatDDayLabel(
   return `D+${elapsed}`;
 }
 
-// 짐 마감일(Item.dueDate) 표시용. 설정(프로필 packSettings.dueDateDisplayMode)에 따라
-// D-day 표기나 실제 날짜로 보여준다. D-day 계산 가여(당일 포함 여부)는 이 짐이 속한
+// 아이템 마감일(Item.dueDate) 표시용. 설정(프로필 packSettings.dueDateDisplayMode)에 따라
+// D-day 표기나 실제 날짜로 보여준다. D-day 계산 가여(당일 포함 여부)는 이 아이템이 속한
 // 가방의 ddayCountTodayAsDayOne을 그대로 따라서, 가방 상단 D-day와 세는 기준이 항상 같다.
 export function formatItemDueLabel(
   dueDate: string | undefined,
@@ -47,7 +47,7 @@ export function formatItemDueLabel(
   return formatDDayLabel(dueDate, countTodayAsDayOne);
 }
 
-// 짐 마감일이 지났는지(오늘을 지난 지)에 따라 뱃지 색상을 구분하기 위한 간단 판정.
+// 아이템 마감일이 지났는지(오늘을 지난 지)에 따라 뱃지 색상을 구분하기 위한 간단 판정.
 export function getDueUrgency(dueDate: string | undefined): "overdue" | "soon" | "normal" {
   if (!dueDate) return "normal";
   const diff = daysUntil(dueDate);

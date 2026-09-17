@@ -150,7 +150,7 @@ export default function TemplateInspectLogsModal({ onClose }: { onClose: () => v
                   )}
 
                   <div className="flex flex-col gap-1 bg-surface-2 p-2 rounded-lg text-[12px]">
-                    <span className="font-semibold text-[11px] text-text-muted">짐 항목 ({log.items?.length ?? 0}개):</span>
+                    <span className="font-semibold text-[11px] text-text-muted">아이템 항목 ({log.items?.length ?? 0}개):</span>
                     {log.items && log.items.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {log.items.map((itemText, idx) => (

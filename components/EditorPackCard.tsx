@@ -31,7 +31,7 @@ import PremiumLimitModal from "./PremiumLimitModal";
 import MemoRichTextView from "./MemoRichTextView";
 
 // "checklist" 팩의 PackCard와 짝이 되는 "editor" 팩(자유문서형 메모 팩)용 카드.
-// 짐(Item) 그리드 대신, 접혀있을 땐 숨기고, 펼치면 가볍게 파싱된 리치 서식(헤딩/볼드/체크박스/
+// 아이템(Item) 그리드 대신, 접혀있을 땐 숨기고, 펼치면 가볍게 파싱된 리치 서식(헤딩/볼드/체크박스/
 // 인용구/하이라이트/코드)으로 내용을 선명하게 보여준다. 실제 수정은 연필 아이콘이나 더블클릭으로
 // 전체화면 편집기(PackNoteEditorScreen)를 열어 진행한다.
 export default function EditorPackCard({

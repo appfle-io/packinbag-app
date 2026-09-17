@@ -3,7 +3,7 @@ import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuot
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // "AI 클립보드" 기능 - 클립보드에서 읽어온(또는 직접 붙여넣은) 텍스트를 분석해서, 지금 열려있는
-// 가방에 아직 없는 항목만 골라 새로 추가할 팩/짐 목록을 만들어준다. organize-bag(기존 항목 재배치)과
+// 가방에 아직 없는 항목만 골라 새로 추가할 팩/아이템 목록을 만들어준다. organize-bag(기존 항목 재배치)과
 // 달리 이건 "새 내용을 어디에 보탤지" 결정하는 기능이라 import-note와 더 비슷한 파싱을 쓰되,
 // 결과에서 이미 있는 항목은 서버가 결정적으로(AI 판단에 맡기지 않고) 제외한다.
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.

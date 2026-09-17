@@ -4,8 +4,8 @@ import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `당신은 스마트 여행 및 짐 챙기기 전문 컨설턴트 AI입니다.
-사용자가 작성한 가방 이름, 여행일자, 날씨 정보, 현재 등록된 팩과 짐 목록을 분석하여, 해당 여행에 매우 유용하거나 꼭 필요하지만 **현재 가방에 빠져있는 핵심 필수품(3~6개)**을 찾아내어 추천해주세요.
+const SYSTEM_PROMPT = `당신은 스마트 여행 및 아이템 챙기기 전문 컨설턴트 AI입니다.
+사용자가 작성한 가방 이름, 여행일자, 날씨 정보, 현재 등록된 팩과 아이템 목록을 분석하여, 해당 여행에 매우 유용하거나 꼭 필요하지만 **현재 가방에 빠져있는 핵심 필수품(3~6개)**을 찾아내어 추천해주세요.
 
 응답은 반드시 아래 JSON 형식으로만 출력하세요. 그 외의 설명이나 코드블록 기호(\`\`\`)는 절대 포함하지 마세요.
 
@@ -103,8 +103,8 @@ export async function POST(req: NextRequest) {
 - 여행일정: ${travelDate || "미정"}
 - 날씨/현지 정보: ${weatherSummary || "정보 없음"}
 
-[현재 등록된 팩 및 짐 목록]
-${packSummary || "(등록된 짐 없음)"}
+[현재 등록된 팩 및 아이템 목록]
+${packSummary || "(등록된 아이템 없음)"}
 
 위 가방을 분석하여 놓치기 쉬운 필수품과 조언을 JSON으로 응답해주세요.`;
 
@@ -129,7 +129,7 @@ ${packSummary || "(등록된 짐 없음)"}
     );
 
     if (!res.ok) {
-      console.error("[팩인백] AI 짐 검수 API 호출 실패:", res.status, await res.text());
+      console.error("[팩인백] AI 아이템 검수 API 호출 실패:", res.status, await res.text());
       return NextResponse.json({ error: "AI 분석에 실패했어요. 잠시 후 다시 시도해주세요" }, { status: 502 });
     }
 
@@ -158,7 +158,7 @@ ${packSummary || "(등록된 짐 없음)"}
       quota: { unlimited: quota.unlimited, usedCount: quota.usedCount, limit: quota.limit },
     });
   } catch (err) {
-    console.error("[팩인백] AI 짐 검수 처리 예외:", err);
+    console.error("[팩인백] AI 아이템 검수 처리 예외:", err);
     return NextResponse.json({ error: "서버 처리 중 오류가 발생했어요" }, { status: 500 });
   }
 }

@@ -527,7 +527,7 @@ export default function ShareCardModal({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 2-Column 짐 목록 섹션 (위에서 아래로 균등하게 채우는 레이아웃)
+    // 2-Column 아이템 목록 섹션 (위에서 아래로 균등하게 채우는 레이아웃)
     const colStartY = notchY + 36;
     const botLimitY = cardY + cardH - 120;
     const col1X = cardX + 36;

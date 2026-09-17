@@ -36,8 +36,8 @@ const footer = `
 
 ### 다운로드 및 실행 안내
 - 하단 **Assets** 영역에서 사용 중인 OS의 압축 파일(.zip)을 다운로드하세요.
-- **Windows**: \`Packinbag-offline-win-portable_*.zip\` (압축 해제 후 \`Pack In Bag.exe\` 실행)
-- **macOS**: \`Packinbag-offline-mac-portable_*.zip\` (압축 해제 후 \`Pack In Bag.app\` 실행)
+- **Windows**: \`Packinbag-offline-win-portable_*.zip\` (압축 해제 후 \`팩인백.exe\` 실행)
+- **macOS**: \`Packinbag-offline-mac-portable_*.zip\` (압축 해제 후 \`팩인백.app\` 실행)
 
 ### 주요 특징
 - 별도의 설치 과정 없이 즉시 실행되는 포터블 에디션

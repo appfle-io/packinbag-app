@@ -35,12 +35,12 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
   const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
   // 명시적으로 켜둔 적이 없으면 기본 꺼짐
   const alwaysCollapseOnEntry = profile?.packSettings?.alwaysCollapseOnEntry ?? false;
-  // 짐 최대 표시 줄 수 (없으면 1줄 기본값)
+  // 아이템 최대 표시 줄 수 (없으면 1줄 기본값)
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
   // 메모 맞춤법 검사 (없으면 기본 false 끄기)
   const noteSpellcheckEnabled = profile?.packSettings?.noteSpellcheckEnabled ?? false;
 
-  // 짐 마감일 표시 방식 (없으면 "dday" 기본값)
+  // 아이템 마감일 표시 방식 (없으면 "dday" 기본값)
   const dueDateDisplayMode = profile?.packSettings?.dueDateDisplayMode ?? "dday";
   // 마감일이 다가올수록 뱃지 색상을 점점 진하게 보여줄지 (없으면 기본값 켜짐)
   const dueDateIntensifyEnabled = profile?.packSettings?.dueDateIntensifyEnabled ?? true;
@@ -63,14 +63,14 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
 
       <div className="flex-1 overflow-y-auto px-4 pb-6 flex flex-col gap-3">
         <p className="text-[11px] text-text-muted -mb-1">
-          가방/팩 안의 짐 목록이 보여지는 방식을 설정해요
+          가방/팩 안의 아이템 목록이 보여지는 방식을 설정해요
         </p>
 
         <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[13px] font-medium">완료된 항목 맨 아래로 이동</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              체크한 짐을 목록 아래쪽으로 내려서 보여줘요
+              체크한 아이템을 목록 아래쪽으로 내려서 보여줘요
             </p>
           </div>
           <ToggleSwitch
@@ -96,15 +96,15 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-medium">짐 최대 표시 줄 수</p>
+            <p className="text-[13px] font-medium">아이템 최대 표시 줄 수</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              짐 이름이 길면 여기서 고른 줄 수까지만 보여주고 나머지는 ...으로 줄여요
+              아이템 이름이 길면 여기서 고른 줄 수까지만 보여주고 나머지는 ...으로 줄여요
             </p>
           </div>
           <select
             value={String(itemMaxLines)}
             onChange={(e) => updatePackSettings({ itemMaxLines: Number(e.target.value) as 1 | 2 | 3 })}
-            aria-label="짐 최대 표시 줄 수"
+            aria-label="아이템 최대 표시 줄 수"
             className={selectClassName}
             style={selectStyle}
           >
@@ -117,15 +117,15 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
         <div className="rounded-lg border border-border bg-surface-2 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13px] font-medium">짐 마감일 표시 방식</p>
+              <p className="text-[13px] font-medium">아이템 마감일 표시 방식</p>
               <p className="text-[11.5px] text-text-secondary mt-0.5">
-                짐별로 마감일을 설정해둔 경우, 리스트에서 어떤 형식으로 보여줄지 골라요
+                아이템별로 마감일을 설정해둔 경우, 리스트에서 어떤 형식으로 보여줄지 골라요
               </p>
             </div>
             <select
               value={dueDateDisplayMode}
               onChange={(e) => updatePackSettings({ dueDateDisplayMode: e.target.value as "dday" | "date" })}
-              aria-label="짐 마감일 표시 방식"
+              aria-label="아이템 마감일 표시 방식"
               className={selectClassName}
               style={selectStyle}
             >
@@ -191,7 +191,7 @@ export default function PackSettingsScreen({ onBack }: { onBack: () => void }) {
       {confirmReset && (
         <ConfirmDialog
           title="팩 설정을 초기화하시겠어요?"
-          message="완료된 항목 이동, 짐 최대 줄 수, 마감일 표시 방식 등 모든 팩 설정이 기본값으로 돌아가요."
+          message="완료된 항목 이동, 아이템 최대 줄 수, 마감일 표시 방식 등 모든 팩 설정이 기본값으로 돌아가요."
           confirmLabel="초기화"
           tone="accent"
           onCancel={() => setConfirmReset(false)}

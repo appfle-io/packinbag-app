@@ -363,13 +363,13 @@ export default function PackImportModal({
                       </span>
                     </div>
 
-                    {/* 아랫줄: 짐 요약 or 메모 미리보기 */}
+                    {/* 아랫줄: 아이템 요약 or 메모 미리보기 */}
                     <span className="text-[11px] text-text-muted truncate leading-tight">
                       {entry.kind === "editor"
                         ? entry.editorPreviewText || "메모"
                         : entry.items.length > 0
                         ? entry.items.map((i) => i.text).join(", ")
-                        : "담긴 짐 없음"}
+                        : "담긴 아이템 없음"}
                     </span>
                   </div>
                 </label>

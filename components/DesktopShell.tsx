@@ -10,6 +10,7 @@ import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScree
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import DesktopQuickPackChatView from "@/components/DesktopQuickPackChatView";
+import PackFolderView from "@/components/PackFolderView";
 import NewBagOptionsSheet from "@/components/NewBagOptionsSheet";
 import NoteImportModal, { NoteImportResult } from "@/components/NoteImportModal";
 import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
@@ -75,12 +76,6 @@ export default function DesktopShell({
   libraryPacks: Pack[];
   quickPack?: Pack;
   lockedBagIds: Set<string>;
-  // 지금 어느 가방/팩이 선택되어 우측 패널에 열려있는지. 예전엔 이 컴포넌트 자체의
-  // 로컬 state로 관리했는데, 그러면 창 폭이 바뀌어 모바일<->데스크톱 레이아웃이 전환되는
-  // 순간(AppShell이 isDesktop 값에 따라 이 컴포넌트 자체를 통채로 안 그리고 다른 트리를 그린다)
-  // 이 selection이 통채로 사라져버려서 열어두었던 가방/패이 홈 화면으로 튀기는 심각한 버그가
-  // 있었다. 이제는 AppShell이 자기 자신의(editingBag/editingPack) 상태에서 그대로 유도해서 이 컴포넌트에
-  // props로 내려준다 - AppShell 자체는 isDesktop이 바뀝도 unmount되지 않으므로 그 상태가 그대로 살아남는다.
   selection: DesktopSelection | null;
   onSelectionChange: (sel: DesktopSelection | null) => void;
   isNewBag: boolean;
@@ -121,11 +116,8 @@ export default function DesktopShell({
 }) {
   const { show } = useToast();
   const { moveBagToFolder, isOfflineMode } = useAuth();
-  // 지금 드래그하는 본인 기준 프리미엄 여부 - 빠른팩 항목을 드롭할 때
-  // 다른 멤버가 만든 AI추천 팩(aiRecommendSource)이 안 보이는데도 그쪽으로 들어가는 일을 막는다.
   const premium = isOfflineMode || isPremiumUser(user.email, profile);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
-  // 설정은 우측 패널 전체를 바꾸지 않고 모달로 띄운다 - 지금 보고 있던 가방/팝이 그대로 뒤에 남아있고, 닫으면 다시 그 화면으로 돌아온다.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(() => setSettingsOpen(false), settingsOpen);
@@ -136,14 +128,18 @@ export default function DesktopShell({
     selection?.kind === "pack"
       ? [...libraryPacks, ...(quickPack ? [quickPack] : [])].find((p) => p.id === selection.packId) ?? null
       : null;
+  const selectedPackFolder =
+    selection?.kind === "pack-folder"
+      ? libraryPacks.find((p) => p.id === selection.folderId && p.type === "folder") ?? null
+      : null;
 
-  // 선택된 가방/팩이 목록에서 사라지면(삭제 등) 우측 패널도 자동으로 비운다.
-  // 단, 목록이 비어있는 초기 로딩 타이밍에는 성급히 비우지 않는다.
+  // 선택된 가방/팩/폴더가 목록에서 사라지면(삭제 등) 우측 패널도 자동으로 비운다.
   useEffect(() => {
     if (selection?.kind === "bag" && !selectedBag && bags.length > 0) onSelectionChange(null);
     if (selection?.kind === "pack" && !selectedPack && libraryPacks.length > 0) onSelectionChange(null);
+    if (selection?.kind === "pack-folder" && !selectedPackFolder && libraryPacks.length > 0) onSelectionChange(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBag, selectedPack, selection?.kind, bags.length, libraryPacks.length]);
+  }, [selectedBag, selectedPack, selectedPackFolder, selection?.kind, bags.length, libraryPacks.length]);
 
   const [showNewBagOptions, setShowNewBagOptions] = useState(false);
   const [showNoteImport, setShowNoteImport] = useState(false);
@@ -210,7 +206,7 @@ export default function DesktopShell({
               items: quickPack.items.filter((i) => !itemIds.has(i.id)),
             });
           }
-          show(`'${bag.name}' > '${targetPack.name}' 가방으로 짐 ${items.length}개를 이동했어요!`);
+          show(`'${bag.name}' > '${targetPack.name}' 가방으로 아이템 ${items.length}개를 이동했어요!`);
         } else {
           const newPack: Pack = {
             id: `pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -230,7 +226,7 @@ export default function DesktopShell({
               items: quickPack.items.filter((i) => !itemIds.has(i.id)),
             });
           }
-          show(`'${bag.name}' 가방으로 짐 ${items.length}개를 이동했어요!`);
+          show(`'${bag.name}' 가방으로 아이템 ${items.length}개를 이동했어요!`);
         }
       }
     } else if (targetType === "pack") {
@@ -244,7 +240,7 @@ export default function DesktopShell({
               ...targetChild,
               items: [...targetChild.items, ...items],
             });
-            show(`'${pack.name}' > '${targetChild.name}' 팩 보관함으로 짐 ${items.length}개를 이동했어요!`);
+            show(`'${pack.name}' > '${targetChild.name}' 팩 보관함으로 아이템 ${items.length}개를 이동했어요!`);
           } else {
             show(`'${pack.name}' 폴더는 비어있어요. 팩을 하나 만든 후 담아주세요.`);
             return;
@@ -254,7 +250,7 @@ export default function DesktopShell({
             ...pack,
             items: [...pack.items, ...items],
           });
-          show(`'${pack.name}' 팩 보관함으로 짐 ${items.length}개를 이동했어요!`);
+          show(`'${pack.name}' 팩 보관함으로 아이템 ${items.length}개를 이동했어요!`);
         }
 
         if (quickPack) {
@@ -365,6 +361,27 @@ export default function DesktopShell({
               onRemoveItemsFromBagPack={onRemoveItemsFromBagPack}
               focusItemId={packFocusItemId}
               onFocusHandled={() => setPackFocusItemId(null)}
+            />
+          )}
+
+          {selection?.kind === "pack-folder" && selectedPackFolder && (
+            <PackFolderView
+              key={selectedPackFolder.id}
+              folder={selectedPackFolder}
+              allLibraryPacks={libraryPacks}
+              bags={bags}
+              onSelectFolder={(folderId) => onSelectionChange({ kind: "pack-folder", folderId })}
+              onSelectPack={(packId) => onSelectionChange({ kind: "pack", packId })}
+              onNewPack={(parentId, kind) => onNewPack(parentId, kind)}
+              onNewFolder={(parentId) => onNewFolder(parentId)}
+              onRenameEntry={onRenamePackEntry}
+              onSavePack={onSavePack}
+              onDeletePack={onDeletePack}
+              onBack={() => onSelectionChange(null)}
+              premium={premium}
+              lockedBagIds={lockedBagIds}
+              onAddItemsToBagPack={onAddItemsToBagPack}
+              onRemoveItemsFromBagPack={onRemoveItemsFromBagPack}
             />
           )}
         </div>

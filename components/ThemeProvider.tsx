@@ -120,7 +120,7 @@ function applyAll(settings: ColorSettings) {
   applyBaseOpacity(resolved, baseOpacity);
 }
 
-// 기본 투명도: 하단 탭바, 필터 버튼, 짐(체크/텍스트) 배경, 설정 메뉴 미선택 버튼 배경 등
+// 기본 투명도: 하단 탭바, 필터 버튼, 아이템(체크/텍스트) 배경, 설정 메뉴 미선택 버튼 배경 등
 // --surface-2를 쓰는 모든 곳에 공통으로 적용된다. globals.css에 정의된 고정값 대신
 // 이 CSS 변수를 인라인으로 덮어써서 색상은 그대로 두고 투명도만 조절한다
 // (100%일 때는 color-mix 결과가 원래 색과 동일해서 기존 모습 그대로 유지됨).

@@ -154,7 +154,7 @@ export default function TrashScreen({
       {confirmDeleteBag && (
         <ConfirmDialog
           title="이 가방을 완전히 삭제할까요?"
-          message="휴지통에서 완전삭제하면 되돌릴 수 없어요. 가방에 담긴 모든 팩과 짐, 사진이 함께 사라져요."
+          message="휴지통에서 완전삭제하면 되돌릴 수 없어요. 가방에 담긴 모든 팩과 아이템, 사진이 함께 사라져요."
           confirmLabel="완전삭제"
           onCancel={() => setConfirmDeleteBag(null)}
           onConfirm={() => {

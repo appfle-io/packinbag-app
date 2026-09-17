@@ -76,7 +76,7 @@ export default function MyShortLinksModal({
     try {
       await deleteShortLink(user, deletingLink.kind, deletingLink.code);
       setLinks((prev) => prev?.filter((l) => l.code !== deletingLink.code || l.kind !== deletingLink.kind) ?? prev);
-      // 지금 열려있는 다른 짐/메모에 이 링크가 이미 표시돼 있었다면(linkLabelCache에 캐시됨),
+      // 지금 열려있는 다른 아이템/메모에 이 링크가 이미 표시돼 있었다면(linkLabelCache에 캐시됨),
       // 새로고침 없이도 곧바로 "링크가 없어졌다"는 상태로 갱신되게 캐시를 비워준다.
       setLinkMetaCache(deletingLink.kind, deletingLink.code, null);
       setDeletingLink(null);
@@ -199,7 +199,7 @@ export default function MyShortLinksModal({
                     : l
                 ) ?? prev
               );
-              // 지금 열려있는 다른 짐/메모에 이 링크가 이미 표시돼 있었다면(linkLabelCache에
+              // 지금 열려있는 다른 아이템/메모에 이 링크가 이미 표시돼 있었다면(linkLabelCache에
               // 캐시됨), 새로고침 없이도 곧바로 새 이름/주소로 갱신되게 캐시를 같이 갱신한다
               // (LinkifiedText.tsx 자체 수정 흐름이 이미 하고 있는 것과 동일하게 맞춤).
               setLinkMetaCache(editingLink.kind, editingLink.code, {

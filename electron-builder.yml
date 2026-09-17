@@ -1,5 +1,5 @@
 appId: io.appfle.packinbag.offline
-productName: Packinbag Offline
+productName: 팩인백
 directories:
   output: dist-desktop
 files:
@@ -10,6 +10,7 @@ extraResources:
     to: "standalone"
 win:
   icon: "electron/icon.ico"
+  executableName: "팩인백"
   target:
     - target: zip
   artifactName: "Packinbag-offline-win-portable_${version}.${ext}"

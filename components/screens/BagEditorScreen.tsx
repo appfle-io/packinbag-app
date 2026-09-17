@@ -170,7 +170,7 @@ export default function BagEditorScreen({
   onRemoveMember: (bagId: string, memberUid: string) => Promise<void>;
   onRegenerateInviteCode: (bag: Bag) => Promise<string>;
   onTransferOwnership: (bagId: string, targetUid: string) => Promise<void>;
-  // 검색 결과를 눌러서 들어왔을 때만 넘어온다. 있으면 그 팩(+짐)까지 자동 스크롤하고
+  // 검색 결과를 눌러서 들어왔을 때만 넘어온다. 있으면 그 팩(+아이템)까지 자동 스크롤하고
   // 잠깐 하이라이트한다. 메모팩의 경우 searchQuery로 해당 텍스트 위치까지 스크롤한다.
   focusTarget?: { packId?: string; itemId?: string; searchQuery?: string } | null;
   onFocusHandled?: () => void;
@@ -233,7 +233,7 @@ export default function BagEditorScreen({
   const [hideChecked, setHideChecked] = useState(false);
   const [showViewMenu, setShowViewMenu] = useState(false);
 
-  // 짐/팩 댓글 + 리액션. 이 가방의 comments/reactions 서브컴렉션 전체를 통째로
+  // 아이템/팩 댓글 + 리액션. 이 가방의 comments/reactions 서브컴렉션 전체를 통째로
   // 구독하고(presence와 동일한 이유 - 복합 인덱스 없이 가벼운 구현), 화면에서는
   // targetId별로 개수/유무만 계산해 ItemRow/PackCard에 배지로 보여준다.
   const [comments, setComments] = useState<BagComment[]>([]);
@@ -273,7 +273,7 @@ export default function BagEditorScreen({
   const getItemThreadInfo = (itemId: string) => ({
     commentCount: comments.filter((c) => c.targetType === "item" && c.targetId === itemId).length,
   });
-  // 팀즈 스타일 즉시 리액션용 - 짐별 리액션 문서 조회.
+  // 팀즈 스타일 즉시 리액션용 - 아이템별 리액션 문서 조회.
   /*
   const getItemReactionDoc = (itemId: string) => reactions.find((r) => r.id === `item_${itemId}`);
   const handleToggleItemReaction = (
@@ -298,7 +298,7 @@ export default function BagEditorScreen({
   // 가방 전체(bag) 대상 댓글만 모은 것 - BagChatPreview/BagQuickAddRow 에서 공통으로 쓴다.
   const bagLevelComments = comments.filter((c) => c.targetType === "bag");
 
-  // 가방 전체 대화(공지성) 스레드 표시 여부. 짐별 댓글은 이제 별도 스레드 모달 없이
+  // 가방 전체 대화(공지성) 스레드 표시 여부. 아이템별 댓글은 이제 별도 스레드 모달 없이
   // 수정 모달(ItemEditModal) 안에 함께 떠서 따로 열기 상태가 필요 없다.
   const [showBagThread, setShowBagThread] = useState(false);
   // @멘션 자동완성/스캔용 멤버 목록(본인 제외).
@@ -633,7 +633,7 @@ export default function BagEditorScreen({
   }, [isNew]);
 
   // --- 실시간 동기화 -------------------------------------------------------
-  // 이름/메모/체크박스/짐 추가삭제 등 가방 안의 "모든" 변경은 아래 자동저장 effect가
+  // 이름/메모/체크박스/아이템 추가삭제 등 가방 안의 "모든" 변경은 아래 자동저장 effect가
   // 감지해서 서버에 반영한다. 클릭/타이핑마다 바로 쏘지 않고 마지막 변경 후 잠깐
   // 기다렸다가 한 번만 저장하는데(디바운스), 이게 체크박스 광클 방지 역할도 겸한다 -
   // 연속으로 눌러도 화면은 즉시 반응하고, 서버 저장은 마지막 상태로 한 번만 나간다.
@@ -719,7 +719,7 @@ export default function BagEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 다른 멤버가 이 가방을 동시에 보고 있을 때 그들의 변경(체크/이름/짐/팩 등 전부)을
+  // 다른 멤버가 이 가방을 동시에 보고 있을 때 그들의 변경(체크/이름/아이템/팩 등 전부)을
   // 실시간으로 반영한다. 단, 내가 방금 만든 로컬 변경이 아직 서버로 안 나갔거나(디바운스
   // 대기 중) 저장 중이면(isDirtyRef) 그 사이에 들어온 원격 변경은 건너뛴다 - 곧 내가
   // 보낼 저장이 그 시점 기준 최신 상태를 다시 반영하기 때문에, 여기서 섞어 넣으면
@@ -836,7 +836,7 @@ export default function BagEditorScreen({
     performMovePackToBag(packId, targetBagId);
   };
 
-  // 검색 결과를 눌러서 들어온 경우(focusTarget) 해당 팩이 접혀있으면 펼치고, 그 팩(또는 짐)으로
+  // 검색 결과를 눌러서 들어온 경우(focusTarget) 해당 팩이 접혀있으면 펼치고, 그 팩(또는 아이템)으로
   // 스크롤한 뒤 잠깐 하이라이트(pib-search-highlight, globals.css)를 붙였다 뗀다. 펼치는
   // 애니메이션/리렌더링이 끝난 뒤에만 요소를 찾을 수 있어서 약간의 지연(setTimeout) 뒤에 찾는다.
   useEffect(() => {
@@ -969,7 +969,7 @@ export default function BagEditorScreen({
     if (removedItem) {
       const restored = removedItem;
       const restoreIndex = removedIndex;
-      show("짐을 삭제했어요", {
+      show("아이템을 삭제했어요", {
         actionLabel: "되돌리기",
         onAction: () => {
           updatePacks((packs) =>
@@ -986,7 +986,7 @@ export default function BagEditorScreen({
     }
   };
 
-  // 짐 수정은 중앙 모달(ItemFormModal)을 열어서 처리한다. 새 짐 추가는 상단 "+" 버튼으로 여는
+  // 아이템 수정은 중앙 모달(ItemFormModal)을 열어서 처리한다. 새 아이템 추가는 상단 "+" 버튼으로 여는
   // 통합 모달(NotebookQuickAddModal)을 통해서만 이뤄진다(아래 handleCreateItem 참고).
   const [itemModal, setItemModal] = useState<{ sourcePackId: string; item: Item } | null>(null);
 
@@ -1022,7 +1022,7 @@ export default function BagEditorScreen({
     );
   };
 
-  // 짐 수정 모달의 저장 처리. 같은 팩을 유지하면 원래 위치 그대로 내용만 갱신하고,
+  // 아이템 수정 모달의 저장 처리. 같은 팩을 유지하면 원래 위치 그대로 내용만 갱신하고,
   // 모달에서 다른 팩으로 바꿔서 저장하면 기존 드래그 이동(handleMoveItem)처럼 원래
   // 팩에서 제거하고 대상 팩 맨 끝에 추가한다.
   const handleUpdateItem = (
@@ -1069,7 +1069,7 @@ export default function BagEditorScreen({
         return p;
       });
     });
-    if (sourcePackId !== targetPackId) show("짐을 옮겼어요");
+    if (sourcePackId !== targetPackId) show("아이템을 옮겼어요");
   };
 
   const handleRenamePack = (packId: string, name: string) => {
@@ -1359,10 +1359,10 @@ export default function BagEditorScreen({
     if (guardReadOnly()) return;
     const moveCompletedToBottom = profile?.packSettings?.moveCompletedToBottom ?? true;
     // 메모팩(kind==='editor')은 items가 항상 빈 배열이어야 하는데(실제 내용은 editorDoc에 있음),
-    // 드래그로 짐을 그 카드 위에 놓으면 데이터상으로는 들어가면서 화면에는 안 보이는(잃어버린
+    // 드래그로 아이템을 그 카드 위에 놓으면 데이터상으로는 들어가면서 화면에는 안 보이는(잃어버린
     // 것처럼 보이는) 버그가 생긴다. 대상 팩이 메모팩이면 이동을 막고 안내한다.
     if (fromPackId !== toPackId && bag.packs.find((p) => p.id === toPackId)?.kind === "editor") {
-      show("메모 팩에는 짐을 넣을 수 없어요");
+      show("메모 팩에는 아이템을 넣을 수 없어요");
       return;
     }
     if (fromPackId === toPackId) {
@@ -1412,7 +1412,7 @@ export default function BagEditorScreen({
         return p;
       });
     });
-    show("짐을 옮겼어요");
+    show("아이템을 옮겼어요");
   };
 
   const [drag, setDrag] = useState<{
@@ -1428,10 +1428,10 @@ export default function BagEditorScreen({
 
   const dragRef = useRef<typeof drag>(null);
 
-  // 짐을 처음(아직 선택 안 된 상태에서) 롱프레스하면 곧바로 선택모드로 들어가는 대신,
+  // 아이템을 처음(아직 선택 안 된 상태에서) 롱프레스하면 곧바로 선택모드로 들어가는 대신,
   // 일단 "집어든" 상태로만 기록해두고 다음 움직임을 지켜본다 - 그대로 움직이면(아래
-  // pendingSingleItemDrag 이펙트에서 판정) 다중선택 없이 이 짐 하나만 바로 드래그로
-  // 옮기고, 움직임 없이 손을 떼면 기존처럼 다중선택 모드로 들어간다. 이미 선택된 짐을
+  // pendingSingleItemDrag 이펙트에서 판정) 다중선택 없이 이 아이템 하나만 바로 드래그로
+  // 옮기고, 움직임 없이 손을 떼면 기존처럼 다중선택 모드로 들어간다. 이미 선택된 아이템을
   // 다시 롱프레스한 경우(아래 if문)는 그대로 곧바로 그룹 드래그를 시작한다.
   const pendingSingleItemDragRef = useRef<{
     packId: string;
@@ -1464,7 +1464,7 @@ export default function BagEditorScreen({
     pendingSingleItemDragRef.current = { packId, itemId, x: clientX, y: clientY };
   };
 
-  // 짐 다중선택 상태: 한 번에 한 팩만 대상으로 한다(다른 팩을 롱프레스하면 그 팩으로
+  // 아이템 다중선택 상태: 한 번에 한 팩만 대상으로 한다(다른 팩을 롱프레스하면 그 팩으로
   // 선택이 넘어간다). null이면 선택 모드가 아님.
   const [selection, setSelection] = useState<Record<string, Set<string>> | null>(null);
 
@@ -1488,8 +1488,8 @@ export default function BagEditorScreen({
 
   const cancelSelection = () => setSelection(null);
 
-  // 팀뷰에서 "이미 선택된 짐을 다시 길게 누름" 시 시작되는 그룹 이동 드래그 상태.
-  // 다른 패 위에 놓으면 선택된 짐 전체가 그 패으로 옮겨간다.
+  // 팀뷰에서 "이미 선택된 아이템을 다시 길게 누름" 시 시작되는 그룹 이동 드래그 상태.
+  // 다른 패 위에 놓으면 선택된 아이템 전체가 그 패으로 옮겨간다.
   const [groupDrag, setGroupDrag] = useState<{
     itemsByPack: Record<string, Set<string>>;
     x: number;
@@ -1500,13 +1500,13 @@ export default function BagEditorScreen({
   } | null>(null);
   const groupDragRef = useRef<typeof groupDrag>(null);
 
-  // 선택된 짐들을 다른 패으로 통채 옮긴다(순서는 맨 뒤에 추가). 남은 자리에서 손을
+  // 선택된 아이템들을 다른 패으로 통채 옮긴다(순서는 맨 뒤에 추가). 남은 자리에서 손을
   // 떼면(같은 패 위에 놓거나 대상 패가 없으면) 아무것도 하지 않고 그대로 선택 상태를 유지한다.
   const handleMoveSelectedItems = (itemsByPack: Record<string, Set<string>>, toPackId: string) => {
     if (guardReadOnly()) return;
-    // 메모팩(kind==='editor')에는 짐을 놓을 수 없다 - handleMoveItem과 동일한 방어.
+    // 메모팩(kind==='editor')에는 아이템을 놓을 수 없다 - handleMoveItem과 동일한 방어.
     if (bag.packs.find((p) => p.id === toPackId)?.kind === "editor") {
-      show("메모 팩에는 짐을 넣을 수 없어요");
+      show("메모 팩에는 아이템을 넣을 수 없어요");
       return;
     }
     let movedCount = 0;
@@ -1573,7 +1573,7 @@ export default function BagEditorScreen({
       if (!d.overPackId) return;
       const entries = Object.entries(d.itemsByPack).filter(([, ids]) => ids.size > 0);
       const totalSelected = entries.reduce((sum, [, ids]) => sum + ids.size, 0);
-      // 선택된 짐이 딱 한 개이고, 그 짐의 원래 패 위에 그대로 놓았다면 같은 패 안에서의 순서변경으로 처리한다.
+      // 선택된 아이템이 딱 한 개이고, 그 아이템의 원래 패 위에 그대로 놓았다면 같은 패 안에서의 순서변경으로 처리한다.
       if (totalSelected === 1 && entries.length === 1 && entries[0][0] === d.overPackId && d.overItemId) {
         const [packId, ids] = entries[0];
         const itemId = [...ids][0];
@@ -1598,7 +1598,7 @@ export default function BagEditorScreen({
   }, []);
 
   // pendingSingleItemDragRef(위 handleStartItemDrag)의 판정을 담당한다 - 이 정도
-  // (PICK_MOVE_PX) 이상 움직이면 다중선택 없이 이 짐 하나만 즉시 드래그(groupDrag,
+  // (PICK_MOVE_PX) 이상 움직이면 다중선택 없이 이 아이템 하나만 즉시 드래그(groupDrag,
   // 항목 1개)로 전환하고, 움직임 없이 손을 떼면 그제서야 다중선택 모드로 들어간다.
   useEffect(() => {
     const PICK_MOVE_PX = 8;
@@ -1637,7 +1637,7 @@ export default function BagEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 선택된 짐들을 그 팩에서 삭제한다. 다른 짐 삭제(handleDeleteItem)와 동일하게
+  // 선택된 아이템들을 그 팩에서 삭제한다. 다른 아이템 삭제(handleDeleteItem)와 동일하게
   // 확인창 없이 바로 삭제하고 "되돌리기" 토스트로 복구 기회를 준다.
   const commitDeleteSelected = () => {
     if (guardReadOnly()) return;
@@ -1687,9 +1687,9 @@ export default function BagEditorScreen({
       const overPackId = packEl?.getAttribute("data-pack-drop-id") ?? null;
       const itemEl = el?.closest("[data-item-id]") as HTMLElement | null;
       const overItemId = itemEl?.getAttribute("data-item-id") ?? null;
-      // 드래그 중인 항목을 대상 항목의 어디에 놓을지를 판단한다. 체크형 짐은 2열 그리드로
+      // 드래그 중인 항목을 대상 항목의 어디에 놓을지를 판단한다. 체크형 아이템은 2열 그리드로
       // 나란히 놀여있어서 좌/우(가로) 기준으로 판단해야 직관적이고(예: 2번을 1번 왜쪽으로
-      // 옮기면 1번 왜쪽에 놓여야 함), 텍스트형 짐은 전체 폭을 차지하는 한 줄이라 위/아래
+      // 옮기면 1번 왜쪽에 놓여야 함), 텍스트형 아이템은 전체 폭을 차지하는 한 줄이라 위/아래
       // (세로) 기준이 맞다.
       let overItemPosition: "before" | "after" | null = null;
       if (itemEl) {
@@ -1746,7 +1746,7 @@ export default function BagEditorScreen({
   }, []);
 
   // --- 팩 순서 드래그 -------------------------------------------------------------
-  // 짐 드래그(팩→팩 이동)와 별개로, 팩 카드 자체를 드래그해서 가방 안 팩들의
+  // 아이템 드래그(팩→팩 이동)와 별개로, 팩 카드 자체를 드래그해서 가방 안 팩들의
   // 순서를 바꾸는 기능. 같은 [data-pack-drop-id] 드롭존을 재사용한다. 데스크톱에서는
   // 사이드바(DesktopSidebar.tsx)의 가방 행에 붙은 [data-bag-drop-id]도 같이 감지해서, 놓으면
   // 이 가방에서 다른 가방으로 통째 이동시킨다(performMovePackToBag).
@@ -1780,7 +1780,7 @@ export default function BagEditorScreen({
     setPackDrag(next);
   };
 
-  // insertAfter가 true면 toPackId "다음"에, 아니면 "앞"에 삽입한다(짐 순서변경과 같은
+  // insertAfter가 true면 toPackId "다음"에, 아니면 "앞"에 삽입한다(아이템 순서변경과 같은
   // 이유로 커서 위치 기준으로 before/after를 판단해야 어디로 옥겨질지 직관적이다).
   const handleReorderPack = (fromPackId: string, toPackId: string, insertAfter?: boolean) => {
     if (guardReadOnly()) return;
@@ -1862,7 +1862,7 @@ export default function BagEditorScreen({
     // 안에서 바로 handleReorderPack(setBag + 토스트 show)을 호출해서, "BagEditorScreen을
     // 렌더링하는 도중에 ToastProvider 상태를 바꾸다"는 React 경고가 났다(setState
     // 업데이터 함수 안에서 다른 컴포넌트의 setState를 호출하는 건 안전하지 않다).
-    // 짐/그룹 드래그와 동일하게 packDragRef로 최신 값을 따로 보관해두는 방식으로 수정해서,
+    // 아이템/그룹 드래그와 동일하게 packDragRef로 최신 값을 따로 보관해두는 방식으로 수정해서,
     // handleUp에선 setPackDrag(null)을 그대로 호출하고 handleReorderPack은 업데이트와
     // 무관한 별도 문장으로 따로 호출한다.
     const handleUp = () => {
@@ -2062,7 +2062,7 @@ export default function BagEditorScreen({
   };
 
   // 상단 툴바 체크박스 전체선택/해제 버튼용 - 패/심플뷰 구분 없이 이 가방 안 모든 패(메모패 제외)의
-  // 체크형 짐을 한번에 다 켜거나 끄는다. 현재 모든 체크형 짐이 다 켜져있으면(allBagChecked)
+  // 체크형 아이템을 한번에 다 켜거나 끄는다. 현재 모든 체크형 아이템이 다 켜져있으면(allBagChecked)
   // 다음 클릭에는 전체해제, 아니면 전체선택한다.
   const handleToggleAllInBag = (checked: boolean) => {
     if (guardReadOnly()) return;
@@ -2192,7 +2192,7 @@ export default function BagEditorScreen({
     effectivePacks.length > 0 &&
     effectivePacks.every((p) => (p.displayState ?? "normal") === "wide");
 
-  // 상단 체크박스 전체선택/해제 버튼의 현재 상태 판단용 - 이 가방 안 모든 패의 체크형 짐을 모아서,
+  // 상단 체크박스 전체선택/해제 버튼의 현재 상태 판단용 - 이 가방 안 모든 패의 체크형 아이템을 모아서,
   // 하나라도 있고 다 켜져있으면만 true(체크할 것이 아예 없으면 false).
   const allBagCheckItems = viewablePacks.flatMap((p) => p.items).filter((i) => i.type === "check");
   const allBagChecked = allBagCheckItems.length > 0 && allBagCheckItems.every((i) => i.checked);
@@ -2649,7 +2649,7 @@ export default function BagEditorScreen({
                 {filterOnlyMyItems ? (
                   <>
                     <IconUser size={13} stroke={2} className="text-accent" />
-                    <span>내 짐만</span>
+                    <span>내 아이템만</span>
                   </>
                 ) : viewMode === "pack" ? (
                   <>
@@ -2751,7 +2751,7 @@ export default function BagEditorScreen({
                       >
                         <div className="flex items-center gap-2">
                           <IconUser size={15} stroke={1.75} />
-                          <span>내 짐만 보기 (나만보기)</span>
+                          <span>내 아이템만 보기 (나만보기)</span>
                         </div>
                         {filterOnlyMyItems && <IconCheck size={14} stroke={2.5} />}
                       </button>
@@ -2881,7 +2881,7 @@ export default function BagEditorScreen({
 
         {bag.packs.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
-            팩을 불러오거나 새로 만들어서 짐을 채워보세요.
+            팩을 불러오거나 새로 만들어서 아이템을 채워보세요.
           </p>
         ) : viewMode === "notebook" ? (
           <NotebookView
@@ -2926,7 +2926,7 @@ export default function BagEditorScreen({
             currentUid={currentUid}
             onToggleItemReaction={handleToggleItemReaction}
             onOpenReactionPicker={(itemId, itemText) =>
-              setReactionPickerTarget({ itemId, itemText: itemText || "짐" })
+              setReactionPickerTarget({ itemId, itemText: itemText || "아이템" })
             }
             */
           />
@@ -2980,14 +2980,14 @@ export default function BagEditorScreen({
             currentUid={currentUid}
             onToggleItemReaction={handleToggleItemReaction}
             onOpenReactionPicker={(itemId, itemText) =>
-              setReactionPickerTarget({ itemId, itemText: itemText || "짐" })
+              setReactionPickerTarget({ itemId, itemText: itemText || "아이템" })
             }
             */
           />
         )}
       </div>
 
-      {/* 짐을 롱프레스로 들어올린 동안, 화면 상단에 모든 팩 이름을 칩으로 띄워둔다.
+      {/* 아이템을 롱프레스로 들어올린 동안, 화면 상단에 모든 팩 이름을 칩으로 띄워둔다.
           화면 밖(스크롤해야 보이는) 팩으로도 스크롤 없이 바로 옮길 수 있게 하기 위함 -
           기존 [data-pack-drop-id] 드롭존 판정 로직(위 handleMove)을 그대로 재사용한다. */}
       {showQuickAddBar && (
@@ -3052,7 +3052,7 @@ export default function BagEditorScreen({
             textOverflow: "ellipsis",
           }}
         >
-          {drag.text || "짐"}
+          {drag.text || "아이템"}
         </div>
       )}
 
@@ -3155,7 +3155,7 @@ export default function BagEditorScreen({
                 style={{ background: "var(--surface-2)" }}
               >
                 <span className="text-[13px] font-medium">체크리스트 팩</span>
-                <span className="text-[11px] text-text-muted">체크박스/텍스트 짐을 2열로 넣는 지금까지의 팩</span>
+                <span className="text-[11px] text-text-muted">체크박스/텍스트 아이템을 2열로 넣는 지금까지의 팩</span>
               </button>
               <button
                 onClick={() => {

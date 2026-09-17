@@ -7,7 +7,7 @@ import { getItemTextExtensions } from "@/lib/itemTextExtensions";
 import { spansToTiptapDoc, tiptapDocToSpans, spansToPlainText } from "@/lib/richText";
 import { RichSpan } from "@/lib/types";
 
-// 짐(Item)의 텍스트형(type:"text") 항목에 굵게/밑줄/취소선을 "선택한 부분에만" 적용할 수
+// 아이템(Item)의 텍스트형(type:"text") 항목에 굵게/밑줄/취소선을 "선택한 부분에만" 적용할 수
 // 있게 해주는 한 줄짜리 미니 리치텍스트 입력창. ItemFormModal/ItemEditModal 둘 다에서
 // 텍스트 항목을 만들거나 고칠 때 이 컴포넌트를 쓴다(체크형 항목은 서식 자체가 없으므로
 // 해당 없음). TipTap을 아주 가볍게(문단 하나, 굵게/밑줄/취소선만) 구성해서 재사용한다.

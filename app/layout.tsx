@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "팩인백 · Pack In Bag",
-  description: "부부가 같이 짐을 싸는 체크리스트, 팩인백",
+  description: "부부가 같이 아이템을 싸는 체크리스트, 팩인백",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

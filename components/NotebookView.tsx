@@ -80,7 +80,7 @@ export default function NotebookView({
   dragSourcePackId?: string | null;
   hideChecked?: boolean;
   onAddItem?: (packId: string, data: { type: "check" | "text"; text: string }) => void;
-  // 다중선택 중이면 packId -> 그 팩에서 선택된 짐 id 집합 전체 맵. null/undefined면
+  // 다중선택 중이면 packId -> 그 팩에서 선택된 아이템 id 집합 전체 맵. null/undefined면
   // 다중선택 모드 자체가 아님(PackGrid와 동일한 규약).
   selectedItemsByPack?: Record<string, Set<string>> | null;
   onToggleSelectItem?: (packId: string, itemId: string) => void;
@@ -93,7 +93,7 @@ export default function NotebookView({
   premium?: boolean;
   isKanban?: boolean;
   onSetDonePack?: (packId: string) => void;
-  // 이 가방의 D-day 계산 기준. 각 짐의 마감일 뱃지 표시에 그대로 전달된다.
+  // 이 가방의 D-day 계산 기준. 각 아이템의 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;

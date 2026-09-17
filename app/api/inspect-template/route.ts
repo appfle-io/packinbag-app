@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   if (apiKey) {
     const systemPrompt = `당신은 체크리스트 팩 템플릿의 안전성과 적절성을 심사하는 유해성 모니터링 AI입니다.
-아래 팩 이름과 짐 항목 목록을 분석하여, 욕설/비속어, 성인물, 도박, 불법 대출/주식 광고, 텔레그램 홍보, 개인정보 유출 또는 악의적인 문구가 들어있는지 판단하세요.
+아래 팩 이름과 아이템 항목 목록을 분석하여, 욕설/비속어, 성인물, 도박, 불법 대출/주식 광고, 텔레그램 홍보, 개인정보 유출 또는 악의적인 문구가 들어있는지 판단하세요.
 
 응답은 반드시 아래 JSON 형식으로만 하세요. 다른 설명이나 코드블록(\`\`\`)은 절대 포함하지 마세요.
 
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
   "reason": "안전하지 않은 경우 사유 (한국어로 간결하게 1문장)"
 }`;
 
-    const userContent = `팩 이름: ${packName}\n짐 항목 목록:\n${itemsList.map((item, idx) => `${idx + 1}. ${item}`).join("\n")}`;
+    const userContent = `팩 이름: ${packName}\n아이템 항목 목록:\n${itemsList.map((item, idx) => `${idx + 1}. ${item}`).join("\n")}`;
 
     try {
       const res = await fetch(

@@ -25,16 +25,16 @@ import { useToast } from "@/components/Toast";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// 팩 편집 화면: 짐 추가/수정은 하단 "추가" 버튼으로 중앙 모달(ItemFormModal)을 열어서
+// 팩 편집 화면: 아이템 추가/수정은 하단 "추가" 버튼으로 중앙 모달(ItemFormModal)을 열어서
 // 처리한다. 가방 속 팩 편집과 다른 점은, 상단 팩 선택이 라디오형(하나만)이 아니라
 // 체크박스형(여러 개)이라는 것 - 보관함에 있는 다른 팩도 함께 체크하면 그 팩들에도
-// 동시에 짐이 추가/복사된다. 이미 추가된 짐은 기존과 동일하게 오른쪽 스와이프=수정
+// 동시에 아이템이 추가/복사된다. 이미 추가된 아이템은 기존과 동일하게 오른쪽 스와이프=수정
 // (역시 이 모달을 열도록 변경), 왼쪽 스와이프=삭제로 조작한다.
 //
-// 짐을 길게 누르는 제스처는 하나로 순서변경과 다중선택을 겸한다: 롱프레스가 시작된 뒤
-// 손가락을 실제로 다른 짐 위로 옮기면(overItemId가 바뀌면) 그 자리로 순서를 바꾸고,
+// 아이템을 길게 누르는 제스처는 하나로 순서변경과 다중선택을 겸한다: 롱프레스가 시작된 뒤
+// 손가락을 실제로 다른 아이템 위로 옮기면(overItemId가 바뀌면) 그 자리로 순서를 바꾸고,
 // 움직이지 않고 그 자리에서 그대로 손을 떼면 다중선택 모드로 진입한다 - 길게 누른
-// 짐이 선택되고, 이후 다른 짐들을 탭해서 선택을 추가/해제할 수 있다. 하단 액션바에서
+// 아이템이 선택되고, 이후 다른 아이템들을 탭해서 선택을 추가/해제할 수 있다. 하단 액션바에서
 // "이동"을 누르면 목적지를 고르는 시트가 뜨는데, 목적지는 라이브러리 팩뿐 아니라 특정
 // 가방의 특정 팩까지도 가능하다. "삭제"를 누르면 목적지 없이 바로 이 팩에서 지워진다
 // (확인창 없이, 되돌리기 토스트만) - 빠른팩이든 일반 팩이든 동일하게 동작한다.
@@ -63,7 +63,7 @@ export default function PackLibraryEditorScreen({
   libraryPacks: Pack[];
   // 무료 전환으로 잠긴 다른 보관함 팩 id 목록. "다른 팩에도 같이 추가" 체크박스
   // 목록에서 이 팩들은 제외한다 - 지금 열려있는 팩(unlocked 상태라 이 화면이 열림)을
-  // 편집하는 김에 잠긴 팩에 몰래 짐을 추가하는 것을 막기 위함.
+  // 편집하는 김에 잠긴 팩에 몰래 아이템을 추가하는 것을 막기 위함.
   lockedPackIds?: Set<string>;
   // 빠른팩의 "이동" 목적지로 특정 가방의 특정 팩까지 보여주기 위한 전체 가방 목록.
   bags?: Bag[];
@@ -74,18 +74,18 @@ export default function PackLibraryEditorScreen({
   onRequestUnlock: () => void;
   onBack: () => void;
   onSave: (pack: Pack) => void;
-  // 지금 편집 중인 팩이 아닌 "다른" 팩에 짐을 추가/복사할 때 그 팩을 즉시 원격저장.
+  // 지금 편집 중인 팩이 아닌 "다른" 팩에 아이템을 추가/복사할 때 그 팩을 즉시 원격저장.
   onSaveOtherPack: (pack: Pack) => void;
   // alsoDeleteFromBags가 true면 가방 속 연결된 사본도 함께 삭제해달라는 뜻(아래 삭제 확인창의 체크박스).
   onDelete: (packId: string, alsoDeleteFromBags?: boolean) => void;
-  // 빠른팩에서 짐을 특정 가방의 특정 팩으로 이동할 때 호출. (되돌리기는 아래 콜백)
+  // 빠른팩에서 아이템을 특정 가방의 특정 팩으로 이동할 때 호출. (되돌리기는 아래 콜백)
   onAddItemsToBagPack?: (bagId: string, packId: string, items: Item[]) => void;
   onRemoveItemsFromBagPack?: (bagId: string, packId: string, itemIds: Set<string>) => void;
   // "fullscreen"(기본): 가방 편집화면과 동일하게 화면 전체를 채운다.
   // "sheet": AppShell이 내용 길이에 맞춰 커지는 바텀시트 컨테이너 안에 이 화면을 넣을 때 -
   // 화면 자체가 h-dvh(기기 전체 높이)를 강제하지 않고 부모(시트)가 준 높이를 그대로 채운다.
   variant?: "fullscreen" | "sheet";
-  // 검색 결과(짐 매칭)를 눌러서 들어온 경우에만 넘어온다. 있으면 그 짐까지 자동 스크롤 +
+  // 검색 결과(아이템 매칭)를 눌러서 들어온 경우에만 넘어온다. 있으면 그 아이템까지 자동 스크롤 +
   // 잠깐 하이라이트한다 (AppShell이 PacksScreen 검색 결과 클릭을 중계).
   focusItemId?: string | null;
   onFocusHandled?: () => void;
@@ -99,8 +99,8 @@ export default function PackLibraryEditorScreen({
     () => findLinkedBagPackRefs(bags ?? [], new Set([pack.id])).length,
     [bags, pack.id]
   );
-  // "추가" 버튼으로 열리는 짐 추가/수정 모달의 상태. edit일 때 item은 항상 지금 이
-  // 팩(pack) 안에 있는 짐이다 - 다른 팩의 짐을 여기서 수정하는 경우는 없다.
+  // "추가" 버튼으로 열리는 아이템 추가/수정 모달의 상태. edit일 때 item은 항상 지금 이
+  // 팩(pack) 안에 있는 아이템이다 - 다른 팩의 아이템을 여기서 수정하는 경우는 없다.
   const [itemModal, setItemModal] = useState<
     { mode: "add" } | { mode: "edit"; item: Item } | null
   >(null);
@@ -167,7 +167,7 @@ export default function PackLibraryEditorScreen({
     if (removedItem) {
       const restored = removedItem;
       const restoreIndex = removedIndex;
-      show("짐을 삭제했어요", {
+      show("아이템을 삭제했어요", {
         actionLabel: "되돌리기",
         onAction: () => {
           setPack((p) => {
@@ -180,7 +180,7 @@ export default function PackLibraryEditorScreen({
     }
   };
 
-  // 짐 추가/수정 모달을 위한 팩 선택 목록: 지금 편집 중인 팩(pack, 로컬 최신 상태)과
+  // 아이템 추가/수정 모달을 위한 팩 선택 목록: 지금 편집 중인 팩(pack, 로컬 최신 상태)과
   // 라이브러리 전체 팩(libraryPacks)을 합친다. 아직 한 번도 저장 안 된 새 팩이면
   // libraryPacks에 없을 수 있어서 그런 경우엔 앞에 끼워 넣는다. 잠긴 다른 팩은 여기서
   // 제외해서, 체크박스로 선택조차 할 수 없게 만든다(lockedPackIds 참고).
@@ -196,7 +196,7 @@ export default function PackLibraryEditorScreen({
     (b) => !lockedBagIds?.has(b.id) && b.packs.some((p) => p.kind !== "editor")
   );
 
-  // 방금 새로 추가한 짐의 id. 추가 직후 화면에 그 짐이 보이도록 스크롤을 맞추는 용도로만
+  // 방금 새로 추가한 아이템의 id. 추가 직후 화면에 그 아이템이 보이도록 스크롤을 맞추는 용도로만
   // 쓰이고, 스크롤을 한 번 맞추면 바로 null로 비운다.
   const [lastAddedItemId, setLastAddedItemId] = useState<string | null>(null);
 
@@ -219,11 +219,11 @@ export default function PackLibraryEditorScreen({
   };
 
   // 모달 저장 처리:
-  // - 지금 팩(pack.id)이 체크되어 있으면: add는 새 짐 추가, edit는 원래 자리에서
+  // - 지금 팩(pack.id)이 체크되어 있으면: add는 새 아이템 추가, edit는 원래 자리에서
   //   내용만 갱신(체크박스형 checked 값은 타입이 안 바뀌었으면 유지).
   // - 지금 팩 체크가 빠져 있으면(edit에서만 가능): 이 팩에서는 제거.
   // - 체크된 다른 팩들에는 항상 새 복사본을 만들어서 즉시 원격저장(onSaveOtherPack).
-  //   (팩 간 짐은 항상 독립된 복사본이라는 기존 원칙과 동일 - 원본을 옮기는 게 아님)
+  //   (팩 간 아이템은 항상 독립된 복사본이라는 기존 원칙과 동일 - 원본을 옮기는 게 아님)
   const handleModalSave = (selectedPackIds: string[], data: ItemFormSaveData) => {
     if (guardReadOnly()) return;
     const includesCurrent = selectedPackIds.includes(pack.id);
@@ -250,8 +250,8 @@ export default function PackLibraryEditorScreen({
         setPack((p) => ({ ...p, items: p.items.filter((i) => i.id !== itemId) }));
       }
     } else if (includesCurrent) {
-      // 새 짐 추가: 어디에 정렬되어 보이든(완료 항목 아래로 정리 설정과 무관하게)
-      // 추가 직후 화면에 바로 보이도록 이 짐의 id를 기억해서 스크롤을 맞춘다.
+      // 새 아이템 추가: 어디에 정렬되어 보이든(완료 항목 아래로 정리 설정과 무관하게)
+      // 추가 직후 화면에 바로 보이도록 이 아이템의 id를 기억해서 스크롤을 맞춘다.
       const newItem = buildNewItem(data);
       setPack((p) => ({ ...p, items: [...p.items, newItem] }));
       setLastAddedItemId(newItem.id);
@@ -271,10 +271,10 @@ export default function PackLibraryEditorScreen({
     }
   };
 
-  // 방금 추가한 짐(lastAddedItemId)이 있으면 그 짐이 화면에 보이도록 스크롤한다.
-  // "완료 항목 맨 아래로 이동" 설정이 켜져 있으면 새 짐(미완료)은 미완료 그룹, 즉 화면
+  // 방금 추가한 아이템(lastAddedItemId)이 있으면 그 아이템이 화면에 보이도록 스크롤한다.
+  // "완료 항목 맨 아래로 이동" 설정이 켜져 있으면 새 아이템(미완료)은 미완료 그룹, 즉 화면
   // 위쪽에 놓이는데, 예전에는 무조건 목록 맨 아래(scrollHeight)로 스크롤해서 새로
-  // 추가한 짐이 화면 밖으로 밀려나 안 보이는 문제가 있었다 - 이제는 그 짐의 실제
+  // 추가한 아이템이 화면 밖으로 밀려나 안 보이는 문제가 있었다 - 이제는 그 아이템의 실제
   // 위치로 스크롤을 맞춘다.
   useEffect(() => {
     if (!lastAddedItemId) return;
@@ -287,7 +287,7 @@ export default function PackLibraryEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastAddedItemId]);
 
-  // 검색 결과(짐 매칭)를 눌러서 들어온 경우(focusItemId) 해당 짐으로 스크롤하고 잠깐
+  // 검색 결과(아이템 매칭)를 눌러서 들어온 경우(focusItemId) 해당 아이템으로 스크롤하고 잠깐
   // 하이라이트(pib-search-highlight, globals.css)를 붙였다 뗀다. 이 화면은 팩 하나만 보여주므로
   // BagEditorScreen과 달리 펼치기/접기 처리는 필요 없다.
   useEffect(() => {
@@ -308,12 +308,12 @@ export default function PackLibraryEditorScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusItemId]);
 
-  // --- 짐 순서 변경(롱프레스 드래그) / 다중선택 이동 --------------------------
+  // --- 아이템 순서 변경(롱프레스 드래그) / 다중선택 이동 --------------------------
   // 팩이 하나뿐인 화면이라 "다른 팩으로 이동"은 필요 없고, 같은 팩 안에서
   // 순서만 바꾼다. "가방 속 팩"과 동일하게 그립 아이콘 없이 롱프레스로 시작.
   // (손을 뗄 때 실제로 옮겼는지 여부로 순서변경/다중선택을 구분 - 아래 handleUp 참고)
   const [drag, setDrag] = useState<{ itemId: string; overItemId: string | null } | null>(null);
-  // 다중선택 상태. null이면 선택 모드가 아님, Set이면 선택된 짐 id들(빠른팩/일반팩 공통).
+  // 다중선택 상태. null이면 선택 모드가 아님, Set이면 선택된 아이템 id들(빠른팩/일반팩 공통).
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string> | null>(null);
   // 이동 목적지 시트 표시 여부 + (가방을 골라서 드릴다운했으면) 그 가방 id
   const [showMoveSheet, setShowMoveSheet] = useState(false);
@@ -328,7 +328,7 @@ export default function PackLibraryEditorScreen({
 
   const dragRef = useRef<typeof drag>(null);
 
-  // 선택 모드 중 짐을 탭하면 선택을 토글한다. 전부 해제되면 선택 모드를 자동으로 끈다.
+  // 선택 모드 중 아이템을 탭하면 선택을 토글한다. 전부 해제되면 선택 모드를 자동으로 끈다.
   const toggleSelectItem = (itemId: string) => {
     setSelectedItemIds((prev) => {
       if (!prev) return prev;
@@ -345,9 +345,9 @@ export default function PackLibraryEditorScreen({
     setMoveSheetBagId(null);
   };
 
-  // 선택된 짐들을 목적지(라이브러리 팩 또는 가방의 특정 팩)로 이동한다: 지금 팩(빠른팩)
+  // 선택된 아이템들을 목적지(라이브러리 팩 또는 가방의 특정 팩)로 이동한다: 지금 팩(빠른팩)
   // 에서는 제거하고, 목적지에는 새 복사본들을 즉시 원격저장한다. 되돌리기는 새로 생긴
-  // 복사본들의 id만 기준으로 목적지에서 제거 + 원래 짐들을 다시 빠른팩에 복원한다.
+  // 복사본들의 id만 기준으로 목적지에서 제거 + 원래 아이템들을 다시 빠른팩에 복원한다.
   const commitMove = (
     destination: { kind: "library"; packId: string } | { kind: "bag"; bagId: string; packId: string }
   ) => {
@@ -393,7 +393,7 @@ export default function PackLibraryEditorScreen({
     });
   };
 
-  // 선택된 짐들을 어디로도 옮기지 않고 그냥 이 팩에서 삭제한다. 다른 짐 삭제(deleteItem)와
+  // 선택된 아이템들을 어디로도 옮기지 않고 그냥 이 팩에서 삭제한다. 다른 아이템 삭제(deleteItem)와
   // 동일하게 확인창 없이 바로 삭제하고 "되돌리기" 토스트로 복구 기회를 준다 - 다중선택
   // 상태에서 자주 쓰는 동작이라 매번 확인창을 띄우면 번거롭다.
   const commitDeleteSelected = () => {
@@ -475,7 +475,7 @@ export default function PackLibraryEditorScreen({
 
   const deletingRef = useRef(false);
 
-  // 짐을 추가/삭제/수정/순서변경하거나 팩 이름·색상을 바꿀 때마다(=pack 상태가 바뀔 때마다)
+  // 아이템을 추가/삭제/수정/순서변경하거나 팩 이름·색상을 바꿀 때마다(=pack 상태가 바뀔 때마다)
   // 0.5초 후 자동으로 저장한다. 상단의 별도 "저장" 버튼 없이도 항상 최신 상태가
   // 보관함에 반영되도록 하는 것이 목적. 처음 화면이 열릴 때(아직 아무것도 안 바꼈을 때)는
   // 저장하지 않는다. readOnly면 위의 모든 setPack 진입점이 guardReadOnly로 막혀있어서
@@ -629,14 +629,14 @@ export default function PackLibraryEditorScreen({
 
       {pack.isQuickPack && !selecting && (
         <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
-          빠른입력으로 던져둔 짐들이에요. 짐을 길게 눌렀다가 그대로 손을 떼면 선택 모드가
-          시작돼요 - 다른 짐도 탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮기거나
+          빠른입력으로 던져둔 아이템들이에요. 아이템을 길게 눌렀다가 그대로 손을 떼면 선택 모드가
+          시작돼요 - 다른 아이템도 탭해서 함께 선택한 뒤 원하는 팩(또는 가방 속 팩)으로 옮기거나
           한 번에 삭제할 수 있어요.
         </p>
       )}
       {!pack.isQuickPack && !selecting && (
         <p className="mx-4 mb-2 text-[11px] text-text-muted shrink-0">
-          짐을 길게 눌렀다가 그대로 손을 떼면 선택 모드가 시작돼요(여러 개 골라서 삭제·이동).
+          아이템을 길게 눌렀다가 그대로 손을 떼면 선택 모드가 시작돼요(여러 개 골라서 삭제·이동).
           누른 채로 옮기면 이 팩 안에서 순서가 바뀌어요.
         </p>
       )}
@@ -652,7 +652,7 @@ export default function PackLibraryEditorScreen({
         />
       </div>
 
-      {/* 이미 추가된 짐 목록: 1개면 한 줄을 다 채우고, 늘어날수록 반응형으로
+      {/* 이미 추가된 아이템 목록: 1개면 한 줄을 다 채우고, 늘어날수록 반응형으로
           여러 열로 재배치된다(auto-fit). 오른쪽 스와이프=수정, 왼쪽 스와이프=삭제,
           체크박스 제외 영역 롱프레스=시작 후 옮기면 순서변경, 그 자리에서 손을 떼면
           다중선택 모드 시작(빠른팩/일반팩 공통). 다중선택 모드 중에는 탭 = 선택 토글이고
@@ -660,7 +660,7 @@ export default function PackLibraryEditorScreen({
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 pt-1 pb-3">
         {displayItems.length === 0 ? (
           <p className="text-[13px] text-text-muted py-10 text-center">
-            아래 추가 버튼으로 짐을 추가해보세요.
+            아래 추가 버튼으로 아이템을 추가해보세요.
           </p>
         ) : (
           <div

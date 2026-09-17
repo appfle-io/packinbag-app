@@ -102,7 +102,7 @@ export default async function GuestPackPage({ params }: GuestPackPageProps) {
               </h1>
             </div>
             <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[12.5px] font-bold shrink-0">
-              총 {totalItems}개 짐
+              총 {totalItems}개 아이템
             </span>
           </div>
         </section>
@@ -154,7 +154,7 @@ export default async function GuestPackPage({ params }: GuestPackPageProps) {
                       ))
                     ) : (
                       <p className="text-[13px] text-slate-400 py-3 text-center">
-                        아직 담긴 짐이 없어요.
+                        아직 담긴 아이템이 없어요.
                       </p>
                     )}
                   </div>

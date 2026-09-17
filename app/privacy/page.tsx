@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-5">
           <li>이메일 주소 (이메일 로그인 시)</li>
           <li>구글 계정의 이름, 이메일, 프로필 사진 (구글 로그인 시)</li>
-          <li>사용자가 직접 업로드하는 가방/짐 관련 이미지</li>
+          <li>사용자가 직접 업로드하는 가방/아이템 관련 이미지</li>
           <li>서비스 이용 과정에서 생성되는 가방/팩/그룹 데이터</li>
         </ul>
       </section>
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
         </p>
         <p className="mt-2">
           &apos;AI로 정리하기&apos;, &apos;AI 해시태그&apos; 등 AI 기능을 사용하는 경우,
-          이용자가 입력한 짐/팩 텍스트가 응답 생성을 위해 Google Gemini API로
+          이용자가 입력한 아이템/팩 텍스트가 응답 생성을 위해 Google Gemini API로
           전송됩니다. 이 텍스트는 AI 응답 생성 목적으로만 일시적으로 처리되며,
           팩인백이 별도로 저장하거나 다른 목적으로 이용하지 않습니다.
         </p>

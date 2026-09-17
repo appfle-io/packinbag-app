@@ -4,7 +4,7 @@ import { Pack } from "@/lib/types";
 
 export type PackChipState = "selected" | "source" | "normal";
 
-// 짐을 드래그해서 팩 사이로 옮길 때의 상단 드롭존 바, 그리고 짐 추가/수정 모달
+// 아이템을 드래그해서 팩 사이로 옮길 때의 상단 드롭존 바, 그리고 아이템 추가/수정 모달
 // 안의 "담을 팩 선택" 칩 목록이 서로 다른 상호작용(드래그오버 판정 vs 클릭선택)을
 // 쓰지만 같은 모양을 보여줘야 해서 렌더링만 이 컴포넌트로 공유한다.
 export default function PackChipBar({

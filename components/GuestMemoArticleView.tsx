@@ -98,7 +98,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
                 {pack.name}
               </p>
               <p className="text-[11px] text-slate-500 truncate">
-                팩인백에서 나만의 여행 짐과 메모를 관리해보세요
+                팩인백에서 나만의 여행 아이템과 메모를 관리해보세요
               </p>
             </div>
           </div>

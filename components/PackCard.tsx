@@ -24,7 +24,7 @@ import SwipeRenameField from "./SwipeRenameField";
 import ConfirmDialog from "./ConfirmDialog";
 import ProgressRing from "./ProgressRing";
 
-// 설정 > 화면설정 > 팩 크기 슬라이더 값(--pack-card-scale)에 맞춰 여백/아이콘/짐 칸
+// 설정 > 화면설정 > 팩 크기 슬라이더 값(--pack-card-scale)에 맞춰 여백/아이콘/아이템 칸
 // 크기를 조절한다. 글자 크기는 별도인 --pack-card-font-scale(설정 > 팩 카드 글씨 크기
 // 슬라이더)을 따로 곱해서, "카드 크기"와 "글자 크기"를 독립적으로 조절할 수 있게 한다
 // (둘 다 --font-scale-factor(설정 > 글자 크기)까지 같이 곱해진다).
@@ -84,7 +84,7 @@ export default function PackCard({
     style?: { bold?: boolean; strike?: boolean; color?: string }
   ) => void;
   onDeleteItem: (itemId: string) => void;
-  // 있으면 짐 수정 진입시 인라인 편집 대신 모달을 열도록 ItemRow에 전달한다.
+  // 있으면 아이템 수정 진입시 인라인 편집 대신 모달을 열도록 ItemRow에 전달한다.
   onEditItem?: (itemId: string) => void;
   onRenamePack: (name: string) => void;
   onToggleAll: (checked: boolean) => void;
@@ -101,26 +101,26 @@ export default function PackCard({
   onStartItemDrag?: (itemId: string, text: string, clientX: number, clientY: number) => void;
   dragSourceItemId?: string | null;
   dragOverItemId?: string | null;
-  // 드래그한 짐을 dragOverItemId 위(before)/아래(after) 중 어디에 놓을지.
+  // 드래그한 아이템을 dragOverItemId 위(before)/아래(after) 중 어디에 놓을지.
   dragOverItemPosition?: "before" | "after" | null;
   isDragOver?: boolean;
   onStartPackDrag?: (clientX: number, clientY: number) => void;
   isPackDragSource?: boolean;
   // 드래그한 팩을 이 카드 위(before)/아래(after) 중 어디에 놓을지. isDragOver와 함께 쓴다.
   isPackDragOverPosition?: "before" | "after" | null;
-  // 상단 "완료 항목 숨기기" 토글이 켜져 있으면, 체크된 체크형 짐은 화면에서 걸러낸다
+  // 상단 "완료 항목 숨기기" 토글이 켜져 있으면, 체크된 체크형 아이템은 화면에서 걸러낸다
   // (데이터 자체는 그대로 - 필터링일 뿐 삭제 아님).
   hideChecked?: boolean;
   // 하단 푸터의 체크박스/텍스트 빠른추가 버튼용. 없으면 버튼 자체를 숨긴다.
   onAddItem?: (data: { type: "check" | "text"; text: string }) => void;
-  // 이 패이 지금 다중선택 중이면 선택된 짐 id 집합, 아니면 null/undefined.
-  // 있으면 짐들이 선택 모드로 바뀌고(탭=선택 토글, 스와이프/드래그 비활성화) 다른
+  // 이 패이 지금 다중선택 중이면 선택된 아이템 id 집합, 아니면 null/undefined.
+  // 있으면 아이템들이 선택 모드로 바뀌고(탭=선택 토글, 스와이프/드래그 비활성화) 다른
   // 팩은 그대로 유지된다.
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (itemId: string) => void;
-  // 짐별 댓글 수 조회 함수. 없으면(undefined) 밑줄 표시가 안 붙는다.
+  // 아이템별 댓글 수 조회 함수. 없으면(undefined) 밑줄 표시가 안 붙는다.
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
-  // 이 가방의 D-day 계산 기준. 짐 마감일 뱃지 표시에 그대로 전달된다.
+  // 이 가방의 D-day 계산 기준. 아이템 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   // 팀즈 스타일 즉시 리액션용. 넷 다 있어야 ItemRow에 파이 열을 보여준다.
   /*
@@ -168,11 +168,11 @@ export default function PackCard({
   // 이 패이 지금 다중선택 대상인지(selectedItemIds가 넘어옴).
   const selecting = !!selectedItemIds;
 
-  // 팩 카드 내부 세로 스크롤 제거 & 짐이 많을 때 인라인 더보기/접기 지원 (가방 전체 스크롤 충돌 해결)
+  // 팩 카드 내부 세로 스크롤 제거 & 아이템이 많을 때 인라인 더보기/접기 지원 (가방 전체 스크롤 충돌 해결)
   const [isItemsExpanded, setIsItemsExpanded] = useState(false);
   const DEFAULT_ITEM_LIMIT = isWide ? 12 : 8;
   const needsExpand = displayItems.length > DEFAULT_ITEM_LIMIT;
-  // 선택 중이거나 드래그 중인 짐이 숨겨진 범위에 있으면 자동으로 펼쳐서 보여줌
+  // 선택 중이거나 드래그 중인 아이템이 숨겨진 범위에 있으면 자동으로 펼쳐서 보여줌
   const hasHiddenSelection =
     selecting &&
     Array.from(selectedItemIds || []).some(
@@ -345,7 +345,7 @@ export default function PackCard({
               <span>
                 {isExpanded
                   ? "간략히 접기"
-                  : `+ ${displayItems.length - DEFAULT_ITEM_LIMIT}개 짐 더보기 (총 ${displayItems.length}개)`}
+                  : `+ ${displayItems.length - DEFAULT_ITEM_LIMIT}개 아이템 더보기 (총 ${displayItems.length}개)`}
               </span>
               <IconChevronDown
                 size={14}

@@ -239,7 +239,7 @@ export default function AdminDashboardPage() {
             />
           </Section>
 
-          <Section title="팩 / 짐">
+          <Section title="팩 / 아이템">
             <StatCard
               label="가방 속 팩 총합"
               value={stats.packs.total}
@@ -254,13 +254,13 @@ export default function AdminDashboardPage() {
               trendLastWeek={w?.packs.libraryTotal}
             />
             <StatCard
-              label="짐(항목) 총합"
+              label="아이템(항목) 총합"
               value={stats.items.total}
               trendYesterday={y?.items.total}
               trendLastWeek={w?.items.total}
             />
             <StatCard
-              label="완료된 짐"
+              label="완료된 아이템"
               value={stats.items.checked}
               trendYesterday={y?.items.checked}
               trendLastWeek={w?.items.checked}
@@ -328,7 +328,7 @@ export default function AdminDashboardPage() {
                 ]}
               />
               <StatPie
-                title="짐 완료율"
+                title="아이템 완료율"
                 data={[
                   { name: "완료", value: stats.items.checked, color: "#16a34a" },
                   { name: "미완료", value: stats.items.total - stats.items.checked, color: "#e5e7eb" },

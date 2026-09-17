@@ -2,7 +2,7 @@ import type { User } from "firebase/auth";
 import { fetchLinkMeta, parseShortLinkUrl, type LinkMeta } from "@/lib/shortLinkService";
 
 // 짧은/커스텀 링크의 표시 이름(label)을 code 기준으로 앱 전체에서 공유하는 캐시.
-// 짐/메모(components/LinkifiedText.tsx, 리액트 상태로 재렌더)와 메모팩
+// 아이템/메모(components/LinkifiedText.tsx, 리액트 상태로 재렌더)와 메모팩
 // (components/screens/PackNoteEditorScreen.tsx, TipTap DOM을 직접 갱신)이 렌더링 방식은
 // 서로 다르지만 같은 링크가 양쪽에 동시에 나타날 수 있어서, 캐시/조회 로직 자체는 여기
 // 하나로 공유한다. 세션(탭) 안에서만 유지되는 메모리 캐시이고 새로고침하면 비워진다 -

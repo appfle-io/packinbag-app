@@ -19,12 +19,12 @@ const COPY_SWIPE_MAX = 60;
 const SWIPE_BUTTON_WIDTH = 60;
 
 // 스와이프로 판정되려면 필요한 최소 가로 이동거리 / 세로 대비 배율.
-// 가로 이동이 이 거리 이상이면서 세로보다 이 배율만큼 커야만 짐이 슬라이드된다 -
+// 가로 이동이 이 거리 이상이면서 세로보다 이 배율만큼 커야만 아이템이 슬라이드된다 -
 // 스크롤하려고 손가락을 내릴 때 생기는 미세한 가로 흔들림을 걸러내기 위한 값이다.
 const SWIPE_INTENT_MIN_PX = 12;
 const SWIPE_INTENT_RATIO = 1.6;
 
-// 짐을 다른 팩으로 옮기거나 순서를 바꿀 때 쓰는 롱프레스 드래그 설정.
+// 아이템을 다른 팩으로 옮기거나 순서를 바꿀 때 쓰는 롱프레스 드래그 설정.
 // 이 시간(ms) 이상 큰 움직임 없이 누르고 있으면 드래그 모드로 진입하고,
 // 그전에 손가락이 옆으로 움직이면(스와이프 의도로 판단) 롱프레스를 취소한다.
 const LONG_PRESS_MS = 300;
@@ -96,7 +96,7 @@ const startMomentumScroll = (parent: HTMLElement, initialVelocity: number) => {
 };
 
 // 텍스트 항목 색상 팔레트. "" 는 기본 색상(리셋)을 의미.
-// 짐 추가/수정 모달(ItemFormModal)에서도 동일 팔레트를 써서 export.
+// 아이템 추가/수정 모달(ItemFormModal)에서도 동일 팔레트를 써서 export.
 export const TEXT_COLORS = ["", "#ef4444", "#f97316", "#22c55e", "#3b82f6", "#a855f7"];
 
 // 설정 > 화면설정 > 팩 크기(--pack-card-scale)에 맞춰 패딩/아이콘/체크박스 크기를
@@ -150,13 +150,13 @@ export default function ItemRow({
   roundCheckbox?: boolean;
   disabled?: boolean;
   onRowTap?: () => void;
-  // 이 짐에 달린 댓글 수. 있으면 짐 내용에 밑줄(underline)이 붙는다(hasComment). 댓글 자체는 더블탭으로
+  // 이 아이템에 달린 댓글 수. 있으면 아이템 내용에 밑줄(underline)이 붙는다(hasComment). 댓글 자체는 더블탭으로
   // 열리는 통합 모달(ItemEditModal) 안에서 보고 쓴다 - 이 컴포넌트에는 댓글 열기 버튼이 따로 없다.
   commentCount?: number;
-  // 이 짐이 속한 가방의 D-day 계산 기준(당일도 "1일째"로 세는지). 짐 단위
+  // 이 아이템이 속한 가방의 D-day 계산 기준(당일도 "1일째"로 세는지). 아이템 단위
   // 마감일(item.dueDate) 뱃지가 가방 상단 D-day와 같은 기준으로 보이도록 받는다.
   ddayCountTodayAsDayOne?: boolean;
-  // 팀즈 스타일로 짐 바로 아래 겹쳐 보여줄 이모지 리액션. 셋 다 있어야 렌더링된다.
+  // 팀즈 스타일로 아이템 바로 아래 겹쳐 보여줄 이모지 리액션. 셋 다 있어야 렌더링된다.
   /*
   reactionDoc?: BagReactionDoc;
   currentUid?: string;
@@ -176,13 +176,13 @@ export default function ItemRow({
   const { profile, user } = useAuth();
   const { show: showToast } = useToast();
   const shortUrlFeatureEnabled = isShortUrlFeatureEnabled(user?.email, profile);
-  // 설정 > 팩 설정에서 고르는 짐 최대 표시 줄 수(1~3, 없으면 1줄 기본값). 모든 짐에 공통 적용된다.
+  // 설정 > 팩 설정에서 고르는 아이템 최대 표시 줄 수(1~3, 없으면 1줄 기본값). 모든 아이템에 공통 적용된다.
   // (예전엔 더블클릭 복사 토스트 노출 시간 설정도 여기 있었는데, 더블클릭이 복사 대신
   // 수정 모달을 열도록 바뀌면서 그 설정 값은 더 이상 쓰이지 않는다.)
   const itemMaxLines = profile?.packSettings?.itemMaxLines ?? 1;
   const lineClampClass =
     itemMaxLines === 3 ? "line-clamp-3" : itemMaxLines === 2 ? "line-clamp-2" : "line-clamp-1";
-  // 짐 마감일 뱃지 라벨. dueDate가 없으면 null이라 아래에서 자연히 숨겨진다.
+  // 아이템 마감일 뱃지 라벨. dueDate가 없으면 null이라 아래에서 자연히 숨겨진다.
   const dueDisplayMode = profile?.packSettings?.dueDateDisplayMode ?? "dday";
   const dueLabel = formatItemDueLabel(item.dueDate, dueDisplayMode, ddayCountTodayAsDayOne);
   // 마감일 뱃지 색상. "다가올수록 진하게" 옵션(기본값 ON)이 켜져 있으면 muted에서
@@ -199,22 +199,22 @@ export default function ItemRow({
     ? "var(--accent)"
     : "var(--text-muted)";
 
-  // 댓글이 달려있는지는 짐 내용 밑줄(underline)로만 조용히 표시한다 - 아이콘/배지를 따로 둘지 않으니
+  // 댓글이 달려있는지는 아이템 내용 밑줄(underline)로만 조용히 표시한다 - 아이콘/배지를 따로 둘지 않으니
   // 플렉스 폭을 전혀 침범하지 않고(텍스트 잘림 문제 없음), 취소선(strike)과도 함께 보일 수 있다.
   const hasComment = !editing && !!commentCount;
 
-  // 다중선택 모드 중엔 같은 짐을 빠르게 두 번 누르면(더블클릭 속도) 두 번째 탭을 무시한다 -
+  // 다중선택 모드 중엔 같은 아이템을 빠르게 두 번 누르면(더블클릭 속도) 두 번째 탭을 무시한다 -
   // 안 그러면 선택->선택해제가 순식간에 일어나 다중선택 모드가 풀리면서, 동시에 아래
   // handleDoubleClick(수정 모달 열기)까지 겹쳐 실행되는 문제가 있었다.
   const lastTapTimeRef = useRef(0);
   const RAPID_TAP_GUARD_MS = 350;
 
-  // 짐을 더블클릭하면 수정 모달(또는 인라인 편집)을 연다. 예전엔 클립보드 복사였는데,
+  // 아이템을 더블클릭하면 수정 모달(또는 인라인 편집)을 연다. 예전엔 클립보드 복사였는데,
   // 스와이프에서 수정 버튼 자리가 댓글로 바뀌면서 수정 진입 동선이 더블탭으로 옮겨왔다.
   // 다중선택 모드(disabled) 중에는 편집 대신 선택 토글이 우선이므로 막는다.
   // preventDefault를 호출하는 이유: 그냥 return만 하면 JS 동작만 막힐 뿐, 브라우저가
   // 더블클릭 시 기본으로 수행하는 텍스트 선택(하이라이트)은 그대로 일어난다 - 선택 모드 중에
-  // 짐 텍스트가 계속 하이라이트되어 보이는 게 어색했던 문제.
+  // 아이템 텍스트가 계속 하이라이트되어 보이는 게 어색했던 문제.
   const handleDoubleClick = (e: React.MouseEvent) => {
     if (disabled) {
       e.preventDefault();
@@ -409,7 +409,7 @@ export default function ItemRow({
 
     // 가로 스와이프 의도인지 판단한다: 최소 이동거리(SWIPE_INTENT_MIN_PX) 이상이고,
     // 세로보다 확실히(SWIPE_INTENT_RATIO배) 커야 스와이프로 인정한다. 스크롤하려고
-    // 손가락을 내릴 때 생기는 미세한 가로 흔들림에도 짐이 슬쩍 밀리던 오탐을 막기 위함이다.
+    // 손가락을 내릴 때 생기는 미세한 가로 흔들림에도 아이템이 슬쩍 밀리던 오탐을 막기 위함이다.
     const isHorizontalSwipe =
       Math.abs(dx) >= SWIPE_INTENT_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_INTENT_RATIO;
 
@@ -527,7 +527,7 @@ export default function ItemRow({
     // 마우스(웹)에서 롱프레스로 onStartDrag(다중선택 진입/그룹드래그 시작)가 이미
     // 실행된 뒤에도, 손을 뗄 때 브라우저가 같은 엘리먼트에 click을 한 번 더 발생시킨다
     // (터치와 달리 마우스는 롱프레스 후에도 click이 억제되지 않음). 이 click이 그대로
-    // onRowTap(선택 토글)으로 이어지면, 방금 롱프레스로 선택된 짐이 바로 다시 선택
+    // onRowTap(선택 토글)으로 이어지면, 방금 롱프레스로 선택된 아이템이 바로 다시 선택
     // 해제되면서 다중선택 모드에 들어가자마자 풀려버리는 문제가 있었다.
     if (longPressTriggered.current) {
       longPressTriggered.current = false;
@@ -689,7 +689,7 @@ export default function ItemRow({
                 onChange={(e) => setDraft(e.target.value)}
                 onBlur={commitEdit}
                 onKeyDown={(e) => e.key === "Enter" && commitEdit()}
-                placeholder="짐 이름"
+                placeholder="아이템 이름"
                 className="min-w-0 flex-1 bg-transparent text-[calc(17px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] md:text-[calc(18px*var(--pack-card-font-scale,1)*var(--font-scale-factor,1))] leading-normal py-2 md:py-2.5 outline-none"
               />
             )
@@ -744,7 +744,7 @@ export default function ItemRow({
                     const spans = getItemSpans(item);
                     // 부분 서식(서로 다른 스팜이 2개 이상)이 실제로 쓰인 경우에만 구간별로 나눠서 렌더링하고,
                     // 그렇지 않으면(예전처럼 전체가 하나의 스팜) 링크화/짧은URL 치환이 그대로 동작하는
-                    // LinkifiedText 경로를 그대로 쓴다(부분 서식 적용 짐은 링크 감지가 스팜 단위로 나눠져서
+                    // LinkifiedText 경로를 그대로 쓴다(부분 서식 적용 아이템은 링크 감지가 스팜 단위로 나눠져서
                     // URL이 서로 다른 서식 구간에 걸치면 감지되지 않을 수 있다 - 대부분 짧은 라벨이라 실사용 영향은 작다).
                     if (spans.length <= 1) {
                       return (
@@ -815,13 +815,13 @@ export default function ItemRow({
 
         </div>
 
-        {/* 예전엔 이 자리에 댓글 아이콘+숫자배지 버튼이 있었는데, 폭이 넓은 짐(dueDate 배지까지 겹치면)은
+        {/* 예전엔 이 자리에 댓글 아이콘+숫자배지 버튼이 있었는데, 폭이 넓은 아이템(dueDate 배지까지 겹치면)은
             텍스트가 많이 잘려 보이는 문제가 있었다. 댓글은 이제 오른쪽 스와이프(위 버튼)로 열고,
-            댓글이 있다는 표시는 별도 아이콘 없이 위의 짐 내용 span에 밑줄(underline)을 추가하는 것으로
+            댓글이 있다는 표시는 별도 아이콘 없이 위의 아이템 내용 span에 밑줄(underline)을 추가하는 것으로
             대신한다(hasComment 변수) - 플렉스 폭을 전혀 침범하지 않아 텍스트 잘림 없이 내용을 그대로 보여준다. */}
       </div>
 
-      {/* 팀즈 스타일 이모지 리액션 - 짐 바로 아래에 살짝 겹쳐서 떠있는 알약들.
+      {/* 팀즈 스타일 이모지 리액션 - 아이템 바로 아래에 살짝 겹쳐서 떠있는 알약들.
           탭하면 댓글 스레드에 안 들어가고 바로 이 자리에서 토글된다. */}
       {/*
       {!editing && onToggleReaction && onOpenReactionPicker && (

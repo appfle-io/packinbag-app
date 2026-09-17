@@ -8,8 +8,8 @@ const SWIPE_BUTTON_WIDTH = 44;
 const SWIPE_INTENT_MIN_PX = 12;
 const SWIPE_INTENT_RATIO = 1.6;
 
-// 짐(ItemRow)의 스와이프 수정 상호작용과 동일한 패턴을 팩 이름에도 적용한 컴포넌트.
-// 예전엔 이름 텍스트를 탭하면 바로 편집 모드로 들어갔는데, 짐 수정과 일관되게
+// 아이템(ItemRow)의 스와이프 수정 상호작용과 동일한 패턴을 팩 이름에도 적용한 컴포넌트.
+// 예전엔 이름 텍스트를 탭하면 바로 편집 모드로 들어갔는데, 아이템 수정과 일관되게
 // "오른쪽으로 밀어서 수정" 방식으로 통일했다. 삭제는 팩 헤더에 별도 휴지통 아이콘이
 // 이미 있어서 왼쪽 스와이프(삭제) 제스처는 여기선 만들지 않는다.
 export default function SwipeRenameField({

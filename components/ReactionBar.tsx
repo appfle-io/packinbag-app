@@ -2,7 +2,7 @@
 
 import { BagReactionDoc, REACTION_EMOJIS, ReactionEmoji } from "@/lib/types";
 
-// 짐/팩/가방 어디서든 재사용하는 프리셋 이모지 리액션 줄. 무한 이모지피커 대신
+// 아이템/팩/가방 어디서든 재사용하는 프리셋 이모지 리액션 줄. 무한 이모지피커 대신
 // 자주 쓸 법한 5개만 고정 제공해서, 댓글을 안 쓰고도 바로 반응만 남길 수 있게 한다.
 export default function ReactionBar({
   reactionDoc,

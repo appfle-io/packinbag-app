@@ -75,7 +75,7 @@ export default function AiFeatureMenu({
                 )}
               </div>
               <div className="text-[11px] text-text-muted mt-0.5">
-                지금 이 가방의 짐들을 훑어보고 어울리는 팩으로 다시 묶어드려요
+                지금 이 가방의 아이템들을 훑어보고 어울리는 팩으로 다시 묶어드려요
               </div>
             </div>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />
@@ -160,13 +160,13 @@ export default function AiFeatureMenu({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[14px] font-medium">AI 짐 누락 검수</span>
+                <span className="text-[14px] font-medium">AI 아이템 누락 검수</span>
                 <span className="shrink-0 text-[10px] font-bold rounded px-1.5 py-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-400">
                   추천
                 </span>
               </div>
               <div className="text-[11px] text-text-muted mt-0.5">
-                여행지, 계절, 짐 목록을 분석하여 놓치기 쉬운 필수품을 찾아드려요
+                여행지, 계절, 아이템 목록을 분석하여 놓치기 쉬운 필수품을 찾아드려요
               </div>
             </div>
             <IconChevronRight size={16} stroke={1.75} color="var(--text-muted)" className="shrink-0" />

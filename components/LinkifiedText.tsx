@@ -16,7 +16,7 @@ import ShortenUrlModal from "@/components/ShortenUrlModal";
 import EditLinkModal from "@/components/EditLinkModal";
 import { useToast } from "@/components/Toast";
 
-// 짐/가방 메모 같은 일반 텍스트(TipTap이 아닌 plain <span>) 안에서 http(s):// URL을
+// 아이템/가방 메모 같은 일반 텍스트(TipTap이 아닌 plain <span>) 안에서 http(s):// URL을
 // 찾아 클릭 가능한 링크로 바꿔준다. MentionText.tsx(@멘션 볼드 처리)와 동일한
 // split(캡처그룹 정규식) 패턴을 재사용한다.
 const URL_REGEX = /(https?:\/\/\S+)/g;
@@ -54,7 +54,7 @@ function LinkifiedUrlPart({
     <a
       href={url}
       onClick={(e) => {
-        // 부모(짐 행 전체를 감싸는 div/button)의 탭 처리(수정 모드 진입, 다중선택
+        // 부모(아이템 행 전체를 감싸는 div/button)의 탭 처리(수정 모드 진입, 다중선택
         // 등)로 이벤트가 번지지 않게 막는다.
         e.preventDefault();
         e.stopPropagation();
@@ -80,7 +80,7 @@ export default function LinkifiedText({
   // isShortUrlFeatureEnabled(email, profile)로 미리 계산해서 넘겨준다(프리미엄 + 설정
   // 토글이 둘 다 켜져 있어야 true) - false면 아직 축약 전인 링크를 눌러도 선택 메뉴 없이 바로 열린다.
   shortenEnabled: boolean;
-  // 원본 URL을 짧은/커스텀 URL로 교체할 때 부모(짐 텍스트/가방 메모)의 실제 저장 로직을 호출한다.
+  // 원본 URL을 짧은/커스텀 URL로 교체할 때 부모(아이템 텍스트/가방 메모)의 실제 저장 로직을 호출한다.
   // 없으면(예: 읽기전용 맥락) "짧은/커스텀 URL로 변경" 자체가 제공되지 않는다.
   onReplace?: (originalUrl: string, shortUrl: string) => void;
 }) {

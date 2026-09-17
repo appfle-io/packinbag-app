@@ -31,7 +31,7 @@ function formatTime(iso: string) {
   });
 }
 
-// 짐(item) 또는 가방 전체(bag) 댓글 스레드 - 공용 컴포넌트. targetType='item'일 때만
+// 아이템(item) 또는 가방 전체(bag) 댓글 스레드 - 공용 컴포넌트. targetType='item'일 때만
 // 상단에 즉시 반응용 이모지 리액션 줄을 둔다(가방 전체는 리액션 대상이 아님). 그 아래
 // 댓글 목록 + @멘션 자동완성이 되는 입력창을 둔다. bagId 하나에 대해서만 실시간
 // 구독하고(전체 comments/reactions 서브컬렉션), 화면에서는 이 targetId에 해당하는
@@ -54,7 +54,7 @@ export default function ItemThreadSheet({
 }: {
   bagId: string;
   targetType?: CommentTargetType;
-  targetId: string; // targetType='item'이면 짐 id, 'bag'이면 bagId 자체
+  targetId: string; // targetType='item'이면 아이템 id, 'bag'이면 bagId 자체
   packId?: string;
   title: string;
   currentUid: string;
@@ -100,7 +100,7 @@ export default function ItemThreadSheet({
     () => allComments.filter((c) => c.targetType === targetType && c.targetId === targetId),
     [allComments, targetType, targetId]
   );
-  // 짐 단위 리액션 주석 처리
+  // 아이템 단위 리액션 주석 처리
   /*
   const reactionDoc = allReactions.find((r) => r.id === `item_${targetId}`);
   */

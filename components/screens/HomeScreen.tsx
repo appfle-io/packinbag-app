@@ -84,7 +84,7 @@ function buildFolderNavRows(
 }
 
 // 검색 결과를 눌렀을 때 어디로 이동할지 알려주는 정보. packId가 있으면 해당 팩까지
-// 자동 스크롤 + 하이라이트하고, itemId까지 있으면 짐 자체를 하이라이트한다.
+// 자동 스크롤 + 하이라이트하고, itemId까지 있으면 아이템 자체를 하이라이트한다.
 // 메모팩의 경우 searchQuery가 있으면 에디터 내 해당 텍스트로 스크롤 및 하이라이트한다.
 export type BagOpenFocus = { packId?: string; itemId?: string; searchQuery?: string };
 
@@ -119,7 +119,7 @@ export default function HomeScreen({
   // 다중선택 삭제 확인창에서 "내가 소유한 가방"과 "공유받은 가방"을 구분해서 문구를
   // 다르게 보여주기 위해 필요하다 (소유하지 않은 가방은 삭제가 아니라 나가기 처리됨).
   currentUid: string;
-  // focus가 있으면 가방을 연 뒤 그 팩(또는 짐)까지 자동 스크롤 + 하이라이트한다
+  // focus가 있으면 가방을 연 뒤 그 팩(또는 아이템)까지 자동 스크롤 + 하이라이트한다
   // (상단 검색 결과를 눌렀을 때만 넘어옴 - 평소 카드 탭은 focus 없이 호출).
   onOpenBag: (bag: Bag, focus?: BagOpenFocus) => void;
   onOpenPack?: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
@@ -303,7 +303,7 @@ export default function HomeScreen({
 
   // --- 검색 --------------------------------------------------------------
   // 검색 아이콘을 누르면 헤더의 제목/설명 자리가 입력창으로 바뀌고 자동 포커스된다.
-  // 입력할 때마다(디바운스 없이) 가방 이름/가방 속 팩 이름/짐 텍스트를 즉시 검색해서
+  // 입력할 때마다(디바운스 없이) 가방 이름/가방 속 팩 이름/아이템 텍스트를 즉시 검색해서
   // 보여주고, 결과를 누르면 onOpenBag으로 그 가방을 열면서 팩까지 이동시킨다.
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -525,7 +525,7 @@ export default function HomeScreen({
 
   const bulkDeleteMessage =
     sharedSelectedCount === 0
-      ? "삭제된 가방은 되돌릴 수 없어요. 가방에 담긴 모든 팩과 짐이 함께 사라져요."
+      ? "삭제된 가방은 되돌릴 수 없어요. 가방에 담긴 모든 팩과 아이템이 함께 사라져요."
       : ownedSelectedCount === 0
       ? "그룹 가방에서 나가면 더 이상 이 가방을 볼 수 없어요. 가방 자체와 다른 그룹원들의 내용은 그대로 유지돼요."
       : `내가 만든 가방 ${ownedSelectedCount}개는 완전히 삭제되고, 공유받은 가방 ${sharedSelectedCount}개는 그룹에서 나가기 처리돼요.`;
@@ -542,7 +542,7 @@ export default function HomeScreen({
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="가방, 팩, 짐 검색..."
+                  placeholder="가방, 팩, 아이템 검색..."
                   className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none text-foreground placeholder:text-text-muted"
                 />
                 {searchQuery && (
@@ -563,7 +563,7 @@ export default function HomeScreen({
               <div className="flex items-baseline gap-2 min-w-0">
                 <h1 className="text-[20px] font-bold tracking-tight shrink-0 text-foreground">가방</h1>
                 <span className="text-[11.5px] text-text-muted truncate">
-                  짐을 챙기고 관리하는 공간
+                  아이템을 챙기고 관리하는 공간
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -870,7 +870,7 @@ export default function HomeScreen({
         <div className="flex-1 overflow-y-auto px-4 pb-3">
           {searchQuery.trim() === "" ? (
             <p className="text-[13px] text-text-muted py-16 text-center">
-              가방 이름, 팩 이름, 짐을 검색해보세요.
+              가방 이름, 팩 이름, 아이템을 검색해보세요.
             </p>
           ) : searchResults.length === 0 ? (
             <p className="text-[13px] text-text-muted py-16 text-center">
@@ -888,7 +888,7 @@ export default function HomeScreen({
                     ? isEditor
                       ? "메모"
                       : "팩"
-                    : "짐";
+                    : "아이템";
 
                 const badgeStyle =
                   result.type === "bag"

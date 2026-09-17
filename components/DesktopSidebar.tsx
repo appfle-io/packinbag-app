@@ -184,6 +184,7 @@ function collectDescendantBagFolderIds(
 export type DesktopSelection =
   | { kind: "bag"; bagId: string; focusPackId?: string }
   | { kind: "pack"; packId: string }
+  | { kind: "pack-folder"; folderId: string }
   | { kind: "settings" };
 
 export default function DesktopSidebar({
@@ -709,7 +710,7 @@ export default function DesktopSidebar({
 
   const q = query.trim().toLowerCase();
 
-  // 가방 검색 결과: 가방(가방이름, 가방속 팩, 가방속 짐, 가방 폴더)
+  // 가방 검색 결과: 가방(가방이름, 가방속 팩, 가방속 아이템, 가방 폴더)
   const bagSearchResults = useMemo(() => {
     if (!q) return [];
     const base = searchBags(bags, q).results;
@@ -725,7 +726,7 @@ export default function DesktopSidebar({
     return [...matchingFolders, ...base];
   }, [bags, bagFolders, q]);
 
-  // 팩 보관함 검색 결과: 팩 보관함(팩이름, 팩속 짐, 팩 메모내용, 팩 폴더)
+  // 팩 보관함 검색 결과: 팩 보관함(팩이름, 팩속 아이템, 팩 메모내용, 팩 폴더)
   const packSearchResults = useMemo(() => {
     if (!q) return [];
     const base = searchLibraryPacks(treePacks, q).results;
@@ -1153,7 +1154,7 @@ export default function DesktopSidebar({
                   );
                 }
 
-                // item (짐)
+                // item (아이템)
                 return (
                   <div
                     key={res.id}
@@ -1168,7 +1169,7 @@ export default function DesktopSidebar({
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/60 bg-surface-2 text-text-muted shrink-0">
-                        짐
+                        아이템
                       </span>
                       <span className="text-[12.5px] font-semibold truncate text-foreground flex-1">{res.label}</span>
                     </div>
@@ -1566,7 +1567,7 @@ export default function DesktopSidebar({
                   );
                 }
 
-                // item (짐)
+                // item (아이템)
                 return (
                   <div
                     key={res.id}
@@ -1581,7 +1582,7 @@ export default function DesktopSidebar({
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-border/60 bg-surface-2 text-text-muted shrink-0">
-                        짐
+                        아이템
                       </span>
                       <span className="text-[12.5px] font-semibold truncate text-foreground flex-1">{res.label}</span>
                     </div>
@@ -1595,7 +1596,9 @@ export default function DesktopSidebar({
           ) : (
             packRows.map(({ entry, depth }) => {
               const isFolder = entry.type === "folder";
-              const isSelected = selection?.kind === "pack" && selection.packId === entry.id;
+              const isSelected = isFolder
+                ? selection?.kind === "pack-folder" && selection.folderId === entry.id
+                : selection?.kind === "pack" && selection.packId === entry.id;
               const isRenaming = renamingPackId === entry.id;
               const isDropTarget = dropTargetKey === `pack:${entry.id}`;
               const rowDropZone = isDropTarget ? dropZone : null;
@@ -1627,9 +1630,15 @@ export default function DesktopSidebar({
                     e.stopPropagation();
                     handleDropOnTarget(targetType, entry.id, e, computeDropZone(e));
                   }}
-                  onClick={() =>
-                    isRenaming ? undefined : isFolder ? togglePackExpanded(entry.id) : onSelect({ kind: "pack", packId: entry.id })
-                  }
+                  onClick={() => {
+                    if (isRenaming) return;
+                    if (isFolder) {
+                      togglePackExpanded(entry.id);
+                      onSelect({ kind: "pack-folder", folderId: entry.id });
+                    } else {
+                      onSelect({ kind: "pack", packId: entry.id });
+                    }
+                  }}
                   className="group flex items-center gap-1.5 rounded-lg py-1 cursor-pointer transition-all"
                   style={{
                     paddingLeft: 8 + depth * 18,

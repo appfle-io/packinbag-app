@@ -2,7 +2,7 @@
 
 import { Capacitor } from "@capacitor/core";
 
-// 짐/메모/에디터팩 안의 링크를 눌렀을 때 여는 공용 함수. 웹에서는 새 탭으로 열고,
+// 아이템/메모/에디터팩 안의 링크를 눌렀을 때 여는 공용 함수. 웹에서는 새 탭으로 열고,
 // Capacitor(iOS 등) 네이티브 앱에서도 그대로 window.open을 쓴다 - Capacitor WebView는
 // capacitor.config.ts의 server.url과 다른 호스트로 가는 네비게이션(302 리다이렉트로
 // 도달한 곳 포함)을 기본적으로 시스템 브라우저(Safari)로 넘겨주기 때문에, 별도

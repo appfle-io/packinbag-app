@@ -31,7 +31,7 @@ export default function AssigneeSelectModal({
       >
         <div className="flex items-center justify-between pb-3 border-b border-border mb-3">
           <div>
-            <p className="text-[11px] text-text-muted font-medium">짐 담당자 지정</p>
+            <p className="text-[11px] text-text-muted font-medium">아이템 담당자 지정</p>
             <h3 className="text-[15px] font-bold text-foreground truncate max-w-[240px]">
               {item.text}
             </h3>
@@ -58,7 +58,7 @@ export default function AssigneeSelectModal({
         </button>
 
         <div className="space-y-1 max-h-60 overflow-y-auto">
-          {/* 담당자 없음 (공용 짐) */}
+          {/* 담당자 없음 (공용 아이템) */}
           <button
             onClick={() => {
               onSelect(undefined);

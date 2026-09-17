@@ -109,7 +109,7 @@ export default function AiHashtagModal({
           </div>
 
           <p className="text-[12px] text-text-secondary">
-            원하는 상황을 해시태그 최대 {MAX_TAGS}개로 알려주시면, AI가 어울리는 팩과 짐을
+            원하는 상황을 해시태그 최대 {MAX_TAGS}개로 알려주시면, AI가 어울리는 팩과 아이템을
             만들어드려요. (예: #결혼준비 #셀프 #예산)
           </p>
 

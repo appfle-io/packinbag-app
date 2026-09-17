@@ -94,7 +94,7 @@ function BagRow({ bag }: { bag: BagSummary }) {
           )}
         </p>
         <p className="text-[11px] text-text-muted mt-0.5">
-          멤버 {bag.memberCount}명 · 팩 {bag.packCount}개 · 짐 {bag.itemCount}개
+          멤버 {bag.memberCount}명 · 팩 {bag.packCount}개 · 아이템 {bag.itemCount}개
           {bag.trashedByOwnerAt ? ` · 휴지통행: ${formatDate(bag.trashedByOwnerAt)}` : ""}
         </p>
       </div>
@@ -259,7 +259,7 @@ function AdminUsersInner() {
                   >
                     <p className="text-[13px] truncate">{p.name}</p>
                     <p className="text-[11px] text-text-muted shrink-0">
-                      짐 {p.itemCount}개{p.trashedAt ? " · 휴지통" : ""}
+                      아이템 {p.itemCount}개{p.trashedAt ? " · 휴지통" : ""}
                     </p>
                   </div>
                 ))

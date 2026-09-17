@@ -10,7 +10,7 @@ export interface ToastOptions {
   actionLabel?: string;
   onAction?: () => void;
   // 지정하면 기본 노출시간(1700ms/actionLabel일 때 4000ms) 대신 이 시간(ms)을 쓴다.
-  // 짐 더블클릭 복사 토스트처럼 사용자가 설정한 노출시간을 반영할 때 쓴다.
+  // 아이템 더블클릭 복사 토스트처럼 사용자가 설정한 노출시간을 반영할 때 쓴다.
   durationMs?: number;
 }
 

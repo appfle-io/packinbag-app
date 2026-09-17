@@ -139,7 +139,7 @@ export default function AdminTemplatesPage() {
 
               <div className="flex flex-col gap-1.5 bg-surface-2 p-2.5 rounded-lg text-[12px]">
                 <span className="font-semibold text-[11.5px] text-text-muted">
-                  포함된 짐 항목 ({log.items?.length ?? 0}개):
+                  포함된 아이템 항목 ({log.items?.length ?? 0}개):
                 </span>
                 {log.items && log.items.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -153,7 +153,7 @@ export default function AdminTemplatesPage() {
                     ))}
                   </div>
                 ) : (
-                  <span className="text-text-muted italic">(짐 항목 없음)</span>
+                  <span className="text-text-muted italic">(아이템 항목 없음)</span>
                 )}
               </div>
             </div>

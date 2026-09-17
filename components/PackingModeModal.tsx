@@ -22,7 +22,7 @@ interface PackingModeModalProps {
   onToggleItem: (packId: string, itemId: string) => void;
 }
 
-// 짐 체크 시 가벼운 성공 효과음 재생 (Web Audio API 활용, 별도 오디오 파일 불필요)
+// 아이템 체크 시 가벼운 성공 효과음 재생 (Web Audio API 활용, 별도 오디오 파일 불필요)
 function playCheckSound() {
   try {
     const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
@@ -193,7 +193,7 @@ export default function PackingModeModal({
               }`}
             >
               <IconUser size={13} />
-              내 짐만
+              내 아이템만
             </button>
           )}
 
@@ -206,7 +206,7 @@ export default function PackingModeModal({
             }`}
           >
             {hideChecked ? <IconEyeOff size={13} /> : <IconEye size={13} />}
-            남은 짐만
+            남은 아이템만
           </button>
         </div>
       </header>
@@ -215,7 +215,7 @@ export default function PackingModeModal({
       <div className="px-4 py-3 bg-surface border-b border-border shrink-0">
         <div className="flex items-center justify-between text-[13px] font-medium mb-1.5">
           <span className="text-text-secondary">
-            챙긴 짐 <strong className="text-foreground font-bold">{checkedItems}</strong> / {totalItems}개
+            챙긴 아이템 <strong className="text-foreground font-bold">{checkedItems}</strong> / {totalItems}개
           </span>
           <span className="font-bold text-accent">{ratio}% 완료</span>
         </div>
@@ -235,7 +235,7 @@ export default function PackingModeModal({
               <IconSparkles size={18} />
             </div>
             <p className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
-              모든 짐을 완벽하게 다 챙겼어요!
+              모든 아이템을 완벽하게 다 챙겼어요!
             </p>
             <p className="text-[12px] text-text-muted mt-0.5">
               잊은 물건 없이 완벽하게 준비되었습니다. 즐거운 여행 되세요!
@@ -245,7 +245,7 @@ export default function PackingModeModal({
 
         {checklistPacks.length === 0 ? (
           <div className="text-center py-20 text-text-muted text-[13px]">
-            가방에 체크할 짐이 없어요.
+            가방에 체크할 아이템이 없어요.
           </div>
         ) : (
           checklistPacks.map((pack) => {
@@ -273,7 +273,7 @@ export default function PackingModeModal({
                 <div className="bg-surface border border-border rounded-2xl overflow-hidden shadow-xs divide-y divide-border">
                   {visibleItems.length === 0 ? (
                     <div className="p-3 text-center text-[12px] text-text-muted">
-                      모든 짐을 챙겼어요!
+                      모든 아이템을 챙겼어요!
                     </div>
                   ) : (
                     visibleItems.map((item) => {
@@ -301,7 +301,7 @@ export default function PackingModeModal({
                             {isChecked && <IconCheck size={16} stroke={3} />}
                           </div>
 
-                          {/* 짐 텍스트 */}
+                          {/* 아이템 텍스트 */}
                           <span
                             className={`flex-1 text-[15px] leading-snug font-medium select-none ${
                               isChecked ? "line-through text-text-muted" : "text-foreground"

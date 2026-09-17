@@ -113,7 +113,7 @@ export default function AiBagAuditModal({
               <IconSparkles size={18} />
             </div>
             <div>
-              <h3 className="text-[15px] font-bold text-foreground">AI 짐 누락 검수</h3>
+              <h3 className="text-[15px] font-bold text-foreground">AI 아이템 누락 검수</h3>
               <p className="text-[11px] text-text-muted">놓치기 쉬운 필수품을 꼼꼼하게 찾았어요</p>
             </div>
           </div>
@@ -129,7 +129,7 @@ export default function AiBagAuditModal({
               <IconLoader2 size={32} className="animate-spin text-accent mx-auto" />
               <p className="text-[14px] font-bold text-foreground">가방을 꼼꼼하게 검수하고 있어요...</p>
               <p className="text-[12px] text-text-muted max-w-xs mx-auto">
-                여행지와 일정, 현재 짐 목록을 분석하여 빠진 물품을 찾고 있습니다.
+                여행지와 일정, 현재 아이템 목록을 분석하여 빠진 물품을 찾고 있습니다.
               </p>
             </div>
           ) : error ? (

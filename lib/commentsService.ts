@@ -19,7 +19,7 @@ function commentsCol(bagId: string) {
   return collection(db, "bags", bagId, "comments");
 }
 
-// 가방 하나에 달린 댓글 전체를 실시간 구독한다(짐 댓글 + 가방 전체 댓글 다 포함).
+// 가방 하나에 달린 댓글 전체를 실시간 구독한다(아이템 댓글 + 가방 전체 댓글 다 포함).
 // 화면 쪽에서 targetType/targetId로 필터링해서 보여준다 - 가방당 댓글 총량이
 // 크지 않을 것으로 보여(소그룹, 최대 10명) 별도 where 쿼리 없이 통째로 구독하는
 // 쪽이 복합 인덱스 없이도 간단하다(presenceService와 동일한 접근).

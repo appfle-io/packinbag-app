@@ -57,7 +57,7 @@ function buildVerificationEmailHtml(verifyLink: string): string {
   <body style="margin:0; padding:0; background-color:#F4F1EC; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
     <!-- 프리헤더: 받은편지함 미리보기에만 노출, 본문에는 안 보임 -->
     <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
-      팩인백 이메일 인증을 완료하고 짐 싸기를 시작해보세요.
+      팩인백 이메일 인증을 완료하고 아이템 싸기를 시작해보세요.
     </div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F4F1EC; padding:32px 16px;">
       <tr>
@@ -75,7 +75,7 @@ function buildVerificationEmailHtml(verifyLink: string): string {
                 </h1>
                 <p style="margin:0 0 24px; font-size:15px; line-height:1.7; color:#5C554C;">
                   안녕하세요! 팩인백 가입을 완료하려면 아래 버튼을 눌러 이메일 인증을 마쳐주세요.
-                  인증이 끝나면 바로 로그인해서 짐 싸기를 시작할 수 있어요.
+                  인증이 끝나면 바로 로그인해서 아이템 싸기를 시작할 수 있어요.
                 </p>
               </td>
             </tr>

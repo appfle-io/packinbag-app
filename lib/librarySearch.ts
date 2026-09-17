@@ -68,7 +68,7 @@ export type PackSearchResultType = SearchResultType;
 export type PackSearchResult = GlobalSearchResult;
 export type PackSearchOutput = GlobalSearchOutput;
 
-// 1. 가방 검색 전용 (가방 이름, 가방 속 팩 / 메모 / 짐)
+// 1. 가방 검색 전용 (가방 이름, 가방 속 팩 / 메모 / 아이템)
 export function searchBags(bags: Bag[] = [], query: string): GlobalSearchOutput {
   const q = query.trim().toLowerCase();
   if (!q) return { results: [], truncated: false };
@@ -145,7 +145,7 @@ export function searchBags(bags: Bag[] = [], query: string): GlobalSearchOutput 
   return { results: results.slice(0, MAX_RESULTS), truncated };
 }
 
-// 2. 팩 보관함 검색 전용 (팩 이름, 팩 메모, 팩 속 짐)
+// 2. 팩 보관함 검색 전용 (팩 이름, 팩 메모, 팩 속 아이템)
 export function searchLibraryPacks(libraryPacks: Pack[] = [], query: string): GlobalSearchOutput {
   const q = query.trim().toLowerCase();
   if (!q) return { results: [], truncated: false };

@@ -9,7 +9,7 @@ export const bagEditorHelpSlides: HelpSlide[] = [
   { src: "/help/bag-editor/slide2.png", alt: "가방 정보 (이름 / 메모 / 디데이 / 사진·PDF 추가)" },
   { src: "/help/bag-editor/slide3.png", alt: "팩 상단 버튼 (불러오기 / 추가 / 메모장뷰 / 숨기기 / 내용추가 / 확장 / 접기·펼치기)" },
   { src: "/help/bag-editor/slide4.png", alt: "팩 카드 헤더 (순서변경 / 완료개수 / 크게보기 / 접기·펼치기)" },
-  { src: "/help/bag-editor/slide5.png", alt: "길게 눌러서 드래그하기 (팩 순서·이동 / 짐 순서 바꾸기)" },
-  { src: "/help/bag-editor/slide6.png", alt: "짐(항목) 체크 / 수정 / 삭제" },
+  { src: "/help/bag-editor/slide5.png", alt: "길게 눌러서 드래그하기 (팩 순서·이동 / 아이템 순서 바꾸기)" },
+  { src: "/help/bag-editor/slide6.png", alt: "아이템(항목) 체크 / 수정 / 삭제" },
   { src: "/help/bag-editor/slide7.png", alt: "팩 카드 하단 (보관함 저장 / 팩 삭제)" },
 ];

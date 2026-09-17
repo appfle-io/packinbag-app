@@ -502,7 +502,7 @@ export default function SettingsScreen({
                     )}
                   </div>
                   <p className="text-[11px] text-text-muted mt-1">
-                    짐이나 메모에 긴 링크를 붙여넣으면 자동으로 짧은 URL로 바꿔드려요.
+                    아이템이나 메모에 긴 링크를 붙여넣으면 자동으로 짧은 URL로 바꿔드려요.
                   </p>
                 </div>
                 <ToggleSwitch

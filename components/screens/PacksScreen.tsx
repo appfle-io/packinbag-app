@@ -94,12 +94,12 @@ export default function PacksScreen({
   // 빠른팩은 트리가 아니라 하단 QuickPackBar 전용 자리에서만 보여준다.
   uid: string;
   packs: Pack[];
-  // 가방 보관함과 동일한 범위로 검색하기 위해 넘겨받는다(가방 이름/속 팩/짐까지 검색 대상).
+  // 가방 보관함과 동일한 범위로 검색하기 위해 넘겨받는다(가방 이름/속 팩/아이템까지 검색 대상).
   bags: Bag[];
   quickPack?: Pack;
-  // focusItemId가 있으면 팩을 연 뒤 그 짐까지 자동 스크롤 + 하이라이트한다.
+  // focusItemId가 있으면 팩을 연 뒤 그 아이템까지 자동 스크롤 + 하이라이트한다.
   onOpenPack: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
-  // 검색 결과가 가방(속 팩/짐)일 때 그 가방을 열면서 해당 팩/짐까지 이동한다.
+  // 검색 결과가 가방(속 팩/아이템)일 때 그 가방을 열면서 해당 팩/아이템까지 이동한다.
   onOpenBag: (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string }) => void;
   // parentId를 넘기면 그 폴더 바로 안에 새 팩/폴더를 만든다(없으면 최상위). kind를 "editor"로
   // 넘기면 체크리스트 팩이 아니라 아이폰 메모처럼 자유문서형인 에디터팩을 만든다(없으면 "checklist").
@@ -197,7 +197,7 @@ export default function PacksScreen({
     });
   };
 
-  // 폴더는 items가 없어서(내용물이 아니라 껍데기) 검색 대상에서 제외한다 - 이름/짐 검색
+  // 폴더는 items가 없어서(내용물이 아니라 껍데기) 검색 대상에서 제외한다 - 이름/아이템 검색
   // 모두 실제 팩만 대상으로 한다.
   const searchablePacks = useMemo(() => {
     const realPacks = treePacks.filter((p) => p.type !== "folder");
@@ -494,7 +494,7 @@ export default function PacksScreen({
                   ref={searchInputRef}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="팩, 짐, 가방 검색..."
+                  placeholder="팩, 아이템, 가방 검색..."
                   className="min-w-0 flex-1 bg-transparent text-[13.5px] outline-none text-foreground placeholder:text-text-muted"
                 />
                 {searchQuery && (
@@ -592,7 +592,7 @@ export default function PacksScreen({
         <div className="flex-1 overflow-y-auto px-4 pb-3">
           {searchQuery.trim() === "" ? (
             <p className="text-[13px] text-text-muted py-16 text-center">
-              팩 이름, 짐, 가방을 검색해보세요.
+              팩 이름, 아이템, 가방을 검색해보세요.
             </p>
           ) : searchResults.length === 0 ? (
             <p className="text-[13px] text-text-muted py-16 text-center">
@@ -610,7 +610,7 @@ export default function PacksScreen({
                     ? isEditor
                       ? "메모"
                       : "팩"
-                    : "짐";
+                    : "아이템";
 
                 const badgeStyle =
                   result.type === "bag"

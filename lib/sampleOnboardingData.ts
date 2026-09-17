@@ -202,7 +202,7 @@ export async function seedSampleDataForNewUser(
               {
                 type: "paragraph",
                 content: [
-                  { type: "text", text: "14:30 호텔 체크인 & 짐 정리 후 신주쿠 거리 산책" },
+                  { type: "text", text: "14:30 호텔 체크인 & 아이템 정리 후 신주쿠 거리 산책" },
                 ],
               },
             ],
@@ -400,7 +400,7 @@ export async function seedSampleDataForNewUser(
               {
                 type: "paragraph",
                 content: [
-                  { type: "text", text: "13:30 호텔에서 짐 픽업 → 신주쿠역 N'EX 탑승" },
+                  { type: "text", text: "13:30 호텔에서 아이템 픽업 → 신주쿠역 N'EX 탑승" },
                 ],
               },
             ],

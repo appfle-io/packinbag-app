@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { checkShortLinkQuota, consumeShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
 
-// 짐/메모 텍스트에 붙여넣은 긴 URL을 사용자가 직접 고른 코드로 커스텀 링크(/c/{code})로
+// 아이템/메모 텍스트에 붙여넣은 긴 URL을 사용자가 직접 고른 코드로 커스텀 링크(/c/{code})로
 // 바꿔주는 라우트. app/api/shorten-url(랜덤 코드 자동생성)과 같은 패턴이지만, 코드를
 // 클라이언트가 지정하고 서버에서 형식/중복을 검증한다는 점만 다르다.
 // customShortLinks 컬렉션도 shortLinks와 동일하게 firestore.rules에서 client read/write를

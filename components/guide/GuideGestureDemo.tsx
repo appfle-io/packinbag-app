@@ -96,7 +96,7 @@ export default function GuideGestureDemo() {
   if (items.length === 0) {
     return (
       <div className="w-full flex items-center justify-between p-3.5 rounded-xl border border-dashed border-border bg-surface/20 text-[12px] select-none">
-        <span className="text-text-muted">모든 짐이 삭제되었습니다.</span>
+        <span className="text-text-muted">모든 아이템이 삭제되었습니다.</span>
         <button
           type="button"
           onClick={handleRestore}

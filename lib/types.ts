@@ -1,5 +1,5 @@
 // 팩인백 데이터 모델
-// 가방(Bag) = 체크리스트, 팩(Pack) = 카테고리 묶음, 짐(Item) = 개별 항목
+// 가방(Bag) = 체크리스트, 팩(Pack) = 카테고리 묶음, 아이템(Item) = 개별 항목
 
 import type { WeatherInfo, TravelRecommendation } from "./weatherService";
 
@@ -25,13 +25,13 @@ export interface Item {
   bold?: boolean;
   strike?: boolean;
   color?: string; // hex, 없으면 기본 텍스트 색상
-  // 짐 단위 마감일(YYYY-MM-DD, 옵트인 - 업무용 체크리스트 등에서 개별 항목별 기한이
+  // 아이템 단위 마감일(YYYY-MM-DD, 옵트인 - 업무용 체크리스트 등에서 개별 항목별 기한이
   // 필요할 때 씀). 가방 상단 D-day(Bag.travelDate)와는 별개고, 계산 방식(당일 포함
   // 여부)은 그 가방의 Bag.ddayCountTodayAsDayOne을 그대로 따른다(앱 전체에서 D-day
   // 세는 규칙을 하나로 통일). 팩을 보관함에 저장하거나 보관함에서 다시 불러올 때는
   // (다음에 재사용할 때 지난 날짜가 그대로 딸려오는 것을 막기 위해) 항상 제외된다.
   dueDate?: string;
-  // 짐 담당자 UID (공유 가방에서 "내가 챙길게!" 등으로 특정 멤버를 지정할 때 씀).
+  // 아이템 담당자 UID (공유 가방에서 "내가 챙길게!" 등으로 특정 멤버를 지정할 때 씀).
   // 없으면 전체 공용 또는 미지정.
   assigneeUid?: string;
 }
@@ -41,7 +41,7 @@ export interface Pack {
   name: string;
   items: Item[];
   // v70+ 에디터팩(자유문서형 팩). 없으면(예전 데이터 포함) "checklist"로 취급 - 지금까지의
-  // 구조화된 짐(Item) 배열 방식. "editor"면 items는 항상 빈 배열이고 실제 내용은 아래
+  // 구조화된 아이템(Item) 배열 방식. "editor"면 items는 항상 빈 배열이고 실제 내용은 아래
   // editorDoc(TipTap JSON 블록 문서)에 들어있다 - 아이폰 메모처럼 체크박스/제목/표가 순서대로
   // 섞인 자유 문서. AI 자동분류(메모 가져오기/해시태그) 대상에서 제외되고, 완료율(진행률 링)
   // 계산에서도 제외된다(items가 항상 []이라 getProgressRatio가 자연히 null을 반환함).
@@ -269,7 +269,7 @@ export interface UserProfile {
   bagColorOpacity?: number;
   packGridColorOpacity?: number;
   packLibraryColorOpacity?: number;
-  // 기본 투명도 (0~1, 없으면 1 = 완전 불투명): 하단 탭바, 필터 버튼, 짐(체크/텍스트) 배경,
+  // 기본 투명도 (0~1, 없으면 1 = 완전 불투명): 하단 탭바, 필터 버튼, 아이템(체크/텍스트) 배경,
   // 설정 메뉴 미선택 버튼 배경 등 --surface-2를 쓰는 모든 요소에 공통 적용됨
   baseOpacity?: number;
   // 가방 카드 / 팩 카드(가방 속) / 팩 보관함 타일 크기 배율 (없으면 1 = 100%).
@@ -288,8 +288,8 @@ export interface UserProfile {
   packCardScale?: number;
   packLibraryCardScale?: number;
   // 가방 속 팩 카드 안 글자 크기 배율 (없으면 1 = 100%). packCardScale(카드 크기)과
-  // 분리되어 독립적으로 조절 가능 - 패딩/아이콘/간격은 packCardScale을, 팩 이름·짐
-  // 텍스트·짐 개수 등 글자 크기는 이 값을 따른다 (앱 전체 글자 크기 설정과도 곱해짐)
+  // 분리되어 독립적으로 조절 가능 - 패딩/아이콘/간격은 packCardScale을, 팩 이름·아이템
+  // 텍스트·아이템 개수 등 글자 크기는 이 값을 따른다 (앱 전체 글자 크기 설정과도 곱해짐)
   packCardFontScale?: number;
   // 글자 크기 (없으면 "md" 기본값)
   fontScale?: "sm" | "md" | "lg";
@@ -336,11 +336,11 @@ export interface UserProfile {
   expandedBagFolderIds?: string[];
   // 가방 표시 관련 개인 설정
   bagSettings?: {
-    // 앱 시작 시 오늘 마감 업무/짐 알림 모달 노출 여부 (기본값: 켜짐 true)
+    // 앱 시작 시 오늘 마감 업무/아이템 알림 모달 노출 여부 (기본값: 켜짐 true)
     showTodayTasksOnStartup?: boolean;
     [key: string]: unknown;
   };
-  // 팩(짐 목록) 표시 관련 개인 설정
+  // 팩(아이템 목록) 표시 관련 개인 설정
   packSettings?: {
     // 체크된 항목을 목록 맨 아래로 내려서 보여줄지 (없으면 true 기본값)
     moveCompletedToBottom?: boolean;
@@ -348,11 +348,11 @@ export interface UserProfile {
     // 저장된 Pack.displayState는 전혀 바꾸지 않고(진입 시 적용되는 화면 표시만 덮어씀),
     // 진입 후에는 평소처럼 자유롭게 펼치고 접을 수 있다. 없으면 false(기본) 기본값.
     alwaysCollapseOnEntry?: boolean;
-    // 짐 이름을 몇 줄까지 보여줄지 (없으면 1 기본값). 넘치는 내용은 ...으로 줄여 보여준다.
+    // 아이템 이름을 몇 줄까지 보여줄지 (없으면 1 기본값). 넘치는 내용은 ...으로 줄여 보여준다.
     itemMaxLines?: 1 | 2 | 3;
-    // 짐 더블클릭 시 클립보드 복사 토스트를 몇 초간 띄울지 (없으면 3 기본값, 3~7 사이).
+    // 아이템 더블클릭 시 클립보드 복사 토스트를 몇 초간 띄울지 (없으면 3 기본값, 3~7 사이).
     itemCopyToastSeconds?: number;
-    // 짐 마감일(Item.dueDate)을 리스트에서 어떤 형식으로 보여줄지 (없으면 "dday" 기본값).
+    // 아이템 마감일(Item.dueDate)을 리스트에서 어떤 형식으로 보여줄지 (없으면 "dday" 기본값).
     // "dday"면 D-3/D+1 같은 D-day 표기, "date"면 7/30 같은 실제 날짜로 보여준다.
     dueDateDisplayMode?: "dday" | "date";
     // 마감일이 다가올수록 뱃지 색상을 점점 진하게(muted → 새빨간색) 보여줄지. 없으면 true(기본값 켜짐).
@@ -393,7 +393,7 @@ export interface UserProfile {
     count: number;
   };
   // 설정 > AI 기능 하위 "짧은 URL 사용하기" 토글. 프리미엄 전용 기능이라 isPremiumUser(lib/premiumLimits.ts)로
-  // 판정된 사용자가 이 값을 켜야만 짐/메모/메모팩에 붙여넣은 긴 URL이 자동으로 짧은
+  // 판정된 사용자가 이 값을 켜야만 아이템/메모/메모팩에 붙여넣은 긴 URL이 자동으로 짧은
   // 링크(자체 /s/{code})로 축약된다. 없으면(또는 프리미엄이 아니면) false로 취급.
   shortUrlEnabled?: boolean;
   // 설정 > AI 기능 하위 "지역 추천" 토글. 프리미엄 전용 기능이라 isPremiumUser로 판정된
@@ -516,17 +516,17 @@ export interface AppNotification {
   read: boolean;
 }
 
-// 댓글이 달리는 대상. "item"은 특정 짐(개별 항목), "bag"은 가방 전체(공지/자유 대화).
+// 댓글이 달리는 대상. "item"은 특정 아이템(개별 항목), "bag"은 가방 전체(공지/자유 대화).
 export type CommentTargetType = "item" | "bag";
 
 // 가방 안 댓글. bags/{bagId}/comments 서브컬렉션에 저장되고, 그 가방 멤버끼리만
-// 읽고 쓸 수 있다(firestore.rules). targetType='item'이면 targetId가 짐(Item.id),
+// 읽고 쓸 수 있다(firestore.rules). targetType='item'이면 targetId가 아이템(Item.id),
 // targetType='bag'이면 targetId는 그냥 bagId 자체(가방 전체 공지/자유 대화용).
 export interface BagComment {
   id: string;
   targetType: CommentTargetType;
   targetId: string;
-  packId?: string; // targetType='item'일 때, 그 짐이 속한 팩 id (필터링/딥링크용)
+  packId?: string; // targetType='item'일 때, 그 아이템이 속한 팩 id (필터링/딥링크용)
   authorUid: string;
   authorNickname: string; // 작성 시점 스냅샷(닉네임 바뀌어도 예전 댓글은 그대로)
   authorAvatarId: string;
@@ -536,7 +536,7 @@ export interface BagComment {
   updatedAt?: string; // 수정한 적 있으면 채워짐
 }
 
-// 짐/팩/가방에 다는 가벼운 이모지 리액션. 댓글보다 마찰이 적은 소통 수단.
+// 아이템/팩/가방에 다는 가벼운 이모지 리액션. 댓글보다 마찰이 적은 소통 수단.
 // bags/{bagId}/reactions/{targetType_targetId} 문서 하나에 그 대상의 모든
 // 이모지별 반응자를 모아서 저장한다(대상당 문서 1개, 실시간 구독 가볍게 하려는 목적).
 export type ReactionTargetType = "item" | "comment" | "pack" | "bag";

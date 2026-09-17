@@ -517,7 +517,7 @@ export default function GuestBagClientView({
                       </div>
                     ) : items.length === 0 ? (
                       <p className="text-[13px] text-slate-400 py-2 italic">
-                        추가된 짐 항목이 없어요
+                        추가된 아이템 항목이 없어요
                       </p>
                     ) : (
                       <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -575,7 +575,7 @@ export default function GuestBagClientView({
             <p className="text-[11px] text-slate-500 truncate">
               {activeInviteCode
                 ? "초대코드가 포함되어 바로 그룹원으로 등록돼요"
-                : "앱/웹에서 실시간으로 짐을 체크하고 관리하세요"}
+                : "앱/웹에서 실시간으로 아이템을 체크하고 관리하세요"}
             </p>
           </div>
           <Link

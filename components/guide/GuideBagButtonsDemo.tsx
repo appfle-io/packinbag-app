@@ -249,7 +249,7 @@ export default function GuideBagButtonsDemo() {
                         <input
                           type="text"
                           autoFocus
-                          placeholder="새 짐 입력..."
+                          placeholder="새 아이템 입력..."
                           value={quickAddText}
                           onChange={(e) => setQuickAddText(e.target.value)}
                           onKeyDown={(e) => {
@@ -286,7 +286,7 @@ export default function GuideBagButtonsDemo() {
                           setQuickAddText("");
                         }}
                         className="p-1 hover:text-foreground transition-colors"
-                        title="짐 추가"
+                        title="아이템 추가"
                       >
                         <IconSquareCheck size={16} />
                       </button>
@@ -423,7 +423,7 @@ export default function GuideBagButtonsDemo() {
                         <input
                           type="text"
                           autoFocus
-                          placeholder="새 짐 입력..."
+                          placeholder="새 아이템 입력..."
                           value={quickAddText}
                           onChange={(e) => setQuickAddText(e.target.value)}
                           onKeyDown={(e) => {

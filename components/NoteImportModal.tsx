@@ -19,9 +19,9 @@ export type NoteImportResult = ImportedBagResult;
 
 const LOADING_MESSAGES = [
   "메모를 꼼꼼히 읽고 있어요",
-  "짐 종류를 살펴보고 있어요",
+  "아이템 종류를 살펴보고 있어요",
   "어울리는 팩으로 나누고 있어요",
-  "가방에 짐을 채워넣고 있어요",
+  "가방에 아이템을 채워넣고 있어요",
 ];
 
 export default function NoteImportModal({

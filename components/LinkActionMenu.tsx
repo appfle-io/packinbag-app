@@ -5,7 +5,7 @@ import { IconExternalLink, IconLink, IconLinkOff, IconEdit } from "@tabler/icons
 import { useOverlayLayer, SHEET_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 
-// 짐/메모/메모팩 안의 링크를 눌렀을 때 뜨는 작은 선택 시트.
+// 아이템/메모/메모팩 안의 링크를 눌렀을 때 뜨는 작은 선택 시트.
 export default function LinkActionMenu({
   url,
   onOpen,

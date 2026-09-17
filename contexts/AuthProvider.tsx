@@ -1122,7 +1122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  // 팩(짐 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
+  // 팩(아이템 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
   const updatePackSettings = async (
     settings: Partial<NonNullable<UserProfile["packSettings"]>>
   ) => {

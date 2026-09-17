@@ -73,7 +73,7 @@ export default function BagSettingsScreen({ onBack }: { onBack: () => void }) {
           <div className="min-w-0">
             <p className="text-[13px] font-medium">앱 실행 시 오늘 마감 내용 보기</p>
             <p className="text-[11.5px] text-text-secondary mt-0.5">
-              앱을 열 때 오늘 마감인 업무나 짐 목록을 팝업으로 모아서 보여줘요.
+              앱을 열 때 오늘 마감인 업무나 아이템 목록을 팝업으로 모아서 보여줘요.
             </p>
           </div>
           <button

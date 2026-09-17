@@ -1,10 +1,10 @@
-// 짐(Item) 텍스트의 "부분 서식"(RichSpan[])과 TipTap(ProseMirror) JSON 문서를 서로
-// 변환하는 유틸리티. 짐 텍스트는 항상 문단 하나짜리 한 줄 문서로 취급한다(Enter는
+// 아이템(Item) 텍스트의 "부분 서식"(RichSpan[])과 TipTap(ProseMirror) JSON 문서를 서로
+// 변환하는 유틸리티. 아이템 텍스트는 항상 문단 하나짜리 한 줄 문서로 취급한다(Enter는
 // 줄바꿈이 아니라 저장/커밋으로 처리 - components/ItemRichTextField.tsx 참고).
 //
 // 왜 필요한가: lib/types.ts의 Item.spans(RichSpan[])는 예전부터 선언만 되어있고
 // 실제로는 쓰이지 않았다(전체 텍스트에 적용되는 bold/strike/color 필드를 대신 써왔음).
-// 이제 짐 텍스트 일부만 굵게/밑줄/취소선을 줄 수 있게 하면서 이 필드를 실제로 채운다.
+// 이제 아이템 텍스트 일부만 굵게/밑줄/취소선을 줄 수 있게 하면서 이 필드를 실제로 채운다.
 import { Item, RichSpan } from "@/lib/types";
 
 // spans 배열을 이어붙인 순수 텍스트(검색/링크화/복사 등 text 필드가 필요한 모든 곳에서 사용).
@@ -55,8 +55,8 @@ export function spansToTiptapDoc(spans: RichSpan[]): object {
   };
 }
 
-// 짐 하나에서 렌더링/편집용 spans를 얻는다. 실제 spans가 있으면 그대로 쓰고, 없으면
-// (예전 데이터, 또는 부분 서식 없이 통째로 저장된 짐) 기존 bold/strike/color 필드를
+// 아이템 하나에서 렌더링/편집용 spans를 얻는다. 실제 spans가 있으면 그대로 쓰고, 없으면
+// (예전 데이터, 또는 부분 서식 없이 통째로 저장된 아이템) 기존 bold/strike/color 필드를
 // 전체 텍스트 스팬 하나로 감싸서 돌려준다 - 렌더링/편집 쪽에서 "spans 유무"를 따로
 // 신경 쓰지 않고 항상 이 함수만 쓰면 되게 하기 위함.
 export function getItemSpans(

@@ -85,7 +85,7 @@ export default function GuideContent({
         title: "복사한 글을 그대로 붙여넣기",
         badges: [
           { label: "클립보드 분류", variant: "accent" },
-          { label: "빠진 짐 점검", variant: "accent" },
+          { label: "빠진 아이템 점검", variant: "accent" },
           { label: "시트 연동", variant: "default" },
           { label: "날씨 추천", variant: "default" },
         ],
@@ -104,7 +104,7 @@ export default function GuideContent({
       },
       {
         id: "pack-save",
-        title: "자주 쓰는 짐은 보관함에서 쏙",
+        title: "자주 쓰는 아이템은 보관함에서 쏙",
         badges: [
           { label: "새 가방 재사용", variant: "accent" },
           { label: "실시간 동기화", variant: "default" },

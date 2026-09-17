@@ -226,6 +226,7 @@ export default function AppShell() {
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
+  const [editingPackFolderId, setEditingPackFolderId] = useState<string | null>(null);
   const [creatingPack, setCreatingPack] = useState(false);
   // editingBag/editingPack(에디터형)은 뒤로가기 시 즉시 null이 되는데, SlideScreen이 슬라이드
   // 아웃 애니메이션을 재생하는 동안에도 내용이 유지되도록 "마지막으로 열려있던 값"을 따로
@@ -252,7 +253,7 @@ export default function AppShell() {
   }, [editingPack]);
   // 가방 보관함/팩 보관함 상단 검색 결과를 눌러서 들어왔을 때만 채워진다. 각각
   // BagEditorScreen(focusTarget)/PackLibraryEditorScreen(focusItemId)/PackNoteEditorScreen(initialSearchQuery)에 그대로 넘겨서 해당
-  // 팩(+짐/메모 텍스트)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
+  // 팩(+아이템/메모 텍스트)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.
   const [bagFocus, setBagFocus] = useState<{ packId?: string; itemId?: string; searchQuery?: string } | null>(null);
   const [packFocusItemId, setPackFocusItemId] = useState<string | null>(null);
   const [packFocusSearchQuery, setPackFocusSearchQuery] = useState<string | null>(null);
@@ -1578,7 +1579,7 @@ export default function AppShell() {
     }
   };
 
-  // 빠른팩(다중선택) 이동 부해 - 특정 가방의 특정 팩 안으로 짐을 이동한다. 지금
+  // 빠른팩(다중선택) 이동 부해 - 특정 가방의 특정 팩 안으로 아이템을 이동한다. 지금
   // 구독 중인 bags 배열을 기준으로 목표 팩에 아이템을 이어붙이고 그 가방 전체를 저장한다
   // (BagEditorScreen을 열지 않고 바로 저장하는 가방 자동저장과 같은 패턴).
   const handleAddItemsToBagPack = (bagId: string, packId: string, items: Item[]) => {
@@ -1596,12 +1597,12 @@ export default function AppShell() {
       return;
     }
     saveBagRemote(updated).catch((err) => {
-      console.error("[팩인백] 가방으로 짐 이동 실패:", err);
+      console.error("[팩인백] 가방으로 아이템 이동 실패:", err);
       show(`가방으로 이동하는 데 실패했어요 (${firebaseErrorCode(err)})`);
     });
   };
 
-  // 위 handleAddItemsToBagPack의 되돌리기(토스트 "되돌리기")용 - 방금 옮긴 짐만 id 기준으로
+  // 위 handleAddItemsToBagPack의 되돌리기(토스트 "되돌리기")용 - 방금 옮긴 아이템만 id 기준으로
   // 그 가방 팩에서 제거한다.
   const handleRemoveItemsFromBagPack = (bagId: string, packId: string, itemIds: Set<string>) => {
     const bag = bags.find((b) => b.id === bagId);
@@ -1645,6 +1646,8 @@ export default function AppShell() {
     ? { kind: "bag", bagId: editingBag.id, focusPackId: bagFocus?.packId }
     : editingPack
     ? { kind: "pack", packId: editingPack.id }
+    : editingPackFolderId
+    ? { kind: "pack-folder", folderId: editingPackFolderId }
     : null;
 
   const handleDesktopSelectionChange = (sel: DesktopSelection | null) => {
@@ -1653,11 +1656,13 @@ export default function AppShell() {
       setIsNewBag(false);
       setBagFocus(null);
       setEditingPack(null);
+      setEditingPackFolderId(null);
       return;
     }
     if (sel.kind === "bag") {
       const bag = activeBags.find((b) => b.id === sel.bagId);
       setEditingPack(null);
+      setEditingPackFolderId(null);
       if (bag) {
         setIsNewBag(false);
         setEditingBag(bag);
@@ -1670,7 +1675,16 @@ export default function AppShell() {
       setEditingBag(null);
       setIsNewBag(false);
       setBagFocus(null);
+      setEditingPackFolderId(null);
       if (pack) setEditingPack(pack);
+      return;
+    }
+    if (sel.kind === "pack-folder") {
+      setEditingBag(null);
+      setIsNewBag(false);
+      setBagFocus(null);
+      setEditingPack(null);
+      setEditingPackFolderId(sel.folderId);
       return;
     }
   };

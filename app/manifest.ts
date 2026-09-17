@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "팩인백 - Pack In Bag",
     short_name: "팩인백",
-    description: "함께 짐을 싸는 체크리스트, 팩인백",
+    description: "함께 아이템을 싸는 체크리스트, 팩인백",
     start_url: "/",
     display: "standalone",
     display_override: ["window-controls-overlay", "standalone"],

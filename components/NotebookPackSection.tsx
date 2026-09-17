@@ -28,9 +28,9 @@ import ProgressRing from "./ProgressRing";
 // 팩 하나. PackCard와 기능은 100% 동일하지만(드래그이동/스와이프수정삭제/저장/새로고침/
 // 삭제/전체선택 등), 아이폰 메모장 체크리스트에 가깝게 보이도록 다음을 다르게 한다:
 // - 카드 박스 대신 얇은 구분선을 가진 섹션
-// - 짐 사이 간격을 좁힘, 짐 개수 표시 제거
+// - 아이템 사이 간격을 좁힘, 아이템 개수 표시 제거
 // - 저장/새로고침/삭제를 하단 툴바 대신 헤더의 "⋯" 메뉴로 축소
-// - 짐 추가는 하단의 얇은 "+ 항목 추가" 한 줄로 축소 (체크/텍스트 아이콘만)
+// - 아이템 추가는 하단의 얇은 "+ 항목 추가" 한 줄로 축소 (체크/텍스트 아이콘만)
 // - 체크박스를 사각형 대신 둥근 모양으로
 export default function NotebookPackSection({
   pack,
@@ -106,11 +106,11 @@ export default function NotebookPackSection({
   hideChecked?: boolean;
   // 헤더의 체크박스/텍스트 빠른추가 아이콘용. 없으면 버튼 자체를 숨긴다.
   onAddItem?: (data: { type: "check" | "text"; text: string }) => void;
-  // 이 패이 지금 다중선택 중이면 선택된 짐 id 집합, 아니면 null/undefined.
+  // 이 패이 지금 다중선택 중이면 선택된 아이템 id 집합, 아니면 null/undefined.
   selectedItemIds?: Set<string> | null;
   onToggleSelectItem?: (itemId: string) => void;
   getItemThreadInfo?: (itemId: string) => { commentCount: number };
-  // 이 가방의 D-day 계산 기준. 짐 마감일 뱃지 표시에 그대로 전달된다.
+  // 이 가방의 D-day 계산 기준. 아이템 마감일 뱃지 표시에 그대로 전달된다.
   ddayCountTodayAsDayOne?: boolean;
   /*
   getItemReactionDoc?: (itemId: string) => BagReactionDoc | undefined;

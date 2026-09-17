@@ -4,7 +4,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { checkShortLinkQuota, consumeShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
 
-// 짐/메모 텍스트에 붙여넣은 긴 URL을 짧은 링크(/s/{code})로 바꿔주는 라우트.
+// 아이템/메모 텍스트에 붙여넣은 긴 URL을 짧은 링크(/s/{code})로 바꿔주는 라우트.
 // shortLinks 컬렉션은 firestore.rules에서 client read/write를 전부 막아뒀다(코드 추측으로
 // 다른 사람의 링크를 조회하거나, 아무나 링크를 마음대로 등록/변조하지 못하게 하기 위함) -
 // 그래서 생성은 여기(Admin SDK), 조회(리다이렉트)는 app/s/[code]/route.ts에서만 한다.

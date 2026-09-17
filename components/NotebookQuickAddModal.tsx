@@ -53,7 +53,7 @@ function useVisualViewport() {
   return rect;
 }
 
-// 심플뷰 상단 "+" 버튼으로 여는 통합 짐 추가 모달. 예전에는 각 팩 섹션 하단마다
+// 심플뷰 상단 "+" 버튼으로 여는 통합 아이템 추가 모달. 예전에는 각 팩 섹션 하단마다
 // 따로 "항목 추가" 버튼이 있었는데, 이걸 하나로 모아서: 어느 팩에 넣을지부터 고르고
 // (없으면 그 자리에서 이름까지 지어 새 팩을 만들어 저장) 체크/텍스트 타입과 서식까지
 // 고른 뒤 추가한다. 저장해도 모달이 닫히지 않고 입력창만 비워져서 연속으로 여러 개를
@@ -269,7 +269,7 @@ export default function NotebookQuickAddModal({
                 handleSave();
               }
             }}
-            placeholder={type === "check" ? "짐 이름" : "텍스트 입력"}
+            placeholder={type === "check" ? "아이템 이름" : "텍스트 입력"}
             className="min-w-0 w-full rounded-md border border-border bg-surface-2 px-3 py-2.5 text-[15px] outline-none"
             style={{
               fontWeight: type === "text" && bold ? 700 : 400,

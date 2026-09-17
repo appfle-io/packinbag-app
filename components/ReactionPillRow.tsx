@@ -2,11 +2,11 @@
 
 import { BagReactionDoc, ReactionEmoji } from "@/lib/types";
 
-// 짐(항목)에 달린 이모지 반응을 아이템 바로 아래쪽에 살짝 겹쳐서 떠있는
+// 아이템(항목)에 달린 이모지 반응을 아이템 바로 아래쪽에 살짝 겹쳐서 떠있는
 // 작은 알약 모양들로 보여준다. 최대 3개 이모지 종류까지만 보여주고(우리 앱은 팀즈보다
 // 단순하게 가려는 의도), 탭하면 바로 그 자리에서 토글된다(댓글 스레드에 안 들어가도 됨).
 // 끝에 있는 "+" 알약을 누르면 전체 프리셋에서 고를 수 있는 팝업이 뜬다.
-// overlap(기본 true)이 false면 짐 위에 겹쳐 띄우는 음수 마진을 빼고 일반 인라인
+// overlap(기본 true)이 false면 아이템 위에 겹쳐 띄우는 음수 마진을 빼고 일반 인라인
 // 요소로 그린다 - 댓글 말풍선 옆에 나란히 붙일 때 쓴다(BagChatPreview/ItemThreadSheet).
 export default function ReactionPillRow({
   reactionDoc,

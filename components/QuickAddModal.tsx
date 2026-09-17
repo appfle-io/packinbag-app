@@ -107,7 +107,7 @@ export default function QuickAddModal({
                   commit();
                 }
               }}
-              placeholder="짐 이름을 입력하고 엔터"
+              placeholder="아이템 이름을 입력하고 엔터"
               className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-3 py-2.5 text-[15px] outline-none"
             />
             <button
@@ -123,7 +123,7 @@ export default function QuickAddModal({
           </div>
 
           <p className="text-[11px] text-text-muted">
-            여기 넣은 짐들은 팩 라이브러리의 &ldquo;빠른팩&rdquo;에 모여요. 나중에 원하는 팩으로 옮겨서 정리해보세요.
+            여기 넣은 아이템들은 팩 라이브러리의 &ldquo;빠른팩&rdquo;에 모여요. 나중에 원하는 팩으로 옮겨서 정리해보세요.
           </p>
         </div>
       </div>

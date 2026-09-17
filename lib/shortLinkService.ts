@@ -120,7 +120,7 @@ export interface LinkMeta {
   canEdit: boolean;
 }
 
-// 짐/메모/메모팩에 이미 들어있는 짧은/커스텀 URL의 표시 이름·원본 주소를 조회한다(app/api/link-meta,
+// 아이템/메모/메모팩에 이미 들어있는 짧은/커스텀 URL의 표시 이름·원본 주소를 조회한다(app/api/link-meta,
 // 공개 라우트). 우리 서비스 링크가 아니면(parseShortLinkUrl이 null) 네트워크 요청 없이 바로 null을
 // 돌려준다. 로그인 상태면 Authorization 헤더를 같이 보내 canEdit까지 함께 받아온다 - 이 값으로
 // 화면에 "수정" 메뉴를 보여줄지 결정한다.

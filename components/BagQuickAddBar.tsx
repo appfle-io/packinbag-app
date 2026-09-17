@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconX, IconPlus, IconSquareCheck, IconAlignLeft } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 
-// 웹(브라우저)에서만 보이는, 가방 화면 맨 아래 고정된 빠른입력 바. 지금까지는 짐을
+// 웹(브라우저)에서만 보이는, 가방 화면 맨 아래 고정된 빠른입력 바. 지금까지는 아이템을
 // 추가하려면 상단 "+" 버튼을 눌러 모달을 열어야 했는데, 웹은 화면 여백이 넓게 남으므로
 // 항상 열려있는 입력창을 하단에 하나 두고 바로바로 입력할 수 있게 한다.
 //
-// 입력창 바로 위에는(=짐 드래그 중 뜨는 PackChipBar와 같은 자리에) 지금 가방에 있는
+// 입력창 바로 위에는(=아이템 드래그 중 뜨는 PackChipBar와 같은 자리에) 지금 가방에 있는
 // 팩들이 칩으로 나열되어 담을 대상을 고를 수 있고, 맨 끝의 "+ 새 팩" 칩을 누르면
 // 그 자리에서 빈 팩이 즉시 만들어지며 그 팩이 자동으로 선택된다.
 //
@@ -21,7 +21,7 @@ export default function BagQuickAddBar({
   onAddItem,
   onCreatePack,
 }: {
-  // 메모팩(kind==='editor')은 짐을 못 담으므로 호출하는 쪽에서 미리 걸러서 넘긴다.
+  // 메모팩(kind==='editor')은 아이템을 못 담으므로 호출하는 쪽에서 미리 걸러서 넘긴다.
   packs: Pack[];
   onAddItem: (packId: string, data: { type: "check" | "text"; text: string }) => void;
   // 새 빈 팩을 만들고 그 id를 동기적으로 돌려준다(10개 캡 등으로 실패하면 null).
@@ -72,7 +72,7 @@ export default function BagQuickAddBar({
       }}
     >
       <div className="px-4 pt-2.5 flex flex-col gap-2">
-        {/* 담을 팩 선택 칩 - 짐 드래그 중 상단에 뜨는 칩바와 같은 모양 언어를 쓴다. */}
+        {/* 담을 팩 선택 칩 - 아이템 드래그 중 상단에 뜨는 칩바와 같은 모양 언어를 쓴다. */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           {packs.map((p) => (
             <button

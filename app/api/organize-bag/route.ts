@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
   const existingPackNamesRaw = (body as { existingPackNames?: unknown })?.existingPackNames;
 
   if (!Array.isArray(itemsRaw) || itemsRaw.length === 0) {
-    return NextResponse.json({ error: "정리할 짐이 없어요" }, { status: 400 });
+    return NextResponse.json({ error: "정리할 아이템이 없어요" }, { status: 400 });
   }
 
   const items = itemsRaw
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
     .slice(0, MAX_ITEMS);
 
   if (items.length === 0) {
-    return NextResponse.json({ error: "정리할 짐이 없어요" }, { status: 400 });
+    return NextResponse.json({ error: "정리할 아이템이 없어요" }, { status: 400 });
   }
 
   const validCount = items.length;

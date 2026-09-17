@@ -63,7 +63,7 @@ export default function DesktopQuickPackChatView({
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // 이동/복사 모달 대상 짐 목록
+  // 이동/복사 모달 대상 아이템 목록
   const [moveModalItems, setMoveModalItems] = useState<Item[] | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +102,7 @@ export default function DesktopQuickPackChatView({
 
   const handleClearAll = () => {
     if (!quickPack || items.length === 0) return;
-    if (confirm("빠른 팩의 모든 짐을 비우시겠어요?")) {
+    if (confirm("빠른 팩의 모든 아이템을 비우시겠어요?")) {
       onSavePack({ ...quickPack, items: [] });
       setSelectedIds(new Set());
       show("빠른 팩을 비웠어요");
@@ -139,7 +139,7 @@ export default function DesktopQuickPackChatView({
     inputRef.current?.focus();
   };
 
-  // --- HTML5 드래그 앤 드롭 시작 (단일 / 다중 선택 짐) ---
+  // --- HTML5 드래그 앤 드롭 시작 (단일 / 다중 선택 아이템) ---
   const handleDragStart = (e: React.DragEvent, item: Item) => {
     let itemsToDrag: Item[] = [item];
     if (multiSelectMode && selectedIds.has(item.id) && selectedIds.size > 0) {
@@ -235,7 +235,7 @@ export default function DesktopQuickPackChatView({
             </div>
             <h3 className="text-[14.5px] font-medium text-foreground">보관함이 비어있어요</h3>
             <p className="text-[12.5px] text-text-muted max-w-sm leading-relaxed">
-              하단 입력창에 생각나는 짐을 적고 <kbd className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono border border-border">Enter</kbd>를 누르면 보관됩니다.
+              하단 입력창에 생각나는 아이템을 적고 <kbd className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono border border-border">Enter</kbd>를 누르면 보관됩니다.
             </p>
           </div>
         ) : (
@@ -486,7 +486,7 @@ export default function DesktopQuickPackChatView({
               }}
               placeholder={
                 type === "check"
-                  ? "체크리스트에 추가할 짐 입력... (Enter로 등록)"
+                  ? "체크리스트에 추가할 아이템 입력... (Enter로 등록)"
                   : "메모할 내용 입력... (Enter로 등록)"
               }
               className="flex-1 bg-transparent text-[13px] outline-none text-foreground placeholder:text-text-muted py-1"
@@ -548,8 +548,8 @@ export default function DesktopQuickPackChatView({
 
             show(
               isCopy
-                ? `${moveModalItems.length}개 짐을 ${totalMovedCount}개 위치로 복사했어요!`
-                : `${moveModalItems.length}개 짐을 ${totalMovedCount}개 위치로 이사했어요!`
+                ? `${moveModalItems.length}개 아이템을 ${totalMovedCount}개 위치로 복사했어요!`
+                : `${moveModalItems.length}개 아이템을 ${totalMovedCount}개 위치로 이사했어요!`
             );
             setMoveModalItems(null);
           }}
@@ -559,7 +559,7 @@ export default function DesktopQuickPackChatView({
   );
 }
 
-// --- 짐 검색 및 다중 대상(가방/팩) 선택 이동 모달 ---
+// --- 아이템 검색 및 다중 대상(가방/팩) 선택 이동 모달 ---
 function MoveItemsModal({
   targetItems,
   bags,
@@ -649,7 +649,7 @@ function MoveItemsModal({
         >
           <div className="flex items-center justify-between shrink-0">
             <div>
-              <h3 className="text-[16px] font-bold text-text-primary">짐 이동 / 복사</h3>
+              <h3 className="text-[16px] font-bold text-text-primary">아이템 이동 / 복사</h3>
               <p className="text-[12px] text-text-muted mt-0.5">
                 '{targetItems[0]?.text}' {targetItems.length > 1 ? `외 ${targetItems.length - 1}개` : ""}를 어디로 보낼까요?
               </p>

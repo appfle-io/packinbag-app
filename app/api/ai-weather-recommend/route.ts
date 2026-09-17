@@ -24,7 +24,7 @@ function extractJsonItems(rawText: string): { text: string; icon: string }[] {
       .filter((i) => i && typeof i === "object")
       .slice(0, 4)
       .map((i) => ({
-        text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 짐",
+        text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 아이템",
         icon: String(i.icon || i.emoji || ""),
       }));
   } catch {
@@ -37,7 +37,7 @@ function extractJsonItems(rawText: string): { text: string; icon: string }[] {
             .filter((i) => i && typeof i === "object")
             .slice(0, 4)
             .map((i) => ({
-              text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 짐",
+              text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 아이템",
               icon: String(i.icon || i.emoji || ""),
             }));
         }
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Gemini API 키가 설정되지 않았어요" }, { status: 500 });
   }
 
-  const systemPrompt = `당신은 짐싸기 전문 컨설턴트 AI입니다.
-사용자의 가방 이름과 실시간 날씨 정보를 분석하여 해당 여행/활동에 특화된 유용한 짐 항목 4개와 이모지를 생성하세요.
+  const systemPrompt = `당신은 패킹 전문 컨설턴트 AI입니다.
+사용자의 가방 이름과 실시간 날씨 정보를 분석하여 해당 여행/활동에 특화된 유용한 아이템 항목 4개와 이모지를 생성하세요.
 
 [규칙]
 1. 가방 이름 속 장소와 여행 목적, 실시간 날씨를 종합 파악하세요.
@@ -103,10 +103,10 @@ export async function POST(req: NextRequest) {
 
 {
   "items": [
-    { "text": "짐 이름 (10자 이내)", "icon": "이모지 1개" },
-    { "text": "짐 이름 (10자 이내)", "icon": "이모지 1개" },
-    { "text": "짐 이름 (10자 이내)", "icon": "이모지 1개" },
-    { "text": "짐 이름 (10자 이내)", "icon": "이모지 1개" }
+    { "text": "아이템 이름 (10자 이내)", "icon": "이모지 1개" },
+    { "text": "아이템 이름 (10자 이내)", "icon": "이모지 1개" },
+    { "text": "아이템 이름 (10자 이내)", "icon": "이모지 1개" },
+    { "text": "아이템 이름 (10자 이내)", "icon": "이모지 1개" }
   ]
 }`;
 
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
 
   if (finalItems.length === 0) {
     finalItems = [
-      { text: `${bagName} 짐`, icon: "" },
+      { text: `${bagName} 아이템`, icon: "" },
       { text: "여행 준비물", icon: "" },
       { text: "날씨 대비 용품", icon: "" },
       { text: "여비 물품", icon: "" },

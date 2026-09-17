@@ -474,7 +474,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           {baseOpacityOpen && (
           <div className="mt-3 rounded-lg border border-border bg-surface-2 p-3">
             <p className="text-[11px] text-text-muted">
-              하단 메뉴, 필터 버튼, 짐(체크항목·텍스트) 배경, 설정 메뉴의 선택 안 된 버튼
+              하단 메뉴, 필터 버튼, 아이템(체크항목·텍스트) 배경, 설정 메뉴의 선택 안 된 버튼
               배경 등에 공통으로 적용돼요
             </p>
             <PercentSlider
@@ -490,7 +490,7 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
                 className="rounded-md px-3 py-2 text-[12px] text-text-secondary text-center"
                 style={{ background: "var(--surface-2)" }}
               >
-                예시 배경 (정렬 버튼, 짐 배경 등)
+                예시 배경 (정렬 버튼, 아이템 배경 등)
               </div>
             </div>
           </div>
@@ -565,10 +565,10 @@ export default function ColorSettingsScreen({ onBack }: { onBack: () => void }) 
           extraContent={
             <ul className="mt-2 space-y-1 text-[11px] text-text-muted list-none">
               <li>
-                <span className="font-medium text-text-secondary">체크박스·여백 크기</span> — 체크박스/아이콘 크기와 짐 목록의 여백을 조절해요 (글자 크기는 안 바뀌어요)
+                <span className="font-medium text-text-secondary">체크박스·여백 크기</span> — 체크박스/아이콘 크기와 아이템 목록의 여백을 조절해요 (글자 크기는 안 바뀌어요)
               </li>
               <li>
-                <span className="font-medium text-text-secondary">글씨 크기</span> — 제목·짐 텍스트·개수 표시의 글자만 따로 커지거나 작아져요
+                <span className="font-medium text-text-secondary">글씨 크기</span> — 제목·아이템 텍스트·개수 표시의 글자만 따로 커지거나 작아져요
               </li>
             </ul>
           }
