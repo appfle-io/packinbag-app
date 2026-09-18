@@ -262,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      await fetch(`https://packinbag-f1983.firebaseapp.com?t=${Date.now()}`, {
+      await fetch(`https://packinbag.seeuson.com?t=${Date.now()}`, {
         method: "HEAD",
         mode: "no-cors",
         cache: "no-store",

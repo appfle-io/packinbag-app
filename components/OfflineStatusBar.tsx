@@ -34,7 +34,7 @@ export default function OfflineStatusBar() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
-        await fetch(`https://packinbag-f1983.firebaseapp.com?t=${Date.now()}`, {
+        await fetch(`https://packinbag.seeuson.com?t=${Date.now()}`, {
           method: "HEAD",
           mode: "no-cors",
           cache: "no-store",

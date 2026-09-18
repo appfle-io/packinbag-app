@@ -3,7 +3,7 @@
  * Electron, PWA, 모바일/데스크톱 브라우저 환경을 모두 지원합니다.
  */
 
-export async function checkIsOnline(timeoutMs = 1200): Promise<boolean> {
+export async function checkIsOnline(timeoutMs = 2000): Promise<boolean> {
   if (typeof window === "undefined") return true;
 
   // 1. Electron 환경인 경우: 메인 프로세스의 HTTPS 실제 인증서/도메인 검증 IPC 호출
@@ -25,8 +25,8 @@ export async function checkIsOnline(timeoutMs = 1200): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    // 캐시 방지 쿼리스트링 및 no-cors HEAD 요청으로 최소 트래픽 검증
-    await fetch(`https://packinbag-f1983.firebaseapp.com?t=${Date.now()}`, {
+    // 실제 서비스 대표 도메인으로 최소 트래픽 검증
+    await fetch(`https://packinbag.seeuson.com?t=${Date.now()}`, {
       method: "HEAD",
       mode: "no-cors",
       cache: "no-store",

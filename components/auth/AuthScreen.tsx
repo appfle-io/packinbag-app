@@ -293,6 +293,14 @@ export default function AuthScreen() {
             >
               {checkingNetwork ? "연결 상태 확인 중..." : "인터넷 연결 다시 확인"}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIsOnline(true)}
+              className="w-full py-1 text-[11.5px] text-text-muted hover:text-text-secondary transition-colors"
+            >
+              온라인 계정으로 로그인하기
+            </button>
           </div>
         </div>
       </div>

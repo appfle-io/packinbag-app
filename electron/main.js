@@ -6,7 +6,7 @@ const net = require("net");
 const { fork } = require("child_process");
 
 // 실제 인터넷 연결 확인 (폐쇄망 및 사내망 가짜 응답 차단)
-function checkInternet(timeoutMs = 1200) {
+function checkInternet(timeoutMs = 2000) {
   return new Promise((resolve) => {
     let resolved = false;
     const finish = (result) => {
@@ -20,10 +20,11 @@ function checkInternet(timeoutMs = 1200) {
 
     try {
       const req = https.get(
-        "https://packinbag-f1983.firebaseapp.com",
+        "https://packinbag.seeuson.com",
         {
           headers: { "User-Agent": "Packinbag-Desktop-HealthCheck" },
-          rejectUnauthorized: true,
+          // 사내 보안 프록시/자체 서명 SSL 인터셉트 환경에서도 실제 도달 여부 확인
+          rejectUnauthorized: false,
         },
         (res) => {
           clearTimeout(timer);
@@ -50,7 +51,7 @@ function checkInternet(timeoutMs = 1200) {
 
 // 렌더러에서 실시간 인터넷 연결 감지용 IPC
 ipcMain.handle("check-internet", async () => {
-  return await checkInternet(1500);
+  return await checkInternet(2500);
 });
 
 let mainWindow = null;
