@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IconRefresh, IconLoader2, IconMailCheck } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { AVATAR_OPTIONS, randomAvatarId } from "@/lib/avatars";
 import { randomNickname } from "@/lib/nickname";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
+import { checkIsOnline } from "@/lib/networkUtils";
 import Avatar from "@/components/Avatar";
 import BackpackLogo from "@/components/BackpackLogo";
 import Portal from "@/components/Portal";
@@ -60,7 +61,52 @@ export default function AuthScreen() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSending, setResetSending] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    if (typeof navigator !== "undefined") {
+      return navigator.onLine;
+    }
+    return true;
+  });
+  const [checkingNetwork, setCheckingNetwork] = useState(false);
   const { show } = useToast();
+
+  useEffect(() => {
+    let mounted = true;
+    const verifyConnection = async () => {
+      const online = await checkIsOnline(1200);
+      if (mounted) {
+        setIsOnline(online);
+      }
+    };
+
+    verifyConnection();
+
+    const handleOnline = () => verifyConnection();
+    const handleOffline = () => {
+      if (mounted) setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  const handleRecheckNetwork = async () => {
+    setCheckingNetwork(true);
+    const online = await checkIsOnline(1500);
+    setIsOnline(online);
+    setCheckingNetwork(false);
+    if (online) {
+      show("인터넷 연결이 확인되었습니다.");
+    } else {
+      show("인터넷에 연결되지 않았거나 폐쇄망 환경입니다.");
+    }
+  };
 
   const passwordMismatch =
     mode === "signup" && passwordConfirm.length > 0 && password !== passwordConfirm;
@@ -209,6 +255,43 @@ export default function AuthScreen() {
               className="text-[12px] text-text-secondary mt-1"
             >
               로그인 화면으로 돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isOnline) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
+        <div className="w-full max-w-xs flex flex-col items-center gap-5 py-6 text-center">
+          <div className="flex flex-col items-center gap-2.5">
+            <BackpackLogo size={56} />
+            <p className="text-[15px] font-semibold">오프라인 환경입니다</p>
+            <p className="text-[12.5px] text-text-secondary leading-relaxed">
+              인터넷 연결이 원활하지 않거나 폐쇄망 환경입니다.<br />
+              로그인 없이 바로 로컬 모드로 시작할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="w-full flex flex-col gap-2.5 mt-1">
+            <button
+              type="button"
+              onClick={startOfflineMode}
+              className="w-full rounded-lg py-2.5 text-[14px] font-medium transition-colors"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              오프라인 모드로 시작하기
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRecheckNetwork}
+              disabled={checkingNetwork}
+              className="w-full py-2 text-[12px] text-text-secondary hover:underline transition-colors disabled:opacity-50"
+            >
+              {checkingNetwork ? "연결 상태 확인 중..." : "인터넷 연결 다시 확인"}
             </button>
           </div>
         </div>
@@ -379,14 +462,6 @@ export default function AuthScreen() {
             style={{ background: "var(--surface-2)" }}
           >
             로그인 없이 둘러보기 (게스트)
-          </button>
-
-          <button
-            type="button"
-            onClick={startOfflineMode}
-            className="w-full rounded-lg py-2.5 text-[13px] border border-border text-text-secondary hover:text-foreground hover:bg-surface-2 transition-colors"
-          >
-            오프라인 모드로 시작하기
           </button>
 
           <button
