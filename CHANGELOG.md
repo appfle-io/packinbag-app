@@ -1,5 +1,19 @@
 # 팩인백 (Packinbag) 릴리즈 노트
 
+## [1.0.13] - 2026-09-21
+
+### 버그 수정 및 개선 사항
+- **macOS 포터블 앱 실행 크래시(Trace/BPT trap: 5) 해결**:
+  - `electron-builder` 설정 내 `productName`을 영문(`Packinbag`)으로 최적화하여, 한글 번들/바이너리명 패칭 시 macOS Apple Silicon(ARM64)의 동적 링커(dyld) 및 AMFI 보안 모듈에서 발생하던 Mach-O 헤더 오프셋 오류 및 `Trace/BPT trap: 5` (SIGTRAP, exit code 133) 크래시 원천 해결.
+  - 앱 창 제목(`title: "팩인백"`) 및 macOS 메뉴바는 한글 "팩인백"으로 정상 표시 유지.
+  - 자체 배포 환경에 맞춰 `identity: null`, `hardenedRuntime: false`, `gatekeeperAssess: false`를 명시하여 라이브러리 검증 충돌 차단.
+  - macOS에서 창을 닫은 후 독(Dock) 아이콘 클릭 시 메인 창이 정상 재오픈되도록 개선 (`app.on("activate")`).
+- **macOS 배포 포맷 확장 (DMG & ZIP 동시 지원)**:
+  - macOS 사용자가 더욱 간편하게 실행할 수 있도록 기존 `.zip` 외에 `.dmg` 디스크 이미지 포맷 동시 배포.
+  - GitHub 릴리즈 안내에 macOS Gatekeeper 격리 해제(`xattr -cr`) 팁 추가.
+
+---
+
 ## [1.0.12] - 2026-09-21
 
 ### 버그 수정 및 개선 사항

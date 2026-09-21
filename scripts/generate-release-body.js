@@ -35,9 +35,19 @@ const footer = `
 ---
 
 ### 다운로드 및 실행 안내
-- 하단 **Assets** 영역에서 사용 중인 OS의 압축 파일(.zip)을 다운로드하세요.
+- 하단 **Assets** 영역에서 사용 중인 OS의 배포 파일을 다운로드하세요.
 - **Windows**: \`Packinbag-offline-win-portable_*.zip\` (압축 해제 후 \`팩인백.exe\` 실행)
-- **macOS**: \`Packinbag-offline-mac-portable_*.zip\` (압축 해제 후 \`팩인백.app\` 실행)
+- **macOS**: \`Packinbag-offline-mac-portable_*.dmg\` 또는 \`Packinbag-offline-mac-portable_*.zip\`
+
+> [!TIP]
+> **macOS 실행 시 "손상되었기 때문에 열 수 없습니다" 안내가 표시될 때**:
+> Apple 개발자 유료 서명이 미포함된 배포판이므로, macOS Gatekeeper 보안 정책에 의해 차단될 수 있습니다.
+> 터미널에서 아래 명령어를 1회 입력하시면 정상 실행됩니다:
+> \`\`\`bash
+> xattr -cr /Applications/Packinbag.app
+> # 또는 다운로드 폴더에서 압축 해제 후 바로 실행 시:
+> xattr -cr ~/Downloads/Packinbag.app
+> \`\`\`
 
 ### 주요 특징
 - 별도의 설치 과정 없이 즉시 실행되는 포터블 에디션

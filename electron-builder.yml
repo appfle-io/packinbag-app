@@ -1,5 +1,5 @@
 appId: io.appfle.packinbag.offline
-productName: 팩인백
+productName: Packinbag
 directories:
   output: dist-desktop
 files:
@@ -16,6 +16,10 @@ win:
   artifactName: "Packinbag-offline-win-portable_${version}.${ext}"
 mac:
   icon: "electron/icon.png"
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
   target:
     - target: zip
+    - target: dmg
   artifactName: "Packinbag-offline-mac-portable_${version}.${ext}"

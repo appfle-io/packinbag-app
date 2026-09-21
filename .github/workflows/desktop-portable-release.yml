@@ -23,7 +23,9 @@ jobs:
             artifact_pattern: "dist-desktop/*.zip"
           - os: macos-latest
             target_cmd: npm run dist:mac:portable
-            artifact_pattern: "dist-desktop/*.zip"
+            artifact_pattern: |
+              dist-desktop/*.zip
+              dist-desktop/*.dmg
 
     steps:
       - name: Checkout repository
@@ -77,10 +79,10 @@ jobs:
         with:
           path: artifacts
 
-      - name: Collect zip files
+      - name: Collect release files
         run: |
           mkdir -p release-files
-          find artifacts -name "*.zip" -exec cp {} release-files/ \;
+          find artifacts -type f \( -name "*.zip" -o -name "*.dmg" \) -exec cp {} release-files/ \;
           ls -la release-files/
 
       - name: Generate Release Body
@@ -98,10 +100,10 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists, publishing and uploading assets..."
             gh release edit "$TAG" --draft=false --title "$TITLE" --notes-file release-body.md
-            gh release upload "$TAG" release-files/*.zip --clobber
+            gh release upload "$TAG" release-files/* --clobber
           else
             echo "Creating new release $TAG..."
-            gh release create "$TAG" release-files/*.zip \
+            gh release create "$TAG" release-files/* \
               --title "$TITLE" \
               --notes-file release-body.md \
               --draft=false

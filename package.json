@@ -1,6 +1,6 @@
 {
   "name": "packinbag",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -10,7 +10,7 @@
     "lint": "eslint",
     "prepare:standalone": "node scripts/prepare-standalone.js",
     "dist:win:portable": "electron-builder --win zip --publish never",
-    "dist:mac:portable": "electron-builder --mac zip --publish never",
+    "dist:mac:portable": "electron-builder --mac zip dmg --publish never",
     "cap:add:ios": "npx cap add ios",
     "cap:sync": "npx cap sync ios",
     "cap:open:ios": "npx cap open ios",

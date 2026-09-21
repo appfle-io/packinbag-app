@@ -4,6 +4,7 @@ const http = require("http");
 const https = require("https");
 const net = require("net");
 const { fork } = require("child_process");
+const fs = require("fs");
 
 // 실제 인터넷 연결 확인 (폐쇄망 및 사내망 가짜 응답 차단)
 function checkInternet(timeoutMs = 2000) {
@@ -23,7 +24,6 @@ function checkInternet(timeoutMs = 2000) {
         "https://packinbag.seeuson.com",
         {
           headers: { "User-Agent": "Packinbag-Desktop-HealthCheck" },
-          // 사내 보안 프록시/자체 서명 SSL 인터셉트 환경에서도 실제 도달 여부 확인
           rejectUnauthorized: false,
         },
         (res) => {
@@ -56,6 +56,7 @@ ipcMain.handle("check-internet", async () => {
 
 let mainWindow = null;
 let serverProcess = null;
+let cachedServerUrl = null;
 
 // 사용 가능한 로컬 포트 찾기
 function findAvailablePort(startPort = 3000) {
@@ -106,7 +107,7 @@ async function startServerAndGetUrl() {
   } else {
     // 패키징 환경 (resources/app 또는 app.asar.unpacked 등)
     serverPath = path.join(process.resourcesPath, "standalone/server.js");
-    if (!require("fs").existsSync(serverPath)) {
+    if (!fs.existsSync(serverPath)) {
       serverPath = path.join(app.getAppPath(), ".next/standalone/server.js");
     }
   }
@@ -117,6 +118,7 @@ async function startServerAndGetUrl() {
       PORT: port.toString(),
       HOSTNAME: "127.0.0.1",
       NODE_ENV: "production",
+      ELECTRON_RUN_AS_NODE: "1",
     },
     silent: true,
   });
@@ -136,10 +138,11 @@ function createWindow(url) {
     height: 820,
     minWidth: 440,
     minHeight: 640,
-    title: "Packinbag Offline",
-    icon: process.platform === "win32"
-      ? path.join(__dirname, "icon.ico")
-      : path.join(__dirname, "icon.png"),
+    title: "팩인백",
+    icon:
+      process.platform === "win32"
+        ? path.join(__dirname, "icon.ico")
+        : path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -170,24 +173,24 @@ function createMenu() {
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: "팩인백",
             submenu: [
-              { role: "about" },
+              { role: "about", label: "팩인백에 관하여" },
               { type: "separator" },
-              { role: "services" },
+              { role: "services", label: "서비스" },
               { type: "separator" },
-              { role: "hide" },
-              { role: "hideOthers" },
-              { role: "unhide" },
+              { role: "hide", label: "팩인백 가리기" },
+              { role: "hideOthers", label: "기타 가리기" },
+              { role: "unhide", label: "모두 보기" },
               { type: "separator" },
-              { role: "quit" },
+              { role: "quit", label: "팩인백 종료" },
             ],
           },
         ]
       : []),
     {
       label: "파일",
-      submenu: [isMac ? { role: "close" } : { role: "quit", label: "종료" }],
+      submenu: [isMac ? { role: "close", label: "창 닫기" } : { role: "quit", label: "종료" }],
     },
     {
       label: "편집",
@@ -224,6 +227,7 @@ app.whenReady().then(async () => {
   createMenu();
   try {
     const baseUrl = await startServerAndGetUrl();
+    cachedServerUrl = baseUrl;
     createWindow(baseUrl);
   } catch (err) {
     console.error("[Electron] 시작 실패:", err);
@@ -231,8 +235,8 @@ app.whenReady().then(async () => {
   }
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+    if (BrowserWindow.getAllWindows().length === 0 && cachedServerUrl) {
+      createWindow(cachedServerUrl);
     }
   });
 });
@@ -243,9 +247,14 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("will-quit", () => {
+function cleanupServer() {
   if (serverProcess) {
-    serverProcess.kill();
+    try {
+      serverProcess.kill();
+    } catch (e) {}
     serverProcess = null;
   }
-});
+}
+
+app.on("before-quit", cleanupServer);
+app.on("will-quit", cleanupServer);
