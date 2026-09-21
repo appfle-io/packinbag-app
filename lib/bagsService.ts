@@ -21,6 +21,7 @@ import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
+import { getApiUrl } from "@/lib/apiBase";
 import {
   getLocalBags,
   saveLocalBag,
@@ -62,7 +63,7 @@ export async function createBagRemote(
   ownerProfile: { nickname: string; avatarId: string }
 ): Promise<Bag> {
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/create-bag", {
+  const res = await fetch(getApiUrl("/api/create-bag"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -290,7 +291,7 @@ export async function restoreBagRemote(user: User, bagId: string) {
     return;
   }
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/restore-bag", {
+  const res = await fetch(getApiUrl("/api/restore-bag"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -319,7 +320,7 @@ export async function joinBagByCode(
   if (!code) throw new Error("초대 코드를 입력해주세요.");
 
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/join-bag", {
+  const res = await fetch(getApiUrl("/api/join-bag"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -393,7 +394,7 @@ export async function updateMemberProfileSnapshot(
 // 있었다).
 export async function regenerateInviteCodeRemote(user: User, bag: Bag): Promise<string> {
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/regenerate-invite-code", {
+  const res = await fetch(getApiUrl("/api/regenerate-invite-code"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -417,7 +418,7 @@ export async function transferBagOwnershipRemote(
   targetUid: string
 ): Promise<void> {
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/transfer-bag-ownership", {
+  const res = await fetch(getApiUrl("/api/transfer-bag-ownership"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

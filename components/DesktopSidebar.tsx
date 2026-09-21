@@ -1917,6 +1917,9 @@ export default function DesktopSidebar({
                 <>
                   <button
                     onClick={() => {
+                      if (addMenuFor.parentId) {
+                        setExpandedPackIds((prev) => new Set([...prev, addMenuFor.parentId!]));
+                      }
                       onNewPack(addMenuFor.parentId, "checklist");
                       setAddMenuFor(null);
                     }}
@@ -1927,6 +1930,9 @@ export default function DesktopSidebar({
                   </button>
                   <button
                     onClick={() => {
+                      if (addMenuFor.parentId) {
+                        setExpandedPackIds((prev) => new Set([...prev, addMenuFor.parentId!]));
+                      }
                       onNewPack(addMenuFor.parentId, "editor");
                       setAddMenuFor(null);
                     }}
@@ -1937,6 +1943,9 @@ export default function DesktopSidebar({
                   </button>
                   <button
                     onClick={() => {
+                      if (addMenuFor.parentId) {
+                        setExpandedPackIds((prev) => new Set([...prev, addMenuFor.parentId!]));
+                      }
                       onNewFolder(addMenuFor.parentId);
                       setAddMenuFor(null);
                     }}

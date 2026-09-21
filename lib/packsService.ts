@@ -16,6 +16,7 @@ import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
+import { getApiUrl } from "@/lib/apiBase";
 import {
   getLocalLibraryPacks,
   saveLocalLibraryPack,
@@ -62,7 +63,7 @@ export async function saveLibraryPackRemote(user: User, pack: Pack, isNew?: bool
     const snap = isNew === true ? null : await getDoc(ref);
     if (isNew === true || !snap || !snap.exists()) {
       const idToken = await user.getIdToken();
-      const res = await fetch("/api/create-library-pack", {
+      const res = await fetch(getApiUrl("/api/create-library-pack"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -153,7 +154,7 @@ export async function restoreLibraryPackRemote(user: User, packId: string) {
     return;
   }
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/restore-library-pack", {
+  const res = await fetch(getApiUrl("/api/restore-library-pack"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -178,7 +179,7 @@ export async function trashBagPackRemote(
   sourceBagName: string
 ) {
   const idToken = await user.getIdToken();
-  const res = await fetch("/api/trash-bag-pack", {
+  const res = await fetch(getApiUrl("/api/trash-bag-pack"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
