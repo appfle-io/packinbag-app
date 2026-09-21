@@ -18,6 +18,8 @@
 
 import { isUnlimitedAiUser } from "@/lib/aiUsageService";
 import { Bag, Pack, UserProfile } from "@/lib/types";
+import { OFFLINE_USER_UID } from "@/lib/localBagsService";
+import { auth } from "@/lib/firebase";
 
 // 서버(API route)가 무료 제한(팩/가방 개수)에 걸려 403으로 막았을 때 던지는 에러.
 // 일반 에러와 구분해서 catch하면, 실패 토스트 대신 PremiumLimitModal을 띄울 수 있다.
@@ -25,7 +27,34 @@ export class PremiumLimitError extends Error {}
 
 export function isOfflineEnvironment(): boolean {
   if (typeof window === "undefined") return false;
-  return Boolean((window as unknown as { electronAPI?: unknown }).electronAPI) || localStorage.getItem("pib_offline_mode") === "true";
+
+  // 1. 실제 Firebase 온라인 계정으로 로그인되어 있는 경우 데스크톱 포터블/웹 불문하고 원격 저장소 사용
+  if (auth.currentUser && auth.currentUser.uid !== OFFLINE_USER_UID) {
+    return false;
+  }
+
+  // 2. 명시적 오프라인 모드 플래그가 활성화되어 있거나 URL 파라미터로 지정된 경우
+  if (
+    localStorage.getItem("pib_offline_mode") === "true" ||
+    new URLSearchParams(window.location.search).get("offline") === "true"
+  ) {
+    return true;
+  }
+
+  // 3. 현재 계정이 오프라인 로컬 사용자 UID인 경우
+  if (auth.currentUser?.uid === OFFLINE_USER_UID) {
+    return true;
+  }
+
+  // 4. 데스크톱 포터블(Electron) 환경에서 비로그인 상태이면서 네트워크가 단절된 경우
+  const isElectron =
+    Boolean((window as unknown as { electronAPI?: unknown }).electronAPI) ||
+    navigator.userAgent.toLowerCase().includes("electron");
+  if (isElectron && typeof navigator !== "undefined" && !navigator.onLine) {
+    return true;
+  }
+
+  return false;
 }
 
 export function isPremiumUser(
