@@ -695,26 +695,40 @@ export default function BagEditorScreen({
     bagRef.current = bag;
   }, [bag]);
   useEffect(() => {
-    return () => {
-      // 디바운스 대기 중(아직 서버에 반영 안 된 변경)이면 나가기 전에 그 즉시 저장한다.
-      // 새 가방(isNew)이고 아직 한 번도 확정 안 됐으면, 이 저장이 곧 "확정" 역할도
-      // 겸한다(onSave 호출) - 확정된 뒤에는 AppShell이 더 이상 임시 가방으로 취급하지
-      // 않으므로 뒤로가기로 지워지지 않는다.
-      if (!autosaveTimerRef.current || !isDirtyRef.current) return;
-      window.clearTimeout(autosaveTimerRef.current);
+    const flushBagAutosave = () => {
+      if (!autosaveTimerRef.current && !isDirtyRef.current) return;
+      if (autosaveTimerRef.current) {
+        window.clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      isDirtyRef.current = false;
       saveBagRemote(bagRef.current)
         .then(() => {
           if (isNewRef.current && !hasConfirmedNewRef.current) {
             hasConfirmedNewRef.current = true;
             onSave(bagRef.current);
-          } else {
-            show("나가기 전 변경사항을 저장했어요");
           }
         })
         .catch((err) => {
-          console.error("[팩인백] 나가기 전 자동저장 실패:", err);
-          show(`나가기 전 변경사항 저장에 실패했어요 (${firebaseErrorCode(err)})`);
+          console.error("[팩인백] 백그라운드/종료 전 자동저장 실패:", err);
         });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushBagAutosave();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushBagAutosave);
+    window.addEventListener("beforeunload", flushBagAutosave);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushBagAutosave);
+      window.removeEventListener("beforeunload", flushBagAutosave);
+      flushBagAutosave();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

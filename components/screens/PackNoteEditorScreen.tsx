@@ -178,7 +178,19 @@ export default function PackNoteEditorScreen({
   // 검색창에서 메모 결과를 눌러 들어왔을 때 해당 검색어 위치로 자동 스크롤 & 블록 선택
   initialSearchQuery?: string;
 }) {
-  const swipeBackRef = useSwipeBack<HTMLDivElement>(onBack);
+  const commitSaveRef = useRef<(() => void) | null>(null);
+  const handleBack = useCallback(() => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+      if (!effectiveReadOnlyRef.current) {
+        commitSaveRef.current?.();
+      }
+    }
+    onBack();
+  }, [onBack]);
+
+  const swipeBackRef = useSwipeBack<HTMLDivElement>(handleBack);
   const { show } = useToast();
   const { user, profile, updatePackSettings, isOfflineMode } = useAuth();
   // 사용자의 유료(프리미엄) 여부: 오프라인 모드는 무조건 무제한
@@ -659,16 +671,41 @@ export default function PackNoteEditorScreen({
   }, [editor, initialSearchQuery]);
 
   const lastSyncedDocRef = useRef<unknown>(pack.editorDoc);
+  const [remoteUpdatedBanner, setRemoteUpdatedBanner] = useState(false);
+  const pendingRemoteDocRef = useRef<object | null>(null);
+
   useEffect(() => {
     if (!editor) return;
-    // 내가 로컬에서 편집/저장하여 발생한 prop 변경이거나 이미 동기화된 문서면 setContent 호출을 차단한다
-    if (pack.editorDoc === lastSyncedDocRef.current || pack.editorDoc === packRef.current.editorDoc) return;
-    // 사용자가 에디터에 포커스하여 타이핑 중일 때는 커서 튕김을 방지하기 위해 덮어쓰지 않는다
-    if (editor.isFocused) return;
-    lastSyncedDocRef.current = pack.editorDoc;
-    editor.commands.setContent(pack.editorDoc ?? "", false);
+    const incomingDoc = pack.editorDoc;
+    // 내가 로컬에서 편집/저장하여 발생한 prop 변경이거나 이미 동기화된 문서면 건너뛴다
+    if (incomingDoc === lastSyncedDocRef.current || incomingDoc === packRef.current.editorDoc) return;
+
+    // 내용이 실질적으로 다른지 확인 (깊은 JSON 비교)
+    const isActuallyDifferent =
+      JSON.stringify(incomingDoc ?? null) !== JSON.stringify(lastSyncedDocRef.current ?? null);
+    if (!isActuallyDifferent) {
+      lastSyncedDocRef.current = incomingDoc;
+      return;
+    }
+
+    // 사용자가 지금 에디터를 타이핑 중이면 커서 튐 방지를 위해 보류하고 알림 배너 표시
+    if (editor.isFocused) {
+      pendingRemoteDocRef.current = (incomingDoc as object) ?? null;
+      setRemoteUpdatedBanner(true);
+      return;
+    }
+
+    // 포커스가 없으면 즉시 매끄럽게 동기화
+    lastSyncedDocRef.current = incomingDoc;
+    packRef.current = pack;
+    if (pack.name !== nameRef.current) {
+      setName(pack.name);
+      nameRef.current = pack.name;
+    }
+    editor.commands.setContent(incomingDoc ?? "", false);
     refreshHeadings();
-  }, [editor, pack.editorDoc, refreshHeadings]);
+    setRemoteUpdatedBanner(false);
+  }, [editor, pack, refreshHeadings]);
 
   // 렌더링된 링크(<a>) 중 우리 서비스 짧은/커스텀 링크의 화면 표시 텍스트를 캐시된 표시
   // 이름(label)으로 바꿔치기한다. 문서(editorDoc) 자체의 텍스트/href는 그대로 두고 DOM
@@ -740,6 +777,7 @@ export default function PackNoteEditorScreen({
     lastSyncedDocRef.current = doc;
     onSave(updated);
   };
+  commitSaveRef.current = commitSave;
 
   const handleUnlink = (pos: number | null) => {
     if (!editor || effectiveReadOnly) return;
@@ -825,12 +863,53 @@ export default function PackNoteEditorScreen({
     effectiveReadOnlyRef.current = effectiveReadOnly;
   }, [effectiveReadOnly]);
 
+  // 에디터 blur 시점에 보류 중이던 원격 최신 변경이 있으면 즉시 자동 적용
   useEffect(() => {
+    if (!editor) return;
+    const handleBlur = () => {
+      if (pendingRemoteDocRef.current) {
+        const nextDoc = pendingRemoteDocRef.current;
+        pendingRemoteDocRef.current = null;
+        lastSyncedDocRef.current = nextDoc;
+        editor.commands.setContent(nextDoc, false);
+        refreshHeadings();
+        setRemoteUpdatedBanner(false);
+      }
+    };
+    editor.on("blur", handleBlur);
     return () => {
+      editor.off("blur", handleBlur);
+    };
+  }, [editor, refreshHeadings]);
+
+  // 모바일/태블릿 PWA 및 브라우저에서 화면을 끄거나 홈으로 스와이프(백그라운드 전환),
+  // 혹은 화면을 나갈 때 디바운스 대기 중인 변경사항이 iOS WebKit 동결(Freeze)로 증발하지 않도록 즉시 플러시한다.
+  useEffect(() => {
+    const flushAutosave = () => {
       if (autosaveTimerRef.current) {
         clearTimeout(autosaveTimerRef.current);
-        if (!effectiveReadOnlyRef.current) commitSave();
+        autosaveTimerRef.current = null;
+        if (!effectiveReadOnlyRef.current) {
+          commitSave();
+        }
       }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushAutosave();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushAutosave);
+    window.addEventListener("beforeunload", flushAutosave);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushAutosave);
+      window.removeEventListener("beforeunload", flushAutosave);
+      flushAutosave();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -928,7 +1007,7 @@ export default function PackNoteEditorScreen({
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-2 p-4 pb-2 shrink-0">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <button onClick={onBack} aria-label="뒤로가기" className="-m-2.5 p-2.5 shrink-0">
+          <button onClick={handleBack} aria-label="뒤로가기" className="-m-2.5 p-2.5 shrink-0">
             <IconArrowLeft size={22} stroke={1.75} />
           </button>
           <EditableText
@@ -963,6 +1042,27 @@ export default function PackNoteEditorScreen({
           </button>
         )}
       </div>
+
+      {remoteUpdatedBanner && (
+        <div className="flex items-center justify-between px-4 py-2 bg-blue-500/10 border-b border-blue-500/20 text-xs text-blue-600 dark:text-blue-400 shrink-0">
+          <span>다른 기기에서 수정한 최신 내용이 있어요</span>
+          <button
+            onClick={() => {
+              if (pendingRemoteDocRef.current && editor) {
+                const nextDoc = pendingRemoteDocRef.current;
+                pendingRemoteDocRef.current = null;
+                lastSyncedDocRef.current = nextDoc;
+                editor.commands.setContent(nextDoc, false);
+                refreshHeadings();
+                setRemoteUpdatedBanner(false);
+              }
+            }}
+            className="px-2 py-0.5 rounded bg-blue-500 text-white font-medium hover:bg-blue-600 transition"
+          >
+            최신본 반영
+          </button>
+        </div>
+      )}
 
       {(!effectiveReadOnly && (bagId || user)) && (
         <input

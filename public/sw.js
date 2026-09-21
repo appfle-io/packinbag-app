@@ -13,7 +13,7 @@
 //    - CACHE_NAME 갱신 시 activate 이벤트에서 이전 캐시 버킷 자동 전수 삭제.
 // ============================================================================
 
-const CACHE_NAME = "pib-pwa-v1";
+const CACHE_NAME = "pib-pwa-v1.0.12";
 
 // 설치 시점에 오프라인 구동을 위해 미리 저장할 핵심 자산 목록
 const PRECACHE_ASSETS = [

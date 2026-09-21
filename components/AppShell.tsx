@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, enableNetwork } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { IconLoader2 } from "@tabler/icons-react";
 import { Bag, Item, Pack, Announcement, SharedPackSnapshot } from "@/lib/types";
@@ -245,12 +245,53 @@ export default function AppShell() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayedEditorPack(editingPack);
   }, [editingPack]);
+
+  // 원격 Firestore에서 libraryPacks가 실시간 갱신될 때, 현재 열려 있는 에디터 팩 최신본으로 실시간 동기화
+  useEffect(() => {
+    if (!editingPack || editingPack.kind !== "editor") return;
+    const remotePack = libraryPacks.find((p) => p.id === editingPack.id);
+    if (!remotePack) return;
+    const isDocDifferent =
+      JSON.stringify(remotePack.editorDoc ?? null) !== JSON.stringify(editingPack.editorDoc ?? null);
+    if (
+      remotePack.updatedAt !== editingPack.updatedAt ||
+      remotePack.name !== editingPack.name ||
+      isDocDifferent
+    ) {
+      setDisplayedEditorPack(remotePack);
+    }
+  }, [libraryPacks, editingPack]);
+
+  // 기기가 오프라인에서 온라인으로 복구될 때 Firestore 네트워크 활성화
+  useEffect(() => {
+    const handleOnline = async () => {
+      try {
+        await enableNetwork(db);
+      } catch (err) {
+        console.warn("[AppShell] enableNetwork fallback:", err);
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
+
   const [displayedSheetPack, setDisplayedSheetPack] = useState<Pack | null>(null);
   useEffect(() => {
     if (!editingPack || editingPack.kind === "editor") return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayedSheetPack(editingPack);
   }, [editingPack]);
+
+  useEffect(() => {
+    if (!editingPack || editingPack.kind === "editor") return;
+    const remotePack = libraryPacks.find((p) => p.id === editingPack.id);
+    if (!remotePack) return;
+    if (remotePack.updatedAt !== editingPack.updatedAt || remotePack.name !== editingPack.name) {
+      setDisplayedSheetPack(remotePack);
+    }
+  }, [libraryPacks, editingPack]);
   // 가방 보관함/팩 보관함 상단 검색 결과를 눌러서 들어왔을 때만 채워진다. 각각
   // BagEditorScreen(focusTarget)/PackLibraryEditorScreen(focusItemId)/PackNoteEditorScreen(initialSearchQuery)에 그대로 넘겨서 해당
   // 팩(+아이템/메모 텍스트)까지 자동 스크롤 + 하이라이트하게 한다. 한 번 쓰고 나면(onFocusHandled) 다시 null로 비운다.

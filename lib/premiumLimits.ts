@@ -28,28 +28,37 @@ export class PremiumLimitError extends Error {}
 export function isOfflineEnvironment(): boolean {
   if (typeof window === "undefined") return false;
 
-  // 1. 실제 Firebase 온라인 계정으로 로그인되어 있는 경우 데스크톱 포터블/웹 불문하고 원격 저장소 사용
+  // 1. 실제 Firebase 온라인 계정으로 로그인되어 있는 경우 어떤 플랫폼이든 무조건 원격 Firestore 파이프라인 사용
   if (auth.currentUser && auth.currentUser.uid !== OFFLINE_USER_UID) {
     return false;
   }
 
-  // 2. 명시적 오프라인 모드 플래그가 활성화되어 있거나 URL 파라미터로 지정된 경우
-  if (
-    localStorage.getItem("pib_offline_mode") === "true" ||
-    new URLSearchParams(window.location.search).get("offline") === "true"
-  ) {
-    return true;
-  }
-
-  // 3. 현재 계정이 오프라인 로컬 사용자 UID인 경우
+  // 2. 오프라인 로컬 사용자 UID인 경우
   if (auth.currentUser?.uid === OFFLINE_USER_UID) {
     return true;
   }
 
-  // 4. 데스크톱 포터블(Electron) 환경에서 비로그인 상태이면서 네트워크가 단절된 경우
+  // 3. 데스크톱 포터블(Electron) 환경 확인
   const isElectron =
     Boolean((window as unknown as { electronAPI?: unknown }).electronAPI) ||
     navigator.userAgent.toLowerCase().includes("electron");
+
+  // 4. 명시적 오프라인 모드 플래그 또는 URL 파라미터 검사
+  if (
+    localStorage.getItem("pib_offline_mode") === "true" ||
+    new URLSearchParams(window.location.search).get("offline") === "true"
+  ) {
+    // 웹/PWA에서 과거에 남아있던 잔여 플래그로 인해 온라인 상태의 일반 사용자가 로컬로 갇히는 현상 방지
+    if (!isElectron && typeof navigator !== "undefined" && navigator.onLine) {
+      try {
+        localStorage.removeItem("pib_offline_mode");
+      } catch {}
+      return false;
+    }
+    return true;
+  }
+
+  // 5. 데스크톱 포터블(Electron) 환경에서 비로그인 상태이면서 네트워크가 단절된 경우
   if (isElectron && typeof navigator !== "undefined" && !navigator.onLine) {
     return true;
   }
