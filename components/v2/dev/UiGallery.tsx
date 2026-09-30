@@ -115,7 +115,7 @@ export default function UiGallery() {
             <Button variant="secondary" leading={<IconRotateClockwise size={18} stroke={1.9} />}>
               다시 싸기
             </Button>
-            <Button variant="text">카테고리로 정리하기</Button>
+            <Button variant="text">팩으로 나눠 담기</Button>
             <Button variant="danger">삭제</Button>
             <Button disabled>추가할 팩을 고르세요</Button>
           </div>

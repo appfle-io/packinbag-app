@@ -5,7 +5,7 @@ import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, I
 import type { Bag } from "@/lib/types";
 import { Button, SectionHeader, Sheet } from "@/components/v2/ui";
 
-// 가방 더보기: 날짜 · 설명 한 줄 · 새 카테고리/메모 · 사진·파일 · AI(가져오기, 빠진 것 확인) · 삭제/나가기
+// 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
   open,
   onClose,
@@ -91,7 +91,7 @@ export function MoreSheet({
         <section className="flex flex-col">
           <SectionHeader>추가</SectionHeader>
           <button type="button" className={row} onClick={() => (onAddChecklist(), onClose())}>
-            <IconChecklist size={20} stroke={1.75} className="text-sub" aria-hidden="true" />새 카테고리
+            <IconChecklist size={20} stroke={1.75} className="text-sub" aria-hidden="true" />새 팩
           </button>
           <button type="button" className={row} onClick={() => (onAddMemo(), onClose())}>
             <IconNotes size={20} stroke={1.75} className="text-sub" aria-hidden="true" />새 메모

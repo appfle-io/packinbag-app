@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconChevronLeft, IconDots, IconLock, IconPackage, IconRotateClockwise, IconUsers } from "@tabler/icons-react";
+import { IconArrowUp, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutList, IconLock, IconPackage, IconRotateClockwise, IconUsers } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -92,9 +92,11 @@ export default function BagScreenV2(props: BagScreenProps) {
     onFocusHandled,
   } = props;
 
-  const { user, isOfflineMode, profile } = useAuth();
+  const { user, isOfflineMode, profile, updateBagPhoneColumns } = useAuth();
   const { show } = useToast();
   const premium = isOfflineMode ? true : isPremiumUser(profile?.email, profile ?? null);
+  // 좁은 화면(폰 세로)에서 팩 안 아이템을 몇 열로 볼지. 넓은 화면은 PackSection이 컨테이너 쿼리로 2열·3열 자동.
+  const phoneCols = profile?.bagPhoneColumns === 2 ? 2 : 1;
 
   const doc = useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnlock, onSave });
   const { bag } = doc;
@@ -274,7 +276,7 @@ export default function BagScreenV2(props: BagScreenProps) {
   };
 
   return (
-    <div ref={swipeRef} className="pib-v2 relative flex h-full min-h-0 w-full flex-col bg-canvas">
+    <div ref={swipeRef} className="pib-v2 @container/bag relative flex h-full min-h-0 w-full flex-col bg-canvas">
       {/* 상단 바 */}
       <div className="flex h-11 shrink-0 items-center justify-between px-2">
         <IconButton label="가방 목록으로" onClick={handleBack}>
@@ -288,6 +290,14 @@ export default function BagScreenV2(props: BagScreenProps) {
               ))}
             </div>
           )}
+          {/* 좁은 화면에서만 보이는 1열/2열 전환. 넓은 화면은 폭에 맞춰 자동이라 숨긴다 */}
+          <IconButton
+            label={phoneCols === 2 ? "1열로 보기" : "2열로 보기"}
+            className="@2xl/bag:hidden"
+            onClick={() => updateBagPhoneColumns(phoneCols === 2 ? 1 : 2).catch(() => {})}
+          >
+            {phoneCols === 2 ? <IconLayoutList size={22} stroke={1.75} /> : <IconLayoutColumns size={22} stroke={1.75} />}
+          </IconButton>
           <IconButton label="함께 챙기는 사람" onClick={() => setMembersOpen(true)}>
             <IconUsers size={22} stroke={1.75} />
           </IconButton>
@@ -298,7 +308,7 @@ export default function BagScreenV2(props: BagScreenProps) {
       </div>
 
       <main className="pib-v2-no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-6xl">
           {readOnly && (
             <button
               type="button"
@@ -402,9 +412,11 @@ export default function BagScreenV2(props: BagScreenProps) {
             </div>
           )}
 
-          {/* 카테고리 섹션: 아이패드 폭부터 2단 */}
-          <div className="px-5 pb-6 md:columns-2 md:gap-8">
-            {visibleSections.map((p) =>
+          {/* 팩은 위에서 아래로 쌓고, 스크롤을 줄이려고 팩 안 아이템을 여러 열로 보여준다(PackSection).
+              폰 세로 1열(버튼으로 2열) · 폰 가로·아이패드 세로 2열 · 아이패드 가로·PC 3열. 이 화면(@container/bag) 폭 기준 */}
+          <div className="px-5 pb-6">
+            <div>
+              {visibleSections.map((p) =>
               p.kind === "editor" ? (
                 <MemoSection
                   key={p.id}
@@ -426,9 +438,11 @@ export default function BagScreenV2(props: BagScreenProps) {
                   memberNames={memberNames}
                   highlightItemId={highlightItemId}
                   inbox={p.isInbox ? { canOrganize: ai.aiAvailable, organizing: ai.organizing, onOrganize: ai.organizeInbox } : undefined}
+                  dense={phoneCols === 2}
                 />
               ),
             )}
+            </div>
 
             {!hasContent && (
               <div className="flex flex-col items-center gap-3 py-16 text-center">

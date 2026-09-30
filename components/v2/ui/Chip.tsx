@@ -8,7 +8,7 @@ export interface ChipProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonEle
   count?: number;
 }
 
-// 필터 칩(가방 카테고리, 가방 폴더, 팩 폴더). 높이 36, 가로 스크롤 줄 안에서 shrink-0.
+// 필터 칩(가방 속 팩, 가방 폴더, 팩 폴더). 높이 36, 가로 스크롤 줄 안에서 shrink-0.
 export function Chip({ label, selected = false, count, className, type = "button", ...rest }: ChipProps) {
   return (
     <button

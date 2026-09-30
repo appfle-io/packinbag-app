@@ -18,9 +18,12 @@ export interface PackSectionProps {
   // 미분류 섹션 전용
   inbox?: { canOrganize: boolean; organizing: boolean; onOrganize: () => void };
   highlightItemId?: string | null;
+  // 폰 세로에서도 아이템을 2열로(사용자 설정). 칸이 좁아지니 줄 간격을 조금 좁히고 긴 이름은 두 줄까지만
+  dense?: boolean;
 }
 
-// 가방 안 체크리스트 팩 하나(= 카테고리 섹션). 머리줄을 누르면 접고 펼치고, 길게 누르면 팩 메뉴.
+// 가방 안 체크리스트 팩 하나. 머리줄을 누르면 접고 펼치고, 길게 누르면 팩 메뉴.
+// 아이템은 가방 화면(@container/bag) 폭에 맞춰 1·2·3열 격자로(왼쪽→오른쪽, 위→아래). 글(text) 아이템은 한 줄 전체.
 export function PackSection({
   pack,
   items,
@@ -32,6 +35,7 @@ export function PackSection({
   memberNames,
   inbox,
   highlightItemId,
+  dense,
 }: PackSectionProps) {
   const checks = pack.items.filter((i) => i.type === "check");
   const done = checks.filter((i) => i.checked).length;
@@ -50,7 +54,10 @@ export function PackSection({
         type="button"
         aria-expanded={open}
         {...header}
-        className="flex min-h-13 w-full select-none items-center justify-between gap-3 bg-transparent text-left"
+        className={cx(
+          "flex w-full select-none items-center justify-between gap-3 bg-transparent text-left",
+          dense ? "min-h-12" : "min-h-13",
+        )}
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-body font-bold">{pack.name}</span>
@@ -69,18 +76,25 @@ export function PackSection({
 
       <div className={cx("grid transition-[grid-template-rows] duration-200 ease-snappy", open ? "collapse-open" : "collapse-closed")}>
         <div className="min-h-0 overflow-hidden">
-          <ul className="m-0 flex list-none flex-col p-0 pb-2">
+          <ul
+            className={cx(
+              "m-0 grid list-none p-0 pb-2",
+              dense ? "grid-cols-2 gap-x-3" : "grid-cols-1",
+              "@2xl/bag:grid-cols-2 @2xl/bag:gap-x-6 @4xl/bag:grid-cols-3",
+            )}
+          >
             {items.map((item) => (
               <ItemLine
                 key={item.id}
                 item={item}
                 assignee={item.assigneeUid ? memberNames[item.assigneeUid] : undefined}
                 highlighted={highlightItemId === item.id}
+                dense={dense}
                 onToggle={() => onToggleItem(item.id)}
                 onMenu={() => onItemMenu(item.id)}
               />
             ))}
-            {items.length === 0 && <li className="py-2 text-caption text-faint">남은 아이템이 없어요</li>}
+            {items.length === 0 && <li className="col-span-full py-2 text-caption text-faint">남은 아이템이 없어요</li>}
           </ul>
           {inbox?.canOrganize && pack.items.length > 0 && (
             <div className="pb-3">
@@ -93,7 +107,7 @@ export function PackSection({
                 leading={<IconListDetails size={16} stroke={1.9} />}
                 className="border border-dashed border-line-strong"
               >
-                {inbox.organizing ? "정리하는 중…" : "카테고리로 정리하기"}
+                {inbox.organizing ? "나누는 중…" : "팩으로 나눠 담기"}
               </Button>
             </div>
           )}
@@ -107,12 +121,14 @@ function ItemLine({
   item,
   assignee,
   highlighted,
+  dense,
   onToggle,
   onMenu,
 }: {
   item: Item;
   assignee?: string;
   highlighted?: boolean;
+  dense?: boolean;
   onToggle: () => void;
   onMenu: () => void;
 }) {
@@ -120,13 +136,14 @@ function ItemLine({
   const press = useLongPress(onMenu, isCheck ? onToggle : onMenu);
   const done = isCheck && !!item.checked;
   return (
-    <li data-item-id={item.id}>
+    <li data-item-id={item.id} className={cx("min-w-0", !isCheck && "col-span-full")}>
       <button
         type="button"
         {...press}
         aria-pressed={isCheck ? done : undefined}
         className={cx(
-          "flex min-h-12 w-full select-none items-center gap-3 rounded-field bg-transparent text-left",
+          "flex w-full select-none items-center rounded-field bg-transparent text-left",
+          dense ? "min-h-11 gap-2" : "min-h-12 gap-3",
           "transition-colors duration-160 ease-snappy active:bg-fill",
           highlighted && "bg-brand-soft",
         )}
@@ -135,6 +152,7 @@ function ItemLine({
         <span
           className={cx(
             "min-w-0 flex-1 text-body transition-colors duration-160 ease-snappy",
+            dense && "line-clamp-2 break-keep",
             done ? "text-faint" : "text-ink",
             !isCheck && "text-sub",
             item.bold && "font-semibold",
@@ -142,7 +160,7 @@ function ItemLine({
         >
           {item.text}
         </span>
-        {assignee && <Badge className="max-w-24 truncate">{assignee}</Badge>}
+        {assignee && <Badge className={cx("truncate", dense ? "max-w-16" : "max-w-24")}>{assignee}</Badge>}
       </button>
     </li>
   );

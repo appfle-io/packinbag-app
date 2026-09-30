@@ -5,7 +5,7 @@ import type { Item, Pack } from "@/lib/types";
 import type { BagMember, ItemPatch } from "@/hooks/bag";
 import { Button, Chip, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
 
-// 아이템 길게 누르기: 이름 · 담당 · 카테고리 이동 · 복제 · 삭제
+// 아이템 길게 누르기: 이름 · 담당 · 다른 팩으로 옮기기 · 복제 · 삭제
 export function ItemSheet({
   target,
   onClose,
@@ -113,7 +113,7 @@ function ItemSheetBody({
 
       {packs.length > 1 && (
         <div className="flex flex-col gap-2">
-          <SectionHeader>카테고리</SectionHeader>
+          <SectionHeader>팩</SectionHeader>
           <div className="pib-v2-no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
             {packs.map((p) => (
               <Chip key={p.id} label={p.name} selected={packId === p.id} onClick={() => setPackId(p.id)} />

@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Pack } from "@/lib/types";
 import { Button, Sheet, Toggle } from "@/components/v2/ui";
 
-// 팩(카테고리) 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 삭제
+// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 삭제
 export function PackSheet({
   pack,
   onClose,
@@ -65,7 +65,7 @@ function PackSheetBody({
       }}
     >
       <label className="flex flex-col gap-2">
-        <span className="text-caption font-semibold text-sub">{isMemo ? "메모 이름" : "카테고리 이름"}</span>
+        <span className="text-caption font-semibold text-sub">{isMemo ? "메모 이름" : "팩 이름"}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -115,7 +115,7 @@ function PackSheetBody({
             onClose();
           }}
         >
-          {isMemo ? "메모 삭제" : "카테고리 삭제"}
+          {isMemo ? "메모 삭제" : "팩 삭제"}
         </button>
       </div>
       <Button type="submit" block>

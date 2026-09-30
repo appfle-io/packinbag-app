@@ -126,6 +126,7 @@ interface AuthContextValue {
   renameBagFolder: (folderId: string, name: string) => Promise<void>;
   deleteBagFolder: (folderId: string) => Promise<void>;
   moveBagFolder: (folderId: string, parentId: string | undefined) => Promise<void>;
+  flattenBagFolders: () => Promise<void>;
   moveBagToFolder: (bagId: string, folderId: string | undefined) => Promise<void>;
   moveBagsToFolder: (bagIds: string[], folderId: string | undefined) => Promise<void>;
   updateBagOrderByParent: (parentKey: string, order: string[]) => Promise<void>;
@@ -133,6 +134,7 @@ interface AuthContextValue {
   updateBagSettings: (settings: Partial<NonNullable<UserProfile["bagSettings"]>>) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
+  updateBagPhoneColumns: (columns: 1 | 2) => Promise<void>;
   updateSidebarWidth: (width: number) => Promise<void>;
   updateSidebarCollapsed: (collapsed: boolean) => Promise<void>;
   updateShortUrlEnabled: (enabled: boolean) => Promise<void>;
@@ -501,6 +503,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           bagSettings: data?.bagSettings as UserProfile["bagSettings"],
           packSettings: data?.packSettings as UserProfile["packSettings"],
           quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
+          bagPhoneColumns: data?.bagPhoneColumns as UserProfile["bagPhoneColumns"],
           sidebarWidth: data?.sidebarWidth as number | undefined,
           sidebarCollapsed: data?.sidebarCollapsed as boolean | undefined,
           packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
@@ -1103,6 +1106,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await updateDoc(doc(db, "users", user.uid), updates);
   };
 
+  // 리디자인 v2: 가방 폴더는 1단계(홈 상단 칩)만 쓴다. 하위 폴더를 전부 최상위로 올리고,
+  // 원래 부모는 legacyParentId에 남겨 둔다(롤백용). 폴더에 담긴 가방(bagFolderAssignments)은 그대로다.
+  // 하위 폴더가 없으면 아무것도 쓰지 않는다.
+  const flattenBagFolders = async () => {
+    if (!user || isOfflineMode) return;
+    const folders = profile?.bagFolders ?? {};
+    const updates: Record<string, unknown> = {};
+    for (const [key, f] of Object.entries(folders)) {
+      if (!f.parentId) continue;
+      updates[`bagFolders.${key}.parentId`] = deleteField();
+      updates[`bagFolders.${key}.legacyParentId`] = f.parentId;
+    }
+    if (Object.keys(updates).length === 0) return;
+    await updateDoc(doc(db, "users", user.uid), updates);
+  };
+
   const updateBagOrderByParent = async (parentKey: string, order: string[]) => {
     if (!user) return;
     const next = { ...(profile?.bagOrderByParent ?? {}), [parentKey]: order };
@@ -1163,6 +1182,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
+  };
+
+  // 리디자인 v2: 좁은 화면에서 가방 속 팩 열 수(1/2). 화면에 먼저 반영하고 계정에 저장한다.
+  const updateBagPhoneColumns = async (columns: 1 | 2) => {
+    if (!user) return;
+    setRawProfile((prev) => (prev ? { ...prev, bagPhoneColumns: columns } : prev));
+    if (isOfflineMode) {
+      saveLocalProfile({ bagPhoneColumns: columns });
+      return;
+    }
+    await setDoc(doc(db, "users", user.uid), { bagPhoneColumns: columns }, { merge: true });
   };
 
   // 데스크톱 사이드바 폭(px) - 오른쪽 가장자리 드래그가 끝난 지점에서만 호출되므로(드래그 중에는
@@ -1391,6 +1421,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         renameBagFolder,
         deleteBagFolder,
         moveBagFolder,
+        flattenBagFolders,
         moveBagToFolder,
         moveBagsToFolder,
         updateBagOrderByParent,
@@ -1398,6 +1429,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateBagSettings,
         updatePackSettings,
         updateQuickPackCollapsed,
+        updateBagPhoneColumns,
         updateSidebarWidth,
         updateSidebarCollapsed,
         updateShortUrlEnabled,

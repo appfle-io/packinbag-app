@@ -23,7 +23,7 @@ interface OrganizeResponse {
   error?: string;
 }
 
-// "카테고리로 정리하기": 미분류 팩의 아이템만 AI(app/api/organize-bag)로 분류해서
+// "팩으로 나눠 담기": 미분류 팩의 아이템만 AI(app/api/organize-bag)로 분류해서
 // 이름이 같은 기존 팩에 이어 담고, 없으면 새 팩을 만든다(팩 10개 제한). 분류되지 않은 건 미분류에 남는다.
 // 과금 기준은 현행 유지: 구 화면의 "AI 정리"와 같이 프리미엄 전용(서버는 무료 하루 한도도 따로 검사).
 export function useBagAI({ doc, user, premium, offline, onPremiumRequired }: BagAIOptions) {
@@ -78,7 +78,7 @@ export function useBagAI({ doc, user, premium, offline, onPremiumRequired }: Bag
           if (idx >= 0) {
             packs = packs.map((p, i) => (i === idx ? { ...p, items: [...p.items, ...items] } : p));
           } else if (packs.length < MAX_PACKS_PER_BAG) {
-            // 미분류 바로 아래에 새 카테고리를 만든다
+            // 미분류 바로 아래에 새 팩을 만든다
             const at = packs.findIndex((p) => p.id === inbox.id) + 1;
             packs.splice(at, 0, { id: newId(), name: g.name.trim() || "기타", items });
           } else {
@@ -95,7 +95,7 @@ export function useBagAI({ doc, user, premium, offline, onPremiumRequired }: Bag
       });
       if (moved === 0) show("정리할 만한 분류를 찾지 못했어요");
       else if (cappedOut) show(`팩이 가득 차서 일부는 미분류에 남겼어요 (${moved}개 정리)`);
-      else show(`${moved}개를 카테고리로 정리했어요`);
+      else show(`${moved}개를 팩으로 나눠 담았어요`);
     } catch (err) {
       show(err instanceof Error ? err.message : "정리에 실패했어요");
     } finally {

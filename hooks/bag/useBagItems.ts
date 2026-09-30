@@ -34,12 +34,16 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     [libraryPacks],
   );
 
+  // 체크 상태가 바뀐 모든 변경에 lastCheckedAt(홈 "최근 체크 순" 정렬 기준)을 찍고,
+  // 그 결과 다 싸게 됐으면 lastPackedAt/lastPackedBy도 찍는다.
   const withPackedStamp = useCallback(
     (prev: Bag, next: Bag): Bag => {
+      const now = new Date().toISOString();
+      const stamped: Bag = { ...next, lastCheckedAt: now };
       if (!isAllPacked(prev.packs) && isAllPacked(next.packs)) {
-        return { ...next, lastPackedAt: new Date().toISOString(), lastPackedBy: currentUid };
+        return { ...stamped, lastPackedAt: now, lastPackedBy: currentUid };
       }
-      return next;
+      return stamped;
     },
     [currentUid],
   );
@@ -68,6 +72,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     if (checkedIds.size === 0) return;
     update((prev) => ({
       ...prev,
+      lastCheckedAt: new Date().toISOString(),
       packs: prev.packs.map((p) =>
         p.kind === "editor" ? p : { ...p, items: p.items.map((i) => (i.type === "check" ? { ...i, checked: false } : i)) },
       ),

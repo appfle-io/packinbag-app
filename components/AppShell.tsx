@@ -70,7 +70,8 @@ import InitialGuideCarouselModal, {
   IntroSlideItem,
 } from "@/components/guide/InitialGuideCarouselModal";
 import { canShowInstallGuideModal } from "@/lib/installPromptUtils";
-import HomeScreen from "@/components/screens/HomeScreen";
+import LegacyHomeScreen from "@/components/screens/HomeScreen";
+import HomeScreenV2 from "@/components/v2/home/HomeScreenV2";
 import PacksScreen from "@/components/screens/PacksScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
@@ -103,6 +104,7 @@ import { getOfflineDataSummary } from "@/lib/offlineImportService";
 
 // 리디자인 v2: NEXT_PUBLIC_UI_V2=true면 새 가방 화면(props 동일)을 쓴다. 출시 때 구 화면과 함께 정리.
 const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
+const HomeScreen = UI_V2 ? HomeScreenV2 : LegacyHomeScreen;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -1979,7 +1981,15 @@ export default function AppShell() {
 
       {/* 가방 편집기 - 팩보관함보다 한 단계 더 위(zIndex 65)에서 슬라이드-인. editingBag이
           onBack에서 바로 null이 되므로, 닫히는 애니메이션 동안엔 캐싱해둔 displayedBag로 그린다. */}
-      <SlideScreen active={!!editingBag} zIndex={65}>
+      <SlideScreen
+        active={!!editingBag}
+        zIndex={65}
+        innerClassName={
+          UI_V2
+            ? "flex flex-col h-full w-full bg-background pib-safe-top"
+            : "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top"
+        }
+      >
         {displayedBag &&
           (() => {
             const isEditingBagLocked = lockedBagIds.has(displayedBag.id);
