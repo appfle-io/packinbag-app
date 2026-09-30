@@ -72,7 +72,8 @@ import InitialGuideCarouselModal, {
 import { canShowInstallGuideModal } from "@/lib/installPromptUtils";
 import LegacyHomeScreen from "@/components/screens/HomeScreen";
 import HomeScreenV2 from "@/components/v2/home/HomeScreenV2";
-import PacksScreen from "@/components/screens/PacksScreen";
+import LegacyPacksScreen from "@/components/screens/PacksScreen";
+import PacksScreenV2 from "@/components/v2/packs/PacksScreenV2";
 import SettingsScreen from "@/components/screens/SettingsScreen";
 import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
 import BagScreenV2 from "@/components/v2/bag/BagScreenV2";
@@ -105,6 +106,7 @@ import { getOfflineDataSummary } from "@/lib/offlineImportService";
 // 리디자인 v2: NEXT_PUBLIC_UI_V2=true면 새 가방 화면(props 동일)을 쓴다. 출시 때 구 화면과 함께 정리.
 const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
 const HomeScreen = UI_V2 ? HomeScreenV2 : LegacyHomeScreen;
+const PacksScreen = UI_V2 ? PacksScreenV2 : LegacyPacksScreen;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -1480,10 +1482,10 @@ export default function AppShell() {
 
   // v68: 폴더는 팩 편집 화면(items가 없음)을 열 필요 없이 바로 생성된다. 생성 직후에는
   // 팩 트리 화면에서 이름을 편집 상태로 보여줘서 곧바로 이름을 바꿀(EditableText) 수 있게 해준다.
-  const handleCreateFolder = async (parentId?: string) => {
+  const handleCreateFolder = async (parentId?: string, name?: string) => {
     const draft: Pack = {
       id: uid(),
-      name: "새 폴더",
+      name: name?.trim() || "새 폴더",
       items: [],
       type: "folder",
       parentId,

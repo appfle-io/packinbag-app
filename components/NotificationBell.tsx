@@ -29,7 +29,7 @@ function formatDate(iso: string) {
 // "읽음" 상태를 저장할 필요가 없음). 나중에 앱 푸시(FCM)를 붙이면 배포 시점에 푸시로도
 // 같은 안내를 보낼 수 있다 - 이 폴링 감지는 그 전까지의, 그리고 푸시를 안 받는 사람을
 // 위한 이중 안전망 역할도 한다.
-export default function NotificationBell({ uid }: { uid: string }) {
+export default function NotificationBell({ uid, v2 = false }: { uid: string; v2?: boolean }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
   const hasNewVersion = useNewVersionAvailable();
@@ -40,15 +40,20 @@ export default function NotificationBell({ uid }: { uid: string }) {
 
   return (
     <>
+      {/* v2: 헤더의 다른 아이콘 버튼(IconButton)과 같은 44px · 검은 아이콘 22px. 구 UI는 그대로 */}
       <button
         onClick={() => setOpen(true)}
         aria-label="알림"
-        className="relative -m-2 p-2"
+        className={
+          v2
+            ? "relative inline-flex size-11 shrink-0 items-center justify-center rounded-field text-ink active:bg-fill"
+            : "relative -m-2 p-2"
+        }
       >
-        <IconBell size={20} stroke={1.75} color="var(--text-secondary)" />
+        <IconBell size={v2 ? 22 : 20} stroke={1.75} color={v2 ? "currentColor" : "var(--text-secondary)"} />
         {hasNewVersion ? (
           <span
-            className="absolute -top-1 -right-2 rounded-full px-1 text-[8px] font-bold leading-[13px] text-white"
+            className={`absolute rounded-full px-1 text-[8px] font-bold leading-[13px] text-white ${v2 ? "top-1.5 right-0.5" : "-top-1 -right-2"}`}
             style={{ background: "var(--accent)" }}
           >
             NEW
@@ -56,7 +61,7 @@ export default function NotificationBell({ uid }: { uid: string }) {
         ) : (
           unreadCount > 0 && (
             <span
-              className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full"
+              className={`absolute h-2 w-2 rounded-full ${v2 ? "top-2.5 right-2.5" : "top-0.5 right-0.5"}`}
               style={{ background: "var(--danger)" }}
             />
           )

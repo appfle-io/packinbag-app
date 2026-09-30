@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconArchive, IconChevronLeft, IconChevronRight, IconPin, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
+import { IconArchive, IconChevronLeft, IconChevronRight, IconPin, IconPlus, IconSearch } from "@tabler/icons-react";
 import type { Bag, BagFolder, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -11,7 +11,18 @@ import NotificationBell from "@/components/NotificationBell";
 import JoinBagDialog from "@/components/JoinBagDialog";
 import NoteImportModal, { type NoteImportResult } from "@/components/NoteImportModal";
 import type { BagOpenFocus } from "@/components/screens/HomeScreen";
-import { Badge, Button, Chip, IconButton, SectionHeader, cx, useLongPress } from "@/components/v2/ui";
+import {
+  Badge,
+  Button,
+  Chip,
+  HeaderScroller,
+  IconButton,
+  ScreenBody,
+  ScreenHeader,
+  SectionHeader,
+  cx,
+  useLongPress,
+} from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { BagRow, FeaturedBagCard } from "./BagRows";
 import { BagActionSheet } from "./sheets/BagActionSheet";
@@ -136,21 +147,17 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   const [view, setView] = useState<"home" | "archive">("home");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searching = view === "home" && searchOpen;
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery("");
+  };
   const searchable = useMemo(
     () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
     [bags, premium],
   );
   const { results, truncated } = useMemo(() => searchBags(searchable, query), [searchable, query]);
 
-  const openSearch = () => {
-    setSearchOpen(true);
-    requestAnimationFrame(() => searchRef.current?.focus());
-  };
-  const closeSearch = () => {
-    setSearchOpen(false);
-    setQuery("");
-  };
   const openResult = (r: BagSearchResult) => {
     const q = query.trim();
     closeSearch();
@@ -212,83 +219,66 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   const listEmpty = !sections.featured && sections.pinned.length === 0 && sections.recent.length === 0;
 
   // --- 화면 -------------------------------------------------------------------------------
-  const header = searchOpen ? (
-    <div className="flex h-15 shrink-0 items-center gap-2 px-5">
-      <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-card px-4">
-        <IconSearch size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
-        <input
-          ref={searchRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="가방, 팩, 아이템 검색"
-          placeholder="가방, 팩, 아이템 검색"
-          enterKeyHint="search"
-          className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-faint"
-        />
-        {query && (
-          <button type="button" aria-label="검색어 지우기" onClick={() => setQuery("")} className="shrink-0 text-faint">
-            <IconX size={16} stroke={1.9} />
-          </button>
-        )}
-      </label>
-      <button type="button" onClick={closeSearch} className="h-11 shrink-0 bg-transparent px-2 text-body font-semibold text-ink active:opacity-60">
-        취소
-      </button>
-    </div>
-  ) : view === "archive" ? (
-    <div className="flex h-15 shrink-0 items-center gap-1 px-2">
-      <IconButton label="가방 목록으로" onClick={() => setView("home")}>
-        <IconChevronLeft size={22} stroke={1.9} />
-      </IconButton>
-      <h1 className="m-0 text-heading font-bold">보관함</h1>
-    </div>
-  ) : (
-    <div className="flex shrink-0 items-end justify-between px-5 pt-2 pb-3">
-      <h1 className="m-0 text-title font-bold">가방</h1>
-      <div className="flex items-center gap-1">
-        <IconButton label="검색" onClick={openSearch}>
-          <IconSearch size={22} stroke={1.75} />
-        </IconButton>
-        {!isOfflineMode && <NotificationBell uid={uid} />}
-        <IconButton label="새 가방" variant="solid" onClick={() => setNewBagOpen(true)}>
-          <IconPlus size={20} stroke={2} />
-        </IconButton>
-      </div>
-    </div>
-  );
+  // 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(팩 탭과 똑같이). 여기서 따로 패딩을 주지 않는다.
+  const showChips = view === "home" && !searching && personal && (hasAnyBag || folders.length > 0);
 
   return (
     <div className="pib-v2 relative flex h-full min-h-0 w-full flex-1 flex-col bg-canvas">
-      {header}
-
-      {/* 폴더 칩: 가로 스크롤이 탭 전환 스와이프로 오인되지 않게 data-own-swipe-back으로 막는다 */}
-      {!searchOpen && view === "home" && personal && (hasAnyBag || folders.length > 0) && (
-        <div data-own-swipe-back role="group" aria-label="가방 폴더" className="pib-v2-no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-5 pb-4">
-          <Chip label="전체" selected={!activeFolderId} onClick={() => pickFolder(undefined)} />
-          {folders.map((f) => (
-            <FolderChip
-              key={f.id}
-              folder={f}
-              selected={activeFolderId === f.id}
-              onPick={() => pickFolder(activeFolderId === f.id ? undefined : f.id)}
-              onEdit={() => setFolderTarget(f)}
-            />
-          ))}
-          <button
-            type="button"
-            aria-label="폴더 추가"
-            title="폴더 추가"
-            onClick={() => setFolderTarget("new")}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-line-strong text-sub active:bg-fill"
-          >
-            <IconPlus size={16} stroke={2} />
-          </button>
-        </div>
+      {view === "archive" ? (
+        <ScreenHeader
+          leading={
+            <IconButton label="가방 목록으로" onClick={() => setView("home")}>
+              <IconChevronLeft size={22} stroke={1.9} />
+            </IconButton>
+          }
+          title="보관함"
+        />
+      ) : (
+        <ScreenHeader
+          search={{ open: searchOpen, value: query, onChange: setQuery, onClose: closeSearch, placeholder: "가방, 팩, 아이템 검색" }}
+          actions={
+            <>
+              {hasAnyBag && (
+                <IconButton label="검색" onClick={() => setSearchOpen(true)}>
+                  <IconSearch size={22} stroke={1.75} />
+                </IconButton>
+              )}
+              {!isOfflineMode && <NotificationBell uid={uid} v2 />}
+              <IconButton label="새 가방" variant="solid" onClick={() => setNewBagOpen(true)}>
+                <IconPlus size={20} stroke={2} />
+              </IconButton>
+            </>
+          }
+          title="가방"
+        >
+          {showChips && (
+            <HeaderScroller label="가방 폴더">
+              <Chip label="전체" selected={!activeFolderId} onClick={() => pickFolder(undefined)} />
+              {folders.map((f) => (
+                <FolderChip
+                  key={f.id}
+                  folder={f}
+                  selected={activeFolderId === f.id}
+                  onPick={() => pickFolder(activeFolderId === f.id ? undefined : f.id)}
+                  onEdit={() => setFolderTarget(f)}
+                />
+              ))}
+              <button
+                type="button"
+                aria-label="폴더 추가"
+                title="폴더 추가"
+                onClick={() => setFolderTarget("new")}
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-line-strong text-sub active:bg-fill"
+              >
+                <IconPlus size={16} stroke={2} />
+              </button>
+            </HeaderScroller>
+          )}
+        </ScreenHeader>
       )}
 
-      <main className="pib-v2-no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-8">
-          {searchOpen ? (
+      <ScreenBody className="gap-8">
+          {searching ? (
             <SearchResults query={query} results={results} truncated={truncated} onOpen={openResult} />
           ) : view === "archive" ? (
             archived.length === 0 ? (
@@ -386,8 +376,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
               {!listEmpty && personal && <p className="m-0 text-center text-micro text-faint">가방을 길게 누르면 고정 · 폴더 · 보관</p>}
             </>
           )}
-        </div>
-      </main>
+      </ScreenBody>
 
       {/* 시트 · 모달 */}
       <NewBagSheet

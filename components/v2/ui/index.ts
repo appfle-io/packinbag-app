@@ -13,4 +13,5 @@ export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentOption } from "./SegmentedControl";
 export { Toggle } from "./Toggle";
 export { Sheet } from "./Sheet";
+export { ScreenHeader, ScreenBody, HeaderScroller, SearchField } from "./Screen";
 export { useLongPress } from "./useLongPress";
