@@ -814,3 +814,159 @@ aside {
   height: 0;
   pointer-events: none;
 }
+
+/* ==========================================================================
+   리디자인 v2 디자인 토큰 (redesign/minimal)
+   기준: claude/packinbag_UIUX_리디자인_방향.md
+   - 기존 토큰(--background, --surface, --accent ...)과 이름이 겹치지 않게 별도 이름을 쓴다.
+     구 UI는 이 블록의 영향을 받지 않고, components/v2 아래 새 화면만 이 토큰을 쓴다.
+   - 여기 없는 값은 쓰지 않는다. 임의값(text-[12.5px], bg-[#...])은 eslint(pib-v2/no-arbitrary-values)가 막는다.
+   ========================================================================== */
+:root {
+  --v2-canvas: #fafaf8;     /* 화면 바탕 */
+  --v2-card: #ffffff;       /* 카드, 시트, 입력칸 */
+  --v2-fill: #f1f1ee;       /* 칩/세그먼트 바탕, 보조 배경 */
+  --v2-line: #eaeae6;       /* 구분선, 테두리 */
+  --v2-line-strong: #c4c4be;/* 체크박스 테두리, 비활성 */
+  --v2-ink: #17171a;        /* 본문 글자, 기본 버튼 */
+  --v2-sub: #5f5f66;        /* 보조 글자 */
+  --v2-faint: #76767d;      /* 완료된 아이템, 힌트 */
+  --v2-brand: #2e5e4e;      /* 포인트 1색: 체크 완료, 진행률, 링크 */
+  --v2-brand-soft: #e6eeea;
+  --v2-on-brand: #ffffff;
+  --v2-on-ink: #ffffff;
+  --v2-alert: #b42318;      /* 삭제 등 파괴적 동작 */
+  --v2-scrim: rgb(23 23 26 / 0.36);
+}
+
+[data-theme="dark"] {
+  --v2-canvas: #161618;
+  --v2-card: #1f1f22;
+  --v2-fill: #28282c;
+  --v2-line: #2e2e33;
+  --v2-line-strong: #4a4a50;
+  --v2-ink: #f2f2f0;
+  --v2-sub: #a3a3aa;
+  --v2-faint: #8a8a92;
+  --v2-brand: #6fb39a;
+  --v2-brand-soft: #1d2e28;
+  --v2-on-brand: #0e1a15;
+  --v2-on-ink: #161618;
+  --v2-alert: #f97066;
+  --v2-scrim: rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --color-canvas: var(--v2-canvas);
+  --color-card: var(--v2-card);
+  --color-fill: var(--v2-fill);
+  --color-line: var(--v2-line);
+  --color-line-strong: var(--v2-line-strong);
+  --color-ink: var(--v2-ink);
+  --color-sub: var(--v2-sub);
+  --color-faint: var(--v2-faint);
+  --color-brand: var(--v2-brand);
+  --color-brand-soft: var(--v2-brand-soft);
+  --color-on-brand: var(--v2-on-brand);
+  --color-on-ink: var(--v2-on-ink);
+  --color-alert: var(--v2-alert);
+  --color-scrim: var(--v2-scrim);
+
+  /* next/font/local이 app/layout.tsx에서 --font-pretendard를 선언한다 */
+  --font-ui: var(--font-pretendard), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+
+@theme {
+  /* 글자 6단계: text-micro / caption / body / body-lg / heading / title */
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 24px;
+  --text-heading: 22px;
+  --text-heading--line-height: 30px;
+  --text-heading--letter-spacing: -0.01em;
+  --text-title: 28px;
+  --text-title--line-height: 36px;
+  --text-title--letter-spacing: -0.02em;
+
+  /* 모서리: rounded-control(체크박스) / rounded-field(입력·세그먼트) / rounded-card(카드·시트) / rounded-full(칩) */
+  --radius-control: 6px;
+  --radius-field: 8px;
+  --radius-card: 14px;
+
+  /* 그림자는 바텀시트 1종만 */
+  --shadow-sheet: 0 -8px 32px rgb(23 23 26 / 0.12);
+
+  /* 모션: duration-160(체크) / 200(접기) / 240(진행률) / 280(화면 전환) + ease-snappy */
+  --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 체크박스 테두리 1.5px (토큰 밖 임의값 대신 이름 있는 유틸리티로) */
+@utility border-check {
+  border-width: 1.5px;
+}
+
+/* 바텀시트 높이: 화면의 88%까지 */
+@utility h-dvh-88 {
+  height: 88dvh;
+}
+@utility max-h-dvh-88 {
+  max-height: 88dvh;
+}
+
+/* 하단 안전영역(홈 인디케이터) + 여백. 숫자는 4pt 단위 배수 */
+@utility pb-safe-4 {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+@utility pb-safe-8 {
+  padding-bottom: max(32px, calc(env(safe-area-inset-bottom) + 12px));
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* 접기/펼치기: grid 행 높이 0fr <-> 1fr 전환으로 내용 높이만큼 부드럽게 */
+@utility collapse-open {
+  grid-template-rows: 1fr;
+}
+@utility collapse-closed {
+  grid-template-rows: 0fr;
+}
+
+/* v2 화면 루트에 붙이는 기본값 */
+.pib-v2 {
+  font-family: var(--font-ui);
+  color: var(--v2-ink);
+  background: var(--v2-canvas);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 키보드 포커스만 표시(마우스/터치 클릭 후 테두리 남지 않게) */
+.pib-v2 *:focus:not(:focus-visible) {
+  outline: none;
+}
+.pib-v2 *:focus-visible {
+  outline: 2px solid var(--v2-brand);
+  outline-offset: 2px;
+}
+.pib-v2 ::selection {
+  background: var(--v2-brand-soft);
+}
+.pib-v2 .pib-v2-no-scrollbar {
+  scrollbar-width: none;
+}
+.pib-v2 .pib-v2-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pib-v2 *,
+  .pib-v2 *::before,
+  .pib-v2 *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

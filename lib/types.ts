@@ -121,6 +121,9 @@ export interface Pack {
   // 칸반보드 전용 역할 식별자 및 완료 팩 플래그
   systemRole?: "todo" | "in_progress" | "done" | "on_hold" | "memo";
   isDonePack?: boolean;
+  // 리디자인 v2: 가방 하단 입력창으로 넣은 아이템이 모이는 "미분류" 팩이면 true. 가방당 하나만 두고,
+  // "카테고리로 정리하기"(AI)로 다른 팩에 나눠 담으면 비워진다. 구 UI에서는 일반 팩처럼 보인다.
+  isInbox?: boolean;
 }
 
 // 팩/폴더 웹 공개 공유 스냅샷 문서 (/sharedPacks/{token})
@@ -210,6 +213,10 @@ export interface Bag {
   // 칸반보드(업무) 가방 여부 및 완료 항목 자동 이동 옵션
   isKanban?: boolean;
   autoMoveDoneItems?: boolean;
+  // 리디자인 v2: 체크 아이템이 전부 체크된 순간(=다 쌌을 때)의 시각(ISO)과 그 사람 uid.
+  // 반복 가방에서 "마지막으로 다 싼 날"을 보여주는 용도. 다시 싸기(전체 해제)를 해도 지우지 않는다.
+  lastPackedAt?: string;
+  lastPackedBy?: string;
 }
 
 // 가방 보관함 폴더. 팩 폴더(Pack, type:"folder")와 달리 가방은 여러 명이 함께 쓰는
@@ -562,4 +569,4 @@ export interface BagReactionDoc {
   targetId: string;
   reactions: Partial<Record<ReactionEmoji, string[]>>; // emoji -> uid 배열
   updatedAt: string;
-}
+}

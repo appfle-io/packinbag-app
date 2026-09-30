@@ -5,7 +5,9 @@ import { User } from "firebase/auth";
 import { useAuth } from "@/contexts/AuthProvider";
 import { Announcement, Bag, Item, Pack, UserProfile } from "@/lib/types";
 import DesktopSidebar, { DesktopSelection } from "@/components/DesktopSidebar";
-import BagEditorScreen from "@/components/screens/BagEditorScreen";
+import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
+import BagScreenV2 from "@/components/v2/bag/BagScreenV2";
+import { UI_V2 } from "@/lib/v2/flags";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
@@ -18,6 +20,9 @@ import { useToast } from "@/components/Toast";
 import Portal from "@/components/Portal";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+
+// 리디자인 v2: NEXT_PUBLIC_UI_V2=true면 새 가방 화면(props 동일)을 쓴다. 출시 때 구 화면과 함께 정리.
+const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
 
 // PC 웹 전용 레이아웃. 좌측 트리(가방/팩 보관함)에서 클릭한 항목을 우측 패널에 그대로
 // 인라인으로 그린다 - 모바일에서 풀스크린으로 슬라이드-인 되던 BagEditorScreen/
@@ -452,4 +457,4 @@ export default function DesktopShell({
       )}
     </div>
   );
-}
+}

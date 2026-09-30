@@ -73,7 +73,9 @@ import { canShowInstallGuideModal } from "@/lib/installPromptUtils";
 import HomeScreen from "@/components/screens/HomeScreen";
 import PacksScreen from "@/components/screens/PacksScreen";
 import SettingsScreen from "@/components/screens/SettingsScreen";
-import BagEditorScreen from "@/components/screens/BagEditorScreen";
+import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
+import BagScreenV2 from "@/components/v2/bag/BagScreenV2";
+import { UI_V2 } from "@/lib/v2/flags";
 import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
@@ -98,6 +100,9 @@ import DesktopShell from "@/components/DesktopShell";
 import type { DesktopSelection } from "@/components/DesktopSidebar";
 import OfflineStatusBar from "@/components/OfflineStatusBar";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
+
+// 리디자인 v2: NEXT_PUBLIC_UI_V2=true면 새 가방 화면(props 동일)을 쓴다. 출시 때 구 화면과 함께 정리.
+const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -2109,4 +2114,4 @@ export default function AppShell() {
       />
     </>
   );
-}
+}

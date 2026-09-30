@@ -1,6 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import localFont from "next/font/local";
 import "./globals.css";
+
+// 리디자인 v2 기본 폰트. 폐쇄망/Electron 오프라인에서도 동작해야 해서 CDN 대신 앱에 포함한다.
+// (Pretendard Variable, SIL OFL 1.1) 구 UI는 globals.css body font-family를 그대로 쓰고,
+// v2 화면만 .pib-v2 클래스로 var(--font-ui)를 쓴다.
+const pretendard = localFont({
+  src: "./fonts/PretendardVariable.woff2",
+  variable: "--font-pretendard",
+  weight: "45 920",
+  display: "swap",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: "팩인백 · Pack In Bag",
@@ -63,7 +75,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="ko" className={`h-full antialiased ${pretendard.variable}`} suppressHydrationWarning>
       <head>
         <Script
           id="set-initial-theme"

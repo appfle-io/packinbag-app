@@ -13,5 +13,6 @@ export const OSS_LICENSES: LicenseEntry[] = [
   { name: "Tailwind CSS", license: "MIT", url: "https://github.com/tailwindlabs/tailwindcss/blob/main/LICENSE" },
   { name: "Firebase JS SDK", license: "Apache License 2.0", url: "https://github.com/firebase/firebase-js-sdk/blob/main/LICENSE" },
   { name: "Capacitor", license: "MIT", url: "https://github.com/ionic-team/capacitor/blob/main/license" },
+  { name: "Pretendard", license: "SIL Open Font License 1.1", url: "https://github.com/orioncactus/pretendard/blob/main/LICENSE" },
   { name: "@tabler/icons-react", license: "MIT", url: "https://github.com/tabler/tabler-icons/blob/master/LICENSE" },
 ];
