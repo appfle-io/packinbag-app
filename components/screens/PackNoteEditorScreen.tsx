@@ -109,6 +109,17 @@ import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
+import { UI_V2 } from "@/lib/v2/flags";
+import { IconChevronLeft, IconDots, IconRefresh } from "@tabler/icons-react";
+import { IconButton, cx } from "@/components/v2/ui";
+import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
+import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
+import { LinkSheet, type LinkRequest } from "@/components/v2/note/LinkSheet";
+import { NoteToolbar } from "@/components/v2/note/NoteToolbar";
+import { NoteMoreSheet } from "@/components/v2/note/NoteMoreSheet";
+import { NoteTableSheet } from "@/components/v2/note/NoteTableSheet";
+import { NoteColorSheet, NoteTocSheet } from "@/components/v2/note/NoteColorSheet";
+import { MemoShareSheet } from "@/components/v2/note/MemoShareSheet";
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
 // 이미지가 아닌 파일(PDF/기타 문서 형식)은 이미지처럼 압축되지 않고 원본 크기 그대로
@@ -267,6 +278,20 @@ export default function PackNoteEditorScreen({
   const [manageLinkTarget, setManageLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
   // "수정"을 누르면 이 값이 채워져 이름/주소 수정 시트(EditLinkModal)가 열린다.
   const [editLinkTarget, setEditLinkTarget] = useState<{ url: string; meta: LinkMeta } | null>(null);
+
+  // --- v2 전용 시트 상태 (구 UI에서는 쓰지 않음) ---
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [tableSheetOpen, setTableSheetOpen] = useState(false);
+  const [confirmDeleteTable, setConfirmDeleteTable] = useState(false);
+  // 툴바 링크 버튼(구 UI의 window.prompt 대신 링크 시트의 주소 입력 단계)
+  const [insertLinkReq, setInsertLinkReq] = useState<{ initialUrl: string; canUnlink: boolean } | null>(null);
+  // 링크 시트 요청. 시트가 같은 요청인지 참조로 비교하므로 렌더마다 새로 만들지 않는다
+  const v2LinkRequest = useMemo<LinkRequest | null>(() => {
+    if (insertLinkReq) return { kind: "insert", ...insertLinkReq };
+    if (manageLinkTarget) return { kind: "manage", url: manageLinkTarget.url, meta: manageLinkTarget.meta, canUnlink: !effectiveReadOnly };
+    if (linkMenuUrl) return { kind: "tap", url: linkMenuUrl, canUnlink: !effectiveReadOnly };
+    return null;
+  }, [insertLinkReq, manageLinkTarget, linkMenuUrl, effectiveReadOnly]);
 
   const handleLinkClick = useCallback((href: string) => {
     if (isAlreadyShortLink(href)) {
@@ -1002,6 +1027,366 @@ export default function PackNoteEditorScreen({
       {children}
     </button>
   );
+
+  // ===== 리디자인 v2 화면 =====
+  // 위의 상태·핸들러(자동저장, 원격 반영, 첨부 업로드, 링크 라벨, 검색 이동)는 그대로 쓰고 결만 바꾼다.
+  // 헤더(뒤로·공유·더보기) → 큰 제목 → 상태 한 줄 → 툴바 한 줄 → 본문. 나머지는 전부 v2 시트.
+  if (UI_V2) {
+    const canAttach = !effectiveReadOnly && !!(bagId || user);
+    const syncOn = !!pack.autoSyncEnabled;
+    const status: "remote" | "size" | "depth" | "together" | "sync" | null = remoteUpdatedBanner
+      ? "remote"
+      : sizeBlocked
+        ? "size"
+        : depthBlocked
+          ? "depth"
+          : otherEditorNickname
+            ? "together"
+            : bagId && pack.linkedLibraryPackId
+              ? "sync"
+              : null;
+
+    const applyRemote = () => {
+      if (!pendingRemoteDocRef.current || !editor) return;
+      const nextDoc = pendingRemoteDocRef.current;
+      pendingRemoteDocRef.current = null;
+      lastSyncedDocRef.current = nextDoc;
+      editor.commands.setContent(nextDoc, false);
+      refreshHeadings();
+      setRemoteUpdatedBanner(false);
+    };
+
+    // 보관함 자동 동기화 켜기/끄기: 가방 팩 시트(usePackOps.toggleAutoSync)와 같은 필드를 onSave로 바꾼다
+    const toggleAutoSync = () => {
+      if (effectiveReadOnly) return;
+      const updated: Pack = { ...packRef.current, autoSyncEnabled: !syncOn };
+      packRef.current = updated;
+      onSave(updated);
+      show(!syncOn ? "보관함 팩과 자동으로 맞춰요" : "보관함 동기화를 껐어요");
+    };
+
+    const closeLink = () => {
+      setInsertLinkReq(null);
+      setLinkMenuUrl(null);
+      setManageLinkTarget(null);
+    };
+    const openInsertLink = () => {
+      if (effectiveReadOnly || !editor) return;
+      const href = (editor.getAttributes("link").href as string | undefined) || "";
+      setInsertLinkReq({ initialUrl: href, canUnlink: editor.isActive("link") });
+    };
+    // 글자를 골랐거나 링크 안이면 그 글자에, 아니면 주소를 글자로 넣어 링크로 만든다
+    const insertLink = (url: string) => {
+      if (!editor) return;
+      if (editor.isActive("link") || !editor.state.selection.empty) {
+        editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      } else {
+        editor
+          .chain()
+          .focus()
+          .insertContent({ type: "text", text: url, marks: [{ type: "link", attrs: { href: url } }] })
+          .run();
+      }
+    };
+
+    const statusText =
+      status === "remote"
+        ? "다른 기기에서 고친 내용이 있어요"
+        : status === "size"
+          ? "용량이 커서 저장이 멈췄어요. 표나 글을 조금 줄여 주세요"
+          : status === "depth"
+            ? "목록·토글이 너무 깊게 겹쳐 저장이 멈췄어요. 몇 개를 바깥으로 꺼내 주세요"
+            : status === "together"
+              ? `${otherEditorNickname}님과 함께 쓰는 중이에요`
+              : syncOn
+                ? "보관함 팩과 자동 동기화 중"
+                : "보관함 팩과 동기화 꺼짐";
+
+    return (
+      <div ref={swipeBackRef} className="pib-v2 flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
+        {/* 상단 버튼 줄 (가방 화면과 같은 h-11) */}
+        <div className="flex h-11 shrink-0 items-center justify-between px-2">
+          <IconButton label="뒤로" onClick={handleBack}>
+            <IconChevronLeft size={22} stroke={1.9} />
+          </IconButton>
+          <div className="flex items-center">
+            {!isOfflineMode && !pack.isQuickPack && (
+              <IconButton label="공유" onClick={() => setShowShareModal(true)}>
+                <IconShare size={22} stroke={1.75} />
+              </IconButton>
+            )}
+            <IconButton label="더보기" onClick={() => setMoreOpen(true)}>
+              <IconDots size={22} stroke={1.75} />
+            </IconButton>
+          </div>
+        </div>
+
+        {/* 제목 */}
+        <div className="shrink-0 px-5 pt-2 pb-3">
+          <input
+            value={name}
+            readOnly={effectiveReadOnly}
+            aria-label="메모 이름"
+            placeholder="새 메모"
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              const next = name.trim() || "새 메모";
+              if (next !== packRef.current.name) handleRenamePack(next);
+              else if (next !== name) setName(next);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            className="m-0 w-full bg-transparent text-title font-bold text-ink outline-none placeholder:text-faint"
+          />
+        </div>
+
+        {/* 상태 한 줄: 최신본 반영 > 저장 멈춤 > 함께 편집 > 보관함 동기화 */}
+        {status && (
+          <div className="shrink-0 px-5 pb-3">
+            <div
+              role={status === "size" || status === "depth" ? "alert" : "status"}
+              className={cx(
+                "flex min-h-11 items-center gap-2 rounded-field bg-fill px-3 text-caption",
+                status === "size" || status === "depth" ? "text-alert" : "text-sub",
+              )}
+            >
+              {status === "size" || status === "depth" ? (
+                <IconAlertTriangle size={16} stroke={1.9} className="shrink-0" aria-hidden="true" />
+              ) : status === "together" ? (
+                <IconUsers size={16} stroke={1.9} className="shrink-0 text-brand" aria-hidden="true" />
+              ) : (
+                <IconRefresh size={16} stroke={1.9} className={cx("shrink-0", status === "sync" && syncOn && "text-brand")} aria-hidden="true" />
+              )}
+              <span className="min-w-0 flex-1">{statusText}</span>
+              {status === "remote" && (
+                <button type="button" onClick={applyRemote} className="-my-2 h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60">
+                  반영
+                </button>
+              )}
+              {status === "sync" && !effectiveReadOnly && (
+                <button type="button" onClick={toggleAutoSync} className="-my-2 h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60">
+                  {syncOn ? "끄기" : "켜기"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {canAttach && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              handleUploadAndInsertFiles(e.target.files);
+              if (e.target) e.target.value = "";
+            }}
+          />
+        )}
+
+        {!effectiveReadOnly && (
+          <NoteToolbar
+            editor={editor}
+            canAttach={canAttach}
+            attachLocked={!isEffectivePremium}
+            uploading={uploadingImages}
+            onLink={openInsertLink}
+            onAttach={() => {
+              if (!isEffectivePremium) {
+                setShowPdfPremiumModal(true);
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
+            onTableMenu={() => setTableSheetOpen(true)}
+            onMore={() => setMoreOpen(true)}
+            onColor={() => setShowColorPicker(true)}
+          />
+        )}
+
+        {/* 본문 (+ 넓은 화면은 오른쪽 목차) */}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            {uploadingImages && (
+              <div className="pointer-events-none absolute top-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-4 py-2 text-caption text-on-ink shadow-sheet">
+                <IconLoader2 size={16} stroke={2.2} className="animate-spin" />
+                <span>{uploadProgressMessage || "파일을 첨부하고 있어요"}</span>
+              </div>
+            )}
+            <div
+              className="pib-v2-no-scrollbar h-full overflow-y-auto overscroll-contain px-5 py-4"
+              onClick={(e) => {
+                const anchor = (e.target as HTMLElement).closest("a");
+                if (!anchor) return;
+                const href = anchor.getAttribute("href");
+                if (!href) return;
+                e.preventDefault();
+                handleLinkClick(href);
+              }}
+            >
+              <div className="mx-auto w-full max-w-3xl pb-20">
+                <EditorContent editor={editor} className="pib-note-editor" />
+              </div>
+            </div>
+          </div>
+          {isDesktop && headings.length > 0 && (
+            <nav aria-label="목차" className="w-52 shrink-0 overflow-y-auto border-l border-line px-3 py-3">
+              <p className="m-0 px-2 pb-2 text-caption font-semibold text-sub">목차</p>
+              {headings.map((h, i) => (
+                <button
+                  key={`${h.pos}-${i}`}
+                  type="button"
+                  onClick={() => scrollToHeading(h.pos)}
+                  className={cx(
+                    "flex min-h-9 w-full items-center truncate rounded-field bg-transparent px-2 text-left active:bg-fill",
+                    h.level === 1 ? "text-caption font-semibold text-ink" : h.level === 2 ? "pl-5 text-caption text-ink" : "pl-8 text-micro text-sub",
+                  )}
+                >
+                  <span className="truncate">{h.text}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        {/* 시트 */}
+        <NoteMoreSheet
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          editor={editor}
+          readOnly={effectiveReadOnly}
+          fontSize={getCurrentFontSize()}
+          onFontSize={changeFontSize}
+          onOpenColor={() => {
+            setMoreOpen(false);
+            setShowColorPicker(true);
+          }}
+          spellcheck={noteSpellcheckEnabled}
+          onToggleSpellcheck={() => {
+            const next = !noteSpellcheckEnabled;
+            updatePackSettings({ noteSpellcheckEnabled: next });
+            show(next ? "맞춤법 검사를 켰어요" : "맞춤법 검사를 껐어요");
+          }}
+          hasHeadings={headings.length > 0}
+          onOpenToc={() => {
+            setMoreOpen(false);
+            setTocOpen(true);
+          }}
+          canShare={false}
+          onShare={() => setShowShareModal(true)}
+          percentOfLimit={percentOfLimit}
+          onDelete={
+            onDeletePack
+              ? () => {
+                  setMoreOpen(false);
+                  setConfirmDelete(true);
+                }
+              : undefined
+          }
+        />
+        <NoteTableSheet
+          open={tableSheetOpen}
+          onClose={() => setTableSheetOpen(false)}
+          editor={editor}
+          onDeleteTable={() => {
+            setTableSheetOpen(false);
+            setConfirmDeleteTable(true);
+          }}
+        />
+        <NoteColorSheet
+          open={showColorPicker}
+          onClose={() => setShowColorPicker(false)}
+          colors={TEXT_COLORS}
+          onPick={(hex) => editor?.chain().focus().setColor(hex).run()}
+          onClear={() => editor?.chain().focus().unsetColor().run()}
+        />
+        <NoteTocSheet open={tocOpen} onClose={() => setTocOpen(false)} headings={headings} onPick={scrollToHeading} />
+        <LinkSheet
+          request={v2LinkRequest}
+          user={user}
+          onClose={closeLink}
+          onOpen={(url) => openExternalLink(url)}
+          onUnlink={() => handleUnlink(null)}
+          onInsert={insertLink}
+          onShortened={(originalUrl, shortUrl, label) => {
+            const parsed = parseShortLinkUrl(shortUrl);
+            if (parsed) {
+              setLinkMetaCache(parsed.kind, parsed.code, { kind: parsed.kind, code: parsed.code, longUrl: originalUrl, label, canEdit: true });
+            }
+            replaceLinkTextInEditor(editor, originalUrl, shortUrl);
+            show("링크를 바꾸었어요");
+          }}
+          onEdited={(meta, result) => {
+            setLinkMetaCache(meta.kind, meta.code, { ...meta, ...result });
+            applyLinkLabels();
+            show("링크를 수정했어요");
+          }}
+        />
+        <ConfirmSheet
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          title="이 메모를 삭제할까요?"
+          message="휴지통으로 옮겨져서 설정 > 휴지통에서 되살릴 수 있어요."
+          confirmLabel="삭제"
+          danger
+          onConfirm={() => onDeletePack?.()}
+        />
+        <ConfirmSheet
+          open={confirmDeleteTable}
+          onClose={() => setConfirmDeleteTable(false)}
+          title="이 표를 삭제할까요?"
+          confirmLabel="삭제"
+          danger
+          onConfirm={() => editor?.chain().focus().deleteTable().run()}
+        />
+        <PremiumSheet
+          open={showPdfPremiumModal}
+          message="메모에 사진·파일을 첨부하거나 여는 건 프리미엄 기능이에요."
+          onClose={() => setShowPdfPremiumModal(false)}
+          onUnlocked={() => {
+            setShowPdfPremiumModal(false);
+            show("프리미엄이 적용됐어요. 다시 시도해 주세요");
+          }}
+        />
+
+        {/* 구 컴포넌트 재사용(색은 .pib-v2-legacy가 맞춤) */}
+        {lightboxIndex !== null && (
+          <ImageLightbox
+            images={lightboxImages.length > 0 ? lightboxImages : packImages}
+            index={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+            onNavigate={setLightboxIndex}
+          />
+        )}
+        {pdfPreviewUrl && <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />}
+        {!isOfflineMode && (
+          <MemoShareSheet
+            open={showShareModal}
+            // 공유 스냅샷(편집 중인 문서 포함)은 시트가 열려 있을 때만 만든다 - 타이핑마다 getJSON을 돌리지 않게
+            pack={
+              showShareModal
+                ? {
+                    ...pack,
+                    name,
+                    editorDoc: editor?.getJSON() || pack.editorDoc,
+                    editorPreviewText: editor ? extractPlainTextPreview(editor.getJSON()) : pack.editorPreviewText,
+                  }
+                : pack
+            }
+            bagId={bagId}
+            onTokenGenerated={(token) => {
+              if (packRef.current.publicShareToken !== token) {
+                const updated: Pack = { ...packRef.current, publicShareToken: token };
+                packRef.current = updated;
+                onSave(updated);
+              }
+            }}
+            onClose={() => setShowShareModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div ref={swipeBackRef} className="flex-1 flex flex-col overflow-hidden">

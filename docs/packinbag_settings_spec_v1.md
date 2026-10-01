@@ -35,6 +35,12 @@
 | **구 컴포넌트 색·폰트 맞추기 (`.pib-v2-legacy`)** | 🔄 v2 변경 | v2일 때 `app/layout.tsx`가 body에 붙임. 구 토큰(--background/--surface/--accent 등)을 v2 값으로 다시 정의해서 재사용 중인 구 모달·메모 편집기·하위 화면이 v2 색·Pretendard로 보인다. 사용자 강조색·투명도·카드색은 v2에서 무시(프로필 값은 보존) |
 | **게스트 보기 리스킨 (`.pib-v2-guest`)** | 🔄 v2 변경 | /p 가방 공유(`GuestBagClientView`)·/v 메모 문서(`GuestMemoArticleView`) 루트에 v2일 때만 클래스를 붙이고, 그 안에서 Tailwind 팔레트 변수(slate·blue·emerald·white)를 v2 색으로 바꾼다. 클래스·구조는 그대로(토큰만 적용). 라이트/다크 두 벌 |
 | **v2 글자 크기 적용** | 🐛 v2 수정 | 설정 v2의 글자 크기가 v2 화면에 안 먹던 문제: `[data-font-scale]`에서 v2 글자 토큰 변수(--text-micro~title, 줄 높이 포함)를 작게/크게 값으로 바꾼다 |
+| **메모팩 편집기 v2** | 🔄 v2 변경 | `PackNoteEditorScreen` 안 `UI_V2` 분기(로직·TipTap 구성·자동저장·원격 반영·첨부·링크 라벨은 그대로, 결만 교체). 구성: h-11 버튼 줄(뒤로·공유·더보기) → 큰 제목(바로 수정) → 상태 한 줄 → 툴바 한 줄 → 본문(넓은 화면은 오른쪽 목차). 모바일 목차 떠 있는 버튼은 더보기 안 "목차"로 옮김 |
+| **메모 툴바 한 줄 (`components/v2/note/NoteToolbar.tsx`)** | 🔄 v2 변경 | 체크박스 · 제목(탭할 때마다 본문→제목1→제목2→제목3 순환) · 굵게 · 표 · 링크 · 첨부(무료는 자물쇠) · 더보기. 커서가 표 안이면 행+ · 열+ · 행- · 열- · 표 메뉴 · 굵게 · 더보기로 바뀜(구 UI의 "표 편집/글자서식" 탭 전환 없음). **글자를 고르면** 같은 줄이 굵게 · 기울임 · 밑줄 · 취소선 · 글씨 색 · 링크 · 서식 지우기로 바뀜(키보드 유지, 시트 없이 한 번에 적용). 떠 있는 버블 메뉴는 iOS 복사/붙여넣기 말풍선과 겹쳐서 쓰지 않음 |
+| **메모 공유 시트 (`components/v2/note/MemoShareSheet.tsx`)** | 🔄 v2 변경 | 구 `MemoPackShareModal` 대체. 열 때마다 지금 내용(제목·편집 중 문서)으로 `/api/share-pack` 스냅샷 갱신, 링크 복사 · 보내기(Web Share, 지원하는 기기만) · 열어 보기. 큰 문서 미리보기는 뺀(링크로 확인). 처음 발급된 토큰은 `publicShareToken`으로 저장 |
+| **메모 더보기·표·색·목차 시트** | 🆕 v2 신규 | `NoteMoreSheet`: 기울임·밑줄·취소선·코드 블록, 본문/제목1·2·3, 글자 크기 -/+, 글씨 색, 맞춤법 토글, 목차, 용량 %, 메모 삭제(보관함에서 연 메모만). 서식·문단 버튼은 적용 후 시트를 닫음(글자 크기 -/+만 열어 둠). `NoteTableSheet`: 열 너비(좁게·넓게·같게·자동), 행 간격, 합치기·나누기, 정렬, 위에 행·왼쪽에 열, 칸 색, 표 삭제(확인 시트). `NoteColorSheet`(구 TEXT_COLORS 그대로 + 직접 고르기), `NoteTocSheet` |
+| **메모 링크 시트 통합 (`components/v2/note/LinkSheet.tsx`)** | 🔄 v2 변경 | LinkActionMenu + ShortenUrlModal + CustomUrlModal + EditLinkModal + 링크 삽입 window.prompt를 시트 하나의 단계(메뉴/주소 입력/짧은 URL/커스텀 URL/수정)로. 서버 API 그대로. 링크 넣기는 글자를 골랐으면 그 글자에, 안 골랐으면 주소를 글자로 넣어 링크(구 UI는 선택 없으면 아무 일도 안 일어났음). 아이템·가방 메모의 LinkifiedText는 구 컴포넌트 그대로 |
+| **메모 상태 한 줄** | 🔄 v2 변경 | 하나만 표시(우선순위): 다른 기기 최신본(반영) > 용량 초과 > 깊이 초과 > 함께 편집 중 > 보관함 동기화. 동기화는 가방 안 메모 + `linkedLibraryPackId`가 있을 때만, "자동 동기화 중/꺼짐" + 켜기/끄기(`autoSyncEnabled`를 onSave로, 가방 팩 시트와 같은 필드·packSync 로직 그대로) |
 
 # 팩인백 기능 스펙 문서 (v80 기준)
 

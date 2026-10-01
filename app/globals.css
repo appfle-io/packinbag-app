@@ -937,6 +937,11 @@ aside {
   grid-template-rows: 0fr;
 }
 
+/* 색 직접 고르기 견본(메모 글씨 색) */
+@utility bg-rainbow {
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+}
+
 /* v2 화면 루트에 붙이는 기본값 */
 .pib-v2 {
   font-family: var(--font-ui);
