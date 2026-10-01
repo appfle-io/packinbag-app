@@ -29,7 +29,7 @@ import InquiryScreen from "@/components/screens/InquiryScreen";
 import AnnouncementsModal from "@/components/AnnouncementsModal";
 import FaqModal from "@/components/FaqModal";
 import MyShortLinksModal from "@/components/MyShortLinksModal";
-import PremiumLimitModal from "@/components/PremiumLimitModal";
+import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import OfflineDataImportModal from "@/components/OfflineDataImportModal";
 import AccountLinkModal from "@/components/auth/AccountLinkModal";
 import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, cx } from "@/components/v2/ui";
@@ -409,23 +409,20 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         />
       )}
       {showFaq && <FaqModal onClose={() => setShowFaq(false)} />}
-      {showPremium && (
-        <PremiumLimitModal
-          message={PREMIUM_MESSAGE}
-          email={user?.email}
-          profile={profile}
-          onClose={() => setShowPremium(false)}
-          onUnlocked={(expiresAt) => {
-            setShowPremium(false);
-            if (!expiresAt) {
-              show("프리미엄이 적용됐어요");
-            } else {
-              const dateLabel = new Date(expiresAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
-              show(`프리미엄이 적용됐어요 (${dateLabel}까지)`);
-            }
-          }}
-        />
-      )}
+      <PremiumSheet
+        open={showPremium}
+        message={PREMIUM_MESSAGE}
+        onClose={() => setShowPremium(false)}
+        onUnlocked={(expiresAt) => {
+          setShowPremium(false);
+          if (!expiresAt) {
+            show("프리미엄이 적용됐어요");
+          } else {
+            const dateLabel = new Date(expiresAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+            show(`프리미엄이 적용됐어요 (${dateLabel}까지)`);
+          }
+        }}
+      />
       {showMyShortLinks && user && <MyShortLinksModal user={user} onClose={() => setShowMyShortLinks(false)} />}
       {showOfflineImport && <OfflineDataImportModal onClose={() => setShowOfflineImport(false)} />}
       {showAccountLink && <AccountLinkModal isOpen={showAccountLink} onClose={() => setShowAccountLink(false)} />}

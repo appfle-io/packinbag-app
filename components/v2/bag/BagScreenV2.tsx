@@ -11,7 +11,7 @@ import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
 import SlideScreen from "@/components/SlideScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
-import PremiumLimitModal from "@/components/PremiumLimitModal";
+import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import AiClipboardModal, { type AiClipboardResult } from "@/components/AiClipboardModal";
 import AiBagAuditModal from "@/components/AiBagAuditModal";
 import ImageLightbox from "@/components/ImageLightbox";
@@ -629,18 +629,15 @@ export default function BagScreenV2(props: BagScreenProps) {
           onShowPremiumLimit={(msg) => setPremiumMessage(msg)}
         />
       )}
-      {premiumMessage && (
-        <PremiumLimitModal
-          message={premiumMessage}
-          onClose={() => setPremiumMessage(null)}
-          onUnlocked={() => {
-            setPremiumMessage(null);
-            show("이용권 코드가 적용됐어요! 다시 시도해주세요");
-          }}
-          email={profile?.email}
-          profile={profile ?? null}
-        />
-      )}
+      <PremiumSheet
+        open={!!premiumMessage}
+        message={premiumMessage}
+        onClose={() => setPremiumMessage(null)}
+        onUnlocked={() => {
+          setPremiumMessage(null);
+          show("프리미엄이 적용됐어요. 다시 시도해 주세요");
+        }}
+      />
     </div>
   );
 }

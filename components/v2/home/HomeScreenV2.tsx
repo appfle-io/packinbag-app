@@ -8,7 +8,7 @@ import { useToast } from "@/components/Toast";
 import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { searchBags, type BagSearchResult } from "@/lib/librarySearch";
 import NotificationBell from "@/components/NotificationBell";
-import JoinBagDialog from "@/components/JoinBagDialog";
+import { JoinBagSheet } from "@/components/v2/sheets/JoinBagSheet";
 import NoteImportModal, { type NoteImportResult } from "@/components/NoteImportModal";
 import type { BagOpenFocus } from "@/components/screens/HomeScreen";
 import {
@@ -431,16 +431,15 @@ export default function HomeScreenV2(props: HomeScreenProps) {
         onConfirm={() => confirmBag && onBulkDeleteBags([confirmBag.id])}
       />
 
-      {!isOfflineMode && joinOpen && (
-        <JoinBagDialog
-          initialCode={initialInviteCode}
-          onCancel={() => setJoinOpen(false)}
-          onConfirm={async (code) => {
-            await onJoinBag(code);
-            setJoinOpen(false);
-          }}
-        />
-      )}
+      <JoinBagSheet
+        open={!isOfflineMode && joinOpen}
+        initialCode={initialInviteCode}
+        onClose={() => setJoinOpen(false)}
+        onConfirm={async (code) => {
+          await onJoinBag(code);
+          setJoinOpen(false);
+        }}
+      />
       {!isOfflineMode && noteOpen && (
         <NoteImportModal
           onClose={() => setNoteOpen(false)}

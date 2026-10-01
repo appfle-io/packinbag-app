@@ -98,6 +98,7 @@ import {
   isTrashExpired,
 } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
+import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import DesktopShell from "@/components/DesktopShell";
 import type { DesktopSelection } from "@/components/DesktopSidebar";
@@ -2111,15 +2112,27 @@ export default function AppShell() {
           }}
         />
       )}
-      {premiumLimitMessage && (
-        <PremiumLimitModal
+      {UI_V2 ? (
+        <PremiumSheet
+          open={!!premiumLimitMessage}
           message={premiumLimitMessage}
           onClose={() => setPremiumLimitMessage(null)}
           onUnlocked={() => {
             setPremiumLimitMessage(null);
-            show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+            show("프리미엄이 적용됐어요. 다시 시도해 주세요");
           }}
         />
+      ) : (
+        premiumLimitMessage && (
+          <PremiumLimitModal
+            message={premiumLimitMessage}
+            onClose={() => setPremiumLimitMessage(null)}
+            onUnlocked={() => {
+              setPremiumLimitMessage(null);
+              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
+            }}
+          />
+        )
       )}
       <SplashScreen visible={showSplash} />
       <PremiumSyncOverlay visible={showPremiumSyncOverlay} />

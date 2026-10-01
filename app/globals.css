@@ -969,4 +969,117 @@ aside {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
   }
+}
+
+/* v2 글자 크기 설정(설정 > 화면 > 글자 크기). 위의 [data-font-scale] .text-[Npx] 규칙은 구 UI용이라
+   v2 토큰(text-body 등)에는 안 먹는다. 토큰 변수 자체를 바꿔서 v2 화면 전체 글자가 같이 바뀌게 한다.
+   배율은 구 UI와 같은 작게 0.925 / 크게 1.125 근처(정수 px). @theme 변수는 theme 레이어라 이 규칙이 이긴다. */
+[data-font-scale="sm"] {
+  --text-micro: 11px;
+  --text-micro--line-height: 15px;
+  --text-caption: 12px;
+  --text-caption--line-height: 17px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 22px;
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-title: 26px;
+  --text-title--line-height: 34px;
+}
+[data-font-scale="lg"] {
+  --text-micro: 13px;
+  --text-micro--line-height: 18px;
+  --text-caption: 15px;
+  --text-caption--line-height: 20px;
+  --text-body: 17px;
+  --text-body--line-height: 24px;
+  --text-body-lg: 19px;
+  --text-body-lg--line-height: 26px;
+  --text-heading: 25px;
+  --text-heading--line-height: 32px;
+  --text-title: 31px;
+  --text-title--line-height: 40px;
+}
+
+/* v2에서 재사용 중인 구 컴포넌트(모달·메모 편집기·하위 화면·게스트 보기 /p /v)를 구조는 그대로 두고
+   색·폰트만 v2로 맞춘다. app/layout.tsx가 NEXT_PUBLIC_UI_V2=true일 때만 body에 이 클래스를 붙인다.
+   - 구 토큰 이름을 v2 값으로 다시 정의한다(다크는 --v2-* 자체가 바뀌므로 따로 안 써도 됨).
+   - ThemeProvider가 html에 인라인으로 넣는 강조색·투명도·카드색은 body가 더 가까운 조상이라 여기서 덮인다
+     (v2에서 뺀 설정이라 의도된 동작). 프로필 값은 그대로라 플래그를 끄면 원래 색으로 돌아간다.
+   출시 때 구 UI를 지우면 이 블록도 함께 정리한다. */
+.pib-v2-legacy {
+  --background: var(--v2-canvas);
+  --foreground: var(--v2-ink);
+  --surface: var(--v2-card);
+  --surface-2: var(--v2-fill);
+  --text-secondary: var(--v2-sub);
+  --text-muted: var(--v2-faint);
+  --border: var(--v2-line);
+  --border-strong: var(--v2-line-strong);
+  --accent: var(--v2-brand);
+  --accent-strong: var(--v2-brand);
+  --accent-soft: var(--v2-brand-soft);
+  --danger: var(--v2-alert);
+  --danger-soft: var(--v2-fill);
+  --bag-card-bg: var(--v2-card);
+  --bag-card-bg-pct: 100%;
+  --pack-card-bg: var(--v2-card);
+  --pack-card-bg-pct: 100%;
+  --pack-library-card-bg: var(--v2-card);
+  --pack-library-card-bg-pct: 100%;
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 게스트 보기(/p 가방 공유, /v 메모 문서)는 구 토큰이 아니라 Tailwind 팔레트(slate·blue·emerald·white)를
+   직접 쓴다. 클래스는 그대로 두고, v2일 때만 루트에 붙는 .pib-v2-guest 안에서 팔레트 변수를 v2 색으로
+   바꾼다(구조 유지, 색만 교체). 같은 단계가 라이트에서는 글자, 다크에서는 배경으로 쓰여서 두 벌 따로 정의한다.
+   다크의 blue-600(주 버튼·체크된 칸)은 흰 글자와 대비가 나도록 brand를 어둡게 섞는다. */
+.pib-v2-guest {
+  --font-sans: var(--font-ui);
+  --color-white: var(--v2-card);
+  --color-slate-50: var(--v2-canvas);
+  --color-slate-100: var(--v2-fill);
+  --color-slate-200: var(--v2-line);
+  --color-slate-300: var(--v2-line-strong);
+  --color-slate-400: var(--v2-faint);
+  --color-slate-500: var(--v2-sub);
+  --color-slate-600: var(--v2-sub);
+  --color-slate-700: var(--v2-ink);
+  --color-slate-800: var(--v2-ink);
+  --color-slate-900: var(--v2-ink);
+  --color-slate-950: var(--v2-canvas);
+  --color-blue-50: var(--v2-brand-soft);
+  --color-blue-200: var(--v2-line);
+  --color-blue-400: var(--v2-brand);
+  --color-blue-500: var(--v2-brand);
+  --color-blue-600: var(--v2-brand);
+  --color-blue-700: var(--v2-brand);
+  --color-emerald-50: var(--v2-brand-soft);
+  --color-emerald-200: var(--v2-line);
+  --color-emerald-500: var(--v2-brand);
+  --color-emerald-600: var(--v2-brand);
+  -webkit-font-smoothing: antialiased;
+}
+[data-theme="dark"] .pib-v2-guest {
+  --color-white: var(--v2-ink);
+  --color-slate-100: var(--v2-ink);
+  --color-slate-200: var(--v2-ink);
+  --color-slate-300: var(--v2-sub);
+  --color-slate-400: var(--v2-sub);
+  --color-slate-500: var(--v2-faint);
+  --color-slate-700: var(--v2-line-strong);
+  --color-slate-800: var(--v2-fill);
+  --color-slate-900: var(--v2-card);
+  --color-slate-950: var(--v2-canvas);
+  --color-blue-400: var(--v2-brand);
+  --color-blue-600: color-mix(in srgb, var(--v2-brand) 55%, black);
+  --color-blue-700: color-mix(in srgb, var(--v2-brand) 45%, black);
+  --color-blue-800: var(--v2-line);
+  --color-blue-950: var(--v2-brand-soft);
+  --color-emerald-400: var(--v2-brand);
+  --color-emerald-800: var(--v2-line);
+  --color-emerald-950: var(--v2-brand-soft);
 }

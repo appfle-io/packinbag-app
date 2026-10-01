@@ -13,6 +13,7 @@ import {
 import { Pack } from "@/lib/types";
 import MemoDocViewer from "@/components/MemoDocViewer";
 import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
+import { UI_V2 } from "@/lib/v2/flags";
 
 interface GuestMemoArticleViewProps {
   pack: Pack;
@@ -34,7 +35,7 @@ export default function GuestMemoArticleView({ pack, token }: GuestMemoArticleVi
   };
 
   return (
-    <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+    <main className={`h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans${UI_V2 ? " pib-v2-guest" : ""}`}>
       {/* 상단 미니멀 브랜드 헤더 */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">

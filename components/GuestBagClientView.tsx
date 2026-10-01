@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import GuestMemoPackView from "@/components/GuestMemoPackView";
+import { UI_V2 } from "@/lib/v2/flags";
 
 interface GuestBagClientViewProps {
   bag: Bag;
@@ -308,7 +309,7 @@ export default function GuestBagClientView({
   }[fontScale];
 
   return (
-    <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-36 font-sans select-none md:select-auto transition-colors duration-200">
+    <main className={`h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-36 font-sans select-none md:select-auto transition-colors duration-200${UI_V2 ? " pib-v2-guest" : ""}`}>
       {/* 상단 헤더 */}
       <header className="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 transition-colors duration-200">
         <div className="max-w-5xl mx-auto flex items-center justify-between">

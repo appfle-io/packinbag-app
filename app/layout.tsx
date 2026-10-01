@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
+import { UI_V2 } from "@/lib/v2/flags";
 
 // 리디자인 v2 기본 폰트. 폐쇄망/Electron 오프라인에서도 동작해야 해서 CDN 대신 앱에 포함한다.
 // (Pretendard Variable, SIL OFL 1.1) 구 UI는 globals.css body font-family를 그대로 쓰고,
@@ -94,7 +95,8 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: registerServiceWorker }}
         />
       </head>
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      {/* v2: 재사용 중인 구 컴포넌트·게스트 보기의 색·폰트를 v2 토큰으로 (globals.css .pib-v2-legacy) */}
+      <body className={`min-h-full flex flex-col${UI_V2 ? " pib-v2-legacy" : ""}`} suppressHydrationWarning>
         {children}
       </body>
     </html>

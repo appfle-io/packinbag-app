@@ -28,7 +28,13 @@
 | **설정에서 빠진 옵션** | 🗑️ v2 숨김 | 시작 화면, 강조색, 기본 투명도, 가방/팩 카드 색·투명도·여백·글씨·열 수, 가방 기본 보기(팩뷰/심플뷰), 오늘 마감 팝업, 완료 항목 아래로, 열 때 접기, 최대 표시 줄 수, 마감일 표시 2개, 메모 맞춤법(메모 편집기 툴바에 이미 있음), 사용 가이드·앱 설치 방법(구 UI 스크린샷). 프로필 필드는 모두 보존 |
 | **v2 앱 시작 동작** | 🔄 v2 변경 | AppShell: 시작 화면 설정(`startPage`) 무시하고 항상 가방 탭, 오늘 마감 팝업(TodayTasksModal) 안 띄움, 진입 슬라이드에서 가이드·설치 안내 빼고 공지사항만 |
 | **짧은 URL 토글 제거** | 🔄 v2 변경 | `isShortUrlFeatureEnabled`: v2에서는 프리미엄이면 항상 켜짐(링크 탭 시 선택 시트). `shortUrlEnabled` 필드는 구 UI용으로 보존 |
-| **설정 프리미엄 줄** | 🆕 v2 신규 | 무료 회원에게만 "프리미엄 · 가족 모두와 무제한으로" 줄. 탭하면 `PremiumLimitModal`(이용권 코드 + 네이티브에서만 인앱결제·복원). 게스트는 계정 연동 창. 프리미엄이면 "이용 중" 배지만 |
+| **설정 프리미엄 줄** | 🆕 v2 신규 | 무료 회원에게만 "프리미엄 · 가족 모두와 무제한으로" 줄. 탭하면 프리미엄 시트(이용권 코드 + 네이티브에서만 인앱결제·복원). 게스트는 계정 연동 창. 프리미엄이면 "이용 중" 배지만 |
+| **프리미엄 시트 (`components/v2/sheets/PremiumSheet.tsx`)** | 🆕 v2 신규 | 구 `PremiumLimitModal` + `UnlockCodeDialog`를 바텀시트 하나로. 안내 문구 → (네이티브·무제한 아님) 평생 프리미엄 구매·복원 / 이용권 코드 입력 단계. 이메일·프로필을 useAuth에서 직접 읽어서 AppShell의 무료 한도 안내에서도 구매 버튼이 보인다(구 모달은 안 보였음). 사용처: AppShell(모바일), BagScreenV2, SettingsScreenV2 |
+| **코드로 참여 시트 (`components/v2/sheets/JoinBagSheet.tsx`)** | 🆕 v2 신규 | 구 `JoinBagDialog` 대체(HomeScreenV2). 실패 이유는 시트 안에 표시, ?invite= 링크로 들어오면 코드가 채워진 채 열림 |
+| **토스트 v2** | 🔄 v2 변경 | `components/Toast.tsx`에 UI_V2 분기: 화면 아래 검은 띠(bg-ink, 아이콘 없음), 되돌리기 버튼은 오른쪽 44px. 탭바·입력창을 가리지 않게 살짝 띄움. 표시 시간·API는 그대로 |
+| **구 컴포넌트 색·폰트 맞추기 (`.pib-v2-legacy`)** | 🔄 v2 변경 | v2일 때 `app/layout.tsx`가 body에 붙임. 구 토큰(--background/--surface/--accent 등)을 v2 값으로 다시 정의해서 재사용 중인 구 모달·메모 편집기·하위 화면이 v2 색·Pretendard로 보인다. 사용자 강조색·투명도·카드색은 v2에서 무시(프로필 값은 보존) |
+| **게스트 보기 리스킨 (`.pib-v2-guest`)** | 🔄 v2 변경 | /p 가방 공유(`GuestBagClientView`)·/v 메모 문서(`GuestMemoArticleView`) 루트에 v2일 때만 클래스를 붙이고, 그 안에서 Tailwind 팔레트 변수(slate·blue·emerald·white)를 v2 색으로 바꾼다. 클래스·구조는 그대로(토큰만 적용). 라이트/다크 두 벌 |
+| **v2 글자 크기 적용** | 🐛 v2 수정 | 설정 v2의 글자 크기가 v2 화면에 안 먹던 문제: `[data-font-scale]`에서 v2 글자 토큰 변수(--text-micro~title, 줄 높이 포함)를 작게/크게 값으로 바꾼다 |
 
 # 팩인백 기능 스펙 문서 (v80 기준)
 
