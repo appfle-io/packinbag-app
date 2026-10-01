@@ -19,7 +19,7 @@ import { useToast } from "@/components/Toast";
 import { searchLibraryPacks, type PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
-import PackShareModal from "@/components/PackShareModal";
+import { PackShareSheet, type PackShareTarget } from "@/components/v2/sheets/PackShareSheet";
 import { Badge, Button, IconButton, ScreenBody, ScreenHeader, cx, useLongPress } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { AddSheet } from "./sheets/AddSheet";
@@ -183,6 +183,13 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   const entryTarget = find(entryId);
   const moveTarget = find(moveId);
   const shareTarget = find(shareId);
+  // 공유 시트 대상(폴더면 안의 팩들까지). 시트가 참조로 비교하므로 메모한다
+  const shareSheetTarget = useMemo<PackShareTarget | null>(() => {
+    if (!shareTarget) return null;
+    if (shareTarget.type !== "folder") return { pack: shareTarget };
+    const ids = new Set(collectDescendantPackIds(treePacks, shareTarget.id));
+    return { folder: shareTarget, folderPacks: treePacks.filter((p) => ids.has(p.id) && p.type !== "folder") };
+  }, [shareTarget, treePacks]);
 
   // 삭제 확인 문구는 닫히는 동안에도 유지
   const [deleteCached, setDeleteCached] = useState<Pack | null>(null);
@@ -393,15 +400,8 @@ export default function PacksScreenV2(props: PacksScreenProps) {
         danger
         onConfirm={() => deleteTarget && onBulkDeletePacks([deleteTarget.id])}
       />
-      {!isOfflineMode && shareTarget && (
-        <PackShareModal
-          folder={shareTarget}
-          folderPacks={(() => {
-            const ids = new Set(descendantsOf(shareTarget.id));
-            return treePacks.filter((p) => ids.has(p.id) && p.type !== "folder");
-          })()}
-          onClose={() => setShareId(null)}
-        />
+      {!isOfflineMode && (
+        <PackShareSheet open={!!shareSheetTarget} target={shareSheetTarget} onClose={() => setShareId(null)} />
       )}
     </div>
   );

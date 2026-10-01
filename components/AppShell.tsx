@@ -79,7 +79,8 @@ import SettingsScreenV2 from "@/components/v2/settings/SettingsScreenV2";
 import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
 import BagScreenV2 from "@/components/v2/bag/BagScreenV2";
 import { UI_V2 } from "@/lib/v2/flags";
-import PackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
+import LegacyPackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
+import PackEditorV2 from "@/components/v2/packs/PackEditorV2";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import QuickAddModal from "@/components/QuickAddModal";
 import SlideScreen from "@/components/SlideScreen";
@@ -110,6 +111,7 @@ const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
 const HomeScreen = UI_V2 ? HomeScreenV2 : LegacyHomeScreen;
 const PacksScreen = UI_V2 ? PacksScreenV2 : LegacyPacksScreen;
 const SettingsScreen = UI_V2 ? SettingsScreenV2 : LegacySettingsScreen;
+const PackLibraryEditorScreen = UI_V2 ? PackEditorV2 : LegacyPackLibraryEditorScreen;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 

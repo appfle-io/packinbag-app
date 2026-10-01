@@ -190,6 +190,8 @@ export default function PackNoteEditorScreen({
   initialSearchQuery?: string;
 }) {
   const commitSaveRef = useRef<(() => void) | null>(null);
+  // v2: 이미 공유한 메모를 고친 뒤 나갈 때 공유 스냅샷을 조용히 갱신(아래 refreshShareRef.current 정의 참고)
+  const refreshShareRef = useRef<(() => void) | null>(null);
   const handleBack = useCallback(() => {
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -198,6 +200,7 @@ export default function PackNoteEditorScreen({
         commitSaveRef.current?.();
       }
     }
+    refreshShareRef.current?.();
     onBack();
   }, [onBack]);
 
@@ -775,6 +778,8 @@ export default function PackNoteEditorScreen({
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstRef = useRef(true);
+  // 마지막으로 공유 스냅샷을 올린 뒤 내용이 바뀌었는지(v2 자동 갱신용)
+  const editedSinceShareRef = useRef(false);
 
   const commitSave = (docOverride?: object) => {
     const doc = docOverride ?? editor?.getJSON();
@@ -801,8 +806,29 @@ export default function PackNoteEditorScreen({
     packRef.current = updated;
     lastSyncedDocRef.current = doc;
     onSave(updated);
+    editedSinceShareRef.current = true;
   };
   commitSaveRef.current = commitSave;
+
+  // 공유 링크는 스냅샷(복사본)이라 메모를 고쳐도 저절로 바뀌지 않는다. v2에서는 이미 공유한 메모(publicShareToken)를
+  // 고친 뒤 편집기를 나갈 때 한 번 지금 내용으로 다시 올린다(app/api/share-pack은 같은 토큰으로 덮어쓴다).
+  // 공유하지 않은 메모나 안 고친 메모는 요청하지 않는다. 실패해도 조용히 넘어간다(다음에 공유 시트를 열면 다시 갱신됨).
+  refreshShareRef.current = () => {
+    if (!UI_V2 || !editedSinceShareRef.current) return;
+    const current = packRef.current;
+    if (!current.publicShareToken || !user || isOfflineMode) return;
+    editedSinceShareRef.current = false;
+    user
+      .getIdToken()
+      .then((idToken) =>
+        fetch("/api/share-pack", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ packId: current.id, pack: current, bagId }),
+        }),
+      )
+      .catch((err) => console.error("[팩인백] 공유 스냅샷 자동 갱신 실패:", err));
+  };
 
   const handleUnlink = (pos: number | null) => {
     if (!editor || effectiveReadOnly) return;
@@ -935,6 +961,8 @@ export default function PackNoteEditorScreen({
       window.removeEventListener("pagehide", flushAutosave);
       window.removeEventListener("beforeunload", flushAutosave);
       flushAutosave();
+      // 뒤로가기가 아닌 경로로 화면이 없어져도 공유 스냅샷을 갱신(이미 했으면 아무 일도 안 함)
+      refreshShareRef.current?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

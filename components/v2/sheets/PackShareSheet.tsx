@@ -7,34 +7,50 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { Button, Sheet } from "@/components/v2/ui";
 
-// 메모 공유 시트(구 MemoPackShareModal의 v2). 열 때마다 지금 내용으로 공유 스냅샷을 갱신한다
-// (app/api/share-pack, 구 모달과 같은 요청·응답). 첫 발급된 토큰은 onTokenGenerated로 팩에 저장한다.
-// 큰 문서 미리보기는 뺐다 - 링크를 열면 그대로 보이므로 "열어 보기"로 대신한다.
-export function MemoShareSheet({
+export interface PackShareTarget {
+  // 팩 하나(체크리스트) 또는 폴더(안의 팩 목록과 함께)
+  pack?: Pack;
+  folder?: Pack;
+  folderPacks?: Pack[];
+}
+
+// 팩·폴더 링크 공유 시트(구 PackShareModal의 v2, 이미지 카드 없이 링크만).
+// 열 때마다 지금 내용으로 /api/share-pack 스냅샷을 갱신한다(구 모달과 같은 요청 형식, 같은 토큰을 다시 쓴다).
+export function PackShareSheet({
   open,
-  pack,
+  target,
   bagId,
   onTokenGenerated,
   onClose,
 }: {
   open: boolean;
-  // 열 때 보낼 최신 내용(편집 중인 문서 포함)
-  pack: Pack;
+  target: PackShareTarget | null;
   bagId?: string;
   onTokenGenerated?: (token: string) => void;
   onClose: () => void;
 }) {
   const { user } = useAuth();
   const { show } = useToast();
-  const [token, setToken] = useState<string | null>(pack.publicShareToken ?? null);
+
+  // 닫히는 동안 내용이 남도록 마지막 대상을 기억한다
+  const [kept, setKept] = useState<PackShareTarget | null>(target);
+  const [token, setToken] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
+  if (target && target !== kept) {
+    setKept(target);
+    setToken((target.folder ?? target.pack)?.publicShareToken ?? null);
+    setCopied(false);
+  }
+  const shown = target ?? kept;
+  const isFolder = !!shown?.folder;
+  const title = (isFolder ? shown?.folder?.name : shown?.pack?.name) || (isFolder ? "폴더" : "팩");
 
-  // 부모가 렌더마다 새 객체를 넘기므로 effect는 열릴 때만 돌고, 내용은 ref로 읽는다
-  const packRef = useRef(pack);
+  // 부모가 렌더마다 새 배열·객체를 넘길 수 있어서 effect는 열릴 때만 돌고, 내용은 ref로 읽는다
+  const targetRef = useRef(target);
   const onTokenRef = useRef(onTokenGenerated);
   useEffect(() => {
-    packRef.current = pack;
+    if (target) targetRef.current = target;
     onTokenRef.current = onTokenGenerated;
   });
 
@@ -44,12 +60,20 @@ export function MemoShareSheet({
     (async () => {
       setSyncing(true);
       try {
+        const t = targetRef.current;
+        if (!t) return;
         const idToken = await user.getIdToken();
-        const current = packRef.current;
         const res = await fetch("/api/share-pack", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-          body: JSON.stringify({ packId: current.id, pack: current, bagId }),
+          body: JSON.stringify({
+            packId: t.pack?.id,
+            pack: t.pack,
+            folderId: t.folder?.id,
+            folder: t.folder,
+            packs: t.folder ? (t.folderPacks ?? []).filter((p) => p.type !== "folder") : undefined,
+            bagId,
+          }),
         });
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
@@ -58,7 +82,7 @@ export function MemoShareSheet({
           onTokenRef.current?.(data.token);
         }
       } catch (err) {
-        console.error("[팩인백] 메모 공유 스냅샷 갱신 실패:", err);
+        console.error("[팩인백] 팩 공유 링크 준비 실패:", err);
         if (active) show("공유 링크를 준비하지 못했어요");
       } finally {
         if (active) setSyncing(false);
@@ -88,9 +112,9 @@ export function MemoShareSheet({
   const nativeShare = async () => {
     if (!shareUrl) return;
     try {
-      await navigator.share({ title: pack.name || "메모", url: shareUrl });
+      await navigator.share({ title, url: shareUrl });
     } catch {
-      // 사용자가 공유 창을 닫은 경우 등은 조용히 무시
+      // 공유 창을 닫은 경우 등은 무시
     }
   };
 
@@ -98,7 +122,7 @@ export function MemoShareSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title="공유"
+      title={isFolder ? `'${title}' 폴더 공유` : "공유"}
       footer={
         <div className="flex gap-2">
           <Button
@@ -120,7 +144,7 @@ export function MemoShareSheet({
     >
       <div className="flex flex-col gap-3">
         <p className="m-0 text-body text-sub">
-          링크가 있으면 누구나 이 메모를 볼 수 있어요. 받은 사람은 &lsquo;내 팩 보관함에 담기&rsquo;로 가져갈 수 있어요.
+          링크가 있으면 누구나 {isFolder ? "이 폴더의 팩들을" : "이 팩을"} 볼 수 있어요. 받은 사람은 자기 팩 보관함으로 가져갈 수 있어요.
         </p>
         <div className="flex h-12 items-center gap-2 rounded-field bg-fill pr-1 pl-4">
           <span className="min-w-0 flex-1 truncate text-caption text-sub">
@@ -140,7 +164,11 @@ export function MemoShareSheet({
           )}
         </div>
         <p className="m-0 text-caption text-faint">
-          {syncing && shareUrl ? "지금 내용으로 갱신하는 중이에요" : "메모를 고치면 편집기를 나갈 때 링크에도 자동으로 반영돼요. 주소는 그대로예요."}
+          {syncing && shareUrl
+            ? "지금 내용으로 갱신하는 중이에요"
+            : isFolder
+              ? "이 창을 열 때마다 지금 폴더 내용으로 링크가 갱신돼요. 주소는 그대로예요."
+              : "팩을 고치면 화면을 나갈 때 링크에도 자동으로 반영돼요. 주소는 그대로예요."}
         </p>
       </div>
     </Sheet>
