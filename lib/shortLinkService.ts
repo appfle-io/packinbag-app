@@ -1,6 +1,7 @@
 import type { User } from "firebase/auth";
 import { isPremiumUser, isOfflineEnvironment } from "@/lib/premiumLimits";
 import type { UserProfile } from "@/lib/types";
+import { UI_V2 } from "@/lib/v2/flags";
 
 // app/api/shorten-url(Admin SDK)를 호출해서 숏 URL을 발급받는다. label(표시 이름)은 선택
 // 입력 - 비워두면 화면에는 이 링크 그대로(shortUrl 텍스트)가 보인다(lib/linkLabelCache.ts가
@@ -29,6 +30,8 @@ export function isShortUrlFeatureEnabled(
   profile: UserProfile | null
 ): boolean {
   if (isOfflineEnvironment()) return false;
+  // v2: 토글을 없앴다. 프리미엄이면 항상 켜진 것으로 본다(shortUrlEnabled 필드는 구 UI용으로 보존)
+  if (UI_V2) return isPremiumUser(email, profile);
   return isPremiumUser(email, profile) && !!profile?.shortUrlEnabled;
 }
 

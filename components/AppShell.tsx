@@ -74,7 +74,8 @@ import LegacyHomeScreen from "@/components/screens/HomeScreen";
 import HomeScreenV2 from "@/components/v2/home/HomeScreenV2";
 import LegacyPacksScreen from "@/components/screens/PacksScreen";
 import PacksScreenV2 from "@/components/v2/packs/PacksScreenV2";
-import SettingsScreen from "@/components/screens/SettingsScreen";
+import LegacySettingsScreen from "@/components/screens/SettingsScreen";
+import SettingsScreenV2 from "@/components/v2/settings/SettingsScreenV2";
 import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
 import BagScreenV2 from "@/components/v2/bag/BagScreenV2";
 import { UI_V2 } from "@/lib/v2/flags";
@@ -107,6 +108,7 @@ import { getOfflineDataSummary } from "@/lib/offlineImportService";
 const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
 const HomeScreen = UI_V2 ? HomeScreenV2 : LegacyHomeScreen;
 const PacksScreen = UI_V2 ? PacksScreenV2 : LegacyPacksScreen;
+const SettingsScreen = UI_V2 ? SettingsScreenV2 : LegacySettingsScreen;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -330,6 +332,8 @@ export default function AppShell() {
   const checkedTodayTasksStartupRef = useRef(false);
 
   useEffect(() => {
+    // v2: 아이템 마감일 기능을 뺐으므로 시작 팝업도 띄우지 않는다(끄는 설정도 없음)
+    if (UI_V2) return;
     if (checkedTodayTasksStartupRef.current || !bags || bags.length === 0) return;
     if (profile?.bagSettings?.showTodayTasksOnStartup === false) return;
 
@@ -375,7 +379,8 @@ export default function AppShell() {
   useEffect(() => {
     if (!profile || appliedStartPageRef.current) return;
 
-    const startPage = profile.startPage;
+    // v2: 시작 화면 설정을 뺐으므로 항상 가방 탭에서 시작(필드는 보존)
+    const startPage = UI_V2 ? undefined : profile.startPage;
 
     // 1. 기본 가방 보관함 (설정이 없거나 type === "home")
     if (!startPage || startPage.type === "home") {
@@ -687,7 +692,8 @@ export default function AppShell() {
     const slides: IntroSlideItem[] = [];
 
     // 1순위: 가이드 (미확인 시)
-    if (!isGuideDismissed) {
+    // v2: 사용 가이드·앱 설치 방법은 구 UI 스크린샷이라 띄우지 않는다(공지사항만)
+    if (!UI_V2 && !isGuideDismissed) {
       slides.push({
         id: "guide",
         type: "guide",
@@ -701,7 +707,7 @@ export default function AppShell() {
     }
 
     // 2순위: 앱 설치 방법 (미확인 + 조건 충족 시)
-    if (canShowInstallGuideModal() && !isInstallGuideDismissed) {
+    if (!UI_V2 && canShowInstallGuideModal() && !isInstallGuideDismissed) {
       slides.push({
         id: "install",
         type: "install",
