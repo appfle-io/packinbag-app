@@ -120,6 +120,34 @@ import { NoteMoreSheet } from "@/components/v2/note/NoteMoreSheet";
 import { NoteTableSheet } from "@/components/v2/note/NoteTableSheet";
 import { NoteColorSheet, NoteTocSheet } from "@/components/v2/note/NoteColorSheet";
 import { MemoShareSheet } from "@/components/v2/note/MemoShareSheet";
+import { mergeEditorDocs } from "@/lib/syncMerge";
+
+// 문서를 통째로 바꿔 넣되, 커서가 있던 맨 위 문단을 새 문서에서 찾아 같은 자리로 돌려놓는다
+// (위쪽에 다른 사람이 문단을 넣어도 치던 자리가 튀지 않게). 예외는 삼킨다 - 커서는 부가 기능이다.
+function applyDocKeepingCursor(ed: Editor, nextDoc: object | string) {
+  const from = ed.state.selection.from;
+  let blockJson: string | null = null;
+  let offsetInBlock = 0;
+  ed.state.doc.forEach((node, offset) => {
+    if (blockJson === null && from >= offset && from <= offset + node.nodeSize) {
+      blockJson = JSON.stringify(node.toJSON());
+      offsetInBlock = from - offset;
+    }
+  });
+  ed.commands.setContent(nextDoc, false);
+  try {
+    let target: number | null = null;
+    ed.state.doc.forEach((node, offset) => {
+      if (target === null && blockJson !== null && JSON.stringify(node.toJSON()) === blockJson) {
+        target = offset + Math.min(offsetInBlock, node.nodeSize - 1);
+      }
+    });
+    const pos = Math.max(1, Math.min(target ?? from, ed.state.doc.content.size));
+    ed.commands.setTextSelection(pos);
+  } catch {
+    // 커서 복원 실패는 무시
+  }
+}
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
 // 이미지가 아닌 파일(PDF/기타 문서 형식)은 이미지처럼 압축되지 않고 원본 크기 그대로
@@ -717,6 +745,27 @@ export default function PackNoteEditorScreen({
     }
 
     // 사용자가 지금 에디터를 타이핑 중이면 커서 튐 방지를 위해 보류하고 알림 배너 표시
+    // v2: 타이핑 중이어도 보류하지 않고 바로 합친다. 마지막으로 동기화한 문서(base) 대비 내 변경과 상대 변경을
+    // 문단 단위로 합쳐서(lib/syncMerge) 서로 다른 문단은 둘 다 살리고, 치던 문단에 커서를 그대로 둔다.
+    // 내 변경은 이미 자동저장이 예약돼 있어서 그 저장이 합친 문서를 올린다(추가 읽기·쓰기 없음).
+    if (UI_V2) {
+      const base = lastSyncedDocRef.current as object | undefined;
+      const mine = editor.getJSON();
+      const next = editor.isFocused
+        ? (mergeEditorDocs(base, mine, (incomingDoc as object | undefined) ?? undefined) ?? "")
+        : (incomingDoc ?? "");
+      lastSyncedDocRef.current = incomingDoc;
+      packRef.current = { ...pack, editorDoc: packRef.current.editorDoc };
+      if (pack.name !== nameRef.current && document.activeElement?.getAttribute("aria-label") !== "메모 이름") {
+        setName(pack.name);
+        nameRef.current = pack.name;
+      }
+      if (JSON.stringify(next) !== JSON.stringify(mine)) applyDocKeepingCursor(editor, next);
+      refreshHeadings();
+      setRemoteUpdatedBanner(false);
+      return;
+    }
+
     if (editor.isFocused) {
       pendingRemoteDocRef.current = (incomingDoc as object) ?? null;
       setRemoteUpdatedBanner(true);

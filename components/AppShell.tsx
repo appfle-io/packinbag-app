@@ -20,6 +20,7 @@ import {
   regenerateInviteCodeRemote,
   transferBagOwnershipRemote,
   updateMemberProfileSnapshot,
+  removePacksFromBagRemote,
 } from "@/lib/bagsService";
 import {
   subscribeToLibraryPacks,
@@ -30,7 +31,9 @@ import {
   deleteLibraryEntryRecursive,
   trashBagPackRemote,
   moveLibraryEntriesRemote,
+  collectDescendantPackIds,
 } from "@/lib/packsService";
+import { findLinkedBagPackRefs } from "@/lib/packSync";
 import {
   getAnnouncementsOnce,
   createAnnouncementRemote,
@@ -1568,18 +1571,51 @@ export default function AppShell() {
     });
   };
 
+  // 보관함 팩(폴더면 하위 팩까지)을 불러온 가방 속 사본을 지운다(삭제 확인의 "가방 속 사본도 같이 지우기").
+  // 예전에는 확인창이 이 값을 넘겨도 여기서 받지 않아 사본이 그대로 남았다. 잠긴(읽기 전용) 가방은
+  // firestore.rules가 쓰기를 막으므로 건너뛴다. 지운 사본 개수를 돌려준다.
+  const removeLinkedBagCopies = async (libraryIds: string[]): Promise<number> => {
+    const ids = new Set<string>();
+    libraryIds.forEach((id) => {
+      ids.add(id);
+      collectDescendantPackIds(activePacks, id).forEach((d) => ids.add(d));
+    });
+    const refs = findLinkedBagPackRefs(
+      activeBags.filter((b) => !lockedBagIds.has(b.id)),
+      ids
+    );
+    if (refs.length === 0) return 0;
+    const byBag = new Map<string, string[]>();
+    refs.forEach((r) => byBag.set(r.bagId, [...(byBag.get(r.bagId) ?? []), r.packId]));
+    await Promise.all(Array.from(byBag, ([bagId, packIds]) => removePacksFromBagRemote(bagId, packIds)));
+    return refs.length;
+  };
+
+  const trashedMessage = (base: string, copies: number) =>
+    copies > 0 ? `${base} · 가방 속 사본 ${copies}개도 지웠어요` : base;
+
   // 완전삭제 대신 휴지통으로 보낸다. BagEditorScreen 내부에서 팩을 지울 때(가방 속 팩
   // 삭제)와는 다른 함수다 - 이건 보관함 화면(PackLibraryEditorScreen)의 "삭제" 버튼용.
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
-  const handleDeletePack = (packId: string) => {
+  const handleDeletePack = (packId: string, alsoDeleteFromBags?: boolean) => {
     setEditingPack(null);
+    const copiesTask = alsoDeleteFromBags ? removeLinkedBagCopies([packId]) : Promise.resolve(0);
     if (isOfflineMode) {
       deleteLocalLibraryPack(packId);
-      show("팩을 휴지통으로 보냈어요");
+      copiesTask
+        .then((n) => show(trashedMessage("팩을 휴지통으로 보냈어요", n)))
+        .catch(() => show("팩은 휴지통으로 보냈지만 가방 속 사본을 지우지 못했어요"));
       return;
     }
     trashLibraryEntryRecursive(user.uid, activePacks, packId)
-      .then(() => show("팩을 휴지통으로 보냈어요"))
+      .then(() =>
+        copiesTask
+          .then((n) => show(trashedMessage("팩을 휴지통으로 보냈어요", n)))
+          .catch((err) => {
+            console.error("[팩인백] 가방 속 사본 삭제 실패:", err);
+            show("팩은 휴지통으로 보냈지만 가방 속 사본을 지우지 못했어요");
+          })
+      )
       .catch((err) => {
         console.error("[팩인백] 팩 휴지통 이동 실패:", err);
         show(`팩을 휴지통으로 보내지 못했어요 (${firebaseErrorCode(err)})`);
@@ -1588,15 +1624,18 @@ export default function AppShell() {
 
   // 팩 보관함에서 길게 눌러 다중선택한 팩/폴더를 한꺼번에 휴지통으로 보낸다. 폴더를 선택했으면
   // 아이폰 메모처럼 하위 팩/폴더까지 모두 함께 보낸다(trashLibraryEntryRecursive).
-  const handleBulkDeletePacks = async (packIds: string[]) => {
+  const handleBulkDeletePacks = async (packIds: string[], alsoDeleteFromBags?: boolean) => {
     if (isOfflineMode) {
+      const n = alsoDeleteFromBags ? await removeLinkedBagCopies(packIds).catch(() => 0) : 0;
       packIds.forEach((id) => deleteLocalLibraryPack(id));
-      show(`${packIds.length}개를 휴지통으로 보냈어요`);
+      show(trashedMessage(`${packIds.length}개를 휴지통으로 보냈어요`, n));
       return;
     }
     try {
+      // 하위 팩 id를 모으려면 휴지통으로 보내기 전 목록이 필요하다 - 사본 지우기를 먼저 한다
+      const n = alsoDeleteFromBags ? await removeLinkedBagCopies(packIds) : 0;
       await Promise.all(packIds.map((id) => trashLibraryEntryRecursive(user.uid, activePacks, id)));
-      show(`${packIds.length}개를 휴지통으로 보냈어요`);
+      show(trashedMessage(`${packIds.length}개를 휴지통으로 보냈어요`, n));
     } catch (err) {
       console.error("[팩인백] 팩 일괄 휴지통 이동 실패:", err);
       show(`처리 중 일부가 실패했어요 (${firebaseErrorCode(err)})`);

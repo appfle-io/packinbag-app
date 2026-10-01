@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ACCENT_PRESETS, deriveAccentTone, getAccentPreset } from "@/lib/accentColors";
 import { useAuth } from "@/contexts/AuthProvider";
+import { UI_V2 } from "@/lib/v2/flags";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type FontScale = "sm" | "md" | "lg";
@@ -541,6 +542,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       window.localStorage.setItem(BASE_OPACITY_KEY, String(remoteBaseOpacity));
     }
   }, [profile]);
+
+  // v2: 다른 기기에서 바꾼 화면 모드·글자 크기를 열어 둔 화면에도 바로 반영한다(v2 설정에 남은 두 가지).
+  // 이미 구독 중인 프로필을 쓰므로 추가 읽기는 없다. 이 기기에서 바꾼 값은 되돌아와도 같은 값이라 아무 일도 없다.
+  const remoteModeLive = profile?.themeMode;
+  const remoteFontLive = profile?.fontScale;
+  useEffect(() => {
+    if (!UI_V2 || !appliedRemoteRef.current) return;
+    if (remoteModeLive && remoteModeLive !== mode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Firestore에서 온 값 반영
+      setModeState(remoteModeLive);
+      window.localStorage.setItem(MODE_KEY, remoteModeLive);
+    }
+    if (remoteFontLive && remoteFontLive !== fontScale) {
+      setFontScaleState(remoteFontLive);
+      window.localStorage.setItem(FONT_SCALE_KEY, remoteFontLive);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteModeLive, remoteFontLive]);
 
   const setMode = (next: ThemeMode) => {
     setModeState(next);

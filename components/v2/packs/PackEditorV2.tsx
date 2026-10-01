@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
+import { mergePack, sameContent } from "@/lib/syncMerge";
 import { Button, CheckMark, IconButton, Sheet, Toggle, cx, useLongPress } from "@/components/v2/ui";
 import { PackShareSheet } from "@/components/v2/sheets/PackShareSheet";
 import { AlsoAddSheet, LibraryItemSheet, MoveDestSheet, type MoveDestination } from "./sheets/PackEditorSheets";
@@ -232,6 +233,9 @@ export default function PackEditorV2(props: PackEditorProps) {
   const packRef = useRef(pack);
   // 공유한 팩이면 나갈 때 공유 스냅샷도 갱신(메모 편집기와 같은 규칙)
   const editedSinceShareRef = useRef(false);
+  // 다른 기기 변경 반영용: 마지막으로 받은 서버 버전(병합 기준점)
+  const baseRef = useRef<Pack>(initialPack);
+  const applyingRemoteRef = useRef(false);
   useEffect(() => {
     onSaveRef.current = onSave;
   }, [onSave]);
@@ -244,16 +248,39 @@ export default function PackEditorV2(props: PackEditorProps) {
       isFirstPackEffect.current = false;
       return;
     }
+    if (applyingRemoteRef.current) {
+      applyingRemoteRef.current = false;
+      // 다른 기기 변경만 들어왔으면 저장하지 않는다(내 변경이 섞여 있을 때만 저장)
+      if (sameContent(pack, baseRef.current)) return;
+    }
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
-      onSaveRef.current(pack);
+      // updatedAt을 찍어야 다른 기기가 "더 최신인지" 비교할 수 있다(구 화면은 처음 값을 그대로 썼음)
+      onSaveRef.current({ ...pack, updatedAt: new Date().toISOString() });
       editedSinceShareRef.current = true;
     }, 500);
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
   }, [pack]);
+
+  // 다른 기기(아이폰↔아이패드)에서 같은 팩을 고치면 열어 둔 화면에도 반영한다. AppShell이 이미 구독 중인
+  // libraryPacks를 쓰므로 추가 읽기는 없다. 내 변경이 있으면 아이템 단위로 합친다(lib/syncMerge).
+  // 내 저장이 되돌아온 스냅샷은 내용이 같아서 아무 일도 하지 않는다.
+  const remotePack = libraryPacks.find((p) => p.id === pack.id);
+  useEffect(() => {
+    if (!remotePack) return;
+    const base = baseRef.current;
+    if (remotePack === base) return;
+    if (remotePack.updatedAt && base.updatedAt && remotePack.updatedAt <= base.updatedAt) return;
+    baseRef.current = remotePack;
+    const local = packRef.current;
+    const merged = mergePack(base, local, remotePack);
+    if (sameContent(merged, local)) return;
+    applyingRemoteRef.current = true;
+    setPack(merged);
+  }, [remotePack]);
 
   const userRef = useRef(user);
   const offlineRef = useRef(isOfflineMode);
@@ -267,7 +294,7 @@ export default function PackEditorV2(props: PackEditorProps) {
       if (deletingRef.current) return;
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
-        onSaveRef.current(packRef.current);
+        onSaveRef.current({ ...packRef.current, updatedAt: new Date().toISOString() });
         editedSinceShareRef.current = true;
       }
       // 공유한 팩을 고쳤으면 같은 토큰으로 스냅샷을 다시 올린다(app/api/share-pack은 덮어쓴다)
@@ -564,6 +591,7 @@ export default function PackEditorV2(props: PackEditorProps) {
                 checked={alsoDeleteFromBags}
                 onChange={setAlsoDeleteFromBags}
                 label={`가방 속 사본도 같이 지우기 (${linkedBagPackCount}개)`}
+                description="함께 쓰는 가방이면 다른 멤버의 화면에서도 사라져요"
               />
             </div>
           )}

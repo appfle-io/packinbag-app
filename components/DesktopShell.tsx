@@ -105,7 +105,7 @@ export default function DesktopShell({
   onRenamePackEntry: (pack: Pack, name: string) => void;
   onMovePackEntries: (packIds: string[], parentId: string | undefined) => void;
   onSavePack: (pack: Pack) => void;
-  onDeletePack: (packId: string) => void;
+  onDeletePack: (packId: string, alsoDeleteFromBags?: boolean) => void;
   announcements: Announcement[];
   dismissedAnnouncementIds: string[];
   onDismissAnnouncement: (id: string) => void;
@@ -358,8 +358,8 @@ export default function DesktopShell({
               onBack={() => onSelectionChange(null)}
               onSave={onSavePack}
               onSaveOtherPack={onSavePack}
-              onDelete={(packId) => {
-                onDeletePack(packId);
+              onDelete={(packId, alsoDeleteFromBags) => {
+                onDeletePack(packId, alsoDeleteFromBags);
                 onSelectionChange(null);
               }}
               onAddItemsToBagPack={onAddItemsToBagPack}

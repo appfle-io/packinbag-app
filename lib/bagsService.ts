@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
+import { mergeBag } from "@/lib/syncMerge";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
 import { getApiUrl } from "@/lib/apiBase";
 import {
@@ -92,6 +93,32 @@ export async function saveBagRemote(bag: Bag) {
     doc(bagsCol(), bag.id),
     stripUndefined({ ...serialized, updatedAt: new Date().toISOString() })
   );
+}
+
+// 함께 쓰는 가방 저장(v2). 화면에 들고 있던 가방을 통째로 덮어쓰지 않고, 트랜잭션으로 서버 최신 버전을
+// 읽어 base 대비 내가 바꾼 것만 얹는다(lib/syncMerge). 저장 1번당 읽기 1번이 더 든다 - 그래서 멤버가 2명 이상인
+// 가방에만 쓴다(혼자 쓰는 가방은 이미 구독 중인 스냅샷으로 화면에서 병합하고 saveBagRemote로 바로 쓴다).
+// - 그 사이 가방이 지워졌으면 다시 만들지 않는다.
+// - 오프라인(비행기 모드 등)이라 트랜잭션이 실패하면 예전처럼 통째 저장으로 대신한다(로컬 캐시에 바로 반영, 온라인 복귀 시 전송).
+export async function saveSharedBagMergedRemote(local: Bag, base: Bag) {
+  if (isOfflineEnvironment()) {
+    saveLocalBag(local);
+    return;
+  }
+  const ref = doc(bagsCol(), local.id);
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return;
+      const server = deserializeBag({ id: snap.id, ...snap.data() } as Bag);
+      const merged = mergeBag(base, local, server);
+      tx.set(ref, stripUndefined({ ...serializeBag(merged), updatedAt: new Date().toISOString() }));
+    });
+  } catch (err) {
+    if ((err as { code?: string })?.code === "permission-denied") throw err;
+    console.warn("[팩인백] 병합 저장 트랜잭션 실패, 통째 저장으로 대신:", err);
+    await saveBagRemote(local);
+  }
 }
 
 // 메모팩 실시간 동기화(autoSyncEnabled) 전용 - 팩이 배열(Bag.packs) 안에 박혀있어서
@@ -167,6 +194,28 @@ export async function updateBagPackEditorContent(
       throw err;
     }
   }
+}
+
+// 가방에서 팩 여러 개를 빼낸다(보관함 팩을 지울 때 "가방 속 사본도 같이 지우기"). 가방은 여러 명이 동시에 고칠 수
+// 있어서, 화면에 들고 있던 가방을 통째로 저장하지 않고 runTransaction으로 방금 읽은 최신 packs에서 대상만 뺀다.
+export async function removePacksFromBagRemote(bagId: string, packIds: string[]) {
+  const ids = new Set(packIds);
+  if (ids.size === 0) return;
+  if (isOfflineEnvironment()) {
+    const bag = getLocalBags().find((b) => b.id === bagId);
+    if (!bag) return;
+    saveLocalBag({ ...bag, packs: bag.packs.filter((p) => !ids.has(p.id)) });
+    return;
+  }
+  const ref = doc(bagsCol(), bagId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as Bag;
+    const packs = (data.packs ?? []).filter((p) => !ids.has(p.id));
+    if (packs.length === (data.packs ?? []).length) return;
+    tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
+  });
 }
 
 // 가방 하나를 실시간 구독 (다른 멤버의 변경을 편집 화면에서 바로 반영하기 위함).
