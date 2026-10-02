@@ -8,6 +8,7 @@ import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import { mergePack, sameContent } from "@/lib/syncMerge";
+import { tapHaptic } from "@/lib/haptics";
 import { Button, CheckMark, IconButton, Sheet, Toggle, cx, useLongPress } from "@/components/v2/ui";
 import { PackShareSheet } from "@/components/v2/sheets/PackShareSheet";
 import { AlsoAddSheet, LibraryItemSheet, MoveDestSheet, type MoveDestination } from "./sheets/PackEditorSheets";
@@ -88,6 +89,7 @@ export default function PackEditorV2(props: PackEditorProps) {
   // --- 아이템 조작 ------------------------------------------------------------------------------
   const toggleItem = (itemId: string) => {
     if (guard()) return;
+    tapHaptic();
     setPack((p) => ({ ...p, items: p.items.map((i) => (i.id === itemId ? { ...i, checked: !i.checked } : i)) }));
   };
 

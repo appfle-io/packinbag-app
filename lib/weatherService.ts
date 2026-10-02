@@ -7,6 +7,8 @@ export interface WeatherInfo {
   isCold: boolean;
   isHot: boolean;
   recommendations: { text: string; icon: string }[];
+  // 예보 날짜(YYYY-MM-DD). 없으면 오늘 날씨(구 데이터 포함)
+  forDate?: string;
 }
 
 // 라틴 알파벳만으로 이루어진 단어인지 확인. app/api/geocode/route.ts와 동일한 기준 -
@@ -64,10 +66,13 @@ export async function resolveCityInfo(text: string): Promise<{ lat: number; lon:
   return null;
 }
 
-export async function fetchWeatherForCity(lat: number, lon: number, cityName: string): Promise<WeatherInfo | null> {
+// date(YYYY-MM-DD)를 주면 그날 예보를, 없으면 오늘 날씨를 본다. Open-Meteo 예보는 오늘부터 16일까지만 되므로
+// 그 밖의 날짜는 호출하는 쪽에서 넘기지 않는다(forecastDateFor 참고). Open-Meteo는 무료·키 없음.
+export async function fetchWeatherForCity(lat: number, lon: number, cityName: string, date?: string): Promise<WeatherInfo | null> {
   try {
+    const range = date ? `&start_date=${date}&end_date=${date}` : "";
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto${range}`
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -116,11 +121,22 @@ export async function fetchWeatherForCity(lat: number, lon: number, cityName: st
       isCold,
       isHot,
       recommendations,
+      forDate: date,
     };
   } catch (err) {
     console.error("[팩인백] 날씨 조회 실패:", err);
     return null;
   }
+}
+
+// 출발일이 오늘~15일 뒤면 그날(예보 가능), 아니면 undefined(오늘 날씨로 대신)
+export function forecastDateFor(travelDate: string | undefined): string | undefined {
+  if (!travelDate || !/^\d{4}-\d{2}-\d{2}$/.test(travelDate)) return undefined;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(`${travelDate}T00:00:00`);
+  const days = Math.round((target.getTime() - today.getTime()) / 86400000);
+  return days >= 0 && days <= 15 ? travelDate : undefined;
 }
 
 export type TravelRecommendationCategory = "attraction" | "food" | "specialty";

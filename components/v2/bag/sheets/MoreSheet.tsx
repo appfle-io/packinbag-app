@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch } from "@tabler/icons-react";
+import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { Button, SectionHeader, Sheet } from "@/components/v2/ui";
 
-// 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · AI(가져오기, 빠진 것 확인) · 삭제/나가기
+// 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
   open,
   onClose,
@@ -21,6 +21,7 @@ export function MoreSheet({
   onImportClipboard,
   onAudit,
   onDeleteOrLeave,
+  weather,
 }: {
   open: boolean;
   onClose: () => void;
@@ -36,6 +37,8 @@ export function MoreSheet({
   onImportClipboard: () => void;
   onAudit: () => void;
   onDeleteOrLeave: () => void;
+  // 날씨로 준비물 추천(온라인일 때만). locked면 자물쇠 표시(눌러도 프리미엄 안내가 뜨도록 onOpen은 그대로 부른다)
+  weather?: { locked: boolean; onOpen: () => void } | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState(bag.notice ?? "");
@@ -112,6 +115,17 @@ export function MoreSheet({
             }}
           />
         </section>
+
+        {weather && (
+          <section className="flex flex-col">
+            <SectionHeader>추천</SectionHeader>
+            <button type="button" className={row} onClick={() => (weather.onOpen(), onClose())}>
+              <IconCloudRain size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+              <span className="min-w-0 flex-1">날씨로 준비물 추천</span>
+              {weather.locked && <IconLock size={16} stroke={1.9} className="text-faint" aria-label="프리미엄" />}
+            </button>
+          </section>
+        )}
 
         {aiAvailable && (
           <section className="flex flex-col">

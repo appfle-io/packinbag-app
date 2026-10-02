@@ -9,4 +9,8 @@ export type { BagMember } from "./useBagMembers";
 export { useBagPresence } from "./useBagPresence";
 export { useBagAttachments } from "./useBagAttachments";
 export { useBagAI } from "./useBagAI";
+export { useBagLibrary } from "./useBagLibrary";
+export type { LibraryStatus } from "./useBagLibrary";
+export { useBagWeather, WEATHER_PACK_NAME } from "./useBagWeather";
+export type { WeatherStatus } from "./useBagWeather";
 export * from "./bagStats";

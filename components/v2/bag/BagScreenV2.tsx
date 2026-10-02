@@ -23,6 +23,8 @@ import {
   useBagPresence,
   useBagAttachments,
   useBagAI,
+  useBagLibrary,
+  useBagWeather,
   statsOf,
   packingStateOf,
   findInbox,
@@ -34,7 +36,11 @@ import { MemoSection } from "./MemoSection";
 import { PackImportSheet } from "./sheets/PackImportSheet";
 import { MembersSheet } from "./sheets/MembersSheet";
 import { ItemSheet } from "./sheets/ItemSheet";
-import { PackSheet } from "./sheets/PackSheet";
+import { PackSheet, type PackLibraryRow } from "./sheets/PackSheet";
+import { LibrarySheet } from "./sheets/LibrarySheet";
+import { MoveToBagSheet } from "./sheets/MoveToBagSheet";
+import { WeatherSheet } from "./sheets/WeatherSheet";
+import { successHaptic, tapHaptic } from "@/lib/haptics";
 import { MoreSheet } from "./sheets/MoreSheet";
 import { ConfirmSheet } from "./sheets/ConfirmSheet";
 import { formatRelativeDay, formatTravelDate } from "./format";
@@ -83,6 +89,7 @@ export default function BagScreenV2(props: BagScreenProps) {
     onBack,
     onSave,
     onDeleteBag,
+    onSaveAsLibraryPack,
     onTrashPackFromBag,
     onLeaveBag,
     onRemoveMember,
@@ -115,6 +122,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [premiumMessage, setPremiumMessage] = useState<string | null>(null);
   const attachments = useBagAttachments({ doc, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage });
   const ai = useBagAI({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage });
+  const library = useBagLibrary({ doc, libraryPacks, bags, currentUid, onSaveToLibrary: onSaveAsLibraryPack });
+  const weather = useBagWeather({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage });
 
   // 메모 편집기 (닫힘 애니메이션 동안 내용 유지용 캐시 포함)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -148,6 +157,13 @@ export default function BagScreenV2(props: BagScreenProps) {
   const stats = statsOf(viewable);
   const packingState = packingStateOf(viewable);
   const ratio = stats.total > 0 ? stats.done / stats.total : 0;
+
+  // 다 싼 순간 한 번 더 길게 울리는 햅틱(iOS 앱). 처음 열 때 이미 다 싼 가방은 울리지 않는다
+  const prevPackingStateRef = useRef(packingState);
+  useEffect(() => {
+    if (prevPackingStateRef.current !== "packed" && packingState === "packed") successHaptic();
+    prevPackingStateRef.current = packingState;
+  }, [packingState]);
 
   const memberNames = useMemo(
     () => Object.fromEntries(members.members.map((m) => [m.uid, m.isMe ? "나" : m.nickname])),
@@ -189,6 +205,9 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [libraryTargetId, setLibraryTargetId] = useState<string | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
+  const [weatherOpen, setWeatherOpen] = useState(false);
 
   const itemTargetResolved = useMemo(() => {
     if (!itemTarget) return null;
@@ -197,6 +216,24 @@ export default function BagScreenV2(props: BagScreenProps) {
     return pack && item ? { pack, item } : null;
   }, [itemTarget, bag.packs]);
   const packTarget = packTargetId ? bag.packs.find((p) => p.id === packTargetId) ?? null : null;
+  const libraryTarget = libraryTargetId ? bag.packs.find((p) => p.id === libraryTargetId) ?? null : null;
+  const moveTarget = moveTargetId ? bag.packs.find((p) => p.id === moveTargetId) ?? null : null;
+  const existingTexts = useMemo(() => new Set(bag.packs.flatMap((p) => p.items.map((i) => i.text.trim()))), [bag.packs]);
+
+  // 팩 시트의 "팩 보관함" 줄. 미분류와 자동 동기화 중인 메모는 숨긴다(항상 맞춰지므로 수동 저장이 필요 없음 - 구 화면 규칙)
+  const libraryRowFor = (p: Pack): PackLibraryRow | null => {
+    if (p.isInbox || (p.kind === "editor" && p.autoSyncEnabled)) return null;
+    const s = library.statusOf(p);
+    if (s.kind === "same") return { label: "보관함과 같아요", tone: "same", onClick: () => show("변경사항이 없어요") };
+    if (s.kind === "changed") {
+      return {
+        label: s.libraryNewer ? "보관함과 맞추기 · 원본이 더 최신" : "보관함과 맞추기 · 내용이 달라요",
+        tone: "changed",
+        onClick: () => setLibraryTargetId(p.id),
+      };
+    }
+    return { label: "팩 보관함에 저장", tone: "unsaved", onClick: () => setLibraryTargetId(p.id) };
+  };
 
   // --- 제목 ----------------------------------------------------------------------
   const [titleDraft, setTitleDraft] = useState(bag.name);
@@ -432,7 +469,10 @@ export default function BagScreenV2(props: BagScreenProps) {
                   items={itemsFor(p)}
                   open={isOpen(p)}
                   onToggleOpen={() => setOpenOverride((o) => ({ ...o, [p.id]: !isOpen(p) }))}
-                  onToggleItem={(itemId) => items.toggleItem(p.id, itemId)}
+                  onToggleItem={(itemId) => {
+                    tapHaptic();
+                    items.toggleItem(p.id, itemId);
+                  }}
                   onItemMenu={(itemId) => (readOnly ? onRequestUnlock() : setItemTarget({ packId: p.id, itemId }))}
                   onPackMenu={() => (readOnly ? onRequestUnlock() : setPackTargetId(p.id))}
                   memberNames={memberNames}
@@ -536,6 +576,42 @@ export default function BagScreenV2(props: BagScreenProps) {
         onSetAllChecked={(checked) => packTargetId && items.setPackChecked(packTargetId, checked)}
         onToggleAutoSync={() => packTargetId && packOps.toggleAutoSync(packTargetId)}
         onDelete={() => packTargetId && packOps.deletePack(packTargetId)}
+        library={packTarget ? libraryRowFor(packTarget) : null}
+        onMoveToBag={library.moveTargets.length > 0 && packTargetId ? () => setMoveTargetId(packTargetId) : undefined}
+      />
+      <LibrarySheet
+        pack={libraryTarget}
+        status={libraryTarget ? library.statusOf(libraryTarget) : null}
+        nameTaken={library.nameTaken}
+        onSaveNew={(name) => libraryTargetId && library.saveAsNew(libraryTargetId, name)}
+        onOverwrite={() => libraryTargetId && library.overwriteLibrary(libraryTargetId)}
+        onRefresh={() => libraryTargetId && library.refreshFromLibrary(libraryTargetId)}
+        onClose={() => setLibraryTargetId(null)}
+      />
+      <MoveToBagSheet
+        pack={moveTarget}
+        bags={library.moveTargets}
+        onPick={(targetBagId) => moveTargetId && library.moveToBag(moveTargetId, targetBagId)}
+        onClose={() => setMoveTargetId(null)}
+      />
+      <WeatherSheet
+        open={weatherOpen}
+        onClose={() => setWeatherOpen(false)}
+        status={weather.status}
+        info={weather.info}
+        forecastDate={weather.forecastDate}
+        hasTravelDate={!!bag.travelDate}
+        aiItems={weather.aiItems}
+        aiLoading={weather.aiLoading}
+        aiError={weather.aiError}
+        existingTexts={existingTexts}
+        onLoad={weather.load}
+        onAskAi={weather.askAi}
+        onAdd={(texts) => {
+          const added = weather.addItems(texts);
+          if (added === -1) show("팩이 10개라 날씨 추천 팩을 만들 수 없어요");
+          else if (added > 0) show(`'날씨 추천' 팩에 ${added}개 담았어요`);
+        }}
       />
       <MoreSheet
         open={moreOpen}
@@ -555,6 +631,17 @@ export default function BagScreenV2(props: BagScreenProps) {
         onImportClipboard={() => (premium ? setClipboardOpen(true) : setPremiumMessage("AI 가져오기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."))}
         onAudit={() => setAuditOpen(true)}
         onDeleteOrLeave={() => (members.isOwner ? setConfirmDelete(true) : setConfirmLeave(true))}
+        weather={
+          weather.available
+            ? {
+                locked: !premium,
+                onOpen: () =>
+                  premium
+                    ? setWeatherOpen(true)
+                    : setPremiumMessage("날씨로 준비물 추천은 프리미엄 기능이에요. 이용권을 등록하면 바로 쓸 수 있어요."),
+              }
+            : null
+        }
       />
       <ConfirmSheet
         open={confirmDelete}

@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { IconArrowRight, IconCloudCheck, IconCloudUpload, IconRefreshAlert } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
-import { Button, Sheet, Toggle } from "@/components/v2/ui";
+import { Button, Sheet, Toggle, cx } from "@/components/v2/ui";
 
-// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 삭제
+// 팩 보관함 줄: 상태에 따라 문구가 바뀐다(BagScreenV2가 useBagLibrary.statusOf로 만든다)
+export interface PackLibraryRow {
+  label: string;
+  // 보관함과 같음 / 달라짐 / 아직 없음
+  tone: "same" | "changed" | "unsaved";
+  onClick: () => void;
+}
+
+// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 팩 보관함 · 다른 가방으로 옮기기 · 삭제
 export function PackSheet({
   pack,
   onClose,
@@ -12,6 +21,8 @@ export function PackSheet({
   onSetAllChecked,
   onToggleAutoSync,
   onDelete,
+  library,
+  onMoveToBag,
 }: {
   pack: Pack | null;
   onClose: () => void;
@@ -19,6 +30,10 @@ export function PackSheet({
   onSetAllChecked: (checked: boolean) => void;
   onToggleAutoSync: () => void;
   onDelete: () => void;
+  // 없으면 줄을 숨긴다(자동 동기화 중인 메모 등)
+  library?: PackLibraryRow | null;
+  // 없으면(옮길 가방이 없음) 줄을 숨긴다
+  onMoveToBag?: () => void;
 }) {
   return (
     <Sheet open={!!pack} onClose={onClose} showClose={false}>
@@ -31,6 +46,8 @@ export function PackSheet({
           onSetAllChecked={onSetAllChecked}
           onToggleAutoSync={onToggleAutoSync}
           onDelete={onDelete}
+          library={library}
+          onMoveToBag={onMoveToBag}
         />
       )}
     </Sheet>
@@ -44,6 +61,8 @@ function PackSheetBody({
   onSetAllChecked,
   onToggleAutoSync,
   onDelete,
+  library,
+  onMoveToBag,
 }: {
   pack: Pack;
   onClose: () => void;
@@ -51,16 +70,23 @@ function PackSheetBody({
   onSetAllChecked: (checked: boolean) => void;
   onToggleAutoSync: () => void;
   onDelete: () => void;
+  library?: PackLibraryRow | null;
+  onMoveToBag?: () => void;
 }) {
   const [name, setName] = useState(pack.name);
   const isMemo = pack.kind === "editor";
-  const rowCls = "flex min-h-13 items-center border-b border-line bg-transparent text-left text-body";
+  const rowCls = "flex min-h-13 items-center gap-3 border-b border-line bg-transparent text-left text-body";
+  // 이름을 고친 채로 다른 줄을 누르면 이름도 같이 저장한다
+  const commitName = () => {
+    if (name.trim() && name.trim() !== pack.name) onRename(name);
+  };
+  const LibraryIcon = library?.tone === "same" ? IconCloudCheck : library?.tone === "changed" ? IconRefreshAlert : IconCloudUpload;
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
-        if (name.trim() && name.trim() !== pack.name) onRename(name);
+        commitName();
         onClose();
       }}
     >
@@ -107,6 +133,39 @@ function PackSheetBody({
             />
           </div>
         )}
+        {library && (
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => {
+              commitName();
+              onClose();
+              library.onClick();
+            }}
+          >
+            <LibraryIcon
+              size={20}
+              stroke={1.75}
+              aria-hidden="true"
+              className={cx(library.tone === "changed" ? "text-brand" : "text-sub")}
+            />
+            <span className={cx("min-w-0 flex-1 truncate", library.tone === "same" && "text-sub")}>{library.label}</span>
+          </button>
+        )}
+        {onMoveToBag && (
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => {
+              commitName();
+              onClose();
+              onMoveToBag();
+            }}
+          >
+            <IconArrowRight size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+            다른 가방으로 옮기기
+          </button>
+        )}
         <button
           type="button"
           className="flex min-h-13 items-center bg-transparent text-left text-body text-alert"
@@ -123,4 +182,4 @@ function PackSheetBody({
       </Button>
     </form>
   );
-}
+}

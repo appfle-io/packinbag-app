@@ -199,6 +199,8 @@ export interface Bag {
     weatherInfo: WeatherInfo;
     places: TravelRecommendation[];
     cachedAt: string; // ISO
+    // 리디자인 v2: 이 캐시를 만들 때의 가방 이름(장소는 가방 이름에서 찾는다). 이름이 바뀌면 캐시를 쓰지 않는다
+    bagName?: string;
   };
   // 소유자(ownerId)가 이 가방을 휴지통으로 보낸 시각(ISO). 있으면 소유자 본인의 홈 목록에서만
   // 숨겨지고 설정 > 휴지통에 나타난다 - 다른 그룹원들은 이 필드와 무관하게 가방을 계속
