@@ -30,7 +30,7 @@ import {
   findInbox,
   type PackingState,
 } from "@/hooks/bag";
-import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, cx } from "@/components/v2/ui";
+import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, Sheet, cx } from "@/components/v2/ui";
 import { PackSection } from "./PackSection";
 import { MemoSection } from "./MemoSection";
 import { PackImportSheet } from "./sheets/PackImportSheet";
@@ -43,7 +43,8 @@ import { WeatherSheet } from "./sheets/WeatherSheet";
 import { successHaptic, tapHaptic } from "@/lib/haptics";
 import { MoreSheet } from "./sheets/MoreSheet";
 import { ConfirmSheet } from "./sheets/ConfirmSheet";
-import { formatRelativeDay, formatTravelDate } from "./format";
+import { formatRelativeDay, formatShortDate } from "./format";
+import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
 import { BAG_GUIDE_STEPS, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
 
@@ -213,6 +214,31 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [weatherOpen, setWeatherOpen] = useState(false);
 
+  // --- 여러 개 선택(아이템 시트 > 여러 개 선택) --------------------------------------
+  // 선택 중에는 아이템을 눌러도 체크되지 않고 고르기만 한다. 하단 입력창 자리에 옮기기·삭제·취소 줄이 나온다.
+  const [selection, setSelection] = useState<Set<string> | null>(null);
+  const [moveManyOpen, setMoveManyOpen] = useState(false);
+  const toggleSelect = (itemId: string) =>
+    setSelection((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  // 다른 멤버가 지운 아이템은 세지 않는다
+  const selectedCount = selection
+    ? bag.packs.reduce((n, p) => n + p.items.filter((i) => selection.has(i.id)).length, 0)
+    : 0;
+  const moveSelected = (targetPackId: string) => {
+    if (!selection) return;
+    const target = bag.packs.find((p) => p.id === targetPackId);
+    const moved = items.moveItems([...selection], targetPackId);
+    setMoveManyOpen(false);
+    setSelection(null);
+    show(moved > 0 ? `${moved}개를 '${target?.name ?? "팩"}'(으)로 옮겼어요` : "이미 그 팩에 있어요");
+  };
+
   // --- 사용 가이드(코치마크) ---------------------------------------------------------
   // 이 기기에서 처음 가방을 열면 한 번 자동으로. 새 가방(제목 입력 중)·잠긴 가방·검색으로 들어온 경우는 건너뛴다.
   // 화면이 밀려 들어오는 애니메이션이 끝난 뒤 띄운다. 더보기 > 사용 가이드로 다시 볼 수 있다.
@@ -280,7 +306,14 @@ export default function BagScreenV2(props: BagScreenProps) {
   };
 
   // --- 뒤로가기 (엣지 스와이프 포함) ------------------------------------------------
-  const handleBack = useCallback(() => onBack(bag), [onBack, bag]);
+  const handleBack = useCallback(() => {
+    // 여러 개 선택 중이면 선택만 끝낸다
+    if (selection) {
+      setSelection(null);
+      return;
+    }
+    onBack(bag);
+  }, [onBack, bag, selection]);
   const swipeRef = useSwipeBack<HTMLDivElement>(handleBack, !editingNoteId);
 
   // --- 검색 결과로 들어왔을 때 해당 팩/아이템으로 이동 -------------------------------
@@ -310,9 +343,11 @@ export default function BagScreenV2(props: BagScreenProps) {
   }, [focusTarget]);
 
   // --- 메타 줄 -----------------------------------------------------------------------
-  const travel = formatTravelDate(bag.travelDate, bag.ddayCountTodayAsDayOne);
+  const travelShort = formatShortDate(bag.travelDate);
+  const dday = bag.travelDate ? formatDDayLabel(bag.travelDate, !!bag.ddayCountTodayAsDayOne) : null;
+  const travel = travelShort ? (dday ? `${dday} · ${travelShort}` : travelShort) : null;
   const lastPacked = bag.lastPackedAt ? `마지막으로 다 싼 날 · ${formatRelativeDay(bag.lastPackedAt)}` : null;
-  const metaParts = [travel ? `${travel} 출발` : null, lastPacked, bag.memberIds.length > 1 ? `${bag.memberIds.length}명` : null].filter(Boolean);
+  const metaParts = [travel, lastPacked, bag.memberIds.length > 1 ? `${bag.memberIds.length}명` : null].filter(Boolean);
 
   const noteForEditor = shownNoteId ? bag.packs.find((p) => p.id === shownNoteId) : undefined;
   const hasContent = ordered.length > 0;
@@ -491,10 +526,17 @@ export default function BagScreenV2(props: BagScreenProps) {
                   open={isOpen(p)}
                   onToggleOpen={() => setOpenOverride((o) => ({ ...o, [p.id]: !isOpen(p) }))}
                   onToggleItem={(itemId) => {
+                    if (selection) {
+                      toggleSelect(itemId);
+                      return;
+                    }
                     tapHaptic();
                     items.toggleItem(p.id, itemId);
                   }}
-                  onItemMenu={(itemId) => (readOnly ? onRequestUnlock() : setItemTarget({ packId: p.id, itemId }))}
+                  onItemMenu={(itemId) =>
+                    selection ? toggleSelect(itemId) : readOnly ? onRequestUnlock() : setItemTarget({ packId: p.id, itemId })
+                  }
+                  selectedIds={selection ?? undefined}
                   onPackMenu={() => (readOnly ? onRequestUnlock() : setPackTargetId(p.id))}
                   memberNames={memberNames}
                   highlightItemId={highlightItemId}
@@ -522,7 +564,34 @@ export default function BagScreenV2(props: BagScreenProps) {
         </div>
       </main>
 
-      {/* 하단 입력창 */}
+      {/* 하단: 여러 개 선택 중이면 선택 줄, 아니면 입력창 */}
+      {selection ? (
+        <div className="shrink-0 border-t border-line bg-canvas">
+          <div className="pb-safe-8 mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2">
+            <span className="min-w-0 flex-1 truncate text-body font-semibold">
+              {selectedCount > 0 ? `${selectedCount}개 선택` : "아이템을 골라 주세요"}
+            </span>
+            <button type="button" className="h-11 bg-transparent px-3 text-body text-sub active:opacity-60" onClick={() => setSelection(null)}>
+              취소
+            </button>
+            <Button
+              variant="danger"
+              size="sm"
+              className="px-3"
+              disabled={selectedCount === 0}
+              onClick={() => {
+                items.deleteItems([...selection]);
+                setSelection(null);
+              }}
+            >
+              삭제
+            </Button>
+            <Button size="sm" disabled={selectedCount === 0} onClick={() => setMoveManyOpen(true)}>
+              옮기기
+            </Button>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={submitDraft} data-guide="bag-add" className="shrink-0 border-t border-line bg-canvas">
         <div className="pb-safe-8 mx-auto flex w-full max-w-3xl items-center gap-2 px-3 pt-2">
           <IconButton label="팩 불러오기" variant="soft" onClick={() => (readOnly ? onRequestUnlock() : setImportOpen(true))}>
@@ -551,6 +620,27 @@ export default function BagScreenV2(props: BagScreenProps) {
           </IconButton>
         </div>
       </form>
+      )}
+
+      {/* 여러 개 선택: 어느 팩으로 옮길지 */}
+      <Sheet open={moveManyOpen} onClose={() => setMoveManyOpen(false)} title={`${selectedCount}개 옮기기`}>
+        <div className="flex flex-col">
+          {checklist.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => moveSelected(p.id)}
+              className={cx(
+                "flex min-h-13 items-center justify-between gap-3 bg-transparent text-left active:bg-fill",
+                i < checklist.length - 1 && "border-b border-line",
+              )}
+            >
+              <span className="truncate text-body">{p.name}</span>
+              <span className="shrink-0 text-caption text-faint">{p.items.length}</span>
+            </button>
+          ))}
+        </div>
+      </Sheet>
 
       {/* 시트들 */}
       <PackImportSheet
@@ -595,6 +685,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         onSave={(patch) => itemTarget && items.updateItem(itemTarget.packId, itemTarget.itemId, patch)}
         onDuplicate={() => itemTarget && items.duplicateItem(itemTarget.packId, itemTarget.itemId)}
         onDelete={() => itemTarget && items.deleteItem(itemTarget.packId, itemTarget.itemId)}
+        onSelectMany={() => itemTarget && setSelection(new Set([itemTarget.itemId]))}
       />
       <PackSheet
         pack={packTarget}

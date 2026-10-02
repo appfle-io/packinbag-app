@@ -22,6 +22,8 @@ export interface PackSectionProps {
   dense?: boolean;
   // 사용 가이드(코치마크)에서 강조할 팩(화면의 첫 체크리스트 팩만 true)
   guide?: boolean;
+  // 여러 개 선택 중이면 고른 아이템 id(아니면 undefined). 선택 중에는 체크 대신 동그라미 선택 표시
+  selectedIds?: Set<string>;
 }
 
 // 가방 안 체크리스트 팩 하나. 머리줄을 누르면 접고 펼치고, 길게 누르면 팩 메뉴.
@@ -39,6 +41,7 @@ export function PackSection({
   highlightItemId,
   dense,
   guide,
+  selectedIds,
 }: PackSectionProps) {
   const checks = pack.items.filter((i) => i.type === "check");
   const done = checks.filter((i) => i.checked).length;
@@ -94,6 +97,7 @@ export function PackSection({
                 assignee={item.assigneeUid ? memberNames[item.assigneeUid] : undefined}
                 highlighted={highlightItemId === item.id}
                 dense={dense}
+                selected={selectedIds ? selectedIds.has(item.id) : undefined}
                 onToggle={() => onToggleItem(item.id)}
                 onMenu={() => onItemMenu(item.id)}
               />
@@ -126,6 +130,7 @@ function ItemLine({
   assignee,
   highlighted,
   dense,
+  selected,
   onToggle,
   onMenu,
 }: {
@@ -133,26 +138,43 @@ function ItemLine({
   assignee?: string;
   highlighted?: boolean;
   dense?: boolean;
+  // undefined면 보통 모드, true/false면 여러 개 선택 모드(누르면 선택/해제 - 부모가 onToggle에서 처리)
+  selected?: boolean;
   onToggle: () => void;
   onMenu: () => void;
 }) {
   const isCheck = item.type === "check";
-  const press = useLongPress(onMenu, isCheck ? onToggle : onMenu);
+  const selecting = selected !== undefined;
+  const press = useLongPress(onMenu, isCheck || selecting ? onToggle : onMenu);
   const done = isCheck && !!item.checked;
   return (
     <li data-item-id={item.id} className={cx("min-w-0", !isCheck && "col-span-full")}>
       <button
         type="button"
         {...press}
-        aria-pressed={isCheck ? done : undefined}
+        aria-pressed={selecting ? selected : isCheck ? done : undefined}
         className={cx(
           "flex w-full select-none items-center rounded-field bg-transparent text-left",
           dense ? "min-h-11 gap-2" : "min-h-12 gap-3",
           "transition-colors duration-160 ease-snappy active:bg-fill",
-          highlighted && "bg-brand-soft",
+          (highlighted || selected) && "bg-brand-soft",
         )}
       >
-        {isCheck ? <CheckMark checked={done} /> : <span aria-hidden="true" className="size-5.5 shrink-0" />}
+        {selecting ? (
+          <span
+            aria-hidden="true"
+            className={cx(
+              "flex size-5 shrink-0 items-center justify-center rounded-full border-check",
+              selected ? "border-brand bg-brand text-on-brand" : "border-line-strong",
+            )}
+          >
+            {selected && <IconCheck size={14} stroke={2.6} />}
+          </span>
+        ) : isCheck ? (
+          <CheckMark checked={done} />
+        ) : (
+          <span aria-hidden="true" className="size-5.5 shrink-0" />
+        )}
         <span
           className={cx(
             "min-w-0 flex-1 text-body transition-colors duration-160 ease-snappy",

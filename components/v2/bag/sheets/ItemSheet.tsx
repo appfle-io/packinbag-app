@@ -14,6 +14,7 @@ export function ItemSheet({
   onSave,
   onDuplicate,
   onDelete,
+  onSelectMany,
 }: {
   target: { pack: Pack; item: Item } | null;
   onClose: () => void;
@@ -23,6 +24,8 @@ export function ItemSheet({
   onSave: (patch: ItemPatch) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  // 이 아이템부터 여러 개 선택 모드 시작
+  onSelectMany?: () => void;
 }) {
   return (
     <Sheet open={!!target} onClose={onClose} showClose={false}>
@@ -36,6 +39,7 @@ export function ItemSheet({
           onSave={onSave}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
+          onSelectMany={onSelectMany}
         />
       )}
     </Sheet>
@@ -50,6 +54,7 @@ function ItemSheetBody({
   onSave,
   onDuplicate,
   onDelete,
+  onSelectMany,
 }: {
   target: { pack: Pack; item: Item };
   packs: Pack[];
@@ -58,6 +63,7 @@ function ItemSheetBody({
   onSave: (patch: ItemPatch) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onSelectMany?: () => void;
 }) {
   const [text, setText] = useState(target.item.text);
   const [assignee, setAssignee] = useState<string>(target.item.assigneeUid ?? "");
@@ -123,6 +129,18 @@ function ItemSheetBody({
       )}
 
       <div className="flex flex-col rounded-card border border-line bg-card px-4">
+        {onSelectMany && (
+          <button
+            type="button"
+            className="flex min-h-13 items-center border-b border-line bg-transparent text-left text-body"
+            onClick={() => {
+              onSelectMany();
+              onClose();
+            }}
+          >
+            여러 개 선택
+          </button>
+        )}
         <button
           type="button"
           className="flex min-h-13 items-center border-b border-line bg-transparent text-left text-body"

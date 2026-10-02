@@ -104,7 +104,7 @@ export function Sheet({ open, onClose, title, showClose = true, footer, size = "
   return (
     <Portal>
       <OverlayLayerProvider value={zIndex + LAYER_STEP}>
-        <div className="pib-v2 fixed inset-0" style={{ zIndex }}>
+        <div className="pib-v2 pib-v2-overlay fixed inset-0" style={{ zIndex }}>
           <button
             type="button"
             aria-label="닫기"

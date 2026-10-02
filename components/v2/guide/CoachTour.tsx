@@ -158,7 +158,7 @@ export function CoachTour({ open, steps, onClose }: { open: boolean; steps: Tour
 
   return (
     <Portal>
-      <div className="pib-v2 fixed inset-0" style={{ zIndex }} role="dialog" aria-modal="true" aria-label="사용 가이드">
+      <div className="pib-v2 pib-v2-overlay fixed inset-0" style={{ zIndex }} role="dialog" aria-modal="true" aria-label="사용 가이드">
         <svg className="absolute inset-0 size-full" aria-hidden="true">
           <path d={path} fillRule="evenodd" className="fill-scrim" />
           {hole && (

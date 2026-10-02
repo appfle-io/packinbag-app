@@ -275,6 +275,65 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     [guard, update, bag.packs, synced, show],
   );
 
+  // 여러 개 선택: 고른 아이템을 한 팩 맨 끝으로 옮긴다(가방 안 팩 순서·팩 안 순서 그대로). 이미 그 팩에 있던 것은 제자리.
+  // 옮긴 개수를 돌려준다.
+  const moveItems = useCallback(
+    (itemIds: string[], targetPackId: string): number => {
+      if (guard()) return 0;
+      const ids = new Set(itemIds);
+      const moving = bag.packs
+        .filter((p) => p.id !== targetPackId && p.kind !== "editor")
+        .flatMap((p) => p.items.filter((i) => ids.has(i.id)));
+      if (moving.length === 0) return 0;
+      const movingIds = new Set(moving.map((i) => i.id));
+      update((prev) => ({
+        ...prev,
+        packs: prev.packs.map((p) => {
+          if (p.id === targetPackId) return synced({ ...p, items: [...p.items.filter((i) => !movingIds.has(i.id)), ...moving] });
+          if (!p.items.some((i) => movingIds.has(i.id))) return p;
+          return synced({ ...p, items: p.items.filter((i) => !movingIds.has(i.id)) });
+        }),
+      }));
+      return moving.length;
+    },
+    [guard, update, bag.packs, synced],
+  );
+
+  // 여러 개 선택: 한꺼번에 삭제(되돌리기 토스트). 되돌리면 원래 팩의 원래 자리로 돌아간다.
+  const deleteItems = useCallback(
+    (itemIds: string[]) => {
+      if (guard()) return;
+      const ids = new Set(itemIds);
+      const removed: { packId: string; index: number; item: Item }[] = [];
+      for (const p of bag.packs) {
+        p.items.forEach((item, index) => {
+          if (ids.has(item.id)) removed.push({ packId: p.id, index, item });
+        });
+      }
+      if (removed.length === 0) return;
+      update((prev) => ({
+        ...prev,
+        packs: prev.packs.map((p) => (p.items.some((i) => ids.has(i.id)) ? synced({ ...p, items: p.items.filter((i) => !ids.has(i.id)) }) : p)),
+      }));
+      show(`아이템 ${removed.length}개를 삭제했어요`, {
+        actionLabel: "되돌리기",
+        onAction: () =>
+          update((prev) => ({
+            ...prev,
+            packs: prev.packs.map((p) => {
+              const mine = removed.filter((r) => r.packId === p.id);
+              if (mine.length === 0) return p;
+              const items = [...p.items];
+              // 앞자리부터 넣어야 원래 인덱스가 맞는다
+              for (const r of mine) items.splice(Math.min(r.index, items.length), 0, r.item);
+              return synced({ ...p, items });
+            }),
+          })),
+      });
+    },
+    [guard, update, bag.packs, synced, show],
+  );
+
   return {
     toggleItem,
     uncheckAll,
@@ -284,6 +343,8 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     updateItem,
     duplicateItem,
     deleteItem,
+    moveItems,
+    deleteItems,
     applyGroupedItems,
     addToNamedPack,
   };

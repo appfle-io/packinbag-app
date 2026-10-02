@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
+import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet } from "@/components/v2/ui";
 
 // 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
@@ -53,6 +54,7 @@ export function MoreSheet({
   }
 
   const row = "flex min-h-13 w-full items-center gap-3 border-b border-line bg-transparent text-left text-body";
+  const dday = bag.travelDate ? formatDDayLabel(bag.travelDate, !!bag.ddayCountTodayAsDayOne) : null;
   const close = () => {
     if ((bag.notice ?? "") !== notice) onSetNotice(notice.trim());
     onClose();
@@ -63,25 +65,37 @@ export function MoreSheet({
       <div className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
           <SectionHeader>가방 정보</SectionHeader>
-          <label className="flex min-h-13 items-center justify-between gap-3 border-b border-line">
+          {/* label로 감싸면 iOS에서 '지우기'를 눌러도 날짜 입력으로 누름이 넘어가 지워지지 않았다 - 줄은 div, 입력에만 aria-label */}
+          <div className="flex min-h-13 items-center justify-between gap-3 border-b border-line">
             <span className="flex items-center gap-3 text-body">
               <IconCalendar size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
-              출발 날짜
+              D-Day
+              {dday && <span className="text-caption font-semibold text-brand">{dday}</span>}
             </span>
             <span className="flex items-center gap-2">
               <input
                 type="date"
+                aria-label="D-Day 날짜"
                 value={bag.travelDate ?? ""}
                 onChange={(e) => onSetTravelDate(e.target.value || undefined)}
                 className="h-10 rounded-field border border-line bg-card px-2 text-caption outline-none"
               />
               {bag.travelDate && (
-                <Button variant="text" size="sm" className="px-2" onClick={() => onSetTravelDate(undefined)}>
+                <Button
+                  variant="text"
+                  size="sm"
+                  className="px-2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSetTravelDate(undefined);
+                  }}
+                >
                   지우기
                 </Button>
               )}
             </span>
-          </label>
+          </div>
           <label className="flex flex-col gap-2 pt-2">
             <span className="text-caption text-sub">설명 한 줄 (예: 공항 6시 출발)</span>
             <input
