@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconArchive, IconChevronLeft, IconChevronRight, IconPin, IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconArchive, IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconPin, IconPlus, IconSearch } from "@tabler/icons-react";
 import type { Bag, BagFolder, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -20,16 +20,27 @@ import {
   ScreenBody,
   ScreenHeader,
   SectionHeader,
+  Sheet,
   cx,
   useLongPress,
 } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
-import { BagRow, FeaturedBagCard } from "./BagRows";
+import { BagRow } from "./BagRows";
+import { BagCarousel } from "./BagCarousel";
 import { BagActionSheet } from "./sheets/BagActionSheet";
 import { FolderSheet } from "./sheets/FolderSheet";
 import { NewBagSheet } from "./sheets/NewBagSheet";
-import { archiveSuggestionsOf, buildSections, summarizeBag, type BagSummary } from "./homeModel";
+import {
+  archiveSuggestionsOf,
+  buildSections,
+  HOME_SORT_LABEL,
+  homeSortOf,
+  summarizeBag,
+  type BagSummary,
+  type HomeSort,
+} from "./homeModel";
 import { hasFolderNameClash } from "@/lib/bagFolderNames";
+import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
 // (onNewKanbanBag / onOpenQuickPack / onSelectModeChange는 v2에서 쓰지 않는다: 칸반·빠른팩·다중선택 제거)
@@ -92,6 +103,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     deleteBagFolder,
     moveBagsToFolder,
     flattenBagFolders,
+    updateBagSortBy,
   } = useAuth();
   const { show } = useToast();
   const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
@@ -135,14 +147,17 @@ export default function HomeScreenV2(props: HomeScreenProps) {
 
   // --- 목록 계산 ------------------------------------------------------------------
   const archivedSet = useMemo(() => new Set(profile?.archivedBagIds ?? []), [profile?.archivedBagIds]);
-  const pinnedIds = useMemo(() => (profile?.pinnedBagIds ?? []).slice(0, 3), [profile?.pinnedBagIds]);
+  const pinnedIds = useMemo(() => (profile?.pinnedBagIds ?? []).slice(0, V2_MAX_PINNED_BAGS), [profile?.pinnedBagIds]);
   const summaries = useMemo(() => bags.map((b) => summarizeBag(b, premium)), [bags, premium]);
   const activeAll = summaries.filter((s) => !archivedSet.has(s.bag.id));
   const archived = summaries
     .filter((s) => archivedSet.has(s.bag.id))
     .sort((a, b) => (a.activityAt < b.activityAt ? 1 : -1));
   const active = activeFolderId ? activeAll.filter((s) => assignments[s.bag.id] === activeFolderId) : activeAll;
-  const sections = buildSections(active, pinnedIds);
+  // 아래 "가방" 목록 정렬(최근순 / 이름순 / 이름 역순). 계정에 저장(bagSortBy), 캐러셀에는 영향 없음
+  const sort = homeSortOf(profile?.bagSortBy);
+  const [sortOpen, setSortOpen] = useState(false);
+  const sections = buildSections(active, pinnedIds, sort);
   const suggestions = activeFolderId || !personal ? [] : archiveSuggestionsOf(activeAll, profile?.archiveSuggestionDismissedIds ?? []);
 
   // --- 보기: 홈 / 보관함 / 검색 ------------------------------------------------------
@@ -188,8 +203,8 @@ export default function HomeScreenV2(props: HomeScreenProps) {
 
   const togglePin = (bagId: string) => {
     const pinned = pinnedIds.includes(bagId);
-    if (!pinned && pinnedIds.length >= 3) {
-      show("고정은 3개까지 할 수 있어요");
+    if (!pinned && pinnedIds.length >= V2_MAX_PINNED_BAGS) {
+      show(`고정은 ${V2_MAX_PINNED_BAGS}개까지 할 수 있어요`);
       return;
     }
     toggleBagPinned(bagId).catch(fail("고정 상태를 저장하지 못했어요"));
@@ -218,7 +233,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   });
 
   const hasAnyBag = bags.length > 0;
-  const listEmpty = !sections.featured && sections.pinned.length === 0 && sections.recent.length === 0;
+  const listEmpty = sections.highlights.length === 0 && sections.pinned.length === 0 && sections.list.length === 0;
 
   // --- 화면 -------------------------------------------------------------------------------
   // 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(팩 탭과 똑같이). 여기서 따로 패딩을 주지 않는다.
@@ -324,7 +339,12 @@ export default function HomeScreenV2(props: HomeScreenProps) {
                 </div>
               )}
 
-              {sections.featured && <FeaturedBagCard summary={sections.featured} {...rowHandlers(sections.featured)} />}
+              <BagCarousel
+                highlights={sections.highlights}
+                lockedIds={lockedBagIds}
+                onOpen={(s) => onOpenBag(s.bag)}
+                onMenu={(s) => setActionBagId(s.bag.id)}
+              />
 
               {sections.pinned.length > 0 && (
                 <section className="flex flex-col">
@@ -340,11 +360,28 @@ export default function HomeScreenV2(props: HomeScreenProps) {
                 </section>
               )}
 
-              {sections.recent.length > 0 && (
+              {sections.list.length > 0 && (
                 <section className="flex flex-col">
-                  <SectionHeader>최근</SectionHeader>
-                  {sections.recent.map((s, i) => (
-                    <BagRow key={s.bag.id} summary={s} last={i === sections.recent.length - 1} {...rowHandlers(s)} />
+                  <SectionHeader
+                    action={
+                      // 정렬은 계정에 저장하는 개인 설정이라 오프라인에서는 숨긴다(폴더·고정과 같은 규칙)
+                      personal ? (
+                        <button
+                          type="button"
+                          onClick={() => setSortOpen(true)}
+                          aria-label={`정렬: ${HOME_SORT_LABEL[sort]}`}
+                          className="-my-2 -mr-2 inline-flex h-11 items-center gap-1 bg-transparent px-2 text-caption font-semibold text-sub active:opacity-60"
+                        >
+                          {HOME_SORT_LABEL[sort]}
+                          <IconChevronDown size={14} stroke={2} aria-hidden="true" />
+                        </button>
+                      ) : undefined
+                    }
+                  >
+                    가방
+                  </SectionHeader>
+                  {sections.list.map((s, i) => (
+                    <BagRow key={s.bag.id} summary={s} last={i === sections.list.length - 1} {...rowHandlers(s)} />
                   ))}
                 </section>
               )}
@@ -379,6 +416,30 @@ export default function HomeScreenV2(props: HomeScreenProps) {
             </>
           )}
       </ScreenBody>
+
+      {/* 가방 목록 정렬 */}
+      <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="정렬">
+        <div className="flex flex-col">
+          {(Object.keys(HOME_SORT_LABEL) as HomeSort[]).map((key, i, arr) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setSortOpen(false);
+                if (key !== sort) updateBagSortBy(key === "recent" ? "updatedAt" : key).catch(fail("정렬을 저장하지 못했어요"));
+              }}
+              className={cx(
+                "flex min-h-13 items-center justify-between gap-3 bg-transparent text-left text-body active:bg-fill",
+                i < arr.length - 1 && "border-b border-line",
+              )}
+            >
+              <span className={key === sort ? "font-semibold text-ink" : "text-ink"}>{HOME_SORT_LABEL[key]}</span>
+              {key === sort && <IconCheck size={18} stroke={2.2} className="text-brand" aria-label="선택됨" />}
+            </button>
+          ))}
+        </div>
+        <p className="m-0 pt-3 text-caption text-faint">최근순은 출발 7일 안의 가방이 먼저, 나머지는 최근에 체크한 순서예요. 위 카드는 정렬과 상관없이 곧 출발 → 싸는 중 순서, 고정한 가방은 항상 맨 위에 있어요.</p>
+      </Sheet>
 
       {/* 시트 · 모달 */}
       <NewBagSheet

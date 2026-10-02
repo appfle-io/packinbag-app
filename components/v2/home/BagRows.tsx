@@ -55,24 +55,29 @@ export function BagRow({ summary, locked, last, archived, onOpen, onMenu }: RowP
   );
 }
 
-// 홈 상단 큰 카드: 지금 싸는 중인 가방.
-export function FeaturedBagCard({ summary, locked, onOpen, onMenu }: Omit<RowProps, "last" | "archived">) {
+// 홈 상단 큰 카드(캐러셀 한 장). eyebrow = 제목 위 작은 줄(고정 / 곧 출발 / 지금 싸는 중).
+export function FeaturedBagCard({
+  summary,
+  locked,
+  eyebrow,
+  onOpen,
+  onMenu,
+}: Omit<RowProps, "last" | "archived"> & { eyebrow?: string }) {
   const press = useLongPress(onMenu, onOpen);
   const { bag } = summary;
+  const label = eyebrow ?? `지금 싸는 중${summary.activityLabel ? ` · ${summary.activityLabel}` : ""}`;
   return (
     <button
       type="button"
       {...press}
       className={cx(
-        "flex w-full select-none flex-col gap-4 rounded-card border border-line bg-card p-5 text-left",
+        "flex h-full w-full select-none flex-col justify-between gap-4 rounded-card border border-line bg-card p-5 text-left",
         "transition-colors duration-160 ease-snappy active:bg-fill",
       )}
     >
       <span className="flex w-full items-start justify-between gap-3">
         <span className="flex min-w-0 flex-col gap-1">
-          <span className="text-micro font-semibold text-brand">
-            지금 싸는 중{summary.activityLabel ? ` · ${summary.activityLabel}` : ""}
-          </span>
+          <span className="truncate text-micro font-semibold text-brand">{label}</span>
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-heading font-bold text-ink">{bag.name || "이름 없는 가방"}</span>
             {locked && <IconLock size={16} stroke={1.9} className="shrink-0 text-faint" aria-label="잠긴 가방" />}
@@ -83,9 +88,7 @@ export function FeaturedBagCard({ summary, locked, onOpen, onMenu }: Omit<RowPro
       <span className="flex w-full flex-col gap-2">
         <ProgressBar value={summary.ratio} label={`${bag.name} 챙긴 비율`} />
         <span className="flex items-center justify-between gap-3 text-caption text-sub">
-          <span>
-            {summary.done} / {summary.total} 챙김
-          </span>
+          <span>{summary.total > 0 ? `${summary.done} / ${summary.total} 챙김` : "아직 비어 있어요"}</span>
           {bag.lastPackedAt && <span className="truncate">마지막으로 다 싼 날 · {formatRelativeDay(bag.lastPackedAt)}</span>}
         </span>
       </span>

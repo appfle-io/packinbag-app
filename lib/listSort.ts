@@ -97,6 +97,8 @@ export function moveIdInOrder(ids: string[], fromId: string, toId: string): stri
 
 // 고정핀 토글. 이미 고정돼있으면 해제, 아니면 추가(max개를 넘으면 무시하고 그대로 반환).
 // max가 없으면 기존처럼 3개 기본값(가방). 팩은 v69부터 Infinity를 넘겨받아 무제한이다.
+// 리디자인 v2 홈은 고정한 가방을 상단 캐러셀에 보여주면서 가방 고정을 5개까지 늘렸다(V2_MAX_PINNED_BAGS).
+export const V2_MAX_PINNED_BAGS = 5;
 export function togglePinned(pinnedIds: string[] | undefined, id: string, max: number = 3): string[] {
   const current = pinnedIds ?? [];
   if (current.includes(id)) return current.filter((p) => p !== id);

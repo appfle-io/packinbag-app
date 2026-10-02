@@ -80,21 +80,67 @@ export function sortForHome(list: BagSummary[]): BagSummary[] {
 }
 
 export interface HomeSections {
-  // 상단 큰 카드: 지금 싸는 중인 가방 중 가장 최근에 체크한 것
-  featured: BagSummary | null;
+  // 상단 캐러셀: D-day 7일 이내(가까운 순) → 지금 싸는 중(최근 체크 순), 고정 가방은 제외, 최대 5개
+  highlights: Highlight[];
+  // "고정" 구역: 고정한 순서 그대로(정렬과 무관하게 항상 위)
   pinned: BagSummary[];
-  recent: BagSummary[];
+  // 아래 "가방" 목록: 고정·캐러셀에 나온 가방을 뺀 나머지, 고른 정렬대로
+  list: BagSummary[];
 }
 
-export function buildSections(list: BagSummary[], pinnedIds: string[]): HomeSections {
-  const featured = list.filter((s) => s.state === "packing").sort(byActivityDesc)[0] ?? null;
-  const rest = list.filter((s) => s !== featured);
-  const pinnedSet = new Set(pinnedIds);
-  const pinned = pinnedIds
-    .map((id) => rest.find((s) => s.bag.id === id))
-    .filter((s): s is BagSummary => !!s);
-  const recent = sortForHome(rest.filter((s) => !pinnedSet.has(s.bag.id)));
-  return { featured, pinned, recent };
+export const HIGHLIGHT_MAX = 5;
+
+export type HighlightReason = "pinned" | "soon" | "packing";
+export interface Highlight {
+  summary: BagSummary;
+  reason: HighlightReason;
+}
+
+// 홈 목록 정렬. 값은 구 UI와 같은 UserProfile.bagSortBy에 저장한다(nameAsc/nameDesc는 그대로, 그 외 값은 모두 "최근순")
+export type HomeSort = "recent" | "nameAsc" | "nameDesc";
+export const HOME_SORT_LABEL: Record<HomeSort, string> = {
+  recent: "최근순",
+  nameAsc: "이름순 (ㄱ→ㅎ)",
+  nameDesc: "이름 역순 (ㅎ→ㄱ)",
+};
+export function homeSortOf(bagSortBy: string | undefined): HomeSort {
+  return bagSortBy === "nameAsc" || bagSortBy === "nameDesc" ? bagSortBy : "recent";
+}
+
+const nameOf = (s: BagSummary) => (s.bag.name || "").trim();
+
+export function sortHomeList(list: BagSummary[], sort: HomeSort): BagSummary[] {
+  if (sort === "recent") return sortForHome(list);
+  const dir = sort === "nameAsc" ? 1 : -1;
+  return [...list].sort((a, b) => dir * nameOf(a).localeCompare(nameOf(b), "ko") || byActivityDesc(a, b));
+}
+
+export function buildSections(list: BagSummary[], pinnedIds: string[], sort: HomeSort = "recent"): HomeSections {
+  const highlights: Highlight[] = [];
+  const used = new Set<string>();
+  const push = (s: BagSummary, reason: HighlightReason) => {
+    if (highlights.length >= HIGHLIGHT_MAX || used.has(s.bag.id)) return;
+    used.add(s.bag.id);
+    highlights.push({ summary: s, reason });
+  };
+  const pinned: BagSummary[] = [];
+  for (const id of pinnedIds) {
+    const s = list.find((x) => x.bag.id === id);
+    if (s && !used.has(s.bag.id)) {
+      used.add(s.bag.id);
+      pinned.push(s);
+    }
+  }
+  list
+    .filter((s) => s.soon)
+    .sort((a, b) => (a.dday as number) - (b.dday as number) || byActivityDesc(a, b))
+    .forEach((s) => push(s, "soon"));
+  list
+    .filter((s) => s.state === "packing")
+    .sort(byActivityDesc)
+    .forEach((s) => push(s, "packing"));
+
+  return { highlights, pinned, list: sortHomeList(list.filter((s) => !used.has(s.bag.id)), sort) };
 }
 
 // 여행일이 한참 지났는데 보관하지도, 제안을 닫지도 않은 가방

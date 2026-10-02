@@ -45,7 +45,8 @@ import { UserProfile, StartPageConfig } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
-import { togglePinned } from "@/lib/listSort";
+import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
+import { UI_V2 } from "@/lib/v2/flags";
 import { resolveFolderNameClashes } from "@/lib/bagFolderNames";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
@@ -948,7 +949,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 새로 고정하려 하면 togglePinned이 조용히 무시한다.
   const toggleBagPinned = async (bagId: string) => {
     if (!user) return;
-    const next = togglePinned(profile?.pinnedBagIds, bagId);
+    // v2 홈은 고정 가방을 상단 캐러셀에 보여주므로 5개까지(구 UI는 그대로 3개)
+    const next = togglePinned(profile?.pinnedBagIds, bagId, UI_V2 ? V2_MAX_PINNED_BAGS : 3);
     await setDoc(doc(db, "users", user.uid), { pinnedBagIds: next }, { merge: true });
   };
 
