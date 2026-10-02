@@ -46,6 +46,7 @@ import { isPremiumUser } from "@/lib/premiumLimits";
 import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned } from "@/lib/listSort";
+import { resolveFolderNameClashes } from "@/lib/bagFolderNames";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
 import { getUserBagsOnce } from "@/lib/bagsService";
@@ -1108,7 +1109,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 리디자인 v2: 가방 폴더는 1단계(홈 상단 칩)만 쓴다. 하위 폴더를 전부 최상위로 올리고,
   // 원래 부모는 legacyParentId에 남겨 둔다(롤백용). 폴더에 담긴 가방(bagFolderAssignments)은 그대로다.
-  // 하위 폴더가 없으면 아무것도 쓰지 않는다.
+  // 올리면서 같은 이름이 생기면("여행/Archive"와 "업무/Archive") "Archive (업무)"처럼 이름을 바꾸고 원래 이름은
+  // legacyName에 남긴다(lib/bagFolderNames.ts). 이미 평평해진 뒤 남아 있던 겹침도 같이 정리한다.
+  // 바꿀 게 없으면 아무것도 쓰지 않는다.
   const flattenBagFolders = async () => {
     if (!user || isOfflineMode) return;
     const folders = profile?.bagFolders ?? {};
@@ -1117,6 +1120,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!f.parentId) continue;
       updates[`bagFolders.${key}.parentId`] = deleteField();
       updates[`bagFolders.${key}.legacyParentId`] = f.parentId;
+    }
+    const renames = resolveFolderNameClashes(folders);
+    for (const [key, name] of Object.entries(renames)) {
+      updates[`bagFolders.${key}.name`] = name;
+      if (!folders[key].legacyName) updates[`bagFolders.${key}.legacyName`] = folders[key].name;
     }
     if (Object.keys(updates).length === 0) return;
     await updateDoc(doc(db, "users", user.uid), updates);

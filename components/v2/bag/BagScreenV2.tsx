@@ -5,7 +5,7 @@ import { IconArrowUp, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutLi
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
+import { bagMemberLimit, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { openExternalLink } from "@/lib/openExternalLink";
@@ -44,6 +44,8 @@ import { successHaptic, tapHaptic } from "@/lib/haptics";
 import { MoreSheet } from "./sheets/MoreSheet";
 import { ConfirmSheet } from "./sheets/ConfirmSheet";
 import { formatRelativeDay, formatTravelDate } from "./format";
+import { CoachTour } from "@/components/v2/guide/CoachTour";
+import { BAG_GUIDE_STEPS, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -193,6 +195,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   });
 
   const itemsFor = (p: Pack) => (activeFilter === "left" ? p.items.filter((i) => i.type === "check" && !i.checked) : p.items);
+  // 사용 가이드에서 비출 팩: 화면에 보이는 첫 체크리스트 팩(메모 제외)
+  const guidePackId = visibleSections.find((p) => p.kind !== "editor")?.id;
 
   // --- 시트 상태 ---------------------------------------------------------------
   const [importOpen, setImportOpen] = useState(false);
@@ -208,6 +212,21 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [libraryTargetId, setLibraryTargetId] = useState<string | null>(null);
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [weatherOpen, setWeatherOpen] = useState(false);
+
+  // --- 사용 가이드(코치마크) ---------------------------------------------------------
+  // 이 기기에서 처음 가방을 열면 한 번 자동으로. 새 가방(제목 입력 중)·잠긴 가방·검색으로 들어온 경우는 건너뛴다.
+  // 화면이 밀려 들어오는 애니메이션이 끝난 뒤 띄운다. 더보기 > 사용 가이드로 다시 볼 수 있다.
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (isNew || readOnly || focusTarget || hasSeenBagGuide()) return;
+    const t = window.setTimeout(() => setTourOpen(true), 700);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 열 때만
+  }, []);
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    markBagGuideSeen();
+  }, []);
 
   const itemTargetResolved = useMemo(() => {
     if (!itemTarget) return null;
@@ -331,14 +350,15 @@ export default function BagScreenV2(props: BagScreenProps) {
           <IconButton
             label={phoneCols === 2 ? "1열로 보기" : "2열로 보기"}
             className="@2xl/bag:hidden"
+            data-guide="bag-columns"
             onClick={() => updateBagPhoneColumns(phoneCols === 2 ? 1 : 2).catch(() => {})}
           >
             {phoneCols === 2 ? <IconLayoutList size={22} stroke={1.75} /> : <IconLayoutColumns size={22} stroke={1.75} />}
           </IconButton>
-          <IconButton label="함께 챙기는 사람" onClick={() => setMembersOpen(true)}>
+          <IconButton label="함께 챙기는 사람" data-guide="bag-members" onClick={() => setMembersOpen(true)}>
             <IconUsers size={22} stroke={1.75} />
           </IconButton>
-          <IconButton label="더보기" onClick={() => setMoreOpen(true)}>
+          <IconButton label="더보기" data-guide="bag-more" onClick={() => setMoreOpen(true)}>
             <IconDots size={22} stroke={1.75} />
           </IconButton>
         </div>
@@ -418,6 +438,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                     variant="text"
                     size="sm"
                     className="pr-1"
+                    data-guide="bag-repack"
                     disabled={stats.done === 0 || readOnly}
                     onClick={items.uncheckAll}
                     leading={<IconRotateClockwise size={18} stroke={1.9} />}
@@ -479,6 +500,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                   highlightItemId={highlightItemId}
                   inbox={p.isInbox ? { canOrganize: ai.aiAvailable, organizing: ai.organizing, onOrganize: ai.organizeInbox } : undefined}
                   dense={phoneCols === 2}
+                  guide={p.id === guidePackId}
                 />
               ),
             )}
@@ -501,7 +523,7 @@ export default function BagScreenV2(props: BagScreenProps) {
       </main>
 
       {/* 하단 입력창 */}
-      <form onSubmit={submitDraft} className="shrink-0 border-t border-line bg-canvas">
+      <form onSubmit={submitDraft} data-guide="bag-add" className="shrink-0 border-t border-line bg-canvas">
         <div className="pb-safe-8 mx-auto flex w-full max-w-3xl items-center gap-2 px-3 pt-2">
           <IconButton label="팩 불러오기" variant="soft" onClick={() => (readOnly ? onRequestUnlock() : setImportOpen(true))}>
             <IconPackage size={20} stroke={1.75} />
@@ -554,6 +576,11 @@ export default function BagScreenV2(props: BagScreenProps) {
         onRemove={members.removeMember}
         onTransfer={members.transferOwnership}
         offline={isOfflineMode}
+        memberLimit={members.isOwner && !isOfflineMode ? bagMemberLimit(premium) : undefined}
+        onUpgrade={() => {
+          setMembersOpen(false);
+          setPremiumMessage("가족 모두와 무제한으로. 프리미엄이면 가방 하나를 10명까지 함께 쓸 수 있어요.");
+        }}
         onLeave={async () => {
           await members.leave();
           setMembersOpen(false);
@@ -642,6 +669,7 @@ export default function BagScreenV2(props: BagScreenProps) {
               }
             : null
         }
+        onGuide={() => window.setTimeout(() => setTourOpen(true), 320)}
       />
       <ConfirmSheet
         open={confirmDelete}
@@ -716,6 +744,7 @@ export default function BagScreenV2(props: BagScreenProps) {
           onShowPremiumLimit={(msg) => setPremiumMessage(msg)}
         />
       )}
+      <CoachTour open={tourOpen} steps={BAG_GUIDE_STEPS} onClose={closeTour} />
       <PremiumSheet
         open={!!premiumMessage}
         message={premiumMessage}

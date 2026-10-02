@@ -20,6 +20,8 @@ export interface PackSectionProps {
   highlightItemId?: string | null;
   // 폰 세로에서도 아이템을 2열로(사용자 설정). 칸이 좁아지니 줄 간격을 조금 좁히고 긴 이름은 두 줄까지만
   dense?: boolean;
+  // 사용 가이드(코치마크)에서 강조할 팩(화면의 첫 체크리스트 팩만 true)
+  guide?: boolean;
 }
 
 // 가방 안 체크리스트 팩 하나. 머리줄을 누르면 접고 펼치고, 길게 누르면 팩 메뉴.
@@ -36,6 +38,7 @@ export function PackSection({
   inbox,
   highlightItemId,
   dense,
+  guide,
 }: PackSectionProps) {
   const checks = pack.items.filter((i) => i.type === "check");
   const done = checks.filter((i) => i.checked).length;
@@ -45,6 +48,7 @@ export function PackSection({
   return (
     <section
       data-pack-id={pack.id}
+      data-guide={guide ? "bag-pack" : undefined}
       className={cx(
         "flex break-inside-avoid flex-col",
         inbox ? "mb-2 rounded-card border border-line bg-card px-4" : "border-b border-line",

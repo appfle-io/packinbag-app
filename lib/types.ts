@@ -239,6 +239,9 @@ export interface BagFolder {
   // 리디자인 v2: 가방 폴더를 1단계로 평평하게 만들면서(flattenBagFolders) 원래 부모 폴더 id를 남겨둔다.
   // 롤백용 기록일 뿐 화면에서는 읽지 않는다.
   legacyParentId?: string;
+  // 리디자인 v2: 평평하게 만들면서 같은 이름 폴더가 생겨 이름을 바꾼 경우(예: "Archive" -> "Archive (여행)") 원래 이름.
+  // 롤백용 기록일 뿐 화면에서는 읽지 않는다(lib/bagFolderNames.ts).
+  legacyName?: string;
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태의 참고용 주석은

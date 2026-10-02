@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { BagFolder } from "@/lib/types";
+import { normalizeFolderName } from "@/lib/bagFolderNames";
 import { Button, Sheet } from "@/components/v2/ui";
 
 const MAX_NAME = 20;
@@ -10,12 +11,15 @@ const MAX_NAME = 20;
 // target: null이면 닫힘, "new"면 새 폴더, BagFolder면 그 폴더 편집.
 export function FolderSheet({
   target,
+  folders,
   onClose,
   onCreate,
   onRename,
   onDelete,
 }: {
   target: "new" | BagFolder | null;
+  // 이름 겹침 검사용(폴더는 1단계라 같은 이름이면 칩에서 구분할 수 없다)
+  folders: BagFolder[];
   onClose: () => void;
   onCreate: (name: string) => void;
   onRename: (folderId: string, name: string) => void;
@@ -34,9 +38,12 @@ export function FolderSheet({
   const isNew = t === "new";
   const folder = t && t !== "new" ? t : null;
   const trimmed = name.trim();
+  const nameTaken =
+    !!trimmed &&
+    folders.some((f) => f.id !== folder?.id && normalizeFolderName(f.name) === normalizeFolderName(trimmed));
 
   const submit = () => {
-    if (!trimmed) return;
+    if (!trimmed || nameTaken) return;
     if (isNew) onCreate(trimmed);
     else if (folder && trimmed !== folder.name) onRename(folder.id, trimmed);
     onClose();
@@ -48,7 +55,7 @@ export function FolderSheet({
       onClose={onClose}
       title={isNew ? "새 폴더" : "폴더"}
       footer={
-        <Button block disabled={!trimmed} onClick={submit}>
+        <Button block disabled={!trimmed || nameTaken} onClick={submit}>
           {isNew ? "만들기" : "저장"}
         </Button>
       }
@@ -70,6 +77,7 @@ export function FolderSheet({
             enterKeyHint="done"
             className="h-12 w-full rounded-field border border-line bg-card px-4 text-body outline-none focus:border-ink"
           />
+          {nameTaken && <p className="m-0 pt-2 text-caption text-alert">같은 이름의 폴더가 있어요</p>}
         </form>
 
         {folder &&

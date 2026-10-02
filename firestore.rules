@@ -13,8 +13,8 @@ rules_version = '2';
 //   restore-library-pack, Admin SDK)에서만 가능하다.
 // - bags/{bagId}: 공유 단위는 "가방"이다. memberIds에 포함된 사람만 읽고 쓸 수 있음(동시편집).
 //   생성(create)은 무료 개수 제한을 서버에서 검증해야 해서 클라이언트로는 막아뒀고(allow
-//   create: if false), app/api/create-bag(Admin SDK)에서만 만들 수 있다. 참여는 초대코드를
-//   아는 사람이 자기 uid만 추가하는 형태로만 허용(이건 여전히 클라이언트 직접 update).
+//   create: if false), app/api/create-bag(Admin SDK)에서만 만들 수 있다. 초대코드로 참여하기도
+//   app/api/join-bag(Admin SDK)만 할 수 있다(무료 참여 한도·가방당 인원 제한 검증).
 //   가방이 locked:true(소유자가 무료 전환 후 개수 제한을 넘어선 상태)이면, "소유자" 본인의
 //   수정/삭제만 막힌다 - 다른 그룹원은 locked 여부와 무관하게 그대로 이용할 수 있다
 //   (request.auth.uid == ownerId 조건과 함께 검사). locked 필드 자체도 app/api/
@@ -262,13 +262,9 @@ service cloud.firestore {
       // 복구(trashedByOwnerAt을 값 -> null로 되돌리기)는 무료 동시 진행 개수 제한 검증이
       // 필요해서 클라이언트가 직접 할 수 없다 - app/api/restore-bag(Admin SDK)만 가능하다.
 
-      // 아직 멤버가 아닌 사용자가 초대코드로 참여할 때: 자기 uid 하나만 추가 허용
-      // (memberProfiles.{uid} 스냅샷도 함께 기록할 수 있게 허용)
-      allow update: if request.auth != null &&
-        !(request.auth.uid in resource.data.memberIds) &&
-        request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid]) &&
-        resource.data.memberIds.size() < 10 &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'memberProfiles']);
+      // 초대코드로 참여하기는 클라이언트가 직접 할 수 없다 - app/api/join-bag(Admin SDK)만 멤버를 추가한다.
+      // (예전에는 "자기 uid 하나만 추가"를 여기서 허용했는데, 그러면 무료 참여 가방 3개·가방당 인원 제한을
+      //  devtools로 건너뛸 수 있었다. 앱은 이미 joinBagByCode -> /api/join-bag만 쓴다.)
 
       // 가방 삭제(영구삭제 - 휴지통에서 "완전삭제" 버튼, 30일 경과 자동정리, 혹은
       // 새로 만들다가 취소한 임시 가방 정리): 가방의 소유자이거나 멤버인 경우 삭제를 허용한다.

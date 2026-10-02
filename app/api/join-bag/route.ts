@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebaseAdmin";
+import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
-import { FREE_MAX_JOINED_BAGS } from "@/lib/premiumLimits";
+import { FREE_MAX_JOINED_BAGS, FREE_MAX_BAG_MEMBERS, MAX_BAG_MEMBERS } from "@/lib/premiumLimits";
+import { UI_V2 } from "@/lib/v2/flags";
 import { BagMemberProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -14,7 +15,21 @@ export const runtime = "nodejs";
  * 1. 무료 회원의 "초대받은 가방 최대 3개" 제한을 클라이언트가 devtools로 우회하여
  *    무제한으로 참여하는 것을 원천 차단하기 위함.
  * 2. 가방 최대 인원(10명) 및 초대 코드 유효성을 서버 트랜잭션/Admin SDK로 안전하게 검증.
+ * 3. (리디자인 v2) 가방을 만든 사람이 무료면 그 가방은 2명(나+1)까지만 함께 쓸 수 있다.
+ *    이미 인원을 넘긴 가방은 멤버를 그대로 두고 새 참여만 막는다.
  */
+
+// 만든 사람(ownerId)이 프리미엄인지. 이메일은 Auth에서 가져온다(마스터 이메일 판정용, Firestore 읽기 아님).
+async function isOwnerPremium(ownerId: string): Promise<boolean> {
+  let ownerEmail: string | null = null;
+  try {
+    ownerEmail = (await adminAuth().getUser(ownerId)).email ?? null;
+  } catch {
+    // 탈퇴 등으로 계정을 못 찾으면 이메일 없이 판정
+  }
+  return isPremiumServer(ownerId, ownerEmail);
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -74,46 +89,63 @@ export async function POST(req: NextRequest) {
 
     const bagData = bagSnap.data();
     const memberIds = (bagData?.memberIds as string[] | undefined) ?? [];
+    const ownerId = bagData?.ownerId as string | undefined;
     const isAlreadyMember = memberIds.includes(uid);
 
-    // 3. 프리미엄 검증 및 무료 참여 슬롯(최대 3개) 검증
-    const premium = await isPremiumServer(uid, email);
-
-    if (!premium && !isAlreadyMember) {
-      // 내가 속한 모든 가방 조회
-      const myBagsSnap = await db
-        .collection("bags")
-        .where("memberIds", "array-contains", uid)
-        .get();
-
-      // 내가 만든 가방이 아닌, "초대받아 참여 중인 활성 가방"만 카운트
-      const joinedCount = myBagsSnap.docs.filter((doc) => {
-        const data = doc.data();
-        const isOwner = data.ownerId === uid;
-        const isTrashed = !!data.trashedByOwnerAt;
-        return !isOwner && !isTrashed;
-      }).length;
-
-      if (joinedCount >= FREE_MAX_JOINED_BAGS) {
+    // 이미 멤버면 아무것도 검사하지 않고 그대로 들어간다(프로필 스냅샷만 갱신)
+    if (!isAlreadyMember) {
+      // 3. 가방 정원(최대 10명) 검사
+      if (memberIds.length >= MAX_BAG_MEMBERS) {
         return NextResponse.json(
-          {
-            code: "JOIN_LIMIT_REACHED",
-            error: `무료로는 초대받은 가방을 최대 ${FREE_MAX_JOINED_BAGS}개까지만 참여할 수 있어요. 더 참여하려면 이용권 코드를 등록해주세요.`,
-          },
-          { status: 403 }
+          { error: `가방 인원이 가득 찼어요 (최대 ${MAX_BAG_MEMBERS}명)` },
+          { status: 400 }
         );
+      }
+
+      // 4. (v2) 만든 사람이 무료면 2명까지. 이미 2명 이상일 때만 만든 사람을 조회한다(읽기 최소화)
+      if (UI_V2 && ownerId && memberIds.length >= FREE_MAX_BAG_MEMBERS) {
+        const ownerPremium = await isOwnerPremium(ownerId);
+        if (!ownerPremium) {
+          return NextResponse.json(
+            {
+              code: "BAG_MEMBER_LIMIT",
+              error: `이 가방은 ${FREE_MAX_BAG_MEMBERS}명까지만 함께 쓸 수 있어요. 가방을 만든 사람이 프리미엄이면 ${MAX_BAG_MEMBERS}명까지 함께할 수 있어요.`,
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      // 5. 참여하는 사람의 무료 참여 슬롯(최대 3개) 검증
+      const premium = await isPremiumServer(uid, email);
+      if (!premium) {
+        // 내가 속한 모든 가방 조회
+        const myBagsSnap = await db
+          .collection("bags")
+          .where("memberIds", "array-contains", uid)
+          .get();
+
+        // 내가 만든 가방이 아닌, "초대받아 참여 중인 활성 가방"만 카운트
+        const joinedCount = myBagsSnap.docs.filter((doc) => {
+          const data = doc.data();
+          const isOwner = data.ownerId === uid;
+          const isTrashed = !!data.trashedByOwnerAt;
+          return !isOwner && !isTrashed;
+        }).length;
+
+        if (joinedCount >= FREE_MAX_JOINED_BAGS) {
+          return NextResponse.json(
+            {
+              code: "JOIN_LIMIT_REACHED",
+              error: `무료로는 초대받은 가방을 최대 ${FREE_MAX_JOINED_BAGS}개까지만 참여할 수 있어요. 더 참여하려면 이용권 코드를 등록해주세요.`,
+            },
+            { status: 403 }
+          );
+        }
       }
     }
 
-    // 4. 가방 정원(최대 10명) 검사
-    if (!isAlreadyMember && memberIds.length >= 10) {
-      return NextResponse.json(
-        { error: "가방 인원이 가득 찼어요 (최대 10명)" },
-        { status: 400 }
-      );
-    }
-
-    // 5. 멤버 추가 및 프로필 스냅샷 기록
+    // 6. 멤버 추가 및 프로필 스냅샷 기록
     const profileEntry: BagMemberProfile = {
       nickname: joinerProfile.nickname.trim().slice(0, 12),
       avatarId: joinerProfile.avatarId,

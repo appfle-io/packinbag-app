@@ -34,6 +34,7 @@ import OfflineDataImportModal from "@/components/OfflineDataImportModal";
 import AccountLinkModal from "@/components/auth/AccountLinkModal";
 import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
+import { resetBagGuide } from "@/lib/v2/guide";
 
 const TemplateInspectLogsModal = dynamic(() => import("@/components/TemplateInspectLogsModal"), { ssr: false });
 
@@ -341,6 +342,14 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         {/* 정보 */}
         <section className="flex flex-col">
           <SectionHeader>정보</SectionHeader>
+          <ListRow
+            title="사용 가이드 다시 보기"
+            subtitle="가방을 열면 화면 위에서 다시 안내해요"
+            onClick={() => {
+              resetBagGuide();
+              show("가방을 열면 사용 가이드가 나와요");
+            }}
+          />
           <ListRow title="버전 정보" trailing={`v${APP_VERSION}`} onClick={() => setView("version")} chevron />
           <ListRow divider={false} title="오픈소스 라이선스" onClick={() => setView("licenses")} chevron />
         </section>

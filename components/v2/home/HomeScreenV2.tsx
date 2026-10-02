@@ -29,6 +29,7 @@ import { BagActionSheet } from "./sheets/BagActionSheet";
 import { FolderSheet } from "./sheets/FolderSheet";
 import { NewBagSheet } from "./sheets/NewBagSheet";
 import { archiveSuggestionsOf, buildSections, summarizeBag, type BagSummary } from "./homeModel";
+import { hasFolderNameClash } from "@/lib/bagFolderNames";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
 // (onNewKanbanBag / onOpenQuickPack / onSelectModeChange는 v2에서 쓰지 않는다: 칸반·빠른팩·다중선택 제거)
@@ -105,10 +106,11 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   );
 
   // 예전 하위 폴더는 처음 한 번 최상위로 올린다(원래 부모는 legacyParentId에 남김).
+  // 올리면서(또는 이미 올린 뒤에) 같은 이름 폴더가 생기면 이름도 같이 정리한다(lib/bagFolderNames.ts).
   const flattenedRef = useRef(false);
   useEffect(() => {
     if (flattenedRef.current || isOfflineMode) return;
-    if (!Object.values(bagFolders).some((f) => f.parentId)) return;
+    if (!Object.values(bagFolders).some((f) => f.parentId) && !hasFolderNameClash(bagFolders)) return;
     flattenedRef.current = true;
     flattenBagFolders().catch((err) => {
       console.error("[팩인백] 가방 폴더 정리 실패:", err);
@@ -403,6 +405,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
       />
       <FolderSheet
         target={folderTarget}
+        folders={folders}
         onClose={() => setFolderTarget(null)}
         onCreate={(name) =>
           createBagFolder(name)
