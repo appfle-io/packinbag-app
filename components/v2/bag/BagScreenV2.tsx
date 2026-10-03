@@ -48,6 +48,7 @@ import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
 import { BAG_GUIDE_STEPS, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
 import { keepScreenOnSupported, readKeepScreenOnPref, useKeepScreenOn, writeKeepScreenOnPref } from "@/lib/v2/keepAwake";
+import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -217,12 +218,17 @@ export default function BagScreenV2(props: BagScreenProps) {
     return p.id === activeFilter;
   });
 
+  // 설정 > 가방 > "다 챙긴 아이템은 아래로"(구 UI 팩 설정과 같은 값, 없으면 켜짐). 화면 순서만 바꾸고 저장 순서는 그대로
+  const moveDoneDown = profile?.packSettings?.moveCompletedToBottom ?? true;
   const itemsFor = (p: Pack) =>
-    activeFilter === "left"
-      ? p.items.filter((i) => i.type === "check" && !i.checked)
-      : activeFilter === "mine"
-        ? p.items.filter(isMine)
-        : p.items;
+    getDisplayOrderedItems(
+      activeFilter === "left"
+        ? p.items.filter((i) => i.type === "check" && !i.checked)
+        : activeFilter === "mine"
+          ? p.items.filter(isMine)
+          : p.items,
+      moveDoneDown,
+    );
   // 사용 가이드에서 비출 팩: 화면에 보이는 첫 체크리스트 팩(메모 제외)
   const guidePackId = visibleSections.find((p) => p.kind !== "editor")?.id;
 

@@ -11,6 +11,8 @@ export function useCanUse3Cols(): boolean {
 
   useEffect(() => {
     const mql = window.matchMedia(CAN_3COLS_BREAKPOINT_QUERY);
+    // 하이드레이션 뒤 실제 폭을 한 번 반영하는 의도된 동기화(구 UI 전용, 출시 때 함께 삭제)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCanUse3Cols(mql.matches);
     const handler = (e: MediaQueryListEvent) => setCanUse3Cols(e.matches);
     mql.addEventListener("change", handler);

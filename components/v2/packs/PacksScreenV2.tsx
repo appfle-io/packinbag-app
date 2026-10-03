@@ -20,7 +20,7 @@ import { searchLibraryPacks, type PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import { PackShareSheet, type PackShareTarget } from "@/components/v2/sheets/PackShareSheet";
-import { Badge, Button, IconButton, PageStack, ScreenBody, ScreenHeader, cx, useLongPress } from "@/components/v2/ui";
+import { Badge, Button, IconButton, PageStack, ReorderSheet, ScreenBody, ScreenHeader, cx, useLongPress, type ReorderGroup } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { AddSheet } from "./sheets/AddSheet";
 import { EntrySheet } from "./sheets/EntrySheet";
@@ -109,7 +109,7 @@ function EntryRow({
 // - 빠른팩은 맨 위 화면 하단에 고정(엄지로 누르기 쉬운 자리)
 export default function PacksScreenV2(props: PacksScreenProps) {
   const { packs, bags, quickPack, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks } = props;
-  const { profile, isOfflineMode, togglePackPinned } = useAuth();
+  const { profile, isOfflineMode, togglePackPinned, updatePackOrderByParent } = useAuth();
   const { show } = useToast();
 
   // 빠른팩은 트리에 넣지 않는다(하단 한 줄로 따로)
@@ -229,6 +229,24 @@ export default function PacksScreenV2(props: PacksScreenProps) {
     togglePackPinned(entry.id).catch(() => show("고정 상태를 저장하지 못했어요"));
 
   const openEntry = (entry: Pack) => (entry.type === "folder" ? goTo(entry.id) : onOpenPack(entry));
+
+  // --- 순서 바꾸기(길게 누르기 시트 > 순서 바꾸기) -------------------------------------------
+  // 지금 폴더(또는 맨 위)의 항목만. 폴더는 폴더끼리, 팩·메모는 팩·메모끼리(화면도 폴더가 항상 위).
+  // 고정한 항목은 항상 맨 위라 뺀다. 저장은 구 UI와 같은 packOrderByParent[폴더 id | "root"] + 정렬 "custom"(쓰기 1회)
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const currentEntries = entriesIn(treePacks, currentId, {
+    sortBy: profile?.packSortBy ?? "createdAt",
+    pinnedIds,
+    orderByParent: profile?.packOrderByParent,
+  }).filter((e) => !pinnedSet.has(e.id));
+  const reorderItem = (e: Pack) => ({ id: e.id, label: e.name || (e.type === "folder" ? "이름 없는 폴더" : "이름 없는 팩"), icon: <EntryIcon entry={e} /> });
+  const reorderGroups: ReorderGroup[] = [
+    { key: "folders", title: "폴더", items: currentEntries.filter((e) => e.type === "folder").map(reorderItem) },
+    { key: "packs", title: "팩 · 메모", items: currentEntries.filter((e) => e.type !== "folder").map(reorderItem) },
+  ];
+  const pinnedHere = entriesIn(treePacks, currentId, { pinnedIds, orderByParent: profile?.packOrderByParent }).some((e) =>
+    pinnedSet.has(e.id),
+  );
 
   // --- 폴더 한 화면(헤더 + 목록). 맨 위 화면만 검색·버튼이 실제로 쓰인다 -----------------------------
   const renderPage = (key: string, isTop: boolean) => {
@@ -402,6 +420,19 @@ export default function PacksScreenV2(props: PacksScreenProps) {
         onMove={() => entryTarget && setMoveId(entryTarget.id)}
         onShare={() => entryTarget && setShareId(entryTarget.id)}
         onDelete={() => entryTarget && setDeleteId(entryTarget.id)}
+        onReorder={isOfflineMode || currentEntries.length < 2 ? undefined : () => setReorderOpen(true)}
+      />
+      <ReorderSheet
+        open={reorderOpen}
+        title={current ? `'${current.name}' 순서` : "팩 순서"}
+        hint={`오른쪽 ≡를 끌어서 옮겨요. 폴더는 항상 팩보다 위에 있어요.${pinnedHere ? " 고정한 항목은 항상 맨 위라 여기서 빠져요." : ""}`}
+        groups={reorderGroups}
+        onClose={() => setReorderOpen(false)}
+        onSave={(orders) =>
+          updatePackOrderByParent(currentId ?? "root", [...(orders.folders ?? []), ...(orders.packs ?? [])]).catch(() =>
+            show("순서를 저장하지 못했어요"),
+          )
+        }
       />
       <MoveSheet
         entry={moveTarget}

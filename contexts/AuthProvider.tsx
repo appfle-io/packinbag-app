@@ -500,6 +500,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           expandedPackFolderIds: data?.expandedPackFolderIds as string[] | undefined,
           bagFolders: data?.bagFolders as UserProfile["bagFolders"],
           bagFolderAssignments: data?.bagFolderAssignments as UserProfile["bagFolderAssignments"],
+          bagFolderOrder: data?.bagFolderOrder as string[] | undefined,
           bagOrderByParent: data?.bagOrderByParent as UserProfile["bagOrderByParent"],
           expandedBagFolderIds: data?.expandedBagFolderIds as string[] | undefined,
           bagSettings: data?.bagSettings as UserProfile["bagSettings"],

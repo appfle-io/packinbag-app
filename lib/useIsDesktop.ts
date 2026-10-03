@@ -15,6 +15,8 @@ export function useIsDesktop(): boolean {
 
   useEffect(() => {
     const mql = window.matchMedia(DESKTOP_BREAKPOINT_QUERY);
+    // 하이드레이션 뒤 실제 폭을 한 번 반영하는 의도된 동기화(셀 통합 때 처음 깜빡임과 함께 useSyncExternalStore로 정리 예정)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDesktop(mql.matches);
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mql.addEventListener("change", handler);

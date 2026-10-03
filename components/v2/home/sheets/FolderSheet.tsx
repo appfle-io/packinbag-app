@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight, IconMenu2 } from "@tabler/icons-react";
 import type { BagFolder } from "@/lib/types";
 import { normalizeFolderName } from "@/lib/bagFolderNames";
-import { Button, IconButton, Sheet } from "@/components/v2/ui";
+import { Button, Sheet } from "@/components/v2/ui";
 
 const MAX_NAME = 20;
 
 // 가방 폴더 만들기(folder 없음) / 이름 바꾸기·순서·삭제(folder 있음).
 // target: null이면 닫힘, "new"면 새 폴더, BagFolder면 그 폴더 편집.
-// 순서: ◀ ▶ 한 번에 한 칸. 누를 때마다 바로 저장돼 시트 뒤 칩 줄이 같이 움직인다(저장 버튼과 무관).
+// 순서: "폴더 순서 바꾸기" → 전체 폴더를 끌어서 옮기는 시트(ReorderSheet, 부르는 쪽에서 연다).
 export function FolderSheet({
   target,
   folders,
@@ -18,7 +18,7 @@ export function FolderSheet({
   onCreate,
   onRename,
   onDelete,
-  onMove,
+  onReorder,
 }: {
   target: "new" | BagFolder | null;
   // 칩에 보이는 순서 그대로. 이름 겹침 검사와 순서 표시에 쓴다(폴더는 1단계라 같은 이름이면 칩에서 구분할 수 없다)
@@ -28,7 +28,7 @@ export function FolderSheet({
   onRename: (folderId: string, name: string) => void;
   onDelete: (folderId: string) => void;
   // 없으면 순서 줄을 숨긴다(오프라인 등)
-  onMove?: (folderId: string, delta: -1 | 1) => void;
+  onReorder?: () => void;
 }) {
   const [cached, setCached] = useState(target);
   const [name, setName] = useState("");
@@ -46,7 +46,6 @@ export function FolderSheet({
   const nameTaken =
     !!trimmed &&
     folders.some((f) => f.id !== folder?.id && normalizeFolderName(f.name) === normalizeFolderName(trimmed));
-  const position = folder ? folders.findIndex((f) => f.id === folder.id) : -1;
 
   const submit = () => {
     if (!trimmed || nameTaken) return;
@@ -86,23 +85,16 @@ export function FolderSheet({
           {nameTaken && <p className="m-0 pt-2 text-caption text-alert">같은 이름의 폴더가 있어요</p>}
         </form>
 
-        {folder && onMove && folders.length > 1 && position >= 0 && (
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex flex-col">
-              <span className="text-body text-ink">순서</span>
-              <span className="text-caption text-sub">
-                {folders.length}개 중 {position + 1}번째
-              </span>
-            </span>
-            <div className="flex items-center gap-2">
-              <IconButton label="앞으로" variant="soft" disabled={position === 0} onClick={() => onMove(folder.id, -1)}>
-                <IconChevronLeft size={20} stroke={2} />
-              </IconButton>
-              <IconButton label="뒤로" variant="soft" disabled={position === folders.length - 1} onClick={() => onMove(folder.id, 1)}>
-                <IconChevronRight size={20} stroke={2} />
-              </IconButton>
-            </div>
-          </div>
+        {folder && onReorder && folders.length > 1 && (
+          <button
+            type="button"
+            onClick={onReorder}
+            className="flex min-h-13 w-full items-center gap-3 border-y border-line bg-transparent text-left text-body active:bg-fill"
+          >
+            <IconMenu2 size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+            <span className="min-w-0 flex-1">폴더 순서 바꾸기</span>
+            <IconChevronRight size={16} stroke={1.75} className="text-faint" aria-hidden="true" />
+          </button>
         )}
 
         {folder &&

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { IconChevronRight, IconCloudUpload, IconDownload, IconUpload } from "@tabler/icons-react";
 import { useTheme, type FontScale, type ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -32,11 +31,9 @@ import MyShortLinksModal from "@/components/MyShortLinksModal";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import OfflineDataImportModal from "@/components/OfflineDataImportModal";
 import AccountLinkModal from "@/components/auth/AccountLinkModal";
-import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, cx } from "@/components/v2/ui";
+import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
-
-const TemplateInspectLogsModal = dynamic(() => import("@/components/TemplateInspectLogsModal"), { ssr: false });
 
 // 구 SettingsScreen과 같은 props. AppShell(모바일)에서 UI_V2 플래그로 바꿔 끼운다.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -107,7 +104,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     hideNotificationBell,
   } = props;
   const { mode, setMode, fontScale, setFontScale } = useTheme();
-  const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOfflineMode, switchToOnlineMode } =
+  const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOfflineMode, switchToOnlineMode, updatePackSettings } =
     useAuth();
   const { show } = useToast();
 
@@ -118,7 +115,6 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [showMyShortLinks, setShowMyShortLinks] = useState(false);
   const [showAccountLink, setShowAccountLink] = useState(false);
   const [showOfflineImport, setShowOfflineImport] = useState(false);
-  const [showInspectLogs, setShowInspectLogs] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -259,6 +255,19 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           </div>
         </section>
 
+        {/* 가방: 구 UI 팩 설정의 "완료된 항목 맨 아래로"(같은 필드, 없으면 켜짐). 계정에 저장돼 기기 간 동일 */}
+        {!isOfflineMode && (
+          <section className="flex flex-col">
+            <SectionHeader>가방</SectionHeader>
+            <Toggle
+              checked={profile?.packSettings?.moveCompletedToBottom ?? true}
+              onChange={(on) => updatePackSettings({ moveCompletedToBottom: on }).catch(() => show("설정을 저장하지 못했어요"))}
+              label="다 챙긴 아이템은 아래로"
+              description="체크하면 그 팩의 맨 뒤로 내려가요"
+            />
+          </section>
+        )}
+
         {/* 이용권 */}
         {!isOfflineMode && (
           <section className="flex flex-col">
@@ -358,7 +367,6 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         {!isOfflineMode && isMaster && (
           <section className="flex flex-col">
             <SectionHeader>관리자</SectionHeader>
-            <ListRow title="템플릿 공유 등록 모니터링" onClick={() => setShowInspectLogs(true)} chevron />
             <Link href="/admin" className="flex min-h-13 w-full items-center gap-3 py-2 text-body text-ink active:bg-fill">
               <span className="min-w-0 flex-1 truncate">관리자 사이트로 이동</span>
               <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
@@ -435,7 +443,6 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       {showMyShortLinks && user && <MyShortLinksModal user={user} onClose={() => setShowMyShortLinks(false)} />}
       {showOfflineImport && <OfflineDataImportModal onClose={() => setShowOfflineImport(false)} />}
       {showAccountLink && <AccountLinkModal isOpen={showAccountLink} onClose={() => setShowAccountLink(false)} />}
-      {showInspectLogs && <TemplateInspectLogsModal onClose={() => setShowInspectLogs(false)} />}
 
       <ConfirmSheet
         open={confirmLogout}

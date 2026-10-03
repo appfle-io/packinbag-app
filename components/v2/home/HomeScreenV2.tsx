@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconArchive, IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconPin, IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconArchive, IconCheck, IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu2, IconPin, IconPlus, IconSearch } from "@tabler/icons-react";
 import type { Bag, BagFolder, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -18,6 +18,7 @@ import {
   HeaderScroller,
   IconButton,
   PageStack,
+  ReorderSheet,
   ScreenBody,
   ScreenHeader,
   SectionHeader,
@@ -42,7 +43,7 @@ import {
   type HomeSort,
 } from "./homeModel";
 import { hasFolderNameClash } from "@/lib/bagFolderNames";
-import { moveFolderInOrder, saveBagFolderOrder, sortBagFolders, validBagFolders } from "@/lib/bagFolderOrder";
+import { saveBagFolderOrder, sortBagFolders, validBagFolders } from "@/lib/bagFolderOrder";
 import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
@@ -111,6 +112,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     moveBagsToFolder,
     flattenBagFolders,
     updateBagSortBy,
+    updateBagOrderByParent,
   } = useAuth();
   const { show } = useToast();
   const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
@@ -149,16 +151,10 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     }
   };
 
-  // 폴더 칩 순서 바꾸기(폴더 시트 ◀ ▶). 지금 보이는 순서 전체를 저장한다(쓰기 1회)
-  const moveFolder = (id: string, delta: -1 | 1) => {
-    const next = moveFolderInOrder(
-      folders.map((f) => f.id),
-      id,
-      delta,
-    );
-    if (!next) return;
-    saveBagFolderOrder(uid, next).catch(() => show("폴더 순서를 저장하지 못했어요"));
-  };
+  // 폴더 칩 순서 바꾸기(폴더 시트 > 폴더 순서 바꾸기 → 끌어서 옮기는 시트). 완료 누르면 전체 순서를 저장(쓰기 1회)
+  const [folderReorderOpen, setFolderReorderOpen] = useState(false);
+  const saveFolderOrder = (ids: string[]) =>
+    saveBagFolderOrder(uid, ids).catch(() => show("폴더 순서를 저장하지 못했어요"));
 
   // --- 목록 계산 ------------------------------------------------------------------
   const archivedSet = useMemo(() => new Set(profile?.archivedBagIds ?? []), [profile?.archivedBagIds]);
@@ -172,7 +168,11 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   // 아래 "가방" 목록 정렬(최근순 / 이름순 / 이름 역순). 계정에 저장(bagSortBy), 캐러셀에는 영향 없음
   const sort = homeSortOf(profile?.bagSortBy);
   const [sortOpen, setSortOpen] = useState(false);
-  const sections = buildSections(active, pinnedIds, sort);
+  // 직접 정한 순서는 폴더마다 따로(전체 = "root"). 구 UI에서 전체를 드래그했던 bagOrder도 이어받는다
+  const orderKey = activeFolderId ?? "root";
+  const customOrder = profile?.bagOrderByParent?.[orderKey] ?? (orderKey === "root" ? profile?.bagOrder : undefined);
+  const [bagReorderOpen, setBagReorderOpen] = useState(false);
+  const sections = buildSections(active, pinnedIds, sort, customOrder);
   const suggestions = activeFolderId || !personal ? [] : archiveSuggestionsOf(activeAll, profile?.archiveSuggestionDismissedIds ?? []);
 
   // --- 보기: 홈 / 보관함 / 검색 ------------------------------------------------------
@@ -470,7 +470,39 @@ export default function HomeScreenV2(props: HomeScreenProps) {
           ))}
         </div>
         <p className="m-0 pt-3 text-caption text-faint">최근순은 출발 7일 안의 가방이 먼저, 나머지는 최근에 체크한 순서예요. 위 카드는 정렬과 상관없이 곧 출발 → 싸는 중 순서, 고정한 가방은 항상 맨 위에 있어요.</p>
+        {personal && sections.list.length > 1 && (
+          <Button
+            variant="secondary"
+            block
+            className="mt-4"
+            leading={<IconMenu2 size={18} stroke={1.9} />}
+            onClick={() => {
+              setSortOpen(false);
+              setBagReorderOpen(true);
+            }}
+          >
+            {activeFolderId ? `'${bagFolders[activeFolderId]?.name ?? "폴더"}' 가방 순서 바꾸기` : "가방 순서 바꾸기"}
+          </Button>
+        )}
       </Sheet>
+
+      {/* 끌어서 순서 바꾸기: 가방(지금 폴더 안, 고정 제외) · 폴더 칩 */}
+      <ReorderSheet
+        open={bagReorderOpen}
+        title="가방 순서"
+        hint={`오른쪽 ≡를 끌어서 옮겨요. 완료하면 정렬이 '직접 정한 순서'로 바뀌어요.${sections.pinned.length > 0 ? " 고정한 가방은 항상 위라 여기서 빠져요." : ""}`}
+        groups={[{ key: "bags", items: sections.list.map((s) => ({ id: s.bag.id, label: s.bag.name || "이름 없는 가방", sub: s.status })) }]}
+        onClose={() => setBagReorderOpen(false)}
+        onSave={(orders) => updateBagOrderByParent(orderKey, orders.bags ?? []).catch(fail("가방 순서를 저장하지 못했어요"))}
+      />
+      <ReorderSheet
+        open={folderReorderOpen}
+        title="폴더 순서"
+        hint="오른쪽 ≡를 끌어서 옮겨요. 위쪽 칩 순서가 이대로 바뀌어요."
+        groups={[{ key: "folders", items: folders.map((f) => ({ id: f.id, label: f.name })) }]}
+        onClose={() => setFolderReorderOpen(false)}
+        onSave={(orders) => saveFolderOrder(orders.folders ?? [])}
+      />
 
       {/* 시트 · 모달 */}
       <NewBagSheet
@@ -509,7 +541,14 @@ export default function HomeScreenV2(props: HomeScreenProps) {
           if (activeFolderId === id) pickFolder(undefined);
           deleteBagFolder(id).catch(fail("폴더를 삭제하지 못했어요"));
         }}
-        onMove={personal ? moveFolder : undefined}
+        onReorder={
+          personal
+            ? () => {
+                setFolderTarget(null);
+                setFolderReorderOpen(true);
+              }
+            : undefined
+        }
       />
       <ConfirmSheet
         open={!!confirmBag}
