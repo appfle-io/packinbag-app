@@ -92,6 +92,7 @@ import { lowlight } from "./lowlightSetup";
 import CodeBlockComponent from "@/components/editor/CodeBlockComponent";
 
 import { ImageAttachment, FileAttachment } from "./noteEditorAttachmentExtensions";
+import { MarkdownPaste } from "./noteEditorMarkdownPaste";
 
 const CustomCodeBlock = CodeBlockLowlight.extend({
   addAttributes() {
@@ -155,6 +156,8 @@ export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOp
     Color,
     FontSize,
     Underline,
+    // 마크다운 글 붙여넣기 → 서식(표·제목·목록·체크·굵게 등). lib/noteEditorMarkdownPaste.ts
+    MarkdownPaste,
     // 링크 마크. openOnClick은 false로 둘 - TipTap 기본 동작은 편집 중에도 클릭하면
     // 바로 탐색해버려서 커서를 원하는 위치에 놓기 어려울 수 있음. 대신
     // PackNoteEditorScreen.tsx가 <a> 태그 클릭을 직접 감지해서 열기/해제/짧은 URL로 변경 선택

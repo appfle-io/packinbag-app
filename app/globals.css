@@ -934,6 +934,11 @@ aside {
   outline: 2px solid var(--v2-brand);
   outline-offset: 2px;
 }
+/* 글을 쓰는 칸(메모 본문·입력칸)은 커서가 있어서 테두리가 필요 없다. 위 규칙이 .pib-note-editor .ProseMirror의
+   outline:none을 덮어서(나중에 쓴 같은 명시도) 메모를 쓰는 동안 본문 전체에 네모 테두리가 보이던 문제(2026-10-03) */
+.pib-v2 :is(input, textarea, [contenteditable="true"], .ProseMirror):focus-visible {
+  outline: none;
+}
 .pib-v2 ::selection {
   background: var(--v2-brand-soft);
 }
