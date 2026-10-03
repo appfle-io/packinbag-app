@@ -1,359 +1,405 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconChevronRight } from "@tabler/icons-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { IconAlertCircle, IconChevronRight, IconClockHour4, IconKey, IconLoader2, IconMessageQuestion, IconRefresh, IconUsers } from "@tabler/icons-react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { adminApiFetch, AdminApiError } from "@/lib/adminApiClient";
+import type { AdminInsights, AdminKpis, AdminStats } from "@/lib/adminStats";
 import UserListModal from "@/components/admin/UserListModal";
 
-interface StatsShape {
-  users: { total: number; newLast7Days: number };
-  bags: { total: number; active: number; trashed: number; shared: number };
-  packs: { total: number; editor: number; folders: number; libraryTotal: number };
-  items: { total: number; checked: number };
-  premium: { unusedCodes: number; activeCodes: number; expiredCodes: number; invalidatedCodes: number };
-  inquiries: { total: number; pending: number };
+interface DashboardResponse extends AdminStats {
+  insights: AdminInsights;
+  kpisWeekAgo: AdminKpis | null;
+  trend: { vsYesterday: AdminStats | null; vsLastWeek: AdminStats | null };
+  generatedAt?: string;
+  cached?: boolean;
 }
 
-interface AdminStats extends StatsShape {
-  // 스냅샷이 없는 날(첫 배포 직후, cron 실패 등)에는 각 값이 null로 내려온다.
-  trend: {
-    vsYesterday: StatsShape | null;
-    vsLastWeek: StatsShape | null;
-  };
-}
-
-// 대시보드에서 열 수 있는 모달 종류. 유저 목록(전체/최근 7일)만 모달로 보여주고,
-// 이용권/문의는 각 관리 화면으로 필터를 붙여서 이동시킨다(아래 StatCard onClick 참고).
 type ModalKind = "allUsers" | "newUsers" | null;
 
-// ---- 증감 뱃지 ----
-function TrendBadge({ label, value }: { label: string; value: number | null | undefined }) {
-  if (value === null || value === undefined) {
-    return (
-      <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-        {label} -
-      </span>
-    );
-  }
-  const sign = value > 0 ? "+" : "";
-  const color = value > 0 ? "#16a34a" : value < 0 ? "var(--danger)" : "var(--text-muted)";
+const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+const num = (n: number) => n.toLocaleString("ko-KR");
+
+// 전주 대비 증감(스냅샷이 없으면 표시 안 함)
+function Delta({ now, before }: { now: number; before: number | null | undefined }) {
+  if (before === null || before === undefined) return <span className="text-micro text-faint">전주 기록 없음</span>;
+  const d = now - before;
+  if (d === 0) return <span className="text-micro text-faint">전주와 같음</span>;
   return (
-    <span className="text-[11px]" style={{ color }}>
-      {label} {sign}
-      {value.toLocaleString()}
+    <span className={`text-micro font-semibold ${d > 0 ? "text-brand" : "text-alert"}`}>
+      전주보다 {d > 0 ? "+" : ""}
+      {num(d)}
     </span>
   );
 }
 
-function StatCard({
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <section className={`rounded-card border border-line bg-card p-5 ${className}`}>{children}</section>;
+}
+
+function CardTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="mb-4 flex flex-col gap-1">
+      <h2 className="m-0 text-body font-bold text-ink">{children}</h2>
+      {hint && <p className="m-0 text-caption text-sub">{hint}</p>}
+    </div>
+  );
+}
+
+function Kpi({
   label,
   value,
   sub,
-  trendYesterday,
-  trendLastWeek,
+  delta,
   onClick,
 }: {
   label: string;
-  value: string | number;
-  sub?: string;
-  trendYesterday?: number | null;
-  trendLastWeek?: number | null;
+  value: string;
+  sub?: React.ReactNode;
+  delta?: React.ReactNode;
   onClick?: () => void;
 }) {
-  const showTrend = trendYesterday !== undefined || trendLastWeek !== undefined;
-  const clickable = !!onClick;
+  const body = (
+    <>
+      <span className="flex items-center justify-between gap-2 text-caption text-sub">
+        {label}
+        {onClick && <IconChevronRight size={16} stroke={1.75} className="text-faint" aria-hidden="true" />}
+      </span>
+      <span className="text-title font-bold text-ink tabular-nums">{value}</span>
+      {sub && <span className="text-caption text-sub">{sub}</span>}
+      {delta}
+    </>
+  );
+  const cls = "flex flex-col gap-1 rounded-card border border-line bg-card p-5 text-left";
+  return onClick ? (
+    <button type="button" onClick={onClick} className={`${cls} transition-colors hover:bg-fill`}>
+      {body}
+    </button>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
+
+// 가로 막대(비율). 전체 대비 몇 %인지와 실제 수
+function RatioBar({ label, value, total, note }: { label: string; value: number; total: number; note?: string }) {
+  const p = pct(value, total);
   return (
-    <div
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-body text-ink">{label}</span>
+        <span className="shrink-0 text-caption text-sub tabular-nums">
+          <strong className="text-body font-bold text-ink">{p}%</strong> · {num(value)}
+          {note ? ` ${note}` : ""}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-fill">
+        <div className="h-2 rounded-full bg-brand" style={{ width: `${p}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Todo({ icon, title, detail, onClick }: { icon: React.ReactNode; title: string; detail: string; onClick?: () => void }) {
+  return (
+    <button
+      type="button"
       onClick={onClick}
-      role={clickable ? "button" : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onKeyDown={
-        clickable
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") onClick?.();
-            }
-          : undefined
-      }
-      className={`rounded-xl p-4 flex flex-col gap-1 transition-colors ${
-        clickable ? "cursor-pointer hover:bg-surface-2" : ""
-      }`}
-      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+      disabled={!onClick}
+      className="flex min-h-15 items-center gap-3 rounded-card border border-line bg-card px-4 py-3 text-left transition-colors hover:bg-fill disabled:cursor-default disabled:hover:bg-card"
     >
-      <div className="flex items-center justify-between gap-1">
-        <p className="text-[12px] text-text-secondary">{label}</p>
-        {clickable && <IconChevronRight size={13} stroke={2} className="text-text-muted shrink-0" />}
-      </div>
-      <p className="text-[24px] font-semibold">{value.toLocaleString?.() ?? value}</p>
-      {sub && <p className="text-[11px] text-text-muted">{sub}</p>}
-      {showTrend && (
-        <div className="flex gap-2.5 mt-0.5">
-          <TrendBadge label="전일" value={trendYesterday} />
-          <TrendBadge label="전주" value={trendLastWeek} />
-        </div>
-      )}
-    </div>
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-fill text-ink">{icon}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-body font-semibold text-ink">{title}</span>
+        <span className="text-caption text-sub">{detail}</span>
+      </span>
+      {onClick && <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />}
+    </button>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-8">
-      <h2 className="text-[13px] font-medium text-text-secondary mb-2.5">{title}</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{children}</div>
-    </div>
-  );
-}
-
-// ---- 파이 차트 ----
-interface PieDatum {
-  name: string;
-  value: number;
-  color: string;
-}
-
-function StatPie({ title, data }: { title: string; data: PieDatum[] }) {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
-  return (
-    <div
-      className="rounded-xl p-4 flex flex-col"
-      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-    >
-      <p className="text-[12px] text-text-secondary mb-1">{title}</p>
-      <div style={{ width: "100%", height: 170 }}>
-        {total > 0 ? (
-          <ResponsiveContainer>
-            <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={2}>
-                {data.map((d, i) => (
-                  <Cell key={i} fill={d.color} stroke="none" />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value, name) => [`${Number(value ?? 0).toLocaleString()}개`, String(name)]}
-                contentStyle={{ fontSize: 12, borderRadius: 8 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full text-[12px] text-text-muted">데이터 없음</div>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-        {data.map((d, i) => (
-          <div key={i} className="flex items-center gap-1.5 text-[11px] text-text-muted">
-            <span className="inline-block w-2 h-2 rounded-full" style={{ background: d.color }} />
-            {d.name} {total > 0 ? Math.round((d.value / total) * 100) : 0}% ({d.value.toLocaleString()})
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const shortDate = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+const AXIS = { fontSize: 12, fill: "var(--v2-faint)" };
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<ModalKind>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await adminApiFetch<AdminStats>("/api/admin/stats");
-        if (!cancelled) setStats(data);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof AdminApiError ? err.message : "통계를 불러오지 못했어요");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async (force: boolean) => {
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await adminApiFetch<DashboardResponse>(`/api/admin/stats${force ? "?force=1" : ""}`));
+    } catch (err) {
+      setError(err instanceof AdminApiError ? err.message : "통계를 불러오지 못했어요");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const y = stats?.trend?.vsYesterday ?? null;
-  const w = stats?.trend?.vsLastWeek ?? null;
+  useEffect(() => {
+    // 처음 한 번 불러오기(setState는 비동기 함수 안에서)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load(false);
+  }, [load]);
+
+  const ins = data?.insights;
+  const w = data?.kpisWeekAgo ?? null;
+  const total = data?.users.total ?? 0;
+
+  const todos = ins
+    ? [
+        ins.ops.pendingInquiries > 0 && {
+          key: "inq",
+          icon: <IconMessageQuestion size={20} stroke={1.75} />,
+          title: `답변 기다리는 문의 ${ins.ops.pendingInquiries}개`,
+          detail: ins.ops.oldestPendingDays !== null ? `가장 오래된 문의가 ${ins.ops.oldestPendingDays}일째 기다리고 있어요` : "문의 관리에서 답변해 주세요",
+          onClick: () => router.push("/admin/inquiries?status=pending"),
+        },
+        ins.monetization.codesExpiringIn7d > 0 && {
+          key: "exp",
+          icon: <IconClockHour4 size={20} stroke={1.75} />,
+          title: `7일 안에 끝나는 이용권 ${ins.monetization.codesExpiringIn7d}개`,
+          detail: "연장 안내가 필요한지 확인해 보세요",
+          onClick: () => router.push("/admin/unlock-codes?status=active"),
+        },
+        ins.monetization.unusedCodes < 5 && {
+          key: "stock",
+          icon: <IconKey size={20} stroke={1.75} />,
+          title: `나눠 줄 이용권이 ${ins.monetization.unusedCodes}개 남았어요`,
+          detail: "이용권 코드 관리에서 새로 만들 수 있어요",
+          onClick: () => router.push("/admin/unlock-codes?status=unused"),
+        },
+      ].filter(Boolean) as { key: string; icon: React.ReactNode; title: string; detail: string; onClick?: () => void }[]
+    : [];
+
+  const daily = ins?.daily ?? [];
+  const activeSeries = daily.filter((d) => d.activeUsers7d !== null);
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl">
-      <h1 className="text-[20px] font-semibold mb-1">대시보드</h1>
-      <p className="text-[13px] text-text-secondary mb-6">
-        팩인백 전체 현황을 한눈에 확인할 수 있어요.
-      </p>
+    <div className="pib-v2 min-h-full bg-canvas">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8">
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h1 className="m-0 text-title font-bold text-ink">대시보드</h1>
+            <p className="m-0 text-caption text-sub">
+              실제로 쓰는 사람 · 처음 쓰는 흐름 · 결제로 이어지는 곳을 봐요
+              {data?.generatedAt && ` · ${new Date(data.generatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준`}
+              {data?.cached && " (5분 캐시)"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => load(true)}
+            disabled={loading}
+            className="inline-flex h-11 items-center gap-2 rounded-card border border-line-strong bg-card px-4 text-body font-semibold text-ink hover:bg-fill disabled:opacity-40"
+          >
+            {loading ? <IconLoader2 size={18} stroke={2} className="animate-spin" /> : <IconRefresh size={18} stroke={1.9} />}
+            새로 집계
+          </button>
+        </header>
 
-      {loading && <p className="text-[13px] text-text-muted">불러오는 중...</p>}
-      {error && (
-        <p className="text-[13px]" style={{ color: "var(--danger)" }}>
-          {error}
-        </p>
-      )}
+        {error && (
+          <p role="alert" className="m-0 flex items-center gap-2 text-body text-alert">
+            <IconAlertCircle size={18} stroke={1.9} /> {error}
+          </p>
+        )}
+        {!data && loading && <p className="m-0 py-20 text-center text-body text-sub">집계하고 있어요</p>}
 
-      {stats && (
-        <>
-          <Section title="유저">
-            <StatCard
-              label="총 가입자"
-              value={stats.users.total}
-              trendYesterday={y?.users.total}
-              trendLastWeek={w?.users.total}
-              onClick={() => setModal("allUsers")}
-            />
-            <StatCard
-              label="최근 7일 신규 가입"
-              value={stats.users.newLast7Days}
-              onClick={() => setModal("newUsers")}
-            />
-          </Section>
+        {data && ins && (
+          <>
+            {/* 오늘 할 일 */}
+            {todos.length > 0 && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {todos.map(({ key, ...t }) => (
+                  <Todo key={key} {...t} />
+                ))}
+              </div>
+            )}
 
-          <Section title="가방">
-            <StatCard
-              label="총 가방"
-              value={stats.bags.total}
-              trendYesterday={y?.bags.total}
-              trendLastWeek={w?.bags.total}
-            />
-            <StatCard
-              label="진행 중"
-              value={stats.bags.active}
-              trendYesterday={y?.bags.active}
-              trendLastWeek={w?.bags.active}
-            />
-            <StatCard
-              label="휴지통"
-              value={stats.bags.trashed}
-              trendYesterday={y?.bags.trashed}
-              trendLastWeek={w?.bags.trashed}
-            />
-            <StatCard
-              label="공유 중(2인 이상)"
-              value={stats.bags.shared}
-              trendYesterday={y?.bags.shared}
-              trendLastWeek={w?.bags.shared}
-            />
-          </Section>
-
-          <Section title="팩 / 아이템">
-            <StatCard
-              label="가방 속 팩 총합"
-              value={stats.packs.total}
-              sub={`에디터팩 ${stats.packs.editor}개`}
-              trendYesterday={y?.packs.total}
-              trendLastWeek={w?.packs.total}
-            />
-            <StatCard
-              label="라이브러리 팩"
-              value={stats.packs.libraryTotal}
-              trendYesterday={y?.packs.libraryTotal}
-              trendLastWeek={w?.packs.libraryTotal}
-            />
-            <StatCard
-              label="아이템(항목) 총합"
-              value={stats.items.total}
-              trendYesterday={y?.items.total}
-              trendLastWeek={w?.items.total}
-            />
-            <StatCard
-              label="완료된 아이템"
-              value={stats.items.checked}
-              trendYesterday={y?.items.checked}
-              trendLastWeek={w?.items.checked}
-            />
-          </Section>
-
-          <Section title="이용권(프리미엄)">
-            <StatCard
-              label="사용 중(활성)"
-              value={stats.premium.activeCodes}
-              trendYesterday={y?.premium.activeCodes}
-              trendLastWeek={w?.premium.activeCodes}
-              onClick={() => router.push("/admin/unlock-codes?status=active")}
-            />
-            <StatCard
-              label="미배포"
-              value={stats.premium.unusedCodes}
-              onClick={() => router.push("/admin/unlock-codes?status=unused")}
-            />
-            <StatCard
-              label="만료됨"
-              value={stats.premium.expiredCodes}
-              onClick={() => router.push("/admin/unlock-codes?status=expired")}
-            />
-            <StatCard
-              label="무효화됨"
-              value={stats.premium.invalidatedCodes}
-              onClick={() => router.push("/admin/unlock-codes?status=invalidated")}
-            />
-          </Section>
-
-          <Section title="문의">
-            <StatCard
-              label="총 문의"
-              value={stats.inquiries.total}
-              trendYesterday={y?.inquiries.total}
-              trendLastWeek={w?.inquiries.total}
-              onClick={() => router.push("/admin/inquiries")}
-            />
-            <StatCard
-              label="미답변"
-              value={stats.inquiries.pending}
-              trendYesterday={y?.inquiries.pending}
-              trendLastWeek={w?.inquiries.pending}
-              onClick={() => router.push("/admin/inquiries?status=pending")}
-            />
-          </Section>
-
-          <div className="mb-8">
-            <h2 className="text-[13px] font-medium text-text-secondary mb-2.5">현황 한눈에 보기</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <StatPie
-                title="가방 상태"
-                data={[
-                  { name: "진행 중", value: stats.bags.active, color: "#2563eb" },
-                  { name: "휴지통", value: stats.bags.trashed, color: "#9ca3af" },
-                ]}
+            {/* 핵심 숫자 */}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Kpi
+                label="최근 7일 활동한 사람"
+                value={num(ins.kpis.activeUsers7d)}
+                sub={`가입자의 ${pct(ins.kpis.activeUsers7d, total)}% · 30일 ${num(ins.kpis.activeUsers30d)}명`}
+                delta={<Delta now={ins.kpis.activeUsers7d} before={w?.activeUsers7d} />}
               />
-              <StatPie
-                title="팩 구성"
-                data={[
-                  { name: "일반 팩", value: stats.packs.total - stats.packs.editor, color: "#2563eb" },
-                  { name: "에디터 팩", value: stats.packs.editor, color: "#f97316" },
-                  { name: "폴더", value: stats.packs.folders, color: "#9ca3af" },
-                ]}
+              <Kpi
+                label="오늘 활동한 사람"
+                value={num(ins.kpis.activeUsers1d)}
+                sub={`7일 활동자 중 ${pct(ins.kpis.activeUsers1d, ins.kpis.activeUsers7d)}%`}
+                delta={<Delta now={ins.kpis.activeUsers1d} before={w?.activeUsers1d} />}
               />
-              <StatPie
-                title="아이템 완료율"
-                data={[
-                  { name: "완료", value: stats.items.checked, color: "#16a34a" },
-                  { name: "미완료", value: stats.items.total - stats.items.checked, color: "#e5e7eb" },
-                ]}
+              <Kpi
+                label="최근 7일 새로 가입"
+                value={num(data.users.newLast7Days)}
+                sub={`전체 가입자 ${num(total)}명`}
+                delta={<Delta now={data.users.newLast7Days} before={data.trend.vsLastWeek ? data.users.newLast7Days - data.trend.vsLastWeek.users.newLast7Days : null} />}
+                onClick={() => setModal("newUsers")}
               />
-              <StatPie
-                title="이용권 코드 상태"
-                data={[
-                  { name: "활성", value: stats.premium.activeCodes, color: "#16a34a" },
-                  { name: "미배포", value: stats.premium.unusedCodes, color: "#2563eb" },
-                  { name: "만료", value: stats.premium.expiredCodes, color: "#9ca3af" },
-                  { name: "무효화", value: stats.premium.invalidatedCodes, color: "#dc2626" },
-                ]}
+              <Kpi
+                label="프리미엄 사용자"
+                value={num(ins.kpis.premiumUsers)}
+                sub={`가입자의 ${pct(ins.kpis.premiumUsers, total)}% · 구매 ${ins.monetization.viaPurchase} · 이용권 ${ins.monetization.viaCode}`}
+                delta={<Delta now={ins.kpis.premiumUsers} before={w?.premiumUsers} />}
               />
             </div>
-          </div>
-        </>
-      )}
 
-      {modal === "allUsers" && (
-        <UserListModal title="총 가입자" newOnly={false} onClose={() => setModal(null)} />
-      )}
-      {modal === "newUsers" && (
-        <UserListModal title="최근 7일 신규 가입" newOnly={true} onClose={() => setModal(null)} />
-      )}
+            {/* 추이 */}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <Card>
+                <CardTitle hint="최근 30일, 하루에 몇 명이 가입했는지">일별 가입</CardTitle>
+                <div className="h-56">
+                  <ResponsiveContainer>
+                    <BarChart data={daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                      <CartesianGrid vertical={false} stroke="var(--v2-line)" />
+                      <XAxis dataKey="date" tickFormatter={shortDate} tick={AXIS} tickLine={false} axisLine={false} interval={4} />
+                      <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} />
+                      <Tooltip
+                        cursor={{ fill: "var(--v2-fill)" }}
+                        labelFormatter={(d) => shortDate(String(d))}
+                        formatter={(v) => [`${v}명`, "가입"]}
+                        contentStyle={{ fontSize: 13, borderRadius: 8, border: "1px solid var(--v2-line)", background: "var(--v2-card)" }}
+                      />
+                      <Bar dataKey="signups" fill="var(--v2-brand)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+              <Card>
+                <CardTitle hint="그날 기준 최근 7일 동안 가방을 움직인 사람 수. 매일 밤 기록이 쌓여요">활동한 사람 추이</CardTitle>
+                <div className="h-56">
+                  {activeSeries.length >= 2 ? (
+                    <ResponsiveContainer>
+                      <LineChart data={daily} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <CartesianGrid vertical={false} stroke="var(--v2-line)" />
+                        <XAxis dataKey="date" tickFormatter={shortDate} tick={AXIS} tickLine={false} axisLine={false} interval={4} />
+                        <YAxis allowDecimals={false} tick={AXIS} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          labelFormatter={(d) => shortDate(String(d))}
+                          formatter={(v, name) => [`${v}명`, name === "activeUsers7d" ? "7일 활동" : "프리미엄"]}
+                          contentStyle={{ fontSize: 13, borderRadius: 8, border: "1px solid var(--v2-line)", background: "var(--v2-card)" }}
+                        />
+                        <Line type="monotone" dataKey="activeUsers7d" stroke="var(--v2-brand)" strokeWidth={2} dot={false} connectNulls />
+                        <Line type="monotone" dataKey="premiumUsers" stroke="var(--v2-sub)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} connectNulls />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+                      <p className="m-0 text-body text-sub">기록이 쌓이는 중이에요</p>
+                      <p className="m-0 text-caption text-faint">이틀 이상 쌓이면 선으로 보여요(실선 7일 활동 · 점선 프리미엄)</p>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {/* 처음 쓰는 흐름 */}
+              <Card>
+                <CardTitle hint={`최근 30일에 가입한 ${num(ins.funnel.signedUp)}명이 어디까지 써 봤는지`}>처음 쓰는 흐름</CardTitle>
+                <div className="flex flex-col gap-4">
+                  <RatioBar label="가방을 만들었어요" value={ins.funnel.madeBag} total={ins.funnel.signedUp} note="명" />
+                  <RatioBar label="아이템을 넣었어요" value={ins.funnel.addedItems} total={ins.funnel.signedUp} note="명" />
+                  <RatioBar label="체크해 봤어요" value={ins.funnel.checkedItem} total={ins.funnel.signedUp} note="명" />
+                  <RatioBar label="누군가와 함께 써요" value={ins.funnel.shared} total={ins.funnel.signedUp} note="명" />
+                  <div className="mt-2 rounded-field bg-fill px-4 py-3">
+                    <p className="m-0 text-body text-ink">
+                      다시 찾아온 비율 <strong className="font-bold">{pct(ins.retention.returned, ins.retention.cohort)}%</strong>
+                    </p>
+                    <p className="m-0 text-caption text-sub">
+                      가입한 지 8~30일 된 {num(ins.retention.cohort)}명 중 최근 7일에 가방을 움직인 {num(ins.retention.returned)}명
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* 기능 사용 */}
+              <Card>
+                <CardTitle hint={`휴지통 아닌 가방 ${num(ins.usage.bags)}개 중`}>기능을 얼마나 쓰나</CardTitle>
+                <div className="flex flex-col gap-4">
+                  <RatioBar label="함께 쓰는 가방(2명 이상)" value={ins.usage.sharedBags} total={ins.usage.bags} note="개" />
+                  <RatioBar label="D-Day를 정한 가방" value={ins.usage.ddayBags} total={ins.usage.bags} note="개" />
+                  <RatioBar label="한 번 이상 다 싼 가방" value={ins.usage.packedOnceBags} total={ins.usage.bags} note="개" />
+                  <RatioBar label="메모 팩이 있는 가방" value={ins.usage.memoBags} total={ins.usage.bags} note="개" />
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {[
+                      { k: "가방당 팩", v: String(ins.usage.avgPacksPerBag) },
+                      { k: "가방당 아이템", v: String(ins.usage.avgItemsPerBag) },
+                      { k: "팩 보관함", v: num(ins.usage.libraryPacks) },
+                    ].map((x) => (
+                      <div key={x.k} className="flex flex-col gap-1 rounded-field bg-fill px-3 py-3">
+                        <span className="text-micro text-sub">{x.k}</span>
+                        <span className="text-body-lg font-bold text-ink tabular-nums">{x.v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* 결제 · AI */}
+            <Card>
+              <CardTitle hint="무료 한도에 닿은 사람은 프리미엄 안내를 이미 보고 있는 사람이에요">결제로 이어지는 곳</CardTitle>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[
+                  { k: "가방 3개를 다 쓴 무료 사용자", v: ins.monetization.freeAtBagLimit, u: "명" },
+                  { k: "인원이 가득 찬 무료 가방", v: ins.monetization.freeBagsAtMemberLimit, u: "개" },
+                  { k: "오늘 AI를 쓴 사람", v: ins.ai.usersToday, u: `명 · ${num(ins.ai.callsToday)}회` },
+                  { k: "나눠 줄 수 있는 이용권", v: ins.monetization.unusedCodes, u: "개" },
+                ].map((x) => (
+                  <div key={x.k} className="flex flex-col gap-1 rounded-field bg-fill px-4 py-3">
+                    <span className="text-caption text-sub">{x.k}</span>
+                    <span className="text-heading font-bold text-ink tabular-nums">
+                      {num(x.v)}
+                      <span className="ml-1 text-caption font-medium text-sub">{x.u}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* 전체 규모 */}
+            <Card>
+              <CardTitle>전체 규모</CardTitle>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 md:grid-cols-3">
+                {[
+                  { k: "가입자", v: `${num(total)}명`, onClick: () => setModal("allUsers") },
+                  { k: "가방", v: `${num(data.bags.active)}개 (휴지통 ${num(data.bags.trashed)})` },
+                  { k: "가방 속 팩", v: `${num(data.packs.total)}개 (메모 ${num(data.packs.editor)})` },
+                  { k: "아이템", v: `${num(data.items.total)}개 · 체크 ${pct(data.items.checked, data.items.total)}%` },
+                  { k: "이용권", v: `사용 중 ${num(data.premium.activeCodes)} · 만료 ${num(data.premium.expiredCodes)} · 무효 ${num(data.premium.invalidatedCodes)}`, onClick: () => router.push("/admin/unlock-codes") },
+                  { k: "문의", v: `${num(data.inquiries.total)}개 (미답변 ${num(data.inquiries.pending)})`, onClick: () => router.push("/admin/inquiries") },
+                ].map((x) => (
+                  <button
+                    key={x.k}
+                    type="button"
+                    disabled={!x.onClick}
+                    onClick={x.onClick}
+                    className="flex items-baseline justify-between gap-3 border-b border-line bg-transparent py-2 text-left disabled:cursor-default enabled:hover:bg-fill"
+                  >
+                    <span className="flex items-center gap-1 text-caption text-sub">
+                      {x.k === "가입자" && <IconUsers size={14} stroke={1.75} aria-hidden="true" />}
+                      {x.k}
+                    </span>
+                    <span className="text-body text-ink tabular-nums">{x.v}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="m-0 pt-4 text-micro text-faint">
+                &lsquo;활동&rsquo;은 가방이 저장·체크된 시각으로 셉니다. 함께 쓰는 가방은 멤버 모두를 활동으로 보고, 팩 보관함만 쓴 사람은 빠져요. 운영자 계정은 프리미엄 수에서 뺐어요.
+              </p>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {modal === "allUsers" && <UserListModal title="전체 가입자" newOnly={false} onClose={() => setModal(null)} />}
+      {modal === "newUsers" && <UserListModal title="최근 7일 신규 가입" newOnly={true} onClose={() => setModal(null)} />}
     </div>
   );
 }

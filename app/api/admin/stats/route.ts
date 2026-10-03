@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { requireMasterUser, AdminForbiddenError, ServerAuthError } from "@/lib/adminApiAuth";
-import { computeAdminStats, kstDateStringDaysAgo, AdminStats } from "@/lib/adminStats";
+import { computeAdminDashboard, kstDateStringDaysAgo, AdminStats, AdminInsights, AdminKpis } from "@/lib/adminStats";
 
 export const runtime = "nodejs";
 
@@ -52,6 +52,9 @@ function diffStats(current: AdminStats, baseline: AdminStats | null): AdminStats
 // 관리자 대시보드 통계 인메모리 캐시 (5분 TTL). 대시보드 새로고침 시의 Firestore 대량 Read를 방어한다.
 interface CachedStatsPayload {
   stats: AdminStats;
+  insights: AdminInsights;
+  // 핵심 숫자의 일주일 전 값(스냅샷에 kpis가 있을 때만)
+  kpisWeekAgo: AdminKpis | null;
   trend: {
     vsYesterday: AdminStats | null;
     vsLastWeek: AdminStats | null;
@@ -78,13 +81,16 @@ export async function GET(req: NextRequest) {
   if (!force && statsCache && now - statsCache.cachedAtMs < STATS_CACHE_TTL_MS) {
     return NextResponse.json({
       ...statsCache.data.stats,
+      insights: statsCache.data.insights,
+      kpisWeekAgo: statsCache.data.kpisWeekAgo,
       trend: statsCache.data.trend,
+      generatedAt: new Date(statsCache.cachedAtMs).toISOString(),
       cached: true,
     });
   }
 
   try {
-    const stats = await computeAdminStats();
+    const { stats, insights } = await computeAdminDashboard();
 
     const db = adminDb();
     const yesterdayId = kstDateStringDaysAgo(1);
@@ -97,19 +103,24 @@ export async function GET(req: NextRequest) {
     const yesterdayStats = yesterdaySnap.exists ? (yesterdaySnap.data() as AdminStats) : null;
     const weekAgoStats = weekAgoSnap.exists ? (weekAgoSnap.data() as AdminStats) : null;
 
+    const weekAgoKpis = (weekAgoSnap.exists ? (weekAgoSnap.data()?.kpis as AdminKpis | undefined) : undefined) ?? null;
+
     const trend = {
       vsYesterday: diffStats(stats, yesterdayStats),
       vsLastWeek: diffStats(stats, weekAgoStats),
     };
 
     statsCache = {
-      data: { stats, trend },
+      data: { stats, insights, kpisWeekAgo: weekAgoKpis, trend },
       cachedAtMs: Date.now(),
     };
 
     return NextResponse.json({
       ...stats,
+      insights,
+      kpisWeekAgo: weekAgoKpis,
       trend,
+      generatedAt: new Date().toISOString(),
     });
   } catch (err) {
     console.error("[팩인백] 관리자 통계 조회 실패:", err);

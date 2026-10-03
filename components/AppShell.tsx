@@ -106,6 +106,7 @@ import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { QuickAddSheet } from "@/components/v2/sheets/QuickAddSheet";
 import { AnnouncementSheet } from "@/components/v2/sheets/AnnouncementSheet";
 import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
+import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import DesktopShell from "@/components/DesktopShell";
@@ -2264,14 +2265,29 @@ export default function AppShell() {
         )
       )}
       <SplashScreen visible={showSplash} />
-      <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-      <CreatingBagOverlay visible={creatingBag} />
-      <CreatingPackOverlay visible={creatingPack} />
-      <DeletingBagsOverlay
-        visible={bulkDeleting !== null}
-        total={bulkDeleting?.total ?? 0}
-        completed={bulkDeleting?.completed ?? 0}
-      />
+      {UI_V2 ? (
+        <>
+          <BusyOverlay visible={showPremiumSyncOverlay} />
+          <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
+          <BusyOverlay visible={creatingPack} message="팩을 만들고 있어요" />
+          <BusyOverlay
+            visible={bulkDeleting !== null}
+            message="가방을 정리하고 있어요"
+            progress={{ total: bulkDeleting?.total ?? 0, completed: bulkDeleting?.completed ?? 0 }}
+          />
+        </>
+      ) : (
+        <>
+          <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
+          <CreatingBagOverlay visible={creatingBag} />
+          <CreatingPackOverlay visible={creatingPack} />
+          <DeletingBagsOverlay
+            visible={bulkDeleting !== null}
+            total={bulkDeleting?.total ?? 0}
+            completed={bulkDeleting?.completed ?? 0}
+          />
+        </>
+      )}
     </>
   );
 }

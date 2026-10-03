@@ -1,6 +1,5 @@
 import {
   arrayRemove,
-  arrayUnion,
   collection,
   deleteDoc,
   deleteField,
@@ -17,7 +16,7 @@ import {
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
-import { Bag, BagMemberProfile } from "@/lib/types";
+import { Bag } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
 import { mergeBag } from "@/lib/syncMerge";

@@ -18,7 +18,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
   const { user, profile, isMaster, loading, logout } = useAuth();
 
   if (loading) {
-    return <div className="min-h-dvh" style={{ background: "var(--background)" }} />;
+    return <div className="pib-v2 min-h-dvh bg-canvas" />;
   }
 
   if (!user) {
@@ -27,17 +27,13 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
 
   if (!isMaster) {
     return (
-      <div
-        className="min-h-dvh flex flex-col items-center justify-center gap-3 p-6 text-center"
-        style={{ background: "var(--background)" }}
-      >
-        <p className="text-[15px] font-medium">관리자 권한이 없어요</p>
-        <p className="text-[13px] text-text-secondary">
-          {user.email}로 로그인되어 있어요. 운영자 계정으로 다시 로그인해주세요.
-        </p>
+      <div className="pib-v2 flex min-h-dvh flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
+        <p className="m-0 text-body-lg font-bold text-ink">관리자 권한이 없어요</p>
+        <p className="m-0 text-caption text-sub">{user.email}로 로그인되어 있어요. 운영자 계정으로 다시 로그인해 주세요.</p>
         <button
+          type="button"
           onClick={() => logout()}
-          className="rounded-lg border border-border px-4 py-2 text-[13px] mt-2"
+          className="mt-2 h-11 rounded-card border border-line-strong bg-card px-5 text-body font-semibold text-ink hover:bg-fill"
         >
           로그아웃
         </button>
@@ -49,7 +45,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
   // 잘려 보이는 문제 방지. 모든 admin 화면(children)이 이 main을 공유하므로 여기 한 곳만
   // 고치면 대시보드/유저조회/활동로그/공지사항 관리 등에 전부 동일하게 적용된다.
   return (
-    <div className="min-h-dvh flex" style={{ background: "var(--background)" }}>
+    <div className="pib-v2 pib-v2-legacy flex min-h-dvh bg-canvas">
       <AdminSidebar email={user.email} nickname={profile?.nickname ?? null} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <AdminMobileHeader email={user.email} nickname={profile?.nickname ?? null} />

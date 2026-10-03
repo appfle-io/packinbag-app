@@ -131,9 +131,10 @@ function AdminUsersInner() {
   // 이메일 입력창에 채워주고 바로 조회까지 실행해준다.
   useEffect(() => {
     if (emailFromQuery) {
+      // 주소의 ?email=로 들어오면 바로 검색(로딩 표시를 켜고 비동기 조회)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       runSearch(emailFromQuery);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emailFromQuery]);
 
   const handleSearch = async (e: React.FormEvent) => {

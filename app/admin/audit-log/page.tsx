@@ -59,6 +59,8 @@ function AuditLogInner() {
   };
 
   useEffect(() => {
+    // 처음 한 번 불러오기(로딩 표시를 켜고 비동기 조회)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(initialUid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

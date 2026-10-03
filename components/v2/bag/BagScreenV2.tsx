@@ -14,7 +14,7 @@ import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { ClipboardImportSheet, type ClipboardImportResult as AiClipboardResult } from "@/components/v2/sheets/AiPasteSheets";
 import { AuditSheet } from "./sheets/AuditSheet";
-import ImageLightbox from "@/components/ImageLightbox";
+import { PhotoViewer } from "./PhotoViewer";
 import {
   useBagDocument,
   useBagItems,
@@ -945,7 +945,7 @@ export default function BagScreenV2(props: BagScreenProps) {
       </SlideScreen>
 
       {lightbox !== null && (
-        <ImageLightbox
+        <PhotoViewer
           images={bag.images.filter((u) => getFileKind(u) === "image")}
           index={Math.max(0, bag.images.filter((u) => getFileKind(u) === "image").indexOf(bag.images[lightbox]))}
           onClose={() => setLightbox(null)}

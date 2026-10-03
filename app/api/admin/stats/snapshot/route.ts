@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebaseAdmin";
-import { computeAdminStats, kstDateStringDaysAgo } from "@/lib/adminStats";
+import { computeAdminDashboard, kstDateStringDaysAgo } from "@/lib/adminStats";
 
 export const runtime = "nodejs";
 
@@ -21,13 +21,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const stats = await computeAdminStats();
+    const { stats, insights } = await computeAdminDashboard();
     const yesterdayId = kstDateStringDaysAgo(1);
 
+    // kpis(활동 사용자·프리미엄 사용자 등)는 대시보드 추이 그래프·전주 대비에 쓴다(2026-10-03 추가)
     await adminDb()
       .collection("adminStatsSnapshots")
       .doc(yesterdayId)
-      .set({ ...stats, capturedAt: FieldValue.serverTimestamp() });
+      .set({ ...stats, kpis: insights.kpis, capturedAt: FieldValue.serverTimestamp() });
 
     return NextResponse.json({ ok: true, dateId: yesterdayId });
   } catch (err) {
