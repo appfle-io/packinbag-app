@@ -42,7 +42,7 @@ import {
   type HomeSort,
 } from "./homeModel";
 import { hasFolderNameClash } from "@/lib/bagFolderNames";
-import { moveFolderInOrder, saveBagFolderOrder, sortBagFolders } from "@/lib/bagFolderOrder";
+import { moveFolderInOrder, saveBagFolderOrder, sortBagFolders, validBagFolders } from "@/lib/bagFolderOrder";
 import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
@@ -117,7 +117,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   const personal = !isOfflineMode;
 
   // --- 폴더 (1단계) ---------------------------------------------------------------
-  const bagFolders = useMemo(() => profile?.bagFolders ?? {}, [profile?.bagFolders]);
+  const bagFolders = useMemo(() => validBagFolders(profile?.bagFolders), [profile?.bagFolders]);
   const assignments = profile?.bagFolderAssignments ?? {};
   const folders = useMemo(() => sortBagFolders(bagFolders, profile?.bagFolderOrder), [bagFolders, profile?.bagFolderOrder]);
 

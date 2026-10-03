@@ -9,8 +9,9 @@
 
 import type { BagFolder } from "@/lib/types";
 
-export function normalizeFolderName(name: string): string {
-  return name.trim().toLocaleLowerCase("ko");
+export function normalizeFolderName(name: string | undefined): string {
+  // name 없는 반쪽 항목도 터지지 않게(lib/bagFolderOrder.ts validBagFolders 참고)
+  return (name ?? "").trim().toLocaleLowerCase("ko");
 }
 
 // 평평하게 만든 뒤 기준으로 "원래 부모" id (아직 안 평평해졌으면 parentId, 이미 평평하면 legacyParentId)
@@ -41,7 +42,7 @@ export function resolveFolderNameClashes(folders: Record<string, BagFolder>): Re
     });
 
     for (const f of sorted.slice(1)) {
-      const base = f.name.trim();
+      const base = (f.name ?? "").trim();
       const parent = originalParentOf(f);
       const parentName = parent ? folders[parent]?.name?.trim() : undefined;
       const candidates: string[] = [];
