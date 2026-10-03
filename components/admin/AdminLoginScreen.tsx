@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
 import BackpackLogo from "@/components/BackpackLogo";
+import { Button } from "@/components/v2/ui";
+import { ADMIN_FIELD } from "@/components/admin/AdminPage";
 
-// 일반 회원가입 UI는 없는, 관리자 전용 로그인 화면. app/admin/*는 이 화면을 통과해야만
-// 진입할 수 있고, 로그인 성공 후 마스터 이메일이 아니면 AdminGate가 다시 막는다.
+// 관리자 전용 로그인(가입 없음). 로그인 뒤 운영자가 아니면 AdminGate가 다시 막는다.
 export default function AdminLoginScreen() {
   const { signInWithEmail, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
@@ -14,24 +15,11 @@ export default function AdminLoginScreen() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const run = async (fn: () => Promise<unknown>) => {
     setError("");
     setBusy(true);
     try {
-      await signInWithEmail(email, password);
-    } catch (err) {
-      setError(friendlyAuthError(err instanceof Error ? err.message : ""));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleGoogle = async () => {
-    setError("");
-    setBusy(true);
-    try {
-      await signInWithGoogle();
+      await fn();
     } catch (err) {
       setError(friendlyAuthError(err instanceof Error ? err.message : ""));
     } finally {
@@ -40,59 +28,50 @@ export default function AdminLoginScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--background)" }}>
-      <div className="w-full max-w-xs flex flex-col gap-4">
-        <div className="text-center mb-2 flex flex-col items-center gap-2.5">
+    <div className="pib-v2 pib-v2-legacy flex min-h-dvh items-center justify-center bg-canvas p-6">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <div className="flex flex-col items-center gap-3 text-center">
           <BackpackLogo size={48} />
-          <p className="text-[15px] font-medium">팩인백 관리자</p>
-          <p className="text-[12.5px] text-text-secondary">운영자 계정으로 로그인해주세요</p>
+          <h1 className="m-0 text-heading font-bold text-ink">팩인백 관리자</h1>
+          <p className="m-0 text-caption text-sub">운영자 계정으로 로그인해 주세요</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="이메일"
-            required
-            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] outline-none"
-          />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => signInWithEmail(email, password));
+          }}
+          className="flex flex-col gap-2"
+        >
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="이메일" placeholder="이메일" autoComplete="email" required className={ADMIN_FIELD} />
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            aria-label="비밀번호"
             placeholder="비밀번호"
+            autoComplete="current-password"
             required
-            className="rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] outline-none"
+            className={ADMIN_FIELD}
           />
           {error && (
-            <p className="text-[12px]" style={{ color: "var(--danger)" }}>
+            <p role="alert" className="m-0 text-caption text-alert">
               {error}
             </p>
           )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-lg py-2.5 text-[14px] font-medium disabled:opacity-50 mt-1"
-            style={{ background: "var(--accent)", color: "#fff" }}
-          >
-            {busy ? "확인 중..." : "로그인"}
-          </button>
+          <Button type="submit" block disabled={busy} className="mt-2">
+            {busy ? "확인 중" : "로그인"}
+          </Button>
         </form>
 
-        <div className="flex items-center gap-2 text-[12px] text-text-muted">
-          <div className="flex-1 h-px bg-border" />
+        <div className="flex items-center gap-3 text-caption text-faint">
+          <span className="h-px flex-1 bg-line" />
           또는
-          <div className="flex-1 h-px bg-border" />
+          <span className="h-px flex-1 bg-line" />
         </div>
-
-        <button
-          onClick={handleGoogle}
-          disabled={busy}
-          className="rounded-lg border border-border py-2.5 text-[13px] disabled:opacity-50"
-        >
+        <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithGoogle)}>
           Google로 계속하기
-        </button>
+        </Button>
       </div>
     </div>
   );

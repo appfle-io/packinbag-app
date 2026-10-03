@@ -2,7 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { IconFilter } from "@tabler/icons-react";
 import { adminApiFetch, AdminApiError } from "@/lib/adminApiClient";
+import { Badge, Button, cx } from "@/components/v2/ui";
+import { ADMIN_FIELD, AdminCard, AdminEmpty, AdminError, AdminLoading, AdminPage } from "@/components/admin/AdminPage";
 
 interface AuditLogEntry {
   id: string;
@@ -17,29 +20,23 @@ interface AuditLogEntry {
 
 const ACTION_LABELS: Record<string, string> = {
   bag_restore: "가방 복구",
-  bag_trash: "가방 속 팩 → 휴지통 이동",
-  library_pack_restore: "라이브러리 팩 복구",
-  library_pack_trash: "라이브러리 팩 휴지통 이동",
-  unlock_code_redeem: "이용권 코드 사용",
-  unlock_code_invalidate: "이용권 코드 무효화",
-  invite_code_regenerate: "초대코드 재발급",
+  bag_trash: "가방 속 팩 → 휴지통",
+  library_pack_restore: "보관함 팩 복구",
+  library_pack_trash: "보관함 팩 → 휴지통",
+  unlock_code_redeem: "이용권 사용",
+  unlock_code_invalidate: "이용권 무효화",
+  invite_code_regenerate: "초대 코드 재발급",
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  return new Date(iso).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function AuditLogInner() {
   const searchParams = useSearchParams();
   const initialUid = searchParams.get("uid") ?? "";
   const [uidFilter, setUidFilter] = useState(initialUid);
+  const [appliedUid, setAppliedUid] = useState(initialUid);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,99 +44,87 @@ function AuditLogInner() {
   const load = async (uid: string) => {
     setLoading(true);
     setError(null);
+    setAppliedUid(uid.trim());
     try {
       const query = uid.trim() ? `?uid=${encodeURIComponent(uid.trim())}` : "";
       const data = await adminApiFetch<{ logs: AuditLogEntry[] }>(`/api/admin/audit-logs${query}`);
       setLogs(data.logs);
     } catch (err) {
-      setError(err instanceof AdminApiError ? err.message : "로그를 불러오지 못했어요");
+      setError(err instanceof AdminApiError ? err.message : "기록을 불러오지 못했어요");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // 처음 한 번 불러오기(로딩 표시를 켜고 비동기 조회)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 처음 한 번 불러오기(로딩 표시 후 비동기)
     load(initialUid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="p-8 max-w-3xl">
-      <h1 className="text-[20px] font-semibold mb-1">활동 로그</h1>
-      <p className="text-[13px] text-text-secondary mb-6">
-        삭제/복구/이용권 사용 등 CS 관련 주요 이벤트 기록이에요. uid로 필터할 수 있어요.
-      </p>
-
+    <AdminPage title="활동 로그" description="삭제 · 복구 · 이용권처럼 문의 응대에 필요한 기록이에요">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           load(uidFilter);
         }}
-        className="flex gap-2 mb-6"
+        className="flex gap-2"
       >
-        <input
-          value={uidFilter}
-          onChange={(e) => setUidFilter(e.target.value)}
-          placeholder="uid로 필터 (비워두면 전체)"
-          className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[13px] outline-none"
-        />
-        <button
-          type="submit"
-          className="rounded-lg px-4 py-2 text-[13px] font-medium"
-          style={{ background: "var(--accent)", color: "#fff" }}
-        >
-          필터
-        </button>
+        <input value={uidFilter} onChange={(e) => setUidFilter(e.target.value)} aria-label="uid" placeholder="uid로 거르기 (비우면 전체)" className={ADMIN_FIELD} />
+        <Button type="submit" size="sm" variant="secondary" className="shrink-0" leading={<IconFilter size={18} stroke={1.75} />}>
+          거르기
+        </Button>
       </form>
 
-      {loading && <p className="text-[13px] text-text-muted">불러오는 중...</p>}
-      {error && (
-        <p className="text-[13px]" style={{ color: "var(--danger)" }}>
-          {error}
-        </p>
+      {error && <AdminError>{error}</AdminError>}
+      {loading ? (
+        <AdminLoading />
+      ) : logs.length === 0 ? (
+        <AdminEmpty>{appliedUid ? "이 사용자의 기록이 없어요" : "기록이 없어요"}</AdminEmpty>
+      ) : (
+        <AdminCard title={appliedUid ? `기록 ${logs.length}개 · ${appliedUid}` : `최근 기록 ${logs.length}개`}>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {logs.map((log, i) => {
+              const meta = Object.entries(log.meta ?? {});
+              return (
+                <li key={log.id} className={cx("flex flex-col gap-1 py-3", i < logs.length - 1 && "border-b border-line")}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Badge tone={log.action.includes("invalidate") || log.action.includes("trash") ? "neutral" : "brand"}>
+                        {ACTION_LABELS[log.action] ?? log.action}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUidFilter(log.uid);
+                          load(log.uid);
+                        }}
+                        className="bg-transparent text-caption text-sub hover:text-ink hover:underline"
+                        title="이 사용자 기록만 보기"
+                      >
+                        {log.email ?? log.uid}
+                      </button>
+                    </span>
+                    <span className="text-micro text-faint tabular-nums">{formatDate(log.createdAt)}</span>
+                  </div>
+                  <span className="truncate text-caption text-faint">
+                    {log.targetType}:{log.targetId}
+                    {meta.length > 0 && ` · ${meta.map(([k, v]) => `${k}=${String(v)}`).join(" · ")}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </AdminCard>
       )}
-
-      {!loading && !error && (
-        <div className="flex flex-col gap-1.5">
-          {logs.length === 0 ? (
-            <p className="text-[13px] text-text-muted py-10 text-center">기록이 없어요</p>
-          ) : (
-            logs.map((log) => (
-              <div
-                key={log.id}
-                className="rounded-lg px-3 py-2.5"
-                style={{ background: "var(--surface-2)" }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[13px] font-medium">
-                    {ACTION_LABELS[log.action] ?? log.action}
-                  </p>
-                  <p className="text-[11px] text-text-muted shrink-0">{formatDate(log.createdAt)}</p>
-                </div>
-                <p className="text-[11px] text-text-muted mt-0.5">
-                  {log.email ?? log.uid} · {log.targetType}:{log.targetId}
-                </p>
-                {Object.keys(log.meta ?? {}).length > 0 && (
-                  <p className="text-[11px] text-text-muted mt-0.5 truncate">
-                    {Object.entries(log.meta)
-                      .map(([k, v]) => `${k}=${String(v)}`)
-                      .join(" · ")}
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </div>
+    </AdminPage>
   );
 }
 
 export default function AdminAuditLogPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-[13px] text-text-muted">불러오는 중...</div>}>
+    <Suspense fallback={<AdminLoading />}>
       <AuditLogInner />
     </Suspense>
   );

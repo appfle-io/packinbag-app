@@ -59,8 +59,10 @@ import {
   getLocalTrashedItems,
   subscribeLocalData,
 } from "@/lib/localBagsService";
-import AuthScreen from "@/components/auth/AuthScreen";
-import GoogleProfileSetup from "@/components/auth/GoogleProfileSetup";
+import LegacyAuthScreen from "@/components/auth/AuthScreen";
+import LegacyGoogleProfileSetup from "@/components/auth/GoogleProfileSetup";
+import AuthScreenV2 from "@/components/v2/auth/AuthScreenV2";
+import ProfileSetupV2 from "@/components/v2/auth/ProfileSetupV2";
 import EmailVerifyBanner from "@/components/EmailVerifyBanner";
 import InstallPrompt from "@/components/InstallPrompt";
 import BottomTabBar, { TabKey } from "@/components/BottomTabBar";
@@ -120,6 +122,8 @@ const HomeScreen = UI_V2 ? HomeScreenV2 : LegacyHomeScreen;
 const PacksScreen = UI_V2 ? PacksScreenV2 : LegacyPacksScreen;
 const SettingsScreen = UI_V2 ? SettingsScreenV2 : LegacySettingsScreen;
 const PackLibraryEditorScreen = UI_V2 ? PackEditorV2 : LegacyPackLibraryEditorScreen;
+const AuthScreen = UI_V2 ? AuthScreenV2 : LegacyAuthScreen;
+const GoogleProfileSetup = UI_V2 ? ProfileSetupV2 : LegacyGoogleProfileSetup;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
