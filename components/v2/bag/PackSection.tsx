@@ -1,8 +1,8 @@
 "use client";
 
-import { IconCheck, IconChevronDown, IconListDetails } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconListDetails, IconPlus } from "@tabler/icons-react";
 import type { Item, Pack } from "@/lib/types";
-import { Badge, Button, CheckMark, cx, useLongPress } from "@/components/v2/ui";
+import { Badge, Button, CheckMark, IconButton, cx, useLongPress } from "@/components/v2/ui";
 
 export interface PackSectionProps {
   pack: Pack;
@@ -24,6 +24,10 @@ export interface PackSectionProps {
   guide?: boolean;
   // 여러 개 선택 중이면 고른 아이템 id(아니면 undefined). 선택 중에는 체크 대신 동그라미 선택 표시
   selectedIds?: Set<string>;
+  // 팩 머리 + : 하단 입력창을 이 팩 대상으로 연다(없으면 + 숨김 - 미분류·잠긴 가방·여러 개 선택 중)
+  onAdd?: () => void;
+  // 지금 하단 입력창이 이 팩에 넣는 중이면 true(+ 강조)
+  addActive?: boolean;
 }
 
 // 가방 안 체크리스트 팩 하나. 머리줄을 누르면 접고 펼치고, 길게 누르면 팩 메뉴.
@@ -42,6 +46,8 @@ export function PackSection({
   dense,
   guide,
   selectedIds,
+  onAdd,
+  addActive,
 }: PackSectionProps) {
   const checks = pack.items.filter((i) => i.type === "check");
   const done = checks.filter((i) => i.checked).length;
@@ -57,12 +63,13 @@ export function PackSection({
         inbox ? "mb-2 rounded-card border border-line bg-card px-4" : "border-b border-line",
       )}
     >
+      <div className="flex items-center">
       <button
         type="button"
         aria-expanded={open}
         {...header}
         className={cx(
-          "flex w-full select-none items-center justify-between gap-3 bg-transparent text-left",
+          "flex min-w-0 flex-1 select-none items-center justify-between gap-3 bg-transparent text-left",
           dense ? "min-h-12" : "min-h-13",
         )}
       >
@@ -80,6 +87,16 @@ export function PackSection({
           />
         </span>
       </button>
+      {onAdd && (
+        <IconButton
+          label={`'${pack.name}'에 아이템 추가`}
+          onClick={onAdd}
+          className="-mr-3"
+        >
+          <IconPlus size={20} stroke={addActive ? 2.4 : 1.9} className={addActive ? "text-brand" : "text-sub"} />
+        </IconButton>
+      )}
+      </div>
 
       <div className={cx("grid transition-[grid-template-rows] duration-200 ease-snappy", open ? "collapse-open" : "collapse-closed")}>
         <div className="min-h-0 overflow-hidden">

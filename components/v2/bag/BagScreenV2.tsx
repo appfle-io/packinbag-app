@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutList, IconLock, IconPackage, IconRotateClockwise, IconUsers } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutList, IconLock, IconPackage, IconRotateClockwise, IconUsers } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -249,10 +249,11 @@ export default function BagScreenV2(props: BagScreenProps) {
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 열 때만
   }, []);
-  const closeTour = useCallback(() => {
+  // React Compiler가 메모한다(useCallback을 쓰면 수동 메모 보존 오류)
+  const closeTour = () => {
     setTourOpen(false);
     markBagGuideSeen();
-  }, []);
+  };
 
   const itemTargetResolved = useMemo(() => {
     if (!itemTarget) return null;
@@ -295,9 +296,34 @@ export default function BagScreenV2(props: BagScreenProps) {
   // --- 하단 입력창 -----------------------------------------------------------------
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  // 넣을 곳: null이면 미분류. 팩 머리 + · 입력창 칩 · 필터 칩으로 고른다. 바꿀 때까지 유지(연속 입력).
+  // 고른 팩이 사라지거나(다른 멤버가 삭제) 미분류를 고르면 미분류로 돌아간다.
+  const [addTargetId, setAddTargetId] = useState<string | null>(null);
+  const [targetSheetOpen, setTargetSheetOpen] = useState(false);
+  const addTarget = addTargetId ? checklist.find((p) => p.id === addTargetId && !p.isInbox) ?? null : null;
+  const startAddTo = (packId: string) => {
+    setAddTargetId(packId);
+    setOpenOverride((o) => ({ ...o, [packId]: true }));
+    // iOS는 탭 처리 안에서 바로 focus해야 키보드가 올라온다
+    inputRef.current?.focus();
+  };
   const submitDraft = (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
+    if (addTarget) {
+      const targetId = addTarget.id;
+      items.addItem(targetId, draft);
+      setDraft("");
+      if (activeFilter !== "all" && activeFilter !== "left" && activeFilter !== targetId) setFilter("all");
+      setOpenOverride((o) => ({ ...o, [targetId]: true }));
+      // 방금 넣은 아이템이 키보드에 가려지지 않게
+      window.setTimeout(() => {
+        document
+          .querySelector(`[data-pack-id="${targetId}"] li:last-child`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 60);
+      return;
+    }
     if (items.addToInbox(draft)) {
       setDraft("");
       setFilter("all");
@@ -499,7 +525,12 @@ export default function BagScreenV2(props: BagScreenProps) {
                     label={p.name}
                     count={p.items.filter((i) => i.type === "check" && !i.checked).length}
                     selected={activeFilter === p.id}
-                    onClick={() => setFilter(activeFilter === p.id ? "all" : p.id)}
+                    onClick={() => {
+                      const next = activeFilter === p.id ? "all" : p.id;
+                      setFilter(next);
+                      // 팩 하나만 보면 입력도 그 팩으로(미분류 칩이면 미분류로)
+                      if (next !== "all") setAddTargetId(p.isInbox ? null : p.id);
+                    }}
                   />
                 ))}
               </div>
@@ -544,6 +575,8 @@ export default function BagScreenV2(props: BagScreenProps) {
                   inbox={p.isInbox ? { canOrganize: ai.aiAvailable, organizing: ai.organizing, onOrganize: ai.organizeInbox } : undefined}
                   dense={phoneCols === 2}
                   guide={p.id === guidePackId}
+                  onAdd={p.isInbox || readOnly || selection ? undefined : () => startAddTo(p.id)}
+                  addActive={addTarget?.id === p.id}
                 />
               ),
             )}
@@ -598,18 +631,34 @@ export default function BagScreenV2(props: BagScreenProps) {
           <IconButton label="팩 불러오기" variant="soft" onClick={() => (readOnly ? onRequestUnlock() : setImportOpen(true))}>
             <IconPackage size={20} stroke={1.75} />
           </IconButton>
-          <label className="flex h-11 min-w-0 flex-1 items-center rounded-full border border-line bg-card px-4">
+          <div
+            className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-card pr-4 pl-1"
+            onClick={(e) => e.target === e.currentTarget && inputRef.current?.focus()}
+          >
+            <button
+              type="button"
+              disabled={readOnly}
+              onClick={() => setTargetSheetOpen(true)}
+              aria-label={`넣을 곳: ${addTarget?.name ?? "미분류"}`}
+              className={cx(
+                "inline-flex h-9 max-w-28 shrink-0 items-center gap-1 rounded-full px-3 text-caption font-semibold active:opacity-60",
+                addTarget ? "bg-brand-soft text-brand" : "bg-fill text-sub",
+              )}
+            >
+              <span className="truncate">{addTarget?.name ?? "미분류"}</span>
+              <IconChevronDown size={14} stroke={2} className="shrink-0" aria-hidden="true" />
+            </button>
             <input
               ref={inputRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               disabled={readOnly}
               aria-label="아이템 추가"
-              placeholder="아이템 추가 — 미분류에 들어가요"
+              placeholder="아이템 추가"
               enterKeyHint="send"
               className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-faint"
             />
-          </label>
+          </div>
           <IconButton
             type="submit"
             label="추가"
@@ -622,6 +671,39 @@ export default function BagScreenV2(props: BagScreenProps) {
         </div>
       </form>
       )}
+
+      {/* 하단 입력창: 어느 팩에 넣을지 */}
+      <Sheet open={targetSheetOpen} onClose={() => setTargetSheetOpen(false)} title="어디에 넣을까요?">
+        <div className="flex flex-col">
+          {[{ id: null as string | null, name: "미분류", hint: "나중에 팩으로 나눠 담아요" }, ...checklist
+            .filter((p) => !p.isInbox)
+            .map((p) => ({ id: p.id as string | null, name: p.name, hint: `${p.items.length}개` }))].map((row, i, arr) => {
+            const current = (addTarget?.id ?? null) === row.id;
+            return (
+              <button
+                key={row.id ?? "inbox"}
+                type="button"
+                onClick={() => {
+                  setAddTargetId(row.id);
+                  setTargetSheetOpen(false);
+                  if (row.id) setOpenOverride((o) => ({ ...o, [row.id as string]: true }));
+                }}
+                className={cx(
+                  "flex min-h-13 items-center justify-between gap-3 bg-transparent text-left active:bg-fill",
+                  i < arr.length - 1 && "border-b border-line",
+                )}
+              >
+                <span className={cx("truncate text-body", current && "font-semibold")}>{row.name}</span>
+                <span className="flex shrink-0 items-center gap-2 text-caption text-faint">
+                  {row.hint}
+                  {current && <IconCheck size={18} stroke={2.2} className="text-brand" aria-label="선택됨" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="m-0 pt-3 text-caption text-faint">팩 이름 줄의 +를 누르거나 위쪽 칩에서 팩을 고르면 그 팩으로 바뀌어요.</p>
+      </Sheet>
 
       {/* 여러 개 선택: 어느 팩으로 옮길지 */}
       <Sheet open={moveManyOpen} onClose={() => setMoveManyOpen(false)} title={`${selectedCount}개 옮기기`}>
