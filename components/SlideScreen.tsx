@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Portal from "@/components/Portal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { SwipeBackRegistryContext, type SwipeBackRegistry } from "@/lib/swipeBackRegistry";
+import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 
 // 스택으로 쌓이는 풀스크린 화면(가방 편집기, 팩 트리, 설정 하위화면 등)을 오른쪽에서
 // 슬라이드-인/아웃 시키는 공용 래퍼. 기존엔 부모가 `if (editingBag) return <..>` 식으로
@@ -16,8 +18,16 @@ import { useEscapeToClose } from "@/lib/useEscapeToClose";
 // 순간 함께 null이 되어버리는 경우엔, 부모 쪽에서 "마지막으로 열려있던 값"을 따로
 // 캐싱해서 자식에 계속 넘겨줘야 한다 (닫힘 애니메이션 도중에도 내용이 유지되도록).
 // AppShell.tsx의 displayedBag/displayedPack 패턴 참고.
+//
+// 리디자인 v2(swipeBack): 화면 아무 곳(입력칸·메모 편집 영역은 왼쪽 끝에서만)을 오른쪽으로 밀면
+// 화면이 손가락을 따라 밀려나고, 뒤 화면을 덮은 어둠도 같이 걷힌다. 충분히 밀었거나 빠르게 튕기면
+// 그 속도 그대로 마저 닫히고, 아니면 제자리로 돌아온다. 닫는 함수는 안쪽 화면이 useSwipeBack으로
+// 등록한 것을 쓰고, 없으면 onSwipeBack → onBackdropClick 순서로 쓴다.
 const TRANSITION_MS = 250;
 const EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
+const PANEL_TRANSITION = `transform ${TRANSITION_MS}ms ${EASING}`;
+const BACKDROP_TRANSITION = `opacity ${TRANSITION_MS}ms ${EASING}`;
+const DRAG_SHADOW = "-8px 0 24px rgba(0, 0, 0, 0.12)";
 
 export default function SlideScreen({
   active,
@@ -27,6 +37,8 @@ export default function SlideScreen({
   from = "right",
   onBackdropClick,
   desktopTransition = "slide",
+  swipeBack = false,
+  onSwipeBack,
 }: {
   active: boolean;
   children: React.ReactNode;
@@ -46,6 +58,10 @@ export default function SlideScreen({
   // 살짝 확대+페이드로 전환한다(터치/모바일에서는 여전히 slide) - 마우스 클릭으로만 열고 닫는
   // 화면(가방 속 메모팩 등)에 쓰면 PC에서 좌우로 밀리는 게 부자연스러운 문제를 해결한다.
   desktopTransition?: "slide" | "fade";
+  // 리디자인 v2: 손가락을 따라오는 뒤로가기 스와이프를 켠다(위 설명 참고). 구 UI는 넘기지 않는다.
+  swipeBack?: boolean;
+  // 안쪽 화면이 useSwipeBack을 쓰지 않을 때 스와이프로 부를 닫기 함수
+  onSwipeBack?: () => void;
 }) {
   const isDesktop = useIsDesktop();
   const useFade = desktopTransition === "fade" && isDesktop;
@@ -86,6 +102,84 @@ export default function SlideScreen({
     };
   }, [active]);
 
+  // --- 손가락을 따라오는 뒤로가기 (swipeBack) -------------------------------------------
+  const backHandlersRef = useRef<(() => void)[]>([]);
+  const registry = useMemo<SwipeBackRegistry>(
+    () => ({
+      register: (fn) => {
+        backHandlersRef.current = [...backHandlersRef.current, fn];
+        return () => {
+          backHandlersRef.current = backHandlersRef.current.filter((f) => f !== fn);
+        };
+      },
+    }),
+    [],
+  );
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const resolveBack = () => {
+    const list = backHandlersRef.current;
+    return list[list.length - 1] ?? onSwipeBack ?? onBackdropClick;
+  };
+
+  const restore = (panel: HTMLElement) => {
+    panel.style.transition = PANEL_TRANSITION;
+    panel.style.transform = "translateX(0%)";
+    const backdrop = backdropRef.current;
+    if (backdrop) {
+      backdrop.style.transition = BACKDROP_TRANSITION;
+      backdrop.style.opacity = "1";
+    }
+    window.setTimeout(() => {
+      panel.style.boxShadow = "";
+    }, TRANSITION_MS);
+  };
+
+  const swipeRef = useHorizontalSwipe<HTMLDivElement>(
+    {
+      claim: (dir) => dir === 1 && from === "right" && entered && !useFade && !!resolveBack(),
+      move: (dx, panel) => {
+        const d = Math.max(0, dx);
+        const width = panel.clientWidth || window.innerWidth;
+        panel.style.transition = "none";
+        panel.style.transform = `translate3d(${d}px, 0, 0)`;
+        panel.style.boxShadow = DRAG_SHADOW;
+        const backdrop = backdropRef.current;
+        if (backdrop) {
+          backdrop.style.transition = "none";
+          backdrop.style.opacity = String(Math.max(0, 1 - d / width));
+        }
+      },
+      end: (dx, velocity, panel) => {
+        const width = panel.clientWidth || window.innerWidth;
+        const back = resolveBack();
+        if (!back || dx <= 0 || !shouldCommit(dx, velocity, width)) {
+          restore(panel);
+          return;
+        }
+        // 손을 뗀 속도 그대로 마저 밀어낸다. 닫힘 타이머(TRANSITION_MS) 안에 끝나도록 상한을 둔다
+        const ms = settleDuration(width - dx, velocity, 140, TRANSITION_MS - 10);
+        panel.style.transition = `transform ${ms}ms ${EASE_OUT}`;
+        panel.style.transform = "translateX(100%)";
+        const backdrop = backdropRef.current;
+        if (backdrop) {
+          backdrop.style.transition = `opacity ${ms}ms ${EASE_OUT}`;
+          backdrop.style.opacity = "0";
+        }
+        back();
+        // 뒤로가기가 막혀서(예: 저장 확인 등) 화면이 그대로 열려 있으면 제자리로 되돌린다
+        window.setTimeout(() => {
+          if (activeRef.current) restore(panel);
+        }, ms + 150);
+      },
+    },
+    swipeBack && shouldRender,
+  );
+
   if (!shouldRender) return null;
 
   const offscreen = from === "left" ? "translateX(-100%)" : "translateX(100%)";
@@ -94,6 +188,7 @@ export default function SlideScreen({
     <Portal>
       <div style={{ position: "fixed", inset: 0, overflow: "hidden", zIndex: resolvedZIndex }}>
         <div
+          ref={backdropRef}
           aria-hidden
           onClick={onBackdropClick}
           style={{
@@ -101,11 +196,12 @@ export default function SlideScreen({
             inset: 0,
             background: "rgba(0,0,0,0.4)",
             opacity: entered ? 1 : 0,
-            transition: `opacity ${TRANSITION_MS}ms ${EASING}`,
+            transition: BACKDROP_TRANSITION,
             pointerEvents: onBackdropClick ? "auto" : "none",
           }}
         />
         <div
+          ref={swipeBack ? swipeRef : undefined}
           className={innerClassName}
           style={
             useFade
@@ -117,12 +213,14 @@ export default function SlideScreen({
                 }
               : {
                   transform: entered ? "translateX(0%)" : offscreen,
-                  transition: `transform ${TRANSITION_MS}ms ${EASING}`,
+                  transition: PANEL_TRANSITION,
                   willChange: "transform",
                 }
           }
         >
-          <OverlayLayerProvider value={resolvedZIndex}>{children}</OverlayLayerProvider>
+          <OverlayLayerProvider value={resolvedZIndex}>
+            <SwipeBackRegistryContext.Provider value={swipeBack ? registry : null}>{children}</SwipeBackRegistryContext.Provider>
+          </OverlayLayerProvider>
         </div>
       </div>
     </Portal>

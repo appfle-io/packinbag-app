@@ -20,7 +20,7 @@ import { searchLibraryPacks, type PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import { PackShareSheet, type PackShareTarget } from "@/components/v2/sheets/PackShareSheet";
-import { Badge, Button, IconButton, ScreenBody, ScreenHeader, cx, useLongPress } from "@/components/v2/ui";
+import { Badge, Button, IconButton, PageStack, ScreenBody, ScreenHeader, cx, useLongPress } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { AddSheet } from "./sheets/AddSheet";
 import { EntrySheet } from "./sheets/EntrySheet";
@@ -48,6 +48,8 @@ export interface PacksScreenProps {
 
 // 마지막으로 보던 폴더(이 기기에만 기억)
 const FOLDER_STORAGE_KEY = "packinbag:v2PacksFolder";
+// PageStack에서 맨 위(폴더 밖) 화면의 키
+const ROOT_KEY = "__root__";
 
 const RESULT_LABEL = { bag: "가방", pack: "팩", item: "아이템" } as const;
 
@@ -101,14 +103,16 @@ function EntryRow({
 
 // 리디자인 v2 팩 탭(팩 보관함). 기준 목업: 팩인백 미니멀 리디자인 캔버스 "팩 보관함 · 폴더".
 // - 폴더는 한 단계씩 들어가는 방식(드릴다운) + 위쪽 경로. 폴더 → 팩·메모 순
+// - 폴더 화면은 PageStack으로 겹쳐 쌓는다: 들어가면 오른쪽에서 밀려 들어오고, 오른쪽으로 밀면 손가락을 따라 상위 폴더로
 // - 검색은 모든 폴더 대상, 결과에 폴더 경로 표시
 // - 길게 누르기(PC 우클릭)로 이름 바꾸기 · 고정 · 옮기기 · 폴더 공유 · 삭제
+// - 빠른팩은 맨 위 화면 하단에 고정(엄지로 누르기 쉬운 자리)
 export default function PacksScreenV2(props: PacksScreenProps) {
   const { packs, bags, quickPack, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks } = props;
   const { profile, isOfflineMode, togglePackPinned } = useAuth();
   const { show } = useToast();
 
-  // 빠른팩은 트리에 넣지 않는다(맨 위 한 줄로 따로)
+  // 빠른팩은 트리에 넣지 않는다(하단 한 줄로 따로)
   const treePacks = useMemo(() => packs.filter((p) => !p.isQuickPack), [packs]);
   const pinnedIds = useMemo(() => profile?.pinnedPackIds ?? [], [profile?.pinnedPackIds]);
   const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
@@ -134,18 +138,11 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   };
 
   const chain = pathTo(treePacks, currentId);
-  const ancestors = chain.slice(0, -1);
-  const title = current?.name || "팩";
+  // 화면 묶음: 맨 위(폴더 밖) → 상위 폴더들 → 지금 폴더
+  const stack = [ROOT_KEY, ...chain.map((f) => f.id)];
   // 만들기·옮기기 안내에 쓰는 위치 이름. 맨 위는 "맨 위"
   const placeName = (id: string | undefined) => (id ? pathLabel(treePacks, id) : "맨 위");
   const where = placeName(currentId);
-
-  // 한 폴더 안 항목만 다루는 가벼운 계산이라 useMemo 없이 둔다(React Compiler가 최적화)
-  const entries = entriesIn(treePacks, currentId, {
-    sortBy: profile?.packSortBy ?? "createdAt",
-    pinnedIds,
-    orderByParent: profile?.packOrderByParent,
-  });
 
   // --- 검색 ------------------------------------------------------------------------
   const searchable = useMemo(() => {
@@ -233,55 +230,71 @@ export default function PacksScreenV2(props: PacksScreenProps) {
 
   const openEntry = (entry: Pack) => (entry.type === "folder" ? goTo(entry.id) : onOpenPack(entry));
 
-  const showQuickPack = !currentId && !searching && !!quickPack && quickPack.items.length > 0;
-  const isEmpty = entries.length === 0 && !showQuickPack;
+  // --- 폴더 한 화면(헤더 + 목록). 맨 위 화면만 검색·버튼이 실제로 쓰인다 -----------------------------
+  const renderPage = (key: string, isTop: boolean) => {
+    const pageId = key === ROOT_KEY ? undefined : key;
+    const folder = pageId ? treePacks.find((p) => p.id === pageId) : undefined;
+    const pageAncestors = pathTo(treePacks, pageId).slice(0, -1);
+    // 한 폴더 안 항목만 다루는 가벼운 계산이라 useMemo 없이 둔다(React Compiler가 최적화)
+    const entries = entriesIn(treePacks, pageId, {
+      sortBy: profile?.packSortBy ?? "createdAt",
+      pinnedIds,
+      orderByParent: profile?.packOrderByParent,
+    });
+    const pageSearching = isTop && searching;
+    const showQuickPack = !pageId && !pageSearching && !!quickPack && quickPack.items.length > 0;
+    const isEmpty = entries.length === 0 && !showQuickPack;
 
-  return (
-    <div className="pib-v2 relative flex h-full min-h-0 w-full flex-1 flex-col bg-canvas">
-      {/* 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(가방 탭과 똑같이) */}
-      <ScreenHeader
-        search={{ open: searchOpen, value: query, onChange: setQuery, onClose: closeSearch, placeholder: "모든 폴더에서 검색" }}
-        leading={
-          currentId ? (
-            <IconButton label="상위 폴더로" onClick={() => goTo(current?.parentId)}>
-              <IconChevronLeft size={22} stroke={1.9} />
-            </IconButton>
-          ) : undefined
-        }
-        actions={
-          <>
-            <IconButton label="검색" onClick={() => setSearchOpen(true)}>
-              <IconSearch size={22} stroke={1.75} />
-            </IconButton>
-            <IconButton label="새 폴더" onClick={newFolder}>
-              <IconFolderPlus size={22} stroke={1.75} />
-            </IconButton>
-            <IconButton label="새로 만들기" variant="solid" onClick={() => setAddOpen(true)}>
-              <IconPlus size={20} stroke={2} />
-            </IconButton>
-          </>
-        }
-        above={
-          currentId ? (
-            <nav aria-label="경로" className="pib-v2-no-scrollbar flex min-h-5 items-center gap-1 overflow-x-auto text-caption text-sub">
-              {[{ id: undefined as string | undefined, name: "팩" }, ...ancestors.map((f) => ({ id: f.id as string | undefined, name: f.name }))].map(
-                (c, i) => (
-                  <span key={c.id ?? "root"} className="flex shrink-0 items-center gap-1">
-                    {i > 0 && <IconChevronRight size={12} stroke={2} className="text-faint" aria-hidden="true" />}
-                    <button type="button" onClick={() => goTo(c.id)} className="min-h-8 bg-transparent font-medium text-sub active:text-ink">
-                      {c.name}
-                    </button>
-                  </span>
-                ),
-              )}
-            </nav>
-          ) : undefined
-        }
-        title={title}
-      />
+    return (
+      <>
+        {/* 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(가방 탭과 똑같이) */}
+        <ScreenHeader
+          search={
+            isTop
+              ? { open: searchOpen, value: query, onChange: setQuery, onClose: closeSearch, placeholder: "모든 폴더에서 검색" }
+              : undefined
+          }
+          leading={
+            pageId ? (
+              <IconButton label="상위 폴더로" onClick={() => goTo(folder?.parentId)}>
+                <IconChevronLeft size={22} stroke={1.9} />
+              </IconButton>
+            ) : undefined
+          }
+          actions={
+            <>
+              <IconButton label="검색" onClick={() => setSearchOpen(true)}>
+                <IconSearch size={22} stroke={1.75} />
+              </IconButton>
+              <IconButton label="새 폴더" onClick={newFolder}>
+                <IconFolderPlus size={22} stroke={1.75} />
+              </IconButton>
+              <IconButton label="새로 만들기" variant="solid" onClick={() => setAddOpen(true)}>
+                <IconPlus size={20} stroke={2} />
+              </IconButton>
+            </>
+          }
+          above={
+            pageId ? (
+              <nav aria-label="경로" className="pib-v2-no-scrollbar flex min-h-5 items-center gap-1 overflow-x-auto text-caption text-sub">
+                {[{ id: undefined as string | undefined, name: "팩" }, ...pageAncestors.map((f) => ({ id: f.id as string | undefined, name: f.name }))].map(
+                  (c, i) => (
+                    <span key={c.id ?? "root"} className="flex shrink-0 items-center gap-1">
+                      {i > 0 && <IconChevronRight size={12} stroke={2} className="text-faint" aria-hidden="true" />}
+                      <button type="button" onClick={() => goTo(c.id)} className="min-h-8 bg-transparent font-medium text-sub active:text-ink">
+                        {c.name}
+                      </button>
+                    </span>
+                  ),
+                )}
+              </nav>
+            ) : undefined
+          }
+          title={folder?.name || "팩"}
+        />
 
-      <ScreenBody>
-          {searching ? (
+        <ScreenBody>
+          {pageSearching ? (
             !query.trim() ? (
               <p className="m-0 py-16 text-center text-caption text-faint">모든 폴더의 팩 이름, 아이템, 메모를 찾아요</p>
             ) : results.length === 0 ? (
@@ -311,30 +324,16 @@ export default function PacksScreenV2(props: PacksScreenProps) {
             )
           ) : isEmpty ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
-              <p className="m-0 text-body-lg font-semibold">{currentId ? "이 폴더는 비어 있어요" : "아직 팩이 없어요"}</p>
+              <p className="m-0 text-body-lg font-semibold">{pageId ? "이 폴더는 비어 있어요" : "아직 팩이 없어요"}</p>
               <p className="m-0 text-caption text-sub">
-                {currentId ? "팩이나 메모를 만들거나, 다른 팩을 길게 눌러 옮겨 오세요." : "자주 챙기는 것을 팩으로 만들어 두면 가방에 바로 불러올 수 있어요."}
+                {pageId ? "팩이나 메모를 만들거나, 다른 팩을 길게 눌러 옮겨 오세요." : "자주 챙기는 것을 팩으로 만들어 두면 가방에 바로 불러올 수 있어요."}
               </p>
               <Button className="mt-2" onClick={() => setAddOpen(true)} leading={<IconPlus size={18} stroke={2} />}>
-                {currentId ? "여기에 만들기" : "새 팩 만들기"}
+                {pageId ? "여기에 만들기" : "새 팩 만들기"}
               </Button>
             </div>
           ) : (
             <>
-              {showQuickPack && quickPack && (
-                <button
-                  type="button"
-                  onClick={() => onOpenPack(quickPack)}
-                  className="mb-4 flex min-h-15 w-full items-center gap-3 rounded-card bg-fill px-4 py-2 text-left active:bg-line"
-                >
-                  <IconBolt size={22} stroke={1.6} className="shrink-0 text-sub" aria-hidden="true" />
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="text-body font-semibold text-ink">빠른팩</span>
-                    <span className="truncate text-caption text-sub">{metaOf(treePacks, quickPack)}</span>
-                  </span>
-                  <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
-                </button>
-              )}
               <section className="flex flex-col">
                 {entries.map((entry, i) => (
                   <EntryRow
@@ -349,11 +348,38 @@ export default function PacksScreenV2(props: PacksScreenProps) {
                 ))}
               </section>
               {entries.length > 0 && (
-                <p className="m-0 pt-6 text-center text-micro text-faint">길게 누르면 이름 · 고정 · 옮기기 · 삭제</p>
+                <p className="m-0 pt-6 text-center text-micro text-faint">
+                  {pageId ? "길게 누르면 이름 · 고정 · 옮기기 · 삭제 · 오른쪽으로 밀면 상위 폴더" : "길게 누르면 이름 · 고정 · 옮기기 · 삭제"}
+                </p>
               )}
             </>
           )}
-      </ScreenBody>
+        </ScreenBody>
+
+        {/* 빠른팩: 엄지가 닿기 쉬운 하단에 고정 */}
+        {showQuickPack && quickPack && (
+          <div className="shrink-0 border-t border-line bg-canvas px-5 py-2">
+            <button
+              type="button"
+              onClick={() => onOpenPack(quickPack)}
+              className="mx-auto flex min-h-13 w-full max-w-2xl items-center gap-3 rounded-card bg-fill px-4 py-2 text-left active:bg-line"
+            >
+              <IconBolt size={22} stroke={1.6} className="shrink-0 text-sub" aria-hidden="true" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-body font-semibold text-ink">빠른팩</span>
+                <span className="truncate text-caption text-sub">{metaOf(treePacks, quickPack)}</span>
+              </span>
+              <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <div className="pib-v2 relative flex h-full min-h-0 w-full flex-1 flex-col bg-canvas">
+      <PageStack stack={stack} renderPage={renderPage} onBack={() => goTo(current?.parentId)} swipeEnabled={!searching} />
 
       {/* 시트 */}
       <AddSheet

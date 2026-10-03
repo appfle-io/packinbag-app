@@ -84,7 +84,7 @@ export interface HomeSections {
   highlights: Highlight[];
   // "고정" 구역: 고정한 순서 그대로(정렬과 무관하게 항상 위)
   pinned: BagSummary[];
-  // 아래 "가방" 목록: 고정·캐러셀에 나온 가방을 뺀 나머지, 고른 정렬대로
+  // 아래 "가방" 목록: 고정한 가방만 뺀 나머지 전부(캐러셀에 나온 가방도 포함), 고른 정렬대로. 화면에서는 5개씩 옆으로 넘긴다(BagListPager)
   list: BagSummary[];
 }
 
@@ -140,7 +140,8 @@ export function buildSections(list: BagSummary[], pinnedIds: string[], sort: Hom
     .sort(byActivityDesc)
     .forEach((s) => push(s, "packing"));
 
-  return { highlights, pinned, list: sortHomeList(list.filter((s) => !used.has(s.bag.id)), sort) };
+  const pinnedSet = new Set(pinned.map((s) => s.bag.id));
+  return { highlights, pinned, list: sortHomeList(list.filter((s) => !pinnedSet.has(s.bag.id)), sort) };
 }
 
 // 여행일이 한참 지났는데 보관하지도, 제안을 닫지도 않은 가방

@@ -104,6 +104,7 @@ import {
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { useIsDesktop } from "@/lib/useIsDesktop";
+import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import DesktopShell from "@/components/DesktopShell";
 import type { DesktopSelection } from "@/components/DesktopSidebar";
 import OfflineStatusBar from "@/components/OfflineStatusBar";
@@ -117,6 +118,11 @@ const SettingsScreen = UI_V2 ? SettingsScreenV2 : LegacySettingsScreen;
 const PackLibraryEditorScreen = UI_V2 ? PackEditorV2 : LegacyPackLibraryEditorScreen;
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// 리디자인 v2: 탭 순서와 탭 넘기기 위치·전환. 손가락을 따라 움직이는 동안에는 같은 모양의 문자열을 직접 쓴다
+const TAB_ORDER: TabKey[] = ["packs", "home", "settings"];
+const TAB_TRANSITION = `transform 280ms ${EASE_OUT}`;
+const tabTrackTransform = (index: number) => `translate3d(${-index * (100 / 3)}%, 0, 0)`;
 
 function inviteCodeFromUrl(): string {
   if (typeof window === "undefined") return "";
@@ -336,6 +342,48 @@ export default function AppShell() {
   const [todayTasksList, setTodayTasksList] = useState<TodayTaskItem[]>([]);
   const [showTodayTasksModal, setShowTodayTasksModal] = useState(false);
   const checkedTodayTasksStartupRef = useRef(false);
+
+  // 리디자인 v2: 탭(팩·가방·설정) 사이를 손가락을 따라 넘긴다. 화면 안쪽(폴더·보관함 뒤로가기,
+  // 가로로 넘기는 목록)이 먼저 가져가면 양보한다(lib/useHorizontalSwipe.ts). 첫·마지막 탭에서는 고무줄처럼 조금만 따라온다.
+  // 구 UI는 아래 handleTouchStart/End(손을 뗀 뒤 한 번에 전환)를 그대로 쓴다.
+  const tabTrackRef = useRef<HTMLDivElement>(null);
+  const tabDragRef = useRef({ index: 0, width: 1 });
+  const tabSwipeRef = useHorizontalSwipe<HTMLDivElement>(
+    {
+      claim: (_dir, _start, el) => {
+        if (homeSelectMode || packsSelectMode || !tabTrackRef.current) return false;
+        tabDragRef.current = { index: TAB_ORDER.indexOf(tab), width: el.clientWidth || window.innerWidth };
+        return true;
+      },
+      move: (dx) => {
+        const track = tabTrackRef.current;
+        if (!track) return;
+        const { index } = tabDragRef.current;
+        const atEdge = (dx > 0 && index === 0) || (dx < 0 && index === TAB_ORDER.length - 1);
+        const offset = Math.round(atEdge ? dx * 0.25 : dx);
+        track.style.transition = "none";
+        track.style.transform = `translate3d(calc(${-index * (100 / 3)}% + ${offset}px), 0, 0)`;
+      },
+      end: (dx, velocity) => {
+        const track = tabTrackRef.current;
+        if (!track) return;
+        const { index, width } = tabDragRef.current;
+        let next = index;
+        if (shouldCommit(dx, velocity, width)) {
+          next = Math.max(0, Math.min(TAB_ORDER.length - 1, index + (dx < 0 ? 1 : -1)));
+        }
+        const remaining = next === index ? Math.abs(dx) : width - Math.abs(dx);
+        const ms = settleDuration(remaining, velocity, 180, 340);
+        track.style.transition = `transform ${ms}ms ${EASE_OUT}`;
+        track.style.transform = tabTrackTransform(next);
+        window.setTimeout(() => {
+          if (tabTrackRef.current) tabTrackRef.current.style.transition = TAB_TRANSITION;
+        }, ms + 30);
+        if (next !== index) setTab(TAB_ORDER[next]);
+      },
+    },
+    UI_V2
+  );
 
   useEffect(() => {
     // v2: 아이템 마감일 기능을 뺐으므로 시작 팝업도 띄우지 않는다(끄는 설정도 없음)
@@ -1928,18 +1976,20 @@ export default function AppShell() {
       <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top overflow-hidden">
         <EmailVerifyBanner />
         <div
+          ref={UI_V2 ? tabSwipeRef : undefined}
           className="flex-1 overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
+          onTouchStart={UI_V2 ? undefined : handleTouchStart}
+          onTouchEnd={UI_V2 ? undefined : handleTouchEnd}
+          onMouseDown={UI_V2 ? undefined : handleMouseDown}
+          onMouseUp={UI_V2 ? undefined : handleMouseUp}
         >
           <div
+            ref={tabTrackRef}
             className="flex h-full"
             style={{
               width: "300%",
-              transform: `translateX(-${tabIndex * (100 / 3)}%)`,
-              transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transform: UI_V2 ? tabTrackTransform(tabIndex) : `translateX(-${tabIndex * (100 / 3)}%)`,
+              transition: UI_V2 ? TAB_TRANSITION : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
             {/* 1. 팩 보관함 탭 */}
@@ -2034,6 +2084,7 @@ export default function AppShell() {
       <SlideScreen
         active={!!editingBag}
         zIndex={65}
+        swipeBack={UI_V2}
         innerClassName={
           UI_V2
             ? "flex flex-col h-full w-full bg-background pib-safe-top"
@@ -2083,6 +2134,12 @@ export default function AppShell() {
       <SlideScreen
         active={!!editingPack && editingPack.kind === "editor"}
         zIndex={70}
+        swipeBack={UI_V2}
+        onSwipeBack={() => {
+          setEditingPack(null);
+          setPackFocusItemId(null);
+          setPackFocusSearchQuery(null);
+        }}
         innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-background pib-safe-top"
       >
         {displayedEditorPack && (

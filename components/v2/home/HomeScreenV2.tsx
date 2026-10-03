@@ -17,6 +17,7 @@ import {
   Chip,
   HeaderScroller,
   IconButton,
+  PageStack,
   ScreenBody,
   ScreenHeader,
   SectionHeader,
@@ -27,6 +28,7 @@ import {
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { BagRow } from "./BagRows";
 import { BagCarousel } from "./BagCarousel";
+import { BagListPager } from "./BagListPager";
 import { BagActionSheet } from "./sheets/BagActionSheet";
 import { FolderSheet } from "./sheets/FolderSheet";
 import { NewBagSheet } from "./sheets/NewBagSheet";
@@ -40,6 +42,7 @@ import {
   type HomeSort,
 } from "./homeModel";
 import { hasFolderNameClash } from "@/lib/bagFolderNames";
+import { moveFolderInOrder, saveBagFolderOrder, sortBagFolders } from "@/lib/bagFolderOrder";
 import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
@@ -65,6 +68,9 @@ export interface HomeScreenProps {
 
 // 마지막으로 본 폴더 칩(이 기기에만 기억). 구 홈의 키와 겹치지 않게 따로 둔다.
 const FOLDER_STORAGE_KEY = "packinbag:v2HomeFolder";
+// PageStack 화면 키
+const HOME_KEY = "home";
+const ARCHIVE_KEY = "archive";
 
 const RESULT_LABEL = { bag: "가방", pack: "팩", item: "아이템" } as const;
 
@@ -74,7 +80,8 @@ function FolderChip({ folder, selected, onPick, onEdit }: { folder: BagFolder; s
 }
 
 // 리디자인 v2 홈(가방 목록). 기준 목업: 팩인백 미니멀 리디자인 캔버스 "홈 · 가방 목록".
-// - 폴더 칩(1단계) · 지금 싸는 중 카드 · 고정 · 최근(D-day 7일 이내 먼저, 나머지 최근 체크 순) · 보관함
+// - 폴더 칩(1단계, 길게 눌러 이름·순서·삭제) · 캐러셀 · 고정 · 가방(5개씩 옆으로 넘김) · 보관함
+// - 보관함은 PageStack으로 겹쳐 연다: 오른쪽으로 밀면 손가락을 따라 가방 목록으로 돌아온다
 // - 가방을 길게 누르면(PC는 우클릭) 폴더 이동·고정·보관·삭제 시트
 export default function HomeScreenV2(props: HomeScreenProps) {
   const {
@@ -112,10 +119,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   // --- 폴더 (1단계) ---------------------------------------------------------------
   const bagFolders = useMemo(() => profile?.bagFolders ?? {}, [profile?.bagFolders]);
   const assignments = profile?.bagFolderAssignments ?? {};
-  const folders = useMemo(
-    () => Object.values(bagFolders).sort((a, b) => a.name.localeCompare(b.name, "ko")),
-    [bagFolders],
-  );
+  const folders = useMemo(() => sortBagFolders(bagFolders, profile?.bagFolderOrder), [bagFolders, profile?.bagFolderOrder]);
 
   // 예전 하위 폴더는 처음 한 번 최상위로 올린다(원래 부모는 legacyParentId에 남김).
   // 올리면서(또는 이미 올린 뒤에) 같은 이름 폴더가 생기면 이름도 같이 정리한다(lib/bagFolderNames.ts).
@@ -143,6 +147,17 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     } catch {
       // 저장 실패는 무시(다음 실행 때 "전체"로 시작할 뿐)
     }
+  };
+
+  // 폴더 칩 순서 바꾸기(폴더 시트 ◀ ▶). 지금 보이는 순서 전체를 저장한다(쓰기 1회)
+  const moveFolder = (id: string, delta: -1 | 1) => {
+    const next = moveFolderInOrder(
+      folders.map((f) => f.id),
+      id,
+      delta,
+    );
+    if (!next) return;
+    saveBagFolderOrder(uid, next).catch(() => show("폴더 순서를 저장하지 못했어요"));
   };
 
   // --- 목록 계산 ------------------------------------------------------------------
@@ -237,185 +252,201 @@ export default function HomeScreenV2(props: HomeScreenProps) {
 
   // --- 화면 -------------------------------------------------------------------------------
   // 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(팩 탭과 똑같이). 여기서 따로 패딩을 주지 않는다.
-  const showChips = view === "home" && !searching && personal && (hasAnyBag || folders.length > 0);
+  const showChips = !searching && personal && (hasAnyBag || folders.length > 0);
+
+  const renderArchive = () => (
+    <>
+      <ScreenHeader
+        leading={
+          <IconButton label="가방 목록으로" onClick={() => setView("home")}>
+            <IconChevronLeft size={22} stroke={1.9} />
+          </IconButton>
+        }
+        title="보관함"
+      />
+      <ScreenBody className="gap-8">
+        {archived.length === 0 ? (
+          <p className="m-0 py-16 text-center text-body text-sub">보관한 가방이 없어요</p>
+        ) : (
+          <section className="flex flex-col">
+            <p className="m-0 pb-2 text-caption text-faint">다녀온 가방은 여기 모여 있어요. 길게 누르면 다시 꺼낼 수 있어요.</p>
+            {archived.map((s, i) => (
+              <BagRow key={s.bag.id} summary={s} archived last={i === archived.length - 1} {...rowHandlers(s)} />
+            ))}
+          </section>
+        )}
+      </ScreenBody>
+    </>
+  );
+
+  const renderHome = (isTop: boolean) => (
+    <>
+      <ScreenHeader
+        search={
+          isTop ? { open: searchOpen, value: query, onChange: setQuery, onClose: closeSearch, placeholder: "가방, 팩, 아이템 검색" } : undefined
+        }
+        actions={
+          <>
+            {hasAnyBag && (
+              <IconButton label="검색" onClick={() => setSearchOpen(true)}>
+                <IconSearch size={22} stroke={1.75} />
+              </IconButton>
+            )}
+            {!isOfflineMode && <NotificationBell uid={uid} v2 />}
+            <IconButton label="새 가방" variant="solid" onClick={() => setNewBagOpen(true)}>
+              <IconPlus size={20} stroke={2} />
+            </IconButton>
+          </>
+        }
+        title="가방"
+      >
+        {showChips && (
+          <HeaderScroller label="가방 폴더">
+            <Chip label="전체" selected={!activeFolderId} onClick={() => pickFolder(undefined)} />
+            {folders.map((f) => (
+              <FolderChip
+                key={f.id}
+                folder={f}
+                selected={activeFolderId === f.id}
+                onPick={() => pickFolder(activeFolderId === f.id ? undefined : f.id)}
+                onEdit={() => setFolderTarget(f)}
+              />
+            ))}
+            <button
+              type="button"
+              aria-label="폴더 추가"
+              title="폴더 추가"
+              onClick={() => setFolderTarget("new")}
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-line-strong text-sub active:bg-fill"
+            >
+              <IconPlus size={16} stroke={2} />
+            </button>
+          </HeaderScroller>
+        )}
+      </ScreenHeader>
+
+      <ScreenBody className="gap-8">
+        {isTop && searching ? (
+          <SearchResults query={query} results={results} truncated={truncated} onOpen={openResult} />
+        ) : !hasAnyBag ? (
+          <div className="flex flex-col items-center gap-3 py-24 text-center">
+            <p className="m-0 text-body-lg font-semibold">첫 가방을 만들어 볼까요?</p>
+            <p className="m-0 text-caption text-sub">여행, 어린이집, 출장처럼 챙길 일마다 가방 하나씩.</p>
+            <Button className="mt-2" onClick={() => setNewBagOpen(true)} leading={<IconPlus size={18} stroke={2} />}>
+              새 가방 만들기
+            </Button>
+          </div>
+        ) : (
+          <>
+            {suggestions.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-card bg-fill p-4">
+                <p className="m-0 text-body">지난 여행 {suggestions.length}개를 보관함으로 옮길까요?</p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => archiveBags(suggestions.map((b) => b.id)).catch(fail("보관하지 못했어요"))}>
+                    보관하기
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => dismissArchiveSuggestions(suggestions.map((b) => b.id)).catch(() => {})}
+                    className="h-11 bg-transparent px-4 text-body font-semibold text-sub active:opacity-60"
+                  >
+                    괜찮아요
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <BagCarousel
+              highlights={sections.highlights}
+              lockedIds={lockedBagIds}
+              onOpen={(s) => onOpenBag(s.bag)}
+              onMenu={(s) => setActionBagId(s.bag.id)}
+            />
+
+            {sections.pinned.length > 0 && (
+              <section className="flex flex-col">
+                <SectionHeader>
+                  <span className="inline-flex items-center gap-1">
+                    <IconPin size={14} stroke={2} aria-hidden="true" />
+                    고정
+                  </span>
+                </SectionHeader>
+                {sections.pinned.map((s, i) => (
+                  <BagRow key={s.bag.id} summary={s} last={i === sections.pinned.length - 1} {...rowHandlers(s)} />
+                ))}
+              </section>
+            )}
+
+            {sections.list.length > 0 && (
+              <section className="flex flex-col">
+                <SectionHeader
+                  action={
+                    // 정렬은 계정에 저장하는 개인 설정이라 오프라인에서는 숨긴다(폴더·고정과 같은 규칙)
+                    personal ? (
+                      <button
+                        type="button"
+                        onClick={() => setSortOpen(true)}
+                        aria-label={`정렬: ${HOME_SORT_LABEL[sort]}`}
+                        className="-my-2 -mr-2 inline-flex h-11 items-center gap-1 bg-transparent px-2 text-caption font-semibold text-sub active:opacity-60"
+                      >
+                        {HOME_SORT_LABEL[sort]}
+                        <IconChevronDown size={14} stroke={2} aria-hidden="true" />
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  가방 {sections.list.length}
+                </SectionHeader>
+                {/* 폴더·정렬이 바뀌면 첫 장부터 다시 */}
+                <BagListPager
+                  key={`${activeFolderId ?? "all"}:${sort}`}
+                  items={sections.list}
+                  renderRow={(s, last) => <BagRow key={s.bag.id} summary={s} last={last} {...rowHandlers(s)} />}
+                />
+              </section>
+            )}
+
+            {listEmpty && (
+              <div className="flex flex-col items-center gap-2 py-16 text-center">
+                <p className="m-0 text-body text-sub">{activeFolderId ? "이 폴더는 비어 있어요" : "진행 중인 가방이 없어요"}</p>
+                <p className="m-0 text-caption text-faint">
+                  {activeFolderId ? "가방을 길게 누르면 폴더로 옮길 수 있어요." : "보관함에서 꺼내거나 새로 만들어 보세요."}
+                </p>
+              </div>
+            )}
+
+            {!activeFolderId && archived.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setView("archive")}
+                className="flex min-h-13 w-full items-center justify-between bg-transparent text-left active:bg-fill"
+              >
+                <span className="flex items-center gap-3 text-body font-semibold">
+                  <IconArchive size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+                  보관함
+                </span>
+                <span className="flex items-center gap-2 text-caption text-faint">
+                  {archived.length}
+                  <IconChevronRight size={16} stroke={1.75} aria-hidden="true" />
+                </span>
+              </button>
+            )}
+
+            {!listEmpty && personal && <p className="m-0 text-center text-micro text-faint">가방을 길게 누르면 고정 · 폴더 · 보관</p>}
+          </>
+        )}
+      </ScreenBody>
+    </>
+  );
 
   return (
     <div className="pib-v2 relative flex h-full min-h-0 w-full flex-1 flex-col bg-canvas">
-      {view === "archive" ? (
-        <ScreenHeader
-          leading={
-            <IconButton label="가방 목록으로" onClick={() => setView("home")}>
-              <IconChevronLeft size={22} stroke={1.9} />
-            </IconButton>
-          }
-          title="보관함"
-        />
-      ) : (
-        <ScreenHeader
-          search={{ open: searchOpen, value: query, onChange: setQuery, onClose: closeSearch, placeholder: "가방, 팩, 아이템 검색" }}
-          actions={
-            <>
-              {hasAnyBag && (
-                <IconButton label="검색" onClick={() => setSearchOpen(true)}>
-                  <IconSearch size={22} stroke={1.75} />
-                </IconButton>
-              )}
-              {!isOfflineMode && <NotificationBell uid={uid} v2 />}
-              <IconButton label="새 가방" variant="solid" onClick={() => setNewBagOpen(true)}>
-                <IconPlus size={20} stroke={2} />
-              </IconButton>
-            </>
-          }
-          title="가방"
-        >
-          {showChips && (
-            <HeaderScroller label="가방 폴더">
-              <Chip label="전체" selected={!activeFolderId} onClick={() => pickFolder(undefined)} />
-              {folders.map((f) => (
-                <FolderChip
-                  key={f.id}
-                  folder={f}
-                  selected={activeFolderId === f.id}
-                  onPick={() => pickFolder(activeFolderId === f.id ? undefined : f.id)}
-                  onEdit={() => setFolderTarget(f)}
-                />
-              ))}
-              <button
-                type="button"
-                aria-label="폴더 추가"
-                title="폴더 추가"
-                onClick={() => setFolderTarget("new")}
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed border-line-strong text-sub active:bg-fill"
-              >
-                <IconPlus size={16} stroke={2} />
-              </button>
-            </HeaderScroller>
-          )}
-        </ScreenHeader>
-      )}
-
-      <ScreenBody className="gap-8">
-          {searching ? (
-            <SearchResults query={query} results={results} truncated={truncated} onOpen={openResult} />
-          ) : view === "archive" ? (
-            archived.length === 0 ? (
-              <p className="m-0 py-16 text-center text-body text-sub">보관한 가방이 없어요</p>
-            ) : (
-              <section className="flex flex-col">
-                <p className="m-0 pb-2 text-caption text-faint">다녀온 가방은 여기 모여 있어요. 길게 누르면 다시 꺼낼 수 있어요.</p>
-                {archived.map((s, i) => (
-                  <BagRow key={s.bag.id} summary={s} archived last={i === archived.length - 1} {...rowHandlers(s)} />
-                ))}
-              </section>
-            )
-          ) : !hasAnyBag ? (
-            <div className="flex flex-col items-center gap-3 py-24 text-center">
-              <p className="m-0 text-body-lg font-semibold">첫 가방을 만들어 볼까요?</p>
-              <p className="m-0 text-caption text-sub">여행, 어린이집, 출장처럼 챙길 일마다 가방 하나씩.</p>
-              <Button className="mt-2" onClick={() => setNewBagOpen(true)} leading={<IconPlus size={18} stroke={2} />}>
-                새 가방 만들기
-              </Button>
-            </div>
-          ) : (
-            <>
-              {suggestions.length > 0 && (
-                <div className="flex flex-col gap-3 rounded-card bg-fill p-4">
-                  <p className="m-0 text-body">지난 여행 {suggestions.length}개를 보관함으로 옮길까요?</p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => archiveBags(suggestions.map((b) => b.id)).catch(fail("보관하지 못했어요"))}
-                    >
-                      보관하기
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => dismissArchiveSuggestions(suggestions.map((b) => b.id)).catch(() => {})}
-                      className="h-11 bg-transparent px-4 text-body font-semibold text-sub active:opacity-60"
-                    >
-                      괜찮아요
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <BagCarousel
-                highlights={sections.highlights}
-                lockedIds={lockedBagIds}
-                onOpen={(s) => onOpenBag(s.bag)}
-                onMenu={(s) => setActionBagId(s.bag.id)}
-              />
-
-              {sections.pinned.length > 0 && (
-                <section className="flex flex-col">
-                  <SectionHeader>
-                    <span className="inline-flex items-center gap-1">
-                      <IconPin size={14} stroke={2} aria-hidden="true" />
-                      고정
-                    </span>
-                  </SectionHeader>
-                  {sections.pinned.map((s, i) => (
-                    <BagRow key={s.bag.id} summary={s} last={i === sections.pinned.length - 1} {...rowHandlers(s)} />
-                  ))}
-                </section>
-              )}
-
-              {sections.list.length > 0 && (
-                <section className="flex flex-col">
-                  <SectionHeader
-                    action={
-                      // 정렬은 계정에 저장하는 개인 설정이라 오프라인에서는 숨긴다(폴더·고정과 같은 규칙)
-                      personal ? (
-                        <button
-                          type="button"
-                          onClick={() => setSortOpen(true)}
-                          aria-label={`정렬: ${HOME_SORT_LABEL[sort]}`}
-                          className="-my-2 -mr-2 inline-flex h-11 items-center gap-1 bg-transparent px-2 text-caption font-semibold text-sub active:opacity-60"
-                        >
-                          {HOME_SORT_LABEL[sort]}
-                          <IconChevronDown size={14} stroke={2} aria-hidden="true" />
-                        </button>
-                      ) : undefined
-                    }
-                  >
-                    가방
-                  </SectionHeader>
-                  {sections.list.map((s, i) => (
-                    <BagRow key={s.bag.id} summary={s} last={i === sections.list.length - 1} {...rowHandlers(s)} />
-                  ))}
-                </section>
-              )}
-
-              {listEmpty && (
-                <div className="flex flex-col items-center gap-2 py-16 text-center">
-                  <p className="m-0 text-body text-sub">{activeFolderId ? "이 폴더는 비어 있어요" : "진행 중인 가방이 없어요"}</p>
-                  <p className="m-0 text-caption text-faint">
-                    {activeFolderId ? "가방을 길게 누르면 폴더로 옮길 수 있어요." : "보관함에서 꺼내거나 새로 만들어 보세요."}
-                  </p>
-                </div>
-              )}
-
-              {!activeFolderId && archived.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setView("archive")}
-                  className="flex min-h-13 w-full items-center justify-between bg-transparent text-left active:bg-fill"
-                >
-                  <span className="flex items-center gap-3 text-body font-semibold">
-                    <IconArchive size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
-                    보관함
-                  </span>
-                  <span className="flex items-center gap-2 text-caption text-faint">
-                    {archived.length}
-                    <IconChevronRight size={16} stroke={1.75} aria-hidden="true" />
-                  </span>
-                </button>
-              )}
-
-              {!listEmpty && personal && <p className="m-0 text-center text-micro text-faint">가방을 길게 누르면 고정 · 폴더 · 보관</p>}
-            </>
-          )}
-      </ScreenBody>
+      <PageStack
+        stack={view === "archive" ? [HOME_KEY, ARCHIVE_KEY] : [HOME_KEY]}
+        renderPage={(key, isTop) => (key === ARCHIVE_KEY ? renderArchive() : renderHome(isTop))}
+        onBack={() => setView("home")}
+        swipeEnabled={!searching}
+      />
 
       {/* 가방 목록 정렬 */}
       <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="정렬">
@@ -478,6 +509,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
           if (activeFolderId === id) pickFolder(undefined);
           deleteBagFolder(id).catch(fail("폴더를 삭제하지 못했어요"));
         }}
+        onMove={personal ? moveFolder : undefined}
       />
       <ConfirmSheet
         open={!!confirmBag}

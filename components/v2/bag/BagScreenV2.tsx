@@ -314,7 +314,8 @@ export default function BagScreenV2(props: BagScreenProps) {
     }
     onBack(bag);
   }, [onBack, bag, selection]);
-  const swipeRef = useSwipeBack<HTMLDivElement>(handleBack, !editingNoteId);
+  // 여러 개 선택 중에는 밀어서 닫지 않는다(뒤로 버튼은 선택만 끝낸다)
+  const swipeRef = useSwipeBack<HTMLDivElement>(handleBack, !editingNoteId && !selection);
 
   // --- 검색 결과로 들어왔을 때 해당 팩/아이템으로 이동 -------------------------------
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
@@ -790,6 +791,11 @@ export default function BagScreenV2(props: BagScreenProps) {
         active={!!editingNoteId}
         zIndex={80}
         onBackdropClick={() => setEditingNoteId(null)}
+        swipeBack
+        onSwipeBack={() => {
+          setEditingNoteId(null);
+          setNoteQuery(null);
+        }}
         desktopTransition="fade"
         innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl bg-background pib-safe-top overflow-hidden"
       >

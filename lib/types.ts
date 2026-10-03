@@ -347,6 +347,8 @@ export interface UserProfile {
   bagFolders?: Record<string, BagFolder>;
   // 가방 id -> 그 가방이 속한 폴더 id. 키 자체가 없으면(또는 undefined) 최상위.
   bagFolderAssignments?: Record<string, string>;
+  // 리디자인 v2: 홈 상단 가방 폴더 칩 순서(폴더 id 배열). 없으면 이름순. 여기 없는 폴더는 뒤에 이름순으로 붙는다(lib/bagFolderOrder.ts).
+  bagFolderOrder?: string[];
   // 가방보관함 폴더 트리에서 드래그로 순서를 바꾸거나 다른 폴더로 옮긴 결과를 부모(폴더 id,
   // 최상위는 "root")별로 저장한다. packOrderByParent와 동일한 규약.
   bagOrderByParent?: Record<string, string[]>;

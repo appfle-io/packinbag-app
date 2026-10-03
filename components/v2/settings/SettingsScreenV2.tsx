@@ -383,17 +383,17 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         </section>
       </ScreenBody>
 
-      {/* 하위 화면(구 화면 재사용) */}
-      <SlideScreen active={view === "profile"} onBackdropClick={close}>
+      {/* 하위 화면(구 화면 재사용). 오른쪽으로 밀면 손가락을 따라 설정으로 돌아온다(SlideScreen swipeBack) */}
+      <SlideScreen active={view === "profile"} onBackdropClick={close} swipeBack>
         <ProfileEditScreen onBack={close} />
       </SlideScreen>
-      <SlideScreen active={view === "version"} onBackdropClick={close}>
+      <SlideScreen active={view === "version"} onBackdropClick={close} swipeBack>
         <VersionInfoScreen onBack={close} />
       </SlideScreen>
-      <SlideScreen active={view === "licenses"} onBackdropClick={close}>
+      <SlideScreen active={view === "licenses"} onBackdropClick={close} swipeBack>
         <LicensesScreen onBack={close} />
       </SlideScreen>
-      <SlideScreen active={view === "trash"} onBackdropClick={close}>
+      <SlideScreen active={view === "trash"} onBackdropClick={close} swipeBack>
         <TrashScreen
           bags={trashedBags}
           packs={trashedPacks}
@@ -404,7 +404,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           onPermanentDeletePack={onPermanentDeletePack}
         />
       </SlideScreen>
-      <SlideScreen active={view === "inquiries"} onBackdropClick={close}>
+      <SlideScreen active={view === "inquiries"} onBackdropClick={close} swipeBack>
         <InquiryScreen uid={uid} nickname={profile?.nickname ?? ""} onBack={close} />
       </SlideScreen>
 

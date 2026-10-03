@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
+import { SwipeBackRegistryContext } from "@/lib/swipeBackRegistry";
 
 // 화면 왼쪽 끝 이 정도 픽셀 안에서 시작한 터치만 "엣지 스와이프"로 인정한다
 // (본문 아무데서나 오른쪽으로 밀어도 뒤로가기가 되면 스크롤/드래그 등 다른 제스처와 자꾸 부딪히기 때문).
@@ -11,15 +12,28 @@ const MAX_VERTICAL_DRIFT_PX = 50;
 // iOS의 "화면 왼쪽 끝에서 오른쪽으로 쓸어넘기면 뒤로가기" 제스처를, 실제 페이지 이동이 아니라
 // 화면(컴포넌트) 전환으로 동작하는 이 앱의 onBack 콜백에도 동일하게 재현한다.
 // Pointer Events 기반이라 iOS/Android 브라우저와 데스크톱 웹 모두 동일하게 동작한다.
+//
+// 리디자인 v2: 이 화면을 감싼 SlideScreen이 swipeBack을 켜고 있으면(SwipeBackRegistryContext),
+// 손가락을 따라 화면이 밀려나는 뒤로가기는 SlideScreen이 맡는다. 이 훅은 onBack을 등록만 하고
+// 아래의 예전 리스너는 달지 않는다(둘 다 반응하면 한 번에 두 번 닫히므로). 구 UI는 등록소가 없어 예전 그대로다.
 export function useSwipeBack<T extends HTMLElement>(onBack: () => void, enabled: boolean = true) {
   const ref = useRef<T | null>(null);
   // 매 렌더마다 최신 콜백을 가리키게만 하고, 리스너 자체는 effect 재실행 없이 유지한다
   // (bag 편집 화면처럼 onBack이 참조하는 상태가 타이핑마다 바뀌는 경우를 위함).
   const onBackRef = useRef(onBack);
-  onBackRef.current = onBack;
+  useEffect(() => {
+    onBackRef.current = onBack;
+  });
+
+  const registry = useContext(SwipeBackRegistryContext);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!registry || !enabled) return;
+    return registry.register(() => onBackRef.current());
+  }, [registry, enabled]);
+
+  useEffect(() => {
+    if (!enabled || registry) return;
     const el = ref.current;
     if (!el) return;
 
@@ -49,7 +63,7 @@ export function useSwipeBack<T extends HTMLElement>(onBack: () => void, enabled:
       if (!tracking || e.pointerId !== pointerId) return;
       const dx = e.clientX - startX;
       const dy = Math.abs(e.clientY - startY);
-      
+
       // 세로로 일정 오차 이상 움직이면 세로 스크롤 의도로 보고 추적 취소
       if (dy > MAX_VERTICAL_DRIFT_PX) {
         tracking = false;
@@ -63,7 +77,7 @@ export function useSwipeBack<T extends HTMLElement>(onBack: () => void, enabled:
       if (e.pointerId !== pointerId) return;
       const finalDx = Math.max(lastDx, e.clientX - startX);
       const isEligible = tracking && finalDx >= SWIPE_THRESHOLD_PX;
-      
+
       tracking = false;
       pointerId = null;
       lastDx = 0;
@@ -90,9 +104,9 @@ export function useSwipeBack<T extends HTMLElement>(onBack: () => void, enabled:
       el.removeEventListener("pointermove", handlePointerMove);
       el.removeEventListener("pointerup", handlePointerUp);
       el.removeEventListener("pointercancel", handlePointerCancel);
+      el.removeAttribute("data-own-swipe-back");
     };
-  }, [enabled]);
+  }, [enabled, registry]);
 
   return ref;
 }
-
