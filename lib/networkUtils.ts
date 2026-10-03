@@ -3,13 +3,16 @@
  * Electron, PWA, 모바일/데스크톱 브라우저 환경을 모두 지원합니다.
  */
 
+type ElectronWindow = Window & { electronAPI?: { checkInternet?: () => Promise<boolean> } };
+
 export async function checkIsOnline(timeoutMs = 2000): Promise<boolean> {
   if (typeof window === "undefined") return true;
+  const electronAPI = (window as ElectronWindow).electronAPI;
 
   // 1. Electron 환경인 경우: 메인 프로세스의 HTTPS 실제 인증서/도메인 검증 IPC 호출
-  if ((window as any).electronAPI?.checkInternet) {
+  if (electronAPI?.checkInternet) {
     try {
-      const ok = await (window as any).electronAPI.checkInternet();
+      const ok = await electronAPI.checkInternet();
       return Boolean(ok);
     } catch {
       return false;

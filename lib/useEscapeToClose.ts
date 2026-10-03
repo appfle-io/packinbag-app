@@ -41,7 +41,10 @@ function ensureListenerInstalled() {
 // 끼우고, 실제 스택 push/pop은 active/onClose 유무가 바뀔 때만 일어난다(불필요한 재등록 방지).
 export function useEscapeToClose(onClose: (() => void) | undefined, active = true) {
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  // 렌더 중에 ref를 바꾸지 않도록 effect에서 최신 값으로 갈아 끼운다(Esc는 커밋 뒤에만 눌린다)
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!active || !onClose) return;

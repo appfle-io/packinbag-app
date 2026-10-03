@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutList, IconLock, IconPackage, IconRotateClockwise, IconUsers } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutList, IconLock, IconPackage, IconRotateClockwise, IconSun, IconUsers } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -47,6 +47,7 @@ import { formatRelativeDay, formatShortDate } from "./format";
 import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
 import { BAG_GUIDE_STEPS, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
+import { keepScreenOnSupported, readKeepScreenOnPref, useKeepScreenOn, writeKeepScreenOnPref } from "@/lib/v2/keepAwake";
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -160,6 +161,25 @@ export default function BagScreenV2(props: BagScreenProps) {
   const stats = statsOf(viewable);
   const packingState = packingStateOf(viewable);
   const ratio = stats.total > 0 ? stats.done / stats.total : 0;
+  // "내 담당" 필터: 함께 쓰는 가방에서 나한테 맡긴 체크 아이템이 있을 때만(구 UI 집중 패킹 모드의 "내 아이템만")
+  const isMine = (i: Pack["items"][number]) => i.type === "check" && i.assigneeUid === currentUid;
+  const mineLeft = bag.memberIds.length > 1 ? checklist.reduce((n, p) => n + p.items.filter((i) => isMine(i) && !i.checked).length, 0) : 0;
+  const hasMine = bag.memberIds.length > 1 && checklist.some((p) => p.items.some(isMine));
+
+  // --- 화면 켜두기(구 UI 집중 패킹 모드) ---------------------------------------------
+  // 더보기에서 켜고 끈다. 이 기기에 기억되고, 가방 화면이 열려 있는 동안만 화면이 꺼지지 않는다.
+  // 켜 두면 상단에 해 아이콘(잡고 있으면 브랜드색)이 보이고, 누르면 바로 끈다.
+  const [keepOn, setKeepOn] = useState(readKeepScreenOnPref);
+  const awake = useKeepScreenOn(keepOn);
+  const changeKeepOn = (on: boolean) => {
+    if (on && !keepScreenOnSupported()) {
+      show("이 기기에서는 화면 켜두기를 쓸 수 없어요");
+      return;
+    }
+    setKeepOn(on);
+    writeKeepScreenOnPref(on);
+    show(on ? "가방을 보는 동안 화면이 꺼지지 않아요" : "화면 켜두기를 껐어요");
+  };
 
   // 다 싼 순간 한 번 더 길게 울리는 햅틱(iOS 앱). 처음 열 때 이미 다 싼 가방은 울리지 않는다
   const prevPackingStateRef = useRef(packingState);
@@ -176,7 +196,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   // --- 필터 칩 / 접기 ----------------------------------------------------------
   const [filter, setFilter] = useState<Filter>("all");
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({});
-  const filterStillValid = filter === "all" || filter === "left" || checklist.some((p) => p.id === filter);
+  const filterStillValid =
+    filter === "all" || filter === "left" || (filter === "mine" && hasMine) || checklist.some((p) => p.id === filter);
   const activeFilter: Filter = filterStillValid ? filter : "all";
 
   const isOpen = (p: Pack) => {
@@ -188,6 +209,7 @@ export default function BagScreenV2(props: BagScreenProps) {
 
   const visibleSections = ordered.filter((p) => {
     if (activeFilter === "all") return true;
+    if (activeFilter === "mine") return p.kind !== "editor" && p.items.some(isMine);
     if (activeFilter === "left") {
       if (p.kind === "editor") return false;
       return p.items.some((i) => i.type === "check" && !i.checked);
@@ -195,7 +217,12 @@ export default function BagScreenV2(props: BagScreenProps) {
     return p.id === activeFilter;
   });
 
-  const itemsFor = (p: Pack) => (activeFilter === "left" ? p.items.filter((i) => i.type === "check" && !i.checked) : p.items);
+  const itemsFor = (p: Pack) =>
+    activeFilter === "left"
+      ? p.items.filter((i) => i.type === "check" && !i.checked)
+      : activeFilter === "mine"
+        ? p.items.filter(isMine)
+        : p.items;
   // 사용 가이드에서 비출 팩: 화면에 보이는 첫 체크리스트 팩(메모 제외)
   const guidePackId = visibleSections.find((p) => p.kind !== "editor")?.id;
 
@@ -408,6 +435,11 @@ export default function BagScreenV2(props: BagScreenProps) {
               ))}
             </div>
           )}
+          {keepOn && (
+            <IconButton label={awake ? "화면 켜두기 켜짐 · 누르면 끔" : "화면 켜두기 대기 중 · 누르면 끔"} onClick={() => changeKeepOn(false)}>
+              <IconSun size={22} stroke={awake ? 2 : 1.75} className={awake ? "text-brand" : "text-faint"} />
+            </IconButton>
+          )}
           {/* 좁은 화면에서만 보이는 1열/2열 전환. 넓은 화면은 폭에 맞춰 자동이라 숨긴다 */}
           <IconButton
             label={phoneCols === 2 ? "1열로 보기" : "2열로 보기"}
@@ -519,6 +551,9 @@ export default function BagScreenV2(props: BagScreenProps) {
               <div className="pib-v2-no-scrollbar flex gap-2 overflow-x-auto px-5 pt-4 pb-2">
                 <Chip label="전체" count={stats.total} selected={activeFilter === "all"} onClick={() => setFilter("all")} />
                 <Chip label="남은 것" count={stats.total - stats.done} selected={activeFilter === "left"} onClick={() => setFilter("left")} />
+                {hasMine && (
+                  <Chip label="내 담당" count={mineLeft} selected={activeFilter === "mine"} onClick={() => setFilter(activeFilter === "mine" ? "all" : "mine")} />
+                )}
                 {checklist.map((p) => (
                   <Chip
                     key={p.id}
@@ -844,6 +879,7 @@ export default function BagScreenV2(props: BagScreenProps) {
             : null
         }
         onGuide={() => window.setTimeout(() => setTourOpen(true), 320)}
+        keepScreenOn={{ on: keepOn, onChange: changeKeepOn }}
       />
       <ConfirmSheet
         open={confirmDelete}

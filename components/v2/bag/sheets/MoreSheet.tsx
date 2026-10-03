@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
-import { Button, SectionHeader, Sheet } from "@/components/v2/ui";
+import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
 
 // 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
@@ -24,6 +24,7 @@ export function MoreSheet({
   onDeleteOrLeave,
   weather,
   onGuide,
+  keepScreenOn,
 }: {
   open: boolean;
   onClose: () => void;
@@ -43,6 +44,8 @@ export function MoreSheet({
   weather?: { locked: boolean; onOpen: () => void } | null;
   // 사용 가이드(코치마크 투어) 다시 보기
   onGuide?: () => void;
+  // 화면 켜두기(구 UI 집중 패킹 모드). 이 기기에 기억
+  keepScreenOn?: { on: boolean; onChange: (on: boolean) => void };
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [notice, setNotice] = useState(bag.notice ?? "");
@@ -107,6 +110,19 @@ export function MoreSheet({
             />
           </label>
         </section>
+
+        {keepScreenOn && (
+          <section className="flex flex-col">
+            <SectionHeader>챙길 때</SectionHeader>
+            <Toggle
+              checked={keepScreenOn.on}
+              onChange={keepScreenOn.onChange}
+              label="화면 켜두기"
+              description="가방을 보는 동안 화면이 꺼지지 않아요 · 이 기기에만 적용"
+              className="border-b border-line"
+            />
+          </section>
+        )}
 
         <section className="flex flex-col">
           <SectionHeader>추가</SectionHeader>
