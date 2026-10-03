@@ -10,6 +10,7 @@ import {
   subscribeToNotifications,
 } from "@/lib/notificationsService";
 import { useNewVersionAvailable } from "@/lib/useNewVersionAvailable";
+import { NotificationBellV2 } from "@/components/v2/sheets/NotificationsSheet";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
@@ -30,6 +31,10 @@ function formatDate(iso: string) {
 // 같은 안내를 보낼 수 있다 - 이 폴링 감지는 그 전까지의, 그리고 푸시를 안 받는 사람을
 // 위한 이중 안전망 역할도 한다.
 export default function NotificationBell({ uid, v2 = false }: { uid: string; v2?: boolean }) {
+  return v2 ? <NotificationBellV2 uid={uid} /> : <LegacyNotificationBell uid={uid} v2={false} />;
+}
+
+function LegacyNotificationBell({ uid, v2 = false }: { uid: string; v2?: boolean }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
   const hasNewVersion = useNewVersionAvailable();

@@ -103,6 +103,9 @@ import {
 } from "@/lib/premiumLimits";
 import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
+import { QuickAddSheet } from "@/components/v2/sheets/QuickAddSheet";
+import { AnnouncementSheet } from "@/components/v2/sheets/AnnouncementSheet";
+import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import DesktopShell from "@/components/DesktopShell";
@@ -2073,7 +2076,11 @@ export default function AppShell() {
         </div>
         {!homeSelectMode && !packsSelectMode && (
           <>
-            <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
+            {UI_V2 ? (
+              <TabBarV2 active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
+            ) : (
+              <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
+            )}
             <InstallPrompt />
           </>
         )}
@@ -2121,11 +2128,24 @@ export default function AppShell() {
           })()}
       </SlideScreen>
 
-      {showQuickAdd && (
-        <QuickAddModal
+      {UI_V2 ? (
+        <QuickAddSheet
+          open={showQuickAdd}
           onClose={() => setShowQuickAdd(false)}
           onAdd={handleQuickAddItem}
+          savedCount={quickPack?.items.length ?? 0}
+          onOpenQuickPack={() => {
+            setShowQuickAdd(false);
+            if (quickPack) setEditingPack(quickPack);
+          }}
         />
+      ) : (
+        showQuickAdd && (
+          <QuickAddModal
+            onClose={() => setShowQuickAdd(false)}
+            onAdd={handleQuickAddItem}
+          />
+        )
       )}
 
       {/* 팩 에디터 - 에디터형(자유문서형 메모 팩)은 노션 페이지처럼 풀스크린으로 오른쪽에서
@@ -2191,11 +2211,22 @@ export default function AppShell() {
         )}
       </SlideUpSheet>
 
-      {showIntroModal && introSlides.length > 0 && (
-        <InitialGuideCarouselModal
-          slides={introSlides}
+      {UI_V2 ? (
+        <AnnouncementSheet
+          open={showIntroModal}
+          entries={introSlides
+            .filter((s) => s.type === "announcement" && s.announcement)
+            .map((s) => ({ id: s.id, announcement: s.announcement!, onDismiss: s.onDismiss }))}
           onClose={() => setShowIntroModal(false)}
         />
+      ) : (
+        showIntroModal &&
+        introSlides.length > 0 && (
+          <InitialGuideCarouselModal
+            slides={introSlides}
+            onClose={() => setShowIntroModal(false)}
+          />
+        )
       )}
       {showTodayTasksModal && todayTasksList.length > 0 && (
         <TodayTasksModal

@@ -890,6 +890,9 @@ aside {
 }
 
 /* 하단 안전영역(홈 인디케이터) + 여백. 숫자는 4pt 단위 배수 */
+@utility pb-safe-2 {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
 @utility pb-safe-4 {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }

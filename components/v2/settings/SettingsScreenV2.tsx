@@ -20,17 +20,15 @@ import { getOfflineDataSummary } from "@/lib/offlineImportService";
 import LegacyAvatar from "@/components/Avatar";
 import NotificationBell from "@/components/NotificationBell";
 import SlideScreen from "@/components/SlideScreen";
-import ProfileEditScreen from "@/components/screens/ProfileEditScreen";
-import VersionInfoScreen from "@/components/screens/VersionInfoScreen";
-import LicensesScreen from "@/components/screens/LicensesScreen";
-import TrashScreen from "@/components/screens/TrashScreen";
-import InquiryScreen from "@/components/screens/InquiryScreen";
-import AnnouncementsModal from "@/components/AnnouncementsModal";
-import FaqModal from "@/components/FaqModal";
-import MyShortLinksModal from "@/components/MyShortLinksModal";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
-import OfflineDataImportModal from "@/components/OfflineDataImportModal";
-import AccountLinkModal from "@/components/auth/AccountLinkModal";
+import { AccountLinkSheet } from "@/components/v2/sheets/AccountLinkSheet";
+import { ProfileScreenV2 } from "./ProfileScreenV2";
+import { LicensesScreenV2, VersionScreenV2 } from "./InfoScreens";
+import { TrashScreenV2 } from "./TrashScreenV2";
+import { InquiryScreenV2 } from "./InquiryScreenV2";
+import { AnnouncementsListSheet, FaqSheet } from "./HelpSheets";
+import { MyLinksSheet } from "./MyLinksSheet";
+import { OfflineImportSheet } from "./OfflineImportSheet";
 import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
@@ -391,18 +389,18 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         </section>
       </ScreenBody>
 
-      {/* 하위 화면(구 화면 재사용). 오른쪽으로 밀면 손가락을 따라 설정으로 돌아온다(SlideScreen swipeBack) */}
+      {/* 하위 화면(v2, SubScreen 틀). 오른쪽으로 밀면 손가락을 따라 설정으로 돌아온다(SlideScreen swipeBack) */}
       <SlideScreen active={view === "profile"} onBackdropClick={close} swipeBack>
-        <ProfileEditScreen onBack={close} />
+        <ProfileScreenV2 onBack={close} />
       </SlideScreen>
       <SlideScreen active={view === "version"} onBackdropClick={close} swipeBack>
-        <VersionInfoScreen onBack={close} />
+        <VersionScreenV2 onBack={close} />
       </SlideScreen>
       <SlideScreen active={view === "licenses"} onBackdropClick={close} swipeBack>
-        <LicensesScreen onBack={close} />
+        <LicensesScreenV2 onBack={close} />
       </SlideScreen>
       <SlideScreen active={view === "trash"} onBackdropClick={close} swipeBack>
-        <TrashScreen
+        <TrashScreenV2
           bags={trashedBags}
           packs={trashedPacks}
           onBack={close}
@@ -413,19 +411,18 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         />
       </SlideScreen>
       <SlideScreen active={view === "inquiries"} onBackdropClick={close} swipeBack>
-        <InquiryScreen uid={uid} nickname={profile?.nickname ?? ""} onBack={close} />
+        <InquiryScreenV2 uid={uid} nickname={profile?.nickname ?? ""} onBack={close} />
       </SlideScreen>
 
-      {/* 창 */}
-      {showAnnouncements && (
-        <AnnouncementsModal
-          announcements={activeAnnouncements}
-          dismissedIds={dismissedAnnouncementIds}
-          onDismiss={onDismissAnnouncement}
-          onClose={() => setShowAnnouncements(false)}
-        />
-      )}
-      {showFaq && <FaqModal onClose={() => setShowFaq(false)} />}
+      {/* 시트 */}
+      <AnnouncementsListSheet
+        open={showAnnouncements}
+        announcements={activeAnnouncements}
+        dismissedIds={dismissedAnnouncementIds}
+        onDismiss={onDismissAnnouncement}
+        onClose={() => setShowAnnouncements(false)}
+      />
+      <FaqSheet open={showFaq} onClose={() => setShowFaq(false)} />
       <PremiumSheet
         open={showPremium}
         message={PREMIUM_MESSAGE}
@@ -440,9 +437,9 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           }
         }}
       />
-      {showMyShortLinks && user && <MyShortLinksModal user={user} onClose={() => setShowMyShortLinks(false)} />}
-      {showOfflineImport && <OfflineDataImportModal onClose={() => setShowOfflineImport(false)} />}
-      {showAccountLink && <AccountLinkModal isOpen={showAccountLink} onClose={() => setShowAccountLink(false)} />}
+      <MyLinksSheet open={showMyShortLinks && !!user} user={user ?? null} onClose={() => setShowMyShortLinks(false)} />
+      <OfflineImportSheet open={showOfflineImport} onClose={() => setShowOfflineImport(false)} />
+      <AccountLinkSheet open={showAccountLink} onClose={() => setShowAccountLink(false)} />
 
       <ConfirmSheet
         open={confirmLogout}

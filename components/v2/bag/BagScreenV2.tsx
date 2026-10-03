@@ -12,8 +12,8 @@ import { openExternalLink } from "@/lib/openExternalLink";
 import SlideScreen from "@/components/SlideScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
-import AiClipboardModal, { type AiClipboardResult } from "@/components/AiClipboardModal";
-import AiBagAuditModal from "@/components/AiBagAuditModal";
+import { ClipboardImportSheet, type ClipboardImportResult as AiClipboardResult } from "@/components/v2/sheets/AiPasteSheets";
+import { AuditSheet } from "./sheets/AuditSheet";
 import ImageLightbox from "@/components/ImageLightbox";
 import {
   useBagDocument,
@@ -955,16 +955,22 @@ export default function BagScreenV2(props: BagScreenProps) {
           }}
         />
       )}
-      {clipboardOpen && <AiClipboardModal bag={bag} onClose={() => setClipboardOpen(false)} onApply={handleClipboardApply} />}
-      {auditOpen && (
-        <AiBagAuditModal
-          bag={bag}
-          user={user}
-          onClose={() => setAuditOpen(false)}
-          onAddItemToPack={items.addToNamedPack}
-          onShowPremiumLimit={(msg) => setPremiumMessage(msg)}
-        />
-      )}
+      <ClipboardImportSheet
+        open={clipboardOpen}
+        bag={bag}
+        onClose={() => setClipboardOpen(false)}
+        onApply={(result) => {
+          handleClipboardApply(result);
+          setClipboardOpen(false);
+        }}
+      />
+      <AuditSheet
+        open={auditOpen}
+        bag={bag}
+        onClose={() => setAuditOpen(false)}
+        onAddItemToPack={items.addToNamedPack}
+        onLimit={(msg) => setPremiumMessage(msg)}
+      />
       <CoachTour open={tourOpen} steps={BAG_GUIDE_STEPS} onClose={closeTour} />
       <PremiumSheet
         open={!!premiumMessage}

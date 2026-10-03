@@ -9,7 +9,8 @@ import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { searchBags, type BagSearchResult } from "@/lib/librarySearch";
 import NotificationBell from "@/components/NotificationBell";
 import { JoinBagSheet } from "@/components/v2/sheets/JoinBagSheet";
-import NoteImportModal, { type NoteImportResult } from "@/components/NoteImportModal";
+import { NoteImportSheet } from "@/components/v2/sheets/AiPasteSheets";
+import type { NoteImportResult } from "@/components/NoteImportModal";
 import type { BagOpenFocus } from "@/components/screens/HomeScreen";
 import {
   Badge,
@@ -575,15 +576,14 @@ export default function HomeScreenV2(props: HomeScreenProps) {
           setJoinOpen(false);
         }}
       />
-      {!isOfflineMode && noteOpen && (
-        <NoteImportModal
-          onClose={() => setNoteOpen(false)}
-          onResult={(result) => {
-            setNoteOpen(false);
-            onImportNote(result);
-          }}
-        />
-      )}
+      <NoteImportSheet
+        open={!isOfflineMode && noteOpen}
+        onClose={() => setNoteOpen(false)}
+        onResult={(result) => {
+          setNoteOpen(false);
+          onImportNote(result);
+        }}
+      />
     </div>
   );
 }
