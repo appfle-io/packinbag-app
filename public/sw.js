@@ -13,7 +13,7 @@
 //    - CACHE_NAME 갱신 시 activate 이벤트에서 이전 캐시 버킷 자동 전수 삭제.
 // ============================================================================
 
-const CACHE_NAME = "pib-pwa-v1.0.12";
+const CACHE_NAME = "pib-pwa-v1.0.14";
 
 // 설치 시점에 오프라인 구동을 위해 미리 저장할 핵심 자산 목록
 const PRECACHE_ASSETS = [
@@ -90,10 +90,15 @@ self.addEventListener("fetch", (event) => {
       fetch(req)
         .then((networkRes) => {
           if (networkRes.status === 200) {
-            const clone = networkRes.clone();
+            // 복사본은 응답을 브라우저에 넘기기 전에 모두 만들어 둔다. 넘긴 뒤(비동기 then 안)에서 clone()하면
+            // 본문을 이미 읽은 뒤라 "Response body is already used" 오류가 나고 앱 셸('/')이 갱신되지 않았다(10/3 수정).
+            // 앱 셸('/')은 메인 주소를 열 때만 갱신한다. 예전에는 /admin 같은 다른 화면도 '/'로 저장해
+            // 오프라인일 때 엉뚱한 화면이 뜨는 일이 있었다
+            const forRequest = networkRes.clone();
+            const forShell = url.pathname === "/" ? networkRes.clone() : null;
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(req, clone);
-              cache.put("/", networkRes.clone());
+              cache.put(req, forRequest);
+              if (forShell) cache.put("/", forShell);
             });
           }
           return networkRes;
