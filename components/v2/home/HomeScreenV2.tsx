@@ -46,6 +46,7 @@ import {
 import { hasFolderNameClash } from "@/lib/bagFolderNames";
 import { saveBagFolderOrder, sortBagFolders, validBagFolders } from "@/lib/bagFolderOrder";
 import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
+import { useShellCommands } from "@/lib/v2/shell";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
 // (onNewKanbanBag / onOpenQuickPack / onSelectModeChange는 v2에서 쓰지 않는다: 칸반·빠른팩·다중선택 제거)
@@ -185,6 +186,14 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     setSearchOpen(false);
     setQuery("");
   };
+  // 넓은 화면 단축키(⌘K 검색 · ⌘N 새 가방). 셸이 이 탭으로 보낸 명령만 받는다
+  useShellCommands("home", {
+    search: () => {
+      setView("home");
+      setSearchOpen(true);
+    },
+    new: () => setNewBagOpen(true),
+  });
   const searchable = useMemo(
     () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
     [bags, premium],

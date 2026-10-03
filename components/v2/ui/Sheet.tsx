@@ -7,6 +7,7 @@ import { useOverlayLayer, SHEET_OFFSET, OverlayLayerProvider, LAYER_STEP } from 
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { IconButton } from "./IconButton";
 import { cx } from "./cx";
+import { DIALOG_QUERY, useMediaQuery } from "@/lib/v2/shell";
 
 const DURATION_MS = 280;
 // 이만큼(px) 이상 끌어내리거나, 빠르게 튕기면 닫는다.
@@ -34,6 +35,8 @@ export function Sheet({ open, onClose, title, showClose = true, footer, size = "
   const layer = useOverlayLayer();
   const zIndex = layer + SHEET_OFFSET;
   useEscapeToClose(onClose, open);
+  // 넓은 화면(PC·아이패드 가로)에서는 가운데 창으로 띄운다(셸 통합 결정 B). 끌어내리기 대신 바깥·Esc·X로 닫는다
+  const dialog = useMediaQuery(DIALOG_QUERY);
 
   const [rendered, setRendered] = useState(open);
   const [shown, setShown] = useState(false);
@@ -122,24 +125,34 @@ export function Sheet({ open, onClose, title, showClose = true, footer, size = "
             aria-label={title}
             tabIndex={-1}
             className={cx(
-              "absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-xl flex-col rounded-t-card bg-canvas shadow-sheet outline-none",
-              size === "tall" ? "h-dvh-88" : "max-h-dvh-88",
-              !dragging && "transition-transform duration-280 ease-snappy",
+              "flex flex-col bg-canvas shadow-sheet outline-none",
+              dialog
+                ? "absolute inset-x-6 top-1/2 mx-auto max-h-dvh-88 max-w-lg -translate-y-1/2 rounded-card transition-[transform,opacity] duration-200 ease-snappy"
+                : cx(
+                    "absolute inset-x-0 bottom-0 mx-auto w-full max-w-xl rounded-t-card",
+                    size === "tall" ? "h-dvh-88" : "max-h-dvh-88",
+                    !dragging && "transition-transform duration-280 ease-snappy",
+                  ),
+              dialog && (shown ? "opacity-100" : "opacity-0"),
             )}
-            style={{ transform: shown ? `translateY(${translate}px)` : "translateY(100%)" }}
+            style={{
+              transform: dialog ? (shown ? "scale(1)" : "scale(0.96)") : shown ? `translateY(${translate}px)` : "translateY(100%)",
+            }}
           >
             <div
               className="shrink-0 touch-none select-none"
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
+              onPointerDown={dialog ? undefined : onPointerDown}
+              onPointerMove={dialog ? undefined : onPointerMove}
+              onPointerUp={dialog ? undefined : onPointerUp}
+              onPointerCancel={dialog ? undefined : onPointerUp}
             >
-              <div className="flex justify-center pt-2">
-                <span aria-hidden="true" className="h-1 w-9 rounded-full bg-line-strong" />
-              </div>
+              {!dialog && (
+                <div className="flex justify-center pt-2">
+                  <span aria-hidden="true" className="h-1 w-9 rounded-full bg-line-strong" />
+                </div>
+              )}
               {(title || showClose) && (
-                <div className="flex items-center justify-between pt-2 pr-2 pl-5">
+                <div className={cx("flex items-center justify-between pr-2 pl-5", dialog ? "pt-3" : "pt-2")}>
                   {title ? <h2 className="m-0 text-heading font-bold">{title}</h2> : <span />}
                   {showClose && (
                     <IconButton label="닫기" onClick={onClose}>

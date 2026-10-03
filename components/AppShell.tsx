@@ -109,6 +109,8 @@ import { QuickAddSheet } from "@/components/v2/sheets/QuickAddSheet";
 import { AnnouncementSheet } from "@/components/v2/sheets/AnnouncementSheet";
 import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
+import { WideShell } from "@/components/v2/shell/WideShell";
+import { WIDE_QUERY, useMediaQuery } from "@/lib/v2/shell";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import DesktopShell from "@/components/DesktopShell";
@@ -245,6 +247,9 @@ export default function AppShell() {
   const { user, profile, loading, authBusy, isMaster, isOfflineMode } = useAuth();
   const { show } = useToast();
   const isDesktop = useIsDesktop();
+  // 리디자인 v2 셸 통합: 900px 이상은 [목록 | 상세](1200px 이상은 레일까지) 한 셸. 구 데스크톱 셸(DesktopShell)은 플래그를 끈 때만
+  const wideMatch = useMediaQuery(WIDE_QUERY);
+  const wide = UI_V2 && wideMatch;
 
   const [bags, setBags] = useState<Bag[]>([]);
   const [libraryPacks, setLibraryPacks] = useState<Pack[]>([]);
@@ -1843,7 +1848,7 @@ export default function AppShell() {
     }
   };
 
-  if (isDesktop) {
+  if (isDesktop && !UI_V2) {
     return (
       <div className="flex flex-col h-dvh overflow-hidden bg-background">
         <OfflineStatusBar />
@@ -1915,6 +1920,215 @@ export default function AppShell() {
           <CreatingPackOverlay visible={creatingPack} />
         </div>
       </div>
+    );
+  }
+
+  // ---- 화면 조각(좁은 화면·넓은 화면 공통) -------------------------------------------------
+  // 넓은 화면에서는 상세 칸에 하나만 보인다: 팩·메모가 열려 있으면 그것, 아니면 가방. 가방을 새로 고르면 열려 있던 팩은 닫는다
+  const openBag = (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string } | null) => {
+    setIsNewBag(false);
+    setEditingBag(bag);
+    setBagFocus(focus ?? null);
+    if (wide) setEditingPack(null);
+  };
+  const openPack = (pack: Pack, focusItemId?: string, searchQuery?: string) => {
+    setEditingPack(pack);
+    setPackFocusItemId(focusItemId ?? null);
+    setPackFocusSearchQuery(searchQuery ?? null);
+  };
+  const closePack = () => {
+    setEditingPack(null);
+    setPackFocusItemId(null);
+    setPackFocusSearchQuery(null);
+  };
+
+  const packsScreenEl = (
+    <PacksScreen
+      uid={user.uid}
+      packs={activePacks}
+      bags={activeBags}
+      quickPack={quickPack}
+      onOpenPack={openPack}
+      onOpenBag={openBag}
+      onNewPack={openNewPack}
+      onNewFolder={handleCreateFolder}
+      onRenameEntry={handleRenameLibraryEntry}
+      onMoveEntries={handleMoveLibraryEntries}
+      onBulkDeletePacks={handleBulkDeletePacks}
+      onSelectModeChange={setPacksSelectMode}
+    />
+  );
+  const homeScreenEl = (
+    <HomeScreen
+      uid={user.uid}
+      bags={activeBags}
+      packs={activePacks}
+      initialInviteCode={inviteCodeFromUrl()}
+      lockedBagIds={lockedBagIds}
+      quickPack={quickPack}
+      currentUid={user.uid}
+      onOpenBag={openBag}
+      onOpenPack={openPack}
+      onNewBag={openNewBag}
+      onNewKanbanBag={openNewKanbanBag}
+      onImportNote={openNewBagFromNote}
+      onJoinBag={handleJoinBag}
+      onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
+      onBulkDeleteBags={handleBulkDeleteBags}
+      onSelectModeChange={setHomeSelectMode}
+    />
+  );
+  const settingsScreenEl = (
+    <SettingsScreen
+      uid={user.uid}
+      bags={activeBags}
+      libraryPacks={activePacks}
+      announcements={announcements}
+      dismissedAnnouncementIds={dismissedIds}
+      onDismissAnnouncement={handleDismissAnnouncement}
+      onCreateAnnouncement={handleCreateAnnouncement}
+      onUpdateAnnouncement={handleUpdateAnnouncement}
+      onDeleteAnnouncement={handleDeleteAnnouncement}
+      trashedBags={trashedBags}
+      trashedPacks={trashedPacks}
+      onRestoreBag={handleRestoreBag}
+      onPermanentDeleteBag={handlePermanentDeleteBag}
+      onRestorePack={handleRestorePack}
+      onPermanentDeletePack={handlePermanentDeletePack}
+      onBack={() => setTab("home")}
+    />
+  );
+
+  const renderBag = (bag: Bag) => (
+    <BagEditorScreen
+      key={bag.id}
+      initialBag={bag}
+      libraryPacks={activePacks}
+      bags={activeBags}
+      uid={user.uid}
+      nickname={profile.nickname!}
+      avatarId={profile.avatarId!}
+      isNew={isNewBag}
+      readOnly={lockedBagIds.has(bag.id)}
+      onRequestUnlock={requestUnlockForBag}
+      onBack={handleBackFromEditor}
+      onSave={handleSaveBag}
+      onDeleteBag={handleDeleteBag}
+      onSaveAsLibraryPack={handleSaveAsLibraryPack}
+      onTrashPackFromBag={handleTrashPackFromBag}
+      onLeaveBag={handleLeaveBag}
+      onRemoveMember={handleRemoveMember}
+      onRegenerateInviteCode={handleRegenerateInviteCode}
+      onTransferOwnership={handleTransferOwnership}
+      focusTarget={bagFocus}
+      onFocusHandled={() => setBagFocus(null)}
+    />
+  );
+  const renderMemo = (pack: Pack) => (
+    <PackNoteEditorScreen
+      key={pack.id}
+      pack={pack}
+      readOnly={false}
+      initialSearchQuery={packFocusSearchQuery ?? undefined}
+      onBack={closePack}
+      onSave={handleSavePack}
+      onDeletePack={() => handleDeletePack(pack.id)}
+      premium={premium}
+    />
+  );
+  const renderPackEditor = (pack: Pack) => (
+    <PackLibraryEditorScreen
+      key={pack.id}
+      variant="sheet"
+      initialPack={pack}
+      libraryPacks={activePacks}
+      bags={activeBags}
+      lockedBagIds={lockedBagIds}
+      readOnly={false}
+      onRequestUnlock={requestUnlockForPack}
+      onBack={() => {
+        setEditingPack(null);
+        setPackFocusItemId(null);
+      }}
+      onSave={handleSavePack}
+      onSaveOtherPack={handleSavePack}
+      onDelete={handleDeletePack}
+      onAddItemsToBagPack={handleAddItemsToBagPack}
+      onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
+      focusItemId={packFocusItemId}
+      onFocusHandled={() => setPackFocusItemId(null)}
+    />
+  );
+
+  // ---- 넓은 화면(웹 PC · 아이패드 가로 · 포터블 앱) ------------------------------------------
+  if (wide) {
+    // 편집 중인 팩은 보관함 최신본으로(다른 기기 수정 반영). 다른 팩을 고른 직후에는 캐시가 아직 예전 팩이라 id로 확인한다
+    const latestMemo = displayedEditorPack?.id === editingPack?.id ? displayedEditorPack : editingPack;
+    const latestSheetPack = displayedSheetPack?.id === editingPack?.id ? displayedSheetPack : editingPack;
+    const detail = editingPack ? (
+      editingPack.kind === "editor" ? (
+        <div className="flex h-full min-h-0 flex-col bg-background">{renderMemo(latestMemo ?? editingPack)}</div>
+      ) : (
+        <div className="flex h-full min-h-0 flex-col">{renderPackEditor(latestSheetPack ?? editingPack)}</div>
+      )
+    ) : editingBag ? (
+      renderBag(editingBag)
+    ) : null;
+
+    return (
+      <>
+        <OfflineStatusBar />
+        <WideShell
+          tab={tab}
+          onTab={setTab}
+          onQuickAdd={() => setShowQuickAdd(true)}
+          list={tab === "packs" ? packsScreenEl : tab === "settings" ? settingsScreenEl : homeScreenEl}
+          detail={detail}
+          offline={isOfflineMode}
+          onNewBag={() => void openNewBag()}
+          onNewPack={() => void openNewPack()}
+          onCloseDetail={() => {
+            if (editingPack) closePack();
+            else if (editingBag) handleBackFromEditor(editingBag);
+          }}
+          banner={<EmailVerifyBanner />}
+        />
+        <QuickAddSheet
+          open={showQuickAdd}
+          onClose={() => setShowQuickAdd(false)}
+          onAdd={handleQuickAddItem}
+          savedCount={quickPack?.items.length ?? 0}
+          onOpenQuickPack={() => {
+            setShowQuickAdd(false);
+            if (quickPack) setEditingPack(quickPack);
+          }}
+        />
+        <AnnouncementSheet
+          open={showIntroModal}
+          entries={introSlides
+            .filter((s) => s.type === "announcement" && s.announcement)
+            .map((s) => ({ id: s.id, announcement: s.announcement!, onDismiss: s.onDismiss }))}
+          onClose={() => setShowIntroModal(false)}
+        />
+        <PremiumSheet
+          open={!!premiumLimitMessage}
+          message={premiumLimitMessage}
+          onClose={() => setPremiumLimitMessage(null)}
+          onUnlocked={() => {
+            setPremiumLimitMessage(null);
+            show("프리미엄이 적용됐어요. 다시 시도해 주세요");
+          }}
+        />
+        <SplashScreen visible={showSplash} />
+        <BusyOverlay visible={showPremiumSyncOverlay} />
+        <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
+        <BusyOverlay visible={creatingPack} message="팩을 만들고 있어요" />
+        <BusyOverlay
+          visible={bulkDeleting !== null}
+          message="가방을 정리하고 있어요"
+          progress={{ total: bulkDeleting?.total ?? 0, completed: bulkDeleting?.completed ?? 0 }}
+        />
+      </>
     );
   }
 
@@ -2002,80 +2216,17 @@ export default function AppShell() {
           >
             {/* 1. 팩 보관함 탭 */}
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              <PacksScreen
-                uid={user.uid}
-                packs={activePacks}
-                bags={activeBags}
-                quickPack={quickPack}
-                onOpenPack={(pack, focusItemId, searchQuery) => {
-                  setEditingPack(pack);
-                  setPackFocusItemId(focusItemId ?? null);
-                  setPackFocusSearchQuery(searchQuery ?? null);
-                }}
-                onOpenBag={(bag, focus) => {
-                  setIsNewBag(false);
-                  setEditingBag(bag);
-                  setBagFocus(focus ?? null);
-                }}
-                onNewPack={openNewPack}
-                onNewFolder={handleCreateFolder}
-                onRenameEntry={handleRenameLibraryEntry}
-                onMoveEntries={handleMoveLibraryEntries}
-                onBulkDeletePacks={handleBulkDeletePacks}
-                onSelectModeChange={setPacksSelectMode}
-              />
+              {packsScreenEl}
             </div>
 
             {/* 2. 가방 보관함 탭 */}
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              <HomeScreen
-                uid={user.uid}
-                bags={activeBags}
-                packs={activePacks}
-                initialInviteCode={inviteCodeFromUrl()}
-                lockedBagIds={lockedBagIds}
-                quickPack={quickPack}
-                currentUid={user.uid}
-                onOpenBag={(bag, focus) => {
-                  setIsNewBag(false);
-                  setEditingBag(bag);
-                  setBagFocus(focus ?? null);
-                }}
-                onOpenPack={(pack, focusItemId, searchQuery) => {
-                  setEditingPack(pack);
-                  setPackFocusItemId(focusItemId ?? null);
-                  setPackFocusSearchQuery(searchQuery ?? null);
-                }}
-                onNewBag={openNewBag}
-                onNewKanbanBag={openNewKanbanBag}
-                onImportNote={openNewBagFromNote}
-                onJoinBag={handleJoinBag}
-                onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
-                onBulkDeleteBags={handleBulkDeleteBags}
-                onSelectModeChange={setHomeSelectMode}
-              />
+              {homeScreenEl}
             </div>
 
             {/* 3. 설정 탭 */}
             <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              <SettingsScreen
-                uid={user.uid}
-                bags={activeBags}
-                libraryPacks={activePacks}
-                announcements={announcements}
-                dismissedAnnouncementIds={dismissedIds}
-                onDismissAnnouncement={handleDismissAnnouncement}
-                onCreateAnnouncement={handleCreateAnnouncement}
-                onUpdateAnnouncement={handleUpdateAnnouncement}
-                onDeleteAnnouncement={handleDeleteAnnouncement}
-                trashedBags={trashedBags}
-                trashedPacks={trashedPacks}
-                onRestoreBag={handleRestoreBag}
-                onPermanentDeleteBag={handlePermanentDeleteBag}
-                onRestorePack={handleRestorePack}
-                onPermanentDeletePack={handlePermanentDeletePack}
-                onBack={() => setTab("home")}
-              />
+              {settingsScreenEl}
             </div>
           </div>
         </div>
@@ -2103,34 +2254,7 @@ export default function AppShell() {
             : "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top"
         }
       >
-        {displayedBag &&
-          (() => {
-            const isEditingBagLocked = lockedBagIds.has(displayedBag.id);
-            return (
-              <BagEditorScreen
-                initialBag={displayedBag}
-                libraryPacks={activePacks}
-                bags={activeBags}
-                uid={user.uid}
-                nickname={profile.nickname}
-                avatarId={profile.avatarId}
-                isNew={isNewBag}
-                readOnly={isEditingBagLocked}
-                onRequestUnlock={requestUnlockForBag}
-                onBack={handleBackFromEditor}
-                onSave={handleSaveBag}
-                onDeleteBag={handleDeleteBag}
-                onSaveAsLibraryPack={handleSaveAsLibraryPack}
-                onTrashPackFromBag={handleTrashPackFromBag}
-                onLeaveBag={handleLeaveBag}
-                onRemoveMember={handleRemoveMember}
-                onRegenerateInviteCode={handleRegenerateInviteCode}
-                onTransferOwnership={handleTransferOwnership}
-                focusTarget={bagFocus}
-                onFocusHandled={() => setBagFocus(null)}
-              />
-            );
-          })()}
+        {displayedBag && renderBag(displayedBag)}
       </SlideScreen>
 
       {UI_V2 ? (
@@ -2167,21 +2291,7 @@ export default function AppShell() {
         }}
         innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-background pib-safe-top"
       >
-        {displayedEditorPack && (
-          <PackNoteEditorScreen
-            pack={displayedEditorPack}
-            readOnly={false}
-            initialSearchQuery={packFocusSearchQuery ?? undefined}
-            onBack={() => {
-              setEditingPack(null);
-              setPackFocusItemId(null);
-              setPackFocusSearchQuery(null);
-            }}
-            onSave={handleSavePack}
-            onDeletePack={() => handleDeletePack(displayedEditorPack.id)}
-            premium={premium}
-          />
-        )}
+        {displayedEditorPack && renderMemo(displayedEditorPack)}
       </SlideScreen>
 
       <SlideUpSheet
@@ -2192,28 +2302,7 @@ export default function AppShell() {
           setPackFocusItemId(null);
         }}
       >
-        {displayedSheetPack && (
-          <PackLibraryEditorScreen
-            variant="sheet"
-            initialPack={displayedSheetPack}
-            libraryPacks={activePacks}
-            bags={activeBags}
-            lockedBagIds={lockedBagIds}
-            readOnly={false}
-            onRequestUnlock={requestUnlockForPack}
-            onBack={() => {
-              setEditingPack(null);
-              setPackFocusItemId(null);
-            }}
-            onSave={handleSavePack}
-            onSaveOtherPack={handleSavePack}
-            onDelete={handleDeletePack}
-            onAddItemsToBagPack={handleAddItemsToBagPack}
-            onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-            focusItemId={packFocusItemId}
-            onFocusHandled={() => setPackFocusItemId(null)}
-          />
-        )}
+        {displayedSheetPack && renderPackEditor(displayedSheetPack)}
       </SlideUpSheet>
 
       {UI_V2 ? (

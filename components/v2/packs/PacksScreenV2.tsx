@@ -27,6 +27,7 @@ import { EntrySheet } from "./sheets/EntrySheet";
 import { MoveSheet } from "./sheets/MoveSheet";
 import { NameSheet, type NameRequest } from "./sheets/NameSheet";
 import { entriesIn, metaOf, moveTargets, pathLabel, pathTo } from "./packsModel";
+import { useShellCommands } from "@/lib/v2/shell";
 
 // 구 PacksScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
 // (onBack / onSelectModeChange는 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음, 다중선택 제거)
@@ -156,6 +157,11 @@ export default function PacksScreenV2(props: PacksScreenProps) {
     setSearchOpen(false);
     setQuery("");
   };
+  // 넓은 화면 단축키(⌘K 검색 · ⌘N 새로 만들기)
+  useShellCommands("packs", {
+    search: () => setSearchOpen(true),
+    new: () => setAddOpen(true),
+  });
 
   const resultSubtitle = (r: PackSearchResult) => {
     if (!r.pack) return r.subtitle;
