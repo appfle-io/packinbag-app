@@ -776,6 +776,14 @@ export default function AppShell() {
   const lockedPackIds = user && !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
+  // v2: 빠른팩 + → 빠른팩에 적어 둔 게 있으면 그 내용을 바로 연다(아래 입력칸으로 계속 추가). 비어 있으면 빠른 입력 시트
+  const openQuickAdd = () => {
+    if (UI_V2 && quickPack && quickPack.items.length > 0) {
+      setEditingPack(quickPack);
+      return;
+    }
+    setShowQuickAdd(true);
+  };
 
   const requestUnlockForBag = () =>
     setPremiumLimitMessage(
@@ -1052,7 +1060,8 @@ export default function AppShell() {
   const ownedBagCount = activeBags.filter((b) => b.ownerId === user.uid).length;
 
   // v2: 계정 모드인데 인터넷이 안 되면(폐쇄망 포함) "만들기 대기"로 만들고 그대로 연다. 연결되면 자동으로 서버에 만든다
-  const offlineNow = () => UI_V2 && (getConnectivity() === "offline" || (typeof navigator !== "undefined" && !navigator.onLine));
+  // navigator.onLine은 iOS 웹뷰에서 늦게 바뀌는 경우가 있어 보지 않는다(앱 공통 연결 판단만 쓴다)
+  const offlineNow = () => UI_V2 && getConnectivity() === "offline";
   const createPendingBag = (draft: Bag) => {
     addPendingBag(user.uid, draft, { nickname: profile.nickname!, avatarId: profile.avatarId! });
     setIsNewBag(false);
@@ -2183,7 +2192,7 @@ export default function AppShell() {
         <WideShell
           tab={tab}
           onTab={setTab}
-          onQuickAdd={() => setShowQuickAdd(true)}
+          onQuickAdd={openQuickAdd}
           list={tab === "packs" ? packsScreenEl : tab === "settings" ? settingsScreenEl : homeScreenEl}
           detail={detail}
           offline={isOfflineMode}
@@ -2343,7 +2352,7 @@ export default function AppShell() {
           <div className="relative flex min-h-0 flex-1 flex-col">
             {tabArea}
             {!homeSelectMode && !packsSelectMode && (
-              <TabBarV2 active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
+              <TabBarV2 active={tab} onChange={setTab} onQuickAdd={openQuickAdd} />
             )}
           </div>
         ) : (

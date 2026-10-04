@@ -19,10 +19,10 @@ export async function checkIsOnline(timeoutMs = 2000): Promise<boolean> {
     }
   }
 
-  // 2. 브라우저/PWA 환경: OS/브라우저 수준에서 네트워크 단절인 경우 즉시 false
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
-    return false;
-  }
+  // 2. 브라우저/PWA 환경: navigator.onLine이 false여도 바로 끊김으로 단정하지 않고 실제로 확인한다.
+  //    iOS 웹뷰·PWA는 다시 연결된 뒤에도 onLine이 false로 남거나 online 이벤트가 안 오는 경우가 있어서,
+  //    여기서 바로 false를 돌려주면 앱을 다시 켤 때까지 "끊김"에 갇힌다(10/4 실기기 확인).
+  //    정말 끊겼으면 아래 요청이 금방 실패하므로 비용은 거의 없다.
 
   // 3. 브라우저/PWA 환경에서 LAN선/Wi-Fi는 연결되어 있으나 외부 인터넷이 막힌 폐쇄망 검사
   try {

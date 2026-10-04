@@ -2,20 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IconArrowUp, IconCheck, IconChevronRight } from "@tabler/icons-react";
-import { IconButton, SegmentedControl, Sheet, cx } from "@/components/v2/ui";
+import { IconButton, Sheet, cx } from "@/components/v2/ui";
 
 type QuickType = "check" | "text";
-
-const TYPE_OPTIONS = [
-  { value: "check" as const, label: "체크" },
-  { value: "text" as const, label: "글" },
-];
 
 // 시트가 올라온 뒤(Sheet가 패널에 포커스를 준 다음) 입력칸으로 포커스를 옮긴다
 const FOCUS_DELAY_MS = 320;
 
 // 리디자인 v2 빠른팩 입력 시트(하단 탭바 "빠른팩"). 구 QuickAddModal 대체.
-// - 생각날 때 빨리 적어 두는 용도라 종류(체크/글)와 이름만 받는다. 엔터로 연속 입력, 시트는 열린 채 유지
+// - 생각날 때 빨리 적어 두는 용도. 다른 팩처럼 체크 아이템만 받는다(10/4, 체크/글 선택 제거). 엔터로 연속 입력, 시트는 열린 채 유지
+// - 빠른팩에 이미 적어 둔 게 있으면 + 는 이 시트 대신 빠른팩을 바로 연다(AppShell.openQuickAdd)
 // - 이번에 넣은 것은 위에 바로 보여 준다(닫으면 사라지는 화면용 목록, 저장은 onAdd가 맡는다)
 // - 아래 "빠른팩 열기"로 모아 둔 아이템을 정리하러 바로 간다
 export function QuickAddSheet({
@@ -32,7 +28,7 @@ export function QuickAddSheet({
   savedCount: number;
   onOpenQuickPack?: () => void;
 }) {
-  const [type, setType] = useState<QuickType>("check");
+  const type: QuickType = "check";
   const [text, setText] = useState("");
   const [justAdded, setJustAdded] = useState<{ id: number; type: QuickType; text: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,7 +79,7 @@ export function QuickAddSheet({
               value={text}
               onChange={(e) => setText(e.target.value)}
               aria-label="빠른팩에 넣을 아이템"
-              placeholder={type === "check" ? "챙길 것을 적고 엔터" : "메모할 글을 적고 엔터"}
+              placeholder="챙길 것을 적고 엔터"
               enterKeyHint="send"
               className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-faint"
             />
@@ -96,8 +92,6 @@ export function QuickAddSheet({
     >
       <div className="flex flex-col gap-4">
         <p className="m-0 text-caption text-sub">생각날 때 바로 적어 두세요. 나중에 팩 탭의 빠른팩에서 원하는 팩이나 가방으로 옮기면 돼요.</p>
-
-        <SegmentedControl label="아이템 종류" options={TYPE_OPTIONS} value={type} onChange={setType} />
 
         {justAdded.length > 0 && (
           <section aria-label="방금 넣은 아이템" className="flex flex-col">

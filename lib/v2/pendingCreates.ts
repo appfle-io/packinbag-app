@@ -105,7 +105,6 @@ export function withPending<T extends { id: string }>(remote: T[], pending: T[])
 
 /** fetch 자체가 실패한 경우(폐쇄망·끊김). 서버가 거절한 경우(4xx·5xx)와 구분한다 */
 export function isNetworkError(err: unknown): boolean {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return true;
   const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
   return /TypeError|Failed to fetch|NetworkError|Load failed|network/i.test(msg);
 }
