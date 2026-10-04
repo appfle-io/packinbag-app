@@ -18,6 +18,7 @@ import {
   OAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  reauthenticateWithPopup,
   sendPasswordResetEmail,
   signInAnonymously,
   signInWithCredential,
@@ -159,10 +160,41 @@ interface AuthContextValue {
   sendPasswordReset: (email: string) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  // 이메일 가입 계정은 지금 비밀번호로 다시 확인한 뒤 지운다(소셜 계정은 password 없이)
+  deleteAccount: (password?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+// users/{uid} 쓰기에서 "이 필드 지우기" 표시. 온라인이면 deleteField()로 바꾸고, 오프라인 모드면 로컬 프로필에서 지운다
+const REMOVE_FIELD = Symbol("pib-remove-field");
+type UserPatch = Record<string, unknown>;
+
+// 오프라인 모드용: "bagFolders.abc.parentId" 같은 점 경로까지 로컬 프로필 객체에 그대로 적용한다
+function applyUserPatch<T extends object>(base: T, patch: UserPatch): T {
+  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(patch)) {
+    const path = key.split(".");
+    let node = out;
+    for (let i = 0; i < path.length - 1; i++) {
+      const child = node[path[i]];
+      const copy: Record<string, unknown> =
+        child && typeof child === "object" && !Array.isArray(child) ? { ...(child as Record<string, unknown>) } : {};
+      node[path[i]] = copy;
+      node = copy;
+    }
+    const last = path[path.length - 1];
+    if (value === REMOVE_FIELD) delete node[last];
+    else node[last] = value;
+  }
+  return out as T;
+}
+
+function toFirestorePatch(patch: UserPatch): UserPatch {
+  const out: UserPatch = {};
+  for (const [key, value] of Object.entries(patch)) out[key] = value === REMOVE_FIELD ? deleteField() : value;
+  return out;
+}
 
 async function ensureUserDoc(user: User) {
   const ref = doc(db, "users", user.uid);
@@ -446,8 +478,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubAuth;
   }, []);
 
+  // 오프라인 모드(가짜 user)는 Firestore를 구독하지 않는다. 구독하면 폐쇄망에서 "문서 없음" 캐시 스냅샷이
+  // 로컬 프로필(닉네임·프리미엄)을 덮어써 닉네임 정하기 화면으로 튕긴다. 오프라인 프로필은 localStorage가 원본
   useEffect(() => {
-    if (!user) return;
+    if (!user || isOfflineMode) return;
     const ref = doc(db, "users", user.uid);
     // 오프라인 상태이거나 네트워크 지연 시 스플래시 화면이 무한정 멈추지 않도록 안전 타이머 설정
     const safetyTimer = setTimeout(() => {
@@ -533,7 +567,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(safetyTimer);
       unsubDoc();
     };
-  }, [user]);
+  }, [user, isOfflineMode]);
 
   // unlockCodes/{code} 문서를 실시간 구독해서, 관리자가 "무효화" 버튼을 누르는 순간
   // (또는 만료 시각이 지나는 순간) 화면에 바로 반영되게 한다. 코드가 없으면 구독하지 않고
@@ -646,6 +680,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("[팩인백] 프리미엄 전용 기능 자동 비활성화 실패:", err);
     });
   }, [user, profile]);
+
+  // users/{uid} 쓰기 공통. 오프라인 모드면 Firestore 대신 이 기기(localStorage)에 저장하고 화면에 바로 반영한다.
+  // dotted=true면 점 경로 부분 수정(updateDoc), 아니면 setDoc merge
+  const writeUser = async (patch: UserPatch, dotted = false) => {
+    if (!user) return;
+    if (isOfflineMode) {
+      saveLocalProfile(applyUserPatch(getLocalProfile(), patch));
+      setRawProfile((prev) => (prev ? applyUserPatch(prev, patch) : prev));
+      return;
+    }
+    const ref = doc(db, "users", user.uid);
+    const data = toFirestorePatch(patch);
+    if (dotted) await updateDoc(ref, data);
+    else await setDoc(ref, data, { merge: true });
+  };
 
   const signUpWithEmail = async (
     email: string,
@@ -847,21 +896,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("[팩인백] 샘플 데이터 생성 실패:", err);
       }
     }
-    await setDoc(
-      doc(db, "users", user.uid),
-      { nickname, avatarId },
-      { merge: true }
-    );
+    await writeUser({ nickname, avatarId });
   };
 
   const updateNickname = async (nickname: string) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { nickname }, { merge: true });
+    await writeUser({ nickname });
   };
 
   const updateAvatar = async (avatarId: string) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { avatarId }, { merge: true });
+    await writeUser({ avatarId });
   };
 
   // 화면 모드/강조 색상을 계정에 저장 (기기 간 동기화용). 슬라이더/피커 조작 시
@@ -895,7 +940,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (themeDebounceTimerRef.current) clearTimeout(themeDebounceTimerRef.current);
     themeDebounceTimerRef.current = setTimeout(() => {
-      setDoc(doc(db, "users", user.uid), prefs, { merge: true }).catch((err) => {
+      writeUser(prefs).catch((err) => {
         console.error("[팩인백] 테마 설정 저장 실패:", err);
       });
     }, 400);
@@ -909,7 +954,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveLocalProfile({ fontScale });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { fontScale }, { merge: true });
+    await writeUser({ fontScale });
   };
 
   // 앱 실행 시 처음 보여줄 탭
@@ -920,7 +965,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveLocalProfile({ defaultTab });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { defaultTab }, { merge: true });
+    await writeUser({ defaultTab });
   };
 
   // 앱 실행 시 처음 보여줄 시작페이지 설정 (디바이스별 독립 로컬 스토리지 저장)
@@ -937,17 +982,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateBagSortBy = async (sortBy: UserProfile["bagSortBy"]) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { bagSortBy: sortBy }, { merge: true });
+    await writeUser({ bagSortBy: sortBy });
   };
 
   const updateBagCardSize = async (size: UserProfile["bagCardSize"]) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { bagCardSize: size }, { merge: true });
+    await writeUser({ bagCardSize: size });
   };
 
   const updatePackSortBy = async (sortBy: UserProfile["packSortBy"]) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { packSortBy: sortBy }, { merge: true });
+    await writeUser({ packSortBy: sortBy });
   };
 
   // 고정핀 토글(최대 3개까지). 이미 고정된 걸 다시 누르면 해제되고, 3개가 다 찬 상태에서
@@ -956,7 +1001,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     // v2 홈은 고정 가방을 상단 캐러셀에 보여주므로 5개까지(구 UI는 그대로 3개)
     const next = togglePinned(profile?.pinnedBagIds, bagId, UI_V2 ? V2_MAX_PINNED_BAGS : 3);
-    await setDoc(doc(db, "users", user.uid), { pinnedBagIds: next }, { merge: true });
+    await writeUser({ pinnedBagIds: next });
   };
 
   // 보관 토글 (개수 제한 없음 - togglePinned은 이름과 달리 그냥 "배열에 넣고 빼기" 범용
@@ -964,7 +1009,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const toggleBagArchived = async (bagId: string) => {
     if (!user) return;
     const next = togglePinned(profile?.archivedBagIds, bagId, Infinity);
-    await setDoc(doc(db, "users", user.uid), { archivedBagIds: next }, { merge: true });
+    await writeUser({ archivedBagIds: next });
   };
 
   // "지난 여행 보관함으로 옮길까요?" 배너에서 여러 개를 한 번에 보관 처리할 때 쓴다.
@@ -975,7 +1020,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || bagIds.length === 0) return;
     const current = profile?.archivedBagIds ?? [];
     const next = Array.from(new Set([...current, ...bagIds]));
-    await setDoc(doc(db, "users", user.uid), { archivedBagIds: next }, { merge: true });
+    await writeUser({ archivedBagIds: next });
   };
 
   // 보관 제안 배너를 "닫기"로 넘긴 가방들은 다음에 다시 물어보지 않는다.
@@ -983,34 +1028,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || bagIds.length === 0) return;
     const current = profile?.archiveSuggestionDismissedIds ?? [];
     const next = Array.from(new Set([...current, ...bagIds]));
-    await setDoc(doc(db, "users", user.uid), { archiveSuggestionDismissedIds: next }, { merge: true });
+    await writeUser({ archiveSuggestionDismissedIds: next });
   };
 
   // v69: 팩은 고정핀 개수 제한이 폐지되어 무제한이다(togglePinned에 max 생략 시 기본 2개 제한이라 Infinity를 명시적으로 넘겨야 함).
   const togglePackPinned = async (packId: string) => {
     if (!user) return;
     const next = togglePinned(profile?.pinnedPackIds, packId, Infinity);
-    await setDoc(doc(db, "users", user.uid), { pinnedPackIds: next }, { merge: true });
+    await writeUser({ pinnedPackIds: next });
   };
 
   // 항목을 길게 눌러 끌어다 순서를 바꾸는 순간 호출된다. 지정한 순서(order)와 정렬기준을
   // "custom"으로 함께 저장해야 다음에 다시 봐도 같은 순서가 유지된다.
   const updateBagOrder = async (order: string[]) => {
     if (!user) return;
-    await setDoc(
-      doc(db, "users", user.uid),
-      { bagOrder: order, bagSortBy: "custom" },
-      { merge: true }
-    );
+    await writeUser({ bagOrder: order, bagSortBy: "custom" });
   };
 
   const updatePackOrder = async (order: string[]) => {
     if (!user) return;
-    await setDoc(
-      doc(db, "users", user.uid),
-      { packOrder: order, packSortBy: "custom" },
-      { merge: true }
-    );
+    await writeUser({ packOrder: order, packSortBy: "custom" });
   };
 
   // v69: 팩 트리(폴더)에서 드래그로 순서를 바꿈거나 다른 폴더로 옷긴 직후 호출된다.
@@ -1018,11 +1055,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updatePackOrderByParent = async (parentKey: string, order: string[]) => {
     if (!user) return;
     const next = { ...(profile?.packOrderByParent ?? {}), [parentKey]: order };
-    await setDoc(
-      doc(db, "users", user.uid),
-      { packOrderByParent: next, packSortBy: "custom" },
-      { merge: true }
-    );
+    await writeUser({ packOrderByParent: next, packSortBy: "custom" });
   };
 
   // 팩 트리에서 펼쳐져있는 폴더 id 목록. 연속 탭 시의 Firestore 쓰기/읽기를 줄이기 위해
@@ -1032,7 +1065,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRawProfile((prev) => (prev ? { ...prev, expandedPackFolderIds: ids } : prev));
     if (expandedPackFolderDebounceTimerRef.current) clearTimeout(expandedPackFolderDebounceTimerRef.current);
     expandedPackFolderDebounceTimerRef.current = setTimeout(() => {
-      setDoc(doc(db, "users", user.uid), { expandedPackFolderIds: ids }, { merge: true }).catch((err) => {
+      writeUser({ expandedPackFolderIds: ids }).catch((err) => {
         console.error("[팩인백] 팩 폴더 펼침 상태 저장 실패:", err);
       });
     }, 800);
@@ -1046,7 +1079,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(profile?.bagFolders ?? {}),
       [id]: { id, name, parentId, createdAt: new Date().toISOString() },
     };
-    await setDoc(doc(db, "users", user.uid), stripUndefined({ bagFolders: next }), { merge: true });
+    await writeUser(stripUndefined({ bagFolders: next }));
     return id;
   };
 
@@ -1055,7 +1088,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const current = profile?.bagFolders ?? {};
     if (!current[folderId]) return;
     const next = { ...current, [folderId]: { ...current[folderId], name } };
-    await setDoc(doc(db, "users", user.uid), stripUndefined({ bagFolders: next }), { merge: true });
+    await writeUser(stripUndefined({ bagFolders: next }));
   };
 
   // 폴더 삭제 - 가방 문서는 전혀 건드리지 않고, 그 안의 가방/하위폴더는 이 폴더의 상위
@@ -1068,20 +1101,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const newParentId = target.parentId;
 
     const updates: Record<string, unknown> = {
-      [`bagFolders.${folderId}`]: deleteField(),
+      [`bagFolders.${folderId}`]: REMOVE_FIELD,
     };
     for (const [key, f] of Object.entries(folders)) {
       if (key === folderId) continue;
       if (f.parentId === folderId) {
-        updates[`bagFolders.${key}.parentId`] = newParentId ? newParentId : deleteField();
+        updates[`bagFolders.${key}.parentId`] = newParentId ? newParentId : REMOVE_FIELD;
       }
     }
     const assignments = profile?.bagFolderAssignments ?? {};
     for (const [bagId, fId] of Object.entries(assignments)) {
       if (fId !== folderId) continue;
-      updates[`bagFolderAssignments.${bagId}`] = newParentId ? newParentId : deleteField();
+      updates[`bagFolderAssignments.${bagId}`] = newParentId ? newParentId : REMOVE_FIELD;
     }
-    await updateDoc(doc(db, "users", user.uid), updates);
+    await writeUser(updates, true);
   };
 
   // 폴더를 다른 폴더 안으로(또는 최상위로) 옮기기.
@@ -1089,17 +1122,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const folders = profile?.bagFolders ?? {};
     if (!folders[folderId]) return;
-    await updateDoc(doc(db, "users", user.uid), {
-      [`bagFolders.${folderId}.parentId`]: parentId ? parentId : deleteField(),
-    });
+    await writeUser({
+      [`bagFolders.${folderId}.parentId`]: parentId ? parentId : REMOVE_FIELD,
+    }, true);
   };
 
   // 가방을 폴더로(또는 최상위로) 옮기기 - 가방 문서는 전혀 건드리지 않는다.
   const moveBagToFolder = async (bagId: string, folderId: string | undefined) => {
     if (!user) return;
-    await updateDoc(doc(db, "users", user.uid), {
-      [`bagFolderAssignments.${bagId}`]: folderId ? folderId : deleteField(),
-    });
+    await writeUser({
+      [`bagFolderAssignments.${bagId}`]: folderId ? folderId : REMOVE_FIELD,
+    }, true);
   };
 
   // 다중선택해서 한꺼번에 여러 가방을 폴더로 옥길 때 쓰는 버전 - moveBagToFolder를 루프로 여러 번
@@ -1109,9 +1142,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || bagIds.length === 0) return;
     const updates: Record<string, unknown> = {};
     for (const bagId of bagIds) {
-      updates[`bagFolderAssignments.${bagId}`] = folderId ? folderId : deleteField();
+      updates[`bagFolderAssignments.${bagId}`] = folderId ? folderId : REMOVE_FIELD;
     }
-    await updateDoc(doc(db, "users", user.uid), updates);
+    await writeUser(updates, true);
   };
 
   // 리디자인 v2: 가방 폴더는 1단계(홈 상단 칩)만 쓴다. 하위 폴더를 전부 최상위로 올리고,
@@ -1125,7 +1158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const updates: Record<string, unknown> = {};
     for (const [key, f] of Object.entries(folders)) {
       if (!f.parentId) continue;
-      updates[`bagFolders.${key}.parentId`] = deleteField();
+      updates[`bagFolders.${key}.parentId`] = REMOVE_FIELD;
       updates[`bagFolders.${key}.legacyParentId`] = f.parentId;
     }
     const renames = resolveFolderNameClashes(folders);
@@ -1134,17 +1167,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!folders[key].legacyName) updates[`bagFolders.${key}.legacyName`] = folders[key].name;
     }
     if (Object.keys(updates).length === 0) return;
-    await updateDoc(doc(db, "users", user.uid), updates);
+    await writeUser(updates, true);
   };
 
   const updateBagOrderByParent = async (parentKey: string, order: string[]) => {
     if (!user) return;
     const next = { ...(profile?.bagOrderByParent ?? {}), [parentKey]: order };
-    await setDoc(
-      doc(db, "users", user.uid),
-      { bagOrderByParent: next, bagSortBy: "custom" },
-      { merge: true }
-    );
+    await writeUser({ bagOrderByParent: next, bagSortBy: "custom" });
   };
 
   // 가방 폴더 펼침 상태 디바운스 저장
@@ -1153,7 +1182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRawProfile((prev) => (prev ? { ...prev, expandedBagFolderIds: ids } : prev));
     if (expandedBagFolderDebounceTimerRef.current) clearTimeout(expandedBagFolderDebounceTimerRef.current);
     expandedBagFolderDebounceTimerRef.current = setTimeout(() => {
-      setDoc(doc(db, "users", user.uid), { expandedBagFolderIds: ids }, { merge: true }).catch((err) => {
+      writeUser({ expandedBagFolderIds: ids }).catch((err) => {
         console.error("[팩인백] 가방 폴더 펼침 상태 저장 실패:", err);
       });
     }, 800);
@@ -1166,11 +1195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const next = { ...(profile?.bagSettings ?? {}), ...settings };
     setRawProfile((prev) => (prev ? { ...prev, bagSettings: next } : prev));
-    await setDoc(
-      doc(db, "users", user.uid),
-      { bagSettings: next },
-      { merge: true }
-    );
+    await writeUser({ bagSettings: next });
   };
 
   // 팩(아이템 목록) 표시 설정은 부분 업데이트라서 기존 값과 merge해서 저장한다.
@@ -1180,11 +1205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const next = { ...(profile?.packSettings ?? {}), ...settings };
     setRawProfile((prev) => (prev ? { ...prev, packSettings: next } : prev));
-    await setDoc(
-      doc(db, "users", user.uid),
-      { packSettings: next },
-      { merge: true }
-    );
+    await writeUser({ packSettings: next });
   };
 
   // 하단 QuickPackBar를 접은 상태(오른쪽 끝 떠있는 작은 버블)로 보여줄지. 계정에 저장해서 어느
@@ -1196,7 +1217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveLocalProfile({ quickPackCollapsed: collapsed });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { quickPackCollapsed: collapsed }, { merge: true });
+    await writeUser({ quickPackCollapsed: collapsed });
   };
 
   // 리디자인 v2: 좁은 화면에서 가방 속 팩 열 수(1/2). 화면에 먼저 반영하고 계정에 저장한다.
@@ -1207,7 +1228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveLocalProfile({ bagPhoneColumns: columns });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { bagPhoneColumns: columns }, { merge: true });
+    await writeUser({ bagPhoneColumns: columns });
   };
 
   // 데스크톱 사이드바 폭(px) - 오른쪽 가장자리 드래그가 끝난 지점에서만 호출되므로(드래그 중에는
@@ -1219,7 +1240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveLocalProfile({ sidebarWidth: width });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { sidebarWidth: width }, { merge: true });
+    await writeUser({ sidebarWidth: width });
   };
 
   const updateSidebarCollapsed = async (collapsed: boolean) => {
@@ -1229,20 +1250,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveLocalProfile({ sidebarCollapsed: collapsed });
       return;
     }
-    await setDoc(doc(db, "users", user.uid), { sidebarCollapsed: collapsed }, { merge: true });
+    await writeUser({ sidebarCollapsed: collapsed });
   };
 
   // 설정 > AI 기능 하위 "짧은 URL 사용하기" 토글. 프리미엄 판정은 화면(SettingsScreen)에서 하고, 여기서는
   // 값만 그대로 저장한다(다른 설정값들과 동일한 패턴).
   const updateShortUrlEnabled = async (enabled: boolean) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { shortUrlEnabled: enabled }, { merge: true });
+    await writeUser({ shortUrlEnabled: enabled });
   };
 
   // 설정 > AI 기능 하위 "지역 추천" 토글. 위와 동일한 패턴.
   const updateRegionRecommendEnabled = async (enabled: boolean) => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { regionRecommendEnabled: enabled }, { merge: true });
+    await writeUser({ regionRecommendEnabled: enabled });
   };
 
   // 가방 속 팩 하나의 펼침/접힘/넓게보기 상태를 바꿔 저장한다. 그룹원과 동기화되는
@@ -1261,7 +1282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
     if (packDisplayDebounceTimerRef.current) clearTimeout(packDisplayDebounceTimerRef.current);
     packDisplayDebounceTimerRef.current = setTimeout(() => {
-      setDoc(doc(db, "users", user.uid), { packDisplayStates: packDisplayStatesRef.current }, { merge: true }).catch(
+      writeUser({ packDisplayStates: packDisplayStatesRef.current }).catch(
         (err) => {
           console.error("[팩인백] 팩 표시 상태 저장 실패:", err);
         }
@@ -1282,7 +1303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRawProfile((prev) => (prev ? { ...prev, packDisplayStates: next } : prev));
     if (packDisplayDebounceTimerRef.current) clearTimeout(packDisplayDebounceTimerRef.current);
     packDisplayDebounceTimerRef.current = setTimeout(() => {
-      setDoc(doc(db, "users", user.uid), { packDisplayStates: packDisplayStatesRef.current }, { merge: true }).catch(
+      writeUser({ packDisplayStates: packDisplayStatesRef.current }).catch(
         (err) => {
           console.error("[팩인백] 전체 팩 표시 상태 저장 실패:", err);
         }
@@ -1295,13 +1316,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateBagViewMode = async (bagId: string, mode: "pack" | "notebook") => {
     if (!user) return;
     const next = { ...(profile?.bagViewMode ?? {}), [bagId]: mode };
-    await setDoc(doc(db, "users", user.uid), { bagViewMode: next }, { merge: true });
+    await writeUser({ bagViewMode: next });
   };
 
   // 설정 > 가방설정에서 고르는 새 가방의 기본 보기 방식(전역 기본값).
   const updateDefaultBagViewMode = async (mode: "pack" | "notebook") => {
     if (!user) return;
-    await setDoc(doc(db, "users", user.uid), { defaultBagViewMode: mode }, { merge: true });
+    await writeUser({ defaultBagViewMode: mode });
   };
 
   const resendVerificationEmail = async () => {
@@ -1338,10 +1359,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 비밀번호 변경은 보안상 최근 로그인이 필요해서, 현재 비밀번호로 재인증한 뒤 바꾼다.
   const changePassword = async (currentPassword: string, newPassword: string) => {
-    if (!user || !user.email) return;
+    if (!user || !user.email || isOfflineMode) return;
     const credential = EmailAuthProvider.credential(user.email, currentPassword);
     await reauthenticateWithCredential(user, credential);
     await updatePassword(user, newPassword);
+  };
+
+  // 탈퇴처럼 되돌릴 수 없는 작업 전에 본인 확인(재인증). 데이터를 지우기 "전에" 해야 한다 - 예전에는
+  // 데이터부터 지운 뒤 deleteUser가 requires-recent-login으로 막혀 계정만 남는 일이 있었다.
+  // 이메일 계정: 지금 비밀번호로 확인. Google·Apple: 4분 안에 로그인했으면 건너뛰고, 아니면 로그인 창을 한 번 더 띄운다
+  const reauthenticateForDelete = async (password?: string) => {
+    if (!user) return;
+    const providers = (user.providerData ?? []).map((p) => p.providerId);
+    if (providers.includes("password") && user.email) {
+      if (!password) throw new Error("auth/missing-password");
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+      return;
+    }
+    const lastSignIn = Date.parse(user.metadata?.lastSignInTime ?? "");
+    if (Number.isFinite(lastSignIn) && Date.now() - lastSignIn < 4 * 60 * 1000) return;
+    if (providers.includes("google.com")) {
+      if (isNativePlatform()) {
+        const idToken = await nativeGoogleIdToken();
+        await reauthenticateWithCredential(user, GoogleAuthProvider.credential(idToken));
+      } else {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
+        await reauthenticateWithPopup(user, provider);
+      }
+      return;
+    }
+    if (providers.includes("apple.com")) {
+      if (isNativePlatform()) {
+        const { idToken, rawNonce } = await nativeAppleIdToken();
+        await reauthenticateWithCredential(user, new OAuthProvider("apple.com").credential({ idToken, rawNonce }));
+      } else {
+        const provider = new OAuthProvider("apple.com");
+        provider.addScope("email");
+        await reauthenticateWithPopup(user, provider);
+      }
+    }
   };
 
   // signOut 후 IndexedDB 캐시를 지운다(best-effort) - 같은 기기를 다른 계정이 바로 이어서
@@ -1360,8 +1417,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const deleteAccount = async () => {
-    if (!user) return;
+  const deleteAccount = async (password?: string) => {
+    if (!user || isOfflineMode) return;
+    // v2: 본인 확인을 먼저 끝낸 뒤에만 데이터를 지운다(확인 실패 시 아무것도 안 지워짐).
+    // 구 UI(플래그 꺼짐)는 비밀번호 칸이 없어 예전 흐름 그대로 둔다
+    if (UI_V2) await reauthenticateForDelete(password);
     // Firestore/Storage 데이터를 먼저 정리하고, 마지막에 Auth 계정을 지운다.
     // (순서를 반대로 하면 로그인 정보가 먼저 사라져서 이후 Firestore 규칙상 접근이 막힘)
     await deleteAllUserData(user.uid);

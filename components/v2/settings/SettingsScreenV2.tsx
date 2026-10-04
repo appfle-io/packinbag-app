@@ -263,18 +263,17 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           />
         </section>
 
-        {/* 가방: 구 UI 팩 설정의 "완료된 항목 맨 아래로"(같은 필드, 없으면 켜짐). 계정에 저장돼 기기 간 동일 */}
-        {!isOfflineMode && (
-          <section className="flex flex-col">
-            <SectionHeader>가방</SectionHeader>
-            <Toggle
-              checked={profile?.packSettings?.moveCompletedToBottom ?? true}
-              onChange={(on) => updatePackSettings({ moveCompletedToBottom: on }).catch(() => show("설정을 저장하지 못했어요"))}
-              label="다 챙긴 아이템은 아래로"
-              description="체크하면 그 팩의 맨 뒤로 내려가요"
-            />
-          </section>
-        )}
+        {/* 가방: 구 UI 팩 설정의 "완료된 항목 맨 아래로"(같은 필드, 없으면 켜짐). 계정에 저장돼 기기 간 동일.
+            오프라인 모드는 이 기기(로컬 프로필)에 저장된다(AuthProvider.writeUser) */}
+        <section className="flex flex-col">
+          <SectionHeader>가방</SectionHeader>
+          <Toggle
+            checked={profile?.packSettings?.moveCompletedToBottom ?? true}
+            onChange={(on) => updatePackSettings({ moveCompletedToBottom: on }).catch(() => show("설정을 저장하지 못했어요"))}
+            label="다 챙긴 아이템은 아래로"
+            description="체크하면 그 팩의 맨 뒤로 내려가요"
+          />
+        </section>
 
         {/* 이용권 */}
         {!isOfflineMode && (

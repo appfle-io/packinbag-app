@@ -15,7 +15,7 @@ import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { ClipboardImportSheet, type ClipboardImportResult as AiClipboardResult } from "@/components/v2/sheets/AiPasteSheets";
 import { AuditSheet } from "./sheets/AuditSheet";
 import { PhotoViewer } from "./PhotoViewer";
-import PdfPreviewModal from "@/components/PdfPreviewModal";
+import { PdfViewer } from "./PdfViewer";
 import { downloadFileFromUrl } from "@/lib/downloadFile";
 import {
   useBagDocument,
@@ -966,7 +966,7 @@ export default function BagScreenV2(props: BagScreenProps) {
           }}
         />
       )}
-      {pdfUrl && <PdfPreviewModal url={pdfUrl} onClose={() => setPdfUrl(null)} />}
+      {pdfUrl && <PdfViewer url={pdfUrl} onClose={() => setPdfUrl(null)} />}
       <ClipboardImportSheet
         open={clipboardOpen}
         bag={bag}

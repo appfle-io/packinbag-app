@@ -121,6 +121,8 @@ import { NoteMoreSheet } from "@/components/v2/note/NoteMoreSheet";
 import { NoteTableSheet } from "@/components/v2/note/NoteTableSheet";
 import { NoteColorSheet, NoteTocSheet } from "@/components/v2/note/NoteColorSheet";
 import { MemoShareSheet } from "@/components/v2/note/MemoShareSheet";
+import { PhotoViewer } from "@/components/v2/bag/PhotoViewer";
+import { PdfViewer } from "@/components/v2/bag/PdfViewer";
 import { mergeEditorDocs } from "@/lib/syncMerge";
 
 // 문서를 통째로 바꿔 넣되, 커서가 있던 맨 위 문단을 새 문서에서 찾아 같은 자리로 돌려놓는다
@@ -1434,16 +1436,16 @@ export default function PackNoteEditorScreen({
           }}
         />
 
-        {/* 구 컴포넌트 재사용(색은 .pib-v2-legacy가 맞춤) */}
+        {/* 사진·PDF 크게 보기: 가방 화면과 같은 v2 뷰어 */}
         {lightboxIndex !== null && (
-          <ImageLightbox
+          <PhotoViewer
             images={lightboxImages.length > 0 ? lightboxImages : packImages}
             index={lightboxIndex}
             onClose={() => setLightboxIndex(null)}
             onNavigate={setLightboxIndex}
           />
         )}
-        {pdfPreviewUrl && <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />}
+        {pdfPreviewUrl && <PdfViewer url={pdfPreviewUrl} fileName={pdfPreviewName} onClose={() => setPdfPreviewUrl(null)} />}
         {!isOfflineMode && (
           <MemoShareSheet
             open={showShareModal}

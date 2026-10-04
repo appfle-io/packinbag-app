@@ -7,7 +7,7 @@ import { useToast } from "@/components/Toast";
 import { randomAvatarId } from "@/lib/avatars";
 import { randomNickname } from "@/lib/nickname";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
-import { checkIsOnline } from "@/lib/networkUtils";
+import { checkIsOnline, isElectronApp } from "@/lib/networkUtils";
 import BackpackLogo from "@/components/BackpackLogo";
 import { Button, SegmentedControl, Sheet, cx } from "@/components/v2/ui";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
@@ -59,7 +59,10 @@ export default function AuthScreenV2() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSending, setResetSending] = useState(false);
-  const [online, setOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+  // null = 아직 확인 중(로고만). 폐쇄망에서 로그인 폼이 잠깐 보였다가 바뀌는 깜빡임을 없앤다
+  const [online, setOnline] = useState<boolean | null>(() => (typeof navigator !== "undefined" && !navigator.onLine ? false : null));
+  // 포터블은 팝업 로그인(Google·Apple)이 안 된다 → 이메일·게스트만
+  const [socialLogin] = useState(() => !isElectronApp());
   const [checking, setChecking] = useState(false);
 
   // 폐쇄망·오프라인이면 로그인 대신 오프라인 시작을 먼저 보여 준다
@@ -161,6 +164,14 @@ export default function AuthScreenV2() {
     setChecking(false);
     show(ok ? "인터넷에 연결됐어요" : "아직 인터넷에 연결되지 않았어요");
   };
+
+  if (online === null) {
+    return (
+      <Frame>
+        <Brand sub="연결을 확인하고 있어요" />
+      </Frame>
+    );
+  }
 
   if (!online) {
     return (
@@ -271,12 +282,16 @@ export default function AuthScreenV2() {
             또는
             <span className="h-px flex-1 bg-line" />
           </div>
-          <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithGoogle)}>
-            Google로 계속하기
-          </Button>
-          <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithApple)}>
-            Apple로 계속하기
-          </Button>
+          {socialLogin && (
+            <>
+              <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithGoogle)}>
+                Google로 계속하기
+              </Button>
+              <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithApple)}>
+                Apple로 계속하기
+              </Button>
+            </>
+          )}
           <Button variant="text" size="sm" className="self-center text-sub" disabled={busy} onClick={() => run(signInAsGuest)}>
             로그인 없이 둘러보기
           </Button>

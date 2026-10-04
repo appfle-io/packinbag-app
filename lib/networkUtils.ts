@@ -41,3 +41,13 @@ export async function checkIsOnline(timeoutMs = 2000): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * 포터블(Electron) 앱인지. 포터블은 로컬 서버(127.0.0.1)에서 돌고, 새 창(https)은 전부 기본 브라우저로
+ * 넘기기 때문에 Firebase 팝업 로그인(Google·Apple)이 동작하지 않는다 → 로그인 화면에서 그 버튼을 숨기는 데 쓴다.
+ */
+export function isElectronApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as Window & { electronAPI?: { isElectron?: boolean } };
+  return Boolean(w.electronAPI?.isElectron) || navigator.userAgent.toLowerCase().includes("electron");
+}

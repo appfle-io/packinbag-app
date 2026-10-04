@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { IconWifi, IconArrowRight, IconX } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
+import { UI_V2 } from "@/lib/v2/flags";
 
 export default function OfflineStatusBar() {
   const { isOfflineMode, switchToOnlineMode } = useAuth();
@@ -65,6 +66,22 @@ export default function OfflineStatusBar() {
   // 오프라인 모드가 아니거나, 실제 인터넷 연결이 감지되지 않았거나, 사용자가 닫았으면 아무것도 렌더링하지 않음!
   if (!isOfflineMode || !isOnlineDetected || isDismissed) {
     return null;
+  }
+
+  // v2: 무채색 + 포인트(브랜드) 한 줄. 토스트처럼 font-ui · 44px 버튼
+  if (UI_V2) {
+    return (
+      <aside role="status" aria-live="polite" className="flex min-h-11 w-full shrink-0 select-none items-center gap-2 border-b border-line bg-brand-soft pl-4 font-ui text-caption text-ink">
+        <IconWifi size={16} stroke={1.9} className="shrink-0 text-brand" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">인터넷에 연결됐어요. 계정으로 로그인할 수 있어요</span>
+        <button type="button" onClick={switchToOnlineMode} className="h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60">
+          로그인하기
+        </button>
+        <button type="button" onClick={() => setIsDismissed(true)} aria-label="닫기" className="inline-flex size-11 shrink-0 items-center justify-center bg-transparent text-sub active:opacity-60">
+          <IconX size={18} stroke={1.9} />
+        </button>
+      </aside>
+    );
   }
 
   return (

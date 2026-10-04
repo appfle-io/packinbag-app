@@ -5,6 +5,7 @@ import { IconLoader2, IconMailCheck } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
+import { isElectronApp } from "@/lib/networkUtils";
 import { Button, Sheet } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 
@@ -30,6 +31,8 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmLogout, setConfirmLogout] = useState(false);
+  // 포터블은 팝업 로그인(Google·Apple)이 안 된다 → 이메일만
+  const [socialLogin] = useState(() => !isElectronApp());
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -124,12 +127,16 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
             )}
             {step === "options" ? (
               <div className="flex flex-col gap-2">
-                <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithGoogle, "Google 계정으로 연결했어요")}>
-                  Google로 계속하기
-                </Button>
-                <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithApple, "Apple 계정으로 연결했어요")}>
-                  Apple로 계속하기
-                </Button>
+                {socialLogin && (
+                  <>
+                    <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithGoogle, "Google 계정으로 연결했어요")}>
+                      Google로 계속하기
+                    </Button>
+                    <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithApple, "Apple 계정으로 연결했어요")}>
+                      Apple로 계속하기
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="secondary"
                   block

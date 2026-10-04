@@ -86,9 +86,10 @@ function PasswordSheet({ open, onClose }: { open: boolean; onClose: () => void }
 }
 
 // 회원 탈퇴 시트: 닉네임을 그대로 입력해야 버튼이 켜진다
-function DeleteAccountSheet({ open, nickname, onClose }: { open: boolean; nickname: string; onClose: () => void }) {
+function DeleteAccountSheet({ open, nickname, needsPassword, onClose }: { open: boolean; nickname: string; needsPassword: boolean; onClose: () => void }) {
   const { deleteAccount } = useAuth();
   const [input, setInput] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,20 +98,23 @@ function DeleteAccountSheet({ open, nickname, onClose }: { open: boolean; nickna
     setWasOpen(open);
     if (open) {
       setInput("");
+      setPassword("");
       setError(null);
     }
   }
 
-  const matches = !!input.trim() && input === nickname;
+  const matches = !!input.trim() && input === nickname && (!needsPassword || password.length > 0);
   const submit = async () => {
     if (!matches || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await deleteAccount();
+      await deleteAccount(needsPassword ? password : undefined);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "탈퇴하지 못했어요");
+      // 본인 확인(재인증) 단계에서 막히면 아무것도 지워지지 않은 상태다
+      const message = friendlyAuthError(err instanceof Error ? err.message : "");
+      if (message) setError(message);
     } finally {
       setBusy(false);
     }
@@ -146,6 +150,20 @@ function DeleteAccountSheet({ open, nickname, onClose }: { open: boolean; nickna
             className={FIELD}
           />
         </label>
+        {needsPassword ? (
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={busy}
+            aria-label="지금 비밀번호"
+            placeholder="본인 확인을 위해 지금 비밀번호"
+            autoComplete="current-password"
+            className={FIELD}
+          />
+        ) : (
+          <p className="m-0 text-caption text-sub">본인 확인을 위해 로그인 창이 한 번 더 뜰 수 있어요.</p>
+        )}
         {error && (
           <p role="alert" className="m-0 text-caption text-alert">
             {error}
@@ -159,7 +177,9 @@ function DeleteAccountSheet({ open, nickname, onClose }: { open: boolean; nickna
 // 설정 > 프로필. 구 ProfileEditScreen 대체(같은 AuthProvider 함수).
 // 닉네임·캐릭터를 고치고 아래 "저장". 비밀번호 바꾸기(이메일 계정) · 로그아웃 · 회원 탈퇴. 게스트면 계정 전환 안내
 export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
-  const { user, profile, updateNickname, updateAvatar, logout, isGuest } = useAuth();
+  const { user, profile, updateNickname, updateAvatar, logout, isGuest, isOfflineMode, exitOfflineMode } = useAuth();
+  // 오프라인 모드도 isGuest가 true지만 게스트(익명 계정)와 다르다: 계정 전환·"지워질 수 있어요" 경고가 맞지 않는다
+  const onlineGuest = isGuest && !isOfflineMode;
   const { show } = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
   const [avatarId, setAvatarId] = useState(profile?.avatarId ?? AVATAR_OPTIONS[0].id);
@@ -201,7 +221,12 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
     >
       <section className="flex flex-col items-center gap-2 pt-2">
         <LegacyAvatar avatarId={avatarId} size={72} />
-        {isGuest ? (
+        {isOfflineMode ? (
+          <span className="flex items-center gap-2">
+            <Badge>오프라인</Badge>
+            <span className="text-caption text-sub">이 기기에만 저장돼요</span>
+          </span>
+        ) : isGuest ? (
           <span className="flex items-center gap-2">
             <Badge tone="brand">게스트</Badge>
             <span className="text-caption text-sub">이 기기에만 저장돼요</span>
@@ -209,7 +234,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
         ) : (
           <span className="text-caption text-sub">{profile?.email}</span>
         )}
-        {isGuest && (
+        {onlineGuest && (
           <Button variant="text" size="sm" onClick={() => setLinkOpen(true)}>
             정식 계정으로 전환하기
           </Button>
@@ -265,9 +290,16 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
             비밀번호 바꾸기
           </button>
         )}
-        <button type="button" onClick={() => setLogoutOpen(true)} className="flex min-h-13 w-full items-center border-b border-line bg-transparent text-left text-body text-ink active:bg-fill">
-          {isGuest ? "게스트 모드 끝내기" : "로그아웃"}
-        </button>
+        {isOfflineMode ? (
+          // 오프라인 데이터는 이 기기에 그대로 남는다(지우지 않음) → 확인 없이 바로 나간다
+          <button type="button" onClick={exitOfflineMode} className="flex min-h-13 w-full items-center bg-transparent text-left text-body text-ink active:bg-fill">
+            오프라인 모드 종료
+          </button>
+        ) : (
+          <button type="button" onClick={() => setLogoutOpen(true)} className="flex min-h-13 w-full items-center border-b border-line bg-transparent text-left text-body text-ink active:bg-fill">
+            {isGuest ? "게스트 모드 끝내기" : "로그아웃"}
+          </button>
+        )}
         {!isGuest && (
           <button type="button" onClick={() => setDeleteOpen(true)} className="flex min-h-13 w-full items-center bg-transparent text-left text-body text-alert active:bg-fill">
             회원 탈퇴
@@ -276,7 +308,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
       </section>
 
       <PasswordSheet open={passwordOpen} onClose={() => setPasswordOpen(false)} />
-      <DeleteAccountSheet open={deleteOpen} nickname={profile?.nickname ?? ""} onClose={() => setDeleteOpen(false)} />
+      <DeleteAccountSheet open={deleteOpen} nickname={profile?.nickname ?? ""} needsPassword={isPasswordAccount} onClose={() => setDeleteOpen(false)} />
       <AccountLinkSheet open={linkOpen} onClose={() => setLinkOpen(false)} />
       <ConfirmSheet
         open={logoutOpen}

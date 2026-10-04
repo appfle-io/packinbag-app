@@ -135,6 +135,18 @@ export default function GuestBagClientView({
     }
   };
 
+  // v2: 브라우저 alert 대신 화면 아래 잠깐 뜨는 안내(2.5초). 구 UI는 예전처럼 alert
+  const [wakeLockNotice, setWakeLockNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!wakeLockNotice) return;
+    const t = setTimeout(() => setWakeLockNotice(null), 2500);
+    return () => clearTimeout(t);
+  }, [wakeLockNotice]);
+  const notifyWakeLock = (message: string) => {
+    if (UI_V2) setWakeLockNotice(message);
+    else alert(message);
+  };
+
   const handleToggleWakeLock = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
     setWakeLockEnabled(checked);
@@ -142,11 +154,11 @@ export default function GuestBagClientView({
       if (typeof window !== "undefined" && "wakeLock" in navigator) {
         const ok = await requestWakeLock();
         if (!ok) {
-          alert("이 브라우저에서는 화면 꺼짐 방지를 활성화할 수 없어요.");
+          notifyWakeLock("이 브라우저에서는 화면 꺼짐 방지를 켤 수 없어요.");
           setWakeLockEnabled(false);
         }
       } else {
-        alert("현재 브라우저는 화면 꺼짐 방지 기능을 지원하지 않아요.");
+        notifyWakeLock("이 브라우저는 화면 꺼짐 방지를 지원하지 않아요.");
         setWakeLockEnabled(false);
       }
     } else {
@@ -597,6 +609,13 @@ export default function GuestBagClientView({
           </Link>
         </div>
       </div>
+      {wakeLockNotice && (
+        <div role="status" className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-5">
+          <span className="pib-toast-pop rounded-2xl bg-slate-900 px-4 py-3 text-[14px] text-white shadow-lg dark:bg-slate-100 dark:text-slate-900">
+            {wakeLockNotice}
+          </span>
+        </div>
+      )}
     </main>
   );
 }
