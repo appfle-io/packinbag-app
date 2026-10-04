@@ -65,12 +65,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ show }}>
       {children}
       {UI_V2 && toast && (
-        // v2: 화면 아래쪽 검은 띠 하나(아이콘 없음). 하단 탭바·입력창을 가리지 않게 조금 띄운다.
+        // v2: 화면 아래쪽 검은 띠 하나(아이콘 없음). 하단 탭바·입력창을 가리지 않게 띄운다(toast-lift: 떠 있는 탭바 높이를 따라감).
         // .pib-v2는 배경을 칠하므로 쓰지 않고 폰트만 font-ui로 맞춘다.
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[300] flex justify-center px-5 pb-safe-8" role="status">
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[300] flex justify-center px-5 toast-lift" role="status">
           <div
             key={toast.key}
-            className="pib-toast-pop mb-16 flex w-full max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 font-ui text-on-ink shadow-sheet"
+            className="pib-toast-pop flex w-full max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 font-ui text-on-ink shadow-sheet"
             style={{
               pointerEvents: toast.actionLabel ? "auto" : "none",
               ["--toast-fade-delay" as string]: `${Math.max(0, toast.resolvedDurationMs - 220)}ms`,

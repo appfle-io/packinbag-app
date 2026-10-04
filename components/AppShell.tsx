@@ -2192,49 +2192,63 @@ export default function AppShell() {
     handleSwipeGestureEnd(e.clientX - start.x, e.clientY - start.y, true);
   };
 
+  // 탭 3개를 가로로 잇대어 둔 트랙(좌우로 넘김)
+  const tabArea = (
+    <div
+      ref={UI_V2 ? tabSwipeRef : undefined}
+      className="flex-1 overflow-hidden"
+      onTouchStart={UI_V2 ? undefined : handleTouchStart}
+      onTouchEnd={UI_V2 ? undefined : handleTouchEnd}
+      onMouseDown={UI_V2 ? undefined : handleMouseDown}
+      onMouseUp={UI_V2 ? undefined : handleMouseUp}
+    >
+      <div
+        ref={tabTrackRef}
+        className="flex h-full"
+        style={{
+          width: "300%",
+          transform: UI_V2 ? tabTrackTransform(tabIndex) : `translateX(-${tabIndex * (100 / 3)}%)`,
+          transition: UI_V2 ? TAB_TRANSITION : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
+        {/* 1. 팩 보관함 탭 */}
+        <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
+          {packsScreenEl}
+        </div>
+
+        {/* 2. 가방 보관함 탭 */}
+        <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
+          {homeScreenEl}
+        </div>
+
+        {/* 3. 설정 탭 */}
+        <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
+          {settingsScreenEl}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <OfflineStatusBar />
       <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top overflow-hidden">
         <EmailVerifyBanner />
-        <div
-          ref={UI_V2 ? tabSwipeRef : undefined}
-          className="flex-1 overflow-hidden"
-          onTouchStart={UI_V2 ? undefined : handleTouchStart}
-          onTouchEnd={UI_V2 ? undefined : handleTouchEnd}
-          onMouseDown={UI_V2 ? undefined : handleMouseDown}
-          onMouseUp={UI_V2 ? undefined : handleMouseUp}
-        >
-          <div
-            ref={tabTrackRef}
-            className="flex h-full"
-            style={{
-              width: "300%",
-              transform: UI_V2 ? tabTrackTransform(tabIndex) : `translateX(-${tabIndex * (100 / 3)}%)`,
-              transition: UI_V2 ? TAB_TRANSITION : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
-            }}
-          >
-            {/* 1. 팩 보관함 탭 */}
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              {packsScreenEl}
-            </div>
-
-            {/* 2. 가방 보관함 탭 */}
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              {homeScreenEl}
-            </div>
-
-            {/* 3. 설정 탭 */}
-            <div className="h-full flex flex-col overflow-hidden" style={{ width: `${100 / 3}%` }}>
-              {settingsScreenEl}
-            </div>
+        {UI_V2 ? (
+          // v2: 탭바는 탭 화면 위에 떠 있다(위치 기준 = 이 칸). 탭 넘기기 스와이프 영역(tabArea) 밖의 형제라
+          // 탭바를 끌어도 탭이 넘어가지 않는다. 높이는 탭바가 재서 이 칸의 --pib-dock으로 적는다
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            {tabArea}
+            {!homeSelectMode && !packsSelectMode && (
+              <TabBarV2 active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
+            )}
           </div>
-        </div>
+        ) : (
+          tabArea
+        )}
         {!homeSelectMode && !packsSelectMode && (
           <>
-            {UI_V2 ? (
-              <TabBarV2 active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
-            ) : (
+            {!UI_V2 && (
               <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
             )}
             <InstallPrompt />

@@ -108,8 +108,11 @@ export function WideShell({
 
       <section aria-label="목록" className="flex w-96 shrink-0 flex-col overflow-hidden border-r border-line">
         {banner}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{list}</div>
-        {!rail && <TabBarV2 active={tab} onChange={onTab} onQuickAdd={onQuickAdd} />}
+        {/* 탭바는 목록 위에 떠 있다(위치 기준 = 이 칸). 높이는 탭바가 재서 --pib-dock으로 적는다 */}
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          {list}
+          {!rail && <TabBarV2 active={tab} onChange={onTab} onQuickAdd={onQuickAdd} />}
+        </div>
       </section>
 
       <main aria-label="상세" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">

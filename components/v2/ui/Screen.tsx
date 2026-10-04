@@ -71,10 +71,13 @@ export function ScreenHeader({
 }
 
 // 헤더 아래 스크롤 본문. 폭 제한과 시작 여백을 모든 목록 화면이 똑같이 쓴다.
-export function ScreenBody({ children, className }: { children: React.ReactNode; className?: string }) {
+// 아래 여백 = 기본 8칸 + 떠 있는 탭바 높이(--pib-dock, 탭바가 없는 곳은 0). scroll-padding도 같이 더해
+// 포커스·검색 이동(scrollIntoView)으로 옮겨 간 줄이 탭바 뒤에 멈추지 않는다.
+// dockless: 탭바 바로 위에 따로 붙는 줄(팩 탭 빠른팩)이 탭바 자리를 맡을 때
+export function ScreenBody({ children, className, dockless }: { children: React.ReactNode; className?: string; dockless?: boolean }) {
   return (
-    <main className="pib-v2-no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <div className={cx("mx-auto flex w-full max-w-2xl flex-col px-5 pt-2 pb-8", className)}>{children}</div>
+    <main className={cx("pib-v2-no-scrollbar dock-scroll-pad min-h-0 flex-1 overflow-y-auto overscroll-contain", dockless && "dock-none")}>
+      <div className={cx("dock-pad-body mx-auto flex w-full max-w-2xl flex-col px-5 pt-2", className)}>{children}</div>
     </main>
   );
 }

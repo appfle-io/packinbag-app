@@ -317,7 +317,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
           title={folder?.name || "팩"}
         />
 
-        <ScreenBody>
+        <ScreenBody dockless={showQuickPack}>
           {pageSearching ? (
             !query.trim() ? (
               <p className="m-0 py-16 text-center text-caption text-faint">모든 폴더의 팩 이름, 아이템, 메모를 찾아요</p>
@@ -380,9 +380,9 @@ export default function PacksScreenV2(props: PacksScreenProps) {
           )}
         </ScreenBody>
 
-        {/* 빠른팩: 엄지가 닿기 쉬운 하단에 고정 */}
+        {/* 빠른팩: 엄지가 닿기 쉬운 하단에 고정. 떠 있는 탭바 바로 위(dock-mb = 탭바 높이)에 붙고, 본문은 이 줄 위에서 끝난다(dockless) */}
         {showQuickPack && quickPack && (
-          <div className="shrink-0 border-t border-line bg-canvas px-5 py-2">
+          <div className="dock-mb shrink-0 border-t border-line bg-canvas px-5 py-2">
             <button
               type="button"
               onClick={() => onOpenPack(quickPack)}
