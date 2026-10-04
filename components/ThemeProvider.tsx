@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ACCENT_PRESETS, deriveAccentTone, getAccentPreset } from "@/lib/accentColors";
 import { useAuth } from "@/contexts/AuthProvider";
 import { UI_V2 } from "@/lib/v2/flags";
+import type { AppFontFamily } from "@/lib/types";
+import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily } from "@/lib/v2/appFonts";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type FontScale = "sm" | "md" | "lg";
@@ -203,6 +205,9 @@ const ThemeContext = createContext<{
   setCustomAccent: (hex: string) => void;
   fontScale: FontScale;
   setFontScale: (scale: FontScale) => void;
+  // v2 앱 글꼴(lib/v2/appFonts.ts). 구 UI에서는 적용하지 않는다
+  fontFamily: AppFontFamily;
+  setFontFamily: (family: AppFontFamily) => void;
   bagColorId: string;
   setBagColor: (id: string) => void;
   bagCustomHex: string;
@@ -243,6 +248,8 @@ const ThemeContext = createContext<{
   setCustomAccent: () => {},
   fontScale: "md",
   setFontScale: () => {},
+  fontFamily: DEFAULT_FONT_FAMILY,
+  setFontFamily: () => {},
   bagColorId: DEFAULT_CARD_COLOR_ID,
   setBagColor: () => {},
   bagCustomHex: DEFAULT_CUSTOM,
@@ -295,6 +302,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [fontScale, setFontScaleState] = useState<FontScale>(() => {
     if (typeof window === "undefined") return "md";
     return (window.localStorage.getItem(FONT_SCALE_KEY) as FontScale | null) ?? "md";
+  });
+  const [fontFamily, setFontFamilyState] = useState<AppFontFamily>(() => {
+    if (typeof window === "undefined") return DEFAULT_FONT_FAMILY;
+    const stored = window.localStorage.getItem(FONT_FAMILY_KEY);
+    return isAppFontFamily(stored) ? stored : DEFAULT_FONT_FAMILY;
   });
   const [bagColorId, setBagColorState] = useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_CARD_COLOR_ID;
@@ -404,6 +416,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     applyFontScale(fontScale);
   }, [fontScale]);
+
+  // v2 앱 글꼴. 첫 화면은 app/layout.tsx head 스크립트가 이미 적용했고, 여기서는 바뀐 값을 따라간다
+  useEffect(() => {
+    if (!UI_V2) return;
+    applyFontFamily(fontFamily);
+  }, [fontFamily]);
 
   useEffect(() => {
     applyCardScale(bagCardScale, bagCardFontScale, packCardScale, packLibraryCardScale, packCardFontScale);
@@ -547,6 +565,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // 이미 구독 중인 프로필을 쓰므로 추가 읽기는 없다. 이 기기에서 바꾼 값은 되돌아와도 같은 값이라 아무 일도 없다.
   const remoteModeLive = profile?.themeMode;
   const remoteFontLive = profile?.fontScale;
+  const remoteFamilyLive = profile?.fontFamily;
   useEffect(() => {
     if (!UI_V2 || !appliedRemoteRef.current) return;
     if (remoteModeLive && remoteModeLive !== mode) {
@@ -558,8 +577,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setFontScaleState(remoteFontLive);
       window.localStorage.setItem(FONT_SCALE_KEY, remoteFontLive);
     }
+    // 글꼴: 계정에 값이 있으면(처음 로드 포함) 따라간다. 없으면 이 기기 값을 그대로 둔다
+    if (isAppFontFamily(remoteFamilyLive) && remoteFamilyLive !== fontFamily) {
+      setFontFamilyState(remoteFamilyLive);
+      window.localStorage.setItem(FONT_FAMILY_KEY, remoteFamilyLive);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteModeLive, remoteFontLive]);
+  }, [remoteModeLive, remoteFontLive, remoteFamilyLive]);
 
   const setMode = (next: ThemeMode) => {
     setModeState(next);
@@ -589,6 +613,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem(FONT_SCALE_KEY, scale);
     applyFontScale(scale);
     updateFontScale(scale).catch(() => {});
+  };
+
+  const setFontFamily = (family: AppFontFamily) => {
+    setFontFamilyState(family);
+    window.localStorage.setItem(FONT_FAMILY_KEY, family);
+    if (UI_V2) applyFontFamily(family);
+    updateThemePrefs({ fontFamily: family }).catch(() => {});
   };
 
   const setBagColor = (id: string) => {
@@ -814,6 +845,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setCustomAccent,
         fontScale,
         setFontScale,
+        fontFamily,
+        setFontFamily,
         bagColorId,
         setBagColor,
         bagCustomHex,

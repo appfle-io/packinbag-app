@@ -808,6 +808,9 @@ aside {
   --v2-on-ink: #ffffff;
   --v2-alert: #b42318;      /* 삭제 등 파괴적 동작 */
   --v2-scrim: rgb(23 23 26 / 0.36);
+  /* 떠 있는 하단 탭바(독): 반투명 바탕 + 그림자. 뒤로 지나가는 목록이 흐리게 비친다 */
+  --v2-dock: color-mix(in srgb, var(--v2-card) 80%, transparent);
+  --v2-dock-shadow: 0 8px 24px rgb(23 23 26 / 0.10), 0 1px 3px rgb(23 23 26 / 0.06);
 }
 
 [data-theme="dark"] {
@@ -825,6 +828,8 @@ aside {
   --v2-on-ink: #161618;
   --v2-alert: #f97066;
   --v2-scrim: rgb(0 0 0 / 0.5);
+  --v2-dock: color-mix(in srgb, var(--v2-card) 82%, transparent);
+  --v2-dock-shadow: 0 8px 24px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
 @theme inline {
@@ -843,8 +848,17 @@ aside {
   --color-alert: var(--v2-alert);
   --color-scrim: var(--v2-scrim);
 
-  /* next/font/local이 app/layout.tsx에서 --font-pretendard를 선언한다 */
-  --font-ui: var(--font-pretendard), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  /* 그림자는 바텀시트 + 떠 있는 탭바(독) 2종 */
+  --shadow-dock: var(--v2-dock-shadow);
+
+  /* next/font/local이 app/layout.tsx에서 --font-pretendard 등을 선언한다.
+     앱 글꼴(설정 > 화면 > 글꼴)은 --pib-font-app으로 바꾼다. inline 테마라 font-ui 유틸리티에도 var()가 그대로 들어가 런타임에 따라간다 */
+  --font-ui: var(--pib-font-app, var(--font-pretendard)), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  /* 글꼴 고르기 시트 미리보기용(font-app-*) */
+  --font-app-pretendard: var(--font-pretendard), system-ui, sans-serif;
+  --font-app-gmarket: var(--font-gmarket), var(--font-pretendard), system-ui, sans-serif;
+  --font-app-gaegu: var(--font-gaegu), var(--font-pretendard), system-ui, sans-serif;
+  --font-app-d2coding: var(--font-d2coding), var(--font-pretendard), ui-monospace, monospace;
 }
 
 @theme {
@@ -903,6 +917,38 @@ aside {
   padding-top: env(safe-area-inset-top);
 }
 
+/* 떠 있는 하단 탭바(독, components/v2/shell/TabBarV2.tsx)
+   - 탭바가 실제로 그려진 높이를 재서 바로 위 부모에 --pib-dock으로 적는다(숫자를 코드에 박지 않는다).
+     글자 크기·안전영역·화면 폭이 바뀌면 ResizeObserver가 다시 잰다. 탭바가 없는 곳(가방·시트·하위 화면)은 0
+   - 탭 화면 스크롤(ScreenBody)은 이 값만큼 아래 여백과 scroll-padding을 더해 마지막 줄이 탭바 뒤에 숨지 않는다 */
+@utility dock-glass {
+  background: var(--v2-dock);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+@utility dock-pad-body {
+  padding-bottom: calc(var(--spacing) * 8 + var(--pib-dock, 0px));
+}
+@utility dock-scroll-pad {
+  scroll-padding-bottom: var(--pib-dock, 0px);
+}
+@utility dock-mb {
+  margin-bottom: var(--pib-dock, 0px);
+}
+/* 탭바 바로 위에 따로 붙는 줄(팩 탭 빠른팩)이 있으면 그 줄이 탭바 자리를 맡으므로 본문은 더하지 않는다 */
+@utility dock-none {
+  --pib-dock: 0px;
+}
+/* v2 토스트 아래 여백: 예전 값(하단 입력창을 피하는 24칸, 안전영역+19칸)과 떠 있는 탭바 윗변+3칸 중 큰 값.
+   --pib-dock-viewport는 탭바가 재서 html에 적는다(탭바가 없거나 숨으면 0) */
+@utility toast-lift {
+  padding-bottom: max(
+    calc(var(--spacing) * 24),
+    calc(env(safe-area-inset-bottom) + var(--spacing) * 19),
+    calc(var(--pib-dock-viewport, 0px) + var(--spacing) * 3)
+  );
+}
+
 /* 접기/펼치기: grid 행 높이 0fr <-> 1fr 전환으로 내용 높이만큼 부드럽게 */
 @utility collapse-open {
   grid-template-rows: 1fr;
@@ -914,6 +960,22 @@ aside {
 /* 색 직접 고르기 견본(메모 글씨 색) */
 @utility bg-rainbow {
   background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+}
+
+/* v2 앱 글꼴(설정 > 화면 > 글꼴). html[data-font]는 lib/v2/appFonts.ts가 붙인다(기본 Pretendard는 속성 없음).
+   없는 글자(개구는 한글 2,350자만)는 Pretendard로 채운다. 구 UI는 --font-ui를 쓰지 않아 영향 없음 */
+[data-font="gmarket"] {
+  --pib-font-app: var(--font-gmarket), var(--font-pretendard);
+}
+[data-font="gaegu"] {
+  --pib-font-app: var(--font-gaegu), var(--font-pretendard);
+}
+[data-font="d2coding"] {
+  --pib-font-app: var(--font-d2coding), var(--font-pretendard);
+}
+/* v2 메모 코드블록·인라인 코드는 앱 글꼴과 상관없이 항상 D2코딩(고정폭 + 한글) */
+:is(.pib-v2, .pib-v2-legacy) .pib-note-editor :is(pre, :not(pre) > code) {
+  font-family: var(--font-d2coding), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* v2 화면 루트에 붙이는 기본값 */
@@ -950,6 +1012,14 @@ aside {
 }
 .pib-v2 .pib-v2-no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+/* 투명도 줄이기를 켠 사용자는 탭바를 불투명하게 */
+@media (prefers-reduced-transparency: reduce) {
+  .dock-glass {
+    background: var(--v2-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .pib-v2 *,

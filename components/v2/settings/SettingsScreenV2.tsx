@@ -29,6 +29,8 @@ import { InquiryScreenV2 } from "./InquiryScreenV2";
 import { AnnouncementsListSheet, FaqSheet } from "./HelpSheets";
 import { MyLinksSheet } from "./MyLinksSheet";
 import { OfflineImportSheet } from "./OfflineImportSheet";
+import { FontSheet } from "./FontSheet";
+import { APP_FONTS } from "@/lib/v2/appFonts";
 import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
@@ -101,7 +103,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     onPermanentDeletePack,
     hideNotificationBell,
   } = props;
-  const { mode, setMode, fontScale, setFontScale } = useTheme();
+  const { mode, setMode, fontScale, setFontScale, fontFamily, setFontFamily } = useTheme();
   const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOfflineMode, switchToOnlineMode, updatePackSettings } =
     useAuth();
   const { show } = useToast();
@@ -113,6 +115,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [showMyShortLinks, setShowMyShortLinks] = useState(false);
   const [showAccountLink, setShowAccountLink] = useState(false);
   const [showOfflineImport, setShowOfflineImport] = useState(false);
+  const [showFont, setShowFont] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -251,6 +254,13 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <span className="text-caption text-sub">글자 크기</span>
             <SegmentedControl label="글자 크기" options={FONT_OPTIONS} value={fontScale} onChange={setFontScale} />
           </div>
+          <ListRow
+            divider={false}
+            title="글꼴"
+            trailing={APP_FONTS.find((f) => f.id === fontFamily)?.label}
+            onClick={() => setShowFont(true)}
+            chevron
+          />
         </section>
 
         {/* 가방: 구 UI 팩 설정의 "완료된 항목 맨 아래로"(같은 필드, 없으면 켜짐). 계정에 저장돼 기기 간 동일 */}
@@ -439,6 +449,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       />
       <MyLinksSheet open={showMyShortLinks && !!user} user={user ?? null} onClose={() => setShowMyShortLinks(false)} />
       <OfflineImportSheet open={showOfflineImport} onClose={() => setShowOfflineImport(false)} />
+      <FontSheet open={showFont} onClose={() => setShowFont(false)} value={fontFamily} onChange={setFontFamily} />
       <AccountLinkSheet open={showAccountLink} onClose={() => setShowAccountLink(false)} />
 
       <ConfirmSheet

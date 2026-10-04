@@ -257,6 +257,9 @@ export type ListSortOption = "createdAt" | "nameAsc" | "nameDesc" | "updatedAt" 
 
 export type StartPageType = "home" | "packs" | "last_used" | "bag" | "pack";
 
+// 리디자인 v2 앱 글꼴(설정 > 화면 > 글꼴). lib/v2/appFonts.ts 참고
+export type AppFontFamily = "pretendard" | "gmarket" | "gaegu" | "d2coding";
+
 export interface StartPageConfig {
   type: StartPageType;
   id?: string;
@@ -311,6 +314,8 @@ export interface UserProfile {
   packCardFontScale?: number;
   // 글자 크기 (없으면 "md" 기본값)
   fontScale?: "sm" | "md" | "lg";
+  // 리디자인 v2 앱 글꼴(없으면 "pretendard"). 메모팩 본문까지 앱 전체에 적용. 구 UI에서는 읽지 않는다
+  fontFamily?: AppFontFamily;
   // v68: 하단탑이 가방보관함/설정 2개로 재개편되어 "packs" 옵션은 사라졌다(팩 트리는
   // 이제 스와이프로 열리는 풀스크린 화면임). 앱 실행 시 처음 보여줄 탭(없으면 "home" 기본값).
   defaultTab?: "home" | "settings" | "packs";
