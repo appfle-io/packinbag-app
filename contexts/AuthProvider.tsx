@@ -355,6 +355,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const switchToOnlineMode = () => {
+    // v2: 새로고침 없이 그 자리에서 바꾼다. 이 기기에 로그인 세션이 남아 있으면 바로 그 계정으로,
+    // 없으면 로그인 화면으로. 로그인 뒤 오프라인 데이터 합치기 시트는 AppShell이 띄운다
+    if (UI_V2) {
+      if (typeof window !== "undefined") localStorage.removeItem("pib_offline_mode");
+      setIsOfflineMode(false);
+      setRawProfile(null);
+      const current = auth.currentUser;
+      if (current) {
+        setUser(current);
+        setLoading(true);
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+      return;
+    }
     exitOfflineMode();
     if (typeof window !== "undefined") {
       window.location.href = window.location.origin + window.location.pathname;

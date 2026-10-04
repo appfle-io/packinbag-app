@@ -105,7 +105,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     hideNotificationBell,
   } = props;
   const { mode, setMode, fontScale, setFontScale, fontFamily, setFontFamily } = useTheme();
-  const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOfflineMode, switchToOnlineMode, updatePackSettings } =
+  const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOnlineMode, updatePackSettings } =
     useAuth();
   const { show } = useToast();
   // 계정 연동·이용권·내 URL·공지·문의는 인터넷이 필요하다(끊겨 있으면 열기 전에 알린다)
@@ -306,10 +306,10 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             onClick={() => setView("trash")}
             chevron
           />
-          {isOfflineMode ? (
-            <ListRow title={<span className="font-semibold text-brand">온라인 계정으로 전환</span>} subtitle="클라우드 계정으로 로그인해요" onClick={switchToOnlineMode} chevron />
-          ) : (
-            <ListRow title="오프라인 보관함 보기" subtitle="이 기기에만 저장된 가방과 팩을 봐요" onClick={switchToOfflineMode} chevron />
+          {/* 계정 모드는 끊겨도 그대로 이어지므로 "오프라인 보관함 보기"(계정 → 오프라인 모드 전환)는 없앴다(연결 흐름 E).
+              오프라인 모드에서 만든 데이터는 로그인할 때 합치기 시트로, 또는 아래 "오프라인 데이터 가져오기"로 옮긴다 */}
+          {isOfflineMode && (
+            <ListRow title={<span className="font-semibold text-brand">온라인 계정으로 전환</span>} subtitle="로그인하면 이 기기 가방을 계정에 합쳐요" onClick={switchToOnlineMode} chevron />
           )}
           {hasOfflineData && (
             <ListRow

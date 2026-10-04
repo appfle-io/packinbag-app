@@ -15,7 +15,8 @@ import {
   where,
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { isPendingBag, savePendingBag } from "@/lib/v2/pendingCreates";
 import { Bag } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
@@ -83,6 +84,12 @@ export async function createBagRemote(
 }
 
 export async function saveBagRemote(bag: Bag) {
+  // 끊겨 있을 때 만든 "만들기 대기" 가방은 서버에 아직 문서가 없다 → 이 기기 대기 목록에 저장(lib/v2/pendingCreates)
+  const uid = auth.currentUser?.uid;
+  if (isPendingBag(uid, bag.id)) {
+    savePendingBag(uid!, bag);
+    return;
+  }
   if (isOfflineEnvironment()) {
     saveLocalBag(bag);
     return;

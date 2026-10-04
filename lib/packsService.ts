@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
+import { isPendingPack, savePendingPack } from "@/lib/v2/pendingCreates";
 import { Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
@@ -51,6 +52,11 @@ export function subscribeToLibraryPacks(
 // 자동저장이라 매번 서버를 거치면 타이핑마다 왕복이 생기기 때문. firestore.rules에서도
 // libraryPacks의 client-side create는 막아둬서, 새 팩은 이 경로 말고는 생성이 안 된다.
 export async function saveLibraryPackRemote(user: User, pack: Pack, isNew?: boolean) {
+  // 끊겨 있을 때 만든 "만들기 대기" 팩의 수정은 이 기기 대기 목록에 저장(실제 생성은 isNew=true로 flush가 부른다)
+  if (isNew !== true && isPendingPack(user.uid, pack.id)) {
+    savePendingPack(user.uid, pack);
+    return pack;
+  }
   if (isOfflineEnvironment()) {
     saveLocalLibraryPack(pack);
     return pack;

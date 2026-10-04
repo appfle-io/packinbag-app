@@ -111,6 +111,22 @@ import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import { WideShell } from "@/components/v2/shell/WideShell";
 import { WIDE_QUERY, useMediaQuery } from "@/lib/v2/shell";
+import { RECONNECTED_EVENT, getConnectivity, reportNetworkFailure } from "@/lib/v2/connectivity";
+import {
+  PENDING_CHANGE_EVENT,
+  addPendingBag,
+  addPendingPack,
+  flushPendingCreates,
+  getPendingBags,
+  getPendingPacks,
+  isNetworkError,
+  isPendingBag,
+  isPendingPack,
+  removePendingBag,
+  removePendingPack,
+  withPending,
+} from "@/lib/v2/pendingCreates";
+import { OfflineImportSheet } from "@/components/v2/settings/OfflineImportSheet";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import DesktopShell from "@/components/DesktopShell";
@@ -343,6 +359,8 @@ export default function AppShell() {
   const introCheckedRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
+  // v2: 로그인했는데 이 기기에 오프라인 모드로 만든 가방·팩이 있으면 합치기 시트를 한 번 띄운다(연결 흐름 E)
+  const [mergeOfflineOpen, setMergeOfflineOpen] = useState(false);
   const [showPremiumSyncOverlay, setShowPremiumSyncOverlay] = useState(false);
   // 새 가방을 Firestore에 쓰는 동안(openNewBag/openNewBagFromNote) true. CreatingBagOverlay를
   // 띄우는 용도로만 쓰이고, 실제 가방 생성 로직에는 영향을 주지 않는다.
@@ -581,11 +599,42 @@ export default function AppShell() {
         setBags(getLocalBags());
       });
     }
-    return subscribeToUserBags(user.uid, (b) => {
-      setBags(b);
+    // v2: 끊겨 있을 때 만든 "만들기 대기" 가방도 목록에 함께 보여 준다(lib/v2/pendingCreates)
+    const uid = user.uid;
+    let remote: Bag[] = [];
+    const emit = () => setBags(UI_V2 ? withPending(remote, getPendingBags(uid)) : remote);
+    window.addEventListener(PENDING_CHANGE_EVENT, emit);
+    const unsub = subscribeToUserBags(uid, (b) => {
+      remote = b;
+      emit();
       setBagsLoaded(true);
     });
+    return () => {
+      unsub();
+      window.removeEventListener(PENDING_CHANGE_EVENT, emit);
+    };
   }, [user, isOfflineMode]);
+
+  // v2: 다시 연결되면(또는 앱을 켰을 때) 대기 중인 가방·팩을 서버에 만든다. 무료 개수를 넘었으면 남겨 두고 프리미엄 안내
+  useEffect(() => {
+    if (!UI_V2 || !user || isOfflineMode) return;
+    const run = () => {
+      flushPendingCreates(user, {
+        createBag: createBagRemote,
+        saveBag: saveBagRemote,
+        createPack: (u, p) => saveLibraryPackRemote(u, p, true),
+        isLimitError: (e) => e instanceof PremiumLimitError,
+      })
+        .then((r) => {
+          if (r.created > 0) show(`끊겨 있는 동안 만든 ${r.created}개를 계정에 올렸어요`);
+          if (r.blockedMessage) setPremiumLimitMessage(r.blockedMessage);
+        })
+        .catch(() => {});
+    };
+    if (getConnectivity() !== "offline") run();
+    window.addEventListener(RECONNECTED_EVENT, run);
+    return () => window.removeEventListener(RECONNECTED_EVENT, run);
+  }, [user, isOfflineMode, show]);
 
   const lastSyncedProfileRef = useRef<string | null>(null);
 
@@ -619,10 +668,19 @@ export default function AppShell() {
         setLibraryPacks(getLocalLibraryPacks());
       });
     }
-    return subscribeToLibraryPacks(user.uid, (p) => {
-      setLibraryPacks(p);
+    const uid = user.uid;
+    let remote: Pack[] = [];
+    const emit = () => setLibraryPacks(UI_V2 ? withPending(remote, getPendingPacks(uid)) : remote);
+    window.addEventListener(PENDING_CHANGE_EVENT, emit);
+    const unsub = subscribeToLibraryPacks(uid, (p) => {
+      remote = p;
+      emit();
       setPacksLoaded(true);
     });
+    return () => {
+      unsub();
+      window.removeEventListener(PENDING_CHANGE_EVENT, emit);
+    };
   }, [user, isOfflineMode]);
 
   useEffect(() => {
@@ -921,6 +979,11 @@ export default function AppShell() {
         const alerted = sessionStorage.getItem("pib_offline_import_notified");
         if (!alerted) {
           sessionStorage.setItem("pib_offline_import_notified", "true");
+          if (UI_V2) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그인 직후 한 번만 여는 시트(세션당 1회 플래그로 막음)
+            setMergeOfflineOpen(true);
+            return;
+          }
           show(
             `오프라인에서 작성한 데이터 ${summary.totalUnimportedCount}개가 있어요. [설정 > 오프라인 데이터 가져오기]에서 내 계정으로 가져올 수 있어요.`
           );
@@ -988,6 +1051,16 @@ export default function AppShell() {
   // 거의 동일한 검사를 미리 한 번 해본다(실제 강제는 서버 쪽에서 한다).
   const ownedBagCount = activeBags.filter((b) => b.ownerId === user.uid).length;
 
+  // v2: 계정 모드인데 인터넷이 안 되면(폐쇄망 포함) "만들기 대기"로 만들고 그대로 연다. 연결되면 자동으로 서버에 만든다
+  const offlineNow = () => UI_V2 && (getConnectivity() === "offline" || (typeof navigator !== "undefined" && !navigator.onLine));
+  const createPendingBag = (draft: Bag) => {
+    addPendingBag(user.uid, draft, { nickname: profile.nickname!, avatarId: profile.avatarId! });
+    setIsNewBag(false);
+    setEditingBag(draft);
+    show("가방을 만들었어요. 인터넷에 연결되면 계정에 올라가요");
+    return draft;
+  };
+
   const openNewBag = async () => {
     if (isOfflineMode) {
       const created = createLocalBag("새 가방");
@@ -1019,6 +1092,7 @@ export default function AppShell() {
       createdAt: now,
       updatedAt: now,
     };
+    if (offlineNow()) return createPendingBag(draft);
     setIsNewBag(true);
     setCreatingBag(true);
     try {
@@ -1036,6 +1110,10 @@ export default function AppShell() {
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
         return;
+      }
+      if (UI_V2 && isNetworkError(err)) {
+        reportNetworkFailure();
+        return createPendingBag(draft);
       }
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1256,6 +1334,12 @@ export default function AppShell() {
   const handleDeleteBag = (bag: Bag) => {
     setEditingBag(null);
     setIsNewBag(false);
+    // 아직 서버에 없는 "만들기 대기" 가방은 대기 목록에서만 지운다
+    if (UI_V2 && isPendingBag(user.uid, bag.id)) {
+      removePendingBag(user.uid, bag.id);
+      show("가방을 지웠어요");
+      return;
+    }
     if (isOfflineMode) {
       deleteLocalBag(bag.id);
       show("가방을 휴지통으로 보냈어요", {
@@ -1529,10 +1613,17 @@ export default function AppShell() {
       parentId,
       ...(kind ? { kind } : {}),
     };
-    const isOffline = isOfflineMode || (typeof navigator !== "undefined" && !navigator.onLine);
+    // v2: 계정 모드에서 끊겼을 때 이 기기 오프라인 저장소로 빠지지 않고 "만들기 대기"로 둔다(연결되면 자동 생성)
+    const isOffline = isOfflineMode || (!UI_V2 && typeof navigator !== "undefined" && !navigator.onLine);
     if (isOffline) {
       setEditingPack(draft);
       saveLocalLibraryPack(draft);
+      return draft;
+    }
+    if (offlineNow()) {
+      addPendingPack(user.uid, draft);
+      setEditingPack(draft);
+      show("팩을 만들었어요. 인터넷에 연결되면 계정에 올라가요");
       return draft;
     }
     setEditingPack(draft);
@@ -1541,6 +1632,12 @@ export default function AppShell() {
       await saveLibraryPackRemote(user, draft);
       return draft;
     } catch (err) {
+      if (UI_V2 && isNetworkError(err)) {
+        reportNetworkFailure();
+        addPendingPack(user.uid, draft);
+        show("팩을 만들었어요. 인터넷에 연결되면 계정에 올라가요");
+        return draft;
+      }
       setEditingPack(null);
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
@@ -1660,6 +1757,11 @@ export default function AppShell() {
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
   const handleDeletePack = (packId: string, alsoDeleteFromBags?: boolean) => {
     setEditingPack(null);
+    if (UI_V2 && isPendingPack(user.uid, packId)) {
+      removePendingPack(user.uid, packId);
+      show("팩을 지웠어요");
+      return;
+    }
     const copiesTask = alsoDeleteFromBags ? removeLinkedBagCopies([packId]) : Promise.resolve(0);
     if (isOfflineMode) {
       deleteLocalLibraryPack(packId);
@@ -2119,6 +2221,7 @@ export default function AppShell() {
             show("프리미엄이 적용됐어요. 다시 시도해 주세요");
           }}
         />
+        <OfflineImportSheet open={mergeOfflineOpen} onClose={() => setMergeOfflineOpen(false)} />
         <SplashScreen visible={showSplash} />
         <BusyOverlay visible={showPremiumSyncOverlay} />
         <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
@@ -2374,6 +2477,7 @@ export default function AppShell() {
       <SplashScreen visible={showSplash} />
       {UI_V2 ? (
         <>
+          <OfflineImportSheet open={mergeOfflineOpen} onClose={() => setMergeOfflineOpen(false)} />
           <BusyOverlay visible={showPremiumSyncOverlay} />
           <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
           <BusyOverlay visible={creatingPack} message="팩을 만들고 있어요" />
