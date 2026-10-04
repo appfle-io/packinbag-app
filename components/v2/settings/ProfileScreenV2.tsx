@@ -12,6 +12,7 @@ import { Badge, Button, IconButton, SectionHeader, Sheet, cx } from "@/component
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { AccountLinkSheet } from "@/components/v2/sheets/AccountLinkSheet";
 import { SubScreen } from "./SubScreen";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 const NICK_MAX = 12;
 const FIELD = "h-12 w-full rounded-field border border-line bg-card px-4 text-body outline-none placeholder:text-faint focus:border-ink";
@@ -180,6 +181,8 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
   const { user, profile, updateNickname, updateAvatar, logout, isGuest, isOfflineMode, exitOfflineMode } = useAuth();
   // 오프라인 모드도 isGuest가 true지만 게스트(익명 계정)와 다르다: 계정 전환·"지워질 수 있어요" 경고가 맞지 않는다
   const onlineGuest = isGuest && !isOfflineMode;
+  // 비밀번호·탈퇴·계정 전환은 인터넷이 필요하다. 끊겨 있으면 흐리게 두고 누르면 이유를 알린다
+  const { offline, guard } = useOnlineGuard();
   const { show } = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
   const [avatarId, setAvatarId] = useState(profile?.avatarId ?? AVATAR_OPTIONS[0].id);
@@ -235,7 +238,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
           <span className="text-caption text-sub">{profile?.email}</span>
         )}
         {onlineGuest && (
-          <Button variant="text" size="sm" onClick={() => setLinkOpen(true)}>
+          <Button variant="text" size="sm" className={cx(offline && "opacity-40")} onClick={() => guard(() => setLinkOpen(true))}>
             정식 계정으로 전환하기
           </Button>
         )}
@@ -286,7 +289,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
       <section className="flex flex-col">
         <SectionHeader>계정</SectionHeader>
         {isPasswordAccount && (
-          <button type="button" onClick={() => setPasswordOpen(true)} className="flex min-h-13 w-full items-center border-b border-line bg-transparent text-left text-body text-ink active:bg-fill">
+          <button type="button" onClick={() => guard(() => setPasswordOpen(true))} className={cx("flex min-h-13 w-full items-center border-b border-line bg-transparent text-left text-body text-ink active:bg-fill", offline && "opacity-40")}>
             비밀번호 바꾸기
           </button>
         )}
@@ -301,7 +304,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
           </button>
         )}
         {!isGuest && (
-          <button type="button" onClick={() => setDeleteOpen(true)} className="flex min-h-13 w-full items-center bg-transparent text-left text-body text-alert active:bg-fill">
+          <button type="button" onClick={() => guard(() => setDeleteOpen(true))} className={cx("flex min-h-13 w-full items-center bg-transparent text-left text-body text-alert active:bg-fill", offline && "opacity-40")}>
             회원 탈퇴
           </button>
         )}

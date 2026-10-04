@@ -124,6 +124,7 @@ import { MemoShareSheet } from "@/components/v2/note/MemoShareSheet";
 import { PhotoViewer } from "@/components/v2/bag/PhotoViewer";
 import { PdfViewer } from "@/components/v2/bag/PdfViewer";
 import { mergeEditorDocs } from "@/lib/syncMerge";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 // 문서를 통째로 바꿔 넣되, 커서가 있던 맨 위 문단을 새 문서에서 찾아 같은 자리로 돌려놓는다
 // (위쪽에 다른 사람이 문단을 넣어도 치던 자리가 튀지 않게). 예외는 삼킨다 - 커서는 부가 기능이다.
@@ -237,6 +238,8 @@ export default function PackNoteEditorScreen({
 
   const swipeBackRef = useSwipeBack<HTMLDivElement>(handleBack);
   const { show } = useToast();
+  // v2: 공유 링크·첨부 올리기는 인터넷이 필요하다(오프라인 모드 첨부는 이 기기 저장이라 그대로 된다)
+  const { guard: guardOnline } = useOnlineGuard();
   const { user, profile, updatePackSettings, isOfflineMode } = useAuth();
   // 사용자의 유료(프리미엄) 여부: 오프라인 모드는 무조건 무제한
   const isEffectivePremium =
@@ -1198,7 +1201,7 @@ export default function PackNoteEditorScreen({
           </IconButton>
           <div className="flex items-center">
             {!isOfflineMode && !pack.isQuickPack && (
-              <IconButton label="공유" onClick={() => setShowShareModal(true)}>
+              <IconButton label="공유" onClick={() => guardOnline(() => setShowShareModal(true))}>
                 <IconShare size={22} stroke={1.75} />
               </IconButton>
             )}
@@ -1283,7 +1286,7 @@ export default function PackNoteEditorScreen({
                 setShowPdfPremiumModal(true);
                 return;
               }
-              fileInputRef.current?.click();
+              guardOnline(() => fileInputRef.current?.click(), { localOk: true });
             }}
             onTableMenu={() => setTableSheetOpen(true)}
             onMore={() => setMoreOpen(true)}
@@ -1360,7 +1363,7 @@ export default function PackNoteEditorScreen({
             setTocOpen(true);
           }}
           canShare={false}
-          onShare={() => setShowShareModal(true)}
+          onShare={() => guardOnline(() => setShowShareModal(true))}
           percentOfLimit={percentOfLimit}
           onDelete={
             onDeletePack

@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IconMailCheck, IconWifiOff } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { randomAvatarId } from "@/lib/avatars";
 import { randomNickname } from "@/lib/nickname";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
-import { checkIsOnline, isElectronApp } from "@/lib/networkUtils";
+import { isElectronApp } from "@/lib/networkUtils";
+import { recheckConnectivity, useConnectivity } from "@/lib/v2/connectivity";
 import BackpackLogo from "@/components/BackpackLogo";
 import { Button, SegmentedControl, Sheet, cx } from "@/components/v2/ui";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
@@ -59,26 +60,16 @@ export default function AuthScreenV2() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSending, setResetSending] = useState(false);
-  // null = 아직 확인 중(로고만). 폐쇄망에서 로그인 폼이 잠깐 보였다가 바뀌는 깜빡임을 없앤다
-  const [online, setOnline] = useState<boolean | null>(() => (typeof navigator !== "undefined" && !navigator.onLine ? false : null));
+  // 연결 상태는 앱 공통(lib/v2/connectivity). 확인 전(unknown)에는 로고만 보여서 폐쇄망에서 폼이 스치는 깜빡임을 없애고,
+  // 끊김 ↔ 연결이 바뀌면 화면도 저절로 바뀐다(폐쇄망 복구도 주기 확인으로 알아챈다)
+  const connectivity = useConnectivity();
+  // 오프라인 화면에서 "온라인 계정으로 로그인"을 누르면 연결과 상관없이 폼을 보여 준다
+  const [forceForm, setForceForm] = useState(false);
+  const online = connectivity === "unknown" ? null : connectivity === "online" || forceForm;
   // 포터블은 팝업 로그인(Google·Apple)이 안 된다 → 이메일·게스트만
   const [socialLogin] = useState(() => !isElectronApp());
   const [checking, setChecking] = useState(false);
 
-  // 폐쇄망·오프라인이면 로그인 대신 오프라인 시작을 먼저 보여 준다
-  useEffect(() => {
-    let alive = true;
-    const verify = () => checkIsOnline(1200).then((ok) => alive && setOnline(ok));
-    verify();
-    const off = () => alive && setOnline(false);
-    window.addEventListener("online", verify);
-    window.addEventListener("offline", off);
-    return () => {
-      alive = false;
-      window.removeEventListener("online", verify);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
 
   const mismatch = mode === "signup" && passwordConfirm.length > 0 && password !== passwordConfirm;
 
@@ -159,8 +150,7 @@ export default function AuthScreenV2() {
 
   const recheck = async () => {
     setChecking(true);
-    const ok = await checkIsOnline(1500);
-    setOnline(ok);
+    const ok = (await recheckConnectivity(1500)) === "online";
     setChecking(false);
     show(ok ? "인터넷에 연결됐어요" : "아직 인터넷에 연결되지 않았어요");
   };
@@ -190,7 +180,7 @@ export default function AuthScreenV2() {
           <Button variant="secondary" block disabled={checking} onClick={recheck}>
             {checking ? "확인하는 중" : "연결 다시 확인"}
           </Button>
-          <Button variant="text" size="sm" className="self-center" onClick={() => setOnline(true)}>
+          <Button variant="text" size="sm" className="self-center" onClick={() => setForceForm(true)}>
             온라인 계정으로 로그인
           </Button>
         </div>

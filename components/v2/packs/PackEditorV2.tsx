@@ -12,6 +12,7 @@ import { tapHaptic } from "@/lib/haptics";
 import { Button, CheckMark, IconButton, Sheet, Toggle, cx, useLongPress } from "@/components/v2/ui";
 import { PackShareSheet } from "@/components/v2/sheets/PackShareSheet";
 import { AlsoAddSheet, LibraryItemSheet, MoveDestSheet, type MoveDestination } from "./sheets/PackEditorSheets";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -62,6 +63,8 @@ export default function PackEditorV2(props: PackEditorProps) {
   } = props;
   const { user, isOfflineMode } = useAuth();
   const { show } = useToast();
+  // 공유 링크 만들기는 인터넷이 필요하다
+  const { guard: guardOnline } = useOnlineGuard();
   const [pack, setPack] = useState<Pack>(initialPack);
   const isQuick = !!pack.isQuickPack;
 
@@ -384,7 +387,7 @@ export default function PackEditorV2(props: PackEditorProps) {
             </IconButton>
             <div className="flex items-center">
               {!isOfflineMode && !isQuick && (
-                <IconButton label="공유" onClick={() => setShareOpen(true)}>
+                <IconButton label="공유" onClick={() => guardOnline(() => setShareOpen(true))}>
                   <IconShare size={22} stroke={1.75} />
                 </IconButton>
               )}

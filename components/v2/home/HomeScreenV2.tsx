@@ -47,6 +47,7 @@ import { hasFolderNameClash } from "@/lib/bagFolderNames";
 import { saveBagFolderOrder, sortBagFolders, validBagFolders } from "@/lib/bagFolderOrder";
 import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { useShellCommands } from "@/lib/v2/shell";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 // 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
 // (onNewKanbanBag / onOpenQuickPack / onSelectModeChange는 v2에서 쓰지 않는다: 칸반·빠른팩·다중선택 제거)
@@ -117,6 +118,8 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     updateBagOrderByParent,
   } = useAuth();
   const { show } = useToast();
+  // 가방 참여·메모로 가방 만들기(AI)는 인터넷이 필요하다
+  const { guard } = useOnlineGuard();
   const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
   const personal = !isOfflineMode;
 
@@ -520,8 +523,8 @@ export default function HomeScreenV2(props: HomeScreenProps) {
         onClose={() => setNewBagOpen(false)}
         offline={isOfflineMode}
         onBlank={onNewBag}
-        onFromNote={() => setNoteOpen(true)}
-        onJoin={() => setJoinOpen(true)}
+        onFromNote={() => guard(() => setNoteOpen(true))}
+        onJoin={() => guard(() => setJoinOpen(true))}
       />
       <BagActionSheet
         bag={actionBag}

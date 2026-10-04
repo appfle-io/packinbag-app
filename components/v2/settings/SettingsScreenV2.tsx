@@ -34,6 +34,7 @@ import { APP_FONTS } from "@/lib/v2/appFonts";
 import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 // 구 SettingsScreen과 같은 props. AppShell(모바일)에서 UI_V2 플래그로 바꿔 끼운다.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -107,6 +108,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOfflineMode, switchToOnlineMode, updatePackSettings } =
     useAuth();
   const { show } = useToast();
+  // 계정 연동·이용권·내 URL·공지·문의는 인터넷이 필요하다(끊겨 있으면 열기 전에 알린다)
+  const { guard } = useOnlineGuard();
 
   const [view, setView] = useState<SubView | null>(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
@@ -225,7 +228,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           <section className="flex flex-col">
             <ListRow
               divider={isGuest && !isOfflineMode}
-              onClick={() => (isGuest && !isOfflineMode ? setShowAccountLink(true) : setView("profile"))}
+              onClick={() => (isGuest && !isOfflineMode ? guard(() => setShowAccountLink(true)) : setView("profile"))}
               leading={<LegacyAvatar avatarId={profile.avatarId} size={40} />}
               title={
                 <span className="flex min-w-0 items-center gap-2">
@@ -238,7 +241,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
               chevron
             />
             {!isOfflineMode && isGuest && (
-              <ListRow divider={false} title={<span className="font-semibold text-brand">계정 연동하기</span>} onClick={() => setShowAccountLink(true)} chevron />
+              <ListRow divider={false} title={<span className="font-semibold text-brand">계정 연동하기</span>} onClick={() => guard(() => setShowAccountLink(true))} chevron />
             )}
           </section>
         )}
@@ -285,12 +288,12 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
               <ListRow
                 title={<span className="font-semibold">프리미엄</span>}
                 subtitle="가족 모두와 무제한으로 · 이용권 코드 입력"
-                onClick={openPremium}
+                onClick={() => guard(openPremium)}
                 chevron
               />
             )}
             <InfoRow title="AI 기능" trailing={aiUnlimited ? "무제한" : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회`} />
-            <ListRow divider={false} title="내가 만든 URL" onClick={() => setShowMyShortLinks(true)} chevron />
+            <ListRow divider={false} title="내가 만든 URL" onClick={() => guard(() => setShowMyShortLinks(true))} chevron />
           </section>
         )}
 
@@ -347,11 +350,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <ListRow
               title="공지사항"
               trailing={hasUnreadAnnouncement ? <span aria-label="새 공지" className="size-2 rounded-full bg-alert" /> : undefined}
-              onClick={() => setShowAnnouncements(true)}
+              onClick={() => guard(() => setShowAnnouncements(true))}
               chevron
             />
             <ListRow title="자주 묻는 질문" onClick={() => setShowFaq(true)} chevron />
-            <ListRow divider={false} title="문의하기" onClick={() => setView("inquiries")} chevron />
+            <ListRow divider={false} title="문의하기" onClick={() => guard(() => setView("inquiries"))} chevron />
           </section>
         )}
 

@@ -48,6 +48,7 @@ import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { UI_V2 } from "@/lib/v2/flags";
+import { recheckConnectivity } from "@/lib/v2/connectivity";
 import { resolveFolderNameClashes } from "@/lib/bagFolderNames";
 import { deleteAllUserData } from "@/lib/accountService";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
@@ -450,6 +451,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(null);
       setRawProfile(null);
+
+      // v2: 세션이 없는데 인터넷(폐쇄망 포함)이 안 되면 모든 플랫폼에서 바로 오프라인 모드로 시작한다.
+      // 나중에 연결되면 연결 줄의 "로그인"으로 계정에 합친다(lib/v2/connectivity, ConnectionBar). 확인하는 동안은 스플래시
+      if (UI_V2) {
+        recheckConnectivity(1500).then((c) => {
+          if (c === "offline") startOfflineMode();
+          else setLoading(false);
+        });
+        return;
+      }
 
       // 비로그인 상태인데 네트워크가 없으면(오프라인), 로그인 화면에서 멈추지 않고 오프라인 게스트 모드로 자동 시작!
       if (typeof navigator !== "undefined" && !navigator.onLine) {

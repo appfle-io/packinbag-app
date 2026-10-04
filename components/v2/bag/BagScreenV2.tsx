@@ -16,6 +16,7 @@ import { ClipboardImportSheet, type ClipboardImportResult as AiClipboardResult }
 import { AuditSheet } from "./sheets/AuditSheet";
 import { PhotoViewer } from "./PhotoViewer";
 import { PdfViewer } from "./PdfViewer";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { downloadFileFromUrl } from "@/lib/downloadFile";
 import {
   useBagDocument,
@@ -108,6 +109,8 @@ export default function BagScreenV2(props: BagScreenProps) {
 
   const { user, isOfflineMode, profile, updateBagPhoneColumns } = useAuth();
   const { show } = useToast();
+  // 인터넷이 꼭 필요한 기능(AI)은 끊겨 있으면 열기 전에 알린다
+  const { guard } = useOnlineGuard();
   const premium = isOfflineMode ? true : isPremiumUser(profile?.email, profile ?? null);
   // 좁은 화면(폰 세로)에서 팩 안 아이템을 몇 열로 볼지. 넓은 화면은 PackSection이 컨테이너 쿼리로 2열·3열 자동.
   const phoneCols = profile?.bagPhoneColumns === 2 ? 2 : 1;
@@ -881,17 +884,19 @@ export default function BagScreenV2(props: BagScreenProps) {
           if (id) openNote(id);
         }}
         onAddFiles={attachments.addFiles}
-        onImportClipboard={() => (premium ? setClipboardOpen(true) : setPremiumMessage("AI 가져오기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요."))}
-        onAudit={() => setAuditOpen(true)}
+        onImportClipboard={() => guard(() => (premium ? setClipboardOpen(true) : setPremiumMessage("AI 가져오기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요.")))}
+        onAudit={() => guard(() => setAuditOpen(true))}
         onDeleteOrLeave={() => (members.isOwner ? setConfirmDelete(true) : setConfirmLeave(true))}
         weather={
           weather.available
             ? {
                 locked: !premium,
                 onOpen: () =>
-                  premium
-                    ? setWeatherOpen(true)
-                    : setPremiumMessage("날씨로 준비물 추천은 프리미엄 기능이에요. 이용권을 등록하면 바로 쓸 수 있어요."),
+                  guard(() =>
+                    premium
+                      ? setWeatherOpen(true)
+                      : setPremiumMessage("날씨로 준비물 추천은 프리미엄 기능이에요. 이용권을 등록하면 바로 쓸 수 있어요."),
+                  ),
               }
             : null
         }

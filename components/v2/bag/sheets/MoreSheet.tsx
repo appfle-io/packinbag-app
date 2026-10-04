@@ -5,6 +5,7 @@ import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, I
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
+import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 // 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
@@ -48,6 +49,8 @@ export function MoreSheet({
   keepScreenOn?: { on: boolean; onChange: (on: boolean) => void };
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  // 사진·파일 올리기는 인터넷이 필요하다(오프라인 모드는 이 기기에 저장하므로 그대로 된다)
+  const { guard } = useOnlineGuard();
   const [notice, setNotice] = useState(bag.notice ?? "");
   const [editingNoticeFor, setEditingNoticeFor] = useState(bag.id);
   // 다른 가방으로 바뀌면 입력칸 초기화
@@ -132,7 +135,7 @@ export function MoreSheet({
           <button type="button" className={row} onClick={() => (onAddMemo(), onClose())}>
             <IconNotes size={20} stroke={1.75} className="text-sub" aria-hidden="true" />새 메모
           </button>
-          <button type="button" className={row} disabled={uploading} onClick={() => fileRef.current?.click()}>
+          <button type="button" className={row} disabled={uploading} onClick={() => guard(() => fileRef.current?.click(), { localOk: true })}>
             <IconPhoto size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
             {uploading ? "올리는 중…" : "사진 · 파일 첨부"}
           </button>
