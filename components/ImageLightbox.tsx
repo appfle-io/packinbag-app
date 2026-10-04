@@ -42,7 +42,7 @@ export default function ImageLightbox({
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
-    await downloadFileFromUrl(images[index], `이미지_${index + 1}.jpg`);
+    await downloadFileFromUrl(images[index]);
     setDownloading(false);
   };
 

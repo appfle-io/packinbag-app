@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Portal from "@/components/Portal";
-import { downloadFileFromUrl } from "@/lib/downloadFile";
+import { dataUrlToBlob, downloadFileFromUrl, isDataUrl, openFileUrl } from "@/lib/downloadFile";
 import {
   IconX,
   IconExternalLink,
@@ -33,15 +33,32 @@ const SCALE_STEP = 0.5;
 // 이 방식은 크로스 도큐먼트 이벤트 문제 없이 모든 환경에서 안정적으로 동작한다.
 export default function PdfPreviewModal({
   url,
+  fileName,
   onClose,
 }: {
   url: string;
+  // 저장할 때 쓸 원래 파일 이름(메모 첨부는 갖고 있다). 없으면 주소에서 만든다
+  fileName?: string | null;
   onClose: () => void;
 }) {
   const [scale, setScale] = useState(1);
   const [downloading, setDownloading] = useState(false);
   const ambientLayer = useOverlayLayer();
   useEscapeToClose(onClose);
+
+  // 오프라인 첨부(data URL)는 iframe에 바로 못 띄우는 브라우저가 있어 blob 주소로 바꿔 보여준다
+  const [frameSrc, setFrameSrc] = useState(() => (isDataUrl(url) ? "" : url));
+  useEffect(() => {
+    if (!isDataUrl(url)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 주소가 바뀌면 그대로 따라간다
+      setFrameSrc(url);
+      return;
+    }
+    const blobUrl = URL.createObjectURL(dataUrlToBlob(url));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 만든 blob 주소를 닫을 때 풀어 주려고 효과 안에서 만든다
+    setFrameSrc(blobUrl);
+    return () => URL.revokeObjectURL(blobUrl);
+  }, [url]);
 
   const zoomIn = () => setScale((s) => Math.min(MAX_SCALE, s + SCALE_STEP));
   const zoomOut = () => setScale((s) => Math.max(MIN_SCALE, s - SCALE_STEP));
@@ -50,7 +67,7 @@ export default function PdfPreviewModal({
   const handleDownload = async () => {
     if (downloading) return;
     setDownloading(true);
-    await downloadFileFromUrl(url, "문서.pdf");
+    await downloadFileFromUrl(url, fileName);
     setDownloading(false);
   };
 
@@ -112,7 +129,7 @@ export default function PdfPreviewModal({
               다운로드
             </button>
             <button
-              onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+              onClick={() => openFileUrl(url, fileName)}
               aria-label="새 탭에서 열기"
               className="flex items-center gap-1 text-[12px]"
               style={{ color: "#fff" }}
@@ -135,7 +152,7 @@ export default function PdfPreviewModal({
               height: "100%",
             }}
           >
-            <iframe src={url} title="PDF 미리보기" className="w-full h-full border-0" />
+            {frameSrc && <iframe src={frameSrc} title="PDF 미리보기" className="w-full h-full border-0" />}
           </div>
         </div>
       </div>

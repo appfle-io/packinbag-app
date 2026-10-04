@@ -52,7 +52,7 @@ export function PhotoViewer({
   const save = async () => {
     if (saving) return;
     setSaving(true);
-    await downloadFileFromUrl(images[index], `가방사진_${index + 1}.jpg`);
+    await downloadFileFromUrl(images[index]);
     setSaving(false);
   };
 

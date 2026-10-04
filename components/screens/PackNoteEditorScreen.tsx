@@ -53,6 +53,7 @@ import {
 import { getCachedLinkMeta, setLinkMetaCache } from "@/lib/linkLabelCache";
 import { replaceLinkTextInEditor } from "@/lib/noteEditorLinkPaste";
 import { openExternalLink } from "@/lib/openExternalLink";
+import { downloadFileFromUrl } from "@/lib/downloadFile";
 import LinkActionMenu from "@/components/LinkActionMenu";
 import CustomUrlModal from "@/components/CustomUrlModal";
 import ShortenUrlModal from "@/components/ShortenUrlModal";
@@ -274,6 +275,7 @@ export default function PackNoteEditorScreen({
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [imageDeleteIndex, setImageDeleteIndex] = useState<number | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewName, setPdfPreviewName] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const effectiveReadOnly = !!readOnly;
@@ -505,12 +507,18 @@ export default function PackNoteEditorScreen({
           if (fileCard) {
             const src = fileCard.getAttribute("data-file-src");
             const kind = fileCard.getAttribute("data-file-kind");
+            const fileName = fileCard.getAttribute("data-file-name");
             if (src) {
               event.preventDefault();
-              if (kind === "pdf") {
+              // 오프라인 첨부(data URL)는 첨부 당시 종류를 못 알아 "file"로 들어간 PDF가 있다 → 주소로도 한 번 더 본다
+              if (kind === "pdf" || getFileKind(src) === "pdf") {
+                setPdfPreviewName(fileName);
                 setPdfPreviewUrl(src);
               } else {
-                openExternalLink(src);
+                // 미리보기가 없는 파일은 원래 이름으로 바로 저장(예전에는 새 탭 열기라 오프라인 파일은 열리지 않았다)
+                void downloadFileFromUrl(src, fileName).then((r) => {
+                  if (r === "failed") show("파일을 저장하지 못했어요");
+                });
               }
               return true;
             }
@@ -2309,7 +2317,7 @@ export default function PackNoteEditorScreen({
       )}
 
       {pdfPreviewUrl && (
-        <PdfPreviewModal url={pdfPreviewUrl} onClose={() => setPdfPreviewUrl(null)} />
+        <PdfPreviewModal url={pdfPreviewUrl} fileName={pdfPreviewName} onClose={() => setPdfPreviewUrl(null)} />
       )}
 
       {showPdfPremiumModal && (

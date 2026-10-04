@@ -15,6 +15,8 @@ import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { ClipboardImportSheet, type ClipboardImportResult as AiClipboardResult } from "@/components/v2/sheets/AiPasteSheets";
 import { AuditSheet } from "./sheets/AuditSheet";
 import { PhotoViewer } from "./PhotoViewer";
+import PdfPreviewModal from "@/components/PdfPreviewModal";
+import { downloadFileFromUrl } from "@/lib/downloadFile";
 import {
   useBagDocument,
   useBagItems,
@@ -243,6 +245,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  // 가방에 첨부한 PDF 미리보기(다운로드 · 새 탭 열기 포함). 그 외 파일은 누르면 바로 저장
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [libraryTargetId, setLibraryTargetId] = useState<string | null>(null);
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [weatherOpen, setWeatherOpen] = useState(false);
@@ -509,7 +513,14 @@ export default function BagScreenV2(props: BagScreenProps) {
                       key={url}
                       type="button"
                       aria-label={kind === "image" ? `사진 ${i + 1}` : `파일 ${i + 1}`}
-                      onClick={() => (kind === "image" ? setLightbox(i) : openExternalLink(url))}
+                      onClick={() => {
+                        if (kind === "image") setLightbox(i);
+                        else if (kind === "pdf") setPdfUrl(url);
+                        else
+                          void downloadFileFromUrl(url).then((r) => {
+                            if (r === "failed") show("파일을 저장하지 못했어요");
+                          });
+                      }}
                       className="flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-field bg-fill"
                     >
                       {kind === "image" ? (
@@ -955,6 +966,7 @@ export default function BagScreenV2(props: BagScreenProps) {
           }}
         />
       )}
+      {pdfUrl && <PdfPreviewModal url={pdfUrl} onClose={() => setPdfUrl(null)} />}
       <ClipboardImportSheet
         open={clipboardOpen}
         bag={bag}
