@@ -194,10 +194,12 @@ export default function SlideScreen({
           ref={backdropRef}
           aria-hidden
           onClick={onBackdropClick}
+          // 상세 칸 안에 띄울 때는 어둡게 깔지 않고 앱 바탕색으로 채운다(폭이 좁은 화면이 가운데 놓여도 양옆이 회색으로 비치지 않게)
+          className={paneTarget ? "bg-canvas" : undefined}
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(0,0,0,0.4)",
+            background: paneTarget ? undefined : "rgba(0,0,0,0.4)",
             opacity: entered ? 1 : 0,
             transition: BACKDROP_TRANSITION,
             pointerEvents: onBackdropClick ? "auto" : "none",
