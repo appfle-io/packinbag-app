@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Portal from "@/components/Portal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlayLayer";
 import { useEscapeToClose } from "@/lib/useEscapeToClose";
 import { SwipeBackRegistryContext, type SwipeBackRegistry } from "@/lib/swipeBackRegistry";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
+import { DetailPaneContext } from "@/lib/v2/openDetail";
 
 // 스택으로 쌓이는 풀스크린 화면(가방 편집기, 팩 트리, 설정 하위화면 등)을 오른쪽에서
 // 슬라이드-인/아웃 시키는 공용 래퍼. 기존엔 부모가 `if (editingBag) return <..>` 식으로
@@ -64,6 +66,8 @@ export default function SlideScreen({
   onSwipeBack?: () => void;
 }) {
   const isDesktop = useIsDesktop();
+  // 넓은 화면에서 상세 칸 안에 띄울 때(설정 하위 화면): 화면 전체가 아니라 그 칸을 덮는다
+  const paneTarget = useContext(DetailPaneContext);
   const useFade = desktopTransition === "fade" && isDesktop;
   const ambientLayer = useOverlayLayer();
   const resolvedZIndex = zIndex ?? ambientLayer + LAYER_STEP;
@@ -184,9 +188,8 @@ export default function SlideScreen({
 
   const offscreen = from === "left" ? "translateX(-100%)" : "translateX(100%)";
 
-  return (
-    <Portal>
-      <div style={{ position: "fixed", inset: 0, overflow: "hidden", zIndex: resolvedZIndex }}>
+  const layer = (
+      <div style={{ position: paneTarget ? "absolute" : "fixed", inset: 0, overflow: "hidden", zIndex: resolvedZIndex }}>
         <div
           ref={backdropRef}
           aria-hidden
@@ -223,6 +226,7 @@ export default function SlideScreen({
           </OverlayLayerProvider>
         </div>
       </div>
-    </Portal>
   );
+
+  return paneTarget ? createPortal(layer, paneTarget) : <Portal>{layer}</Portal>;
 }

@@ -1,6 +1,8 @@
-// 앱 버전 + 업데이트 노트. package.json의 version과 값을 맞춰서 함께 관리한다.
-// 새 버전을 배포할 때마다 배열 맨 앞에 새 항목을 추가한다 (최신순).
-export const APP_VERSION = "1.0.0";
+// 앱 버전 + 업데이트 노트. 버전 숫자는 package.json에서 그대로 가져온다(npm version으로 올리면 자동 반영).
+// 새 버전을 배포할 때 사용자에게 알릴 내용이 있으면 배열 맨 앞에 항목을 추가한다 (최신순).
+import { version } from "../package.json";
+
+export const APP_VERSION: string = version;
 
 export interface ChangelogEntry {
   version: string;
@@ -9,6 +11,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.0.20",
+    date: "2026-10-05",
+    items: [
+      "새 디자인으로 앱 전체를 바꿨어요",
+      "넓은 화면에서 목록과 내용을 나란히 볼 수 있어요",
+      "인터넷이 끊겨도 이어서 쓰고, 연결되면 알아서 올라가요",
+      "설정에서 앱 글꼴을 고를 수 있어요",
+    ],
+  },
   {
     version: "1.0.0",
     date: "2026-09-04",

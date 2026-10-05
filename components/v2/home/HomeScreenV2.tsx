@@ -50,6 +50,7 @@ import { saveBagFolderOrder, sortBagFolders, validBagFolders } from "@/lib/bagFo
 import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { useShellCommands } from "@/lib/v2/shell";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { getPendingBags } from "@/lib/v2/pendingCreates";
 
 // AppShell이 넘기는 props. (onOpenQuickPack / onSelectModeChange는 쓰지 않는다: 빠른팩·다중선택은 다른 곳에서)
 export interface HomeScreenProps {
@@ -164,7 +165,11 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   // --- 목록 계산 ------------------------------------------------------------------
   const archivedSet = useMemo(() => new Set(profile?.archivedBagIds ?? []), [profile?.archivedBagIds]);
   const pinnedIds = useMemo(() => (profile?.pinnedBagIds ?? []).slice(0, V2_MAX_PINNED_BAGS), [profile?.pinnedBagIds]);
-  const summaries = useMemo(() => bags.map((b) => summarizeBag(b, premium)), [bags, premium]);
+  // 끊긴 동안 만든 가방("올리기 대기" 표시). 대기 목록이 바뀌면 AppShell이 bags를 새로 넘기므로 bags를 기준으로 다시 읽는다
+  const summaries = useMemo(() => {
+    const pendingIds = isOfflineMode ? new Set<string>() : new Set(getPendingBags(uid).map((b) => b.id));
+    return bags.map((b) => summarizeBag(b, premium, pendingIds.has(b.id)));
+  }, [bags, premium, uid, isOfflineMode]);
   const activeAll = summaries.filter((s) => !archivedSet.has(s.bag.id));
   const archived = summaries
     .filter((s) => archivedSet.has(s.bag.id))

@@ -38,6 +38,7 @@ import {
   setDoc,
   updateDoc,
   deleteField,
+  runTransaction,
   clearIndexedDbPersistence,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -1059,37 +1060,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 폴더 삭제 - 가방 문서는 전혀 건드리지 않고, 그 안의 가방/하위폴더는 이 폴더의 상위
   // (없으면 최상위)로 한 단계씨 올라간다(아이폰 메모처럼).
   const deleteBagFolder = async (folderId: string) => {
-    if (!user) return;
-    const folders = profile?.bagFolders ?? {};
-    const target = folders[folderId];
-    if (!target) return;
-    const newParentId = target.parentId;
-
-    const updates: Record<string, unknown> = {
-      [`bagFolders.${folderId}`]: REMOVE_FIELD,
-    };
-    for (const [key, f] of Object.entries(folders)) {
-      if (key === folderId) continue;
-      if (f.parentId === folderId) {
-        updates[`bagFolders.${key}.parentId`] = newParentId ? newParentId : REMOVE_FIELD;
+    if (!user || !profile?.bagFolders?.[folderId]) return;
+    await writeBagFolderPatch((folders, assignments) => {
+      const target = folders[folderId];
+      if (!target) return null;
+      const newParentId = target.parentId;
+      const updates: UserPatch = { [`bagFolders.${folderId}`]: REMOVE_FIELD };
+      for (const [key, f] of Object.entries(folders)) {
+        if (key === folderId) continue;
+        if (f.parentId === folderId) {
+          updates[`bagFolders.${key}.parentId`] = newParentId ? newParentId : REMOVE_FIELD;
+        }
       }
+      for (const [bagId, fId] of Object.entries(assignments)) {
+        if (fId !== folderId) continue;
+        updates[`bagFolderAssignments.${bagId}`] = newParentId ? newParentId : REMOVE_FIELD;
+      }
+      return updates;
+    });
+  };
+
+  // 폴더 삭제·옮기기·평탄화는 점 경로(bagFolders.{id}.parentId 등)로 일부 필드만 쓴다. 이때 화면이 들고 있는 profile이
+  // 예전 것이면(다른 기기에서 그 폴더를 지웠으면) 없는 폴더에 필드만 생겨 "이름 없는 폴더"가 되살아난다.
+  // 그래서 계정 모드에서는 트랜잭션으로 서버 최신본을 읽고(읽기 1) 폴더가 있을 때만 쓴다. 간혹 쓰는 동작이라 비용은 무시할 만하다.
+  // 오프라인 모드(이 기기 저장)나 연결이 끊겨 트랜잭션을 못 하면 화면의 profile 기준으로 예전처럼 쓴다.
+  const writeBagFolderPatch = async (
+    build: (folders: NonNullable<UserProfile["bagFolders"]>, assignments: Record<string, string>) => UserPatch | null
+  ) => {
+    if (!user) return;
+    const fromProfile = () => build(profile?.bagFolders ?? {}, profile?.bagFolderAssignments ?? {});
+    if (isOfflineMode) {
+      const patch = fromProfile();
+      if (patch) await writeUser(patch, true);
+      return;
     }
-    const assignments = profile?.bagFolderAssignments ?? {};
-    for (const [bagId, fId] of Object.entries(assignments)) {
-      if (fId !== folderId) continue;
-      updates[`bagFolderAssignments.${bagId}`] = newParentId ? newParentId : REMOVE_FIELD;
+    const ref = doc(db, "users", user.uid);
+    try {
+      await runTransaction(db, async (tx) => {
+        const data = (await tx.get(ref)).data();
+        const patch = build(
+          (data?.bagFolders as UserProfile["bagFolders"]) ?? {},
+          (data?.bagFolderAssignments as Record<string, string> | undefined) ?? {}
+        );
+        if (patch) tx.update(ref, toFirestorePatch(patch));
+      });
+    } catch (err) {
+      const code = err && typeof err === "object" && "code" in err ? String((err as { code: unknown }).code) : "";
+      if (code !== "unavailable" && code !== "failed-precondition") throw err;
+      const patch = fromProfile();
+      if (patch) await writeUser(patch, true);
     }
-    await writeUser(updates, true);
   };
 
   // 폴더를 다른 폴더 안으로(또는 최상위로) 옮기기.
   const moveBagFolder = async (folderId: string, parentId: string | undefined) => {
-    if (!user) return;
-    const folders = profile?.bagFolders ?? {};
-    if (!folders[folderId]) return;
-    await writeUser({
-      [`bagFolders.${folderId}.parentId`]: parentId ? parentId : REMOVE_FIELD,
-    }, true);
+    if (!user || !profile?.bagFolders?.[folderId]) return;
+    await writeBagFolderPatch((folders) => {
+      if (!folders[folderId] || (parentId && !folders[parentId])) return null;
+      return { [`bagFolders.${folderId}.parentId`]: parentId ? parentId : REMOVE_FIELD };
+    });
   };
 
   // 가방을 폴더로(또는 최상위로) 옮기기 - 가방 문서는 전혀 건드리지 않는다.
@@ -1119,20 +1148,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 바꿀 게 없으면 아무것도 쓰지 않는다.
   const flattenBagFolders = async () => {
     if (!user || isOfflineMode) return;
-    const folders = profile?.bagFolders ?? {};
-    const updates: Record<string, unknown> = {};
-    for (const [key, f] of Object.entries(folders)) {
-      if (!f.parentId) continue;
-      updates[`bagFolders.${key}.parentId`] = REMOVE_FIELD;
-      updates[`bagFolders.${key}.legacyParentId`] = f.parentId;
-    }
-    const renames = resolveFolderNameClashes(folders);
-    for (const [key, name] of Object.entries(renames)) {
-      updates[`bagFolders.${key}.name`] = name;
-      if (!folders[key].legacyName) updates[`bagFolders.${key}.legacyName`] = folders[key].name;
-    }
-    if (Object.keys(updates).length === 0) return;
-    await writeUser(updates, true);
+    await writeBagFolderPatch((folders) => {
+      const updates: UserPatch = {};
+      for (const [key, f] of Object.entries(folders)) {
+        if (!f.parentId) continue;
+        updates[`bagFolders.${key}.parentId`] = REMOVE_FIELD;
+        updates[`bagFolders.${key}.legacyParentId`] = f.parentId;
+      }
+      const renames = resolveFolderNameClashes(folders);
+      for (const [key, name] of Object.entries(renames)) {
+        updates[`bagFolders.${key}.name`] = name;
+        if (!folders[key].legacyName) updates[`bagFolders.${key}.legacyName`] = folders[key].name;
+      }
+      return Object.keys(updates).length === 0 ? null : updates;
+    });
   };
 
   const updateBagOrderByParent = async (parentKey: string, order: string[]) => {

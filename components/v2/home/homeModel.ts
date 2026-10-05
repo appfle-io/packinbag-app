@@ -32,9 +32,11 @@ export interface BagSummary {
   soon: boolean;
   // "싸는 중 · 10월 12일 · 어제 체크 · 2명"
   status: string;
+  // 끊긴 동안 만들어서 아직 계정에 안 올라간 가방(lib/v2/pendingCreates)
+  pending: boolean;
 }
 
-export function summarizeBag(bag: Bag, premium: boolean): BagSummary {
+export function summarizeBag(bag: Bag, premium: boolean, pending = false): BagSummary {
   const packs = getViewablePacks(bag.packs, premium);
   const { done, total } = statsOf(packs);
   const state = packingStateOf(packs);
@@ -64,6 +66,7 @@ export function summarizeBag(bag: Bag, premium: boolean): BagSummary {
     ddayLabel,
     soon: upcoming && (dday as number) <= SOON_DAYS,
     status,
+    pending,
   };
 }
 

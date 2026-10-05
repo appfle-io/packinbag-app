@@ -104,6 +104,7 @@ import {
 import { OfflineImportSheet } from "@/components/v2/settings/OfflineImportSheet";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import { ConnectionBar } from "@/components/v2/shell/ConnectionBar";
+import { OpenDetailContext } from "@/lib/v2/openDetail";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
 
 // 시작 공지 시트에 띄울 항목(안 본 공지)
@@ -724,6 +725,8 @@ export default function AppShell() {
       updatedAt: now,
     };
     if (offlineNow()) return createPendingBag(draft);
+    // 넓은 화면: 손대지 않은 새 가방이 열려 있으면 지우고 새로 만든다(빈 가방이 쌓이지 않게)
+    if (editingBag && isNewBag) handleBackFromEditor(editingBag);
     setIsNewBag(true);
     setCreatingBag(true);
     try {
@@ -1426,7 +1429,9 @@ export default function AppShell() {
 
   // ---- 화면 조각(좁은 화면·넓은 화면 공통) -------------------------------------------------
   // 넓은 화면에서는 상세 칸에 하나만 보인다: 팩·메모가 열려 있으면 그것, 아니면 가방. 가방을 새로 고르면 열려 있던 팩은 닫는다
+  // 만들기만 하고 손대지 않은 새 가방(isNewBag)을 둔 채 다른 가방을 고르면 그 빈 가방은 지운다(모바일의 뒤로가기와 같은 정리)
   const openBag = (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string } | null) => {
+    if (editingBag && isNewBag && editingBag.id !== bag.id) handleBackFromEditor(editingBag);
     setIsNewBag(false);
     setEditingBag(bag);
     setBagFocus(focus ?? null);
@@ -1582,7 +1587,11 @@ export default function AppShell() {
           tab={tab}
           onTab={setTab}
           onQuickAdd={openQuickAdd}
-          list={tab === "packs" ? packsScreenEl : tab === "settings" ? settingsScreenEl : homeScreenEl}
+          list={
+            <OpenDetailContext.Provider value={{ bagId: editingPack ? undefined : editingBag?.id, packId: editingPack?.id }}>
+              {tab === "packs" ? packsScreenEl : tab === "settings" ? settingsScreenEl : homeScreenEl}
+            </OpenDetailContext.Provider>
+          }
           detail={detail}
           offline={isOfflineMode}
           onNewBag={() => void openNewBag()}
@@ -1617,7 +1626,12 @@ export default function AppShell() {
             show("프리미엄이 적용됐어요. 다시 시도해 주세요");
           }}
         />
-        <OfflineImportSheet open={mergeOfflineOpen} onClose={() => setMergeOfflineOpen(false)} />
+        <OfflineImportSheet
+          open={mergeOfflineOpen}
+          mode="merge"
+          onClose={() => setMergeOfflineOpen(false)}
+          onLimit={setPremiumLimitMessage}
+        />
         <SplashScreen visible={showSplash} />
         <BusyOverlay visible={showPremiumSyncOverlay} />
         <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
@@ -1744,7 +1758,12 @@ export default function AppShell() {
         }}
       />
       <SplashScreen visible={showSplash} />
-      <OfflineImportSheet open={mergeOfflineOpen} onClose={() => setMergeOfflineOpen(false)} />
+      <OfflineImportSheet
+        open={mergeOfflineOpen}
+        mode="merge"
+        onClose={() => setMergeOfflineOpen(false)}
+        onLimit={setPremiumLimitMessage}
+      />
       <BusyOverlay visible={showPremiumSyncOverlay} />
       <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
       <BusyOverlay visible={creatingPack} message="팩을 만들고 있어요" />

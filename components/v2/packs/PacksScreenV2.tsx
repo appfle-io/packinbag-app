@@ -28,6 +28,8 @@ import { MoveSheet } from "./sheets/MoveSheet";
 import { NameSheet, type NameRequest } from "./sheets/NameSheet";
 import { entriesIn, metaOf, moveTargets, pathLabel, pathTo } from "./packsModel";
 import { useShellCommands } from "@/lib/v2/shell";
+import { useOpenDetail } from "@/lib/v2/openDetail";
+import { getPendingPacks } from "@/lib/v2/pendingCreates";
 
 // AppShell이 넘기는 props.
 // (onBack / onSelectModeChange는 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음, 다중선택 제거)
@@ -64,6 +66,7 @@ function EntryRow({
   entry,
   meta,
   pinned,
+  pending,
   last,
   onOpen,
   onMenu,
@@ -71,20 +74,26 @@ function EntryRow({
   entry: Pack;
   meta: string;
   pinned: boolean;
+  pending?: boolean;
   last: boolean;
   onOpen: () => void;
   onMenu: () => void;
 }) {
   const press = useLongPress(onMenu, onOpen);
   const isFolder = entry.type === "folder";
+  // 넓은 화면에서 상세 칸에 열려 있는 팩은 줄 바탕을 칠해 표시한다(가방 목록과 같은 모양)
+  const detail = useOpenDetail();
+  const open = !isFolder && detail.packId === entry.id;
   return (
     <button
       type="button"
       {...press}
+      aria-current={open ? "true" : undefined}
       className={cx(
-        "flex min-h-15 w-full select-none items-center gap-3 bg-transparent py-2 text-left",
+        "flex min-h-15 select-none items-center gap-3 py-2 text-left",
         "transition-colors duration-160 ease-snappy active:bg-fill",
-        !last && "border-b border-line",
+        open ? "-mx-2 rounded-field bg-fill px-2" : "w-full bg-transparent",
+        !last && !open && "border-b border-line",
       )}
     >
       <span className="flex size-6 shrink-0 items-center justify-center">
@@ -94,6 +103,7 @@ function EntryRow({
         <span className="flex min-w-0 items-center gap-1">
           <span className="truncate text-body font-semibold text-ink">{entry.name || (isFolder ? "이름 없는 폴더" : "이름 없는 팩")}</span>
           {pinned && <IconPin size={14} stroke={2} className="shrink-0 text-faint" aria-label="고정됨" />}
+          {pending && <Badge>올리기 대기</Badge>}
         </span>
         <span className="truncate text-caption text-sub">{meta}</span>
       </span>
@@ -117,6 +127,12 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   const treePacks = useMemo(() => packs.filter((p) => !p.isQuickPack), [packs]);
   const pinnedIds = useMemo(() => profile?.pinnedPackIds ?? [], [profile?.pinnedPackIds]);
   const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  // 끊긴 동안 만든 팩("올리기 대기" 표시). 대기 목록이 바뀌면 AppShell이 packs를 새로 넘긴다
+  const pendingIds = useMemo(
+    () => (isOfflineMode ? new Set<string>() : new Set(getPendingPacks(props.uid).map((p) => p.id))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- packs가 바뀔 때 다시 읽는다(대기 목록은 localStorage)
+    [packs, props.uid, isOfflineMode],
+  );
 
   // --- 지금 보는 폴더 · 검색어 ------------------------------------------------------------
   const [query, setQuery] = useState("");
@@ -365,6 +381,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
                     entry={entry}
                     meta={metaOf(treePacks, entry)}
                     pinned={pinnedSet.has(entry.id)}
+                    pending={pendingIds.has(entry.id)}
                     last={i === entries.length - 1}
                     onOpen={() => openEntry(entry)}
                     onMenu={() => setEntryId(entry.id)}

@@ -3,6 +3,7 @@ import { Bag, Pack, UserProfile } from "./types";
 import { getLocalBags, getLocalLibraryPacks } from "./localBagsService";
 import { createBagRemote } from "./bagsService";
 import { saveLibraryPackRemote } from "./packsService";
+import { PremiumLimitError } from "./premiumLimits";
 
 const IMPORTED_OFFLINE_IDS_KEY = "pib_imported_offline_ids";
 
@@ -81,6 +82,9 @@ export async function importOfflineDataToOnline({
 }): Promise<{
   importedBagsCount: number;
   importedPacksCount: number;
+  // 무료 개수를 넘어 멈춘 경우 서버가 돌려준 안내(남은 것은 이 기기에 그대로 남고, 다음에 다시 고를 수 있다)
+  blockedMessage: string | null;
+  skippedCount: number;
 }> {
   if (!user) throw new Error("로그인 상태가 아니에요.");
 
@@ -104,8 +108,13 @@ export async function importOfflineDataToOnline({
   }
 
   // 2. 보관함 팩 먼저 생성 (폴더 등 부모 관계 정제)
+  // 하나씩 올리고 올린 것은 바로 "가져옴"으로 적는다 - 중간에 멈춰도 다시 했을 때 같은 것이 두 번 올라가지 않게.
+  // 무료 개수를 넘으면(PremiumLimitError) 그 자리에서 멈추고 나머지는 이 기기에 남긴다.
   let importedPacksCount = 0;
-  for (const pack of targetPacks) {
+  let blockedMessage: string | null = null;
+  let skippedCount = 0;
+  for (let i = 0; i < targetPacks.length; i++) {
+    const pack = targetPacks[i];
     const newId = idMap.get(pack.id) || `pack_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const newParentId = pack.parentId ? idMap.get(pack.parentId) : undefined;
 
@@ -117,8 +126,18 @@ export async function importOfflineDataToOnline({
       updatedAt: new Date().toISOString(),
     };
 
-    // isNew = true 로 호출하여 서버 API를 통해 안전하게 생성
-    await saveLibraryPackRemote(user, newPack, true);
+    try {
+      // isNew = true 로 호출하여 서버 API를 통해 안전하게 생성
+      await saveLibraryPackRemote(user, newPack, true);
+    } catch (err) {
+      if (err instanceof PremiumLimitError) {
+        blockedMessage = err.message;
+        skippedCount += targetPacks.length - i;
+        break;
+      }
+      throw err;
+    }
+    markOfflineIdsAsImported([pack.id]);
     importedPacksCount++;
   }
 
@@ -129,7 +148,8 @@ export async function importOfflineDataToOnline({
     avatarId: profile.avatarId || "avatar_1",
   };
 
-  for (const bag of targetBags) {
+  for (let i = 0; i < targetBags.length; i++) {
+    const bag = targetBags[i];
     const newBagId = `bag_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     // 가방 내부 팩들의 linkedLibraryPackId를 신규 보관함 팩 ID로 치환
@@ -159,19 +179,25 @@ export async function importOfflineDataToOnline({
       updatedAt: new Date().toISOString(),
     };
 
-    await createBagRemote(user, newBag, ownerProfile);
+    try {
+      await createBagRemote(user, newBag, ownerProfile);
+    } catch (err) {
+      if (err instanceof PremiumLimitError) {
+        blockedMessage = err.message;
+        skippedCount += targetBags.length - i;
+        break;
+      }
+      throw err;
+    }
+    markOfflineIdsAsImported([bag.id]);
     importedBagsCount++;
   }
 
-  // 4. 가져온 항목 ID 기록 (오프라인 로컬 스토리지는 삭제하지 않고 안전하게 보존!)
-  const successfullyImportedIds = [
-    ...targetBags.map((b) => b.id),
-    ...targetPacks.map((p) => p.id),
-  ];
-  markOfflineIdsAsImported(successfullyImportedIds);
-
+  // 오프라인 로컬 스토리지는 삭제하지 않고 보존한다(가져온 항목은 위에서 하나씩 기록했다)
   return {
     importedBagsCount,
     importedPacksCount,
+    blockedMessage,
+    skippedCount,
   };
 }

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { IconBackpack, IconPackage, IconPlus, IconSettings, IconWifiOff } from "@tabler/icons-react";
 import BackpackLogo from "@/components/BackpackLogo";
 import { RAIL_QUERY, sendShellCommand, shortcutLabel, useAppShortcuts, useMediaQuery, type TabKey } from "@/lib/v2/shell";
+import { DetailPaneContext } from "@/lib/v2/openDetail";
 import { Button, cx } from "@/components/v2/ui";
 import { TabBarV2 } from "./TabBarV2";
 
@@ -58,6 +60,9 @@ export function WideShell({
   banner?: React.ReactNode;
 }) {
   const rail = useMediaQuery(RAIL_QUERY);
+  // 설정 하위 화면(SlideScreen)을 띄울 상세 칸 안 자리. 크기 없는 요소라 클릭을 막지 않고,
+  // 거기 그린 겹 화면은 absolute inset-0으로 상세 칸(main, relative)을 덮는다
+  const [paneSlot, setPaneSlot] = useState<HTMLDivElement | null>(null);
 
   // 단축키: ⌘N 새로 만들기 · ⌘K 검색 · ⌘I 설정 · ⌘P 빠른팩 · Esc 상세 닫기(윈도우는 Ctrl)
   // 설정 탭에서 ⌘N·⌘K를 누르면 가방 탭으로 가서 연다(탭 화면이 그려진 뒤 명령을 보낸다)
@@ -109,12 +114,13 @@ export function WideShell({
         {banner}
         {/* 탭바는 목록 위에 떠 있다(위치 기준 = 이 칸). 높이는 탭바가 재서 --pib-dock으로 적는다 */}
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          {list}
+          <DetailPaneContext.Provider value={tab === "settings" ? paneSlot : null}>{list}</DetailPaneContext.Provider>
           {!rail && <TabBarV2 active={tab} onChange={onTab} onQuickAdd={onQuickAdd} />}
         </div>
       </section>
 
       <main aria-label="상세" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div ref={setPaneSlot} />
         {detail ?? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
             <BackpackLogo size={48} />
