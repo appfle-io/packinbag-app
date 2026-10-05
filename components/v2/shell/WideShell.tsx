@@ -1,9 +1,8 @@
 "use client";
 
 import { IconBackpack, IconPackage, IconPlus, IconSettings, IconWifiOff } from "@tabler/icons-react";
-import type { TabKey } from "@/components/BottomTabBar";
 import BackpackLogo from "@/components/BackpackLogo";
-import { RAIL_QUERY, sendShellCommand, shortcutLabel, useAppShortcuts, useMediaQuery } from "@/lib/v2/shell";
+import { RAIL_QUERY, sendShellCommand, shortcutLabel, useAppShortcuts, useMediaQuery, type TabKey } from "@/lib/v2/shell";
 import { Button, cx } from "@/components/v2/ui";
 import { TabBarV2 } from "./TabBarV2";
 

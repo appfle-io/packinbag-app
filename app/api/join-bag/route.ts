@@ -3,7 +3,6 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
 import { FREE_MAX_JOINED_BAGS, FREE_MAX_BAG_MEMBERS, MAX_BAG_MEMBERS } from "@/lib/premiumLimits";
-import { UI_V2 } from "@/lib/v2/flags";
 import { BagMemberProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -15,7 +14,7 @@ export const runtime = "nodejs";
  * 1. 무료 회원의 "초대받은 가방 최대 3개" 제한을 클라이언트가 devtools로 우회하여
  *    무제한으로 참여하는 것을 원천 차단하기 위함.
  * 2. 가방 최대 인원(10명) 및 초대 코드 유효성을 서버 트랜잭션/Admin SDK로 안전하게 검증.
- * 3. (리디자인 v2) 가방을 만든 사람이 무료면 그 가방은 2명(나+1)까지만 함께 쓸 수 있다.
+ * 3. 가방을 만든 사람이 무료면 그 가방은 2명(나+1)까지만 함께 쓸 수 있다.
  *    이미 인원을 넘긴 가방은 멤버를 그대로 두고 새 참여만 막는다.
  */
 
@@ -102,8 +101,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // 4. (v2) 만든 사람이 무료면 2명까지. 이미 2명 이상일 때만 만든 사람을 조회한다(읽기 최소화)
-      if (UI_V2 && ownerId && memberIds.length >= FREE_MAX_BAG_MEMBERS) {
+      // 4. 만든 사람이 무료면 2명까지. 이미 2명 이상일 때만 만든 사람을 조회한다(읽기 최소화)
+      if (ownerId && memberIds.length >= FREE_MAX_BAG_MEMBERS) {
         const ownerPremium = await isOwnerPremium(ownerId);
         if (!ownerPremium) {
           return NextResponse.json(

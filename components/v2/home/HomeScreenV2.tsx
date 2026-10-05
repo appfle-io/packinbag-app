@@ -10,8 +10,10 @@ import { searchBags, type BagSearchResult } from "@/lib/librarySearch";
 import NotificationBell from "@/components/NotificationBell";
 import { JoinBagSheet } from "@/components/v2/sheets/JoinBagSheet";
 import { NoteImportSheet } from "@/components/v2/sheets/AiPasteSheets";
-import type { NoteImportResult } from "@/components/NoteImportModal";
-import type { BagOpenFocus } from "@/components/screens/HomeScreen";
+import type { ImportedBagResult } from "@/lib/types";
+
+// 검색 결과로 가방을 열 때 스크롤·강조할 대상
+export type BagOpenFocus = { packId?: string; itemId?: string; searchQuery?: string };
 import {
   Badge,
   Button,
@@ -49,8 +51,7 @@ import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { useShellCommands } from "@/lib/v2/shell";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
-// 구 HomeScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
-// (onNewKanbanBag / onOpenQuickPack / onSelectModeChange는 v2에서 쓰지 않는다: 칸반·빠른팩·다중선택 제거)
+// AppShell이 넘기는 props. (onOpenQuickPack / onSelectModeChange는 쓰지 않는다: 빠른팩·다중선택은 다른 곳에서)
 export interface HomeScreenProps {
   uid: string;
   bags: Bag[];
@@ -62,8 +63,7 @@ export interface HomeScreenProps {
   onOpenBag: (bag: Bag, focus?: BagOpenFocus) => void;
   onOpenPack?: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
   onNewBag: () => void;
-  onNewKanbanBag: () => void;
-  onImportNote: (result: NoteImportResult) => void;
+  onImportNote: (result: ImportedBagResult) => void;
   onJoinBag: (code: string) => Promise<void>;
   onOpenQuickPack: () => void;
   onBulkDeleteBags: (bagIds: string[]) => void;

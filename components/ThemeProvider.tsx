@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ACCENT_PRESETS, deriveAccentTone, getAccentPreset } from "@/lib/accentColors";
 import { useAuth } from "@/contexts/AuthProvider";
-import { UI_V2 } from "@/lib/v2/flags";
 import type { AppFontFamily } from "@/lib/types";
 import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily } from "@/lib/v2/appFonts";
 
@@ -205,7 +204,7 @@ const ThemeContext = createContext<{
   setCustomAccent: (hex: string) => void;
   fontScale: FontScale;
   setFontScale: (scale: FontScale) => void;
-  // v2 앱 글꼴(lib/v2/appFonts.ts). 구 UI에서는 적용하지 않는다
+  // 앱 글꼴(lib/v2/appFonts.ts)
   fontFamily: AppFontFamily;
   setFontFamily: (family: AppFontFamily) => void;
   bagColorId: string;
@@ -417,9 +416,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyFontScale(fontScale);
   }, [fontScale]);
 
-  // v2 앱 글꼴. 첫 화면은 app/layout.tsx head 스크립트가 이미 적용했고, 여기서는 바뀐 값을 따라간다
+  // 앱 글꼴. 첫 화면은 app/layout.tsx head 스크립트가 이미 적용했고, 여기서는 바뀐 값을 따라간다
   useEffect(() => {
-    if (!UI_V2) return;
     applyFontFamily(fontFamily);
   }, [fontFamily]);
 
@@ -567,7 +565,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const remoteFontLive = profile?.fontScale;
   const remoteFamilyLive = profile?.fontFamily;
   useEffect(() => {
-    if (!UI_V2 || !appliedRemoteRef.current) return;
+    if (!appliedRemoteRef.current) return;
     if (remoteModeLive && remoteModeLive !== mode) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Firestore에서 온 값 반영
       setModeState(remoteModeLive);
@@ -618,7 +616,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setFontFamily = (family: AppFontFamily) => {
     setFontFamilyState(family);
     window.localStorage.setItem(FONT_FAMILY_KEY, family);
-    if (UI_V2) applyFontFamily(family);
+    applyFontFamily(family);
     updateThemePrefs({ fontFamily: family }).catch(() => {});
   };
 

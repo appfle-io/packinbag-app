@@ -29,7 +29,7 @@ import { NameSheet, type NameRequest } from "./sheets/NameSheet";
 import { entriesIn, metaOf, moveTargets, pathLabel, pathTo } from "./packsModel";
 import { useShellCommands } from "@/lib/v2/shell";
 
-// 구 PacksScreen과 같은 props. AppShell에서 UI_V2 플래그로 바꿔 끼운다.
+// AppShell이 넘기는 props.
 // (onBack / onSelectModeChange는 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음, 다중선택 제거)
 export interface PacksScreenProps {
   uid: string;

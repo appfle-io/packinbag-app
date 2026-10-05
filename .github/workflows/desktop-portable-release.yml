@@ -43,8 +43,6 @@ jobs:
       - name: Build Next.js standalone
         env:
           NEXT_STANDALONE: "true"
-          # 리디자인 v2 화면(셸 통합 포함)으로 포터블을 만든다. 구 UI로 만들려면 이 줄을 지운다
-          NEXT_PUBLIC_UI_V2: "true"
           NEXT_PUBLIC_FIREBASE_API_KEY: "AIzaSyDehl5IukN6jpkPDVo9ZJwkKqWclDDkTPI"
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "packinbag-f1983.firebaseapp.com"
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: "packinbag-f1983"

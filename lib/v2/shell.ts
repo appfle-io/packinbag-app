@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { TabKey } from "@/components/BottomTabBar";
+
+// 하단 탭(팩 · 가방 · 설정)
+export type TabKey = "home" | "packs" | "settings";
 
 // 셸(단축키·레일)이 탭 화면 안쪽 동작(검색 열기, 새로 만들기)을 부르는 통로.
 // 화면 상태(검색창 열림 등)는 각 화면이 갖고 있으므로, 셸은 window 이벤트로 "지금 탭에서 이걸 해 줘"만 보낸다.

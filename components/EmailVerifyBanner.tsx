@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { IconMail, IconX } from "@tabler/icons-react";
-import { UI_V2 } from "@/lib/v2/flags";
 
 export default function EmailVerifyBanner() {
   const { user, isOfflineMode, resendVerificationEmail } = useAuth();
@@ -31,41 +30,17 @@ export default function EmailVerifyBanner() {
     }
   };
 
-  // v2: 오프라인 안내 줄(OfflineStatusBar)과 같은 모양
-  if (UI_V2) {
-    return (
-      <div role="status" className="flex min-h-11 w-full shrink-0 items-center gap-2 border-b border-line bg-fill pl-4 font-ui text-caption text-ink">
-        <IconMail size={16} stroke={1.9} className="shrink-0 text-sub" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate">이메일 인증이 아직 안 됐어요</span>
-        <button type="button" onClick={handleResend} disabled={sending} className="h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60 disabled:opacity-40">
-          {sending ? "보내는 중" : "다시 받기"}
-        </button>
-        <button type="button" onClick={() => setDismissed(true)} aria-label="닫기" className="inline-flex size-11 shrink-0 items-center justify-center bg-transparent text-sub active:opacity-60">
-          <IconX size={18} stroke={1.9} />
-        </button>
-      </div>
-    );
-  }
-
+  // 연결 상태 줄(ConnectionBar)과 같은 모양
   return (
-    <div
-      className="flex items-center justify-between gap-2 px-4 py-2 text-[12px] shrink-0"
-      style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
-    >
-      <span>이메일 인증이 아직 안됐어요</span>
-      <div className="flex items-center gap-3 shrink-0">
-        <button
-          onClick={handleResend}
-          disabled={sending}
-          className="font-medium"
-          style={{ color: "var(--accent)" }}
-        >
-          인증 메일 다시 받기
-        </button>
-        <button onClick={() => setDismissed(true)} className="text-text-muted">
-          닫기
-        </button>
-      </div>
+    <div role="status" className="flex min-h-11 w-full shrink-0 items-center gap-2 border-b border-line bg-fill pl-4 font-ui text-caption text-ink">
+      <IconMail size={16} stroke={1.9} className="shrink-0 text-sub" aria-hidden="true" />
+      <span className="min-w-0 flex-1 truncate">이메일 인증이 아직 안 됐어요</span>
+      <button type="button" onClick={handleResend} disabled={sending} className="h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60 disabled:opacity-40">
+        {sending ? "보내는 중" : "다시 받기"}
+      </button>
+      <button type="button" onClick={() => setDismissed(true)} aria-label="닫기" className="inline-flex size-11 shrink-0 items-center justify-center bg-transparent text-sub active:opacity-60">
+        <IconX size={18} stroke={1.9} />
+      </button>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IconBackpack, IconPackage, IconPlus, IconSettings } from "@tabler/icons-react";
-import type { TabKey } from "@/components/BottomTabBar";
+import type { TabKey } from "@/lib/v2/shell";
 import { cx } from "@/components/v2/ui";
 
 // 리디자인 v2 하단 탭바 — 떠 있는 분리형(독, 2026-10-04 결정 A).

@@ -47,7 +47,6 @@ import { isPremiumUser } from "@/lib/premiumLimits";
 import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
-import { UI_V2 } from "@/lib/v2/flags";
 import { recheckConnectivity } from "@/lib/v2/connectivity";
 import { resolveFolderNameClashes } from "@/lib/bagFolderNames";
 import { deleteAllUserData } from "@/lib/accountService";
@@ -286,33 +285,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isMasterToken, setIsMasterToken] = useState(false);
   const [isMasterApi, setIsMasterApi] = useState(false);
 
-  const checkInternetReachable = async (timeoutMs = 1500): Promise<boolean> => {
-    if (typeof window === "undefined") return true;
-    if ((window as any).electronAPI?.checkInternet) {
-      try {
-        const ok = await (window as any).electronAPI.checkInternet();
-        return Boolean(ok);
-      } catch {
-        return false;
-      }
-    }
-    if (!navigator.onLine) return false;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      await fetch(`https://packinbag.seeuson.com?t=${Date.now()}`, {
-        method: "HEAD",
-        mode: "no-cors",
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const startOfflineMode = () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("pib_offline_mode", "true");
@@ -355,25 +327,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const switchToOnlineMode = () => {
-    // v2: 새로고침 없이 그 자리에서 바꾼다. 이 기기에 로그인 세션이 남아 있으면 바로 그 계정으로,
+    // 새로고침 없이 그 자리에서 바꾼다. 이 기기에 로그인 세션이 남아 있으면 바로 그 계정으로,
     // 없으면 로그인 화면으로. 로그인 뒤 오프라인 데이터 합치기 시트는 AppShell이 띄운다
-    if (UI_V2) {
-      if (typeof window !== "undefined") localStorage.removeItem("pib_offline_mode");
-      setIsOfflineMode(false);
-      setRawProfile(null);
-      const current = auth.currentUser;
-      if (current) {
-        setUser(current);
-        setLoading(true);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-      return;
-    }
-    exitOfflineMode();
-    if (typeof window !== "undefined") {
-      window.location.href = window.location.origin + window.location.pathname;
+    if (typeof window !== "undefined") localStorage.removeItem("pib_offline_mode");
+    setIsOfflineMode(false);
+    setRawProfile(null);
+    const current = auth.currentUser;
+    if (current) {
+      setUser(current);
+      setLoading(true);
+    } else {
+      setUser(null);
+      setLoading(false);
     }
   };
 
@@ -468,39 +433,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setRawProfile(null);
 
-      // v2: 세션이 없는데 인터넷(폐쇄망 포함)이 안 되면 모든 플랫폼에서 바로 오프라인 모드로 시작한다.
+      // 세션이 없는데 인터넷(폐쇄망 포함)이 안 되면 모든 플랫폼에서 바로 오프라인 모드로 시작한다.
       // 나중에 연결되면 연결 줄의 "로그인"으로 계정에 합친다(lib/v2/connectivity, ConnectionBar). 확인하는 동안은 스플래시
-      if (UI_V2) {
-        recheckConnectivity(1500).then((c) => {
-          if (c === "offline") startOfflineMode();
-          else setLoading(false);
-        });
-        return;
-      }
-
-      // 비로그인 상태인데 네트워크가 없으면(오프라인), 로그인 화면에서 멈추지 않고 오프라인 게스트 모드로 자동 시작!
-      if (typeof navigator !== "undefined" && !navigator.onLine) {
-        startOfflineMode();
-        return;
-      }
-
-      const isElectron =
-        typeof window !== "undefined" &&
-        (Boolean((window as any).electronAPI?.isElectron) ||
-          navigator.userAgent.toLowerCase().includes("electron"));
-
-      if (isElectron) {
-        checkInternetReachable(1000).then((reachable) => {
-          if (!reachable) {
-            startOfflineMode();
-          } else {
-            setLoading(false);
-          }
-        });
-        return;
-      }
-
-      setLoading(false);
+      recheckConnectivity(1500).then((c) => {
+        if (c === "offline") startOfflineMode();
+        else setLoading(false);
+      });
     });
     return unsubAuth;
   }, []);
@@ -1027,7 +965,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const toggleBagPinned = async (bagId: string) => {
     if (!user) return;
     // v2 홈은 고정 가방을 상단 캐러셀에 보여주므로 5개까지(구 UI는 그대로 3개)
-    const next = togglePinned(profile?.pinnedBagIds, bagId, UI_V2 ? V2_MAX_PINNED_BAGS : 3);
+    const next = togglePinned(profile?.pinnedBagIds, bagId, V2_MAX_PINNED_BAGS);
     await writeUser({ pinnedBagIds: next });
   };
 
@@ -1446,9 +1384,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAccount = async (password?: string) => {
     if (!user || isOfflineMode) return;
-    // v2: 본인 확인을 먼저 끝낸 뒤에만 데이터를 지운다(확인 실패 시 아무것도 안 지워짐).
-    // 구 UI(플래그 꺼짐)는 비밀번호 칸이 없어 예전 흐름 그대로 둔다
-    if (UI_V2) await reauthenticateForDelete(password);
+    // 본인 확인을 먼저 끝낸 뒤에만 데이터를 지운다(확인 실패 시 아무것도 안 지워짐).
+    await reauthenticateForDelete(password);
     // Firestore/Storage 데이터를 먼저 정리하고, 마지막에 Auth 계정을 지운다.
     // (순서를 반대로 하면 로그인 정보가 먼저 사라져서 이후 Firestore 규칙상 접근이 막힘)
     await deleteAllUserData(user.uid);

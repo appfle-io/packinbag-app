@@ -8,7 +8,6 @@ import { useToast } from "@/components/Toast";
 import { bagMemberLimit, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
-import { openExternalLink } from "@/lib/openExternalLink";
 import SlideScreen from "@/components/SlideScreen";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";

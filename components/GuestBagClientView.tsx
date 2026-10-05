@@ -16,7 +16,6 @@ import {
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import GuestMemoPackView from "@/components/GuestMemoPackView";
-import { UI_V2 } from "@/lib/v2/flags";
 
 interface GuestBagClientViewProps {
   bag: Bag;
@@ -135,17 +134,14 @@ export default function GuestBagClientView({
     }
   };
 
-  // v2: 브라우저 alert 대신 화면 아래 잠깐 뜨는 안내(2.5초). 구 UI는 예전처럼 alert
+  // 브라우저 alert 대신 화면 아래 잠깐 뜨는 안내(2.5초)
   const [wakeLockNotice, setWakeLockNotice] = useState<string | null>(null);
   useEffect(() => {
     if (!wakeLockNotice) return;
     const t = setTimeout(() => setWakeLockNotice(null), 2500);
     return () => clearTimeout(t);
   }, [wakeLockNotice]);
-  const notifyWakeLock = (message: string) => {
-    if (UI_V2) setWakeLockNotice(message);
-    else alert(message);
-  };
+  const notifyWakeLock = (message: string) => setWakeLockNotice(message);
 
   const handleToggleWakeLock = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
@@ -321,7 +317,7 @@ export default function GuestBagClientView({
   }[fontScale];
 
   return (
-    <main className={`h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-36 font-sans select-none md:select-auto transition-colors duration-200${UI_V2 ? " pib-v2-guest" : ""}`}>
+    <main className={`h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-36 font-sans select-none md:select-auto transition-colors duration-200 pib-v2-guest`}>
       {/* 상단 헤더 */}
       <header className="sticky top-0 z-30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 transition-colors duration-200">
         <div className="max-w-5xl mx-auto flex items-center justify-between">

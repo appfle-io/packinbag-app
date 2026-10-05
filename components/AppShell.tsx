@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { doc, getDoc, enableNetwork } from "firebase/firestore";
+import { enableNetwork } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { IconLoader2 } from "@tabler/icons-react";
-import { Bag, Item, Pack, Announcement, SharedPackSnapshot } from "@/lib/types";
+import { Bag, Item, Pack, Announcement, ImportedBagResult } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
   subscribeToUserBags,
@@ -43,7 +42,6 @@ import {
   isAnnouncementActive,
 } from "@/lib/announcementsService";
 import { deleteBagImage } from "@/lib/storageService";
-import { deserializePack } from "@/lib/editorDocSerialize";
 import {
   getLocalBags,
   saveLocalBag,
@@ -56,61 +54,38 @@ import {
   deleteLocalLibraryPack,
   restoreLocalLibraryPack,
   permanentDeleteLocalLibraryPack,
-  getLocalTrashedItems,
   subscribeLocalData,
 } from "@/lib/localBagsService";
-import LegacyAuthScreen from "@/components/auth/AuthScreen";
-import LegacyGoogleProfileSetup from "@/components/auth/GoogleProfileSetup";
-import AuthScreenV2 from "@/components/v2/auth/AuthScreenV2";
-import ProfileSetupV2 from "@/components/v2/auth/ProfileSetupV2";
+import AuthScreen from "@/components/v2/auth/AuthScreenV2";
+import GoogleProfileSetup from "@/components/v2/auth/ProfileSetupV2";
 import EmailVerifyBanner from "@/components/EmailVerifyBanner";
 import InstallPrompt from "@/components/InstallPrompt";
-import BottomTabBar, { TabKey } from "@/components/BottomTabBar";
-import { NoteImportResult } from "@/components/NoteImportModal";
 import SplashScreen from "@/components/SplashScreen";
-import AnnouncementPopupStack from "@/components/AnnouncementPopupStack";
-import GuideModal from "@/components/guide/GuideModal";
-import InstallGuideModal from "@/components/guide/InstallGuideModal";
-import InitialGuideCarouselModal, {
-  IntroSlideItem,
-} from "@/components/guide/InitialGuideCarouselModal";
-import { canShowInstallGuideModal } from "@/lib/installPromptUtils";
-import LegacyHomeScreen from "@/components/screens/HomeScreen";
-import HomeScreenV2 from "@/components/v2/home/HomeScreenV2";
-import LegacyPacksScreen from "@/components/screens/PacksScreen";
-import PacksScreenV2 from "@/components/v2/packs/PacksScreenV2";
-import LegacySettingsScreen from "@/components/screens/SettingsScreen";
-import SettingsScreenV2 from "@/components/v2/settings/SettingsScreenV2";
-import LegacyBagEditorScreen from "@/components/screens/BagEditorScreen";
-import BagScreenV2 from "@/components/v2/bag/BagScreenV2";
-import { UI_V2 } from "@/lib/v2/flags";
-import LegacyPackLibraryEditorScreen from "@/components/screens/PackLibraryEditorScreen";
-import PackEditorV2 from "@/components/v2/packs/PackEditorV2";
+import HomeScreen from "@/components/v2/home/HomeScreenV2";
+import PacksScreen from "@/components/v2/packs/PacksScreenV2";
+import SettingsScreen from "@/components/v2/settings/SettingsScreenV2";
+import BagEditorScreen from "@/components/v2/bag/BagScreenV2";
+import PackLibraryEditorScreen from "@/components/v2/packs/PackEditorV2";
 import PackNoteEditorScreen from "@/components/screens/PackNoteEditorScreen";
-import QuickAddModal from "@/components/QuickAddModal";
 import SlideScreen from "@/components/SlideScreen";
 import SlideUpSheet from "@/components/SlideUpSheet";
-import TodayTasksModal, { TodayTaskItem } from "@/components/TodayTasksModal";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
   isPremiumUser,
   FREE_MAX_ACTIVE_BAGS,
-  FREE_MAX_LIBRARY_PACKS,
   QUICK_PACK_ID,
   PremiumLimitError,
   computeLockedBagIds,
-  computeLockedPackIds,
   isTrashExpired,
 } from "@/lib/premiumLimits";
-import PremiumLimitModal from "@/components/PremiumLimitModal";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { QuickAddSheet } from "@/components/v2/sheets/QuickAddSheet";
 import { AnnouncementSheet } from "@/components/v2/sheets/AnnouncementSheet";
 import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import { WideShell } from "@/components/v2/shell/WideShell";
-import { WIDE_QUERY, useMediaQuery } from "@/lib/v2/shell";
+import { WIDE_QUERY, useMediaQuery, type TabKey } from "@/lib/v2/shell";
 import { RECONNECTED_EVENT, getConnectivity, reportNetworkFailure } from "@/lib/v2/connectivity";
 import {
   PENDING_CHANGE_EVENT,
@@ -127,21 +102,12 @@ import {
   withPending,
 } from "@/lib/v2/pendingCreates";
 import { OfflineImportSheet } from "@/components/v2/settings/OfflineImportSheet";
-import { useIsDesktop } from "@/lib/useIsDesktop";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
-import DesktopShell from "@/components/DesktopShell";
-import type { DesktopSelection } from "@/components/DesktopSidebar";
-import OfflineStatusBar from "@/components/OfflineStatusBar";
+import { ConnectionBar } from "@/components/v2/shell/ConnectionBar";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
 
-// 리디자인 v2: NEXT_PUBLIC_UI_V2=true면 새 가방 화면(props 동일)을 쓴다. 출시 때 구 화면과 함께 정리.
-const BagEditorScreen = UI_V2 ? BagScreenV2 : LegacyBagEditorScreen;
-const HomeScreen = UI_V2 ? HomeScreenV2 : LegacyHomeScreen;
-const PacksScreen = UI_V2 ? PacksScreenV2 : LegacyPacksScreen;
-const SettingsScreen = UI_V2 ? SettingsScreenV2 : LegacySettingsScreen;
-const PackLibraryEditorScreen = UI_V2 ? PackEditorV2 : LegacyPackLibraryEditorScreen;
-const AuthScreen = UI_V2 ? AuthScreenV2 : LegacyAuthScreen;
-const GoogleProfileSetup = UI_V2 ? ProfileSetupV2 : LegacyGoogleProfileSetup;
+// 시작 공지 시트에 띄울 항목(안 본 공지)
+type AnnouncementEntry = { id: string; announcement: Announcement; onDismiss: () => void };
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -155,130 +121,20 @@ function inviteCodeFromUrl(): string {
   return new URLSearchParams(window.location.search).get("invite")?.toUpperCase() ?? "";
 }
 
-// 이용권 상태가 막 바뀐 순간(무효화/만료 감지, 또는 재등록) 짧게 보여주는 전체화면
-// 로딩 오버레이. 화면이 갑자기 잠기거나 풀리는 게 아니라 "지금 뭔가 바뀌고 있다"는
-// 걸 직관적으로 느끼게 하기 위한 것 - 실제 로딩할 데이터는 없고 순수 타이밍용이다.
-function PremiumSyncOverlay({ visible }: { visible: boolean }) {
-  return (
-    <div
-      className="fixed inset-0 z-[210] flex items-center justify-center"
-      style={{
-        background: "var(--background)",
-        opacity: visible ? 1 : 0,
-        transition: "opacity 200ms ease",
-        pointerEvents: visible ? "auto" : "none",
-      }}
-    >
-      <IconLoader2 size={28} stroke={1.75} color="var(--text-muted)" className="animate-spin" />
-    </div>
-  );
-}
-
-// 새 가방을 만들기 위해 Firestore에 쓰는 동안(빈 가방/AI 메모 가져오기/샘플 템플릿/해시태그
-// AI 생성 모두 같은 경로) 보여주는 전체화면 오버레이. 이 구간은 모달이 이미 닫히고 아직
-// 새 가방 화면으로 전환되기 전이라 아무 반응이 없으면 멈춘 것처럼 보이는데, 이 오버레이로
-// "지금 만들고 있다"는 걸 바로 알 수 있게 한다.
-function CreatingBagOverlay({ visible }: { visible: boolean }) {
-  return (
-    <div
-      className="fixed inset-0 z-[210] flex flex-col items-center justify-center gap-3"
-      style={{
-        background: "var(--background)",
-        opacity: visible ? 1 : 0,
-        transition: "opacity 200ms ease",
-        pointerEvents: visible ? "auto" : "none",
-      }}
-    >
-      <IconLoader2 size={28} stroke={1.75} color="var(--text-muted)" className="animate-spin" />
-      <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-        가방을 만들고 있어요
-      </span>
-    </div>
-  );
-}
-
-function CreatingPackOverlay({ visible }: { visible: boolean }) {
-  return (
-    <div
-      className="fixed inset-0 z-[210] flex flex-col items-center justify-center gap-3"
-      style={{
-        background: "var(--background)",
-        opacity: visible ? 1 : 0,
-        transition: "opacity 200ms ease",
-        pointerEvents: visible ? "auto" : "none",
-      }}
-    >
-      <IconLoader2 size={28} stroke={1.75} color="var(--text-muted)" className="animate-spin" />
-      <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-        팩을 만들고 있어요
-      </span>
-    </div>
-  );
-}
-
-// 가방 다중 삭제(또는 나가기) 중 진행률을 보여주는 오버레이
-function DeletingBagsOverlay({
-  visible,
-  total,
-  completed,
-}: {
-  visible: boolean;
-  total: number;
-  completed: number;
-}) {
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-  return (
-    <div
-      className="fixed inset-0 z-[215] flex flex-col items-center justify-center gap-3 px-6"
-      style={{
-        background: "rgba(0, 0, 0, 0.45)",
-        backdropFilter: "blur(4px)",
-        opacity: visible ? 1 : 0,
-        transition: "opacity 200ms ease",
-        pointerEvents: visible ? "auto" : "none",
-      }}
-    >
-      <div className="bg-surface border border-border rounded-2xl p-6 flex flex-col items-center gap-3.5 shadow-2xl max-w-[280px] w-full animate-in zoom-in-95 duration-150">
-        <IconLoader2 size={32} stroke={2} color="var(--accent)" className="animate-spin" />
-        <div className="text-center w-full">
-          <p className="text-[14px] font-semibold text-foreground">
-            가방을 정리하고 있어요
-          </p>
-          <p className="text-[12px] text-text-muted mt-1 tabular-nums">
-            {completed} / {total}개 완료 ({percent}%)
-          </p>
-        </div>
-        <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden border border-border/60">
-          <div
-            className="h-full transition-all duration-200"
-            style={{ width: `${percent}%`, background: "var(--accent)" }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AppShell() {
   const { user, profile, loading, authBusy, isMaster, isOfflineMode } = useAuth();
   const { show } = useToast();
-  const isDesktop = useIsDesktop();
-  // 리디자인 v2 셸 통합: 900px 이상은 [목록 | 상세](1200px 이상은 레일까지) 한 셸. 구 데스크톱 셸(DesktopShell)은 플래그를 끈 때만
-  const wideMatch = useMediaQuery(WIDE_QUERY);
-  const wide = UI_V2 && wideMatch;
+  // 넓은 화면: 900px 이상은 [목록 | 상세](1200px 이상은 레일까지) 한 셸
+  const wide = useMediaQuery(WIDE_QUERY);
 
   const [bags, setBags] = useState<Bag[]>([]);
   const [libraryPacks, setLibraryPacks] = useState<Pack[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [tab, setTab] = useState<TabKey>("home");
-  const appliedStartPageRef = useRef(false);
-  const [bagsLoaded, setBagsLoaded] = useState(false);
-  const [packsLoaded, setPacksLoaded] = useState(false);
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);
-  const [editingPackFolderId, setEditingPackFolderId] = useState<string | null>(null);
   const [creatingPack, setCreatingPack] = useState(false);
   // editingBag/editingPack(에디터형)은 뒤로가기 시 즉시 null이 되는데, SlideScreen이 슬라이드
   // 아웃 애니메이션을 재생하는 동안에도 내용이 유지되도록 "마지막으로 열려있던 값"을 따로
@@ -355,9 +211,8 @@ export default function AppShell() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [splashMinTimeDone, setSplashMinTimeDone] = useState(false);
   const [showIntroModal, setShowIntroModal] = useState(false);
-  const [introSlides, setIntroSlides] = useState<IntroSlideItem[]>([]);
+  const [introEntries, setIntroEntries] = useState<AnnouncementEntry[]>([]);
   const introCheckedRef = useRef(false);
-  const swipeStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null);
   const [premiumLimitMessage, setPremiumLimitMessage] = useState<string | null>(null);
   // v2: 로그인했는데 이 기기에 오프라인 모드로 만든 가방·팩이 있으면 합치기 시트를 한 번 띄운다(연결 흐름 E)
   const [mergeOfflineOpen, setMergeOfflineOpen] = useState(false);
@@ -370,13 +225,9 @@ export default function AppShell() {
   const [homeSelectMode, setHomeSelectMode] = useState(false);
   // 가방 다중 삭제/나가기 처리 중 진행률 ({ total, completed })
   const [bulkDeleting, setBulkDeleting] = useState<{ total: number; completed: number } | null>(null);
-  const [todayTasksList, setTodayTasksList] = useState<TodayTaskItem[]>([]);
-  const [showTodayTasksModal, setShowTodayTasksModal] = useState(false);
-  const checkedTodayTasksStartupRef = useRef(false);
 
-  // 리디자인 v2: 탭(팩·가방·설정) 사이를 손가락을 따라 넘긴다. 화면 안쪽(폴더·보관함 뒤로가기,
+  // 탭(팩·가방·설정) 사이를 손가락을 따라 넘긴다. 화면 안쪽(폴더·보관함 뒤로가기,
   // 가로로 넘기는 목록)이 먼저 가져가면 양보한다(lib/useHorizontalSwipe.ts). 첫·마지막 탭에서는 고무줄처럼 조금만 따라온다.
-  // 구 UI는 아래 handleTouchStart/End(손을 뗀 뒤 한 번에 전환)를 그대로 쓴다.
   const tabTrackRef = useRef<HTMLDivElement>(null);
   const tabDragRef = useRef({ index: 0, width: 1 });
   const tabSwipeRef = useHorizontalSwipe<HTMLDivElement>(
@@ -412,181 +263,13 @@ export default function AppShell() {
         }, ms + 30);
         if (next !== index) setTab(TAB_ORDER[next]);
       },
-    },
-    UI_V2
+    }
   );
-
-  useEffect(() => {
-    // v2: 아이템 마감일 기능을 뺐으므로 시작 팝업도 띄우지 않는다(끄는 설정도 없음)
-    if (UI_V2) return;
-    if (checkedTodayTasksStartupRef.current || !bags || bags.length === 0) return;
-    if (profile?.bagSettings?.showTodayTasksOnStartup === false) return;
-
-    checkedTodayTasksStartupRef.current = true;
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    const todayStr = `${y}-${m}-${d}`;
-
-    const tasks: TodayTaskItem[] = [];
-    for (const b of bags) {
-      if (b.trashedByOwnerAt || profile?.archivedBagIds?.includes(b.id)) continue;
-      for (const p of b.packs) {
-        if (!p.items) continue;
-        for (const item of p.items) {
-          if (item.dueDate === todayStr) {
-            tasks.push({
-              bagId: b.id,
-              bagName: b.name,
-              packId: p.id,
-              packName: p.name,
-              item,
-            });
-          }
-        }
-      }
-    }
-
-    if (tasks.length > 0) {
-      setTodayTasksList(tasks);
-      setShowTodayTasksModal(true);
-    }
-  }, [bags, profile]);
 
   useEffect(() => {
     const t = setTimeout(() => setSplashMinTimeDone(true), 900);
     return () => clearTimeout(t);
   }, []);
-
-
-  // 디바이스에 저장된 "시작 화면" 설정이 있으면 최초 1회만 반영한다 (이후엔 사용자가 직접 탭/가방/팩 전환).
-  useEffect(() => {
-    if (!profile || appliedStartPageRef.current) return;
-
-    // v2: 시작 화면 설정을 뺐으므로 항상 가방 탭에서 시작(필드는 보존)
-    const startPage = UI_V2 ? undefined : profile.startPage;
-
-    // 1. 기본 가방 보관함 (설정이 없거나 type === "home")
-    if (!startPage || startPage.type === "home") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTab("home");
-      appliedStartPageRef.current = true;
-      return;
-    }
-
-    // 2. 기본 팩 보관함
-    if (startPage.type === "packs") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTab("packs");
-      appliedStartPageRef.current = true;
-      return;
-    }
-
-    // 3. 마지막으로 사용한 가방/팩
-    if (startPage.type === "last_used") {
-      if (!bagsLoaded || !packsLoaded) return;
-      appliedStartPageRef.current = true;
-      let lastViewed: { type: string; id?: string } | null = null;
-      try {
-        const raw = localStorage.getItem("pib_last_viewed");
-        if (raw) lastViewed = JSON.parse(raw);
-      } catch {}
-
-      if (lastViewed?.type === "bag" && lastViewed.id) {
-        const targetBag = bags.find(
-          (b) => b.id === lastViewed!.id && !(user && b.ownerId === user.uid && b.trashedByOwnerAt)
-        );
-        if (targetBag) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setTab("home");
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setEditingBag(targetBag);
-          return;
-        }
-      } else if (lastViewed?.type === "pack" && lastViewed.id) {
-        const targetPack = libraryPacks.find(
-          (p) => p.id === lastViewed!.id && !p.trashedAt
-        );
-        if (targetPack) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setTab("packs");
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setEditingPack(targetPack);
-          return;
-        }
-      } else if (lastViewed?.type === "packs") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("packs");
-        return;
-      }
-      // 기록이 없거나 대상이 없음 -> 기본 가방 보관함으로 폴백
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTab("home");
-      return;
-    }
-
-    // 4. 특정 가방
-    if (startPage.type === "bag") {
-      if (!bagsLoaded) return;
-      appliedStartPageRef.current = true;
-      const targetBag = bags.find(
-        (b) => b.id === startPage.id && !(user && b.ownerId === user.uid && b.trashedByOwnerAt)
-      );
-      if (targetBag) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("home");
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setEditingBag(targetBag);
-      } else {
-        // 대상 가방이 삭제되었거나 휴지통에 있음 -> 안전하게 기본 가방 보관함으로 폴백
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("home");
-      }
-      return;
-    }
-
-    // 5. 특정 팩
-    if (startPage.type === "pack") {
-      if (!packsLoaded) return;
-      appliedStartPageRef.current = true;
-      const targetPack = libraryPacks.find(
-        (p) => p.id === startPage.id && !p.trashedAt
-      );
-      if (targetPack) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("packs");
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setEditingPack(targetPack);
-      } else {
-        // 대상 팩이 삭제되었거나 휴지통에 있음 -> 안전하게 기본 가방 보관함으로 폴백
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setTab("home");
-      }
-      return;
-    }
-
-    // 알 수 없는 설정값 -> 기본 가방 보관함으로 폴백
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTab("home");
-    appliedStartPageRef.current = true;
-  }, [profile, bagsLoaded, packsLoaded, bags, libraryPacks, user]);
-
-  // 마지막으로 사용한 화면 실시간 기록 (StartPageType "last_used" 지원용)
-  useEffect(() => {
-    if (!appliedStartPageRef.current || typeof window === "undefined") return;
-    try {
-      if (editingBag) {
-        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "bag", id: editingBag.id }));
-      } else if (editingPack) {
-        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "pack", id: editingPack.id }));
-      } else if (tab === "packs") {
-        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "packs" }));
-      } else if (tab === "home") {
-        localStorage.setItem("pib_last_viewed", JSON.stringify({ type: "home" }));
-      }
-    } catch {}
-  }, [editingBag, editingPack, tab]);
 
   const showSplash = loading || !splashMinTimeDone;
 
@@ -594,7 +277,6 @@ export default function AppShell() {
     if (!user) return;
     if (isOfflineMode) {
       setBags(getLocalBags());
-      setBagsLoaded(true);
       return subscribeLocalData(() => {
         setBags(getLocalBags());
       });
@@ -602,12 +284,11 @@ export default function AppShell() {
     // v2: 끊겨 있을 때 만든 "만들기 대기" 가방도 목록에 함께 보여 준다(lib/v2/pendingCreates)
     const uid = user.uid;
     let remote: Bag[] = [];
-    const emit = () => setBags(UI_V2 ? withPending(remote, getPendingBags(uid)) : remote);
+    const emit = () => setBags(withPending(remote, getPendingBags(uid)));
     window.addEventListener(PENDING_CHANGE_EVENT, emit);
     const unsub = subscribeToUserBags(uid, (b) => {
       remote = b;
       emit();
-      setBagsLoaded(true);
     });
     return () => {
       unsub();
@@ -617,7 +298,7 @@ export default function AppShell() {
 
   // v2: 다시 연결되면(또는 앱을 켰을 때) 대기 중인 가방·팩을 서버에 만든다. 무료 개수를 넘었으면 남겨 두고 프리미엄 안내
   useEffect(() => {
-    if (!UI_V2 || !user || isOfflineMode) return;
+    if (!user || isOfflineMode) return;
     const run = () => {
       flushPendingCreates(user, {
         createBag: createBagRemote,
@@ -663,19 +344,17 @@ export default function AppShell() {
     if (!user) return;
     if (isOfflineMode) {
       setLibraryPacks(getLocalLibraryPacks());
-      setPacksLoaded(true);
       return subscribeLocalData(() => {
         setLibraryPacks(getLocalLibraryPacks());
       });
     }
     const uid = user.uid;
     let remote: Pack[] = [];
-    const emit = () => setLibraryPacks(UI_V2 ? withPending(remote, getPendingPacks(uid)) : remote);
+    const emit = () => setLibraryPacks(withPending(remote, getPendingPacks(uid)));
     window.addEventListener(PENDING_CHANGE_EVENT, emit);
     const unsub = subscribeToLibraryPacks(uid, (p) => {
       remote = p;
       emit();
-      setPacksLoaded(true);
     });
     return () => {
       unsub();
@@ -773,12 +452,11 @@ export default function AppShell() {
   // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄/마스터이면 항상 빈 집합.
   // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
-  const lockedPackIds = user && !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
   // v2: 빠른팩 + → 빠른팩에 적어 둔 게 있으면 그 내용을 바로 연다(아래 입력칸으로 계속 추가). 비어 있으면 빠른 입력 시트
   const openQuickAdd = () => {
-    if (UI_V2 && quickPack && quickPack.items.length > 0) {
+    if (quickPack && quickPack.items.length > 0) {
       setEditingPack(quickPack);
       return;
     }
@@ -808,66 +486,20 @@ export default function AppShell() {
     .filter((a) => isAnnouncementActive(a))
     .filter((a) => !dismissedIds.includes(a.id));
 
-  // 앱 진입 시(로그인 이후, 게스트 포함): 가이드 -> 앱 설치 안내 -> 공지사항을 하나의 슬라이더 모달로 조립하여 띄운다.
+  // 앱 진입 시(로그인 이후, 게스트 포함): 안 본 공지를 시작 공지 시트로 하나씩 띄운다.
   useEffect(() => {
     if (introCheckedRef.current || isOfflineMode) return;
     if (!profile) return;
     introCheckedRef.current = true;
 
-    const isGuideDismissed =
-      typeof window !== "undefined" &&
-      localStorage.getItem("pib_guide_dismissed") === "true";
+    const entries: AnnouncementEntry[] = activeUndismissed.map((a) => ({
+      id: `announcement-${a.id}`,
+      announcement: a,
+      onDismiss: () => handleDismissAnnouncement(a.id),
+    }));
 
-    const isInstallGuideDismissed =
-      typeof window !== "undefined" &&
-      localStorage.getItem("pib_install_guide_dismissed") === "true";
-
-    const slides: IntroSlideItem[] = [];
-
-    // 1순위: 가이드 (미확인 시)
-    // v2: 사용 가이드·앱 설치 방법은 구 UI 스크린샷이라 띄우지 않는다(공지사항만)
-    if (!UI_V2 && !isGuideDismissed) {
-      slides.push({
-        id: "guide",
-        type: "guide",
-        title: "팩인백 사용 가이드",
-        onDismiss: () => {
-          if (typeof window !== "undefined") {
-            localStorage.setItem("pib_guide_dismissed", "true");
-          }
-        },
-      });
-    }
-
-    // 2순위: 앱 설치 방법 (미확인 + 조건 충족 시)
-    if (!UI_V2 && canShowInstallGuideModal() && !isInstallGuideDismissed) {
-      slides.push({
-        id: "install",
-        type: "install",
-        title: "앱 설치 방법",
-        onDismiss: () => {
-          if (typeof window !== "undefined") {
-            localStorage.setItem("pib_install_guide_dismissed", "true");
-          }
-        },
-      });
-    }
-
-    // 3순위: 미확인 공지사항 목록
-    activeUndismissed.forEach((a) => {
-      slides.push({
-        id: `announcement-${a.id}`,
-        type: "announcement",
-        title: a.title,
-        announcement: a,
-        onDismiss: () => {
-          handleDismissAnnouncement(a.id);
-        },
-      });
-    });
-
-    if (slides.length > 0) {
-      setIntroSlides(slides);
+    if (entries.length > 0) {
+      setIntroEntries(entries);
       setShowIntroModal(true);
     }
   }, [profile, activeUndismissed, handleDismissAnnouncement]);
@@ -987,18 +619,12 @@ export default function AppShell() {
         const alerted = sessionStorage.getItem("pib_offline_import_notified");
         if (!alerted) {
           sessionStorage.setItem("pib_offline_import_notified", "true");
-          if (UI_V2) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그인 직후 한 번만 여는 시트(세션당 1회 플래그로 막음)
-            setMergeOfflineOpen(true);
-            return;
-          }
-          show(
-            `오프라인에서 작성한 데이터 ${summary.totalUnimportedCount}개가 있어요. [설정 > 오프라인 데이터 가져오기]에서 내 계정으로 가져올 수 있어요.`
-          );
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그인 직후 한 번만 여는 시트(세션당 1회 플래그로 막음)
+          setMergeOfflineOpen(true);
         }
       }
     } catch {}
-  }, [isOfflineMode, user, show]);
+  }, [isOfflineMode, user]);
 
   // authBusy(회원가입/로그인-미인증체크/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할
   // 사이 signOut하는 흐름) 체크를 loading보다 먼저 한다 - 원래는 loading을 먼저 체크했는데,
@@ -1048,10 +674,6 @@ export default function AppShell() {
   const trashedBags = bags.filter((b) => b.ownerId === user.uid && b.trashedByOwnerAt);
   const activePacks = libraryPacks.filter((p) => !p.trashedAt);
   const trashedPacks = libraryPacks.filter((p) => p.trashedAt);
-  // v68: activePacks에는 폴더(type: "folder")가 섞여 있을 수 있다. 폴더는 트리 화면(PacksScreen)에서는
-  // 보여야 하지만, "팩을 선택/불러오는" 목록(가방에 팩 불러오기, 불러온 팩에 함께 담기)에는
-  // 폴더가 가짜 팩으로 보이면 안 되니 여기서 걸러낸다.
-  const realPacksOnly = activePacks.filter((p) => p.type !== "folder");
 
   // 무료 개수 제한은 "내가 소유한, 휴지통에 없는 가방"만 센다 - app/api/create-bag의 서버
   // 카운트/lib/premiumLimits.ts의 computeLockedBagIds와 동일한 기준. 여기서는 무료일 때
@@ -1061,7 +683,7 @@ export default function AppShell() {
 
   // v2: 계정 모드인데 인터넷이 안 되면(폐쇄망 포함) "만들기 대기"로 만들고 그대로 연다. 연결되면 자동으로 서버에 만든다
   // navigator.onLine은 iOS 웹뷰에서 늦게 바뀌는 경우가 있어 보지 않는다(앱 공통 연결 판단만 쓴다)
-  const offlineNow = () => UI_V2 && getConnectivity() === "offline";
+  const offlineNow = () => getConnectivity() === "offline";
   const createPendingBag = (draft: Bag) => {
     addPendingBag(user.uid, draft, { nickname: profile.nickname!, avatarId: profile.avatarId! });
     setIsNewBag(false);
@@ -1120,7 +742,7 @@ export default function AppShell() {
         setPremiumLimitMessage(err.message);
         return;
       }
-      if (UI_V2 && isNetworkError(err)) {
+      if (isNetworkError(err)) {
         reportNetworkFailure();
         return createPendingBag(draft);
       }
@@ -1131,106 +753,9 @@ export default function AppShell() {
     }
   };
 
-  const openNewKanbanBag = async () => {
-    if (isOfflineMode) {
-      const created = createLocalBag("새 칸반보드", true);
-      setEditingBag(created);
-      setIsNewBag(false);
-      return created;
-    }
-    if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
-      setPremiumLimitMessage(
-        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
-      );
-      return;
-    }
-    const now = new Date().toISOString();
-    const draft: Bag = {
-      id: uid(),
-      name: "새 칸반보드",
-      images: [],
-      isKanban: true,
-      autoMoveDoneItems: true,
-      packs: [
-        {
-          id: uid(),
-          name: "업무노트",
-          kind: "editor",
-          systemRole: "memo",
-          editorDoc: { type: "doc", content: [{ type: "paragraph" }] },
-          items: [],
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          id: uid(),
-          name: "대기",
-          kind: "checklist",
-          systemRole: "todo",
-          items: [],
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          id: uid(),
-          name: "진행중",
-          kind: "checklist",
-          systemRole: "in_progress",
-          items: [],
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          id: uid(),
-          name: "완료",
-          kind: "checklist",
-          systemRole: "done",
-          isDonePack: true,
-          items: [],
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          id: uid(),
-          name: "보류",
-          kind: "checklist",
-          systemRole: "on_hold",
-          items: [],
-          createdAt: now,
-          updatedAt: now,
-        },
-      ],
-      memberIds: [user.uid],
-      ownerId: user.uid,
-      inviteCode: "",
-      createdAt: now,
-      updatedAt: now,
-    };
-    setIsNewBag(true);
-    setCreatingBag(true);
-    try {
-      const created = await createBagRemote(user, draft, {
-        nickname: profile.nickname!,
-        avatarId: profile.avatarId!,
-      });
-      setEditingBag(created);
-      return created;
-    } catch (err) {
-      setIsNewBag(false);
-      if (err instanceof PremiumLimitError) {
-        setPremiumLimitMessage(err.message);
-        return;
-      }
-      console.error("[팩인백] 칸반보드 가방 생성 실패:", err);
-      show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
-    } finally {
-      setCreatingBag(false);
-    }
-  };
-
   // 메모 AI 가져오기뿐 아니라 샘플 템플릿 선택, 해시태그 AI 생성 결과도 모두
   // 동일한 형태(ImportedBagResult)라서 이 함수를 함께 쓴다.
-  const openNewBagFromNote = async (result: NoteImportResult) => {
+  const openNewBagFromNote = async (result: ImportedBagResult) => {
     if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
         `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
@@ -1344,7 +869,7 @@ export default function AppShell() {
     setEditingBag(null);
     setIsNewBag(false);
     // 아직 서버에 없는 "만들기 대기" 가방은 대기 목록에서만 지운다
-    if (UI_V2 && isPendingBag(user.uid, bag.id)) {
+    if (isPendingBag(user.uid, bag.id)) {
       removePendingBag(user.uid, bag.id);
       show("가방을 지웠어요");
       return;
@@ -1535,18 +1060,6 @@ export default function AppShell() {
     }
   };
 
-  // 데스크톱 사이드바 가방 "..." 메뉴에서 바로 이름 바꾸기 - 편집화면을 열지 않고도 가능하게.
-  const handleRenameBag = (bag: Bag, name: string) => {
-    if (isOfflineMode) {
-      saveLocalBag({ ...bag, name });
-      return;
-    }
-    saveBagRemote({ ...bag, name }).catch((err) => {
-      console.error("[팩인백] 가방 이름 변경 실패:", err);
-      show(`이름 변경에 실패했어요 (${firebaseErrorCode(err)})`);
-    });
-  };
-
   const handleSaveAsLibraryPack = (pack: Pack) => {
     if (isOfflineMode) {
       saveLocalLibraryPack(pack);
@@ -1623,8 +1136,7 @@ export default function AppShell() {
       ...(kind ? { kind } : {}),
     };
     // v2: 계정 모드에서 끊겼을 때 이 기기 오프라인 저장소로 빠지지 않고 "만들기 대기"로 둔다(연결되면 자동 생성)
-    const isOffline = isOfflineMode || (!UI_V2 && typeof navigator !== "undefined" && !navigator.onLine);
-    if (isOffline) {
+    if (isOfflineMode) {
       setEditingPack(draft);
       saveLocalLibraryPack(draft);
       return draft;
@@ -1641,7 +1153,7 @@ export default function AppShell() {
       await saveLibraryPackRemote(user, draft);
       return draft;
     } catch (err) {
-      if (UI_V2 && isNetworkError(err)) {
+      if (isNetworkError(err)) {
         reportNetworkFailure();
         addPendingPack(user.uid, draft);
         show("팩을 만들었어요. 인터넷에 연결되면 계정에 올라가요");
@@ -1766,7 +1278,7 @@ export default function AppShell() {
   // 이 팩은 늘 하위 항목이 없으니(폴더가 아니므로) 단일 항목으로 충분.
   const handleDeletePack = (packId: string, alsoDeleteFromBags?: boolean) => {
     setEditingPack(null);
-    if (UI_V2 && isPendingPack(user.uid, packId)) {
+    if (isPendingPack(user.uid, packId)) {
       removePendingPack(user.uid, packId);
       show("팩을 지웠어요");
       return;
@@ -1912,128 +1424,6 @@ export default function AppShell() {
     });
   };
 
-  const desktopSelection: DesktopSelection | null = editingBag
-    ? { kind: "bag", bagId: editingBag.id, focusPackId: bagFocus?.packId }
-    : editingPack
-    ? { kind: "pack", packId: editingPack.id }
-    : editingPackFolderId
-    ? { kind: "pack-folder", folderId: editingPackFolderId }
-    : null;
-
-  const handleDesktopSelectionChange = (sel: DesktopSelection | null) => {
-    if (!sel) {
-      setEditingBag(null);
-      setIsNewBag(false);
-      setBagFocus(null);
-      setEditingPack(null);
-      setEditingPackFolderId(null);
-      return;
-    }
-    if (sel.kind === "bag") {
-      const bag = activeBags.find((b) => b.id === sel.bagId);
-      setEditingPack(null);
-      setEditingPackFolderId(null);
-      if (bag) {
-        setIsNewBag(false);
-        setEditingBag(bag);
-        setBagFocus(sel.focusPackId ? { packId: sel.focusPackId } : null);
-      }
-      return;
-    }
-    if (sel.kind === "pack") {
-      const pack = [...activePacks, ...(quickPack ? [quickPack] : [])].find((p) => p.id === sel.packId);
-      setEditingBag(null);
-      setIsNewBag(false);
-      setBagFocus(null);
-      setEditingPackFolderId(null);
-      if (pack) setEditingPack(pack);
-      return;
-    }
-    if (sel.kind === "pack-folder") {
-      setEditingBag(null);
-      setIsNewBag(false);
-      setBagFocus(null);
-      setEditingPack(null);
-      setEditingPackFolderId(sel.folderId);
-      return;
-    }
-  };
-
-  if (isDesktop && !UI_V2) {
-    return (
-      <div className="flex flex-col h-dvh overflow-hidden bg-background">
-        <OfflineStatusBar />
-        <div className="flex-1 overflow-hidden relative flex flex-col">
-          <DesktopShell
-            user={user}
-            profile={profile}
-            bags={activeBags}
-            libraryPacks={activePacks}
-            quickPack={quickPack}
-            lockedBagIds={lockedBagIds}
-            selection={desktopSelection}
-            onSelectionChange={handleDesktopSelectionChange}
-            isNewBag={isNewBag}
-            requestUnlockForBag={requestUnlockForBag}
-            requestUnlockForPack={requestUnlockForPack}
-            onNewBag={openNewBag}
-            onNewKanbanBag={openNewKanbanBag}
-            onImportNote={openNewBagFromNote}
-            onSaveBag={handleSaveBag}
-            onDeleteBag={handleDeleteBag}
-            onRenameBag={handleRenameBag}
-            onSaveAsLibraryPack={handleSaveAsLibraryPack}
-            onTrashPackFromBag={handleTrashPackFromBag}
-            onLeaveBag={handleLeaveBag}
-            onRemoveMember={handleRemoveMember}
-            onRegenerateInviteCode={handleRegenerateInviteCode}
-            onTransferOwnership={handleTransferOwnership}
-            onAddItemsToBagPack={handleAddItemsToBagPack}
-            onRemoveItemsFromBagPack={handleRemoveItemsFromBagPack}
-            onNewPack={openNewPack}
-            onNewFolder={handleCreateFolder}
-            onRenamePackEntry={handleRenameLibraryEntry}
-            onMovePackEntries={handleMoveLibraryEntries}
-            onSavePack={handleSavePack}
-            onDeletePack={handleDeletePack}
-            announcements={announcements}
-            dismissedAnnouncementIds={dismissedIds}
-            onDismissAnnouncement={handleDismissAnnouncement}
-            onCreateAnnouncement={handleCreateAnnouncement}
-            onUpdateAnnouncement={handleUpdateAnnouncement}
-            onDeleteAnnouncement={handleDeleteAnnouncement}
-            trashedBags={trashedBags}
-            trashedPacks={trashedPacks}
-            onRestoreBag={handleRestoreBag}
-            onPermanentDeleteBag={handlePermanentDeleteBag}
-            onRestorePack={handleRestorePack}
-            onPermanentDeletePack={handlePermanentDeletePack}
-          />
-          {showIntroModal && introSlides.length > 0 && (
-            <InitialGuideCarouselModal
-              slides={introSlides}
-              onClose={() => setShowIntroModal(false)}
-            />
-          )}
-          {premiumLimitMessage && (
-            <PremiumLimitModal
-              message={premiumLimitMessage}
-              onClose={() => setPremiumLimitMessage(null)}
-              onUnlocked={() => {
-                setPremiumLimitMessage(null);
-                show("이용권 코드가 적용됐어요! 다시 시도해주세요");
-              }}
-            />
-          )}
-          <SplashScreen visible={showSplash} />
-          <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-          <CreatingBagOverlay visible={creatingBag} />
-          <CreatingPackOverlay visible={creatingPack} />
-        </div>
-      </div>
-    );
-  }
-
   // ---- 화면 조각(좁은 화면·넓은 화면 공통) -------------------------------------------------
   // 넓은 화면에서는 상세 칸에 하나만 보인다: 팩·메모가 열려 있으면 그것, 아니면 가방. 가방을 새로 고르면 열려 있던 팩은 닫는다
   const openBag = (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string } | null) => {
@@ -2081,7 +1471,6 @@ export default function AppShell() {
       onOpenBag={openBag}
       onOpenPack={openPack}
       onNewBag={openNewBag}
-      onNewKanbanBag={openNewKanbanBag}
       onImportNote={openNewBagFromNote}
       onJoinBag={handleJoinBag}
       onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
@@ -2188,7 +1577,7 @@ export default function AppShell() {
 
     return (
       <>
-        <OfflineStatusBar />
+        <ConnectionBar />
         <WideShell
           tab={tab}
           onTab={setTab}
@@ -2216,9 +1605,7 @@ export default function AppShell() {
         />
         <AnnouncementSheet
           open={showIntroModal}
-          entries={introSlides
-            .filter((s) => s.type === "announcement" && s.announcement)
-            .map((s) => ({ id: s.id, announcement: s.announcement!, onDismiss: s.onDismiss }))}
+          entries={introEntries}
           onClose={() => setShowIntroModal(false)}
         />
         <PremiumSheet
@@ -2244,83 +1631,18 @@ export default function AppShell() {
     );
   }
 
-  const tabOrder: TabKey[] = ["packs", "home", "settings"];
-  const tabIndex = tabOrder.indexOf(tab);
-
-  // 빈 배경(카드/버튼/입력이 아닌 곳)을 좌우로 스와이프/드래그하면 탭이 전환된다.
-  const handleSwipeGestureEnd = (dx: number, dy: number, isMouse = false) => {
-    // 세로 이동(dy)이 45px 이상이거나, 가로/세로 비율이 1.7 미만이면 세로 스크롤로 간주
-    if (Math.abs(dy) > 45 || Math.abs(dx) < Math.abs(dy) * 1.7) return;
-    // 마우스 드래그는 클릭 오발동 방지를 위해 더 높은 임계값(75px) 적용
-    const minThreshold = isMouse ? 75 : 60;
-    if (Math.abs(dx) < minThreshold) return;
-
-    const currentIndex = tabOrder.indexOf(tab);
-    if (dx < 0 && currentIndex < tabOrder.length - 1) {
-      setTab(tabOrder[currentIndex + 1]);
-    } else if (dx > 0 && currentIndex > 0) {
-      setTab(tabOrder[currentIndex - 1]);
-    }
-  };
-
-  // [data-own-swipe-back]은 useSwipeBack 훅이 자기 루트 요소에 직접 붙이는 마커다. 설정 하위화면처럼
-  // 이 탭전환 스와이프 컨테이너 안에서 자체 useSwipeBack을 따로 가진 화면은, 그 화면이
-  // 이미 자기 스와이프를 처리했으니 여기서 또 반응하면 한 번에 두 단계(하위화면 닫기 +
-  // 탭 전환) 뒤로가는 버그가 생긴다.
-  // 롱프레스/카드 드래그존([data-bag-drop-id], [data-pack-drop-id] 등)도 완벽하게 보호한다.
-  const isSwipeIgnoredTarget = (target: EventTarget | null) =>
-    !!(target as HTMLElement)?.closest?.(
-      'button, a, input, textarea, [role="button"], [data-pack-drop-id], [data-bag-drop-id], [data-pack-tile-drop-id], [data-own-swipe-back], [data-dragging], .fixed'
-    );
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (homeSelectMode || packsSelectMode) return;
-    const ignore = isSwipeIgnoredTarget(e.target);
-    const t = e.touches[0];
-    swipeStartRef.current = { x: t.clientX, y: t.clientY, ignore };
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (homeSelectMode || packsSelectMode) return;
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!start || start.ignore) return;
-    const t = e.changedTouches[0];
-    handleSwipeGestureEnd(t.clientX - start.x, t.clientY - start.y, false);
-  };
-
-  // 데스크톱 웹(마우스)에서도 동일한 탭전환 제스처가 되도록 마우스 드래그도 처리
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (homeSelectMode || packsSelectMode) return;
-    const ignore = isSwipeIgnoredTarget(e.target);
-    swipeStartRef.current = { x: e.clientX, y: e.clientY, ignore };
-  };
-
-  const handleMouseUp = (e: React.MouseEvent) => {
-    if (homeSelectMode || packsSelectMode) return;
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!start || start.ignore) return;
-    handleSwipeGestureEnd(e.clientX - start.x, e.clientY - start.y, true);
-  };
+  const tabIndex = TAB_ORDER.indexOf(tab);
 
   // 탭 3개를 가로로 잇대어 둔 트랙(좌우로 넘김)
   const tabArea = (
-    <div
-      ref={UI_V2 ? tabSwipeRef : undefined}
-      className="flex-1 overflow-hidden"
-      onTouchStart={UI_V2 ? undefined : handleTouchStart}
-      onTouchEnd={UI_V2 ? undefined : handleTouchEnd}
-      onMouseDown={UI_V2 ? undefined : handleMouseDown}
-      onMouseUp={UI_V2 ? undefined : handleMouseUp}
-    >
+    <div ref={tabSwipeRef} className="flex-1 overflow-hidden">
       <div
         ref={tabTrackRef}
         className="flex h-full"
         style={{
           width: "300%",
-          transform: UI_V2 ? tabTrackTransform(tabIndex) : `translateX(-${tabIndex * (100 / 3)}%)`,
-          transition: UI_V2 ? TAB_TRANSITION : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transform: tabTrackTransform(tabIndex),
+          transition: TAB_TRANSITION,
         }}
       >
         {/* 1. 팩 보관함 탭 */}
@@ -2343,29 +1665,18 @@ export default function AppShell() {
 
   return (
     <>
-      <OfflineStatusBar />
+      <ConnectionBar />
       <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top overflow-hidden">
         <EmailVerifyBanner />
-        {UI_V2 ? (
-          // v2: 탭바는 탭 화면 위에 떠 있다(위치 기준 = 이 칸). 탭 넘기기 스와이프 영역(tabArea) 밖의 형제라
-          // 탭바를 끌어도 탭이 넘어가지 않는다. 높이는 탭바가 재서 이 칸의 --pib-dock으로 적는다
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            {tabArea}
-            {!homeSelectMode && !packsSelectMode && (
-              <TabBarV2 active={tab} onChange={setTab} onQuickAdd={openQuickAdd} />
-            )}
-          </div>
-        ) : (
-          tabArea
-        )}
-        {!homeSelectMode && !packsSelectMode && (
-          <>
-            {!UI_V2 && (
-              <BottomTabBar active={tab} onChange={setTab} onQuickAdd={() => setShowQuickAdd(true)} />
-            )}
-            <InstallPrompt />
-          </>
-        )}
+        {/* 탭바는 탭 화면 위에 떠 있다(위치 기준 = 이 칸). 탭 넘기기 스와이프 영역(tabArea) 밖의 형제라
+            탭바를 끌어도 탭이 넘어가지 않는다. 높이는 탭바가 재서 이 칸의 --pib-dock으로 적는다 */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {tabArea}
+          {!homeSelectMode && !packsSelectMode && (
+            <TabBarV2 active={tab} onChange={setTab} onQuickAdd={openQuickAdd} />
+          )}
+        </div>
+        {!homeSelectMode && !packsSelectMode && <InstallPrompt />}
       </div>
 
       {/* 가방 편집기 - 팩보관함보다 한 단계 더 위(zIndex 65)에서 슬라이드-인. editingBag이
@@ -2373,35 +1684,22 @@ export default function AppShell() {
       <SlideScreen
         active={!!editingBag}
         zIndex={65}
-        swipeBack={UI_V2}
-        innerClassName={
-          UI_V2
-            ? "flex flex-col h-full w-full bg-background pib-safe-top"
-            : "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top"
-        }
+        swipeBack
+        innerClassName="flex flex-col h-full w-full bg-background pib-safe-top"
       >
         {displayedBag && renderBag(displayedBag)}
       </SlideScreen>
 
-      {UI_V2 ? (
-        <QuickAddSheet
-          open={showQuickAdd}
-          onClose={() => setShowQuickAdd(false)}
-          onAdd={handleQuickAddItem}
-          savedCount={quickPack?.items.length ?? 0}
-          onOpenQuickPack={() => {
-            setShowQuickAdd(false);
-            if (quickPack) setEditingPack(quickPack);
-          }}
-        />
-      ) : (
-        showQuickAdd && (
-          <QuickAddModal
-            onClose={() => setShowQuickAdd(false)}
-            onAdd={handleQuickAddItem}
-          />
-        )
-      )}
+      <QuickAddSheet
+        open={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        onAdd={handleQuickAddItem}
+        savedCount={quickPack?.items.length ?? 0}
+        onOpenQuickPack={() => {
+          setShowQuickAdd(false);
+          if (quickPack) setEditingPack(quickPack);
+        }}
+      />
 
       {/* 팩 에디터 - 에디터형(자유문서형 메모 팩)은 노션 페이지처럼 풀스크린으로 오른쪽에서
           슬라이드-인, 체크리스트형은 기존대로 하단 시트로 아래에서 슬라이드-업. 두 경우 모두
@@ -2409,7 +1707,7 @@ export default function AppShell() {
       <SlideScreen
         active={!!editingPack && editingPack.kind === "editor"}
         zIndex={70}
-        swipeBack={UI_V2}
+        swipeBack
         onSwipeBack={() => {
           setEditingPack(null);
           setPackFocusItemId(null);
@@ -2431,83 +1729,30 @@ export default function AppShell() {
         {displayedSheetPack && renderPackEditor(displayedSheetPack)}
       </SlideUpSheet>
 
-      {UI_V2 ? (
-        <AnnouncementSheet
-          open={showIntroModal}
-          entries={introSlides
-            .filter((s) => s.type === "announcement" && s.announcement)
-            .map((s) => ({ id: s.id, announcement: s.announcement!, onDismiss: s.onDismiss }))}
-          onClose={() => setShowIntroModal(false)}
-        />
-      ) : (
-        showIntroModal &&
-        introSlides.length > 0 && (
-          <InitialGuideCarouselModal
-            slides={introSlides}
-            onClose={() => setShowIntroModal(false)}
-          />
-        )
-      )}
-      {showTodayTasksModal && todayTasksList.length > 0 && (
-        <TodayTasksModal
-          tasks={todayTasksList}
-          onClose={() => setShowTodayTasksModal(false)}
-          onOpenTask={(bagId, packId, itemId) => {
-            const targetBag = bags.find((b) => b.id === bagId);
-            if (targetBag) {
-              setEditingBag(targetBag);
-              setBagFocus({ packId, itemId });
-            }
-          }}
-        />
-      )}
-      {UI_V2 ? (
-        <PremiumSheet
-          open={!!premiumLimitMessage}
-          message={premiumLimitMessage}
-          onClose={() => setPremiumLimitMessage(null)}
-          onUnlocked={() => {
-            setPremiumLimitMessage(null);
-            show("프리미엄이 적용됐어요. 다시 시도해 주세요");
-          }}
-        />
-      ) : (
-        premiumLimitMessage && (
-          <PremiumLimitModal
-            message={premiumLimitMessage}
-            onClose={() => setPremiumLimitMessage(null)}
-            onUnlocked={() => {
-              setPremiumLimitMessage(null);
-              show("이용권 코드가 적용됐어요! 다시 시도해주세요");
-            }}
-          />
-        )
-      )}
+      <AnnouncementSheet
+        open={showIntroModal}
+        entries={introEntries}
+        onClose={() => setShowIntroModal(false)}
+      />
+      <PremiumSheet
+        open={!!premiumLimitMessage}
+        message={premiumLimitMessage}
+        onClose={() => setPremiumLimitMessage(null)}
+        onUnlocked={() => {
+          setPremiumLimitMessage(null);
+          show("프리미엄이 적용됐어요. 다시 시도해 주세요");
+        }}
+      />
       <SplashScreen visible={showSplash} />
-      {UI_V2 ? (
-        <>
-          <OfflineImportSheet open={mergeOfflineOpen} onClose={() => setMergeOfflineOpen(false)} />
-          <BusyOverlay visible={showPremiumSyncOverlay} />
-          <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
-          <BusyOverlay visible={creatingPack} message="팩을 만들고 있어요" />
-          <BusyOverlay
-            visible={bulkDeleting !== null}
-            message="가방을 정리하고 있어요"
-            progress={{ total: bulkDeleting?.total ?? 0, completed: bulkDeleting?.completed ?? 0 }}
-          />
-        </>
-      ) : (
-        <>
-          <PremiumSyncOverlay visible={showPremiumSyncOverlay} />
-          <CreatingBagOverlay visible={creatingBag} />
-          <CreatingPackOverlay visible={creatingPack} />
-          <DeletingBagsOverlay
-            visible={bulkDeleting !== null}
-            total={bulkDeleting?.total ?? 0}
-            completed={bulkDeleting?.completed ?? 0}
-          />
-        </>
-      )}
+      <OfflineImportSheet open={mergeOfflineOpen} onClose={() => setMergeOfflineOpen(false)} />
+      <BusyOverlay visible={showPremiumSyncOverlay} />
+      <BusyOverlay visible={creatingBag} message="가방을 만들고 있어요" />
+      <BusyOverlay visible={creatingPack} message="팩을 만들고 있어요" />
+      <BusyOverlay
+        visible={bulkDeleting !== null}
+        message="가방을 정리하고 있어요"
+        progress={{ total: bulkDeleting?.total ?? 0, completed: bulkDeleting?.completed ?? 0 }}
+      />
     </>
   );
 }

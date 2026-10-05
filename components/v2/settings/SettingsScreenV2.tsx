@@ -36,7 +36,7 @@ import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
-// 구 SettingsScreen과 같은 props. AppShell(모바일)에서 UI_V2 플래그로 바꿔 끼운다.
+// AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
 export interface SettingsScreenProps {
   uid: string;

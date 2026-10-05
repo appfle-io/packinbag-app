@@ -97,7 +97,7 @@ export const FREE_MAX_JOINED_BAGS = 3;
 
 // 가방 하나를 함께 쓸 수 있는 최대 인원(만든 사람 포함). 기준은 "참여하는 사람"이 아니라 "가방을 만든 사람(ownerId)"의
 // 프리미엄 여부다. 무료 가방은 나+1명, 프리미엄 가방은 10명. 이미 인원을 넘긴 가방은 멤버를 그대로 두고 새 참여만 막는다
-// (app/api/join-bag). 리디자인 v2(UI_V2)부터 적용 - 플래그를 끈 배포는 예전처럼 누구나 10명까지.
+// (app/api/join-bag).
 export const FREE_MAX_BAG_MEMBERS = 2;
 export const MAX_BAG_MEMBERS = 10;
 

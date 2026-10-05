@@ -16,7 +16,7 @@ import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// 구 PackLibraryEditorScreen과 같은 props. AppShell(모바일)에서 UI_V2 플래그로 바꿔 끼운다.
+// AppShell이 넘기는 props.
 // (variant는 v2에서 쓰지 않는다: 늘 바텀시트 안에 들어간다)
 export interface PackEditorProps {
   initialPack: Pack;

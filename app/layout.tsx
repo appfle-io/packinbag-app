@@ -2,18 +2,16 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
-import { UI_V2 } from "@/lib/v2/flags";
 import { INITIAL_FONT_SCRIPT } from "@/lib/v2/appFonts";
 
-// 리디자인 v2 기본 폰트. 폐쇄망/Electron 오프라인에서도 동작해야 해서 CDN 대신 앱에 포함한다.
-// (Pretendard Variable, SIL OFL 1.1) 구 UI는 globals.css body font-family를 그대로 쓰고,
-// v2 화면만 .pib-v2 클래스로 var(--font-ui)를 쓴다.
+// 기본 폰트. 폐쇄망/Electron 오프라인에서도 동작해야 해서 CDN 대신 앱에 포함한다.
+// (Pretendard Variable, SIL OFL 1.1) 화면은 .pib-v2 / .pib-v2-legacy 클래스로 var(--font-ui)를 쓴다.
 const pretendard = localFont({
   src: "./fonts/PretendardVariable.woff2",
   variable: "--font-pretendard",
   weight: "45 920",
   display: "swap",
-  preload: false,
+  preload: true,
 });
 
 // 리디자인 v2 고를 수 있는 앱 글꼴(설정 > 화면 > 글꼴, lib/v2/appFonts.ts). preload: false라 고른 글꼴만 내려받는다.
@@ -144,14 +142,12 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: setInitialTheme }}
         />
-        {/* v2: 고른 앱 글꼴을 첫 화면부터(리액트보다 먼저) 적용해 글꼴이 바뀌며 깜빡이지 않게 */}
-        {UI_V2 && (
-          <Script
-            id="set-initial-font"
-            strategy="beforeInteractive"
-            dangerouslySetInnerHTML={{ __html: INITIAL_FONT_SCRIPT }}
-          />
-        )}
+        {/* 고른 앱 글꼴을 첫 화면부터(리액트보다 먼저) 적용해 글꼴이 바뀌며 깜빡이지 않게 */}
+        <Script
+          id="set-initial-font"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: INITIAL_FONT_SCRIPT }}
+        />
         {/* 안드로이드 크롬 PWA 설치 배너(beforeinstallprompt)가 뜨려면
             fetch 핸들러가 있는 서비스 워커 등록이 필수라서 추가함.
             Capacitor 네이티브 앱(iOS 등)에서는 PWA 설치가 의미 없으니
@@ -164,8 +160,8 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: registerServiceWorker }}
         />
       </head>
-      {/* v2: 재사용 중인 구 컴포넌트·게스트 보기의 색·폰트를 v2 토큰으로 (globals.css .pib-v2-legacy) */}
-      <body className={`min-h-full flex flex-col${UI_V2 ? " pib-v2-legacy" : ""}`} suppressHydrationWarning>
+      {/* 재사용 중인 구 컴포넌트(메모 편집기 등)·게스트 보기의 색·폰트를 v2 토큰으로 (globals.css .pib-v2-legacy) */}
+      <body className="min-h-full flex flex-col pib-v2-legacy" suppressHydrationWarning>
         {children}
       </body>
     </html>
