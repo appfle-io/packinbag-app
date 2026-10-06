@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.
@@ -89,7 +89,10 @@ function sanitizeResult(
   return { packs };
 }
 
-export async function POST(req: NextRequest) {
+// 하루 횟수는 시작할 때 예약하고, 실패로 끝나면 되돌린다(lib/aiQuotaServer.ts)
+export const POST = withAiQuotaSettlement(handlePOST);
+
+async function handlePOST(req: NextRequest) {
   let quota;
   try {
     quota = await verifyAndCheckAiQuota(req);

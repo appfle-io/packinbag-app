@@ -12,7 +12,7 @@ import { MAX_PACKS_PER_BAG } from "./useBagItems";
 // 구 화면과 같은 규칙: 프리미엄 전용, 결과는 가방 문서(aiRecommendCache)에 캐시해 같은 가방을 보는 사람 모두 재사용.
 // 비용 원칙:
 // - 자동 호출 없음. 시트를 열 때만 확인하고, 6시간 안에 같은 가방 이름·같은 예보일로 받은 결과가 있으면 다시 부르지 않는다.
-// - 장소 찾기(/api/geocode)만 서버 비용이 있고, 날씨(Open-Meteo)와 기본 추천은 무료다.
+// - 장소 찾기(/api/geocode)만 서버 비용이 있고(로그인 필요 · 서버가 단어별로 30일 캐시), 날씨(Open-Meteo)와 기본 추천은 무료다.
 // - "AI로 더 추천받기"는 사용자가 누를 때만 부르고, 그때만 AI 하루 횟수를 쓴다(결과는 캐시하지 않음).
 // 담은 아이템은 "날씨 추천" 팩(aiRecommendSource)으로 모인다 - 무료 멤버 화면에서는 숨겨지는 기존 규칙(getViewablePacks)을 따른다.
 
@@ -64,7 +64,8 @@ export function useBagWeather({
       return true;
     }
     setStatus("loading");
-    const place = await resolveCityInfo(bag.name);
+    const idToken = user ? await user.getIdToken().catch(() => undefined) : undefined;
+    const place = await resolveCityInfo(bag.name, idToken);
     if (!place) {
       setStatus("no-place");
       return true;

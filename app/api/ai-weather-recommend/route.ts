@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
 
 export const runtime = "nodejs";
 
@@ -49,7 +49,10 @@ function extractJsonItems(rawText: string): { text: string; icon: string }[] {
   return [];
 }
 
-export async function POST(req: NextRequest) {
+// 하루 횟수는 시작할 때 예약하고, Gemini가 실제로 답을 주지 않으면 되돌린다(lib/aiQuotaServer.ts)
+export const POST = withAiQuotaSettlement(handlePOST);
+
+async function handlePOST(req: NextRequest) {
   let quotaCheck;
   try {
     quotaCheck = await verifyAndCheckAiQuota(req);
@@ -119,11 +122,13 @@ export async function POST(req: NextRequest) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            // 키는 주소(?key=)가 아니라 헤더로 보낸다(주소는 로그에 남을 수 있음)
+            "x-goog-api-key": apiKey,
           },
           body: JSON.stringify({
             system_instruction: { parts: [{ text: systemPrompt }] },
@@ -157,6 +162,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Gemini가 실제로 추천을 준 때만 횟수를 쓴다(아래 기본 목록으로 대신하는 경우는 차감하지 않음)
+  if (finalItems.length > 0 && !quotaCheck.unlimited) {
+    await consumeAiQuota(quotaCheck.uid);
+  }
+
   if (finalItems.length === 0) {
     finalItems = [
       { text: `${bagName} 아이템`, icon: "" },
@@ -164,10 +174,6 @@ export async function POST(req: NextRequest) {
       { text: "날씨 대비 용품", icon: "" },
       { text: "여비 물품", icon: "" },
     ];
-  }
-
-  if (!quotaCheck.unlimited) {
-    await consumeAiQuota(quotaCheck.uid);
   }
 
   return NextResponse.json({ items: finalItems });

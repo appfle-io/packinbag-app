@@ -364,14 +364,20 @@ export default function AppShell() {
   // 클라이언트가 다음에 로그인해서 열릴 때 한 번 검사해서 지운다 - 그래서 30일이 지난
   // 정확한 그 순간이 아니라 "그 이후 다음 접속 시점"에 지워진다(대부분의 개인용 앱에서는
   // 이 정도 지연이 실사용에 문제되지 않는다).
+  // 이번 실행에서 이미 지우기를 시도한 항목. bags·libraryPacks 스냅샷이 올 때마다 이 effect가 다시 도는데, 삭제가 끝나기 전에
+  // (또는 권한 문제로 계속 실패해서) 같은 항목을 또 지우려고 쓰기·Storage 삭제를 반복하지 않게 실행당 한 번만 시도한다(2026-10-06).
+  // 실패한 항목은 다음에 앱을 열 때 다시 시도된다.
+  const trashPurgeTriedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!user || isOfflineMode) return;
+    const tried = trashPurgeTriedRef.current;
     const expiredBags = bags.filter(
-      (b) => b.ownerId === user.uid && isTrashExpired(b.trashedByOwnerAt)
+      (b) => b.ownerId === user.uid && isTrashExpired(b.trashedByOwnerAt) && !tried.has(`bag:${b.id}`)
     );
-    const expiredPacks = libraryPacks.filter((p) => isTrashExpired(p.trashedAt));
+    const expiredPacks = libraryPacks.filter((p) => isTrashExpired(p.trashedAt) && !tried.has(`pack:${p.id}`));
     if (expiredBags.length === 0 && expiredPacks.length === 0) return;
     expiredBags.forEach((bag) => {
+      tried.add(`bag:${bag.id}`);
       Promise.all(bag.images.map((url) => deleteBagImage(url)))
         .then(() => deleteBagWithInviteCodeRemote(bag))
         .catch((err) => {
@@ -379,6 +385,7 @@ export default function AppShell() {
         });
     });
     expiredPacks.forEach((pack) => {
+      tried.add(`pack:${pack.id}`);
       deleteLibraryPackRemote(user.uid, pack.id).catch((err) => {
         console.error("[팩인백] 휴지통 자동 영구삭제(팩) 실패:", err);
       });

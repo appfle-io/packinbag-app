@@ -1,0 +1,1144 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #1a1a1a;
+  --surface: #f7f7f8;
+  --surface-2: #eef0f2;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  /* 가방/팩 카드 배경 톤 - 설정에서 커스텀하지 않으면 --surface와 동일 */
+  --bag-card-bg: var(--surface);
+  --pack-card-bg: var(--surface);
+  --pack-library-card-bg: var(--surface);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+}
+
+[data-theme="dark"] {
+  /* iOS 시스템 다크와 동일한 톤: 완전 검정(#000) 대신 약간 띄운 회색을 기본 배경으로 쓰고,
+     그 위에 카드(surface)가 한 단계 더 밝게 올라가는 계층으로 바꿄 (2026-07 톤 조정) */
+  --background: #1c1c1e;
+  --foreground: #f5f5f5;
+  --surface: #2c2c2e;
+  --surface-2: #3a3a3c;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --border: #48484a;
+  --border-strong: #545456;
+  --accent: #3b82f6;
+  --accent-strong: #60a5fa;
+  --accent-soft: #172554;
+  --danger: #f87171;
+  --danger-soft: #3f1d1d;
+}
+
+* {
+  border-color: var(--border);
+}
+
+/* 네이티브 iOS(Capacitor WKWebView)에서 capacitor.config.ts의 contentInset을 "never"로
+   꺼둠고, 상단 노치/상태바 안전영역을 앱이 직접 이 클래스로 처리한다. 웹/PWA에서는
+   safe-area-inset-top이 0이라 평소 padding(0px)과 동일하게 동작해서 영향 없음. */
+.pib-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+@keyframes pib-splash-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pib-splash-rise {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pib-splash-logo {
+  animation: pib-splash-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pib-splash-text {
+  animation: pib-splash-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 200ms;
+}
+
+@keyframes pib-note-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.pib-note-spin {
+  animation: pib-note-pulse 1.4s ease-in-out infinite;
+}
+
+.pib-note-fade {
+  animation: pib-splash-rise 320ms ease both;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic",
+    -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 데스크탑 PWA 및 스크롤바 미려화 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* 데스크탑 앱 UI 요소 선택 방지 (버튼/사이드바/헤더) */
+.desktop-no-select,
+button,
+[role="button"],
+nav,
+aside {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@keyframes pib-toast-pop-in {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pib-toast-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes pib-toast-circle-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pib-toast-check-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.pib-toast-pop {
+  /* 여러 애니메이션을 하나의 animation 축약속에 몰아쓰는 대신 각 속성을 따로 쓴다 -
+     var()를 축약속성 안에 섞어 쓰는 것보다 animation-delay에 직접 쓰는 게 더 안전하다. */
+  animation-name: pib-toast-pop-in, pib-toast-fade-out;
+  animation-duration: 260ms, 220ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), ease-in;
+  animation-delay: 0ms, var(--toast-fade-delay, 1480ms);
+  animation-fill-mode: both, both;
+}
+
+.pib-toast-circle {
+  animation: pib-toast-circle-pop 320ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.pib-toast-check {
+  stroke-dasharray: 1;
+  animation: pib-toast-check-draw 360ms ease-out 260ms both;
+}
+
+/* 설정 화면의 투명도/크기 슬라이더 - 동그란 손잡이를 좌우로 드래그하는 형태 */
+.pib-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  outline: none;
+  margin: 0;
+}
+.pib-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.pib-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+.pib-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+/* 글자 크기 설정 (설정 > 글자크기: 작게/보통/크게)
+   앱 전체가 text-[Npx] 형태의 고정 px 클래스만 쓰고 있어서, 여기서 그 클래스들의
+   font-size만 배율로 오버라이드한다. 아이콘 크기/여백/레이아웃은 전혀 건드리지
+   않기 때문에 화면 확대(zoom)와 달리 글자만 커지고 작아진다. */
+[data-font-scale="sm"] .text-\[9px\] { font-size: 8.33px; }
+[data-font-scale="sm"] .text-\[10px\] { font-size: 9.25px; }
+[data-font-scale="sm"] .text-\[11px\] { font-size: 10.18px; }
+[data-font-scale="sm"] .text-\[11\.5px\] { font-size: 10.64px; }
+[data-font-scale="sm"] .text-\[12px\] { font-size: 11.1px; }
+[data-font-scale="sm"] .text-\[12\.5px\] { font-size: 11.56px; }
+[data-font-scale="sm"] .text-\[13px\] { font-size: 12.03px; }
+[data-font-scale="sm"] .text-\[14px\] { font-size: 12.95px; }
+[data-font-scale="sm"] .text-\[15px\] { font-size: 13.88px; }
+[data-font-scale="sm"] .text-\[16px\] { font-size: 14.8px; }
+[data-font-scale="sm"] .text-\[17px\] { font-size: 15.73px; }
+[data-font-scale="sm"] .text-\[18px\] { font-size: 16.65px; }
+[data-font-scale="sm"] .text-\[20px\] { font-size: 18.5px; }
+[data-font-scale="sm"] .text-\[22px\] { font-size: 20.35px; }
+[data-font-scale="lg"] .text-\[9px\] { font-size: 10.12px; }
+[data-font-scale="lg"] .text-\[10px\] { font-size: 11.25px; }
+[data-font-scale="lg"] .text-\[11px\] { font-size: 12.38px; }
+[data-font-scale="lg"] .text-\[11\.5px\] { font-size: 12.94px; }
+[data-font-scale="lg"] .text-\[12px\] { font-size: 13.5px; }
+[data-font-scale="lg"] .text-\[12\.5px\] { font-size: 14.06px; }
+[data-font-scale="lg"] .text-\[13px\] { font-size: 14.62px; }
+[data-font-scale="lg"] .text-\[14px\] { font-size: 15.75px; }
+[data-font-scale="lg"] .text-\[15px\] { font-size: 16.88px; }
+[data-font-scale="lg"] .text-\[16px\] { font-size: 18px; }
+[data-font-scale="lg"] .text-\[17px\] { font-size: 19.12px; }
+[data-font-scale="lg"] .text-\[18px\] { font-size: 20.25px; }
+[data-font-scale="lg"] .text-\[20px\] { font-size: 22.5px; }
+[data-font-scale="lg"] .text-\[22px\] { font-size: 24.75px; }
+
+/* 위와 같은 이유로, md: 반응형 텍스트 크기(데스크톱 폭)도 별도로 오버라이드해야 함.
+   (Tailwind는 "text-[17px] md:text-[18px]" 같은 반응형 클래스를 별도 클래스 +
+   미디어쿼리로 생성하기 때문에, 기본 클래스 오버라이드만으로는 데스크톱 폭에서 적용 안 됨) */
+@media (min-width: 48rem) {
+  [data-font-scale="sm"] .md\:text-\[11px\] { font-size: 10.18px; }
+  [data-font-scale="sm"] .md\:text-\[12px\] { font-size: 11.1px; }
+  [data-font-scale="sm"] .md\:text-\[14px\] { font-size: 12.95px; }
+  [data-font-scale="sm"] .md\:text-\[18px\] { font-size: 16.65px; }
+  [data-font-scale="lg"] .md\:text-\[11px\] { font-size: 12.38px; }
+  [data-font-scale="lg"] .md\:text-\[12px\] { font-size: 13.5px; }
+  [data-font-scale="lg"] .md\:text-\[14px\] { font-size: 15.75px; }
+  [data-font-scale="lg"] .md\:text-\[18px\] { font-size: 20.25px; }
+}
+
+/* 가방/팩 보관함 검색 결과를 클릭해서 특정 팩(또는 짐)으로 이동했을 때, 그 자리를
+   잠깐 깜빡여서 눈에 띄게 하는 하이라이트. data-pack-drop-id / data-item-id 엘리먼트에
+   이 클래스를 잠깐 붙였다가 뗀다 (BagEditorScreen/PackLibraryEditorScreen 참고).
+   background-color가 아니라 box-shadow만 쓰는 이유: 두 엘리먼트 모두 컴포넌트에서
+   background를 인라인 style로 이미 지정해두고 있어서(ItemRow/PackCard 등),
+   클래스의 background-color는 우선순위에 밀려 적용되지 않는다. 또한 outset이 아니라
+   inset box-shadow를 쓰는 이유는, 짐(ItemRow) 쪽은 바깥 wrapper에 overflow-hidden이
+   걸려있어서 outset box-shadow가 잘려 안 보이기 때문이다. */
+@keyframes pib-search-highlight {
+  0%, 20%, 40%, 60%, 100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  10%, 30%, 50% {
+    box-shadow: inset 0 0 0 3px var(--accent);
+  }
+}
+.pib-search-highlight {
+  animation: pib-search-highlight 1.8s ease-in-out both;
+  border-radius: 10px;
+}
+
+@keyframes pib-text-highlight-pulse {
+  0%, 100% {
+    background-color: transparent;
+  }
+  15%, 45%, 75% {
+    background-color: var(--accent-soft);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+}
+.pib-text-search-highlight {
+  animation: pib-text-highlight-pulse 2.5s ease-in-out both;
+  border-radius: 4px;
+}
+
+/* 에디터팩(자유문서형 메모 팩)의 TipTap 렉더링 스타일. PackNoteEditorScreen(전체화면
+   편집)과 EditorPackCard(가방 속 읽기전용 미리보기) 둘 다 이 클래스를 쓴다. */
+.pib-note-editor .ProseMirror {
+  outline: none;
+  min-height: 100%;
+  font-size: 14px;
+}
+.pib-note-editor h1 { font-size: 22px; font-weight: 700; margin: 14px 0 6px; }
+.pib-note-editor h2 { font-size: 18px; font-weight: 700; margin: 12px 0 6px; }
+.pib-note-editor h3 { font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
+.pib-note-editor p { margin: 4px 0; line-height: 1.55; }
+.pib-note-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 6px 0;
+}
+.pib-note-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 3px 0;
+}
+.pib-note-editor ul[data-type="taskList"] li > label {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.pib-note-editor ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.pib-note-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+/* 일반 글머리기호("- " 입력) / 번호매기기("1. " 입력) 목록. Tailwind preflight가 모든
+   ul/ol의 list-style/padding을 지워버려서, TipTap이 실제로는 정상적으로 <ul>/<ol>을
+   만들어도(입력 규칙은 StarterKit에 기본 내장) 화면에는 글머리표/번호가 안 보이고 들여쓰기도
+   없이 밋밋한 문단처럼 보였다 - taskList와 별개로 이 둘도 스타일을 복원해줘야 한다. */
+.pib-note-editor ul:not([data-type="taskList"]) {
+  list-style: disc;
+  padding-left: 22px;
+  margin: 6px 0;
+}
+.pib-note-editor ul:not([data-type="taskList"]) ul:not([data-type="taskList"]) {
+  list-style: circle;
+}
+.pib-note-editor ol {
+  list-style: decimal;
+  padding-left: 22px;
+  margin: 6px 0;
+}
+.pib-note-editor li {
+  margin: 2px 0;
+}
+.pib-note-editor li > p {
+  margin: 0;
+}
+.pib-note-editor table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  table-layout: fixed;
+}
+/* TipTap의 Table 노드뷰는 table을 <div class="tableWrapper">로 감싼다. 예전엔 table에
+   width:100%를 강제해서, 좁은(모바일) 화면에서 표가 컨테이너 폭에 맞춰 억지로
+   찌그러져(칸이 너무 좁아져 글자가 겹치거나 줄바꿈이 이상해짐) 보이는 문제가 있었다.
+   이제는 표 자체는 칼럼 최소너비(cellMinWidth, lib/noteEditorExtensions.ts)만큼의
+   실제 폭을 유지하고, 넘치는 부분은 이 래퍼가 가로 스크롤로 처리한다. */
+.pib-note-editor .tableWrapper {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+.pib-note-editor td, .pib-note-editor th {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  font-size: 13px;
+  vertical-align: top;
+  position: relative;
+  transition: padding 0.15s ease;
+}
+.pib-note-editor table[data-density="compact"] td,
+.pib-note-editor table[data-density="compact"] th {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.pib-note-editor table[data-density="spacious"] td,
+.pib-note-editor table[data-density="spacious"] th {
+  padding: 10px 12px;
+  font-size: 13.5px;
+}
+.pib-note-editor .selectedCell:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 165, 233, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+/* 칼럼 너비 조절 손잡이(@tiptap/extension-table의 columnResizing 플러그인이 각 칸 오른쪽에
+   삽입하는 decoration). 기본값은 커서/색상 스타일이 전혀 없어서 마우스를 올려도 이게
+   드래그해서 너비를 바꿀 수 있는 손잡이라는 걸 알아채기 어려웠다 - PC에서는 col-resize
+   커서 + 옅은 강조색 라인으로 명확히 보여준다.
+   모바일(터치)에서는 이 손잡이가 3px 폭 그대로면 손가락으로 정확히 짚기 거의 불가능하다.
+   아이디어: 시각적 두께는 그대로 두고 히트 영역(실제 터치 판정 폭)만 넓히는 게 가장 실용적 -
+   (pointer: coarse) 미디어쿼리로 터치 기기에서만 폭을 키우고 살짝 왼쪽으로 당겨서, 옆 칸
+   내용을 가리지 않으면서도 손가락으로 집기 쉽게 한다. (더 큰 개선을 원하면 모바일에서는
+   드래그 대신 칸을 탭했을 때 뜨는 +/- 스테퍼로 너비를 바꾸는 방식도 고려해볼 만하다.) */
+.pib-note-editor .column-resize-handle {
+  cursor: col-resize;
+  background-color: var(--accent);
+  width: 3px;
+  z-index: 20;
+}
+@media (pointer: coarse) {
+  .pib-note-editor .column-resize-handle {
+    width: 16px;
+    margin-left: -7px;
+    background-color: transparent;
+    border-left: 3px solid var(--accent);
+    opacity: 0.55;
+  }
+}
+.pib-note-editor th {
+  background: var(--surface-2);
+  font-weight: 600;
+  text-align: left;
+}
+.pib-note-editor a {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 코드블럭 및 구문 강조 (Syntax Highlighting) */
+.pib-note-editor pre {
+  margin: 0.75rem 0;
+  border-radius: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.pib-note-editor code {
+  font-family: inherit;
+}
+
+/* highlight.js 클래스 구문 강조 색상 - 기본(라이트 모드 / GitHub Light 톤) */
+.hljs-comment,
+.hljs-quote {
+  color: #64748b;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #cf222e;
+  font-weight: 600;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #0550ae;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #0a6c2f;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #953800;
+  font-weight: 600;
+}
+
+.hljs-title.class_,
+.hljs-class .hljs-title,
+.hljs-type {
+  color: #0550ae;
+}
+
+.hljs-title.function_,
+.hljs-function .hljs-title {
+  color: #8250df;
+}
+
+.hljs-params {
+  color: #24292f;
+}
+
+.hljs-attr,
+.hljs-attribute {
+  color: #0550ae;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: #0a3069;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #cf222e;
+}
+
+.hljs-meta {
+  color: #57606a;
+}
+
+.hljs-deletion {
+  background: #ffebe9;
+  color: #cf222e;
+}
+
+.hljs-addition {
+  background: #dafbe1;
+  color: #116329;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
+
+/* highlight.js 클래스 구문 강조 색상 - 다크 모드 (One Dark / GitHub Dark 톤) */
+[data-theme="dark"] .hljs-comment,
+[data-theme="dark"] .hljs-quote,
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+[data-theme="dark"] .hljs-keyword,
+[data-theme="dark"] .hljs-selector-tag,
+[data-theme="dark"] .hljs-subst,
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-subst {
+  color: #f472b6;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .hljs-number,
+[data-theme="dark"] .hljs-literal,
+[data-theme="dark"] .hljs-variable,
+[data-theme="dark"] .hljs-template-variable,
+[data-theme="dark"] .hljs-tag .hljs-attr,
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-variable,
+.dark .hljs-template-variable,
+.dark .hljs-tag .hljs-attr {
+  color: #fb923c;
+}
+
+[data-theme="dark"] .hljs-string,
+[data-theme="dark"] .hljs-doctag,
+.dark .hljs-string,
+.dark .hljs-doctag {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .hljs-title,
+[data-theme="dark"] .hljs-section,
+[data-theme="dark"] .hljs-selector-id,
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-selector-id {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .hljs-title.class_,
+[data-theme="dark"] .hljs-class .hljs-title,
+[data-theme="dark"] .hljs-type,
+.dark .hljs-title.class_,
+.dark .hljs-class .hljs-title,
+.dark .hljs-type {
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .hljs-title.function_,
+[data-theme="dark"] .hljs-function .hljs-title,
+.dark .hljs-title.function_,
+.dark .hljs-function .hljs-title {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .hljs-params,
+.dark .hljs-params {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .hljs-attr,
+[data-theme="dark"] .hljs-attribute,
+.dark .hljs-attr,
+.dark .hljs-attribute {
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .hljs-symbol,
+[data-theme="dark"] .hljs-bullet,
+[data-theme="dark"] .hljs-link,
+.dark .hljs-symbol,
+.dark .hljs-bullet,
+.dark .hljs-link {
+  color: #a78bfa;
+}
+
+[data-theme="dark"] .hljs-built_in,
+[data-theme="dark"] .hljs-builtin-name,
+.dark .hljs-built_in,
+.dark .hljs-builtin-name {
+  color: #facc15;
+}
+
+[data-theme="dark"] .hljs-meta,
+.dark .hljs-meta {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .hljs-deletion,
+.dark .hljs-deletion {
+  background: #f87171;
+  color: #fff;
+}
+
+[data-theme="dark"] .hljs-addition,
+.dark .hljs-addition {
+  background: #4ade80;
+  color: #fff;
+}
+
+.pib-note-editor-readonly .ProseMirror {
+  cursor: default;
+}
+.pib-note-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* 토글 블록("> " 입력으로 만드는 접었다펌다 목록). 화살표는 열림/닫힌에 따라 회전만
+   바꾸고, 본문(toggle-content)은 닫힌 때 CSS로만 숨긴다(데이터 자체는 그대로 저장된다). */
+.pib-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin: 4px 0;
+}
+.pib-toggle-arrow {
+  flex-shrink: 0;
+  width: 20px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+  margin-top: 2px;
+}
+.pib-toggle[data-open="true"] > .pib-toggle-arrow {
+  transform: rotate(90deg);
+}
+.pib-toggle[data-open="false"] > .pib-toggle-arrow {
+  transform: rotate(0deg);
+}
+.pib-toggle-inner {
+  flex: 1;
+  min-width: 0;
+}
+.pib-toggle-inner [data-type="toggle-summary"] {
+  font-weight: 600;
+  min-height: 24px;
+  line-height: 24px;
+}
+.pib-toggle-inner [data-type="toggle-content"] {
+  padding-left: 2px;
+  border-left: 2px solid var(--border);
+  margin-left: 2px;
+}
+.pib-toggle[data-open="false"] .pib-toggle-inner [data-type="toggle-content"] {
+  display: none;
+}
+.pib-toggle-inner [data-type="toggle-content"] > * {
+  margin-left: 8px;
+}
+
+/* 짐(Item) 텍스트형 항목의 부분 서식(굵게/밑줄/취소선) 편집기 - 한 줄짜리 문단 하나만
+   있으므로 메모패(pib-note-editor)과 달리 여백/줄바꿈을 최소화한다. */
+.pib-item-rich-text .ProseMirror {
+  outline: none;
+}
+.pib-item-rich-text p {
+  margin: 0;
+}
+.pib-item-rich-text p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   리디자인 v2 디자인 토큰 (redesign/minimal)
+   기준: claude/packinbag_UIUX_리디자인_방향.md
+   - 기존 토큰(--background, --surface, --accent ...)과 이름이 겹치지 않게 별도 이름을 쓴다.
+     구 UI는 이 블록의 영향을 받지 않고, components/v2 아래 새 화면만 이 토큰을 쓴다.
+   - 여기 없는 값은 쓰지 않는다. 임의값(text-[12.5px], bg-[#...])은 eslint(pib-v2/no-arbitrary-values)가 막는다.
+   ========================================================================== */
+:root {
+  --v2-canvas: #fafaf8;     /* 화면 바탕 */
+  --v2-card: #ffffff;       /* 카드, 시트, 입력칸 */
+  --v2-fill: #f1f1ee;       /* 칩/세그먼트 바탕, 보조 배경 */
+  --v2-line: #eaeae6;       /* 구분선, 테두리 */
+  --v2-line-strong: #c4c4be;/* 체크박스 테두리, 비활성 */
+  --v2-ink: #17171a;        /* 본문 글자, 기본 버튼 */
+  --v2-sub: #5f5f66;        /* 보조 글자 */
+  --v2-faint: #76767d;      /* 완료된 아이템, 힌트 */
+  --v2-brand: #2e5e4e;      /* 포인트 1색: 체크 완료, 진행률, 링크 */
+  --v2-brand-soft: #e6eeea;
+  --v2-on-brand: #ffffff;
+  --v2-on-ink: #ffffff;
+  --v2-alert: #b42318;      /* 삭제 등 파괴적 동작 */
+  --v2-scrim: rgb(23 23 26 / 0.36);
+  /* 떠 있는 하단 탭바(독): 반투명 바탕 + 그림자. 뒤로 지나가는 목록이 흐리게 비친다 */
+  --v2-dock: color-mix(in srgb, var(--v2-card) 80%, transparent);
+  --v2-dock-shadow: 0 8px 24px rgb(23 23 26 / 0.10), 0 1px 3px rgb(23 23 26 / 0.06);
+}
+
+[data-theme="dark"] {
+  --v2-canvas: #161618;
+  --v2-card: #1f1f22;
+  --v2-fill: #28282c;
+  --v2-line: #2e2e33;
+  --v2-line-strong: #4a4a50;
+  --v2-ink: #f2f2f0;
+  --v2-sub: #a3a3aa;
+  --v2-faint: #8a8a92;
+  --v2-brand: #6fb39a;
+  --v2-brand-soft: #1d2e28;
+  --v2-on-brand: #0e1a15;
+  --v2-on-ink: #161618;
+  --v2-alert: #f97066;
+  --v2-scrim: rgb(0 0 0 / 0.5);
+  --v2-dock: color-mix(in srgb, var(--v2-card) 82%, transparent);
+  --v2-dock-shadow: 0 8px 24px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+@theme inline {
+  --color-canvas: var(--v2-canvas);
+  --color-card: var(--v2-card);
+  --color-fill: var(--v2-fill);
+  --color-line: var(--v2-line);
+  --color-line-strong: var(--v2-line-strong);
+  --color-ink: var(--v2-ink);
+  --color-sub: var(--v2-sub);
+  --color-faint: var(--v2-faint);
+  --color-brand: var(--v2-brand);
+  --color-brand-soft: var(--v2-brand-soft);
+  --color-on-brand: var(--v2-on-brand);
+  --color-on-ink: var(--v2-on-ink);
+  --color-alert: var(--v2-alert);
+  --color-scrim: var(--v2-scrim);
+
+  /* 그림자는 바텀시트 + 떠 있는 탭바(독) 2종 */
+  --shadow-dock: var(--v2-dock-shadow);
+
+  /* next/font/local이 app/layout.tsx에서 --font-pretendard 등을 선언한다.
+     앱 글꼴(설정 > 화면 > 글꼴)은 --pib-font-app으로 바꾼다. inline 테마라 font-ui 유틸리티에도 var()가 그대로 들어가 런타임에 따라간다 */
+  --font-ui: var(--pib-font-app, var(--font-pretendard)), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  /* 글꼴 고르기 시트 미리보기용(font-app-*) */
+  --font-app-pretendard: var(--font-pretendard), system-ui, sans-serif;
+  --font-app-gmarket: var(--font-gmarket), var(--font-pretendard), system-ui, sans-serif;
+  --font-app-gaegu: var(--font-gaegu), var(--font-pretendard), system-ui, sans-serif;
+  --font-app-d2coding: var(--font-d2coding), var(--font-pretendard), ui-monospace, monospace;
+}
+
+@theme {
+  /* 글자 6단계: text-micro / caption / body / body-lg / heading / title */
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 24px;
+  --text-heading: 22px;
+  --text-heading--line-height: 30px;
+  --text-heading--letter-spacing: -0.01em;
+  --text-title: 28px;
+  --text-title--line-height: 36px;
+  --text-title--letter-spacing: -0.02em;
+
+  /* 모서리: rounded-control(체크박스) / rounded-field(입력·세그먼트) / rounded-card(카드·시트) / rounded-full(칩) */
+  --radius-control: 6px;
+  --radius-field: 8px;
+  --radius-card: 14px;
+
+  /* 그림자는 바텀시트 1종만 */
+  --shadow-sheet: 0 -8px 32px rgb(23 23 26 / 0.12);
+
+  /* 모션: duration-160(체크) / 200(접기) / 240(진행률) / 280(화면 전환) + ease-snappy */
+  --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* 체크박스 테두리 1.5px (토큰 밖 임의값 대신 이름 있는 유틸리티로) */
+@utility border-check {
+  border-width: 1.5px;
+}
+
+/* 바텀시트 높이: 화면의 88%까지 */
+@utility h-dvh-88 {
+  height: 88dvh;
+}
+@utility max-h-dvh-88 {
+  max-height: 88dvh;
+}
+
+/* 하단 안전영역(홈 인디케이터) + 여백. 숫자는 4pt 단위 배수 */
+@utility pb-safe-2 {
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+@utility pb-safe-4 {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+@utility pb-safe-8 {
+  padding-bottom: max(32px, calc(env(safe-area-inset-bottom) + 12px));
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* 떠 있는 하단 탭바(독, components/v2/shell/TabBarV2.tsx)
+   - 탭바가 실제로 그려진 높이를 재서 바로 위 부모에 --pib-dock으로 적는다(숫자를 코드에 박지 않는다).
+     글자 크기·안전영역·화면 폭이 바뀌면 ResizeObserver가 다시 잰다. 탭바가 없는 곳(가방·시트·하위 화면)은 0
+   - 탭 화면 스크롤(ScreenBody)은 이 값만큼 아래 여백과 scroll-padding을 더해 마지막 줄이 탭바 뒤에 숨지 않는다 */
+@utility dock-glass {
+  background: var(--v2-dock);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+@utility dock-pad-body {
+  padding-bottom: calc(var(--spacing) * 8 + var(--pib-dock, 0px));
+}
+@utility dock-scroll-pad {
+  scroll-padding-bottom: var(--pib-dock, 0px);
+}
+@utility dock-mb {
+  margin-bottom: var(--pib-dock, 0px);
+}
+/* 탭바 바로 위에 따로 붙는 줄(팩 탭 빠른팩)이 있으면 그 줄이 탭바 자리를 맡으므로 본문은 더하지 않는다 */
+@utility dock-none {
+  --pib-dock: 0px;
+}
+/* v2 토스트 아래 여백: 예전 값(하단 입력창을 피하는 24칸, 안전영역+19칸)과 떠 있는 탭바 윗변+3칸 중 큰 값.
+   --pib-dock-viewport는 탭바가 재서 html에 적는다(탭바가 없거나 숨으면 0) */
+@utility toast-lift {
+  padding-bottom: max(
+    calc(var(--spacing) * 24),
+    calc(env(safe-area-inset-bottom) + var(--spacing) * 19),
+    calc(var(--pib-dock-viewport, 0px) + var(--spacing) * 3)
+  );
+}
+
+/* 접기/펼치기: grid 행 높이 0fr <-> 1fr 전환으로 내용 높이만큼 부드럽게 */
+@utility collapse-open {
+  grid-template-rows: 1fr;
+}
+@utility collapse-closed {
+  grid-template-rows: 0fr;
+}
+
+/* 색 직접 고르기 견본(메모 글씨 색) */
+@utility bg-rainbow {
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+}
+
+/* v2 앱 글꼴(설정 > 화면 > 글꼴). html[data-font]는 lib/v2/appFonts.ts가 붙인다(기본 Pretendard는 속성 없음).
+   없는 글자(개구는 한글 2,350자만)는 Pretendard로 채운다. 구 UI는 --font-ui를 쓰지 않아 영향 없음 */
+[data-font="gmarket"] {
+  --pib-font-app: var(--font-gmarket), var(--font-pretendard);
+}
+[data-font="gaegu"] {
+  --pib-font-app: var(--font-gaegu), var(--font-pretendard);
+}
+[data-font="d2coding"] {
+  --pib-font-app: var(--font-d2coding), var(--font-pretendard);
+}
+/* v2 메모 코드블록·인라인 코드는 앱 글꼴과 상관없이 항상 D2코딩(고정폭 + 한글) */
+:is(.pib-v2, .pib-v2-legacy) .pib-note-editor :is(pre, :not(pre) > code) {
+  font-family: var(--font-d2coding), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* v2 화면 루트에 붙이는 기본값 */
+.pib-v2 {
+  font-family: var(--font-ui);
+  color: var(--v2-ink);
+  background: var(--v2-canvas);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 화면 위에 뜨는 층(바텀시트·코치마크 투어)의 루트. .pib-v2의 바탕색이 화면 전체를 가려서 뒤 화면이 안 보이던 문제 -
+   바탕은 투명으로 두고 어둡게 하는 건 각자의 scrim이 맡는다. (.pib-v2와 같은 명시도라 뒤에 쓴 이 규칙이 이긴다) */
+.pib-v2-overlay {
+  background: transparent;
+}
+/* 키보드 포커스만 표시(마우스/터치 클릭 후 테두리 남지 않게) */
+.pib-v2 *:focus:not(:focus-visible) {
+  outline: none;
+}
+.pib-v2 *:focus-visible {
+  outline: 2px solid var(--v2-brand);
+  outline-offset: 2px;
+}
+/* 글을 쓰는 칸(메모 본문·입력칸)은 커서가 있어서 테두리가 필요 없다. 위 규칙이 .pib-note-editor .ProseMirror의
+   outline:none을 덮어서(나중에 쓴 같은 명시도) 메모를 쓰는 동안 본문 전체에 네모 테두리가 보이던 문제(2026-10-03) */
+.pib-v2 :is(input, textarea, [contenteditable="true"], .ProseMirror):focus-visible {
+  outline: none;
+}
+.pib-v2 ::selection {
+  background: var(--v2-brand-soft);
+}
+.pib-v2 .pib-v2-no-scrollbar {
+  scrollbar-width: none;
+}
+.pib-v2 .pib-v2-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* 투명도 줄이기를 켠 사용자는 탭바를 불투명하게 */
+@media (prefers-reduced-transparency: reduce) {
+  .dock-glass {
+    background: var(--v2-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pib-v2 *,
+  .pib-v2 *::before,
+  .pib-v2 *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
+
+/* v2 글자 크기 설정(설정 > 화면 > 글자 크기). 위의 [data-font-scale] .text-[Npx] 규칙은 구 UI용이라
+   v2 토큰(text-body 등)에는 안 먹는다. 토큰 변수 자체를 바꿔서 v2 화면 전체 글자가 같이 바뀌게 한다.
+   배율은 구 UI와 같은 작게 0.925 / 크게 1.125 근처(정수 px). @theme 변수는 theme 레이어라 이 규칙이 이긴다. */
+[data-font-scale="sm"] {
+  --text-micro: 11px;
+  --text-micro--line-height: 15px;
+  --text-caption: 12px;
+  --text-caption--line-height: 17px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 22px;
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-title: 26px;
+  --text-title--line-height: 34px;
+}
+[data-font-scale="lg"] {
+  --text-micro: 13px;
+  --text-micro--line-height: 18px;
+  --text-caption: 15px;
+  --text-caption--line-height: 20px;
+  --text-body: 17px;
+  --text-body--line-height: 24px;
+  --text-body-lg: 19px;
+  --text-body-lg--line-height: 26px;
+  --text-heading: 25px;
+  --text-heading--line-height: 32px;
+  --text-title: 31px;
+  --text-title--line-height: 40px;
+}
+
+/* v2에서 재사용 중인 구 컴포넌트(모달·메모 편집기·하위 화면·게스트 보기 /p /v)를 구조는 그대로 두고
+   색·폰트만 v2로 맞춘다. app/layout.tsx가 body에 이 클래스를 붙인다.
+   - 구 토큰 이름을 v2 값으로 다시 정의한다(다크는 --v2-* 자체가 바뀌므로 따로 안 써도 됨).
+   - ThemeProvider가 html에 인라인으로 넣는 강조색·투명도·카드색은 body가 더 가까운 조상이라 여기서 덮인다
+     (v2에서 뺀 설정이라 의도된 동작). 프로필 값은 그대로라 플래그를 끄면 원래 색으로 돌아간다.
+   출시 때 구 UI를 지우면 이 블록도 함께 정리한다. */
+.pib-v2-legacy {
+  --background: var(--v2-canvas);
+  --foreground: var(--v2-ink);
+  --surface: var(--v2-card);
+  --surface-2: var(--v2-fill);
+  --text-secondary: var(--v2-sub);
+  --text-muted: var(--v2-faint);
+  --border: var(--v2-line);
+  --border-strong: var(--v2-line-strong);
+  --accent: var(--v2-brand);
+  --accent-strong: var(--v2-brand);
+  --accent-soft: var(--v2-brand-soft);
+  --danger: var(--v2-alert);
+  --danger-soft: var(--v2-fill);
+  --bag-card-bg: var(--v2-card);
+  --bag-card-bg-pct: 100%;
+  --pack-card-bg: var(--v2-card);
+  --pack-card-bg-pct: 100%;
+  --pack-library-card-bg: var(--v2-card);
+  --pack-library-card-bg-pct: 100%;
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 게스트 보기(/p 가방 공유, /v 메모 문서)는 구 토큰이 아니라 Tailwind 팔레트(slate·blue·emerald·white)를
+   직접 쓴다. 클래스는 그대로 두고, 게스트 보기 루트에 붙는 .pib-v2-guest 안에서 팔레트 변수를 v2 색으로
+   바꾼다(구조 유지, 색만 교체). 같은 단계가 라이트에서는 글자, 다크에서는 배경으로 쓰여서 두 벌 따로 정의한다.
+   다크의 blue-600(주 버튼·체크된 칸)은 흰 글자와 대비가 나도록 brand를 어둡게 섞는다. */
+.pib-v2-guest {
+  --font-sans: var(--font-ui);
+  --color-white: var(--v2-card);
+  --color-slate-50: var(--v2-canvas);
+  --color-slate-100: var(--v2-fill);
+  --color-slate-200: var(--v2-line);
+  --color-slate-300: var(--v2-line-strong);
+  --color-slate-400: var(--v2-faint);
+  --color-slate-500: var(--v2-sub);
+  --color-slate-600: var(--v2-sub);
+  --color-slate-700: var(--v2-ink);
+  --color-slate-800: var(--v2-ink);
+  --color-slate-900: var(--v2-ink);
+  --color-slate-950: var(--v2-canvas);
+  --color-blue-50: var(--v2-brand-soft);
+  --color-blue-200: var(--v2-line);
+  --color-blue-400: var(--v2-brand);
+  --color-blue-500: var(--v2-brand);
+  --color-blue-600: var(--v2-brand);
+  --color-blue-700: var(--v2-brand);
+  --color-emerald-50: var(--v2-brand-soft);
+  --color-emerald-200: var(--v2-line);
+  --color-emerald-500: var(--v2-brand);
+  --color-emerald-600: var(--v2-brand);
+  -webkit-font-smoothing: antialiased;
+}
+[data-theme="dark"] .pib-v2-guest {
+  --color-white: var(--v2-ink);
+  --color-slate-100: var(--v2-ink);
+  --color-slate-200: var(--v2-ink);
+  --color-slate-300: var(--v2-sub);
+  --color-slate-400: var(--v2-sub);
+  --color-slate-500: var(--v2-faint);
+  --color-slate-700: var(--v2-line-strong);
+  --color-slate-800: var(--v2-fill);
+  --color-slate-900: var(--v2-card);
+  --color-slate-950: var(--v2-canvas);
+  --color-blue-400: var(--v2-brand);
+  --color-blue-600: color-mix(in srgb, var(--v2-brand) 55%, black);
+  --color-blue-700: color-mix(in srgb, var(--v2-brand) 45%, black);
+  --color-blue-800: var(--v2-line);
+  --color-blue-950: var(--v2-brand-soft);
+  --color-emerald-400: var(--v2-brand);
+  --color-emerald-800: var(--v2-line);
+  --color-emerald-950: var(--v2-brand-soft);
+}

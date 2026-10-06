@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 import { adminDb } from "@/lib/firebaseAdmin";
 
@@ -53,7 +53,10 @@ function parseRecommendations(text: string): TravelRecommendation[] {
   return [];
 }
 
-export async function POST(req: NextRequest) {
+// 명소·맛집 추천(v2에서 축소된 기능). 호출하는 곳이 없으면 지워도 된다. 횟수 예약·되돌리기는 다른 AI 라우트와 같다(lib/aiQuotaServer.ts)
+export const POST = withAiQuotaSettlement(handlePOST);
+
+async function handlePOST(req: NextRequest) {
   try {
     let quotaCheck;
     try {

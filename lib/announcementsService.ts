@@ -9,6 +9,7 @@ import {
   query,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Announcement } from "@/lib/types";
@@ -21,11 +22,17 @@ function announcementsCol() {
 }
 
 // 일반 사용자용 1회성 조회. 실시간 리스너 연결 비용을 절약하기 위해 앱 진입 시 한 번만 읽는다.
+// 끝난 공지는 읽지 않는다(2026-10-06): 예전에는 컬렉션 전체를 읽어서 공지가 쌓일수록 앱을 열 때마다 읽기가 늘었다.
+// 화면(시작 공지·설정 > 공지사항)은 어차피 진행 중인 공지(isAnnouncementActive)만 보여 준다. 시간대 차이를 감안해 하루 여유를 두고,
+// 정확한 판단은 화면의 isAnnouncementActive가 한다. endDate 단일 필드 조건이라 복합 색인이 필요 없고, 정렬은 여기서 한다.
 export async function getAnnouncementsOnce(): Promise<Announcement[]> {
   try {
-    const q = query(announcementsCol(), orderBy("createdAt", "desc"));
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const q = query(announcementsCol(), where("endDate", ">=", since));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Announcement));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as Announcement))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
   } catch (err) {
     console.error("[팩인백] 공지사항 조회 실패:", err);
     return [];

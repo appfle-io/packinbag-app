@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // "AI 클립보드" 기능 - 클립보드에서 읽어온(또는 직접 붙여넣은) 텍스트를 분석해서, 지금 열려있는
@@ -119,7 +119,10 @@ function dedupeAgainstExisting(
   return { packs: result, skippedDuplicateCount };
 }
 
-export async function POST(req: NextRequest) {
+// 하루 횟수는 시작할 때 예약하고, 실패로 끝나면 되돌린다(lib/aiQuotaServer.ts)
+export const POST = withAiQuotaSettlement(handlePOST);
+
+async function handlePOST(req: NextRequest) {
   let quota;
   try {
     quota = await verifyAndCheckAiQuota(req);

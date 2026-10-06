@@ -27,7 +27,11 @@ const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
  * 사용자가 입력한 전 세계 어떤 한글/영문 지명이든 자동으로 위도/경도를 찾아낸다.
  * 사전 맵이나 하드코딩된 지명 목록은 존재하지 않는다.
  */
-export async function resolveCityInfo(text: string): Promise<{ lat: number; lon: number; name: string } | null> {
+export async function resolveCityInfo(
+  text: string,
+  // /api/geocode는 로그인한 사람만 부를 수 있다(유료 API 보호, 2026-10-06). 없으면 서버가 401로 돌려보낸다
+  idToken?: string
+): Promise<{ lat: number; lon: number; name: string } | null> {
   if (!text) return null;
   const clean = text.trim();
   if (clean.length < 2) return null;
@@ -48,7 +52,10 @@ export async function resolveCityInfo(text: string): Promise<{ lat: number; lon:
 
   for (const word of words) {
     try {
-      const res = await fetch(`/api/geocode?query=${encodeURIComponent(word)}`);
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(word)}`, {
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
+      });
+      if (res.status === 401) return null;
       if (!res.ok) continue;
       const data = await res.json();
       if (data?.result) {
@@ -139,6 +146,8 @@ export function forecastDateFor(travelDate: string | undefined): string | undefi
   return days >= 0 && days <= 15 ? travelDate : undefined;
 }
 
+// 명소·맛집 추천(app/api/ai-travel-places)을 부르던 fetchAiTravelPlaces는 v2에서 쓰는 곳이 없어 라우트와 함께 지웠다(2026-10-06).
+// 아래 타입은 예전 가방 문서의 aiRecommendCache.places 때문에 남겨 둔다.
 export type TravelRecommendationCategory = "attraction" | "food" | "specialty";
 
 export interface TravelRecommendation {
@@ -148,31 +157,3 @@ export interface TravelRecommendation {
   icon: string;
 }
 
-// 도시명 기준으로만 추천을 받는다(가방 제목 전체가 아니라) - 서버(app/api/ai-travel-places)가
-// 도시명으로 캐시하기 때문에, 같은 도시면 가방 제목이 바뀌어도 같은 결과를 재사용할 수 있다.
-export async function fetchAiTravelPlaces(
-  cityName: string,
-  idToken: string,
-  options?: { force?: boolean; excludeTexts?: string[] }
-): Promise<TravelRecommendation[]> {
-  try {
-    const res = await fetch("/api/ai-travel-places", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({
-        cityName,
-        force: !!options?.force,
-        excludeTexts: options?.excludeTexts ?? [],
-      }),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.places || [];
-  } catch (err) {
-    console.error("[팩인백] AI 추천 여행지 API 연동 실패:", err);
-    return [];
-  }
-}

@@ -1,6 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebaseAdmin";
+import { verifyRequestUser } from "@/lib/premiumServer";
 
 export const runtime = "nodejs";
+
+// 2026-10-06 비용 점검: Google Geocoding은 유료라 누구나 부를 수 있으면 안 된다.
+// - 로그인한 사람(idToken)만 부를 수 있다.
+// - 같은 단어는 geocodeCache/{단어}에 남겨 두고 30일 동안 다시 묻지 않는다(못 찾은 결과도 남긴다 - "가방" 같은 말을 매번 다시 묻지 않게).
+//   지명 좌표는 사실상 바뀌지 않아 오래 두어도 된다. 클라이언트는 이 컬렉션을 읽거나 쓸 수 없다(firestore.rules 기본 거부).
+const GEOCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+type GeoResult = { lat: number; lon: number; name: string } | null;
+
+function cacheDocId(query: string): string {
+  // 문서 id에는 / 를 못 쓴다. 대소문자·앞뒤 공백만 맞추고 인코딩(길이는 요청에서 자른다)
+  return encodeURIComponent(query.trim().toLowerCase());
+}
+
+async function readCache(query: string): Promise<{ hit: boolean; result: GeoResult }> {
+  try {
+    const db = adminDb();
+    if (!db) return { hit: false, result: null };
+    const snap = await db.collection("geocodeCache").doc(cacheDocId(query)).get();
+    if (!snap.exists) return { hit: false, result: null };
+    const data = snap.data() ?? {};
+    const cachedAtMs = (data.cachedAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+    if (Date.now() - cachedAtMs > GEOCODE_CACHE_TTL_MS) return { hit: false, result: null };
+    const r = data.result as GeoResult | undefined;
+    return { hit: true, result: r ? { lat: r.lat, lon: r.lon, name: query } : null };
+  } catch (err) {
+    console.warn("[팩인백] 지오코딩 캐시 조회 실패:", err);
+    return { hit: false, result: null };
+  }
+}
+
+async function writeCache(query: string, result: GeoResult) {
+  try {
+    const db = adminDb();
+    if (!db) return;
+    await db
+      .collection("geocodeCache")
+      .doc(cacheDocId(query))
+      .set({ query, result: result ? { lat: result.lat, lon: result.lon } : null, cachedAt: new Date() });
+  } catch (err) {
+    console.warn("[팩인백] 지오코딩 캐시 저장 실패:", err);
+  }
+}
 
 /**
  * 100% 하드코딩 0개 지오코딩 API
@@ -54,8 +99,14 @@ const isPureAsciiWord = (s: string) => /^[A-Za-z]+$/.test(s);
 const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
 
 export async function GET(req: NextRequest) {
+  try {
+    await verifyRequestUser(req);
+  } catch {
+    return NextResponse.json({ error: "로그인이 필요해요", result: null }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
-  const query = searchParams.get("query")?.trim() ?? "";
+  const query = (searchParams.get("query")?.trim() ?? "").slice(0, 40);
 
   if (isNumericOnly(query)) {
     return NextResponse.json({ result: null });
@@ -66,6 +117,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ result: null });
   }
 
+  const cached = await readCache(query);
+  if (cached.hit) {
+    return NextResponse.json({ result: cached.result });
+  }
+
+  // 못 찾은 결과는 지명 서비스가 제대로 답했을 때만 남긴다(일시 장애를 30일간 "없음"으로 굳히지 않게)
+  const { result, definitive } = await geocode(query);
+  if (result || definitive) await writeCache(query, result);
+  return NextResponse.json({ result });
+}
+
+async function geocode(query: string): Promise<{ result: GeoResult; definitive: boolean }> {
   const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   // 1. Google Geocoding API (API 키가 있는 경우)
@@ -87,13 +150,7 @@ export async function GET(req: NextRequest) {
           );
           if (placeResult) {
             const loc = placeResult.geometry.location;
-            return NextResponse.json({
-              result: {
-                lat: loc.lat,
-                lon: loc.lng,
-                name: query,
-              },
-            });
+            return { result: { lat: loc.lat, lon: loc.lng, name: query }, definitive: true };
           }
           // 결과는 있었지만 전부 상호명/시설 매칭이거나 근사치 매칭이라 지명으로 인정하지
           // 않음 -> Nominatim으로 폴백.
@@ -105,6 +162,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. OpenStreetMap Nominatim Geocoding API (글로벌 한글 지명 100% 지원, 무료, 하드코딩 0개)
+  let nominatimAnswered = false;
   try {
     const nRes = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&accept-language=ko&limit=5`,
@@ -115,6 +173,7 @@ export async function GET(req: NextRequest) {
       }
     );
     if (nRes.ok) {
+      nominatimAnswered = true;
       const nData = await nRes.json();
       if (Array.isArray(nData) && nData.length > 0) {
         const placeItem = nData.find(
@@ -123,13 +182,7 @@ export async function GET(req: NextRequest) {
             parseFloat(item.importance ?? "0") >= NOMINATIM_MIN_IMPORTANCE
         );
         if (placeItem) {
-          return NextResponse.json({
-            result: {
-              lat: parseFloat(placeItem.lat),
-              lon: parseFloat(placeItem.lon),
-              name: query,
-            },
-          });
+          return { result: { lat: parseFloat(placeItem.lat), lon: parseFloat(placeItem.lon), name: query }, definitive: true };
         }
       }
     }
@@ -137,5 +190,5 @@ export async function GET(req: NextRequest) {
     console.warn("[팩인백] Nominatim Geocoding API 조회 실패:", err);
   }
 
-  return NextResponse.json({ result: null });
+  return { result: null, definitive: nominatimAnswered };
 }

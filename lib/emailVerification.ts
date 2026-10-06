@@ -17,6 +17,9 @@
 // 동작하던 방식이 항상 안전망으로 남아있는 구조.
 import { sendEmailVerification, User } from "firebase/auth";
 
+// 서버가 "방금 보냈음(60초 안)"으로 막은 경우. 폴백 없이 그대로 호출부로 올린다
+class CooldownError extends Error {}
+
 export async function sendVerificationEmailWithFallback(user: User): Promise<void> {
   let sentByResend = false;
 
@@ -29,7 +32,14 @@ export async function sendVerificationEmailWithFallback(user: User): Promise<voi
         Authorization: `Bearer ${idToken}`,
       },
     });
-    const data = await res.json().catch(() => ({}) as { sent?: boolean; error?: string });
+    const data = (await res.json().catch(() => ({}))) as { sent?: boolean; error?: string; code?: string; retryAfterSec?: number };
+    // 방금 보낸 직후(60초 안) 다시 누른 경우: Firebase로 대신 보내지 않고 안내만 한다(연타 방지, 서버 라우트 주석 참고).
+    // 한국어 문구라 friendlyAuthError가 그대로 보여 준다
+    if (res.status === 429 && data?.code === "COOLDOWN") {
+      throw new CooldownError(
+        `인증 메일을 방금 보냈어요. ${data.retryAfterSec ?? 60}초 뒤에 다시 시도해주세요.`
+      );
+    }
     sentByResend = res.ok && data?.sent === true;
     if (!sentByResend) {
       console.warn(
@@ -38,6 +48,7 @@ export async function sendVerificationEmailWithFallback(user: User): Promise<voi
       );
     }
   } catch (err) {
+    if (err instanceof CooldownError) throw err;
     // fetch 자체가 실패한 경우(오프라인, CORS 등 - 이론상 같은 오리진이라 거의 없음)도
     // 동일하게 폴백 대상으로 취급한다.
     console.warn("[팩인백] 인증 메일 API 호출 실패, Firebase 기본 발송으로 대체합니다:", err);
