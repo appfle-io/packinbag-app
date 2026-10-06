@@ -2,160 +2,203 @@
 
 **"매번 반복되는 준비물 챙기기, 필요한 것만 쏙쏙 골라 담으세요."**
 
----
-
-### 최신 릴리즈 다운로드 (Offline Portable Assets)
-
-| 플랫폼 | 파일명 | 다운로드 링크 | 파일 크기 |
-| :--- | :--- | :--- | :--- |
-| **Windows** | `Packinbag-offline-win-portable_1.0.12.zip` | [**다운로드 (Windows .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.12-offline-portable/Packinbag-offline-win-portable_1.0.12.zip) | ~245 MB |
-| **macOS** | `Packinbag-offline-mac-portable_1.0.12.zip` | [**다운로드 (macOS .zip)**](https://github.com/appfle-io/packinbag-app/releases/download/v1.0.12-offline-portable/Packinbag-offline-mac-portable_1.0.12.zip) | ~232 MB |
-
-> **안내**: 별도 설치 없이 압축을 풀고 실행 파일(`팩인백.exe` / `팩인백.app`)을 더블클릭하면 즉시 실행됩니다.  
-> [최신 릴리즈 페이지(Releases) 및 소스코드 보기](https://github.com/appfle-io/packinbag-app/releases/latest)
+웹: https://packinbag.seeuson.com · iOS 앱 · 데스크톱 무설치(포터블) 버전
 
 ---
 
-팩인백은 일상의 모든 반복적인 체크리스트와 패킹을 위해 만든 **모듈형 공유 체크리스트 & 메모 서비스**입니다.  
-아기 기저귀 가방부터 운동, 캠핑, 장보기, 여행까지 상황마다 필요한 아이템 묶음(팩)을 레고 블록처럼 가방에 담아 준비할 수 있습니다.
+### 데스크톱 포터블 다운로드
+
+[**최신 릴리즈 페이지(Releases)**](https://github.com/appfle-io/packinbag-app/releases/latest)에서 받으세요.
+
+| 플랫폼 | 파일 |
+| :--- | :--- |
+| **Windows** | `Packinbag-offline-win-portable_<버전>.zip` |
+| **macOS** | `Packinbag-offline-mac-portable_<버전>.zip` 또는 `.dmg` |
+
+> 설치 없이 압축을 풀고 `팩인백.exe` / `Packinbag.app`을 실행하면 됩니다.
+> macOS에서 "손상된 앱"이라고 나오면 터미널에서 `xattr -cr /경로/Packinbag.app` 후 다시 실행하세요.
+> 인터넷이 없는 폐쇄망에서도 오프라인 모드로 바로 쓸 수 있습니다.
 
 ---
 
-## 왜 만들었나요? (Background)
+팩인백은 반복되는 체크리스트와 짐 싸기를 위해 만든 **공유 체크리스트 & 메모 서비스**입니다.
+아기 기저귀 가방부터 운동, 캠핑, 장보기, 여행까지 상황마다 필요한 아이템 묶음(팩)을 가방에 담아 준비합니다.
+
+---
+
+## 왜 만들었나요?
 
 ### 1. 매번 반복해서 챙겨야 하는 피로감
-* **체크 풀고 다시 체크하기의 번거로움**: 아기 기저귀 가방을 쌀 때나 운동 갈 때, 지난번에 체크해 둔 체크박스를 하나하나 풀고 다시 체크하는 과정이 참 귀찮았습니다.
-* **원본 메모가 엉망이 되는 문제**: "이번 외출에만 잠깐 필요한 아이템"을 메모에 덧붙여 적었다가, 다음번에 쌀 때는 필요 없어서 지우다 보면 결국 원래 써둔 기본 템플릿 메모까지 엉망이 되곤 했습니다.
-* **팩인백의 해결책**: 자주 쓰는 기본 템플릿(**팩 보관함**)과 오늘 실제로 챙기는 공간(**가방**)을 분리했습니다. 보관함에서 팩을 꺼내 가방에 담고 마음껏 지우거나 체크해도, 나만의 기본 보관함 원본은 언제나 깨끗하게 유지됩니다.
+* **체크 풀고 다시 체크하기**: 지난번에 체크해 둔 걸 하나하나 풀고 다시 체크하는 과정이 번거로웠습니다.
+* **원본 메모가 엉망이 되는 문제**: "이번에만 필요한 것"을 덧붙였다 지우다 보면 기본 메모까지 망가지곤 했습니다.
+* **해결**: 자주 쓰는 기본 목록(**팩 보관함**)과 오늘 실제로 챙기는 공간(**가방**)을 나눴습니다. 가방에서 마음껏 지우고 체크해도 보관함 원본은 그대로입니다. 다 쌌으면 **다시 싸기** 한 번으로 체크만 풀립니다.
 
 ### 2. 메모 앱은 아쉽고, 노션은 너무 무거울 때
-* **기본 메모 앱**: 체크리스트로 쓰기엔 너무 밋밋하고, 다른 사람에게 보여주거나 공유하기가 은근히 불편합니다.
-* **노션(Notion)**: 아이템 한 번 싸자고 켜기엔 너무 무겁고 복잡하며, 밖에서 빠르게 확인하기엔 로딩이 답답합니다.
-* **팩인백**: 켜자마자 바로 뜨는 가벼운 속도에, 깔끔한 카드 디자인과 손쉬운 제스처를 더해 일상에서 가장 편하게 쓸 수 있도록 만들었습니다.
+* **기본 메모 앱**: 체크리스트로 쓰기엔 밋밋하고, 아이템이 많으면 끝없이 스크롤해야 하며, 함께 쓰기 불편합니다.
+* **노션**: 짐 한 번 싸자고 켜기엔 무겁고 느립니다.
+* **팩인백**: 바로 뜨는 가벼운 화면, 팩으로 나눠 한눈에 보이는 목록, 손가락을 따라오는 제스처로 일상에서 가장 편하게 쓰도록 만들었습니다.
 
 ---
 
-## 어떻게 구성되어 있나요? (Bag - Pack - Item)
+## 구성 (가방 - 팩 - 아이템)
 
-* **가방 (Bag)**: '오늘 외출', '주말 물놀이', '제주도 여행'처럼 **하나의 목적이나 일정**을 뜻합니다. 초대코드나 웹 링크로 가족, 친구와 함께 보며 체크할 수 있습니다.
-* **팩 (Pack)**: 가방 안에 쏙 들어가는 **카테고리 묶음(모듈)**입니다.
-  * **체크리스트 팩**: 챙길 물건들을 넣고 수량과 완료 여부를 톡톡 체크합니다.
-  * **메모 에디터 팩**: 아이템 목록 외에 챙겨야 할 주의사항, 장소 링크, 메모, 사진 등을 자유롭게 적어둡니다.
-  * **폴더 정리**: 팩이 많아지면 보관함에서 폴더를 만들어 깔끔하게 분류할 수 있습니다.
-* **아이템 (Item)**: 팩 안의 **개별 준비물 항목**입니다. 누가 챙길지 담당자를 정하거나 마감일을 둘 수 있고, 댓글이나 이모지 리액션도 남길 수 있습니다.
+* **가방**: '오늘 외출', '주말 물놀이', '제주도 여행'처럼 **하나의 목적이나 일정**. D-Day를 정하고, 가족·친구를 초대해 함께 체크합니다.
+* **팩**: 가방 안에 들어가는 **묶음**입니다.
+  * **체크리스트 팩**: 챙길 물건을 넣고 체크합니다.
+  * **메모팩**: 주의사항, 링크, 표, 사진·PDF를 자유롭게 적는 문서형 팩입니다.
+  * 팩 보관함에서는 폴더 안에 폴더를 만들어 정리할 수 있습니다.
+* **아이템**: 팩 안의 **개별 준비물**. 공유 가방에서는 누가 챙길지 담당자를 정할 수 있습니다.
 
 ---
 
-## 이렇게 활용할 수 있어요 (Use Cases & Reuse)
+## 이렇게 써요
 
-팩인백의 가장 큰 장점은 **한 번 만들어둔 팩을 여러 가방에서 마음껏 재사용**할 수 있다는 점입니다.
+**한 번 만든 팩을 여러 가방에서 재사용**하는 것이 핵심입니다.
 
-* **육아 & 나들이 (팩 재사용 예시)**
-  * `데일리 기저귀 가방` = [기본 수유/위생 팩] + [간식/장난감 팩]
-  * `여름 물놀이 기저귀 가방` = [기본 수유/위생 팩] + [물놀이/수영복 팩] + [상비약 팩]  
-    *(새로 다 쓸 필요 없이, 평소 쓰던 기본 팩들을 그대로 불러와 10초 만에 새 가방 완성)*
+* **육아 & 나들이**
+  * `데일리 기저귀 가방` = [수유/위생 팩] + [간식/장난감 팩]
+  * `여름 물놀이 가방` = [수유/위생 팩] + [물놀이 팩] + [상비약 팩]
 * **운동 & 취미**
-  * `평일 퇴근 후 헬스장` = [운동복/스트랩 팩] + [샤워용품 팩]
-  * `주말 원정 운동/사우나` = [운동복/스트랩 팩] + [사우나 팩] + [보충제 팩]
-  * 캠핑/백패킹 장비 챙기기
+  * `퇴근 후 헬스장` = [운동복 팩] + [샤워용품 팩]
+  * `주말 캠핑` = [텐트/장비 팩] + [주방 팩] + [상비약 팩]
 * **여행 & 출장**
-  * `1박 2일 단기 출장` = [세면도구 팩] + [노트북/충전기 팩] + [서류 팩]
-  * `3박 4일 해외 여행` = [세면도구 팩] + [노트북/충전기 팩] + [비행/입국 팩] + [의류 팩]
-* **가족 & 모임 준비**
-  * 피크닉/캠핑 준비물을 동행자별로 분담해서 체크
+  * `1박 2일 출장` = [세면도구 팩] + [노트북/충전기 팩] + [서류 팩]
+  * `해외 여행` = [세면도구 팩] + [충전기 팩] + [비행/입국 팩] + [의류 팩]
+* **가족 & 모임**: 피크닉·캠핑 준비물을 동행자별로 나눠 맡기
 
 ---
 
-## 주요 기능 (Key Features)
+## 주요 기능
 
-* **팩 보관함 & 폴더 관리**: 자주 쓰는 팩을 템플릿으로 보관하고 언제든 가방으로 불러옵니다. 아이폰 메모처럼 자유로운 폴더 트리로 깔끔하게 정리합니다.
-* **실시간 함께 체크하기 & 공유**:
-  * **초대코드로 동시 편집**: 6자리 코드로 최대 10명까지 같은 가방에 들어와 실시간으로 함께 체크하고, 캐릭터 아바타로 접속자를 확인합니다.
-  * **읽기 전용 웹 링크 제공**: 앱이 없거나 로그인하지 않은 상대방에게도 링크 하나로 현재 아이템 챙김 현황을 깔끔한 웹 화면으로 실시간 공유할 수 있습니다.
-* **Gemini AI 스마트 정리**:
-  * **AI 가방 점검**: 여행지나 일정에 맞춰 빠뜨린 필수 아이템이나 주의사항을 추천해 줍니다.
-  * **메모 스마트 변환**: 자유롭게 적어둔 텍스트 메모나 엑셀 표를 붙여넣으면 팩과 아이템 목록으로 알아서 예쁘게 구조화해 줍니다.
-* **내 취향에 맞춘 테마**: 팩 뷰(카드형)와 심플 뷰(노트형) 전환, 다크 모드, 12가지 포인트 컬러와 투명도 조절을 지원합니다.
-* **모바일 & 데스크톱 모두 지원**: 모바일 PWA/iOS 앱은 물론, 데스크톱에서는 3패널 화면으로 넓게 보며 드래그 앤 드롭으로 편하게 정리할 수 있습니다.
-* **완전한 오프라인 모드 지원**: 인터넷이 없는 환경에서도 가방과 팩을 자유롭게 생성, 편집, 백업/복원할 수 있는 데스크톱 전용 무설치(Portable) 버전을 지원합니다.
+* **가방 체크**: 아래 입력창에 바로 적으면 "미분류"에 쌓이고, 넣을 팩을 골라 바로 담을 수도 있습니다. 화면 폭에 따라 팩 안 아이템이 1~3열로 펼쳐져 스크롤이 짧습니다. "남은 것" 필터, 다 챙긴 팩 자동 접기, 다 챙긴 아이템 아래로, 화면 켜두기, 내 담당만 보기.
+* **팩 보관함**: 자주 쓰는 팩을 보관하고 가방으로 불러옵니다. 중첩 폴더, 순서 바꾸기, 빠른팩(+ 버튼으로 떠오르는 대로 바로 적기).
+* **함께 쓰기**: 초대 링크·코드로 같은 가방을 실시간으로 함께 체크하고, 접속 중인 사람을 아바타로 봅니다. 로그인 없이 볼 수 있는 읽기 전용 웹 링크도 만들 수 있습니다.
+* **메모팩**: 체크박스·표·코드블록, 마크다운 붙여넣기, 사진·PDF 첨부, 여러 기기 동시 편집, 보관함과 자동 동기화.
+* **AI (Google Gemini)**: 메모를 붙여넣으면 가방으로 만들어 주기, 미분류 아이템을 팩으로 나눠 담기, 빠진 것 확인, 날씨 기반 준비물 추천.
+* **홈**: 곧 출발·싸는 중 가방 캐러셀, 고정, 가방 폴더, 다녀온 가방은 보관함으로.
+* **넓은 화면**: 900px 이상은 [목록 | 상세] 2단, 1200px 이상은 [레일 | 목록 | 상세] 3단. 단축키(⌘/Ctrl + N 새로 만들기 · K 검색 · I 설정 · P 빠른팩 · Esc 닫기).
+* **연결이 끊겨도 그대로**: 로그인 상태에서 인터넷이 끊기면 저장해 둔 내용으로 계속 쓰고, 새로 만든 가방·팩도 연결되면 자동으로 올라갑니다. 로그인 없이 폐쇄망에서는 오프라인 모드(이 기기에 저장)로 시작하고, 나중에 로그인하면 계정으로 가져옵니다.
+* **화면 설정**: 라이트·다크·시스템, 글자 크기, 글꼴(Pretendard · 지마켓 산스 · 개구 · D2코딩).
 
----
+### 무료 · 프리미엄 (1회 구매)
 
-
-## 기술 스택 (Tech Stack)
-
-* **Frontend**: Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS, TipTap Editor, Tabler Icons
-* **Backend & API**: Next.js Serverless Routes, Firebase Admin SDK
-* **Database & Storage**: Firebase Firestore (로컬 캐시 오프라인 지원), Firebase Cloud Storage
-* **Authentication**: Firebase Authentication (이메일, Google, Apple, 익명 게스트)
-* **AI Engine**: Google Gemini API (Gemini 2.5 Flash)
-* **Mobile / Native**: Capacitor 6 (iOS/iPadOS, WKWebView, RevenueCat 인앱결제)
-* **Infra & Deploy**: Vercel (Edge CDN Caching)
+| 항목 | 무료 | 프리미엄 |
+| :--- | :--- | :--- |
+| 내가 만든 가방 | 3개 | 무제한 |
+| 참여한 가방 | 3개 | 무제한 |
+| 가방당 함께 쓰는 인원 | 2명 | 10명 |
+| 팩 보관함 | 10개 | 무제한 |
+| 가방 사진 | 1장 | 5장 |
+| 메모팩 PDF·파일 첨부 | 사진만 | 가능 |
+| 커스텀 URL | 짧은 URL만 | 가능 |
 
 ---
 
-## 프로젝트 구조 (Directory Structure)
+## 기술 스택
+
+* **Frontend**: Next.js 16 (App Router, Turbopack), React 19, Tailwind CSS 4, TipTap, Tabler Icons, Pretendard
+* **Backend**: Next.js API Routes, Firebase Admin SDK
+* **Database & Storage**: Firebase Firestore(오프라인 캐시), Cloud Storage
+* **Auth**: Firebase Authentication (이메일, Google, Apple, 게스트). 인증 메일은 Resend 발송 + Firebase 기본 메일 폴백
+* **AI**: Google Gemini API
+* **Mobile**: Capacitor 6 (iOS/iPadOS), RevenueCat 인앱결제
+* **Desktop**: Electron 34 포터블(Windows zip · macOS zip/dmg), GitHub Actions로 빌드
+* **Deploy**: Vercel (+ Vercel Cron: 관리자 통계 스냅샷)
+
+---
+
+## 프로젝트 구조
 
 ```
 packinbag/
-├── app/                  # Next.js App Router 페이지 및 API 라우트
-│   ├── api/              # AI, 가방/팩 관리, 단축 링크, 관리자 API
-│   ├── s/[code]/         # 단축 URL 리다이렉트 (Edge CDN 캐시)
-│   ├── p/[token]/        # 가방 읽기 전용 웹 공유 페이지
-│   └── layout.tsx        # 글로벌 레이아웃 및 폰트 설정
-├── components/           # UI 컴포넌트 및 모달
-│   ├── screens/          # 화면 단위 컴포넌트 (HomeScreen, BagEditorScreen 등)
-│   └── auth/             # 로그인/회원가입 컴포넌트
-├── contexts/             # AuthProvider (인증, 프로필, 테마, 실시간 동기화)
-├── lib/                  # 비즈니스 로직 및 Firebase 서비스
-│   ├── bagsService.ts    # 가방 Firestore CRUD
-│   ├── packsService.ts   # 팩 보관함 CRUD & 트리 유틸
-│   ├── packSync.ts       # 가방 ↔ 보관함 동기화 로직
-│   └── firebase.ts       # Firebase 클라이언트 SDK 초기화
-├── docs/                 # 기능 명세서, QA 체크리스트, 사용자 가이드
-├── firestore.rules       # Firestore 보안 규칙
-└── capacitor.config.ts   # Capacitor 네이티브 앱 설정
+├── app/
+│   ├── api/              # 가방·팩 생성, 참여, AI, 짧은 URL, 결제 웹훅, 관리자 API
+│   ├── admin/            # 관리자 사이트(대시보드·유저·문의·이용권·공지·활동 로그)
+│   ├── p/[token]/        # 팩 공개 공유 페이지
+│   ├── v/[token]/        # 가방 읽기 전용 웹 보기
+│   ├── s/[code]/ c/[code]/ # 짧은 URL · 커스텀 URL
+│   ├── dev/ui/           # v2 컴포넌트 확인 페이지(개발 서버 전용)
+│   └── fonts/            # 앱 글꼴(셀프 호스팅)
+├── components/
+│   ├── v2/               # 앱 화면
+│   │   ├── shell/        # AppShell·WideShell·탭바·연결 상태 줄
+│   │   ├── home/ bag/ packs/ note/ settings/ auth/
+│   │   ├── sheets/       # 공통 시트(빠른팩·공지·알림·AI 등)
+│   │   └── ui/           # 기본 컴포넌트(Sheet·Button·Screen·PageStack 등)
+│   ├── screens/          # 메모팩 편집기
+│   ├── editor/           # TipTap 확장
+│   └── admin/            # 관리자 화면 공통 틀
+├── hooks/bag/            # 가방 화면 로직 훅
+├── contexts/             # AuthProvider(인증·프로필·실시간 동기화)
+├── lib/                  # 서비스·유틸(bagsService, packsService, localBagsService, packSync 등)
+│   └── v2/               # 연결 판단, 만들기 대기, 글꼴, 셸 유틸
+├── electron/             # 데스크톱 포터블 메인 프로세스
+├── docs/                 # 기능 명세, QA 체크리스트, 가이드
+├── firestore.rules · storage.rules
+└── capacitor.config.ts
 ```
 
 ---
 
-## 로컬 개발 환경 설정 (Getting Started)
+## 로컬 개발
 
-### 1. 패키지 설치
+### 1. 설치
 ```bash
 npm install
 ```
 
-### 2. 환경 변수 설정 (`.env.local`)
+### 2. 환경 변수
+`.env.local.example`을 `.env.local`로 복사해 값을 채웁니다. 주요 항목:
+
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_MASTER_EMAILS=          # 관리자 이메일(쉼표 구분)
 
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_CLIENT_EMAIL=your_service_account_email
-FIREBASE_PRIVATE_KEY="your_private_key"
-
-GEMINI_API_KEY=your_gemini_api_key
+FIREBASE_SERVICE_ACCOUNT_KEY=       # 서비스 계정 JSON 한 줄
+GEMINI_API_KEY=
+RESEND_API_KEY=                     # 없으면 Firebase 기본 인증 메일로 폴백
+NEXT_PUBLIC_APP_URL=
+CRON_SECRET=
+SHORT_URL_BASE_URL=
+NEXT_PUBLIC_REVENUECAT_IOS_API_KEY=
+REVENUECAT_WEBHOOK_AUTH_HEADER=
 ```
 
-### 3. 개발 서버 실행
+> 지금은 로컬과 운영이 같은 Firebase 프로젝트를 씁니다. 로컬 테스트가 운영 데이터에 그대로 반영되니 주의하세요.
+
+### 3. 실행 · 빌드
 ```bash
 npm run dev
+rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin && npm run build
 ```
 
-### 4. 프로덕션 빌드
+### 4. 데스크톱 포터블 배포
 ```bash
-npm run build
+npm version 1.0.x --no-git-tag-version
+git add package.json package-lock.json && git commit -m "chore: v1.0.x" && git push origin main
+git tag v1.0.x-offline-portable && git push origin v1.0.x-offline-portable
 ```
+`v*offline*` 또는 `v*portable*` 태그에만 GitHub Actions가 반응합니다. 끝나면 Releases에 Windows zip, macOS zip·dmg가 올라갑니다.
+
+### 5. iOS
+```bash
+npm run cap:sync
+npm run cap:open:ios
+```
+iOS 앱은 운영 웹(server.url)을 불러오는 구조라, 웹 배포가 곧 앱 반영입니다.
 
 ---
 
-## 관련 문서 (Documentation)
+## 관련 문서
 
-* [앱스토어 배포 가이드](docs/app_store_guide.md)
-* [환경 설정 및 셋업 가이드](docs/setup_guide.md)
+* [기능 명세](docs/packinbag_settings_spec_v1.md)
 * [QA 체크리스트](docs/qa_checklist.md)
+* [사용자 가이드](docs/packinbag_user_guide.md)
+* [앱스토어 배포 가이드](docs/app_store_guide.md)
+* [환경 설정 가이드](docs/setup_guide.md)
+* [릴리즈 노트](CHANGELOG.md)
