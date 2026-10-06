@@ -13,7 +13,7 @@
 //    - CACHE_NAME 갱신 시 activate 이벤트에서 이전 캐시 버킷 자동 전수 삭제.
 // ============================================================================
 
-const CACHE_NAME = "pib-pwa-v1.0.15";
+const CACHE_NAME = "pib-pwa-v1.0.26";
 
 // 설치 시점에 오프라인 구동을 위해 미리 저장할 핵심 자산 목록
 const PRECACHE_ASSETS = [
@@ -135,7 +135,7 @@ self.addEventListener("fetch", (event) => {
             });
           }
           return networkRes;
-        });
+        }).catch(() => Response.error());
       })
     );
     return;
@@ -153,6 +153,8 @@ self.addEventListener("fetch", (event) => {
         }
         return networkRes;
       })
-      .catch(() => caches.match(req))
+      // 캐시에도 없으면 네트워크 오류 응답을 돌려준다. 예전에는 undefined를 돌려줘서
+      // "Failed to convert value to 'Response'" 오류가 콘솔에 떴다(2026-10-07)
+      .catch(async () => (await caches.match(req)) || Response.error())
   );
 });
