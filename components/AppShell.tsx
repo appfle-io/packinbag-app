@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { enableNetwork } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Bag, Item, Pack, Announcement, ImportedBagResult } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
@@ -104,6 +102,7 @@ import {
 import { OfflineImportSheet } from "@/components/v2/settings/OfflineImportSheet";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import { ConnectionBar } from "@/components/v2/shell/ConnectionBar";
+import { FirestoreRecoveryOverlay } from "@/components/v2/shell/FirestoreRecoveryOverlay";
 import { OpenDetailContext } from "@/lib/v2/openDetail";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
 
@@ -171,20 +170,9 @@ export default function AppShell() {
     }
   }, [libraryPacks, editingPack]);
 
-  // 기기가 오프라인에서 온라인으로 복구될 때 Firestore 네트워크 활성화
-  useEffect(() => {
-    const handleOnline = async () => {
-      try {
-        await enableNetwork(db);
-      } catch (err) {
-        console.warn("[AppShell] enableNetwork fallback:", err);
-      }
-    };
-    window.addEventListener("online", handleOnline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-    };
-  }, []);
+  // 끊김 → 연결 때 Firestore 네트워크 다시 켜기는 lib/v2/connectivity 한 곳에서만 한다.
+  // (예전에는 여기서도 online 이벤트마다 enableNetwork를 불렀는데, 절전에서 깨어날 때 SDK의 자체 재연결과
+  // 겹쳐 불리는 것을 줄이려고 뺐다. 2026-10-06)
 
   const [displayedSheetPack, setDisplayedSheetPack] = useState<Pack | null>(null);
   useEffect(() => {
@@ -1582,6 +1570,7 @@ export default function AppShell() {
 
     return (
       <>
+        <FirestoreRecoveryOverlay />
         <ConnectionBar />
         <WideShell
           tab={tab}
@@ -1679,6 +1668,7 @@ export default function AppShell() {
 
   return (
     <>
+      <FirestoreRecoveryOverlay />
       <ConnectionBar />
       <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top overflow-hidden">
         <EmailVerifyBanner />
