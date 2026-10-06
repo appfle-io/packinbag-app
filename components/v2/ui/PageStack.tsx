@@ -79,6 +79,15 @@ export function PageStack({
 
   const widthOf = () => containerRef.current?.clientWidth || window.innerWidth;
 
+  // 맨 위 화면이 바뀌면 가려지는 층에 남은 포커스(방금 누른 폴더 줄 등)를 푼다
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) return;
+    const topEl = layerEls.current.get(top);
+    if (topEl?.contains(active)) return;
+    if (containerRef.current?.contains(active)) active.blur();
+  }, [top]);
+
   useLayoutEffect(() => {
     if (!motion) return;
     const els = layerEls.current;
@@ -204,7 +213,8 @@ export function PageStack({
               if (node) layerEls.current.set(key, node);
               else layerEls.current.delete(key);
             }}
-            aria-hidden={isTop ? undefined : true}
+            /* 가려진 층은 inert만 붙인다(포커스·클릭·보조기기 모두 빠짐). aria-hidden을 같이 붙이면 방금 누른 줄(버튼)에
+               포커스가 남아 있는 채로 숨겨져 크롬이 "Blocked aria-hidden" 경고를 낸다(10/6) */
             inert={isTop ? undefined : true}
             className={cx("absolute inset-0 flex flex-col bg-canvas", key === below && !isTop && "invisible")}
           >
