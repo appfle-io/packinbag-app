@@ -15,7 +15,9 @@ import {
 import GuestMemoPackView from "@/components/GuestMemoPackView";
 import GuestMemoArticleView from "@/components/GuestMemoArticleView";
 
-export const dynamic = "force-dynamic";
+// 예전에는 force-dynamic이라 볼 때마다 함수 실행 + Firestore 읽기가 생겼다. 5분 캐시하고,
+// 공유를 갱신하면 app/api/share-pack이 revalidatePath로 곧바로 비운다(2026-10-07).
+export const revalidate = 300;
 
 interface GuestPackPageProps {
   params: Promise<{ token: string }>;

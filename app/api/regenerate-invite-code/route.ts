@@ -64,13 +64,25 @@ export async function POST(req: NextRequest) {
   }
 
   const oldCode = bag.inviteCode;
-  const newCode = generateInviteCode();
+  let newCode = "";
 
   try {
-    const batch = db.batch();
-    batch.set(db.collection("inviteCodes").doc(newCode), { bagId });
-    batch.update(bagRef, { inviteCode: newCode, updatedAt: new Date().toISOString() });
-    await batch.commit();
+    // 새 코드가 다른 가방 코드와 겹치면 그 가방의 초대를 가로채게 되므로, 트랜잭션으로 빈 코드를 고른다.
+    await db.runTransaction(async (tx) => {
+      let picked = "";
+      for (let i = 0; i < 5; i++) {
+        const candidate = generateInviteCode();
+        const s = await tx.get(db.collection("inviteCodes").doc(candidate));
+        if (!s.exists) {
+          picked = candidate;
+          break;
+        }
+      }
+      if (!picked) throw new Error("빈 초대코드를 찾지 못했어요");
+      tx.create(db.collection("inviteCodes").doc(picked), { bagId });
+      tx.update(bagRef, { inviteCode: picked, updatedAt: new Date().toISOString() });
+      newCode = picked;
+    });
 
     // 옛 코드는 여기(Admin SDK)에서만 실제로 지울 수 있다 - 실패해도(이미 없는 등) 재발급
     // 자체는 이미 끝났으니 전체 요청을 실패시키지 않는다.

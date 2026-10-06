@@ -12,8 +12,12 @@ import { db } from "@/lib/firebase";
 // bags/{bagId}/presence/{uid} 문서로 저장하고, 주기적으로 updatedAt을 갱신(heartbeat)해서
 // 죽은 접속(브라우저를 그냥 닫아버린 경우)은 클라이언트에서 오래된 항목으로 판단해 걸러낸다.
 
-const HEARTBEAT_MS = 35000; // 35초마다 살아있다고 갱신 (기존 20초에서 완화하여 쓰기 비용 절감)
-export const PRESENCE_STALE_MS = 80000; // 80초 넘게 갱신 없으면 나간 것으로 간주 (네트워크 지연 마진)
+const HEARTBEAT_MS = 60000; // 60초마다 살아있다고 갱신 (35초 → 60초, 2026-10-07 쓰기 비용 절감)
+export const PRESENCE_STALE_MS = 150000; // 150초 넘게 갱신 없으면 나간 것으로 간주 (하트비트 2번 + 여유)
+// 화면은 보이지만 자리를 비운 경우(넓은 화면·포터블에 가방을 열어 둔 채 두기). 이 시간 동안 입력이 없으면 하트비트를
+// 멈추고 접속 표시를 지운다. 다시 만지면 곧바로 돌아온다. presence 쓰기 1번마다 규칙의 get(bags/..) 읽기가 1번 붙어서 여기서 줄인다.
+const IDLE_MS = 3 * 60 * 1000;
+const ACTIVITY_EVENTS = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
 
 function presenceCol(bagId: string) {
   return collection(db, "bags", bagId, "presence");
@@ -72,29 +76,56 @@ export function joinPresence(
   if (!isSharedBag) return () => {};
 
   const ref = doc(presenceCol(bagId), uid);
+  let lastActivity = Date.now();
+  let idle = false;
+  let interval: number | null = null;
+
+  const stop = () => {
+    if (interval !== null) {
+      window.clearInterval(interval);
+      interval = null;
+    }
+  };
   const beat = () => {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    if (Date.now() - lastActivity > IDLE_MS) {
+      // 자리를 비움: 하트비트를 멈추고 다른 멤버 화면에서도 빠지게 한다
+      if (!idle) {
+        idle = true;
+        stop();
+        deleteDoc(ref).catch(() => {});
+      }
+      return;
+    }
     setDoc(
       ref,
       { nickname, avatarId, updatedAt: serverTimestamp() },
       { merge: true }
     ).catch(() => {});
   };
+  const start = () => {
+    beat();
+    if (interval === null && !idle) interval = window.setInterval(beat, HEARTBEAT_MS);
+  };
 
-  beat();
-  let interval: number | null = window.setInterval(beat, HEARTBEAT_MS);
+  const handleActivity = () => {
+    lastActivity = Date.now();
+    if (idle) {
+      idle = false;
+      start();
+    }
+  };
+
+  start();
 
   const handleVisibility = () => {
     if (document.visibilityState === "hidden") {
-      if (interval !== null) {
-        window.clearInterval(interval);
-        interval = null;
-      }
+      stop();
     } else {
-      beat();
-      if (interval === null) {
-        interval = window.setInterval(beat, HEARTBEAT_MS);
-      }
+      // 화면으로 돌아온 것 자체를 활동으로 본다
+      lastActivity = Date.now();
+      idle = false;
+      start();
     }
   };
 
@@ -104,13 +135,13 @@ export function joinPresence(
 
   document.addEventListener("visibilitychange", handleVisibility);
   window.addEventListener("pagehide", handleUnload);
+  ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, handleActivity, { passive: true, capture: true }));
 
   return () => {
-    if (interval !== null) {
-      window.clearInterval(interval);
-    }
+    stop();
     document.removeEventListener("visibilitychange", handleVisibility);
     window.removeEventListener("pagehide", handleUnload);
+    ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, handleActivity, { capture: true }));
     deleteDoc(ref).catch(() => {});
   };
 }

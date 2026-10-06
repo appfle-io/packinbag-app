@@ -14,6 +14,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { checkIsMaster } from "@/lib/adminApiAuth";
 import { AI_FREE_DAILY_LIMIT, todayKstKey } from "@/lib/aiUsageConfig";
+import { isUnlockCodeValidFor } from "@/lib/unlockCodeCheck";
 
 export class AiAuthError extends Error {}
 
@@ -112,14 +113,10 @@ export async function verifyAndCheckAiQuota(req: Request): Promise<AiQuotaCheckR
 
     if (claimedCode) {
       const codeSnap = await db.collection("unlockCodes").doc(claimedCode).get();
-      if (codeSnap.exists) {
-        const codeData = codeSnap.data();
-        const active = codeData?.active ?? true;
-        const validUntil = codeData?.validUntil?.toDate?.() as Date | undefined;
-        const notExpired = !validUntil || validUntil.getTime() > Date.now();
-        if (active && notExpired) {
-          return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT, uid };
-        }
+      // 내가 등록한 코드이고 무효화·만료가 아니어야 무제한(lib/unlockCodeCheck.ts). 예전에는 지금 쓰지 않는 필드
+      // (active·validUntil)를 봐서 무효화·만료된 코드나 남의 코드를 써넣어도 무제한이었다(2026-10-07)
+      if (isUnlockCodeValidFor(codeSnap.data(), uid)) {
+        return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT, uid };
       }
     }
 
@@ -147,8 +144,9 @@ export async function verifyAndCheckAiQuota(req: Request): Promise<AiQuotaCheckR
     // usedCount는 이번 요청 전 횟수(라우트가 성공 후 +1 해서 응답에 싣는다)
     return { allowed: reserved, unlimited: false, usedCount: count, limit: AI_FREE_DAILY_LIMIT, uid };
   } catch (err) {
+    // 검사가 실패하면 막는다(예전에는 허용해서, 요청을 많이 보내 오류를 유도하면 한도를 넘길 수 있었다)
     console.error("[팩인백] Firestore AI 사용량 DB 검증 예외:", err);
-    return { allowed: true, unlimited: false, usedCount: 0, limit: AI_FREE_DAILY_LIMIT, uid };
+    return { allowed: false, unlimited: false, usedCount: 0, limit: AI_FREE_DAILY_LIMIT, uid };
   }
 }
 

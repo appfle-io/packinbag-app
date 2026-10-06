@@ -62,6 +62,22 @@ interface CachedStatsPayload {
 }
 let statsCache: { data: CachedStatsPayload; cachedAtMs: number } | null = null;
 const STATS_CACHE_TTL_MS = 5 * 60 * 1000;
+// 인메모리 캐시는 Vercel 함수가 새로 뜨면(콜드 스타트) 사라져서, 그때마다 users·bags 전체를 다시 읽었다.
+// 계산 결과를 Firestore 문서 하나에도 두고, 이 시간 안에는 그 문서(읽기 1번)만 본다. 새로고침(force=1)은 항상 다시 계산(2026-10-07).
+// adminDashboardCache는 firestore.rules에 규칙이 없어 클라이언트는 읽을 수 없다(Admin SDK만).
+const STORED_CACHE_TTL_MS = 60 * 60 * 1000;
+const storedCacheRef = () => adminDb().collection("adminDashboardCache").doc("latest");
+
+function respondCached(data: CachedStatsPayload, cachedAtMs: number) {
+  return NextResponse.json({
+    ...data.stats,
+    insights: data.insights,
+    kpisWeekAgo: data.kpisWeekAgo,
+    trend: data.trend,
+    generatedAt: new Date(cachedAtMs).toISOString(),
+    cached: true,
+  });
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -79,14 +95,20 @@ export async function GET(req: NextRequest) {
   const force = req.nextUrl.searchParams.get("force") === "1";
   const now = Date.now();
   if (!force && statsCache && now - statsCache.cachedAtMs < STATS_CACHE_TTL_MS) {
-    return NextResponse.json({
-      ...statsCache.data.stats,
-      insights: statsCache.data.insights,
-      kpisWeekAgo: statsCache.data.kpisWeekAgo,
-      trend: statsCache.data.trend,
-      generatedAt: new Date(statsCache.cachedAtMs).toISOString(),
-      cached: true,
-    });
+    return respondCached(statsCache.data, statsCache.cachedAtMs);
+  }
+  if (!force) {
+    try {
+      const stored = await storedCacheRef().get();
+      const cachedAtMs = stored.get("cachedAtMs") as number | undefined;
+      const data = stored.get("data") as CachedStatsPayload | undefined;
+      if (data && typeof cachedAtMs === "number" && now - cachedAtMs < STORED_CACHE_TTL_MS) {
+        statsCache = { data, cachedAtMs };
+        return respondCached(data, cachedAtMs);
+      }
+    } catch (err) {
+      console.warn("[팩인백] 대시보드 저장 캐시 읽기 실패(다시 계산):", err);
+    }
   }
 
   try {
@@ -114,6 +136,9 @@ export async function GET(req: NextRequest) {
       data: { stats, insights, kpisWeekAgo: weekAgoKpis, trend },
       cachedAtMs: Date.now(),
     };
+    await storedCacheRef()
+      .set(JSON.parse(JSON.stringify({ data: statsCache.data, cachedAtMs: statsCache.cachedAtMs })))
+      .catch((err) => console.warn("[팩인백] 대시보드 캐시 저장 실패:", err));
 
     return NextResponse.json({
       ...stats,

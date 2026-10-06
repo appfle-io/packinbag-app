@@ -79,6 +79,11 @@ export async function POST(req: NextRequest) {
     // 정확하게 걸러내기 어렵다(예전 데이터는 이 필드 자체가 없을 수 있음). 소유 가방 개수는
     // 많아야 몇 개 수준이라 전체를 가져와도 성능에 문제되지 않는다.
     const existing = await db.collection("bags").where("ownerId", "==", uid).get();
+    // 만들기 대기 재시도: 지난번에 이미 만들어졌는데 응답만 못 받은 경우 개수 초과로 거절하지 않고 그대로 돌려준다
+    const already = existing.docs.find((d) => d.id === draft.id);
+    if (already) {
+      return NextResponse.json({ bag: { ...(already.data() as Bag), id: already.id } });
+    }
     const activeCount = existing.docs.filter((d) => !(d.data() as Bag).trashedByOwnerAt).length;
     if (activeCount >= FREE_MAX_ACTIVE_BAGS) {
       return NextResponse.json(
@@ -91,7 +96,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const inviteCode = generateInviteCode();
   const now = new Date().toISOString();
   const joinedAt: BagMemberProfile = {
     nickname: ownerProfile.nickname,
@@ -99,25 +103,53 @@ export async function POST(req: NextRequest) {
     joinedAt: now,
   };
 
-  const finalBag: Bag = {
-    ...draft,
-    ownerId: uid,
-    memberIds: [uid],
-    memberProfiles: { [uid]: joinedAt },
-    inviteCode,
-    publicShareToken: generateShareToken(),
-    updatedAt: now,
-  };
+  const bagRef = db.collection("bags").doc(draft.id);
 
   try {
-    const batch = db.batch();
-    batch.set(db.collection("bags").doc(draft.id), stripUndefined(serializeBag(finalBag)));
-    batch.set(db.collection("inviteCodes").doc(inviteCode), { bagId: draft.id });
-    await batch.commit();
+    // 트랜잭션 + create로 묶는 이유:
+    // 1. draft.id는 클라이언트가 정한다. 예전 batch.set은 같은 id의 가방이 있으면 통째 덮어써서,
+    //    남의 bagId만 알면 그 가방을 지우고 자기 것으로 만들 수 있었다.
+    //    같은 id가 이미 있고 내 가방이면(만들기 대기 재시도 등) 그대로 돌려주고, 남의 것이면 거부한다.
+    // 2. 초대코드가 기존 코드와 겹치면 다른 가방의 코드를 가로채던 것을 막는다.
+    const result = await db.runTransaction(async (tx) => {
+      const existing = await tx.get(bagRef);
+      if (existing.exists) {
+        const data = existing.data() as Bag;
+        if (data.ownerId === uid) return { kind: "exists" as const, bag: { ...data, id: existing.id } };
+        return { kind: "conflict" as const };
+      }
+
+      let inviteCode = "";
+      for (let i = 0; i < 5; i++) {
+        const candidate = generateInviteCode();
+        const codeSnap = await tx.get(db.collection("inviteCodes").doc(candidate));
+        if (!codeSnap.exists) {
+          inviteCode = candidate;
+          break;
+        }
+      }
+      if (!inviteCode) throw new Error("초대코드를 만들지 못했어요");
+
+      const finalBag: Bag = {
+        ...draft,
+        ownerId: uid,
+        memberIds: [uid],
+        memberProfiles: { [uid]: joinedAt },
+        inviteCode,
+        publicShareToken: generateShareToken(),
+        updatedAt: now,
+      };
+      tx.create(bagRef, stripUndefined(serializeBag(finalBag)));
+      tx.create(db.collection("inviteCodes").doc(inviteCode), { bagId: draft.id });
+      return { kind: "created" as const, bag: finalBag };
+    });
+
+    if (result.kind === "conflict") {
+      return NextResponse.json({ error: "가방 생성에 실패했어요" }, { status: 409 });
+    }
+    return NextResponse.json({ bag: result.bag });
   } catch (err) {
     console.error("[팩인백] 가방 생성 실패(서버):", err);
     return NextResponse.json({ error: "가방 생성에 실패했어요" }, { status: 500 });
   }
-
-  return NextResponse.json({ bag: finalBag });
 }

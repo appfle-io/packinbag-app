@@ -49,19 +49,26 @@ service firebase.storage {
     // isPremiumServer(lib/premiumServer.ts)와 동일한 판정 기준을 규칙 언어로 옮긴 것.
     // 마스터 계정이거나, users/{uid}.unlockCode가 실제로 unlockCodes 컬렉션에 존재하고
     // 지금도 유효(무효화/만료 안 됨)해야 프리미엄으로 본다.
+    // 2026-10-07: lib/unlockCodeCheck.ts와 같은 기준으로 바꾼다. 인앱결제 구매(premiumPurchase - 서버만 씁)도 인정하고,
+    // unlockCode는 "내가 등록한"(claimedBy.uid == 본인) 코드만 인정한다. unlockCode는 클라이언트가 쓸 수 있는
+    // 필드라 예전처럼 "존재하고 무효화 아님"만 보면 남의 코드를 써넣어 프리미엄이 됐고, 구매자는 여기서 빠져
+    // 메모 첨부·PDF를 올리지 못했다.
     function isPremium() {
       let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
       let code = userDoc.get('unlockCode', null);
-      return isMaster() || (
-        code != null &&
-        firestore.exists(/databases/(default)/documents/unlockCodes/$(code)) &&
-        firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.get('status', 'active') != 'invalidated' &&
+      return isMaster() ||
+        userDoc.get('premiumPurchase', {}).get('purchased', false) == true ||
         (
-          !('expiresAt' in firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data) ||
-          firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.expiresAt == null ||
-          firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data.expiresAt > request.time
-        )
-      );
+          code != null &&
+          firestore.exists(/databases/(default)/documents/unlockCodes/$(code)) &&
+          isCodeMine(firestore.get(/databases/(default)/documents/unlockCodes/$(code)).data)
+        );
+    }
+
+    function isCodeMine(c) {
+      return c.get('status', '') == 'claimed' &&
+        c.get('claimedBy', {}).get('uid', '') == request.auth.uid &&
+        (c.get('expiresAt', null) == null || c.expiresAt > request.time);
     }
 
     // 2026-08~: PDF만 따로 취급하던 것을 "이미지가 아닌 모든 파일"로 일반화했다.
@@ -79,13 +86,16 @@ service firebase.storage {
           (!isImage(resource.contentType) && isPremium())
         );
 
-      allow write: if request.auth != null &&
+      allow create, update: if request.auth != null &&
         isMemberOf(bagId) &&
         !isOwnerLockedOf(bagId) &&
         (
           (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
           (!isImage(request.resource.contentType) && isPremium() && request.resource.size < 10 * 1024 * 1024)
         );
+
+      // 지우기는 멤버면 된다(잠김·프리미엄과 무관) - 가방 영구삭제 때 첨부를 정리할 수 있어야 한다(2026-10-07)
+      allow delete: if request.auth != null && isMemberOf(bagId);
     }
 
     // 가방 안 메모팩(kind==='editor')의 첨부파일: 프리미엄 회원만 사진/파일 첨부 가능 (무료 회원은 첨부 불가).
@@ -97,7 +107,7 @@ service firebase.storage {
           (!isImage(resource.contentType) && isPremium())
         );
 
-      allow write: if request.auth != null &&
+      allow create, update: if request.auth != null &&
         isMemberOf(bagId) &&
         !isOwnerLockedOf(bagId) &&
         isPremium() &&
@@ -105,6 +115,9 @@ service firebase.storage {
           (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
           (!isImage(request.resource.contentType) && request.resource.size < 10 * 1024 * 1024)
         );
+
+      // 지우기는 멤버면 된다. 예전에는 write 하나로 묶여 있어 무료 회원은 첨부를 지울 수도 없었다(파일이 남음)
+      allow delete: if request.auth != null && isMemberOf(bagId);
     }
 
     // 팩 보관함(개인 공간) 메모팩의 첨부파일: 프리미엄 회원 본인 전용
@@ -116,13 +129,16 @@ service firebase.storage {
           (!isImage(resource.contentType) && isPremium())
         );
 
-      allow write: if request.auth != null &&
+      allow create, update: if request.auth != null &&
         (request.auth.uid == userId || isMaster()) &&
         isPremium() &&
         (
           (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
           (!isImage(request.resource.contentType) && request.resource.size < 10 * 1024 * 1024)
         );
+
+      // 본인은 프리미엄이 끝난 뒤에도 자기 첨부를 지울 수 있다(팩 영구삭제·회원 탈퇴 정리)
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
   }
 }

@@ -87,11 +87,22 @@ export async function POST(req: NextRequest) {
     }
 
     const bagData = bagSnap.data();
+    // 초대코드 문서가 가리키는 가방의 "지금" 코드와 같아야만 참여된다.
+    // - 재발급으로 바뀐 옛 코드, 가방 삭제 뒤 남은 코드 문서로는 못 들어온다
+    // - inviteCodes 문서를 위조해 남의 bagId를 가리키게 해도 못 들어온다(규칙도 create false)
+    if ((bagData?.inviteCode as string | undefined)?.toUpperCase() !== cleanCode) {
+      return NextResponse.json({ error: "해당 초대코드의 가방을 찾을 수 없어요" }, { status: 404 });
+    }
+    if (bagData?.trashedByOwnerAt) {
+      return NextResponse.json({ error: "가방이 삭제되었거나 존재하지 않아요" }, { status: 404 });
+    }
+
     const memberIds = (bagData?.memberIds as string[] | undefined) ?? [];
     const ownerId = bagData?.ownerId as string | undefined;
     const isAlreadyMember = memberIds.includes(uid);
 
     // 이미 멤버면 아무것도 검사하지 않고 그대로 들어간다(프로필 스냅샷만 갱신)
+    let ownerPremium: boolean | null = null;
     if (!isAlreadyMember) {
       // 3. 가방 정원(최대 10명) 검사
       if (memberIds.length >= MAX_BAG_MEMBERS) {
@@ -103,7 +114,7 @@ export async function POST(req: NextRequest) {
 
       // 4. 만든 사람이 무료면 2명까지. 이미 2명 이상일 때만 만든 사람을 조회한다(읽기 최소화)
       if (ownerId && memberIds.length >= FREE_MAX_BAG_MEMBERS) {
-        const ownerPremium = await isOwnerPremium(ownerId);
+        ownerPremium = await isOwnerPremium(ownerId);
         if (!ownerPremium) {
           return NextResponse.json(
             {
@@ -151,10 +162,47 @@ export async function POST(req: NextRequest) {
       joinedAt: new Date().toISOString(),
     };
 
-    await bagRef.update({
-      memberIds: FieldValue.arrayUnion(uid),
-      [`memberProfiles.${uid}`]: profileEntry,
+    // 검사와 쓰기 사이에 다른 사람이 먼저 들어오거나 코드가 재발급될 수 있어서,
+    // 트랜잭션으로 최신 문서를 다시 보고 정원·코드를 한 번 더 확인한 뒤 쓴다.
+    const outcome = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(bagRef);
+      if (!fresh.exists) return "gone" as const;
+      const d = fresh.data();
+      if ((d?.inviteCode as string | undefined)?.toUpperCase() !== cleanCode) return "gone" as const;
+      const ids = (d?.memberIds as string[] | undefined) ?? [];
+      if (!ids.includes(uid)) {
+        if (ids.length >= MAX_BAG_MEMBERS) return "full" as const;
+        // 처음 볼 때는 2명 미만이라 만든 사람을 안 봤는데, 그 사이 2명이 됐으면 여기서 다시 판정
+        // (처음에 무료로 판정됐으면 이미 위에서 돌려보냈다)
+        if (ids.length >= FREE_MAX_BAG_MEMBERS && ownerPremium === null && ownerId) {
+          if (!(await isOwnerPremium(ownerId))) return "member-limit" as const;
+        }
+      }
+      tx.update(bagRef, {
+        memberIds: FieldValue.arrayUnion(uid),
+        [`memberProfiles.${uid}`]: profileEntry,
+      });
+      return "ok" as const;
     });
+
+    if (outcome === "gone") {
+      return NextResponse.json({ error: "해당 초대코드의 가방을 찾을 수 없어요" }, { status: 404 });
+    }
+    if (outcome === "full") {
+      return NextResponse.json(
+        { error: `가방 인원이 가득 찼어요 (최대 ${MAX_BAG_MEMBERS}명)` },
+        { status: 400 }
+      );
+    }
+    if (outcome === "member-limit") {
+      return NextResponse.json(
+        {
+          code: "BAG_MEMBER_LIMIT",
+          error: `이 가방은 ${FREE_MAX_BAG_MEMBERS}명까지만 함께 쓸 수 있어요. 가방을 만든 사람이 프리미엄이면 ${MAX_BAG_MEMBERS}명까지 함께할 수 있어요.`,
+        },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json({ bagId, joined: true });
   } catch (err) {

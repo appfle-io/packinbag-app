@@ -39,7 +39,7 @@ import {
   dismissAnnouncementRemote,
   isAnnouncementActive,
 } from "@/lib/announcementsService";
-import { deleteBagImage } from "@/lib/storageService";
+import { bagFileUrls, deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
 import {
   getLocalBags,
   saveLocalBag,
@@ -75,6 +75,7 @@ import {
   QUICK_PACK_ID,
   PremiumLimitError,
   computeLockedBagIds,
+  computeLockedPackIds,
   isTrashExpired,
 } from "@/lib/premiumLimits";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
@@ -105,6 +106,7 @@ import { ConnectionBar } from "@/components/v2/shell/ConnectionBar";
 import { FirestoreRecoveryOverlay } from "@/components/v2/shell/FirestoreRecoveryOverlay";
 import { OpenDetailContext } from "@/lib/v2/openDetail";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
+import { getApiUrl } from "@/lib/apiBase";
 
 // 시작 공지 시트에 띄울 항목(안 본 공지)
 type AnnouncementEntry = { id: string; announcement: Announcement; onDismiss: () => void };
@@ -306,18 +308,26 @@ export default function AppShell() {
     return () => window.removeEventListener(RECONNECTED_EVENT, run);
   }, [user, isOfflineMode, show]);
 
-  const lastSyncedProfileRef = useRef<string | null>(null);
+  const lastSyncedProfileRef = useRef<{ key: string | null; bagIds: Set<string> }>({ key: null, bagIds: new Set() });
 
   // 내 닉네임/아바타를 바꾼 뒤(혹은 최초 로드 시) 각 공유 가방에 찍힌 memberProfiles 스냅샷이
-  // 최신 프로필과 다르면 그 가방만 가볍게 고쳐쓴다. 프로필(닉네임/아바타)이 실제로 변경된 순간에만
-  // 실행되고, 휴지통으로 들어간 가방은 제외하여 불필요한 연속 쓰기를 방지한다.
+  // 최신 프로필과 다르면 그 가방만 가볍게 고쳐쓴다. 휴지통에 들어간 가방은 제외.
+  // 같은 프로필 값에서는 가방마다 한 번만 확인한다(뒤늦게 도착한 가방도 그때 확인).
+  // 예전에는 프로필 값만 기억해서, 가방 목록이 아직 비어 있는 첫 실행에서 "처리함"으로 표시돼
+  // 실제 가방이 도착해도 다시 돌지 않았다(2026-10-07).
   useEffect(() => {
     if (!user || isOfflineMode || !profile?.nickname || !profile.avatarId) return;
     const profileKey = `${profile.nickname}:${profile.avatarId}`;
-    if (lastSyncedProfileRef.current === profileKey) return;
-    lastSyncedProfileRef.current = profileKey;
+    const synced = lastSyncedProfileRef.current;
+    if (synced.key !== profileKey) {
+      synced.key = profileKey;
+      synced.bagIds = new Set();
+    }
 
     bags.forEach((bag) => {
+      if (synced.bagIds.has(bag.id)) return;
+      if (isPendingBag(user.uid, bag.id)) return;
+      synced.bagIds.add(bag.id);
       if (bag.trashedByOwnerAt) return;
       const snap = bag.memberProfiles?.[user.uid];
       if (!snap) return;
@@ -376,9 +386,14 @@ export default function AppShell() {
     );
     const expiredPacks = libraryPacks.filter((p) => isTrashExpired(p.trashedAt) && !tried.has(`pack:${p.id}`));
     if (expiredBags.length === 0 && expiredPacks.length === 0) return;
+    // 첨부 파일은 이번에 지우는 것들을 모두 뺀 나머지가 쓰지 않는 것만 지운다(lib/storageCleanup.ts)
+    const inUse = urlsInUse(bags, libraryPacks, {
+      bagIds: expiredBags.map((b) => b.id),
+      packIds: expiredPacks.map((p) => p.id),
+    });
     expiredBags.forEach((bag) => {
       tried.add(`bag:${bag.id}`);
-      Promise.all(bag.images.map((url) => deleteBagImage(url)))
+      deleteUnusedFiles(bagFileUrls(bag), inUse)
         .then(() => deleteBagWithInviteCodeRemote(bag))
         .catch((err) => {
           console.error("[팩인백] 휴지통 자동 영구삭제(가방) 실패:", err);
@@ -386,9 +401,11 @@ export default function AppShell() {
     });
     expiredPacks.forEach((pack) => {
       tried.add(`pack:${pack.id}`);
-      deleteLibraryPackRemote(user.uid, pack.id).catch((err) => {
-        console.error("[팩인백] 휴지통 자동 영구삭제(팩) 실패:", err);
-      });
+      deleteUnusedFiles(packFileUrls(pack), inUse)
+        .then(() => deleteLibraryPackRemote(user.uid, pack.id))
+        .catch((err) => {
+          console.error("[팩인백] 휴지통 자동 영구삭제(팩) 실패:", err);
+        });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bags, libraryPacks, user, isOfflineMode]);
@@ -448,6 +465,46 @@ export default function AppShell() {
   // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄/마스터이면 항상 빈 집합.
   // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
   const lockedBagIds = user && !premium ? computeLockedBagIds(bags, user.uid) : new Set<string>();
+  // 무료 보관함 10개를 넘긴 팩(최신 10개 밖). 화면은 읽기 전용, 서버 강제는 firestore.rules(libraryPacks locked)
+  const lockedPackIds = user && !premium ? computeLockedPackIds(libraryPacks) : new Set<string>();
+
+  // 서버에 기록된 잠김(Bag.locked)과 화면 계산이 다르면 서버 잠김을 다시 맞춘다(2026-10-07).
+  // 위 effect는 이용권 상태가 바뀔 때만 부르므로, 무료 회원이 가방을 휴지통에 넣어 자리가 나도 잠긴 가방이
+  // 안 풀려 저장이 규칙에 막혔고, 앱을 닫아 둔 사이 이용권이 끝나면 잠김이 기록되지 않았다.
+  // 이미 구독 중인 가방 목록만 비교하므로 추가 읽기는 없고, 다를 때만(같은 차이는 한 번만) 서버를 부른다.
+  // 휴지통 가방은 서버도 계산에서 빼므로 비교하지 않는다. 프로필·이용권이 다 올 때까지 3초 기다린다.
+  const lockMismatch =
+    user && !isOfflineMode && profile
+      ? [
+          ...bags
+            .filter((b) => b.ownerId === user.uid && !b.trashedByOwnerAt && !isPendingBag(user.uid, b.id))
+            .filter((b) => !!b.locked !== lockedBagIds.has(b.id))
+            .map((b) => `b:${b.id}`),
+          ...libraryPacks
+            .filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID && !p.isQuickPack && !isPendingPack(user.uid, p.id))
+            .filter((p) => !!p.locked !== lockedPackIds.has(p.id))
+            .map((p) => `p:${p.id}`),
+        ]
+          .sort()
+          .join(",")
+      : "";
+  const lockSyncSentRef = useRef("");
+  useEffect(() => {
+    if (!user || !lockMismatch || lockSyncSentRef.current === lockMismatch) return;
+    const t = window.setTimeout(() => {
+      lockSyncSentRef.current = lockMismatch;
+      user
+        .getIdToken()
+        .then((idToken) =>
+          fetch(getApiUrl("/api/sync-lock-status"), {
+            method: "POST",
+            headers: { Authorization: `Bearer ${idToken}` },
+          })
+        )
+        .catch((err) => console.error("[팩인백] 잠금 상태 맞추기 실패:", err));
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [user, lockMismatch]);
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
   // v2: 빠른팩 + → 빠른팩에 적어 둔 게 있으면 그 내용을 바로 연다(아래 입력칸으로 계속 추가). 비어 있으면 빠른 입력 시트
@@ -969,7 +1026,7 @@ export default function AppShell() {
       return;
     }
     try {
-      await Promise.all(bag.images.map((url) => deleteBagImage(url)));
+      await deleteUnusedFiles(bagFileUrls(bag), urlsInUse(bags, libraryPacks, { bagIds: [bag.id] }));
       await deleteBagWithInviteCodeRemote(bag);
       show("가방을 완전히 삭제했어요");
     } catch (err) {
@@ -993,7 +1050,7 @@ export default function AppShell() {
       return;
     }
     if (wasNew) {
-      Promise.all(currentBag.images.map((url) => deleteBagImage(url)))
+      deleteUnusedFiles(bagFileUrls(currentBag), urlsInUse(bags, libraryPacks, { bagIds: [currentBag.id] }))
         .then(() => deleteBagWithInviteCodeRemote(currentBag))
         .catch((err) => {
           console.error("[팩인백] 임시 가방 정리 실패:", err);
@@ -1207,6 +1264,10 @@ export default function AppShell() {
       saveLocalLibraryPack({ ...pack, name });
       return;
     }
+    if (lockedPackIds.has(pack.id)) {
+      requestUnlockForPack();
+      return;
+    }
     saveLibraryPackRemote(user, { ...pack, name }).catch((err) => {
       console.error("[팩인백] 이름 바꾸기 실패:", err);
       show(`이름 바꾸기에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1236,6 +1297,11 @@ export default function AppShell() {
   const handleSavePack = (pack: Pack) => {
     if (isOfflineMode) {
       saveLocalLibraryPack(pack);
+      return;
+    }
+    // 잠긴 팩은 규칙이 쓰기를 막는다 → 보내지 않고 안내만(화면은 이미 읽기 전용)
+    if (lockedPackIds.has(pack.id)) {
+      requestUnlockForPack();
       return;
     }
     saveLibraryPackRemote(user, pack).catch((err) => {
@@ -1351,7 +1417,7 @@ export default function AppShell() {
       return;
     }
     try {
-      await deleteLibraryEntryRecursive(user.uid, libraryPacks, packId);
+      await deleteLibraryEntryRecursive(user.uid, libraryPacks, packId, bags);
       show("팩을 완전히 삭제했어요");
     } catch (err) {
       console.error("[팩인백] 팩 완전삭제 실패:", err);
@@ -1528,7 +1594,7 @@ export default function AppShell() {
     <PackNoteEditorScreen
       key={pack.id}
       pack={pack}
-      readOnly={false}
+      readOnly={lockedPackIds.has(pack.id)}
       initialSearchQuery={packFocusSearchQuery ?? undefined}
       onBack={closePack}
       onSave={handleSavePack}
@@ -1544,7 +1610,7 @@ export default function AppShell() {
       libraryPacks={activePacks}
       bags={activeBags}
       lockedBagIds={lockedBagIds}
-      readOnly={false}
+      readOnly={lockedPackIds.has(pack.id)}
       onRequestUnlock={requestUnlockForPack}
       onBack={() => {
         setEditingPack(null);

@@ -132,6 +132,9 @@ export interface SharedPackSnapshot {
   ownerUid: string;
   type: "pack" | "folder";
   title: string;
+  // 가방 안 팩을 공유한 경우의 출처(서버만 기록). 같은 가방 다른 멤버가 같은 링크를 갱신할 수 있는지 판단한다
+  sourceBagId?: string;
+  sourcePackId?: string;
   pack?: Pack;
   packs?: Pack[];
   createdAt: string;

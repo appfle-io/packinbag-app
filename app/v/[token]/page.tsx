@@ -6,16 +6,52 @@ import { notFound } from "next/navigation";
 import { IconLock } from "@tabler/icons-react";
 import GuestBagClientView from "@/components/GuestBagClientView";
 
-export const dynamic = "force-dynamic";
+// 예전에는 force-dynamic이라 볼 때마다 함수 실행 + Firestore 읽기가 생겼다. 잠깐(60초) 캐시한다(2026-10-07).
+// 초대코드(?code= / ?join=)는 페이지가 아니라 GuestBagClientView가 주소에서 직접 읽는다(캐시되는 HTML에 섞이지 않게).
+export const revalidate = 60;
 
 interface GuestPageProps {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ code?: string; join?: string }>;
 }
 
-export default async function GuestBagPage({ params, searchParams }: GuestPageProps) {
+// 게스트 화면이 쓰는 필드만 남긴다. 예전에는 가방 문서를 통째 클라이언트 컴포넌트에 넘겨서,
+// 페이지 HTML에 inviteCode·memberIds·ownerId가 그대로 들어갔다 → 보기 링크만 받은 사람이 초대코드로
+// 가방에 들어와 편집할 수 있었다(2026-10-07).
+function toGuestBag(b: Bag): Bag {
+  return {
+    id: b.id,
+    name: b.name,
+    travelDate: b.travelDate,
+    notice: b.notice,
+    images: [],
+    memberIds: [],
+    ownerId: "",
+    inviteCode: "",
+    createdAt: "",
+    updatedAt: b.updatedAt,
+    packs: (b.packs ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      kind: p.kind,
+      type: p.type,
+      editorDoc: p.editorDoc,
+      editorPreviewText: p.editorPreviewText,
+      images: p.images,
+      items: (p.items ?? []).map((i) => ({
+        id: i.id,
+        type: i.type,
+        text: i.text,
+        checked: i.checked,
+        bold: i.bold,
+        strike: i.strike,
+        color: i.color,
+      })),
+    })),
+  };
+}
+
+export default async function GuestBagPage({ params }: GuestPageProps) {
   const { token } = await params;
-  const { code: queryCode, join: queryJoin } = (await searchParams) || {};
   if (!token) notFound();
 
   let bag: Bag;
@@ -87,7 +123,7 @@ export default async function GuestBagPage({ params, searchParams }: GuestPagePr
         .get();
     }
 
-    if (snap.empty) {
+    if (snap.empty || snap.docs[0].data().publicShareEnabled === false) {
       return (
         <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
           <div className="max-w-sm w-full text-center space-y-4 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
@@ -114,11 +150,8 @@ export default async function GuestBagPage({ params, searchParams }: GuestPagePr
     }
 
     const bagDoc = snap.docs[0];
-    bag = deserializeBag({ id: bagDoc.id, ...bagDoc.data() } as Bag);
+    bag = toGuestBag(deserializeBag({ id: bagDoc.id, ...bagDoc.data() } as Bag));
   }
 
-  // 초대코드 존재 여부 (URL 쿼리 우선)
-  const activeInviteCode = queryCode || queryJoin;
-
-  return <GuestBagClientView bag={bag} activeInviteCode={activeInviteCode} />;
+  return <GuestBagClientView bag={bag} />;
 }

@@ -1,11 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { IconBell, IconRefresh } from "@tabler/icons-react";
 import type { AppNotification } from "@/lib/types";
 import { markAllNotificationsRead, markNotificationRead, subscribeToNotifications } from "@/lib/notificationsService";
 import { useNewVersionAvailable } from "@/lib/useNewVersionAvailable";
 import { Button, Sheet, cx } from "@/components/v2/ui";
+
+// 알림 구독을 앱 전체가 한 벌만 쓴다(2026-10-07). 좁은 화면에서는 홈·설정 탭이 함께 마운트돼 종이 두 개인데,
+// 예전에는 종마다 onSnapshot을 따로 열어 읽기가 2배로 나갔다.
+const EMPTY: AppNotification[] = [];
+const shared: { uid: string | null; list: AppNotification[]; unsub: (() => void) | null; listeners: Set<() => void> } = {
+  uid: null,
+  list: EMPTY,
+  unsub: null,
+  listeners: new Set(),
+};
+function subscribeShared(uid: string, listener: () => void) {
+  if (shared.uid !== uid) {
+    shared.unsub?.();
+    shared.uid = uid;
+    shared.list = EMPTY;
+    shared.unsub = subscribeToNotifications(uid, (list) => {
+      shared.list = list;
+      shared.listeners.forEach((l) => l());
+    });
+  }
+  shared.listeners.add(listener);
+  return () => {
+    shared.listeners.delete(listener);
+    if (shared.listeners.size === 0) {
+      shared.unsub?.();
+      shared.unsub = null;
+      shared.uid = null;
+      shared.list = EMPTY;
+    }
+  };
+}
+function useSharedNotifications(uid: string): AppNotification[] {
+  // subscribe가 렌더마다 바뀌면 React가 다시 구독하면서 onSnapshot을 닫았다 열게 된다 → uid가 바뀔 때만 새로 만든다
+  const subscribe = useCallback((l: () => void) => subscribeShared(uid, l), [uid]);
+  return useSyncExternalStore(
+    subscribe,
+    () => (shared.uid === uid ? shared.list : EMPTY),
+    () => EMPTY,
+  );
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
@@ -15,11 +55,9 @@ function formatDate(iso: string) {
 // - 종: 헤더의 다른 IconButton과 같은 44px · 22px. 새 배포는 브랜드색 점, 안 읽은 알림은 빨간 점
 // - 시트: 새 배포 안내(누르면 새로고침) → 알림 목록(안 읽은 것은 굵게 + 점). 누르면 읽음
 export function NotificationBellV2({ uid }: { uid: string }) {
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const notifications = useSharedNotifications(uid);
   const [open, setOpen] = useState(false);
   const hasNewVersion = useNewVersionAvailable();
-
-  useEffect(() => subscribeToNotifications(uid, setNotifications), [uid]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const label = hasNewVersion ? "알림 · 새 버전이 있어요" : unreadCount > 0 ? `알림 · 안 읽은 알림 ${unreadCount}개` : "알림";

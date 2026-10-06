@@ -19,7 +19,6 @@ import GuestMemoPackView from "@/components/GuestMemoPackView";
 
 interface GuestBagClientViewProps {
   bag: Bag;
-  activeInviteCode?: string;
 }
 
 type FontScale = "normal" | "large" | "xlarge";
@@ -32,8 +31,17 @@ const FONT_SCALE_LABELS: Record<FontScale, string> = {
 
 export default function GuestBagClientView({
   bag,
-  activeInviteCode,
 }: GuestBagClientViewProps) {
+  // 초대코드는 주소(?code= / ?join=)에서 직접 읽는다. 페이지가 캐시되므로 서버에서 넣지 않는다(app/v/[token])
+  const [activeInviteCode, setActiveInviteCode] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const code = (q.get("code") || q.get("join") || "").trim();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 주소는 처음 한 번만 읽는다
+      if (code) setActiveInviteCode(code);
+    } catch {}
+  }, []);
   // 1. 다크/라이트 테마 관리 (확실한 class + data-theme 동기화)
   const [isDark, setIsDark] = useState<boolean>(false);
 

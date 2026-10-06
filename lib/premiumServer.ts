@@ -9,6 +9,7 @@
 
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { checkIsMaster } from "@/lib/adminApiAuth";
+import { isUnlockCodeValidFor } from "@/lib/unlockCodeCheck";
 
 export class ServerAuthError extends Error {}
 
@@ -51,13 +52,6 @@ export async function isPremiumServer(uid: string, email: string | null): Promis
   if (!claimedCode) return false;
 
   const codeSnap = await db.collection("unlockCodes").doc(claimedCode).get();
-  if (!codeSnap.exists) return false;
-
-  const codeData = codeSnap.data();
-  const status = codeData?.status as string | undefined;
-  const expiresAt = codeData?.expiresAt as { toDate?: () => Date } | null | undefined;
-  const isExpired =
-    !!expiresAt && typeof expiresAt.toDate === "function" && expiresAt.toDate().getTime() < Date.now();
-
-  return status !== "invalidated" && !isExpired;
+  // 내가 등록(claimed)한 코드인지까지 본다(lib/unlockCodeCheck.ts)
+  return isUnlockCodeValidFor(codeSnap.data(), uid);
 }

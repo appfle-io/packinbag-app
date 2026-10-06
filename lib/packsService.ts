@@ -13,7 +13,7 @@ import {
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { isPendingPack, savePendingPack } from "@/lib/v2/pendingCreates";
-import { Pack } from "@/lib/types";
+import { Bag, Pack } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
@@ -25,8 +25,7 @@ import {
   restoreLocalLibraryPack,
   permanentDeleteLocalLibraryPack,
 } from "@/lib/localBagsService";
-import { extractDocAttachmentUrls } from "@/lib/editorDocAttachmentUtils";
-import { deletePackImage } from "@/lib/storageService";
+import { deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
 
 // 팩 보관함은 공유되지 않는 개인 전용 공간이다.
 // 가방은 여러 명이 같이 쓰지만, 그 가방 안에서 누가 불러온 팩이든
@@ -95,7 +94,10 @@ export async function saveLibraryPackRemote(user: User, pack: Pack, isNew?: bool
   const now = pack.updatedAt ?? new Date().toISOString();
   const createdAt = pack.createdAt ?? now;
   const serialized = serializePack({ ...pack, createdAt, updatedAt: now });
-  await setDoc(ref, stripUndefined(serialized));
+  // locked는 서버(sync-lock-status)만 쓴다. 화면에 남은 옛 값을 같이 쓰면 규칙에 막히므로 뺀다(2026-10-07)
+  const { locked: _locked, ...writable } = serialized as Pack;
+  void _locked;
+  await setDoc(ref, stripUndefined(writable));
 }
 
 export async function deleteLibraryPackRemote(uid: string, packId: string) {
@@ -271,15 +273,11 @@ export async function restoreLibraryEntryRecursive(user: User, allPacks: Pack[],
 }
 
 // 휴지통에서 완전삭제(되돌릴 수 없음)도 동일하게 재귀로 처리한다.
-export async function deleteLibraryEntryRecursive(uid: string, allPacks: Pack[], rootId: string) {
+// 첨부 파일은 다른 가방·팩이 아직 쓰면 남긴다(가방에 불러온 사본이 같은 URL을 쓴다 - lib/storageCleanup.ts).
+// 예전에는 무조건 지워서, 보관함 메모팩을 지우면 그걸 불러온 가방의 사진이 깨졌다.
+export async function deleteLibraryEntryRecursive(uid: string, allPacks: Pack[], rootId: string, bags: Bag[] = []) {
   const ids = [rootId, ...collectDescendantPackIds(allPacks, rootId)];
-  for (const id of ids) {
-    const pack = allPacks.find((p) => p.id === id);
-    if (pack) {
-      const docUrls = extractDocAttachmentUrls(pack.editorDoc);
-      const allUrls = [...(pack.images ?? []), ...docUrls];
-      allUrls.forEach((url) => deletePackImage(url));
-    }
-  }
+  const targets = allPacks.filter((p) => ids.includes(p.id));
+  await deleteUnusedFiles(targets.flatMap(packFileUrls), urlsInUse(bags, allPacks, { packIds: ids }));
   await Promise.all(ids.map((id) => deleteLibraryPackRemote(uid, id)));
 }

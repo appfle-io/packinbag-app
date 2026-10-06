@@ -10,7 +10,6 @@ import {
   orderBy,
   query,
   runTransaction,
-  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -94,11 +93,48 @@ export async function saveBagRemote(bag: Bag) {
     saveLocalBag(bag);
     return;
   }
-  const serialized = serializeBag(bag);
-  await setDoc(
-    doc(bagsCol(), bag.id),
-    stripUndefined({ ...serialized, updatedAt: new Date().toISOString() })
-  );
+  const serialized = serializeBag(bag) as unknown as Record<string, unknown>;
+  await updateDoc(doc(bagsCol(), bag.id), bagContentPatch(serialized));
+}
+
+// 가방 문서에서 서버·멤버십이 관리하는 필드. 자동저장(saveBagRemote)은 이 필드를 쓰지 않는다.
+// 예전에는 setDoc으로 문서를 통째 덮어써서, 혼자 쓰던 가방에 누가 들어온 직후 화면의 옛 memberIds(나 혼자)로
+// 덮어써 방금 들어온 사람을 내보내거나, 휴지통·잠김이 바뀐 직후 저장이 규칙에 거부됐다(2026-10-07).
+const BAG_MANAGED_KEYS = new Set([
+  "id",
+  "memberIds",
+  "memberProfiles",
+  "ownerId",
+  "inviteCode",
+  "publicShareToken",
+  "locked",
+  "trashedByOwnerAt",
+  "createdAt",
+]);
+// 화면에서 지울 수 있는 선택 필드. 값이 없으면 서버에서도 지운다(setDoc 통째 쓰기와 같은 결과)
+const BAG_OPTIONAL_KEYS = [
+  "notice",
+  "travelDate",
+  "reminderOffsets",
+  "ddayCountTodayAsDayOne",
+  "aiRecommendCache",
+  "publicShareEnabled",
+  "autoMoveDoneItems",
+  "lastPackedAt",
+  "lastPackedBy",
+  "lastCheckedAt",
+];
+function bagContentPatch(serialized: Record<string, unknown>): Record<string, unknown> {
+  const clean = stripUndefined(serialized) as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(clean)) {
+    if (!BAG_MANAGED_KEYS.has(k)) patch[k] = v;
+  }
+  for (const k of BAG_OPTIONAL_KEYS) {
+    if (!(k in patch)) patch[k] = deleteField();
+  }
+  patch.updatedAt = new Date().toISOString();
+  return patch;
 }
 
 // 함께 쓰는 가방 저장(v2). 화면에 들고 있던 가방을 통째로 덮어쓰지 않고, 트랜잭션으로 서버 최신 버전을
