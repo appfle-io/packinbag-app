@@ -1,6 +1,32 @@
-# 팩인백 기능 스펙 문서 (리디자인 v2 · 4단계 홈 · 팩 탭)
+# 팩인백 기능 스펙 문서 (리디자인 v2)
 
-리디자인 v2 화면은 `NEXT_PUBLIC_UI_V2=true`일 때만 켜진다(끄면 구 UI 그대로). 기준 문서: 프로젝트 `UIUX_리디자인_방향.md`, `리디자인_작업계획.md`.
+앱은 v2 화면만 있다. 2026-10-05에 구 UI(v1) 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 전부 지웠다(v1.0.20). 아래 표의 "플래그를 끄면 구 UI"·"구 UI는 그대로" 같은 말은 그 전 기록이다. 기준 문서: 프로젝트 `UIUX_리디자인_방향.md`, `리디자인_작업계획.md`.
+
+## 10/3 후반 ~ 10/5 (v1.0.16 ~ v1.0.21)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **구 UI(v1) 소스 삭제 (10/5, v1.0.20)** | 🗑️ 제거 | 구 화면·모달·카드 약 150개 파일 삭제(`components/screens/*` 중 메모 편집기 외 전부, `components/auth`, `components/guide`, `/guide` 페이지, DesktopShell·DesktopSidebar, 댓글·리액션·멘션 서비스, lib/helpTutorial 등). `lib/v2/flags.ts`와 모든 `UI_V2` 분기 제거, 포터블 워크플로 env에서도 빠짐. `.pib-v2-legacy`(메모 편집기·관리자)·`.pib-v2-guest`(게스트 보기)는 아직 쓰는 곳이 있어 항상 붙도록 바꿈. Pretendard `preload: true`. 안 쓰는 export 89개는 남아 있음(knip) |
+| ↳ AppShell | 🔄 변경 | 칸반 가방 만들기·시작 화면 설정(startPage, `pib_last_viewed`)·오늘 마감 팝업·구 탭 스와이프(마우스 포함)·구 오버레이 4개 삭제. `TabKey`는 `lib/v2/shell.ts`로, 메모로 만든 가방 결과 타입은 `ImportedBagResult`(lib/types), `BagOpenFocus`는 HomeScreenV2로 옮김. 연결 상태 줄은 `ConnectionBar` 직접(구 OfflineStatusBar 삭제) |
+| ↳ 메모 편집기 | 🔄 변경 | `PackNoteEditorScreen`의 구 화면(구 툴바·색 팝오버·링크 모달·window.prompt 링크·옛 첨부 함수) 삭제. 다른 기기 변경은 항상 문단 단위로 합침(배너로 보류하는 구 방식 없음) |
+| ↳ 로그인·계정 | 🔄 변경 | 세션 없음 + 끊김은 항상 `recheckConnectivity`로 판단(구 navigator.onLine·Electron 전용 확인 삭제). 오프라인 모드 → 로그인은 항상 새로고침 없이. 탈퇴는 항상 본인 확인 먼저. 가방 고정 항상 5개. 가방 참여의 무료 2명 제한은 항상 적용 |
+| **버전 표기 자동 (10/5, v1.0.21)** | 🐛 수정 | `lib/changelog.ts`의 `APP_VERSION`이 1.0.0에 멈춰 있던 문제. 이제 `package.json`의 version을 직접 읽는다(`npm version`만 올리면 설정 > 버전 정보도 바뀜). 업데이트 노트 1.0.20 항목 추가 |
+| **오프라인 데이터 합치기 시트 (10/5)** | 🔄 변경 | `OfflineImportSheet mode="merge"`(로그인 직후 자동 1회): 제목 "이 기기의 가방·팩 옮기기", "오프라인으로 쓰던 가방 N개 · 팩 M개를 계정으로 옮길게요", "나중에 하기". 무료면 개수 안내 한 줄. 설정 > 데이터에서 여는 시트는 예전 문구(mode "settings") |
+| **오프라인 데이터 가져오기 무료 초과·중복 (10/5)** | 🐛 수정 | 예전: 중간에 무료 개수 초과(PremiumLimitError)로 실패하면 이미 올라간 것까지 "안 가져옴"으로 남아 다시 하면 중복 생성. 지금: `importOfflineDataToOnline`이 하나 올릴 때마다 기록하고, 초과하면 그 자리에서 멈춰 `blockedMessage`·`skippedCount`를 돌려줌 → 시트가 "N개를 옮겼어요. M개는 이 기기에 남겨 두었어요" + 프리미엄 시트(onLimit) |
+| **"올리기 대기" 표시 (10/5)** | 🆕 신규 | 끊긴 동안 만든 가방·팩(`lib/v2/pendingCreates`)에 홈 목록·캐러셀 카드·팩 탭 줄마다 "올리기 대기" 배지. `BagSummary.pending`(`summarizeBag` 세 번째 인자). 연결되어 올라가면 사라짐. 서버 호출 없음 |
+| **넓은 화면: 설정 하위 화면을 상세 칸에 (10/5)** | 🔄 변경 | 예전에는 프로필·휴지통 등이 화면 전체 위에 겹쳐 떴음. WideShell이 상세 칸 안 자리를 `DetailPaneContext`(lib/v2/openDetail.ts)로 설정 탭 목록에만 넘기고, `SlideScreen`은 이 값이 있으면 그 칸에 absolute로 그린다(바탕은 어둡게 깔지 않고 canvas색) |
+| **넓은 화면: 열린 가방·팩 강조 (10/5)** | 🆕 신규 | 상세 칸에 열린 가방(팩이 열려 있으면 그 팩)의 목록 줄을 둥근 바탕(bg-fill)으로, `aria-current`. `OpenDetailContext`를 AppShell이 넓은 화면 목록에만 넘김(좁은 화면은 없음) |
+| **넓은 화면: 빈 새 가방 정리 (10/5)** | 🐛 수정 | 만들기만 하고 손대지 않은 새 가방(isNewBag)을 둔 채 다른 가방을 고르거나 새 가방을 또 만들면 빈 가방이 남던 문제. 이제 모바일 뒤로가기와 같이 지운다(첫 변경이 저장되면 isNewBag이 꺼져 대상이 아님) |
+| **가방 폴더 점 경로 쓰기 (10/5)** | 🐛 수정 | `deleteBagFolder`·`moveBagFolder`·`flattenBagFolders`가 화면의 예전 profile 기준으로 `bagFolders.{id}.필드`를 쓰면, 다른 기기에서 지운 폴더가 "이름 없는 폴더"로 되살아남. 이제 계정 모드는 `writeBagFolderPatch` 트랜잭션(읽기 1)으로 서버 최신본을 보고 폴더가 있을 때만 쓴다. 오프라인 모드·끊김(unavailable)은 예전처럼 writeUser |
+| **연결 흐름 (10/4, v1.0.18)** | 🆕 신규 | A 연결 판단 `lib/v2/connectivity.ts`(unknown/online/offline, 끊김 5초·연결 30초 재확인, 탭 숨김 시 중지, 복구 시 enableNetwork + `pib:reconnected`) · F 상태 줄 `ConnectionBar` · D 미리 막기 `useOnlineGuard`(AI·메모로 가방·참여·공유·첨부·계정 연동·이용권·내 URL·공지·문의·비밀번호·탈퇴) · B 시작(세션 없음 + 끊김 → 바로 오프라인 모드) · C 만들기 대기 `lib/v2/pendingCreates.ts`(계정별 localStorage, 재연결 시 같은 id로 생성, 무료 초과는 남기고 안내) · E 합치기(새로고침 없이 계정 전환 + 합치기 시트 1회, 설정 "오프라인 보관함 보기" 제거) |
+| **로그인·계정·모달 점검 (10/4, v1.0.17)** | 🐛 수정 | 오프라인 모드는 users 문서를 구독하지 않음(폐쇄망에서 닉네임 화면으로 돌아가던 문제), users 쓰기 39곳을 `writeUser`로 통일(오프라인이면 로컬 프로필). 탈퇴는 본인 확인(이메일=비밀번호, 소셜=4분 지났으면 재로그인) → 데이터 삭제 → 계정 삭제. 포터블은 Google·Apple 버튼 숨김(`isElectronApp`). 로그인 화면은 연결 확인 중 로고만. 오류 문구 `lib/authErrorMessage`. PDF 크게 보기 `components/v2/bag/PdfViewer.tsx`, 게스트 보기 alert → 화면 안내. 앱에 브라우저 alert·confirm·prompt 없음 |
+| **떠 있는 탭바(독) (10/4, v1.0.16)** | 🔄 변경 | `TabBarV2`: [팩 · 가방 · 설정] 반투명 캡슐(블러) + 오른쪽 빠른팩 검은 동그라미 +. 지금 탭은 옅은 알약이 미끄러짐. 높이를 재서 `--pib-dock`에 기록 → `ScreenBody`가 아래 여백(숫자로 박지 않음). 탭바를 끌어도 탭이 안 넘어감, 옆 빈 곳은 터치 통과, 터치 기기 입력 중 숨김, 토스트는 `toast-lift`. 투명도 줄이기면 불투명 |
+| **앱 글꼴 선택 (10/4, v1.0.16)** | 🆕 신규 | 설정 > 화면 > 글꼴(`FontSheet`, `lib/v2/appFonts.ts`): 기본(Pretendard) · 지마켓 산스 · 개구 · D2코딩. 메모 본문까지, 메모 코드는 항상 D2코딩. next/font/local 셀프 호스팅(preload false), size-adjust·ascent·descent 보정. 저장 `UserProfile.fontFamily` + localStorage, head 스크립트로 첫 화면 깜빡임 방지. 글꼴 파일 7개는 `app/fonts`에 커밋됨 |
+| **넓은 화면 셸 통합 (10/3)** | 🔄 변경 | `components/v2/shell/WideShell.tsx` + `lib/v2/shell.ts`. 900px 미만 모바일 / 900px 이상 [목록 \| 상세](목록 아래 탭바) / 1200px 이상 [레일 \| 목록 \| 상세]. 상세 칸에는 하나만(팩·메모 > 가방). 시트는 1024px 이상 가운데 창. 단축키 ⌘/Ctrl + N 새로 만들기 · K 검색 · I 설정 · P 빠른팩 · Esc 상세 닫기 |
+| **구 UI 남은 화면 v2화 (10/3)** | 🔄 변경 | 설정 하위 10개(프로필·버전·라이선스·휴지통·문의는 `SubScreen`, 공지·FAQ·내가 만든 URL·오프라인 가져오기·계정 전환은 시트), 사진 크게 보기 `PhotoViewer`, 처리 중 화면 `BusyOverlay`, 로그인 `AuthScreenV2`·`ProfileSetupV2` |
+| **관리자 사이트 (10/3)** | 🔄 변경 | 대시보드 개편(`lib/adminStats.ts`, 할 일·핵심 숫자·추이·처음 쓰는 흐름·기능 사용률·결제로 이어지는 곳, 스냅샷 kpis, 5분 캐시), 공통 틀 `AdminPage`, 문의 2단·이용권·공지 시트 편집·활동 로그. 유저 조회 "마지막 AI 사용(날짜 · 횟수)" |
+
+## 10/3 전반까지
 
 | 기능 | 상태 | 비고 |
 |---|---|---|
