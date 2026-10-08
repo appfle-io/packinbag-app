@@ -20,7 +20,7 @@ import { Capacitor } from "@capacitor/core";
 import { Purchases, LOG_LEVEL } from "@revenuecat/purchases-capacitor";
 import { PREMIUM_ENTITLEMENT_ID } from "@/lib/purchaseConfig";
 
-export { PREMIUM_ENTITLEMENT_ID };
+;
 
 export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();

@@ -4,7 +4,7 @@ import { Node as ProseMirrorNode } from "prosemirror-model";
 
 export type TableDensity = "compact" | "normal" | "spacious";
 
-export interface TableContextInfo {
+interface TableContextInfo {
   tableNode: ProseMirrorNode;
   tablePos: number;
   map: TableMap;
@@ -18,7 +18,7 @@ export interface TableContextInfo {
 /**
  * 현재 에디터 선택 영역에서 테이블과 현재 셀의 위치 정보를 가져옵니다.
  */
-export function getTableContext(editor: Editor | null): TableContextInfo | null {
+function getTableContext(editor: Editor | null): TableContextInfo | null {
   if (!editor || !editor.state) return null;
   const { state } = editor;
   const { selection } = state;

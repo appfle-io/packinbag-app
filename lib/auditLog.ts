@@ -9,7 +9,7 @@
 
 import { adminDb } from "@/lib/firebaseAdmin";
 
-export type AuditAction =
+type AuditAction =
   | "bag_restore"
   | "bag_trash"
   | "library_pack_restore"

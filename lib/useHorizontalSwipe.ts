@@ -17,12 +17,12 @@ const LOCK_PX = 10;
 // 가로 이동이 세로 이동의 이 배수보다 커야 가로로 본다
 const DIR_RATIO = 1.15;
 // 화면 왼쪽 끝 이 폭 안에서 시작하면 "끝에서 밀기"로 본다
-export const EDGE_PX = 24;
+const EDGE_PX = 24;
 
 const TEXT_SELECTOR =
   'input, textarea, select, [contenteditable="true"], [contenteditable=""], [data-swipe-ignore]';
 
-export interface SwipeStart {
+interface SwipeStart {
   x: number;
   y: number;
   edge: boolean;

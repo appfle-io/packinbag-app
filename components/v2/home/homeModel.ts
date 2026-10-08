@@ -5,9 +5,9 @@ import { statsOf, packingStateOf, type PackingState } from "@/hooks/bag";
 import { formatAgo, formatShortDate } from "@/components/v2/bag/format";
 
 // D-day가 이 일수 이내(0~7일 남음)인 가방은 최근 순서와 무관하게 목록 맨 위로 올린다.
-export const SOON_DAYS = 7;
+const SOON_DAYS = 7;
 // 여행일이 이만큼 지난 가방은 "보관함으로 옮길까요?"로 제안한다(구 홈과 같은 기준).
-export const ARCHIVE_SUGGEST_DAYS_PAST = 7;
+const ARCHIVE_SUGGEST_DAYS_PAST = 7;
 
 export const STATE_LABEL: Record<PackingState, string> = {
   empty: "비어 있음",
@@ -74,7 +74,7 @@ const byActivityDesc = (a: BagSummary, b: BagSummary) =>
   a.activityAt < b.activityAt ? 1 : a.activityAt > b.activityAt ? -1 : 0;
 
 // 홈 정렬: D-day 7일 이내(가까운 순) → 나머지는 최근 체크 순
-export function sortForHome(list: BagSummary[]): BagSummary[] {
+function sortForHome(list: BagSummary[]): BagSummary[] {
   const soon = list
     .filter((s) => s.soon)
     .sort((a, b) => (a.dday as number) - (b.dday as number) || byActivityDesc(a, b));
@@ -91,9 +91,9 @@ export interface HomeSections {
   list: BagSummary[];
 }
 
-export const HIGHLIGHT_MAX = 5;
+const HIGHLIGHT_MAX = 5;
 
-export type HighlightReason = "pinned" | "soon" | "packing";
+type HighlightReason = "pinned" | "soon" | "packing";
 export interface Highlight {
   summary: BagSummary;
   reason: HighlightReason;
@@ -115,7 +115,7 @@ export function homeSortOf(bagSortBy: string | undefined): HomeSort {
 const nameOf = (s: BagSummary) => (s.bag.name || "").trim();
 
 // order: custom일 때 쓰는 가방 id 순서. 여기 없는 가방(새 가방 등)은 뒤에 최근순으로 붙는다
-export function sortHomeList(list: BagSummary[], sort: HomeSort, order?: string[]): BagSummary[] {
+function sortHomeList(list: BagSummary[], sort: HomeSort, order?: string[]): BagSummary[] {
   if (sort === "recent") return sortForHome(list);
   if (sort === "custom") {
     const index = new Map((order ?? []).map((id, i) => [id, i]));

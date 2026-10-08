@@ -1,4 +1,4 @@
-import { doc, deleteDoc, getDoc, setDoc } from "firebase/firestore";
+import { doc, deleteDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import {
   getUserBagsOnce,
@@ -27,11 +27,8 @@ function nextOwner(bag: Bag, uid: string): string | null {
 // - users/{uid} 프로필 문서 삭제
 // Firebase Auth 계정 자체 삭제는 이 함수를 호출한 쪽(AuthProvider)에서 이어서 처리한다.
 export async function deleteAllUserData(uid: string) {
-  // 다른 그룹원이 옛 댓글 작성자를 "그룹만 나갔다/강퇴됐다"와 "진짜로 회원탈퇴했다"를
-  // 구별할 수 있게, 계정이 아직 살아있는(=본인 인증 상태) 지금 가벼운 마커를 남겨둔다.
-  // 단순히 그룹을 나가거나 강퇴된 것만으로는 계정이 여전히 존재하므로 익명화하면 안 되고,
-  // 이 마커가 있어야만(=실제로 계정을 삭제) 익명화 대상이 된다. 이후 어떤 경로로도
-  // 수정/삭제가 안 되게 firestore.rules에서 막아둔다(deletedAccounts/{uid} 참고).
+  // 탈퇴한 계정 표시(deletedAccounts/{uid}). 예전 댓글 작성자 익명화에 쓰던 마커로, 댓글 기능이 빠진 지금도
+  // 탈퇴 기록으로 남긴다. firestore.rules에서 수정·삭제를 막아둔다.
   await setDoc(doc(db, "deletedAccounts", uid), { deletedAt: new Date().toISOString() });
 
   const bags = await getUserBagsOnce(uid);
@@ -67,24 +64,4 @@ export async function deleteAllUserData(uid: string) {
   await Promise.all(packs.map((p) => deleteLibraryPackRemote(uid, p.id)));
 
   await deleteDoc(doc(db, "users", uid));
-}
-
-// 댓글 작성자 표시용 - 이 uid들 중 실제로 회원탈퇴(계정 완전 삭제)한 사람이 누구인지
-// 확인한다(deletedAccounts 컬렉션 참고). 단순히 그룹을 나간(나가기/강퇴) 사람은 건드리지
-// 않는다 - 그룹은 나갔더라도 계정이 여전히 있으면 익명화하면 안 된다. 이미 결과가 결정된
-// uid는 다시 조회하지 않도록 호출하는 쪽(BagEditorScreen)에서 캐시를 잡아둔다.
-export async function fetchDeletedAccountIds(uids: string[]): Promise<Set<string>> {
-  const unique = Array.from(new Set(uids));
-  if (unique.length === 0) return new Set();
-  const results = await Promise.all(
-    unique.map(async (uid) => {
-      try {
-        const snap = await getDoc(doc(db, "deletedAccounts", uid));
-        return snap.exists() ? uid : null;
-      } catch {
-        return null;
-      }
-    })
-  );
-  return new Set(results.filter((v): v is string => v !== null));
 }

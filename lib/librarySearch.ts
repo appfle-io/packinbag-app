@@ -8,7 +8,7 @@ import { getEditorDocFullText } from "@/lib/editorDocLimits";
 const MAX_RESULTS = 30;
 
 // 검색어가 포함된 메모 텍스트에서 검색어 앞뒤 짧은 문맥(스니펫 1줄) 추출
-export function extractTextSnippet(fullText: string, query: string, radius = 45): string {
+function extractTextSnippet(fullText: string, query: string, radius = 45): string {
   if (!fullText || !query) return "";
   const lowerText = fullText.toLowerCase();
   const lowerQ = query.trim().toLowerCase();
@@ -24,7 +24,7 @@ export function extractTextSnippet(fullText: string, query: string, radius = 45)
 }
 
 // 검색어가 포함된 메모 텍스트에서 앞뒤 상세 문맥(펼치기용) 추출
-export function extractLongTextSnippet(fullText: string, query: string, radius = 160): string {
+function extractLongTextSnippet(fullText: string, query: string, radius = 160): string {
   if (!fullText || !query) return "";
   const lowerText = fullText.toLowerCase();
   const lowerQ = query.trim().toLowerCase();
@@ -39,9 +39,9 @@ export function extractLongTextSnippet(fullText: string, query: string, radius =
   return snippet;
 }
 
-export type SearchResultType = "bag" | "pack" | "item";
+type SearchResultType = "bag" | "pack" | "item";
 
-export interface GlobalSearchResult {
+interface GlobalSearchResult {
   type: SearchResultType;
   id: string;
   label: string;
@@ -61,12 +61,8 @@ export interface GlobalSearchOutput {
 }
 
 // 하위 호환용 타입 alias
-export type BagSearchResultType = SearchResultType;
 export type BagSearchResult = GlobalSearchResult;
-export type BagSearchOutput = GlobalSearchOutput;
-export type PackSearchResultType = SearchResultType;
 export type PackSearchResult = GlobalSearchResult;
-export type PackSearchOutput = GlobalSearchOutput;
 
 // 1. 가방 검색 전용 (가방 이름, 가방 속 팩 / 메모 / 아이템)
 export function searchBags(bags: Bag[] = [], query: string): GlobalSearchOutput {
@@ -203,18 +199,5 @@ export function searchLibraryPacks(libraryPacks: Pack[] = [], query: string): Gl
 
   const truncated = results.length > MAX_RESULTS;
   return { results: results.slice(0, MAX_RESULTS), truncated };
-}
-
-// 3. 글로벌 통합 검색 (가방 + 팩보관함 모두 검색)
-export function searchGlobal(
-  bags: Bag[] = [],
-  libraryPacks: Pack[] = [],
-  query: string
-): GlobalSearchOutput {
-  const bagRes = searchBags(bags, query);
-  const packRes = searchLibraryPacks(libraryPacks, query);
-  const combined = [...bagRes.results, ...packRes.results];
-  const truncated = bagRes.truncated || packRes.truncated || combined.length > MAX_RESULTS;
-  return { results: combined.slice(0, MAX_RESULTS), truncated };
 }
 

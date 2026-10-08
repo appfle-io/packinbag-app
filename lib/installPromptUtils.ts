@@ -4,7 +4,7 @@
 const DISMISS_KEY = "packinbag-install-prompt-dismissed-at";
 const SNOOZE_DAYS = 7;
 
-export function isIosDevice(): boolean {
+function isIosDevice(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
   const isIphoneOrIpad = /iPad|iPhone|iPod/.test(ua);
@@ -13,7 +13,7 @@ export function isIosDevice(): boolean {
   return isIphoneOrIpad || isIpadOS;
 }
 
-export function isStandalonePWA(): boolean {
+function isStandalonePWA(): boolean {
   if (typeof window === "undefined") return false;
   const nav = window.navigator as Navigator & { standalone?: boolean };
   return (
@@ -33,7 +33,7 @@ export function isInAppBrowser(): boolean {
 // Capacitor는 네이티브 웹뷰에 window.Capacitor 전역 객체를 주입한다.
 // server.url 방식으로 원격 페이지를 불러오는 경우에도 동일하게 주입되므로
 // 패키지를 따로 import하지 않고 전역 객체 존재 여부만 확인하면 충분하다.
-export function isCapacitorNative(): boolean {
+function isCapacitorNative(): boolean {
   if (typeof window === "undefined") return false;
   const w = window as unknown as {
     Capacitor?: { isNativePlatform?: () => boolean };
@@ -53,24 +53,6 @@ export function shouldShowInstallHint(): boolean {
     if (elapsedDays < SNOOZE_DAYS) return false;
   }
   return true;
-}
-
-export function isDesktopBrowser(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  const isIpadOS = ua.includes("Macintosh") && navigator.maxTouchPoints > 1;
-  return !isMobile && !isIpadOS;
-}
-
-export function canShowInstallGuideModal(): boolean {
-  if (typeof window === "undefined") return false;
-  if (isCapacitorNative()) return false;
-  if (isStandalonePWA()) return false;
-  if (isInAppBrowser()) return false;
-
-  // 데스크톱 환경이거나, Safari 지원 iOS 디바이스인 경우
-  return isDesktopBrowser() || isIosDevice();
 }
 
 export function snoozeInstallHint(): void {

@@ -1,5 +1,3 @@
-import { formatDDayLabel } from "@/lib/dday";
-
 function timeLabel(d: Date): string {
   const h = d.getHours();
   const m = d.getMinutes();
@@ -45,12 +43,4 @@ export function formatShortDate(travelDate: string | undefined): string | null {
   if (!y || !m || !d) return null;
   return `${m}월 ${d}일`;
 }
-
-// "10월 12일 · D-12"
-export function formatTravelDate(travelDate: string | undefined, countTodayAsDayOne?: boolean): string | null {
-  if (!travelDate) return null;
-  const [y, m, d] = travelDate.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  const dday = formatDDayLabel(travelDate, !!countTodayAsDayOne);
-  return `${m}월 ${d}일${dday ? ` · ${dday}` : ""}`;
-}
+

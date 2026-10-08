@@ -31,41 +31,4 @@ export function formatDDayLabel(
   return `D+${elapsed}`;
 }
 
-// 아이템 마감일(Item.dueDate) 표시용. 설정(프로필 packSettings.dueDateDisplayMode)에 따라
-// D-day 표기나 실제 날짜로 보여준다. D-day 계산 가여(당일 포함 여부)는 이 아이템이 속한
-// 가방의 ddayCountTodayAsDayOne을 그대로 따라서, 가방 상단 D-day와 세는 기준이 항상 같다.
-export function formatItemDueLabel(
-  dueDate: string | undefined,
-  displayMode: "dday" | "date" = "dday",
-  countTodayAsDayOne: boolean = false
-): string | null {
-  if (!dueDate) return null;
-  if (displayMode === "date") {
-    const [, m, d] = dueDate.split("-");
-    return `${Number(m)}/${Number(d)}`;
-  }
-  return formatDDayLabel(dueDate, countTodayAsDayOne);
-}
-
-// 아이템 마감일이 지났는지(오늘을 지난 지)에 따라 뱃지 색상을 구분하기 위한 간단 판정.
-export function getDueUrgency(dueDate: string | undefined): "overdue" | "soon" | "normal" {
-  if (!dueDate) return "normal";
-  const diff = daysUntil(dueDate);
-  if (diff < 0) return "overdue";
-  if (diff <= 1) return "soon";
-  return "normal";
-}
-
-// "마감일 다가올수록 색상 진하게" 옵션용. startDays일 전인 날짜(0%, 아직 먼 날)에서
-// 당일/지난 날까지(100%, 새빨간색)로 선형 매핑을 만든다. UI에서는 이 값을
-// `color-mix(in srgb, var(--danger) N%, var(--text-muted))`에 그대로 대입해서 다크모드를 무난히 처리한다.
-export function getDueIntensifyPercent(
-  dueDate: string | undefined,
-  startDays: number = 7
-): number {
-  if (!dueDate) return 0;
-  const diff = daysUntil(dueDate);
-  if (diff <= 0) return 100; // 당일 또는 지난 건 항상 최대치
-  if (diff >= startDays) return 0;
-  return Math.round(((startDays - diff) / startDays) * 100);
-}
+// 아이템 마감일 표시 함수들(formatItemDueLabel 등)은 마감일 기능과 함께 빠졌다(2026-10-08 정리).

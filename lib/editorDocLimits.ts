@@ -8,10 +8,10 @@ export const MAX_EDITOR_DOC_BYTES = 300 * 1024; // 300KB
 // 가방 문서 전체(팩 여러 개 + 아이템 + 메타데이터) 크기 방어. 메모팩 하나하나는 300KB 제한이
 // 있어도, 가방 하나에 메모팩을 여러 개(최대 10개) 넣으면 합산이 Firestore 문서 1MB 한도에
 // 가까워질 수 있다. 여유를 두고 900KB로 제한해서, 그 이상이면 저장 자체를 막는다.
-export const MAX_BAG_DOC_BYTES = 900 * 1024; // 900KB
+const MAX_BAG_DOC_BYTES = 900 * 1024; // 900KB
 
 // 팩 보관함 타일/가방 속 카드 미리보기에 보여줄 텍스트 길이 상한.
-export const MAX_EDITOR_PREVIEW_CHARS = 120;
+const MAX_EDITOR_PREVIEW_CHARS = 120;
 
 export function getEditorDocByteSize(doc: object): number {
   try {
@@ -24,7 +24,7 @@ export function getEditorDocByteSize(doc: object): number {
 
 // 가방 등 임의의 JSON 직렬화 가능한 값의 바이트 크기. getEditorDocByteSize와 로직은
 // 같지만 이름을 범용적으로 둬서 다른 곳(가방 전체 크기 검사 등)에서도 자연스럽게 쓴다.
-export function getJsonByteSize(value: unknown): number {
+function getJsonByteSize(value: unknown): number {
   try {
     return new TextEncoder().encode(JSON.stringify(value)).length;
   } catch {
@@ -32,7 +32,7 @@ export function getJsonByteSize(value: unknown): number {
   }
 }
 
-export function isEditorDocTooLarge(doc: object): boolean {
+function isEditorDocTooLarge(doc: object): boolean {
   return getEditorDocByteSize(doc) > MAX_EDITOR_DOC_BYTES;
 }
 
@@ -104,7 +104,7 @@ export function checkBagSizeForSave(projectedBag: object): string | null {
 // editorDoc이 객체 트리 그대로 들어갈 때 목록 안의 토글이나 서식으로 인해 깊이 초과 오류가 났었습니다.
 // 현재는 Firestore 저장 시 editorDoc을 JSON 문자열로 직렬화(lib/editorDocSerialize.ts)하여
 // Firestore 깊이를 항상 1단계로 유지하므로 중첩 깊이로 인한 Firestore 제약이 완전히 해결되었습니다.
-export const MAX_EDITOR_DOC_NESTING_DEPTH = 60;
+const MAX_EDITOR_DOC_NESTING_DEPTH = 60;
 
 function computeNestingDepth(value: unknown): number {
   if (Array.isArray(value)) {
@@ -130,11 +130,11 @@ function computeNestingDepth(value: unknown): number {
 }
 
 // TipTap 문서 자신의 최대 중첩 깊이를 잰다.
-export function getEditorDocNestingDepth(doc: object): number {
+function getEditorDocNestingDepth(doc: object): number {
   return computeNestingDepth(doc);
 }
 
-export function isEditorDocTooDeeplyNested(doc: object): boolean {
+function isEditorDocTooDeeplyNested(doc: object): boolean {
   return getEditorDocNestingDepth(doc) > MAX_EDITOR_DOC_NESTING_DEPTH;
 }
 

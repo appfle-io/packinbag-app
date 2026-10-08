@@ -33,7 +33,7 @@ function setState(next: FirestoreRecoveryState) {
 }
 
 /** Firestore가 멈춘 오류인지(내부 검사 실패) */
-export function isFirestoreBrokenError(err: unknown): boolean {
+function isFirestoreBrokenError(err: unknown): boolean {
   const msg =
     err instanceof Error ? err.message : typeof err === "string" ? err : err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
   return msg.includes("FIRESTORE") && msg.includes("INTERNAL ASSERTION FAILED");

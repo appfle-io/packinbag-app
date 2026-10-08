@@ -17,7 +17,7 @@ import { MAX_PACKS_PER_BAG } from "./useBagItems";
 // 담은 아이템은 "날씨 추천" 팩(aiRecommendSource)으로 모인다 - 무료 멤버 화면에서는 숨겨지는 기존 규칙(getViewablePacks)을 따른다.
 
 const CACHE_MS = 6 * 60 * 60 * 1000;
-export const WEATHER_PACK_NAME = "날씨 추천";
+const WEATHER_PACK_NAME = "날씨 추천";
 
 export type WeatherStatus = "idle" | "loading" | "ready" | "no-place" | "failed";
 

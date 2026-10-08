@@ -5,7 +5,7 @@ import { cx } from "@/components/v2/ui";
 import type { BagSummary } from "./homeModel";
 
 // 한 장에 보여줄 가방 수
-export const BAG_PAGE_SIZE = 5;
+const BAG_PAGE_SIZE = 5;
 // 장이 이보다 많으면 점 대신 "3 / 12"로 보여준다
 const MAX_DOTS = 7;
 

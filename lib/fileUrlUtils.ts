@@ -40,10 +40,6 @@ export function extFromMime(mime: string): string {
   return MIME_EXT[mime] ?? (mime.split("/")[1]?.split("+")[0] ?? "");
 }
 
-export function isPdfUrl(url: string): boolean {
-  return getExtension(url) === "pdf";
-}
-
 // 메모팩 첨부파일이 이미지/PDF를 넘어 임의 파일형식까지 허용되면서(2026-08~) 추가된 범용 판별.
 // 이미지 확장자 목록은 업로드 시 압축(compressImageFile)이 적용되는 포맷(png/jpg/jpeg/webp/gif)이거나,
 // 압축 대상은 아니지만 미리보기는 그대로 해야 하는 heic/svg/bmp도 포함한다.

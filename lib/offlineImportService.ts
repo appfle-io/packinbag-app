@@ -24,7 +24,7 @@ export function getImportedOfflineIds(): Set<string> {
 /**
  * 가져온 오프라인 항목 ID들을 기록합니다.
  */
-export function markOfflineIdsAsImported(ids: string[]) {
+function markOfflineIdsAsImported(ids: string[]) {
   if (typeof window === "undefined") return;
   try {
     const current = getImportedOfflineIds();

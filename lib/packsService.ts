@@ -147,7 +147,7 @@ export async function updateLibraryPackEditorContent(
 
 // 완전삭제 대신 휴지통으로 보낸다. trashedAt만 채우고 문서 자체는 그대로 둔다 - 30일 뒤
 // 자동 영구삭제되거나, 그 전에 복구/영구삭제할 수 있다.
-export async function trashLibraryPackRemote(uid: string, packId: string) {
+async function trashLibraryPackRemote(uid: string, packId: string) {
   if (isOfflineEnvironment()) {
     deleteLocalLibraryPack(packId);
     return;
@@ -156,7 +156,7 @@ export async function trashLibraryPackRemote(uid: string, packId: string) {
 }
 
 // 휴지통에서 복구. firestore.rules가 클라이언트의 직접 복구를 막아둬서 app/api/restore-library-pack을 거친다.
-export async function restoreLibraryPackRemote(user: User, packId: string) {
+async function restoreLibraryPackRemote(user: User, packId: string) {
   if (isOfflineEnvironment()) {
     restoreLocalLibraryPack(packId);
     return;

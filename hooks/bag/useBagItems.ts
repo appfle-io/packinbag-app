@@ -9,7 +9,7 @@ import { newId } from "./ids";
 import { isAllPacked } from "./bagStats";
 
 export const MAX_PACKS_PER_BAG = 10;
-export const INBOX_PACK_NAME = "미분류";
+const INBOX_PACK_NAME = "미분류";
 
 export interface ItemPatch {
   text?: string;

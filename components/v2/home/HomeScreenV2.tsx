@@ -13,7 +13,7 @@ import { NoteImportSheet } from "@/components/v2/sheets/AiPasteSheets";
 import type { ImportedBagResult } from "@/lib/types";
 
 // 검색 결과로 가방을 열 때 스크롤·강조할 대상
-export type BagOpenFocus = { packId?: string; itemId?: string; searchQuery?: string };
+type BagOpenFocus = { packId?: string; itemId?: string; searchQuery?: string };
 import {
   Badge,
   Button,

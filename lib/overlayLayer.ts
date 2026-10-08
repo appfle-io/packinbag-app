@@ -16,7 +16,7 @@ import { createContext, useContext } from "react";
 // 명시적 zIndex를 넘겨서 지금까지의 순서를 그대로 유지한다 - zIndex prop은 항상 이 자동
 // 계산보다 우선하는 "수동 오버라이드"로 남아있다. 새로 추가되는(또는 깊이가 가변적인)
 // 중첩 오버레이만 zIndex를 생략해서 이 자동 계산의 혜택을 받으면 된다.
-export const ROOT_LAYER = 40;
+const ROOT_LAYER = 40;
 export const LAYER_STEP = 20;
 export const SHEET_OFFSET = 10;
 export const POPOVER_OFFSET = 30;

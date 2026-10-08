@@ -83,7 +83,7 @@ function isBlockStart(lines: string[], i: number): boolean {
   return FENCE_RE.test(l) || HEADING_RE.test(l) || HR_RE.test(l) || LIST_RE.test(l) || isTableStart(lines, i);
 }
 
-export function markdownToHtml(md: string): string {
+function markdownToHtml(md: string): string {
   const lines = md.replace(/\r\n?/g, "\n").split("\n");
   const out: string[] = [];
   let i = 0;
@@ -182,7 +182,7 @@ export function markdownToHtml(md: string): string {
   return out.join("");
 }
 
-export function looksLikeMarkdown(text: string): boolean {
+function looksLikeMarkdown(text: string): boolean {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   if (lines.some((_l, i) => isTableStart(lines, i))) return true;
   if (lines.some((l) => FENCE_RE.test(l) || HEADING_RE.test(l))) return true;

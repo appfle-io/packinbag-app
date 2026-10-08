@@ -3,9 +3,9 @@
 
 import type { WeatherInfo, TravelRecommendation } from "./weatherService";
 
-export type ItemType = "check" | "text";
+type ItemType = "check" | "text";
 
-export interface RichSpan {
+interface RichSpan {
   text: string;
   bold?: boolean;
   underline?: boolean;
@@ -151,7 +151,7 @@ export interface BagMemberProfile {
 }
 
 // 여행일 하루 전/당일 등 언제 D-Day 리마인더를 보낼지 (0 = 당일, 1 = 1일 전, 3 = 3일 전)
-export type ReminderOffset = 0 | 1 | 3;
+type ReminderOffset = 0 | 1 | 3;
 
 // 가방이 곧 공유 단위. 가방마다 초대코드가 있고, 그 코드로 들어온 사람만
 // 이 가방을 보고 동시에 편집할 수 있다. 팩 보관함은 공유되지 않는다 -
@@ -251,14 +251,14 @@ export interface BagFolder {
 // 파일 아래쪽 ImportedBagResult 근처에 있다.
 
 // 회원가입 시 고를 수 있는 간단한 샘플 아바타 중 하나의 id (avatars.ts 참고)
-export type AvatarId = string;
+type AvatarId = string;
 
 // 가방/팩 목록 정렬 기준 (둘 다 같은 옵션 구성). "custom"은 고정핀 + 사용자가 길게 눌러서
 // 끌어다 놓은 순서(pinnedXIds/xOrder, UserProfile 참고)를 따르는 모드로, 드래그 리오더를
 // 시작하는 순간 자동으로 이 값으로 전환된다.
 export type ListSortOption = "createdAt" | "nameAsc" | "nameDesc" | "updatedAt" | "custom";
 
-export type StartPageType = "home" | "packs" | "last_used" | "bag" | "pack";
+type StartPageType = "home" | "packs" | "last_used" | "bag" | "pack";
 
 // 리디자인 v2 앱 글꼴(설정 > 화면 > 글꼴). lib/v2/appFonts.ts 참고
 export type AppFontFamily = "pretendard" | "gmarket" | "gaegu" | "d2coding";
@@ -462,7 +462,7 @@ export interface UserProfile {
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.
 // items는 문자열(체크형 기본)이거나, 타입을 직접 지정하고 싶을 때(예: 업무 보드 샘플의
 // 텍스트형 카드)는 객체 형태로 줄 수 있다.
-export interface ImportedItemDraft {
+interface ImportedItemDraft {
   text: string;
   type?: ItemType; // 없으면 "check" 기본값
   // 없으면 false 기본값 - 원본(아이폰 메모 등)에서 이미 체크된 것으로 보이는 항목(보통 "✓"/"v"/"[x]" 표시)을
@@ -470,7 +470,7 @@ export interface ImportedItemDraft {
   checked?: boolean;
 }
 
-export interface ImportedPackDraft {
+interface ImportedPackDraft {
   name: string;
   kind?: "checklist" | "editor";
   editorDoc?: object;
@@ -504,14 +504,6 @@ export interface FaqItem {
   answer: string;
 }
 
-// 가방 편집 화면에 실시간으로 접속 중인 사람 표시용
-export interface PresenceEntry {
-  uid: string;
-  nickname: string;
-  avatarId: AvatarId;
-  updatedAt: number; // epoch ms, 클라이언트에서 오래된 항목 필터링용
-}
-
 // 문의하기 게시판. 카테고리 + 제목 + 내용으로 작성하고, 마스터(운영자) 계정만
 // 전체 목록을 볼 수 있고 답변을 달 수 있다. 일반 사용자는 본인이 쓴 글만 볼 수 있다
 // (firestore.rules에서 uid 일치 또는 마스터 이메일만 허용).
@@ -533,7 +525,7 @@ export interface Inquiry {
 // 범용 알림함(users/{uid}/notifications). 지금은 "내 문의에 답변 달림" +
 // "댓글에서 멘션됨" 두 종류. 나중에 푸시 기능이 추가되면 같은 구조에 type만
 // 늘려가면서 쓰이도록 설계된다.
-export type NotificationType = "inquiry_answered" | "comment_mention";
+type NotificationType = "inquiry_answered" | "comment_mention";
 
 export interface AppNotification {
   id: string;
@@ -547,50 +539,6 @@ export interface AppNotification {
   read: boolean;
 }
 
-// 댓글이 달리는 대상. "item"은 특정 아이템(개별 항목), "bag"은 가방 전체(공지/자유 대화).
-export type CommentTargetType = "item" | "bag";
-
-// 가방 안 댓글. bags/{bagId}/comments 서브컬렉션에 저장되고, 그 가방 멤버끼리만
-// 읽고 쓸 수 있다(firestore.rules). targetType='item'이면 targetId가 아이템(Item.id),
-// targetType='bag'이면 targetId는 그냥 bagId 자체(가방 전체 공지/자유 대화용).
-export interface BagComment {
-  id: string;
-  targetType: CommentTargetType;
-  targetId: string;
-  packId?: string; // targetType='item'일 때, 그 아이템이 속한 팩 id (필터링/딥링크용)
-  authorUid: string;
-  authorNickname: string; // 작성 시점 스냅샷(닉네임 바뀌어도 예전 댓글은 그대로)
-  authorAvatarId: string;
-  text: string; // 최대 500자
-  mentions?: string[]; // 멘션된 멤버 uid 목록
-  createdAt: string;
-  updatedAt?: string; // 수정한 적 있으면 채워짐
-}
-
-// 아이템/팩/가방에 다는 가벼운 이모지 리액션. 댓글보다 마찰이 적은 소통 수단.
-// bags/{bagId}/reactions/{targetType_targetId} 문서 하나에 그 대상의 모든
-// 이모지별 반응자를 모아서 저장한다(대상당 문서 1개, 실시간 구독 가볍게 하려는 목적).
-export type ReactionTargetType = "item" | "comment" | "pack" | "bag";
-
-// 프리셋 이모지 - 무한 이모지피커 대신 자주 쓸 법한 것들로 구성(10개).
-export const REACTION_EMOJIS = [
-  "👍", // 좋아요
-  "❤️", // 사랑해요
-  "😂", // 웃겨요
-  "😮", // 놀람
-  "😢", // 슬퍼요
-  "🙏", // 감사해요/부탁해요
-  "✅", // 확인했어요
-  "❓", // 궁금해요
-  "🙋", // 제가 할게요
-  "🔥", // 핫해요
-] as const;
-export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
-
-export interface BagReactionDoc {
-  id: string; // `${targetType}_${targetId}`
-  targetType: ReactionTargetType;
-  targetId: string;
-  reactions: Partial<Record<ReactionEmoji, string[]>>; // emoji -> uid 배열
-  updatedAt: string;
-}
+// 댓글·리액션 기능은 2026-10-05에 빠졌고 타입도 2026-10-08에 정리했다. 예전 데이터는 그대로 남아 있다:
+// 댓글 bags/{bagId}/comments 서브컬렉션, 리액션 bags/{bagId}/reactions
+

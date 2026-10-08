@@ -10,7 +10,7 @@ const LOCAL_CHANGE_EVENT = "pib_local_storage_change";
 
 export const OFFLINE_USER_UID = "local-offline-user";
 
-export const DEFAULT_OFFLINE_PROFILE: UserProfile = {
+const DEFAULT_OFFLINE_PROFILE: UserProfile = {
   uid: OFFLINE_USER_UID,
   email: "offline@local",
   displayName: "오프라인 사용자",
@@ -245,20 +245,6 @@ export function saveLocalLibraryPack(pack: Pack) {
   safeSetItem(LOCAL_LIBRARY_PACKS_KEY, list);
 }
 
-export function createLocalLibraryPack(name: string, kind: "checklist" | "editor" = "checklist"): Pack {
-  const newPack: Pack = {
-    id: `local_pack_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    name: name.trim() || "새 팩",
-    items: [],
-    kind,
-    type: "pack",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  saveLocalLibraryPack(newPack);
-  return newPack;
-}
-
 function collectSubPackIds(packs: Pack[], parentId: string): Set<string> {
   const result = new Set<string>([parentId]);
   let changed = true;
@@ -311,13 +297,6 @@ export function permanentDeleteLocalLibraryPack(packId: string) {
   const idsToDelete = target.type === "folder" ? collectSubPackIds(list, packId) : new Set([packId]);
   const filtered = list.filter((p) => !idsToDelete.has(p.id));
   safeSetItem(LOCAL_LIBRARY_PACKS_KEY, filtered);
-}
-
-export function getLocalTrashedItems(): { bags: Bag[]; packs: Pack[] } {
-  return {
-    bags: getLocalBags().filter((b) => Boolean(b.trashedByOwnerAt)),
-    packs: getLocalLibraryPacks().filter((p) => Boolean(p.trashedAt)),
-  };
 }
 
 // ----------------- Subscriptions -----------------

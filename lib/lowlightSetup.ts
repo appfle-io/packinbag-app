@@ -81,12 +81,3 @@ export function getLanguageBadge(lang?: string | null): string {
   const found = SUPPORTED_CODE_LANGUAGES.find((l) => l.id === norm);
   return found ? found.badge : norm.toUpperCase();
 }
-
-/**
- * 언어 id로 표시용 한글/영문 라벨을 가져옵니다.
- */
-export function getLanguageLabel(lang?: string | null): string {
-  const norm = normalizeLanguage(lang);
-  const found = SUPPORTED_CODE_LANGUAGES.find((l) => l.id === norm);
-  return found ? found.label : norm;
-}

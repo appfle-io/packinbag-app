@@ -93,7 +93,7 @@ export function HeaderScroller({ children, label }: { children: React.ReactNode;
 }
 
 // 검색창. 헤더 검색 모드와 시트 안 검색이 같은 모양을 쓴다.
-export function SearchField({
+function SearchField({
   value,
   onChange,
   placeholder,

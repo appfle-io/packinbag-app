@@ -69,7 +69,7 @@ export interface AdminInsights {
 }
 
 // KST(UTC+9) 기준 날짜 문자열(YYYY-MM-DD). 스냅샷 문서 ID로 쓴다.
-export function kstDateString(date: Date = new Date()): string {
+function kstDateString(date: Date = new Date()): string {
   const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
 }
@@ -369,9 +369,4 @@ export async function computeAdminDashboard(): Promise<{ stats: AdminStats; insi
   };
 
   return { stats, insights };
-}
-
-// 예전 호출부 호환
-export async function computeAdminStats(): Promise<AdminStats> {
-  return (await computeAdminDashboard()).stats;
 }

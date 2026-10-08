@@ -35,7 +35,7 @@ export function pathTo(packs: Pack[], folderId: string | undefined): Pack[] {
 }
 
 // 폴더 안(하위 폴더 포함)의 팩·메모 개수와 바로 아래 하위 폴더 개수
-export function folderCounts(packs: Pack[], folderId: string): { packs: number; subfolders: number } {
+function folderCounts(packs: Pack[], folderId: string): { packs: number; subfolders: number } {
   let count = 0;
   const walk = (id: string, depth: number) => {
     if (depth > MAX_DEPTH) return;

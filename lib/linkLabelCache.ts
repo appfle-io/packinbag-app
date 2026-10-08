@@ -1,5 +1,4 @@
-import type { User } from "firebase/auth";
-import { fetchLinkMeta, parseShortLinkUrl, type LinkMeta } from "@/lib/shortLinkService";
+import { parseShortLinkUrl, type LinkMeta } from "@/lib/shortLinkService";
 
 // 짧은/커스텀 링크의 표시 이름(label)을 code 기준으로 앱 전체에서 공유하는 캐시.
 // 아이템/메모(components/LinkifiedText.tsx, 리액트 상태로 재렌더)와 메모팩
@@ -8,7 +7,6 @@ import { fetchLinkMeta, parseShortLinkUrl, type LinkMeta } from "@/lib/shortLink
 // 하나로 공유한다. 세션(탭) 안에서만 유지되는 메모리 캐시이고 새로고침하면 비워진다 -
 // 링크 몇 개 조회하는 정도라 매번 다시 받아와도 부담이 없다.
 const cache = new Map<string, LinkMeta | null>();
-const listeners = new Map<string, Set<() => void>>();
 
 const SS_PREFIX = "pb_linkmeta:";
 
@@ -59,34 +57,4 @@ export function setLinkMetaCache(kind: "s" | "c", code: string, meta: LinkMeta |
   const key = cacheKey(kind, code);
   cache.set(key, meta);
   writeSessionStorage(key, meta);
-  listeners.get(key)?.forEach((fn) => fn());
-}
-
-// url이 우리 서비스 링크면(parseShortLinkUrl 성공) 아직 캐시에 없을 때만 백그라운드로 한 번
-// 조회해서 채워넣는다.
-export function ensureLinkMetaLoaded(url: string, user: User | null) {
-  const parsed = parseShortLinkUrl(url);
-  if (!parsed) return;
-  const key = cacheKey(parsed.kind, parsed.code);
-  if (cache.has(key)) return;
-  const fromSs = readSessionStorage(key);
-  if (fromSs !== undefined) {
-    cache.set(key, fromSs);
-    return;
-  }
-  fetchLinkMeta(url, user).then((meta) => setLinkMetaCache(parsed.kind, parsed.code, meta));
-}
-
-// 이 url(짧은/커스텀 링크)의 캐시 값이 바뀔 때마다 listener를 호출한다. 반환값(구독 해제
-// 함수)을 useEffect의 cleanup으로 그대로 넘기면 된다. 우리 링크가 아니면 아무것도 하지 않는
-// 빈 함수를 돌려준다.
-export function subscribeLinkMeta(url: string, listener: () => void): () => void {
-  const parsed = parseShortLinkUrl(url);
-  if (!parsed) return () => {};
-  const key = cacheKey(parsed.kind, parsed.code);
-  if (!listeners.has(key)) listeners.set(key, new Set());
-  listeners.get(key)!.add(listener);
-  return () => {
-    listeners.get(key)?.delete(listener);
-  };
 }

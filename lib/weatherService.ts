@@ -148,7 +148,7 @@ export function forecastDateFor(travelDate: string | undefined): string | undefi
 
 // 명소·맛집 추천(app/api/ai-travel-places)을 부르던 fetchAiTravelPlaces는 v2에서 쓰는 곳이 없어 라우트와 함께 지웠다(2026-10-06).
 // 아래 타입은 예전 가방 문서의 aiRecommendCache.places 때문에 남겨 둔다.
-export type TravelRecommendationCategory = "attraction" | "food" | "specialty";
+type TravelRecommendationCategory = "attraction" | "food" | "specialty";
 
 export interface TravelRecommendation {
   category: TravelRecommendationCategory;

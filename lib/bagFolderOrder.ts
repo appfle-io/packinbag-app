@@ -33,16 +33,6 @@ export function sortBagFolders(folders: Record<string, BagFolder>, order: string
   return [...listed, ...rest];
 }
 
-// 지금 보이는 순서(ids)에서 id를 delta칸(-1 앞으로 / +1 뒤로) 옮긴 새 순서. 더 못 가면 null
-export function moveFolderInOrder(ids: string[], id: string, delta: -1 | 1): string[] | null {
-  const from = ids.indexOf(id);
-  const to = from + delta;
-  if (from < 0 || to < 0 || to >= ids.length) return null;
-  const next = [...ids];
-  [next[from], next[to]] = [next[to], next[from]];
-  return next;
-}
-
 // 계정(users/{uid})에 저장. 가방 문서는 건드리지 않는다(폴더는 개인 정리 정보).
 // 쓰기 1회. users/{uid} 실시간 구독이 로컬 쓰기를 바로 반영하므로 칩 순서가 즉시 바뀐다.
 export async function saveBagFolderOrder(uid: string, order: string[]): Promise<void> {

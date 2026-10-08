@@ -27,9 +27,9 @@ import {
 export {
   AI_FREE_DAILY_LIMIT,
   UNLOCK_CODE_LENGTH,
-  generateRandomCode,
+  
   UNLOCK_DURATION_LABELS,
-  durationTypeToDays,
+  
 };
 export type { UnlockDurationType };
 
@@ -110,7 +110,7 @@ export async function invalidateUnlockCode(code: string): Promise<void> {
 }
 
 // 마스터 전용 관리 화면에서 지금까지 발급한 코드 목록을 보여줄 때 사용.
-export type UnlockCodeStatus = "unused" | "claimed" | "invalidated";
+type UnlockCodeStatus = "unused" | "claimed" | "invalidated";
 
 export interface UnlockCodeEntry {
   code: string;

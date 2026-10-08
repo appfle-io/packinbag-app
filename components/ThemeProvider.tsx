@@ -35,19 +35,19 @@ const DEFAULT_CUSTOM = "#8b5cf6";
 // 기본 투명도 100%일 때는 지금까지와 완전히 같은 색으로 보이게 하기 위함.
 const SURFACE_2_BASE = { light: "#eef0f2", dark: "#2c2c2e" };
 // "default"는 커스텀하지 않은 상태 (기본 무채색 카드 배경 = --surface 그대로)
-export const DEFAULT_CARD_COLOR_ID = "default";
+const DEFAULT_CARD_COLOR_ID = "default";
 // 투명도/카드 크기 기본값 (기본 투명도 30%, 카드 크기 100%)
-export const DEFAULT_OPACITY = 0.3;
-export const DEFAULT_CARD_SCALE = 1;
+const DEFAULT_OPACITY = 0.3;
+const DEFAULT_CARD_SCALE = 1;
 // 가방 속 팩카드 크기(packCardScale)의 기준점. 기존 80% 크기를 새 100% 기준으로 삼아
 // 슬라이더 100%가 실제 배율 0.8이 되며, 슬라이더는 50%~100% 범위를 조절한다.
-export const PACK_CARD_SCALE_BASE = 0.8;
+const PACK_CARD_SCALE_BASE = 0.8;
 // 가방 속 팩카드 글자 크기(packCardFontScale)만 예외로 기준점을 다르게 잡는다. 기존에는
 // 슬라이더 "100%"가 실제 저장값 1.0을 그대로 쓰면서 체감상 너무 큰 문제(체감상
 // 120% 정도)가 있어서, 실제 저장값 = 표시값(%) * BASE 공식으로 기준점을 낮춰놓는다
 // (ColorSettingsScreen에서 슬라이더 매핑에 쓴다). 이렇게 하면 새 기본값(0.8)이 예전의
 // "80%" 설정과 동일한 실제 글자 크기를 내면서, 새 슬라이더는 "100%"로 표시된다.
-export const PACK_CARD_FONT_SCALE_BASE = 0.8;
+const PACK_CARD_FONT_SCALE_BASE = 0.8;
 
 // 글자 크기 배율. data-font-scale 속성(기존 앱 전체 오버라이드용)과 별개로,
 // 가방/팩 카드처럼 "카드 크기" 배율과 곱해서 같이 써야 하는 곳에서는 이 숫자를

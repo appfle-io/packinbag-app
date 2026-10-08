@@ -18,7 +18,7 @@ import { auth, db } from "@/lib/firebase";
 import { isPendingBag, savePendingBag } from "@/lib/v2/pendingCreates";
 import { Bag } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
-import { serializeBag, deserializeBag, serializePack } from "@/lib/editorDocSerialize";
+import { serializeBag, deserializeBag } from "@/lib/editorDocSerialize";
 import { mergeBag } from "@/lib/syncMerge";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
 import { getApiUrl } from "@/lib/apiBase";
@@ -28,7 +28,6 @@ import {
   deleteLocalBag,
   restoreLocalBag,
   permanentDeleteLocalBag,
-  subscribeLocalData,
 } from "@/lib/localBagsService";
 
 function bagsCol() {
@@ -163,81 +162,6 @@ export async function saveSharedBagMergedRemote(local: Bag, base: Bag) {
   }
 }
 
-// 메모팩 실시간 동기화(autoSyncEnabled) 전용 - 팩이 배열(Bag.packs) 안에 박혀있어서
-// 단순 updateDoc으로는 한 개만 고칠 수 없다. 팩 보관함 화면이 열려있을 때(그 가방이 지금
-// 아무도 열어보고 있지 않아도) 호출되는 것을 전제로 하므로, 동시 편집과 경합해도 다른
-// 필드/다른 팩을 덮어쓰지 않게 runTransaction으로 방금 읽은 최신 packs에 대해서만 대상
-// 팩을 교체해서 다시 쓴다.
-export async function updateBagPackEditorContent(
-  bagId: string,
-  packId: string,
-  patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
-) {
-  if (isOfflineEnvironment()) {
-    const list = getLocalBags();
-    const bag = list.find((b) => b.id === bagId);
-    if (!bag) return;
-    const packs = bag.packs.map((p) =>
-      p.id === packId
-        ? serializePack({
-            ...p,
-            name: patch.name,
-            editorDoc: patch.editorDoc ?? undefined,
-            editorPreviewText: patch.editorPreviewText,
-            updatedAt: patch.updatedAt,
-          })
-        : p
-    );
-    saveLocalBag({ ...bag, packs });
-    return;
-  }
-  const ref = doc(bagsCol(), bagId);
-  try {
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists()) return;
-      const data = snap.data() as Bag;
-      const packs = data.packs.map((p) =>
-        p.id === packId
-          ? serializePack({
-              ...p,
-              name: patch.name,
-              editorDoc: patch.editorDoc ?? undefined,
-              editorPreviewText: patch.editorPreviewText,
-              updatedAt: patch.updatedAt,
-            })
-          : p
-      );
-      tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
-    });
-  } catch (err) {
-    // 오프라인 상태(비행기 모드 등)에서는 Firestore runTransaction이 실패하므로,
-    // getDoc(IndexedDB 캐시) + updateDoc으로 폴백하여 로컬 캐시에 즉시 반영하고
-    // 온라인 복귀 시 서버로 자동 동기화되게 한다.
-    try {
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const data = snap.data() as Bag;
-        const packs = data.packs.map((p) =>
-          p.id === packId
-            ? serializePack({
-                ...p,
-                name: patch.name,
-                editorDoc: patch.editorDoc ?? undefined,
-                editorPreviewText: patch.editorPreviewText,
-                updatedAt: patch.updatedAt,
-              })
-            : p
-        );
-        await updateDoc(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
-      }
-    } catch (fallbackErr) {
-      console.error("[updateBagPackEditorContent] fallback updateDoc failed:", fallbackErr);
-      throw err;
-    }
-  }
-}
-
 // 가방에서 팩 여러 개를 빼낸다(보관함 팩을 지울 때 "가방 속 사본도 같이 지우기"). 가방은 여러 명이 동시에 고칠 수
 // 있어서, 화면에 들고 있던 가방을 통째로 저장하지 않고 runTransaction으로 방금 읽은 최신 packs에서 대상만 뺀다.
 export async function removePacksFromBagRemote(bagId: string, packIds: string[]) {
@@ -257,25 +181,6 @@ export async function removePacksFromBagRemote(bagId: string, packIds: string[])
     const packs = (data.packs ?? []).filter((p) => !ids.has(p.id));
     if (packs.length === (data.packs ?? []).length) return;
     tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
-  });
-}
-
-// 가방 하나를 실시간 구독 (다른 멤버의 변경을 편집 화면에서 바로 반영하기 위함).
-// 목록 구독(subscribeToUserBags)과 별개로, 지금 열어본 가방 하나만 가볍게 구독한다.
-export function subscribeToBag(
-  bagId: string,
-  callback: (bag: Bag | null) => void
-) {
-  if (isOfflineEnvironment()) {
-    const list = getLocalBags();
-    callback(list.find((b) => b.id === bagId) ?? null);
-    return subscribeLocalData(() => {
-      const updatedList = getLocalBags();
-      callback(updatedList.find((b) => b.id === bagId) ?? null);
-    });
-  }
-  return onSnapshot(doc(bagsCol(), bagId), (snap) => {
-    callback(snap.exists() ? deserializeBag({ id: snap.id, ...snap.data() } as Bag) : null);
   });
 }
 
@@ -352,14 +257,6 @@ export async function deleteBagWithInviteCodeRemote(bag: Bag) {
     }
   }
   await deleteDoc(doc(bagsCol(), bag.id));
-}
-
-export async function deleteBagRemote(bagId: string) {
-  if (isOfflineEnvironment()) {
-    deleteLocalBag(bagId);
-    return;
-  }
-  await deleteDoc(doc(bagsCol(), bagId));
 }
 
 // 완전삭제 대신 휴지통으로 보낸다(소유자 전용). 이미지/문서는 그대로 두고 trashedByOwnerAt만
@@ -521,27 +418,5 @@ export async function transferBagOwnershipRemote(
   if (!res.ok) {
     throw new Error((data?.error as string | undefined) ?? "그룹장 위임에 실패했어요");
   }
-}
-
-// 가방 보기 전용 난수 토큰(publicShareToken)이 없으면 생성하여 저장
-export async function ensureBagPublicShareToken(
-  bagId: string,
-  currentToken?: string
-): Promise<string> {
-  if (currentToken && currentToken.trim().length > 0) {
-    return currentToken;
-  }
-  const array = new Uint8Array(8);
-  window.crypto.getRandomValues(array);
-  const token = Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
-  try {
-    await updateDoc(doc(bagsCol(), bagId), {
-      publicShareToken: token,
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("[팩인백] publicShareToken 발급 실패:", err);
-  }
-  return token;
 }
 

@@ -12,7 +12,7 @@ import { MAX_PACKS_PER_BAG } from "./useBagItems";
 
 // 보관함 팩을 가방에 넣을 사본으로 만든다. 구 PackImportModal의 cloneAsNewPack과 같은 규칙:
 // 보관함 원본과 연결(linkedLibraryPackId)해 두고, 아이템 마감일은 떼어낸다.
-export function cloneLibraryPackForBag(pack: Pack): Pack {
+function cloneLibraryPackForBag(pack: Pack): Pack {
   return {
     ...pack,
     id: `pack-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

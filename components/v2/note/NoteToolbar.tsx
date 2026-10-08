@@ -64,7 +64,7 @@ function ToolButton({
 }
 
 // 본문 → 제목1 → 제목2 → 제목3 → 본문
-export function cycleHeading(editor: Editor) {
+function cycleHeading(editor: Editor) {
   const chain = editor.chain().focus();
   if (editor.isActive("heading", { level: 1 })) chain.setHeading({ level: 2 }).run();
   else if (editor.isActive("heading", { level: 2 })) chain.setHeading({ level: 3 }).run();

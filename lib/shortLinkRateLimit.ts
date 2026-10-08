@@ -5,7 +5,7 @@ import { todayKstKey } from "@/lib/aiUsageConfig";
 // 이 하나의 카운터를 공유한다 - 링크 생성 자체(오픈 리다이렉터 악용, 커스텀 코드 선점 등)를
 // 막는 게 목적이라 종류를 나눌 이유가 없다. lib/aiQuotaServer.ts와 동일한 패턴
 // (하루 단위 카운터 문서, KST 자정 기준)이지만 AI 사용량과는 별개의 컬렉션을 쓴다.
-export const SHORT_LINK_DAILY_LIMIT = 10;
+const SHORT_LINK_DAILY_LIMIT = 10;
 
 export const SHORT_LINK_LIMIT_MESSAGE = `악용 방지를 위해 하루에 최대 ${SHORT_LINK_DAILY_LIMIT}개까지만 짧은/커스텀 URL을 만들 수 있어요. 내일 다시 시도해주세요`;
 

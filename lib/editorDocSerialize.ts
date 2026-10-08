@@ -62,17 +62,3 @@ export function deserializeBag(bag: Bag): Bag {
   };
 }
 
-export function normalizeEditorDoc(doc: unknown): object | undefined {
-  if (!doc) return undefined;
-  if (typeof doc === "string") {
-    try {
-      return JSON.parse(doc);
-    } catch {
-      return undefined;
-    }
-  }
-  if (typeof doc === "object") {
-    return doc as object;
-  }
-  return undefined;
-}

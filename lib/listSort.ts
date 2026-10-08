@@ -1,26 +1,10 @@
 import { ListSortOption } from "@/lib/types";
 
-export const SORT_OPTION_LABELS: Record<ListSortOption, string> = {
-  createdAt: "생성일자순",
-  nameAsc: "이름 오름차순",
-  nameDesc: "이름 내림차순",
-  updatedAt: "최근 업데이트순",
-  custom: "사용자 설정순",
-};
-
-export const SORT_OPTIONS: ListSortOption[] = [
-  "createdAt",
-  "nameAsc",
-  "nameDesc",
-  "updatedAt",
-  "custom",
-];
-
 // 가방/팩 목록에 공통으로 쓰는 정렬. 원본 배열은 건드리지 않고 정렬된 새 배열을 반환한다.
 // "custom"은 순서 정보(order)가 따로 필요해서 이 함수 하나로는 처리할 수 없다 -
 // arrangeList(고정핀 + custom 순서까지 포함)를 대신 쓴다. 여기서는 방어적으로
 // createdAt 정렬로 대체한다.
-export function sortByOption<T extends { name: string; createdAt?: string; updatedAt?: string }>(
+function sortByOption<T extends { name: string; createdAt?: string; updatedAt?: string }>(
   items: T[],
   sortBy: ListSortOption | undefined
 ): T[] {
@@ -79,20 +63,6 @@ export function arrangeList<
     "createdAt"
   );
   return [...pinned, ...known, ...unknown];
-}
-
-// 드래그로 항목을 옮길 때 쓰는 순서 재배치. ids는 "지금 화면에 보이는(고정 제외) 순서"를
-// 그대로 넘기면 되고, fromId를 toId 위치로 옮긴 새 배열을 반환한다. 이 결과를 그대로
-// UserProfile의 bagOrder/packOrder로 저장하면 된다(=화면에 보이던 순서가 곧 저장값).
-export function moveIdInOrder(ids: string[], fromId: string, toId: string): string[] {
-  if (fromId === toId) return ids;
-  const fromIndex = ids.indexOf(fromId);
-  const toIndex = ids.indexOf(toId);
-  if (fromIndex === -1 || toIndex === -1) return ids;
-  const next = [...ids];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
 }
 
 // 고정핀 토글. 이미 고정돼있으면 해제, 아니면 추가(max개를 넘으면 무시하고 그대로 반환).

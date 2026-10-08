@@ -58,10 +58,10 @@ export async function createCustomShortLink(
 
 // 커스텀 코드 허용 규칙: 한글(완성형)/영문대소문/숫자/하이픈(-)/밑줄(_)만, 2~20자.
 // 서버(app/api/custom-shorten-url)와 클라이언트(CustomUrlModal) 양쪽이 동일한 규칙을 쓴다.
-export const CUSTOM_CODE_REGEX = /^[a-zA-Z0-9_\-가-힣]{2,20}$/;
+const CUSTOM_CODE_REGEX = /^[a-zA-Z0-9_\-가-힣]{2,20}$/;
 
 // /c/, /s/ 경로와 공유해서 쓰면 안 되는 예약어(다른 라우트와 충돌 방지).
-export const RESERVED_CUSTOM_CODES = new Set([
+const RESERVED_CUSTOM_CODES = new Set([
   "s",
   "c",
   "api",

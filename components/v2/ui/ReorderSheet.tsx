@@ -15,7 +15,7 @@ import { cx } from "./cx";
 // - 손잡이에만 touch-action:none을 줘서, 손잡이 밖을 밀면 목록이 평소처럼 스크롤된다
 // 서버 호출은 하지 않는다(저장은 부르는 쪽 onSave).
 
-export interface ReorderItem {
+interface ReorderItem {
   id: string;
   label: string;
   sub?: string;
