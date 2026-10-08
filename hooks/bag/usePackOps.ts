@@ -5,6 +5,7 @@ import type { Pack } from "@/lib/types";
 import { resolveEditorSyncDirection, buildEditorSyncPatch } from "@/lib/packSync";
 import { updateLibraryPackEditorContent } from "@/lib/packsService";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
+import { splitBagForSave } from "@/lib/bagNotesCore";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
 import { newId } from "./ids";
@@ -96,6 +97,11 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag }
     (packId: string) => {
       if (guard()) return;
       const pack = bag.packs.find((p) => p.id === packId);
+      // 메모 본문을 아직 못 받았으면 휴지통 사본이 빈 메모가 된다 → 받은 뒤에(2026-10-08)
+      if (pack?.kind === "editor" && pack.editorDoc === undefined && pack.noteSeparated) {
+        show("메모를 불러오는 중이에요. 잠시 후 다시 해 주세요");
+        return;
+      }
       update((prev) => ({ ...prev, packs: prev.packs.filter((p) => p.id !== packId) }));
       if (pack && (pack.items.length > 0 || pack.kind === "editor")) {
         onTrashPackFromBag(pack, bag.id, bag.name);
@@ -106,10 +112,11 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag }
   );
 
   // 메모팩 편집기(PackNoteEditorScreen)의 저장. 가방 문서가 Firestore 1MB에 가까워지면 막는다.
+  // 메모 본문은 따로 저장하므로(lib/bagNotesService) 본문을 떼 낸 가방 문서 크기로 잰다. 본문 자체는 편집기가 300KB로 막는다.
   const saveNotePack = useCallback(
     (updated: Pack) => {
       const projected = { ...bag, packs: bag.packs.map((p) => (p.id === updated.id ? updated : p)) };
-      const sizeError = checkBagSizeForSave(projected);
+      const sizeError = checkBagSizeForSave(splitBagForSave(projected, null).stripped);
       if (sizeError) {
         show(sizeError);
         return;
@@ -133,9 +140,12 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag }
   // 메모팩 보관함 자동 동기화: 이 화면이 열려 있는 동안, 연결된 보관함 원본과 내용이 다르면
   // 더 최신인 쪽으로 맞춘다(lib/packSync.ts). 내용이 같으면 "none"이라 핑퐁이 생기지 않는다.
   useEffect(() => {
+    // 메모 본문을 받기 전에는 비교하지 않는다. 본문 없는 메모를 "더 최신"으로 보고 보관함 원본을 빈 메모로 덮어쓸 수 있다(2026-10-08)
+    if (!doc.notesReady) return;
     let changed = false;
     const nextPacks = bag.packs.map((p) => {
       if (p.kind !== "editor" || !p.autoSyncEnabled || !p.linkedLibraryPackId) return p;
+      if (p.editorDoc === undefined && p.noteSeparated) return p;
       const lib = libraryPacks.find((lp) => lp.id === p.linkedLibraryPackId);
       if (!lib) return p;
       const direction = resolveEditorSyncDirection(p, lib);
@@ -152,7 +162,7 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag }
     if (changed) update((prev) => ({ ...prev, packs: prev.packs.map((p) => nextPacks.find((n) => n.id === p.id) ?? p) }));
     // bag.packs / libraryPacks가 바뀔 때만 다시 비교한다(구 화면과 동일)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bag.packs, libraryPacks]);
+  }, [bag.packs, libraryPacks, doc.notesReady]);
 
   return { importPacks, addPack, renamePack, deletePack, saveNotePack, toggleAutoSync };
 }

@@ -124,6 +124,16 @@ export interface Pack {
   // 리디자인 v2: 가방 하단 입력창으로 넣은 아이템이 모이는 "미분류" 팩이면 true. 가방당 하나만 두고,
   // "카테고리로 정리하기"(AI)로 다른 팩에 나눠 담으면 비워진다. 구 UI에서는 일반 팩처럼 보인다.
   isInbox?: boolean;
+  // ---- 가방 안 메모 본문 분리(2026-10-08, lib/bagNotesService.ts) ----
+  // 가방 안 메모팩의 본문(editorDoc)은 가방 문서가 아니라 bags/{bagId}/notes/{packId}에 따로 저장한다.
+  // 가방 문서에는 아래 요약만 남긴다(목록 구독이 메모 본문까지 매번 내려받지 않게).
+  // 화면 안(열린 가방)에서는 notes를 구독해 editorDoc을 다시 채워 쓴다(hydrateBag).
+  // 본문 앞부분 일반 텍스트(최대 2,000자) - 홈 검색용
+  searchText?: string;
+  // 본문에 들어 있는 첨부 주소 - 본문 없이 Storage 정리 판단용(lib/storageCleanup.ts)
+  attachmentUrls?: string[];
+  // true면 본문이 notes 문서에 있다(가방 문서에는 editorDoc이 없다)
+  noteSeparated?: boolean;
 }
 
 // 팩/폴더 웹 공개 공유 스냅샷 문서 (/sharedPacks/{token})
@@ -225,6 +235,10 @@ export interface Bag {
   // 리디자인 v2: 누군가 마지막으로 체크(또는 해제)한 시각(ISO). 홈 목록을 "최근 체크 순"으로 정렬하는 기준.
   // 없으면(예전 가방) updatedAt으로 대신한다.
   lastCheckedAt?: string;
+  // 2 = 메모 본문을 notes 하위 문서로 분리한 가방(2026-10-08). 이 값이 2인 가방은 packs를 바꿀 때
+  // packsRev를 정확히 1 올려야 한다(firestore.rules) - 새 구조를 모르는 옛 앱이 본문 없는 메모를 덮어쓰지 못하게.
+  notesV?: number;
+  packsRev?: number;
 }
 
 // 가방 보관함 폴더. 팩 폴더(Pack, type:"folder")와 달리 가방은 여러 명이 함께 쓰는

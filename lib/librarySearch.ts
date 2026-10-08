@@ -88,7 +88,8 @@ export function searchBags(bags: Bag[] = [], query: string): GlobalSearchOutput 
       if (!pack) continue;
       const isEditor = pack.kind === "editor";
       const nameMatched = Boolean(pack.name && pack.name.toLowerCase().includes(q));
-      const noteText = isEditor && pack.editorDoc ? getEditorDocFullText(pack.editorDoc) : "";
+      // 가방 목록에는 메모 본문이 없다(lib/bagNotesService) → 가방 문서에 남긴 검색 텍스트(앞 2,000자)로 찾는다
+      const noteText = isEditor ? (pack.editorDoc ? getEditorDocFullText(pack.editorDoc) : pack.searchText ?? "") : "";
       const docMatched = Boolean(noteText && noteText.toLowerCase().includes(q));
 
       if (isEditor) {

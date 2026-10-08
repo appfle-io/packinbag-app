@@ -938,7 +938,11 @@ export default function BagScreenV2(props: BagScreenProps) {
         desktopTransition="fade"
         innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl bg-background pib-safe-top overflow-hidden"
       >
-        {noteForEditor && (
+        {noteForEditor && !doc.notesReady && (
+          // 메모 본문을 아직 못 받았다(lib/bagNotesService). 빈 문서로 열어 덮어쓰지 않게 받을 때까지 기다린다
+          <div className="pib-v2 flex h-full flex-1 items-center justify-center bg-canvas text-caption text-sub">메모를 불러오고 있어요</div>
+        )}
+        {noteForEditor && doc.notesReady && (
           <PackNoteEditorScreen
             pack={noteForEditor}
             readOnly={readOnly}

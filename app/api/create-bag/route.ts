@@ -5,6 +5,7 @@ import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
 import { Bag, BagMemberProfile } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag } from "@/lib/editorDocSerialize";
+import { NOTES_VERSION, splitPacksPlain } from "@/lib/bagNotesCore";
 import crypto from "crypto";
 
 function generateShareToken(): string {
@@ -139,9 +140,19 @@ export async function POST(req: NextRequest) {
         publicShareToken: generateShareToken(),
         updatedAt: now,
       };
-      tx.create(bagRef, stripUndefined(serializeBag(finalBag)));
+      // 메모 본문은 가방 문서가 아니라 bags/{id}/notes/{packId}에 따로 쓴다(lib/bagNotesService, 2026-10-08).
+      // 샘플·메모로 가방 만들기·오프라인 옮기기·만들기 대기로 들어오는 메모가 여기를 거친다
+      const split = splitPacksPlain(finalBag.packs);
+      tx.create(
+        bagRef,
+        stripUndefined(serializeBag({ ...finalBag, packs: split.packs, notesV: NOTES_VERSION, packsRev: 1 })),
+      );
+      split.notes.forEach((n) =>
+        tx.create(bagRef.collection("notes").doc(n.packId), { doc: n.raw, rev: 1, updatedAt: now, updatedBy: uid }),
+      );
       tx.create(db.collection("inviteCodes").doc(inviteCode), { bagId: draft.id });
-      return { kind: "created" as const, bag: finalBag };
+      // 화면에는 본문이 붙은 그대로 돌려준다(열자마자 메모가 보이게)
+      return { kind: "created" as const, bag: { ...finalBag, notesV: NOTES_VERSION, packsRev: 1 } };
     });
 
     if (result.kind === "conflict") {

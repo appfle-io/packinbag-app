@@ -12,7 +12,9 @@ import { deleteBagImage } from "@/lib/storageService";
  */
 
 export function packFileUrls(pack: Pack): string[] {
-  return [...(pack.images ?? []), ...extractDocAttachmentUrls(pack.editorDoc)];
+  // 가방 안 메모는 본문이 따로 있어 목록에는 본문이 없다 → 가방 문서에 남긴 첨부 목록을 쓴다(lib/bagNotesService)
+  const docUrls = pack.editorDoc !== undefined ? extractDocAttachmentUrls(pack.editorDoc) : pack.attachmentUrls ?? [];
+  return [...(pack.images ?? []), ...docUrls];
 }
 
 /**

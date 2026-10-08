@@ -1,0 +1,91 @@
+app/api/create-bag/route.ts:7:import { serializeBag } from "@/lib/editorDocSerialize";
+app/api/create-library-pack/route.ts:7:import { serializePack } from "@/lib/editorDocSerialize";
+app/api/import-shared-pack/route.ts:7:import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
+app/api/share-pack/route.ts:6:import { serializePack } from "@/lib/editorDocSerialize";
+app/v/[token]/page.tsx:3:import { deserializeBag } from "@/lib/editorDocSerialize";
+app/v/[token]/page.tsx:37:      editorDoc: p.editorDoc,
+app/p/[token]/page.tsx:3:import { deserializePack } from "@/lib/editorDocSerialize";
+lib/editorDocTextExport.ts:1:import { collectEditorDocRichBlocks, RichBlock } from "@/lib/editorDocPreview";
+lib/editorDocTextExport.ts:5: * TipTap editorDoc 또는 팩 데이터를 줄바꿈과 체크 상태([✓] / [ ]),
+lib/editorDocTextExport.ts:11:  if (pack.editorDoc) {
+lib/editorDocTextExport.ts:12:    const blocks = collectEditorDocRichBlocks(pack.editorDoc);
+lib/editorDocAttachmentUtils.ts:37: * 기존 pack.images에 저장되어 있던 첨부파일 목록을 에디터 본문(editorDoc) 최상단으로 마이그레이션한다.
+lib/syncMerge.ts:9:// - 메모 문서(editorDoc)는 맨 위 문단(블록) 단위로 diff3 병합한다. 서로 다른 문단은 둘 다 살고,
+lib/syncMerge.ts:44:    if (k === "editorDoc" && !same(r[k], b[k]) && !same(l[k], r[k])) {
+lib/storageCleanup.ts:2:import { extractDocAttachmentUrls } from "@/lib/editorDocAttachmentUtils";
+lib/storageCleanup.ts:15:  return [...(pack.images ?? []), ...extractDocAttachmentUrls(pack.editorDoc)];
+lib/packSync.ts:17:  // 감지할 수 없으므로, editorDoc(TipTap JSON) 자체를 직접 비교한다.
+lib/packSync.ts:19:    return JSON.stringify(pack.editorDoc ?? null) === JSON.stringify(source.editorDoc ?? null);
+lib/packSync.ts:46:// 참고), 아이템 단위 병합 없이 문서(editorDoc) 통째로 비교/복사하면 충분하다. 지속적인
+lib/packSync.ts:51:  editorDoc: object | undefined;
+lib/packSync.ts:66:    JSON.stringify(bagPack.editorDoc ?? null) === JSON.stringify(libraryPack.editorDoc ?? null) &&
+lib/packSync.ts:79:    editorDoc: source.editorDoc ?? undefined,
+lib/editorDocPreview.ts:1:// 메모팩(에디터팩)의 TipTap JSON(pack.editorDoc)을 미리보기 렌더링용 구조로 파싱하는 유틸
+lib/editorDocSerialize.ts:4: * TipTap 에디터 JSON(pack.editorDoc)을 Firestore 저장용으로 안전하게 직렬화/역직렬화하는 유틸.
+lib/editorDocSerialize.ts:8: * Bag -> packs -> pack -> editorDoc -> orderedList -> listItem -> toggleBlock -> toggleContent -> paragraph -> text -> marks...
+lib/editorDocSerialize.ts:11: * Firestore에 저장할 때는 editorDoc을 JSON 문자열로 직렬화하여 깊이를 1단계로 줄이고,
+lib/editorDocSerialize.ts:18:  if (pack.kind === "editor" || pack.editorDoc !== undefined) {
+lib/editorDocSerialize.ts:19:    if (pack.editorDoc !== null && typeof pack.editorDoc === "object") {
+lib/editorDocSerialize.ts:24:          editorDoc: JSON.stringify(pack.editorDoc) as unknown as object,
+lib/editorDocSerialize.ts:27:        console.error("[editorDocSerialize] 직렬화 실패:", err);
+lib/editorDocSerialize.ts:36:  if (typeof pack.editorDoc === "string") {
+lib/editorDocSerialize.ts:40:        editorDoc: JSON.parse(pack.editorDoc),
+lib/editorDocSerialize.ts:43:      console.error("[editorDocSerialize] 역직렬화 실패:", err);
+lib/packsService.ts:18:import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
+lib/packsService.ts:117:  patch: { name: string; editorDoc: object | undefined; editorPreviewText?: string; updatedAt: string }
+lib/packsService.ts:126:      editorDoc: patch.editorDoc ?? undefined,
+lib/packsService.ts:136:    editorDoc: patch.editorDoc,
+lib/packsService.ts:142:    editorDoc: serialized.editorDoc,
+lib/types.ts:45:  // editorDoc(TipTap JSON 블록 문서)에 들어있다 - 아이폰 메모처럼 체크박스/제목/표가 순서대로
+lib/types.ts:49:  // "editor" 팩의 실제 내용 - TipTap(ProseMirror) JSON 문서. 크기는 lib/editorDocLimits.ts의
+lib/types.ts:52:  editorDoc?: object;
+lib/types.ts:53:  // 팩 카드(가방 속 미리보기)/팩 보관함 타일에 보여줄 일반 텍스트 요약. editorDoc을 저장할
+lib/types.ts:476:  editorDoc?: object;
+lib/librarySearch.ts:5:import { getEditorDocFullText } from "@/lib/editorDocLimits";
+lib/librarySearch.ts:91:      const noteText = isEditor && pack.editorDoc ? getEditorDocFullText(pack.editorDoc) : "";
+lib/librarySearch.ts:155:    const noteText = isEditor && pack.editorDoc ? getEditorDocFullText(pack.editorDoc) : "";
+lib/bagsService.ts:21:import { serializeBag, deserializeBag } from "@/lib/editorDocSerialize";
+lib/sampleOnboardingData.ts:493:    editorDoc: memoDocContent,
+lib/sampleOnboardingData.ts:549:        editorDoc: memoDocContent,
+lib/sampleOnboardingData.ts:763:        editorDoc: campingMemoDocContent,
+lib/localBagsService.ts:114:        editorDoc: { type: "doc", content: [{ type: "paragraph" }] },
+lib/editorDocLimits.ts:1:// 에디터팩(자유문서형 팩)의 editorDoc(TipTap JSON) 크기 방어.
+lib/editorDocLimits.ts:104:// editorDoc이 객체 트리 그대로 들어갈 때 목록 안의 토글이나 서식으로 인해 깊이 초과 오류가 났었습니다.
+lib/editorDocLimits.ts:105:// 현재는 Firestore 저장 시 editorDoc을 JSON 문자열로 직렬화(lib/editorDocSerialize.ts)하여
+components/MemoRichTextView.tsx:5:import { RichBlock, RichSpan, collectEditorDocRichBlocks } from "@/lib/editorDocPreview";
+components/GuestMemoArticleView.tsx:15:import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
+components/MemoDocViewer.tsx:9:import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
+components/MemoDocViewer.tsx:26:      const { doc } = migratePackImagesToDoc(pack.editorDoc, pack.images);
+components/MemoDocViewer.tsx:29:    return pack.editorDoc || pack.editorPreviewText || "";
+components/MemoDocViewer.tsx:30:  }, [pack.images, pack.editorDoc, pack.editorPreviewText]);
+components/AppShell.tsx:165:      JSON.stringify(remotePack.editorDoc ?? null) !== JSON.stringify(editingPack.editorDoc ?? null);
+components/AppShell.tsx:838:              editorDoc: p.editorDoc,
+components/screens/PackNoteEditorScreen.tsx:61:} from "@/lib/editorDocLimits";
+components/screens/PackNoteEditorScreen.tsx:62:import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
+components/screens/PackNoteEditorScreen.tsx:222:    new Set([...(pack.images ?? []), ...extractDocAttachmentUrls(pack.editorDoc)]),
+components/screens/PackNoteEditorScreen.tsx:274:  // 기존 pack.images에 있던 첨부파일들을 본문(editorDoc) 상단으로 자동 마이그레이션
+components/screens/PackNoteEditorScreen.tsx:277:      const { doc } = migratePackImagesToDoc(pack.editorDoc, pack.images);
+components/screens/PackNoteEditorScreen.tsx:280:    return pack.editorDoc ?? "";
+components/screens/PackNoteEditorScreen.tsx:281:  }, [pack.images, pack.editorDoc]);
+components/screens/PackNoteEditorScreen.tsx:506:    const { doc, migrated } = migratePackImagesToDoc(pack.editorDoc, pack.images);
+components/screens/PackNoteEditorScreen.tsx:510:        editorDoc: doc,
+components/screens/PackNoteEditorScreen.tsx:525:    const targetDoc = initialMigratedDoc || pack.editorDoc;
+components/screens/PackNoteEditorScreen.tsx:530:  }, [editor, initialMigratedDoc, pack.editorDoc]);
+components/screens/PackNoteEditorScreen.tsx:658:  const lastSyncedDocRef = useRef<unknown>(pack.editorDoc);
+components/screens/PackNoteEditorScreen.tsx:664:    const incomingDoc = pack.editorDoc;
+components/screens/PackNoteEditorScreen.tsx:666:    if (incomingDoc === lastSyncedDocRef.current || incomingDoc === packRef.current.editorDoc) return;
+components/screens/PackNoteEditorScreen.tsx:686:    packRef.current = { ...pack, editorDoc: packRef.current.editorDoc };
+components/screens/PackNoteEditorScreen.tsx:697:  // 이름(label)으로 바꿔치기한다. 문서(editorDoc) 자체의 텍스트/href는 그대로 두고 DOM
+components/screens/PackNoteEditorScreen.tsx:762:      editorDoc: doc,
+components/screens/PackNoteEditorScreen.tsx:916:            ...extractDocAttachmentUrls(packRef.current.editorDoc),
+components/screens/PackNoteEditorScreen.tsx:1273:                    editorDoc: editor?.getJSON() || pack.editorDoc,
+components/GuestMemoPackView.tsx:17:} from "@/lib/editorDocPreview";
+components/GuestMemoPackView.tsx:19:import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
+components/GuestMemoPackView.tsx:31:  // TipTap JSON 구조(editorDoc)에서 리치 블록 파싱, 없으면 editorPreviewText를 기반으로 생성
+components/GuestMemoPackView.tsx:33:    if (pack.editorDoc) {
+components/GuestMemoPackView.tsx:34:      const b = collectEditorDocRichBlocks(pack.editorDoc);
+components/GuestMemoPackView.tsx:48:  }, [pack.editorDoc, pack.editorPreviewText]);
+hooks/bag/usePackOps.ts:7:import { checkBagSizeForSave } from "@/lib/editorDocLimits";
+hooks/bag/useBagLibrary.ts:81:      editorDoc: pack.kind === "editor" ? pack.editorDoc : undefined,
+hooks/bag/useBagLibrary.ts:101:      editorDoc: pack.kind === "editor" ? pack.editorDoc : status.source.editorDoc,
+hooks/bag/useBagLibrary.ts:133:      ...(pack.kind === "editor" ? { editorDoc: source.editorDoc, editorPreviewText: source.editorPreviewText } : {}),

@@ -1,6 +1,7 @@
 import { adminDb } from "@/lib/firebaseAdmin";
 import { Bag } from "@/lib/types";
 import { deserializeBag } from "@/lib/editorDocSerialize";
+import { hydrateBag, parseNoteData, type BagNote } from "@/lib/bagNotesCore";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconLock } from "@tabler/icons-react";
@@ -150,7 +151,14 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
     }
 
     const bagDoc = snap.docs[0];
-    bag = toGuestBag(deserializeBag({ id: bagDoc.id, ...bagDoc.data() } as Bag));
+    // 메모 본문은 bags/{id}/notes에 따로 있다(lib/bagNotesService, 2026-10-08). 메모가 있는 가방만 읽는다
+    const raw = deserializeBag({ id: bagDoc.id, ...bagDoc.data() } as Bag);
+    let notes: Map<string, BagNote> | null = null;
+    if (raw.packs.some((p) => p.kind === "editor" && p.noteSeparated)) {
+      const notesSnap = await bagDoc.ref.collection("notes").get();
+      notes = new Map(notesSnap.docs.map((d) => [d.id, parseNoteData(d.data())]));
+    }
+    bag = toGuestBag(hydrateBag(raw, notes));
   }
 
   return <GuestBagClientView bag={bag} />;

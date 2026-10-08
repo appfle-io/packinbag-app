@@ -124,7 +124,7 @@ export function flushPendingCreates(
   user: User,
   deps: {
     createBag: (user: User, bag: Bag, ownerProfile: { nickname: string; avatarId: string }) => Promise<Bag>;
-    saveBag: (bag: Bag) => Promise<void>;
+    saveBag: (bag: Bag) => Promise<unknown>;
     createPack: (user: User, pack: Pack) => Promise<unknown>;
     isLimitError: (err: unknown) => boolean;
   },

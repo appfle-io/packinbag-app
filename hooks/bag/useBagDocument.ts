@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Bag } from "@/lib/types";
 import { saveBagRemote, saveSharedBagMergedRemote } from "@/lib/bagsService";
 import { mergeBag, sameContent } from "@/lib/syncMerge";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
+import { subscribeBagNotes } from "@/lib/bagNotesService";
+import { hydrateBag, type BagNote } from "@/lib/bagNotesCore";
+import { isOfflineEnvironment } from "@/lib/premiumLimits";
+import { auth } from "@/lib/firebase";
+import { isPendingBag } from "@/lib/v2/pendingCreates";
 
 // 가방 문서 하나를 편집하는 동안의 로컬 상태 + 자동저장 + 다른 멤버·기기 변경 반영.
 // - 모든 변경은 500ms 디바운스 후 저장한다. 혼자 쓰는 가방은 saveBagRemote(쓰기 1번),
@@ -16,6 +21,9 @@ import { firebaseErrorCode } from "@/lib/errorMessage";
 //   내 변경이 없으면 그대로 반영, 저장 대기 중이면 버리지 않고 아이템 단위로 합친다(lib/syncMerge).
 //   (예전에는 저장 대기 중에 온 변경을 건너뛰고 다시 반영하지 않아, 내 저장이 그 변경을 덮어썼다.)
 // - 내 저장이 되돌아온 스냅샷(내용 동일)은 기준점만 옮기고 다시 그리지도, 다시 저장하지도 않는다(무한 저장 방지).
+// - 메모 본문(2026-10-08): 가방 목록에는 메모 본문이 없다(lib/bagNotesService). 이 가방이 열려 있는 동안만
+//   bags/{id}/notes를 구독해서 메모팩에 본문을 채워 넣고(hydrateBag), 저장할 때는 다시 떼어서 쓴다.
+//   본문이 도착하기 전(notesReady=false)에는 메모 편집기를 열지 않는다(BagScreenV2) - 빈 문서로 덮어쓰지 않게.
 // 구 화면의 undo/redo 스택은 v2에서 쓰지 않아 옮기지 않았다(삭제는 토스트 "되돌리기"로 처리).
 
 const AUTOSAVE_DEBOUNCE_MS = 500;
@@ -37,12 +45,26 @@ export interface BagDocument {
   applyServerChange: (updater: (bag: Bag) => Bag) => void;
   // 잠긴 가방이면 이용권 안내를 띄우고 true를 돌려준다. 호출한 쪽은 그대로 return 한다.
   guard: () => boolean;
+  // 메모 본문을 받았는지(받기 전에는 메모 편집기를 열지 않는다)
+  notesReady: boolean;
+}
+
+// 메모 본문을 notes에서 받아야 하는 가방인지. 오프라인 모드·만들기 대기 가방은 본문이 가방 안에 그대로 있다
+function usesRemoteNotes(bagId: string): boolean {
+  if (isOfflineEnvironment()) return false;
+  if (isPendingBag(auth.currentUser?.uid, bagId)) return false;
+  return true;
+}
+
+function notesSignature(notes: Map<string, BagNote> | null): string {
+  if (!notes) return "";
+  return [...notes.entries()].map(([id, n]) => `${id}:${n.rev}:${n.raw.length}`).sort().join("|");
 }
 
 export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnlock, onSave }: BagDocumentOptions): BagDocument {
   const { show } = useToast();
   const [bag, setBag] = useState<Bag>(initialBag);
-  // 내가 마지막으로 받은 서버 버전(병합 기준점). 내 변경 = base와 화면 bag의 차이
+  // 내가 마지막으로 받은 서버 버전(병합 기준점, 본문 포함). 내 변경 = base와 화면 bag의 차이
   const baseRef = useRef<Bag>(initialBag);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,6 +75,30 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
   const isNewRef = useRef(isNew);
   const bagRef = useRef(bag);
   const onSaveRef = useRef(onSave);
+
+  // --- 메모 본문 구독 ---------------------------------------------------------
+  const remoteNotes = useMemo(() => usesRemoteNotes(initialBag.id), [initialBag.id]);
+  const [notes, setNotes] = useState<Map<string, BagNote> | null>(null);
+  const [notesReady, setNotesReady] = useState(!remoteNotes);
+  // 서버에 있다고 알고 있는 본문(packId → raw). 구독으로 받은 뒤에만 채운다(그 전에는 null = 지우기 금지)
+  const knownRef = useRef<Map<string, string> | null>(null);
+  useEffect(() => {
+    if (!remoteNotes) return;
+    return subscribeBagNotes(
+      initialBag.id,
+      (map) => {
+        knownRef.current = new Map([...map.entries()].map(([id, n]) => [id, n.raw]));
+        setNotes(map);
+        setNotesReady(true);
+      },
+      (err) => {
+        // 읽기 실패(권한 등): 가방 안 본문(이전 전 데이터)만으로 연다. 지우기는 하지 않는다
+        console.warn("[팩인백] 메모 본문 구독 실패:", err);
+        knownRef.current = null;
+        setNotesReady(true);
+      },
+    );
+  }, [initialBag.id, remoteNotes]);
 
   useEffect(() => {
     isNewRef.current = isNew;
@@ -66,8 +112,13 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
 
   const persist = useCallback(
     (target: Bag, silent: boolean) =>
-      (target.memberIds.length > 1 ? saveSharedBagMergedRemote(target, baseRef.current) : saveBagRemote(target))
-        .then(() => {
+      (target.memberIds.length > 1
+        ? saveSharedBagMergedRemote(target, baseRef.current, knownRef.current)
+        : saveBagRemote(target, knownRef.current)
+      )
+        .then((written) => {
+          // 방금 쓴 본문은 서버에 있다고 기록(같은 본문을 다시 쓰지 않게)
+          if (written.size > 0 && knownRef.current) written.forEach((raw, id) => knownRef.current!.set(id, raw));
           if (isNewRef.current && !hasConfirmedNewRef.current) {
             hasConfirmedNewRef.current = true;
             onSaveRef.current(target);
@@ -132,12 +183,34 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
   }, [persist]);
 
   // 다른 멤버·다른 기기의 변경 반영 (AppShell이 subscribeToUserBags로 받은 목록에서 이 가방을 찾는다 - 추가 읽기 없음)
-  const remoteBag = bags.find((b) => b.id === initialBag.id);
+  // 목록의 가방에는 메모 본문이 없으므로 notes로 채워서(hydrateBag) 쓴다. 목록에 아직 없으면(방금 만든 가방) 처음 가방에 채운다.
+  // 목록 소식과 본문 소식은 따로 도착한다. 본문은 "그 메모의 notes가 바뀐 경우"에만 바꾼다 - 내가 메모를 고친 직후
+  // 목록 소식이 먼저 오면, 아직 이전 notes로 채운 본문이 방금 쓴 글을 되돌리지 않게.
+  const listBag = bags.find((b) => b.id === initialBag.id);
+  const notesSigRef = useRef("");
+  const prevNotesRef = useRef<Map<string, BagNote> | null>(null);
   useEffect(() => {
-    if (!remoteBag) return;
+    if (!listBag && !notes) return;
+    const prevNotes = prevNotesRef.current;
+    prevNotesRef.current = notes;
     const base = baseRef.current;
+    const hydrated = hydrateBag(listBag ?? initialBag, notes);
+    const basePacks = new Map(base.packs.map((p) => [p.id, p]));
+    const remoteBag: Bag = {
+      ...hydrated,
+      packs: hydrated.packs.map((p) => {
+        if (p.kind !== "editor") return p;
+        if (notes?.get(p.id)?.raw !== prevNotes?.get(p.id)?.raw) return p; // 이 메모의 본문이 바뀜 → 새 본문
+        const bp = basePacks.get(p.id);
+        return bp && bp.editorDoc !== undefined ? { ...p, editorDoc: bp.editorDoc } : p;
+      }),
+    };
     if (remoteBag === base) return;
-    if (remoteBag.updatedAt && base.updatedAt && remoteBag.updatedAt <= base.updatedAt) return;
+    const sig = notesSignature(notes);
+    const notesChanged = sig !== notesSigRef.current;
+    notesSigRef.current = sig;
+    // 가방 문서는 그대로인데 메모 본문만 바뀐 경우(다른 멤버가 메모만 고침, 처음 본문 도착)는 updatedAt이 같다 → 본문 변화로 판단
+    if (!notesChanged && remoteBag.updatedAt && base.updatedAt && remoteBag.updatedAt <= base.updatedAt) return;
     baseRef.current = remoteBag;
     const local = bagRef.current;
     if (!isDirtyRef.current) {
@@ -152,7 +225,8 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     if (sameContent(merged, local)) return;
     isApplyingRemoteRef.current = true;
     setBag(merged);
-  }, [remoteBag]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBag은 처음 값만 쓴다
+  }, [listBag, notes]);
 
   const update = useCallback((updater: (b: Bag) => Bag) => setBag(updater), []);
 
@@ -167,5 +241,5 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     return true;
   }, [readOnly, onRequestUnlock]);
 
-  return { bag, update, applyServerChange, guard };
-}
+  return { bag, update, applyServerChange, guard, notesReady };
+}

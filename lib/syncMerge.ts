@@ -28,6 +28,9 @@ const BAG_SERVER_KEYS = new Set([
   "inviteCode",
   "publicShareToken",
   "locked",
+  // 메모 본문 분리(lib/bagNotesService) - 저장 쪽이 서버 값을 보고 올린다
+  "notesV",
+  "packsRev",
 ]);
 const PACK_SKIP_KEYS = new Set(["id", "items"]);
 

@@ -67,11 +67,21 @@ export function useBagLibrary({
   const patchPack = (packId: string, patch: Partial<Pack>) =>
     update((prev) => ({ ...prev, packs: prev.packs.map((p) => (p.id === packId ? { ...p, ...patch } : p)) }));
 
+  // 메모 본문을 아직 못 받은 메모(lib/bagNotesService)를 보관함에 보내면 빈 메모가 된다 → 받은 뒤에(2026-10-08)
+  const noteNotLoaded = (pack: Pack) => {
+    if (pack.kind === "editor" && pack.editorDoc === undefined && pack.noteSeparated) {
+      show("메모를 불러오는 중이에요. 잠시 후 다시 해 주세요");
+      return true;
+    }
+    return false;
+  };
+
   // 새 팩으로 저장(처음 저장 / "새로운 팩으로 저장"). 이 가방 팩은 새 보관함 팩과 연결된다.
   const saveAsNew = (packId: string, name: string) => {
     if (guard()) return;
     const pack = bag.packs.find((p) => p.id === packId);
     if (!pack) return;
+    if (noteNotLoaded(pack)) return;
     const now = new Date().toISOString();
     const libraryPack: Pack = {
       id: newId(),
@@ -93,6 +103,7 @@ export function useBagLibrary({
     const pack = bag.packs.find((p) => p.id === packId);
     const status = pack ? statusOf(pack) : null;
     if (!pack || !status || status.kind === "unsaved") return;
+    if (noteNotLoaded(pack)) return;
     const now = new Date().toISOString();
     onSaveToLibrary({
       ...status.source,

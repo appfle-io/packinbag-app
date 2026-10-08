@@ -6,12 +6,15 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   orderBy,
   query,
   runTransaction,
   updateDoc,
   where,
+  writeBatch,
+  type DocumentSnapshot,
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -19,7 +22,9 @@ import { isPendingBag, savePendingBag } from "@/lib/v2/pendingCreates";
 import { Bag } from "@/lib/types";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializeBag, deserializeBag } from "@/lib/editorDocSerialize";
-import { mergeBag } from "@/lib/syncMerge";
+import { mergeBag, mergeEditorDocs } from "@/lib/syncMerge";
+import { NOTES_VERSION, parseNoteData, rawOf, splitBagForSave, type NoteWrite } from "@/lib/bagNotesCore";
+import { deleteAllBagNotes, noteRef } from "@/lib/bagNotesService";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
 import { getApiUrl } from "@/lib/apiBase";
 import {
@@ -81,19 +86,50 @@ export async function createBagRemote(
   return deserializeBag(data.bag as Bag);
 }
 
-export async function saveBagRemote(bag: Bag) {
+// 메모 본문 문서(bags/{bagId}/notes/{packId})에 쓸 내용
+function noteData(raw: string) {
+  return {
+    doc: raw,
+    rev: increment(1),
+    updatedAt: new Date().toISOString(),
+    updatedBy: auth.currentUser?.uid ?? null,
+  };
+}
+
+/**
+ * 가방 저장(혼자 쓰는 가방, 또는 공유 가방 트랜잭션이 실패했을 때).
+ * 메모 본문은 떼어서 notes에 쓰고(바뀐 것만), 가방 문서에는 요약만 쓴다(lib/bagNotesCore splitBagForSave).
+ * known: 열린 가방이 구독으로 받은 현재 본문(packId → raw). 없으면 본문이 붙어 있는 메모는 모두 쓰고 지우지는 않는다.
+ * 돌려주는 값: 이번에 쓴 본문(packId → raw) - 호출한 쪽이 known을 갱신해 같은 본문을 다시 쓰지 않게.
+ */
+export async function saveBagRemote(bag: Bag, known: Map<string, string> | null = null): Promise<Map<string, string>> {
+  const written = new Map<string, string>();
   // 끊겨 있을 때 만든 "만들기 대기" 가방은 서버에 아직 문서가 없다 → 이 기기 대기 목록에 저장(lib/v2/pendingCreates)
   const uid = auth.currentUser?.uid;
   if (isPendingBag(uid, bag.id)) {
     savePendingBag(uid!, bag);
-    return;
+    return written;
   }
   if (isOfflineEnvironment()) {
     saveLocalBag(bag);
-    return;
+    return written;
   }
-  const serialized = serializeBag(bag) as unknown as Record<string, unknown>;
-  await updateDoc(doc(bagsCol(), bag.id), bagContentPatch(serialized));
+  const { stripped, noteWrites, noteDeletes } = splitBagForSave(bag, known);
+  const serialized = serializeBag(stripped) as unknown as Record<string, unknown>;
+  const batch = writeBatch(db);
+  batch.update(doc(bagsCol(), bag.id), {
+    ...bagContentPatch(serialized),
+    notesV: NOTES_VERSION,
+    // 규칙: 메모를 분리한 가방(notesV 2)에서 packs를 바꾸려면 packsRev가 정확히 1 올라야 한다(옛 앱 차단)
+    packsRev: increment(1),
+  });
+  noteWrites.forEach((w: NoteWrite) => {
+    batch.set(noteRef(bag.id, w.packId), noteData(w.raw), { merge: true });
+    written.set(w.packId, w.raw);
+  });
+  noteDeletes.forEach((id) => batch.delete(noteRef(bag.id, id)));
+  await batch.commit();
+  return written;
 }
 
 // 가방 문서에서 서버·멤버십이 관리하는 필드. 자동저장(saveBagRemote)은 이 필드를 쓰지 않는다.
@@ -109,6 +145,8 @@ const BAG_MANAGED_KEYS = new Set([
   "locked",
   "trashedByOwnerAt",
   "createdAt",
+  "notesV",
+  "packsRev",
 ]);
 // 화면에서 지울 수 있는 선택 필드. 값이 없으면 서버에서도 지운다(setDoc 통째 쓰기와 같은 결과)
 const BAG_OPTIONAL_KEYS = [
@@ -141,24 +179,66 @@ function bagContentPatch(serialized: Record<string, unknown>): Record<string, un
 // 가방에만 쓴다(혼자 쓰는 가방은 이미 구독 중인 스냅샷으로 화면에서 병합하고 saveBagRemote로 바로 쓴다).
 // - 그 사이 가방이 지워졌으면 다시 만들지 않는다.
 // - 오프라인(비행기 모드 등)이라 트랜잭션이 실패하면 예전처럼 통째 저장으로 대신한다(로컬 캐시에 바로 반영, 온라인 복귀 시 전송).
-export async function saveSharedBagMergedRemote(local: Bag, base: Bag) {
+export async function saveSharedBagMergedRemote(
+  local: Bag,
+  base: Bag,
+  known: Map<string, string> | null = null,
+): Promise<Map<string, string>> {
+  const written = new Map<string, string>();
   if (isOfflineEnvironment()) {
     saveLocalBag(local);
-    return;
+    return written;
   }
   const ref = doc(bagsCol(), local.id);
+  // 내가 본문을 고친 메모(화면 본문이 기준점과 다름). 이 메모는 서버 최신 본문과 문단 단위로 합친다
+  const basePacks = new Map(base.packs.map((p) => [p.id, p]));
+  const changedIds = local.packs
+    .filter((p) => p.kind === "editor" && p.editorDoc !== undefined && rawOf(p.editorDoc) !== rawOf(basePacks.get(p.id)?.editorDoc))
+    .map((p) => p.id);
   try {
     await runTransaction(db, async (tx) => {
+      // 트랜잭션은 읽기를 모두 끝낸 뒤에 쓴다
       const snap = await tx.get(ref);
       if (!snap.exists()) return;
+      const noteSnaps = new Map<string, DocumentSnapshot>();
+      for (const id of changedIds) noteSnaps.set(id, await tx.get(noteRef(local.id, id)));
+
       const server = deserializeBag({ id: snap.id, ...snap.data() } as Bag);
       const merged = mergeBag(base, local, server);
-      tx.set(ref, stripUndefined({ ...serializeBag(merged), updatedAt: new Date().toISOString() }));
+      const serverPacks = new Map(server.packs.map((p) => [p.id, p]));
+      merged.packs = merged.packs.map((p) => {
+        if (!changedIds.includes(p.id)) return p;
+        const ns = noteSnaps.get(p.id);
+        const serverDoc = ns?.exists() ? parseNoteData(ns.data()).doc : serverPacks.get(p.id)?.editorDoc;
+        const localDoc = local.packs.find((x) => x.id === p.id)?.editorDoc;
+        return { ...p, editorDoc: mergeEditorDocs(basePacks.get(p.id)?.editorDoc, localDoc, serverDoc) };
+      });
+
+      // 본문 분리. 본문이 붙어 있는 메모(내가 고친 것, 아직 이전 안 된 것)만 notes에 쓴다
+      const { stripped, noteWrites } = splitBagForSave(merged, null);
+      const mergedIds = new Set(merged.packs.map((p) => p.id));
+      const deletes = known ? [...known.keys()].filter((id) => !mergedIds.has(id)) : [];
+
+      tx.set(
+        ref,
+        stripUndefined({
+          ...serializeBag(stripped),
+          updatedAt: new Date().toISOString(),
+          notesV: NOTES_VERSION,
+          packsRev: (server.packsRev ?? 0) + 1,
+        }),
+      );
+      noteWrites.forEach((w) => {
+        tx.set(noteRef(local.id, w.packId), noteData(w.raw), { merge: true });
+        written.set(w.packId, w.raw);
+      });
+      deletes.forEach((id) => tx.delete(noteRef(local.id, id)));
     });
+    return written;
   } catch (err) {
     if ((err as { code?: string })?.code === "permission-denied") throw err;
     console.warn("[팩인백] 병합 저장 트랜잭션 실패, 통째 저장으로 대신:", err);
-    await saveBagRemote(local);
+    return saveBagRemote(local, known);
   }
 }
 
@@ -180,7 +260,11 @@ export async function removePacksFromBagRemote(bagId: string, packIds: string[])
     const data = snap.data() as Bag;
     const packs = (data.packs ?? []).filter((p) => !ids.has(p.id));
     if (packs.length === (data.packs ?? []).length) return;
-    tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString() });
+    tx.update(ref, { packs: stripUndefined(packs), updatedAt: new Date().toISOString(), packsRev: (data.packsRev ?? 0) + 1 });
+    // 빠진 메모의 본문 문서도 지운다(없으면 아무 일 없음)
+    (data.packs ?? [])
+      .filter((p) => ids.has(p.id) && p.kind === "editor")
+      .forEach((p) => tx.delete(noteRef(bagId, p.id)));
   });
 }
 
@@ -209,8 +293,10 @@ export async function movePackBetweenBagsRemote(
   }
   const fromRef = doc(bagsCol(), fromBagId);
   const toRef = doc(bagsCol(), toBagId);
+  const fromNote = noteRef(fromBagId, packId);
+  const toNote = noteRef(toBagId, packId);
   return await runTransaction(db, async (tx) => {
-    const [fromSnap, toSnap] = await Promise.all([tx.get(fromRef), tx.get(toRef)]);
+    const [fromSnap, toSnap, noteSnap] = await Promise.all([tx.get(fromRef), tx.get(toRef), tx.get(fromNote)]);
     if (!fromSnap.exists() || !toSnap.exists()) {
       return { ok: false, reason: "not-found" as const };
     }
@@ -227,11 +313,19 @@ export async function movePackBetweenBagsRemote(
     tx.update(fromRef, {
       packs: stripUndefined(fromData.packs.filter((p) => p.id !== packId)),
       updatedAt: now,
+      packsRev: (fromData.packsRev ?? 0) + 1,
     });
     tx.update(toRef, {
       packs: stripUndefined([...toData.packs, movingPack]),
       updatedAt: now,
+      packsRev: (toData.packsRev ?? 0) + 1,
+      ...(noteSnap.exists() ? { notesV: NOTES_VERSION } : {}),
     });
+    // 메모 본문 문서도 같이 옮긴다
+    if (noteSnap.exists()) {
+      tx.set(toNote, noteSnap.data());
+      tx.delete(fromNote);
+    }
     return { ok: true as const };
   });
 }
@@ -256,6 +350,8 @@ export async function deleteBagWithInviteCodeRemote(bag: Bag) {
       // 이미 없거나 권한 문제면 무시 (가방 삭제 자체는 계속 진행)
     }
   }
+  // 메모 본문 문서를 먼저 지운다(가방 문서가 없으면 규칙의 멤버 확인이 안 돼 못 지운다)
+  await deleteAllBagNotes(bag.id).catch(() => {});
   await deleteDoc(doc(bagsCol(), bag.id));
 }
 

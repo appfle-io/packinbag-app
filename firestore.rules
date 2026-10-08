@@ -270,6 +270,15 @@ service cloud.firestore {
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['memberIds']) ||
           memberIdsChangeOk()
+        ) &&
+        // 메모 본문 분리(2026-10-08, lib/bagNotesService): 본문을 notes로 나눈 가방(notesV 2)에서는
+        // packs를 바꿀 때 packsRev를 정확히 1 올려야 한다. 새 구조를 모르는 옛 앱(새로고침 안 한 탭, 업데이트 안 한 포터블)은
+        // 본문 없는 메모를 보고 다시 가방 안에 써넣을 수 있어서 저장을 막는다. notesV는 낮출 수 없다.
+        request.resource.data.get('notesV', 0) >= resource.data.get('notesV', 0) &&
+        (
+          resource.data.get('notesV', 0) != 2 ||
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['packs']) ||
+          request.resource.data.get('packsRev', 0) == resource.data.get('packsRev', 0) + 1
         );
 
       // 소유자가 이 가방을 휴지통으로 보내기: trashedByOwnerAt을 null -> 값으로 바꾸는 것만
@@ -301,6 +310,23 @@ service cloud.firestore {
         allow write: if request.auth != null &&
           request.auth.uid == presenceUid &&
           request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
+      }
+
+      // 메모팩 본문(2026-10-08, lib/bagNotesService). 가방 멤버만 읽고 쓴다.
+      // 잠긴 가방(locked)의 그룹장은 가방과 마찬가지로 본문도 고칠 수 없다. 지우기는 멤버면 된다(가방 완전삭제 전 정리).
+      match /notes/{packId} {
+        function bagData() {
+          return get(/databases/$(database)/documents/bags/$(bagId)).data;
+        }
+        function isNoteMember() {
+          return request.auth != null && request.auth.uid in bagData().memberIds;
+        }
+        allow read: if isNoteMember();
+        allow create, update: if isNoteMember() &&
+          !(request.auth.uid == bagData().ownerId && bagData().get('locked', false) == true) &&
+          request.resource.data.doc is string &&
+          request.resource.data.doc.size() < 1000000;
+        allow delete: if isNoteMember();
       }
 
       // 가방 안 댓글. 짐(item) 단위/가방(bag) 전체 단위 둘 다 이 하나의

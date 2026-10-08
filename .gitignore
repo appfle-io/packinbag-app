@@ -67,3 +67,6 @@ next-env.d.ts
 # AI Agent Rules (로컬 전용)
 AGENTS.md
 
+# Firestore backup (user data - never commit, scripts/backup-firestore.mjs)
+/backups/
+
