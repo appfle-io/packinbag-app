@@ -84,16 +84,8 @@ service cloud.firestore {
         // Admin SDK를 쓰면 이 규칙을 그대로 통과한다.
         allow create: if isMaster();
 
-        // 댓글 멘션 알림: 같은 가방 멤버끼리에게만 서로 알림을 남길 수 있다.
-        // relatedBagId로 가리키는 가방을 조회해서 쓰는 사람(request.auth.uid)와
-        // 알림 받는 사람(uid, 경로 변수) 모두가 그 가방의 memberIds에 있어야한다.
-        allow create: if request.auth != null &&
-          request.resource.data.type == 'comment_mention' &&
-          request.resource.data.relatedBagId is string &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/bags/$(request.resource.data.relatedBagId)).data.memberIds &&
-          uid in
-            get(/databases/$(database)/documents/bags/$(request.resource.data.relatedBagId)).data.memberIds;
+        // 댓글 멘션 알림(comment_mention)을 멤버끼리 만들던 규칙은 댓글 기능과 함께 빠졌다(2026-10-08).
+        // 남겨 두면 같은 가방 멤버가 상대 알림함에 아무 알림이나 넣을 수 있었다.
 
         allow delete: if false;
       }
@@ -329,54 +321,16 @@ service cloud.firestore {
         allow delete: if isNoteMember();
       }
 
-      // 가방 안 댓글. 짐(item) 단위/가방(bag) 전체 단위 둘 다 이 하나의
-      // 서브컴렉션에 섞여 저장된다(targetType 필드로 구분). 그 가방 멤버만
-      // 읽고 쓸 수 있다. 작성(create)는 본인 uid로만, 수정(update)은 본인이 쓴
-      // 댓글의 text/updatedAt만, 삭제(delete)는 작성자 본인만 가능하다.
-      match /comments/{commentId} {
-        function isBagMember() {
-          return request.auth != null &&
-            request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
-        }
-
-        allow read: if isBagMember();
-
-        allow create: if isBagMember() &&
-          request.resource.data.authorUid == request.auth.uid &&
-          request.resource.data.targetType in ['item', 'bag'] &&
-          request.resource.data.targetId is string &&
-          request.resource.data.text is string &&
-          request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
-
-        allow update: if isBagMember() &&
-          resource.data.authorUid == request.auth.uid &&
-          request.resource.data.authorUid == resource.data.authorUid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt']) &&
-          request.resource.data.text is string &&
-          request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500;
-
-        allow delete: if isBagMember() && resource.data.authorUid == request.auth.uid;
-      }
-
-      // 짐/팩/가방에 달는 가벼운 이모지 리액션. 대상당 문서 1개에 모든 유저의
-      // 반응을 모아놓는다. 소그룹(최대 10명) 신뢰 기반 앱이라 멤버면 서로의
-      // 반응까지 자유롭게 다룰 수 있게(토글) 허용한다(정교한 배열 diff 검증 대신
-      // 이 앱의 기존 정책과 동일한 신뢰 기반 접근을 따른다).
-      match /reactions/{reactionId} {
-        function isBagMember() {
-          return request.auth != null &&
-            request.auth.uid in get(/databases/$(database)/documents/bags/$(bagId)).data.memberIds;
-        }
-
-        allow read: if isBagMember();
-        allow write: if isBagMember();
-      }
+      // 댓글(2026-10-05 기능 삭제) 데이터는 bags/{bagId}/comments 서브컴렉션에, 리액션은 bags/{bagId}/reactions에 남아 있다.
+      // 규칙을 지워 클라이언트는 더 읽거나 쓸 수 없다(2026-10-08). 남겨 두면 멤버가 아무 데이터나 쌓을 수 있었다.
     }
 
     // 팩/폴더 웹 공개 공유 스냅샷 (app/api/share-pack Admin SDK에서 작성)
+    // 토큰을 아는 문서 하나만 읽을 수 있다. 예전에는 read(= get + list)라 링크를 받지 않은 사람도
+    // 공유된 팩 전체 목록을 긁을 수 있었다(2026-10-08). 공유 페이지(/p)는 서버가 읽는다.
     match /sharedPacks/{token} {
-      allow read: if true;
-      allow write: if false;
+      allow get: if true;
+      allow list, write: if false;
     }
   }
 }
