@@ -80,6 +80,7 @@ import { PhotoViewer } from "@/components/v2/bag/PhotoViewer";
 import { PdfViewer } from "@/components/v2/bag/PdfViewer";
 import { mergeEditorDocs } from "@/lib/syncMerge";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { sweepRemovedAttachments } from "@/lib/storageCleanup";
 
 // 문서를 통째로 바꿔 넣되, 커서가 있던 맨 위 문단을 새 문서에서 찾아 같은 자리로 돌려놓는다
 // (위쪽에 다른 사람이 문단을 넣어도 치던 자리가 튀지 않게). 예외는 삼킨다 - 커서는 부가 기능이다.
@@ -216,6 +217,10 @@ export default function PackNoteEditorScreen({
   const [headings, setHeadings] = useState<{ pos: number; level: number; text: string }[]>([]);
 
   const packRef = useRef(pack);
+  // 이번에 열어 둔 동안 본문·사진 칸에 한 번이라도 있었던 첨부 주소
+  const seenAttachmentUrlsRef = useRef<Set<string>>(
+    new Set([...(pack.images ?? []), ...extractDocAttachmentUrls(pack.editorDoc)]),
+  );
   const nameRef = useRef(name);
   useEffect(() => {
     nameRef.current = name;
@@ -749,6 +754,8 @@ export default function PackNoteEditorScreen({
       return;
     }
     setDepthBlocked(false);
+    // 이번에 열어 둔 동안 본문에 있었던 첨부를 모은다(닫을 때 지운 것만 정리 - sweepRemovedAttachments)
+    extractDocAttachmentUrls(doc).forEach((u) => seenAttachmentUrlsRef.current.add(u));
     const updated: Pack = {
       ...packRef.current,
       name: nameRef.current,
@@ -897,6 +904,19 @@ export default function PackNoteEditorScreen({
       flushAutosave();
       // 뒤로가기가 아닌 경로로 화면이 없어져도 공유 스냅샷을 갱신(이미 했으면 아무 일도 안 함)
       refreshShareRef.current?.();
+      // 본문에서 지운 첨부를 Storage에서도 지운다(다른 곳이 쓰면 남김, 공유 가방은 건드리지 않음).
+      // 편집기를 닫은 뒤라 되돌리기로 되살릴 수 없는 시점이다(2026-10-07)
+      if (!effectiveReadOnlyRef.current && !isOfflineMode) {
+        void sweepRemovedAttachments({
+          packId: packRef.current.id,
+          bagId,
+          seen: seenAttachmentUrlsRef.current,
+          finalUrls: [
+            ...(packRef.current.images ?? []),
+            ...extractDocAttachmentUrls(packRef.current.editorDoc),
+          ],
+        }).catch(() => {});
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

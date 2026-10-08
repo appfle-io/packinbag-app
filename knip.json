@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    "ios/**",
+    "android/**",
+    "electron/**",
+    "public/**",
+    ".next/**",
+    "out/**",
+    "dist/**",
+    "docs/**",
+    "*.py"
+  ]
+}

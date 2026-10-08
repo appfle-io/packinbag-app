@@ -39,7 +39,7 @@ import {
   dismissAnnouncementRemote,
   isAnnouncementActive,
 } from "@/lib/announcementsService";
-import { bagFileUrls, deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
+import { bagFileUrls, deleteUnusedFiles, packFileUrls, setFileUsageSource, urlsInUse } from "@/lib/storageCleanup";
 import {
   getLocalBags,
   saveLocalBag,
@@ -489,6 +489,11 @@ export default function AppShell() {
           .join(",")
       : "";
   const lockSyncSentRef = useRef("");
+  // 메모 편집기가 닫을 때 "지운 첨부를 다른 곳이 쓰는지" 확인할 수 있게 지금 목록을 등록(lib/storageCleanup.ts)
+  useEffect(() => {
+    setFileUsageSource(() => ({ bags, packs: libraryPacks }));
+  }, [bags, libraryPacks]);
+  useEffect(() => () => setFileUsageSource(null), []);
   useEffect(() => {
     if (!user || !lockMismatch || lockSyncSentRef.current === lockMismatch) return;
     const t = window.setTimeout(() => {

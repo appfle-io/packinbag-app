@@ -5,6 +5,7 @@ import {
   getFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
+  setLogLevel,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -46,5 +47,12 @@ function createFirestore() {
 }
 
 export const db = createFirestore();
+
+// 실시간 연결(WebChannel)은 일정 시간마다(토큰 갱신·서버 쪽 세션 만료) 끊기고 SDK가 곧바로 다시 연결한다.
+// 그때마다 "transport errored" 경고가 긴 스택과 함께 콘솔을 덮어서, 운영에서는 진짜 오류(error)만 남긴다(2026-10-07).
+// 멈춤 감지(lib/v2/firestoreRecovery)는 콘솔이 아니라 전역 error 이벤트를 보므로 영향이 없다.
+// 브라우저가 찍는 "GET .../Listen/channel 400" 한 줄은 네트워크 기록이라 앱에서 숨길 수 없다.
+if (typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+  setLogLevel("error");
+}
 export const storage = getStorage(app);
-export default app;

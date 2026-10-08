@@ -1,0 +1,62 @@
+Unused exports (47)
+components/ThemeProvider.tsx: DEFAULT_CARD_COLOR_ID, DEFAULT_OPACITY, DEFAULT_CARD_SCALE, PACK_CARD_SCALE_BASE, PACK_CARD_FONT_SCALE_BASE
+components/v2/bag/format.ts: formatTravelDate
+components/v2/home/BagListPager.tsx: BAG_PAGE_SIZE
+components/v2/home/homeModel.ts: SOON_DAYS, ARCHIVE_SUGGEST_DAYS_PAST, sortForHome, HIGHLIGHT_MAX, sortHomeList
+components/v2/note/NoteToolbar.tsx: cycleHeading
+components/v2/packs/packsModel.ts: folderCounts
+components/v2/ui/Screen.tsx: SearchField
+components/v2/ui/index.ts: SearchField
+hooks/bag/bagStats.ts: checklistPacks, checkItemsOf
+hooks/bag/index.ts: MAX_PACKS_PER_BAG, INBOX_PACK_NAME, cloneLibraryPackForBag, WEATHER_PACK_NAME
+hooks/bag/useBagItems.ts: INBOX_PACK_NAME
+hooks/bag/useBagWeather.ts: WEATHER_PACK_NAME
+hooks/bag/usePackOps.ts: cloneLibraryPackForBag
+lib/accountService.ts: fetchDeletedAccountIds
+lib/adminStats.ts: kstDateString, computeAdminStats
+lib/aiUsageService.ts: generateRandomCode, durationTypeToDays
+lib/apiBase.ts: REMOTE_API_ORIGIN
+lib/bagFolderOrder.ts: moveFolderInOrder
+lib/bagsService.ts: updateBagPackEditorContent, subscribeToBag, deleteBagRemote, ensureBagPublicShareToken
+lib/dday.ts: formatItemDueLabel, getDueUrgency, getDueIntensifyPercent
+lib/editorDocLimits.ts: MAX_BAG_DOC_BYTES, MAX_EDITOR_PREVIEW_CHARS, getJsonByteSize, isEditorDocTooLarge, MAX_EDITOR_DOC_NESTING_DEPTH, getEditorDocNestingDepth, isEditorDocTooDeeplyNested
+lib/editorDocPreview.ts: collectEditorDocPreviewLines, renderRichMemoBlocksOnCanvas
+lib/editorDocSerialize.ts: normalizeEditorDoc
+lib/fileUrlUtils.ts: isPdfUrl
+lib/firebase.ts: default
+lib/firebaseAdmin.ts: adminApp
+lib/geminiConfig.ts: GEMINI_MODEL
+lib/installPromptUtils.ts: isIosDevice, isStandalonePWA, isCapacitorNative, isDesktopBrowser, canShowInstallGuideModal
+lib/librarySearch.ts: extractTextSnippet, extractLongTextSnippet, searchGlobal
+lib/linkLabelCache.ts: ensureLinkMetaLoaded, subscribeLinkMeta
+lib/listSort.ts: SORT_OPTION_LABELS, SORT_OPTIONS, sortByOption, moveIdInOrder
+lib/localBagsService.ts: DEFAULT_OFFLINE_PROFILE, createLocalLibraryPack, getLocalTrashedItems
+lib/lowlightSetup.ts: getLanguageLabel
+lib/masterEmails.ts: getMasterEmails
+lib/noteEditorMarkdownPaste.ts: markdownToHtml, looksLikeMarkdown
+lib/noteEditorTableUtils.ts: getTableContext
+lib/offlineImportService.ts: markOfflineIdsAsImported
+lib/overlayLayer.ts: ROOT_LAYER
+lib/packSync.ts: itemsMatch, canDeleteFromLibrary
+lib/packsService.ts: trashLibraryPackRemote, restoreLibraryPackRemote
+lib/premiumLimits.ts: isRegionRecommendFeatureEnabled
+lib/purchaseService.ts: PREMIUM_ENTITLEMENT_ID
+lib/shortLinkRateLimit.ts: SHORT_LINK_DAILY_LIMIT
+lib/shortLinkService.ts: CUSTOM_CODE_REGEX, RESERVED_CUSTOM_CODES
+lib/types.ts: REACTION_EMOJIS
+lib/useHorizontalSwipe.ts: EDGE_PX
+lib/v2/firestoreRecovery.ts: isFirestoreBrokenError
+Unused exported types (13)
+components/v2/home/HomeScreenV2.tsx: BagOpenFocus
+components/v2/home/homeModel.ts: HighlightReason
+components/v2/ui/ReorderSheet.tsx: ReorderItem
+components/v2/ui/index.ts: SegmentOption, ReorderItem
+hooks/bag/index.ts: BagDocument
+lib/aiUsageService.ts: UnlockCodeStatus
+lib/auditLog.ts: AuditAction
+lib/editorDocPreview.ts: PreviewSpan, RichTable
+lib/librarySearch.ts: SearchResultType, GlobalSearchResult, BagSearchResultType, BagSearchOutput, PackSearchResultType, PackSearchOutput
+lib/noteEditorTableUtils.ts: TableContextInfo
+lib/types.ts: ItemType, RichSpan, ReminderOffset, AvatarId, StartPageType, ImportedItemDraft, ImportedPackDraft, PresenceEntry, NotificationType, CommentTargetType, BagComment, ReactionTargetType, ReactionEmoji, BagReactionDoc
+lib/useHorizontalSwipe.ts: SwipeStart
+lib/weatherService.ts: TravelRecommendationCategory
