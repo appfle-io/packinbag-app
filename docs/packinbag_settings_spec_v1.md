@@ -2,6 +2,21 @@
 
 앱은 v2 화면만 있다. 2026-10-05에 구 UI(v1) 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 전부 지웠다(v1.0.20). 아래 표의 "플래그를 끄면 구 UI"·"구 UI는 그대로" 같은 말은 그 전 기록이다. 기준 문서: 프로젝트 `UIUX_리디자인_방향.md`, `리디자인_작업계획.md`.
 
+## 10/7 ~ 10/8 (v1.0.25 ~ v1.0.28)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **가방 메모 본문 분리 (10/8, v1.0.28)** | 🔄 변경 | 가방 안 메모팩 본문(editorDoc)을 가방 문서가 아니라 `bags/{bagId}/notes/{packId}` = `{ doc(JSON 문자열), rev, updatedAt, updatedBy }`에 저장. 가방 문서 팩에는 이름·`editorPreviewText`·`searchText`(앞 2,000자, 홈 검색)·`attachmentUrls`(Storage 정리)·`noteSeparated`만. 체크 하나에 메모 본문까지 멤버 전원에게 다시 보내던 문제 해소. 기존 31개 가방 메모 40개 이전 완료(`scripts/migrate-bag-notes.mjs`, 여러 번 실행해도 안전) |
+| ↳ 구조 | ℹ️ 규칙 | 순수 함수 `lib/bagNotesCore.ts`(분리·합치기·요약, 서버 공용), Firestore `lib/bagNotesService.ts`. 열린 가방(`useBagDocument`)만 notes를 구독해 본문을 채운다(hydrateBag). 저장(`saveBagRemote`·`saveSharedBagMergedRemote`)이 본문을 떼어 바뀐 것만 notes에 쓴다. **가방 문서의 packs를 직접 쓰는 새 코드는 반드시 본문을 떼고(`splitBagForSave`/`splitPacksPlain`) `packsRev`를 1 올린다** - 안 그러면 규칙에 막힘. 가방 완전삭제는 notes를 먼저 지운다(`deleteAllBagNotes`). 팩 이동은 notes도 같이 옮긴다. 오프라인 모드·만들기 대기 가방은 본문을 가방 안에 그대로 둔다 |
+| ↳ 본문 도착 전 보호 | ℹ️ 규칙 | `BagDocument.notesReady`가 false인 동안 메모 편집기를 열지 않고(불러오는 중 화면), 메모 휴지통·보관함 저장·덮어쓰기·보관함 자동 동기화를 하지 않는다(빈 본문으로 덮어쓰기 방지). 목록 소식은 본문을 바꾸지 않고 notes 소식일 때만 바꾼다(저장 직후 글이 되돌아가는 것 방지) |
+| ↳ 규칙 | 🔒 보안 | notes는 가방 멤버만, 잠긴 가방 그룹장은 쓰기 불가, doc 1MB 미만. `notesV: 2` 가방은 packs를 바꿀 때 `packsRev`가 정확히 +1이어야 하고 notesV는 낮출 수 없다 → 새로고침 안 한 옛 탭·업데이트 안 한 포터블은 저장이 거부됨(데이터 보호, 새로고침하면 풀림) |
+| **보안 점검 (10/7, v1.0.26)** | 🔒 보안 | 초대코드 위조 차단(inviteCodes create false + join-bag 코드 일치), create-bag 덮어쓰기 차단(트랜잭션 create), share-pack 토큰 바꿔치기 차단(출처 기록), `/v` 초대코드 노출 제거, 이용권 판정을 `claimedBy` 본인 코드만(`lib/unlockCodeCheck.ts`, storage.rules 동일), users의 unlockCode 클라이언트 쓰기 차단, 멤버 내보내기·가방 삭제는 그룹장만, 잠긴 팩 수정 불가·`locked` 클라이언트 변경 불가, 자동저장은 내용 필드만 `updateDoc` |
+| **Storage 정리 (10/7)** | 🐛 수정 | `lib/storageCleanup.ts`: 가방·팩 완전삭제, 30일 자동삭제, 탈퇴, 메모 편집기를 닫을 때(본문에서 지운 첨부) 다른 곳이 쓰지 않는 파일만 지움. 공유 가방 메모 첨부는 남김. storage.rules 삭제는 프리미엄 무관, 구매자(premiumPurchase)도 프리미엄으로 인정. 업로드 cacheControl 1년 |
+| **비용 절감 (10/7)** | 🔄 변경 | 접속 표시 60초 + 3분 자리 비움 정지, 알림 구독·버전 폴링 한 벌 공유, 관리자 대시보드 Firestore 캐시 1시간, `/v` 60초·`/p` 5분 캐시(공유 갱신 시 비움), 운영 Firestore 로그 error만 |
+| **잠김 자동 맞추기 (10/7)** | 🐛 수정 | 화면 계산과 서버 `locked`가 다르면 sync-lock-status 호출(추가 읽기 없음). 무료 팩 10개 초과분은 읽기 전용 |
+| **코드 정리 (10/8)** | 🗑️ 제거 | knip으로 안 쓰는 export·코드 정리(`knip.json`), `app/api/generate-sample` 삭제, " 2" iCloud 사본 파일 제거, sw.js 캐시 없을 때 Response.error() |
+| **백업 스크립트 (10/8)** | 🆕 신규 | `node scripts/backup-firestore.mjs` → `backups/`(gitignore). .env.local 서버 키로 전체 읽기만. 큰 데이터 변경 전에 실행 |
+
 ## 10/3 후반 ~ 10/5 (v1.0.16 ~ v1.0.21)
 
 | 기능 | 상태 | 비고 |
