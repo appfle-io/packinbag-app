@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { BRAND_ICON_BG } from "@/lib/brandColor";
+
+// theme_color·background_color는 v2 화면(흰 바탕)에 맞춘 흰색. 브랜드 색(lib/brandColor.ts)은 아이콘 이미지 안에만 있다
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

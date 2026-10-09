@@ -5,6 +5,8 @@
 // 이 함수는 "성공 아니면 예외"만 지키면 된다. 실패 시 폴백(Firebase 기본 발송)은
 // 호출부(app/api/send-verification-email, lib/emailVerification.ts)의 책임이라
 // 여기서는 별도 재시도/폴백 로직을 갖지 않는다.
+import { BRAND_ICON_BG } from "@/lib/brandColor";
+
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 // 이메일 인증 개선 계획 문서에서 정한 발신 주소. seeuson.com 도메인에 SPF/DKIM/DMARC가
@@ -41,12 +43,13 @@ export async function sendVerificationEmailViaResend(to: string, verifyLink: str
   }
 }
 
-// 브랜드 색상(lib/brandColor.ts의 BRAND_ICON_BG)과 맞춘 심플한 트랜잭션 메일 템플릿.
+// 브랜드 색상(lib/brandColor.ts의 BRAND_ICON_BG, 딥그린)과 맞춘 심플한 트랜잭션 메일 템플릿.
+// 2026-10-09: 주황(#FF6E2D)·베이지 배경 → 딥그린 + v2 무채색(앱스토어 스크린샷 배경 #ECF1EE과 같은 톤).
 // 이메일 클라이언트(특히 Outlook) 호환을 위해 CSS는 전부 인라인으로 작성하고,
 // 레이아웃은 <table> 기반으로 구성한다. 외부 이미지 없이 타이포그래피/색상만으로
 // 만들어서 이미지 차단 설정에도 항상 온전하게 보인다.
 function buildVerificationEmailHtml(verifyLink: string): string {
-  const brand = "#FF6E2D";
+  const brand = BRAND_ICON_BG;
   return `<!doctype html>
 <html lang="ko">
   <head>
@@ -54,12 +57,12 @@ function buildVerificationEmailHtml(verifyLink: string): string {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>팩인백 이메일 인증</title>
   </head>
-  <body style="margin:0; padding:0; background-color:#F4F1EC; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <body style="margin:0; padding:0; background-color:#ECF1EE; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
     <!-- 프리헤더: 받은편지함 미리보기에만 노출, 본문에는 안 보임 -->
     <div style="display:none; max-height:0; overflow:hidden; opacity:0;">
       팩인백 이메일 인증을 완료하고 아이템 싸기를 시작해보세요.
     </div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F4F1EC; padding:32px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ECF1EE; padding:32px 16px;">
       <tr>
         <td align="center">
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px; width:100%; background-color:#FFFFFF; border-radius:16px; overflow:hidden;">
@@ -70,10 +73,10 @@ function buildVerificationEmailHtml(verifyLink: string): string {
             </tr>
             <tr>
               <td style="padding:36px 32px 8px;">
-                <h1 style="margin:0 0 12px; font-size:20px; line-height:1.4; color:#1F1B16;">
+                <h1 style="margin:0 0 12px; font-size:20px; line-height:1.4; color:#1A1D1B;">
                   이메일 주소를 인증해주세요
                 </h1>
-                <p style="margin:0 0 24px; font-size:15px; line-height:1.7; color:#5C554C;">
+                <p style="margin:0 0 24px; font-size:15px; line-height:1.7; color:#4F5652;">
                   안녕하세요! 팩인백 가입을 완료하려면 아래 버튼을 눌러 이메일 인증을 마쳐주세요.
                   인증이 끝나면 바로 로그인해서 아이템 싸기를 시작할 수 있어요.
                 </p>
@@ -89,7 +92,7 @@ function buildVerificationEmailHtml(verifyLink: string): string {
             </tr>
             <tr>
               <td style="padding:0 32px 32px;">
-                <p style="margin:0 0 8px; font-size:13px; line-height:1.6; color:#948C80;">
+                <p style="margin:0 0 8px; font-size:13px; line-height:1.6; color:#8A928E;">
                   버튼이 눌리지 않는다면 아래 링크를 브라우저 주소창에 붙여넣어주세요.
                 </p>
                 <p style="margin:0; font-size:13px; line-height:1.6; word-break:break-all;">
@@ -98,8 +101,8 @@ function buildVerificationEmailHtml(verifyLink: string): string {
               </td>
             </tr>
             <tr>
-              <td style="padding:20px 32px; background-color:#FAF8F4; border-top:1px solid #EFEAE1;">
-                <p style="margin:0; font-size:12px; line-height:1.6; color:#A39A8C;">
+              <td style="padding:20px 32px; background-color:#F5F7F6; border-top:1px solid #E3E8E5;">
+                <p style="margin:0; font-size:12px; line-height:1.6; color:#8A928E;">
                   본인이 요청하지 않았다면 이 메일은 무시하셔도 괜찮아요. 계정에는 아무 변화도 생기지 않습니다.
                 </p>
               </td>
