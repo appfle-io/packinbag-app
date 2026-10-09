@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // "AI 클립보드" 기능 - 클립보드에서 읽어온(또는 직접 붙여넣은) 텍스트를 분석해서, 지금 열려있는
 // 가방에 아직 없는 항목만 골라 새로 추가할 팩/아이템 목록을 만들어준다. organize-bag(기존 항목 재배치)과
@@ -137,7 +138,8 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
   }
   // organize-bag과 동일하게 프리미엄 전용 기능 - quota.unlimited가 아니면(무료 회원) 막는다.
-  if (!quota.unlimited) {
+  // 출시 기념 전원 무료 기간에는 무료 회원도 하루 횟수 안에서 쓴다(lib/freeLaunch.ts)
+  if (!quota.unlimited && !FREE_LAUNCH) {
     return NextResponse.json(
       {
         error: "AI 클립보드는 프리미엄 전용 기능이에요",

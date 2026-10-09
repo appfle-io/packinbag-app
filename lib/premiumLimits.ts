@@ -20,6 +20,7 @@ import { isUnlimitedAiUser } from "@/lib/aiUsageService";
 import { Bag, Pack, UserProfile } from "@/lib/types";
 import { OFFLINE_USER_UID } from "@/lib/localBagsService";
 import { auth } from "@/lib/firebase";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // 서버(API route)가 무료 제한(팩/가방 개수)에 걸려 403으로 막았을 때 던지는 에러.
 // 일반 에러와 구분해서 catch하면, 실패 토스트 대신 PremiumLimitModal을 띄울 수 있다.
@@ -70,6 +71,8 @@ export function isPremiumUser(
   email: string | null | undefined,
   profile: UserProfile | null
 ): boolean {
+  // 출시 기념 전원 무료(lib/freeLaunch.ts)
+  if (FREE_LAUNCH) return true;
   // 오프라인 모드에서는 모든 기능 무제한
   if (isOfflineEnvironment()) return true;
   if (profile?.uid === "local-offline-user" || email === "offline@local") return true;

@@ -36,6 +36,7 @@ import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isNativePlatform } from "@/lib/purchaseService";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -283,7 +284,9 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         {!isOfflineMode && (
           <section className="flex flex-col">
             <SectionHeader>프리미엄</SectionHeader>
-            {premium ? (
+            {FREE_LAUNCH ? (
+              <InfoRow title="모든 기능 무료" trailing={<Badge tone="brand">출시 기념</Badge>} />
+            ) : premium ? (
               <InfoRow title="프리미엄" trailing={<Badge tone="brand">이용 중</Badge>} />
             ) : (
               <ListRow

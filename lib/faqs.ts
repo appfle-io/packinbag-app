@@ -1,9 +1,10 @@
 import { FaqItem } from "@/lib/types";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // 자주 안 바뀌는 콘텐츠라 Firestore 대신 정적 배열로 관리한다.
 // 내용을 바꾸고 싶으면 이 파일만 수정해서 다시 배포하면 된다.
 // category 값이 같은 항목끼리 화면에서 그룹으로 묶여서 보여진다 (순서 = 배열 순서).
-export const FAQ_ITEMS: FaqItem[] = [
+const FAQ_ALL: FaqItem[] = [
   // ── 회원 / 계정 ──────────────────────────────
   {
     id: "account-signup",
@@ -265,3 +266,21 @@ export const FAQ_ITEMS: FaqItem[] = [
     answer: "설정 화면의 '문의하기'를 눌러 문의를 남겨주세요. 답변이 등록되면 알림으로 알려드려요.",
   },
 ];
+
+// 출시 기념 전원 무료 기간(lib/freeLaunch.ts)에는 결제·한도 관련 답을 바꿔 보여주고, 구매 복원 항목은 숨긴다.
+// 결제를 붙이면 FREE_LAUNCH만 끄면 위 원문이 그대로 나온다.
+const FREE_LAUNCH_ANSWERS: Record<string, string> = {
+  "bag-invite": "가방 하나에 최대 10명까지 초대코드로 참여해서 함께 실시간으로 체크하고 편집할 수 있어요.",
+  "bag-image": "네, 가방에 사진을 5장까지 첨부할 수 있어요. 사진은 자동으로 용량이 최적화되어 업로드돼요.",
+  "pack-limit": "팩 보관함에 저장할 수 있는 팩 개수에는 제한이 없어요.",
+  "item-ai-import":
+    "네, AI 메모 가져오기 기능을 사용하면 메모 앱 등에 적어둔 텍스트를 붙여넣기만 해도 AI가 항목을 나누고 팩으로 분류해서 가방에 채워줘요. AI 기능은 로그인한 계정에서 하루 3회까지 쓸 수 있어요.",
+  "data-free": "네, 지금은 출시 기념으로 모든 기능을 무료로 쓸 수 있어요. AI 기능만 하루 3회까지예요.",
+};
+const FREE_LAUNCH_HIDDEN = new Set(["data-restore-purchase"]);
+
+export const FAQ_ITEMS: FaqItem[] = FREE_LAUNCH
+  ? FAQ_ALL.filter((f) => !FREE_LAUNCH_HIDDEN.has(f.id)).map((f) =>
+      FREE_LAUNCH_ANSWERS[f.id] ? { ...f, answer: FREE_LAUNCH_ANSWERS[f.id] } : f
+    )
+  : FAQ_ALL;

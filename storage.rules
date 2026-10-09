@@ -53,10 +53,15 @@ service firebase.storage {
     // unlockCode는 "내가 등록한"(claimedBy.uid == 본인) 코드만 인정한다. unlockCode는 클라이언트가 쓸 수 있는
     // 필드라 예전처럼 "존재하고 무효화 아님"만 보면 남의 코드를 써넣어 프리미엄이 됐고, 구매자는 여기서 빠져
     // 메모 첨부·PDF를 올리지 못했다.
+    // 출시 기념 전원 무료 스위치(2026-10-09). lib/freeLaunch.ts FREE_LAUNCH와 항상 같이 바꾼다(규칙은 그 값을 못 읽음)
+    function freeLaunch() {
+      return true;
+    }
+
     function isPremium() {
       let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
       let code = userDoc.get('unlockCode', null);
-      return isMaster() ||
+      return freeLaunch() || isMaster() ||
         userDoc.get('premiumPurchase', {}).get('purchased', false) == true ||
         (
           code != null &&

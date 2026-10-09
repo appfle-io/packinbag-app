@@ -10,6 +10,7 @@
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { checkIsMaster } from "@/lib/adminApiAuth";
 import { isUnlockCodeValidFor } from "@/lib/unlockCodeCheck";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 export class ServerAuthError extends Error {}
 
@@ -46,6 +47,8 @@ export async function verifyRequestUser(req: Request): Promise<VerifiedUser> {
 // 마스터 계정이거나, users/{uid}에 적힌 이용권 코드가 실제로 존재하고 아직 무효화/만료
 // 되지 않았으면 프리미엄으로 판정한다 (lib/aiQuotaServer.ts의 재검증 로직과 동일한 기준).
 export async function isPremiumServer(uid: string, email: string | null): Promise<boolean> {
+  // 출시 기념 전원 무료(lib/freeLaunch.ts)
+  if (FREE_LAUNCH) return true;
   const isMaster = await checkIsMaster(uid, email);
   if (isMaster) return true;
 

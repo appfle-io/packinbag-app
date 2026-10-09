@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.
 export const runtime = "nodejs";
@@ -106,7 +107,8 @@ async function handlePOST(req: NextRequest) {
   if (quota.capReached) {
     return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
   }
-  if (!quota.unlimited) {
+  // 출시 기념 전원 무료 기간에는 무료 회원도 하루 횟수 안에서 쓴다(lib/freeLaunch.ts)
+  if (!quota.unlimited && !FREE_LAUNCH) {
     return NextResponse.json(
       {
         error: "AI로 정리하기는 프리미엄 전용 기능이에요",
