@@ -12,7 +12,6 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { isMasterEmail } from "@/lib/masterEmails";
 import { UserProfile } from "@/lib/types";
 import {
   AI_FREE_DAILY_LIMIT,
@@ -40,8 +39,11 @@ export function isUnlimitedAiUser(
   email: string | null | undefined,
   profile: UserProfile | null
 ): boolean {
+  // 마스터는 role로만(이메일 목록은 서버 전용 MASTER_EMAILS, 2026-10-09). email 인자는 호출부 호환용으로만 남김
+  void email;
   if (profile?.role === "master") return true;
-  if (isMasterEmail(email)) return true;
+  // 인앱결제 구매자도 AI 프리미엄(서버 lib/aiQuotaServer.ts와 같은 기준, 2026-10-09)
+  if (profile?.premiumPurchase?.purchased) return true;
   if (!profile?.unlockCode) return false;
   // 실시간 구독(AuthProvider)으로 방금 무효화/만료가 확인됐으면, 캐시된 unlockCodeExpiresAt
   // 계산보다 이 값을 우선한다 - 관리자가 무효화를 눌러도 이 값이 없으면 만료일이 아직

@@ -45,7 +45,6 @@ import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
 import { UserProfile, StartPageConfig } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
-import { isMasterEmail } from "@/lib/masterEmails";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { recheckConnectivity } from "@/lib/v2/connectivity";
@@ -520,6 +519,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           regionRecommendEnabled: data?.regionRecommendEnabled as boolean | undefined,
           unlockCode: data?.unlockCode as string | undefined,
           unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
+          // 인앱결제(RevenueCat 웹훅이 기록). 예전에는 여기서 빠져 있어 구매자가 화면에서 무료로 보였다(2026-10-09)
+          premiumPurchase: data?.premiumPurchase as UserProfile["premiumPurchase"],
         });
         setLoading(false);
       },
@@ -1452,12 +1453,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         switchToOfflineMode,
         switchToOnlineMode,
         authBusy,
+        // 마스터 이메일 목록은 서버 전용(MASTER_EMAILS)이라 화면에서는 보지 않는다(2026-10-09). 서버 판정(master-status)·토큰·role·masters 문서로 충분하다
         isMaster:
           isMasterApi ||
           isMasterToken ||
           profile?.role === "master" ||
-          isMasterDoc ||
-          isMasterEmail(user?.email),
+          isMasterDoc,
         signInAsGuest,
         linkAccountWithGoogle,
         linkAccountWithApple,

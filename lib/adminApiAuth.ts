@@ -11,7 +11,7 @@ export class AdminForbiddenError extends Error {}
 /**
  * 마스터 사용자 여부를 판정하고, 마스터라면 Firestore/Auth 상태를 자동 동기화한다.
  * 판정 우선순위:
- * 1. 환경변수(NEXT_PUBLIC_MASTER_EMAILS / MASTER_EMAILS)에 이메일 존재
+ * 1. 환경변수 MASTER_EMAILS(서버 전용)에 이메일 존재 - email은 인증된 것만 넘어온다(lib/premiumServer.ts)
  * 2. Firestore masters/{uid} 문서 존재
  * 3. Firestore masters 컬렉션 내 이메일 일치 문서 존재
  * 4. Firestore users/{uid} 문서의 role === 'master'

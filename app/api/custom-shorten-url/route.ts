@@ -77,6 +77,9 @@ export async function POST(req: NextRequest) {
     const verified = await verifyRequestUser(req);
     uid = verified.uid;
     email = verified.email;
+    if (verified.isAnonymous) {
+      return NextResponse.json({ error: "커스텀 URL은 로그인하면 만들 수 있어요" }, { status: 403 });
+    }
   } catch (err) {
     if (err instanceof ServerAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

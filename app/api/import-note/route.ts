@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // 이 라우트는 서버(Vercel)에서만 실행돼요. API 키가 클라이언트로 절대 노출되지 않아요.
@@ -101,6 +101,9 @@ async function handlePOST(req: NextRequest) {
     }
     console.error("[팩인백] AI 할당량 확인 실패:", err);
     return NextResponse.json({ error: "AI 사용량 확인에 실패했어요" }, { status: 500 });
+  }
+  if (quota.capReached) {
+    return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
   }
   if (!quota.allowed) {
     return NextResponse.json(
@@ -250,10 +253,9 @@ async function handlePOST(req: NextRequest) {
 
     // Gemini가 성공적으로 응답했고 JSON으로 파싱까지 됐을 때만 무료 사용자의
     // 오늘 사용 횟수를 실제로 차감한다.
+    // 성공했을 때만 예약해 둔 1회를 확정한다(무료·프리미엄 모두, lib/aiQuotaServer.ts)
+    await consumeAiQuota(quota.uid);
     if (!quota.unlimited) {
-      // consumeAiQuota는 실제 반환값이 없다(성공하면 그냥 +1 증가시키는 부수효과만 있음).
-      // 응답에 실어보낼 최신 사용량은 여기서 로컬로 +1 해서 맞춘다.
-      await consumeAiQuota(quota.uid);
       quota.usedCount += 1;
     }
 

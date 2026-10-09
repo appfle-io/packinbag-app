@@ -16,6 +16,8 @@ export class ServerAuthError extends Error {}
 export interface VerifiedUser {
   uid: string;
   email: string | null;
+  // 게스트(익명 로그인). 계정 기준 하루 한도가 있는 기능(짧은 URL 등)은 게스트를 막는다 - 게스트를 새로 만들면 한도가 초기화되기 때문(2026-10-09)
+  isAnonymous: boolean;
 }
 
 // "Authorization: Bearer <idToken>" 헤더를 검증해서 uid/email을 돌려준다.
@@ -30,7 +32,11 @@ export async function verifyRequestUser(req: Request): Promise<VerifiedUser> {
     const decoded = await adminAuth().verifyIdToken(idToken);
     // 인증하지 않은 이메일은 넘기지 않는다(2026-10-09). 마스터 판정이 이메일을 보기 때문에, 마스터 이메일로
     // 가입만 하고 인증하지 않은 계정이 관리자가 될 수 있었다. Google·Apple 로그인은 항상 인증된 이메일이다.
-    return { uid: decoded.uid, email: decoded.email_verified ? decoded.email ?? null : null };
+    return {
+      uid: decoded.uid,
+      email: decoded.email_verified ? decoded.email ?? null : null,
+      isAnonymous: decoded.firebase?.sign_in_provider === "anonymous",
+    };
   } catch (err) {
     console.error("[팩인백] 로그인 토큰 검증 실패:", err);
     throw new ServerAuthError("로그인 정보를 확인할 수 없어요. 다시 로그인해주세요");

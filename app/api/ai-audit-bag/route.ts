@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 export const runtime = "nodejs";
@@ -69,6 +69,9 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "AI 사용량 확인에 실패했어요" }, { status: 500 });
   }
 
+  if (quota.capReached) {
+    return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
+  }
   if (!quota.allowed) {
     return NextResponse.json(
       {
@@ -159,8 +162,8 @@ ${packSummary || "(등록된 아이템 없음)"}
       return NextResponse.json({ error: "AI 응답을 해석하지 못했어요" }, { status: 502 });
     }
 
+    await consumeAiQuota(quota.uid);
     if (!quota.unlimited) {
-      await consumeAiQuota(quota.uid);
       quota.usedCount += 1;
     }
 

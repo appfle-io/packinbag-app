@@ -59,6 +59,9 @@ export async function POST(req: NextRequest) {
   try {
     const verified = await verifyRequestUser(req);
     uid = verified.uid;
+    if (verified.isAnonymous) {
+      return NextResponse.json({ error: "짧은 URL은 로그인하면 만들 수 있어요" }, { status: 403 });
+    }
   } catch (err) {
     if (err instanceof ServerAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

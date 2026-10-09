@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
 
 export const runtime = "nodejs";
 
@@ -56,6 +56,9 @@ async function handlePOST(req: NextRequest) {
   let quotaCheck;
   try {
     quotaCheck = await verifyAndCheckAiQuota(req);
+    if (quotaCheck.capReached) {
+      return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
+    }
     if (!quotaCheck.allowed) {
       return NextResponse.json(
         { error: "오늘 무료 AI 사용 횟수를 다 사용했어요. 이용권을 등록하시면 무제한으로 이용할 수 있어요!" },
@@ -165,8 +168,8 @@ async function handlePOST(req: NextRequest) {
     }
   }
 
-  // Gemini가 실제로 추천을 준 때만 횟수를 쓴다(아래 기본 목록으로 대신하는 경우는 차감하지 않음)
-  if (finalItems.length > 0 && !quotaCheck.unlimited) {
+  // Gemini가 실제로 추천을 준 때만 횟수를 쓴다(아래 기본 목록으로 대신하는 경우는 차감하지 않음, 무료·프리미엄 모두)
+  if (finalItems.length > 0) {
     await consumeAiQuota(quotaCheck.uid);
   }
 

@@ -2,6 +2,24 @@
 
 앱은 v2 화면만 있다. 2026-10-05에 구 UI(v1) 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 전부 지웠다(v1.0.20). 아래 표의 "플래그를 끄면 구 UI"·"구 UI는 그대로" 같은 말은 그 전 기록이다. 기준 문서: 프로젝트 `UIUX_리디자인_방향.md`, `리디자인_작업계획.md`.
 
+## 10/9 보안 점검 2차
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **마스터 판정** | 🔒 보안 | 인증한 이메일만 마스터 판정에 씀(`verifyRequestUser`·`aiQuotaServer`·`bagLockSync`·`join-bag`). 예전에는 마스터 이메일로 가입만 하고 인증하지 않아도 관리자가 됐다. 환경변수는 `NEXT_PUBLIC_MASTER_EMAILS` → 서버 전용 `MASTER_EMAILS`(브라우저에서는 항상 false, 화면은 `role === "master"`) |
+| **빠른팩 표시로 한도 우회** | 🔒 보안 | 빠른팩은 문서 id `quick-pack`으로만 판단(서버·화면 잠금 계산 모두). 규칙: libraryPacks의 `isQuickPack` 변경 불가 |
+| **보관함 팩 덮어쓰기** | 🔒 보안 | create-library-pack·trash-bag-pack·import-shared-pack이 서버 전용 필드(locked·trashedAt·isQuickPack 등)를 버림(`stripServerOnlyPackFields`). 같은 id가 있으면 create-library-pack은 합치기(잠긴 팩은 403), trash-bag-pack은 새 id |
+| **보관함 복구** | 🔒 보안 | 무료면 복구 후 잠금 재계산(`syncLibraryPackLocks`, sync-lock-status와 공유) |
+| **커스텀 URL** | 🔒 보안 | 서버에서 프리미엄 확인, `create()`로 동시 생성 덮어쓰기 방지 |
+| **짧은 URL 한도** | 🔒 보안 | 하루 10개를 트랜잭션 예약으로(동시 요청·조회 실패 통과 없음), 실패하면 되돌림. 주소 2048자까지, 코드에 `/` 들어오면 400 |
+| **게스트 제한** | 🔄 변경 | 게스트(익명 로그인)는 AI·짧은/커스텀 URL 생성 불가(계정마다 한도가 있어 게스트를 새로 만들면 초기화됐다). AI는 401 + "로그인하면 쓸 수 있어요", URL은 403 |
+| **AI 프리미엄 판정·상한** | 🐛 수정 | 인앱결제 구매자도 AI 프리미엄(예전에는 무료 취급). 프리미엄도 하루 50회(`AI_PREMIUM_DAILY_CAP`, aiUsage `premiumCount`), 마스터는 제한 없음. 라우트는 성공하면 항상 `consumeAiQuota` |
+| **AI 입력 상한** | 🔒 보안 | ai-audit-bag(제한 없었음)·날씨·클립보드·가방 정리 길이·개수 제한 |
+| **이용권** | 🔒 보안 | 틀린 코드 하루 10회(`unlockRedeemUsage`), 코드 생성은 암호학적 난수 |
+| **RevenueCat** | 🔒 보안 | 웹훅 헤더 시간 일정 비교. TRANSFER(구매 복원으로 다른 계정에 옮겨짐) 처리: 받는 계정 프리미엄, 내준 계정 해제(예전에는 무시) |
+| **ai-travel-places** | 🗑️ 제거 | 부르는 곳 없음(10/6에 클라이언트만 지웠고 라우트가 남아 있었다) |
+| **이상 없음** | ℹ️ | link-meta는 외부 주소를 열지 않음(SSRF 아님), admin/* 전부 `requireMasterUser`, geocode·restore-bag |
+
 ## 10/7 ~ 10/8 (v1.0.25 ~ v1.0.28)
 
 | 기능 | 상태 | 비고 |

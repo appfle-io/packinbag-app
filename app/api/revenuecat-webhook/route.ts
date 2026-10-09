@@ -57,6 +57,35 @@ export async function POST(req: NextRequest) {
   const productId = (event.product_id as string | undefined) ?? null;
   const store = event.store as string | undefined;
 
+  // TRANSFER: 구매 복원 등으로 구매가 다른 계정으로 옮겨졌다. 이 이벤트에는 app_user_id·entitlement_ids가 없고
+  // transferred_from/transferred_to만 있어, 예전 코드는 아래 !uid 검사에서 그냥 무시했다(2026-10-09).
+  // 앱이 파는 상품은 프리미엄 영구구매 하나뿐이라, 받는 쪽은 프리미엄으로, 내준 쪽은 해제한다
+  // (RevenueCat 복원 동작이 "Transfer to new App User ID"일 때와 같은 결과).
+  // 익명 RevenueCat id($RCAnonymousID:)는 우리 users 문서가 아니라 건너뛴다. 없는 사용자에게 문서를 새로 만들지 않게 update를 쓴다.
+  if (type === "TRANSFER") {
+    const ids = (v: unknown) =>
+      (Array.isArray(v) ? v : []).filter(
+        (x): x is string => typeof x === "string" && !!x && !x.startsWith("$RCAnonymousID") && !x.includes("/")
+      );
+    const toIds = ids(event.transferred_to);
+    const fromIds = ids(event.transferred_from).filter((id) => !toIds.includes(id));
+    const platform: "ios" | "android" | null =
+      store === "APP_STORE" ? "ios" : store === "PLAY_STORE" ? "android" : null;
+    const db = adminDb();
+    const now = new Date().toISOString();
+    const apply = async (id: string, purchased: boolean) => {
+      try {
+        await db.collection("users").doc(id).update({
+          premiumPurchase: { purchased, purchasedAt: now, productId: null, platform },
+        });
+      } catch (err) {
+        console.warn(`[팩인백] RevenueCat TRANSFER 반영 실패(${purchased ? "받는" : "내준"} 계정):`, err);
+      }
+    };
+    await Promise.all([...toIds.map((id) => apply(id, true)), ...fromIds.map((id) => apply(id, false))]);
+    return NextResponse.json({ received: true });
+  }
+
   // RevenueCat 대시보드의 "테스트 발송" 등 app_user_id가 없는 이벤트는 무시.
   if (!uid || !type) {
     return NextResponse.json({ received: true });

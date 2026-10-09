@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 // "AI 클립보드" 기능 - 클립보드에서 읽어온(또는 직접 붙여넣은) 텍스트를 분석해서, 지금 열려있는
@@ -132,6 +132,9 @@ async function handlePOST(req: NextRequest) {
     }
     console.error("[팩인백] AI 할당량 확인 실패:", err);
     return NextResponse.json({ error: "AI 사용량 확인에 실패했어요" }, { status: 500 });
+  }
+  if (quota.capReached) {
+    return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
   }
   // organize-bag과 동일하게 프리미엄 전용 기능 - quota.unlimited가 아니면(무료 회원) 막는다.
   if (!quota.unlimited) {
@@ -266,8 +269,8 @@ async function handlePOST(req: NextRequest) {
       );
     }
 
+    await consumeAiQuota(quota.uid);
     if (!quota.unlimited) {
-      await consumeAiQuota(quota.uid);
       quota.usedCount += 1;
     }
 
