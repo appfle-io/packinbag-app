@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { recordAuditLog } from "@/lib/auditLog";
-import { UNLOCK_CODE_LENGTH } from "@/lib/aiUsageConfig";
+import { UNLOCK_CODE_LENGTH, todayKstKey } from "@/lib/aiUsageConfig";
 
 // 이용권 코드 "사용 처리(claim)"를 서버에서만 하도록 만든 라우트.
 //
@@ -11,6 +12,11 @@ import { UNLOCK_CODE_LENGTH } from "@/lib/aiUsageConfig";
 // "내 것으로 확정"하는 두 동작을 트랜잭션으로 묶어서, 서버(Admin SDK, 클라이언트가 우회 불가)가
 // 직접 처리한다.
 export const runtime = "nodejs";
+
+// 틀린 코드 입력은 하루 이 횟수까지(계정마다, KST 자정에 초기화). 코드를 대입해 찾는 것과,
+// 그 과정의 Firestore 읽기 비용을 막는다(2026-10-09). 맞는 코드는 횟수에 들어가지 않는다.
+// unlockRedeemUsage는 firestore.rules에 규칙이 없어 클라이언트는 읽거나 쓸 수 없다(Admin SDK만).
+const MAX_FAILED_ATTEMPTS_PER_DAY = 10;
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -22,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const rawCode = (body as { code?: unknown })?.code;
   const code = typeof rawCode === "string" ? rawCode.trim().toUpperCase() : "";
-  if (code.length !== UNLOCK_CODE_LENGTH) {
+  if (code.length !== UNLOCK_CODE_LENGTH || !/^[A-Z0-9]+$/.test(code)) {
     return NextResponse.json({ error: "코드를 다시 확인해주세요" }, { status: 400 });
   }
 
@@ -47,6 +53,24 @@ export async function POST(req: NextRequest) {
   }
 
   const db = adminDb();
+  const failRef = db.collection("unlockRedeemUsage").doc(`${uid}_${todayKstKey()}`);
+  try {
+    const failSnap = await failRef.get();
+    if (((failSnap.data()?.fails as number | undefined) ?? 0) >= MAX_FAILED_ATTEMPTS_PER_DAY) {
+      return NextResponse.json(
+        { error: "코드를 너무 많이 틀렸어요. 내일 다시 시도해주세요" },
+        { status: 429 }
+      );
+    }
+  } catch (err) {
+    console.error("[팩인백] 이용권 입력 횟수 조회 실패:", err);
+    return NextResponse.json({ error: "코드 확인에 실패했어요. 잠시 후 다시 시도해주세요" }, { status: 500 });
+  }
+  const countFailure = () =>
+    failRef
+      .set({ fails: FieldValue.increment(1), uid, updatedAt: new Date() }, { merge: true })
+      .catch((err) => console.error("[팩인백] 이용권 입력 횟수 기록 실패:", err));
+
   const codeRef = db.collection("unlockCodes").doc(code);
   const userRef = db.collection("users").doc(uid);
   let expiresAtIso: string | null = null;
@@ -111,6 +135,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "UNKNOWN";
+    if (message === "NOT_FOUND" || message === "INVALIDATED" || message === "ALREADY_CLAIMED") {
+      await countFailure();
+    }
     if (message === "NOT_FOUND") {
       return NextResponse.json({ error: "코드를 다시 확인해주세요" }, { status: 404 });
     }

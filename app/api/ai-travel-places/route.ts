@@ -29,7 +29,7 @@ function parseRecommendations(text: string): TravelRecommendation[] {
   try {
     const cleaned = text.replace(/```json|```/gi, "").trim();
     const parsed = JSON.parse(cleaned);
-    let list: any[] = [];
+    let list: unknown[] = [];
     if (Array.isArray(parsed)) list = parsed;
     else if (Array.isArray(parsed.items)) list = parsed.items;
     else if (typeof parsed === "object") {
@@ -37,10 +37,10 @@ function parseRecommendations(text: string): TravelRecommendation[] {
       if (k) list = parsed[k];
     }
     const items = list
-      .filter((item) => item && typeof item === "object")
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
       .slice(0, 6)
       .map((item) => ({
-        category: (VALID_CATEGORIES.includes(item.category) ? item.category : "attraction") as Category,
+        category: (VALID_CATEGORIES.includes(item.category as Category) ? item.category : "attraction") as Category,
         text: String(item.text || item.name || "").slice(0, 15),
         desc: String(item.desc || item.description || "").slice(0, 40),
         icon: String(item.icon || item.emoji || "📍"),
@@ -71,7 +71,9 @@ async function handlePOST(req: NextRequest) {
       if (err instanceof AiAuthError) {
         return NextResponse.json({ places: [] });
       }
+      // 확인이 실패하면 Gemini를 부르지 않는다(예전에는 로그만 남기고 그대로 진행해 횟수·로그인 검사를 건너뛸 수 있었다, 2026-10-09)
       console.warn("[팩인백] AI 추천 여행지 인증 예외:", err);
+      return NextResponse.json({ places: [] });
     }
 
     let body: unknown;
@@ -91,7 +93,10 @@ async function handlePOST(req: NextRequest) {
 
     const excludeTextsRaw = (body as { excludeTexts?: unknown })?.excludeTexts;
     const excludeTexts = Array.isArray(excludeTextsRaw)
-      ? excludeTextsRaw.filter((t): t is string => typeof t === "string").slice(0, 30)
+      ? excludeTextsRaw
+          .filter((t): t is string => typeof t === "string")
+          .slice(0, 30)
+          .map((t) => t.slice(0, 30))
       : [];
     const excludeSet = new Set(excludeTexts.map((t) => t.trim()));
 

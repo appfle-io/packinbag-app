@@ -7,7 +7,7 @@
 
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { isPremiumServer } from "@/lib/premiumServer";
-import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
+import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_LIBRARY_PACKS, QUICK_PACK_ID } from "@/lib/premiumLimits";
 
 function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
@@ -21,7 +21,8 @@ export async function syncOwnedBagLocks(uid: string): Promise<void> {
   let email: string | null = null;
   try {
     const authUser = await adminAuth().getUser(uid);
-    email = authUser.email ?? null;
+    // 인증한 이메일만(마스터 판정용, lib/premiumServer.ts verifyRequestUser와 같은 기준)
+    email = authUser.emailVerified ? authUser.email ?? null : null;
   } catch (err) {
     console.warn("[팩인백] 잠금 재계산용 이메일 조회 실패:", err);
   }
@@ -46,6 +47,37 @@ export async function syncOwnedBagLocks(uid: string): Promise<void> {
     const shouldLock = !premium && index >= FREE_MAX_ACTIVE_BAGS;
     if (!!b.locked !== shouldLock) {
       batch.update(db.collection("bags").doc(b.id), { locked: shouldLock });
+      writes++;
+    }
+  });
+  if (writes > 0) await batch.commit();
+}
+
+// 팩 보관함 잠금 동기화: 무료는 최신 10개를 넘는 팩·폴더를 locked:true, 프리미엄은 전부 false.
+// app/api/sync-lock-status와 restore-library-pack(복구로 개수가 늘 때)이 함께 쓴다(2026-10-09).
+// 빠른팩은 문서 id(quick-pack)로만 가른다 - isQuickPack 필드는 예전에 클라이언트가 아무 팩에나 넣을 수 있어서
+// 그걸로 잠금을 피해 갔다.
+export async function syncLibraryPackLocks(uid: string, premium: boolean): Promise<void> {
+  const db = adminDb();
+  const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
+  const packsSnap = await packsCol.get();
+  const activePacks = sortByCreatedAtDesc(
+    packsSnap.docs
+      .map((d) => ({
+        id: d.id,
+        createdAt: d.data().createdAt as string | undefined,
+        locked: d.data().locked as boolean | undefined,
+        trashedAt: d.data().trashedAt as string | undefined,
+      }))
+      .filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID)
+  );
+
+  const batch = db.batch();
+  let writes = 0;
+  activePacks.forEach((p, idx) => {
+    const shouldLock = !premium && idx >= FREE_MAX_LIBRARY_PACKS;
+    if (!!p.locked !== shouldLock) {
+      batch.update(packsCol.doc(p.id), { locked: shouldLock });
       writes++;
     }
   });

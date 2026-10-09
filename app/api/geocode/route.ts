@@ -12,6 +12,14 @@ const GEOCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 type GeoResult = { lat: number; lon: number; name: string } | null;
 
+// 외부 지명 API 응답 중 쓰는 부분만
+type GoogleGeocodeResult = {
+  types?: string[];
+  partial_match?: boolean;
+  geometry: { location: { lat: number; lng: number } };
+};
+type NominatimItem = { class?: string; importance?: number | string; lat: string; lon: string };
+
 function cacheDocId(query: string): string {
   // 문서 id에는 / 를 못 쓴다. 대소문자·앞뒤 공백만 맞추고 인코딩(길이는 요청에서 자른다)
   return encodeURIComponent(query.trim().toLowerCase());
@@ -141,7 +149,7 @@ async function geocode(query: string): Promise<{ result: GeoResult; definitive: 
         const gData = await gRes.json();
         if (gData.status === "OK" && Array.isArray(gData.results) && gData.results.length > 0) {
           const placeResult = gData.results.find(
-            (r: any) =>
+            (r: GoogleGeocodeResult) =>
               Array.isArray(r.types) &&
               r.types.some((t: string) => GOOGLE_PLACE_TYPES.has(t)) &&
               // partial_match=true는 Google이 정확히 일치하는 결과가 없어 근사치로 추측해준
@@ -177,9 +185,9 @@ async function geocode(query: string): Promise<{ result: GeoResult; definitive: 
       const nData = await nRes.json();
       if (Array.isArray(nData) && nData.length > 0) {
         const placeItem = nData.find(
-          (item: any) =>
-            NOMINATIM_PLACE_CLASSES.has(item.class) &&
-            parseFloat(item.importance ?? "0") >= NOMINATIM_MIN_IMPORTANCE
+          (item: NominatimItem) =>
+            NOMINATIM_PLACE_CLASSES.has(item.class ?? "") &&
+            Number(item.importance ?? 0) >= NOMINATIM_MIN_IMPORTANCE
         );
         if (placeItem) {
           return { result: { lat: parseFloat(placeItem.lat), lon: parseFloat(placeItem.lon), name: query }, definitive: true };

@@ -91,7 +91,8 @@ export async function verifyAndCheckAiQuota(req: Request): Promise<AiQuotaCheckR
   try {
     const decoded = await auth.verifyIdToken(idToken);
     uid = decoded.uid;
-    email = decoded.email ?? null;
+    // 인증한 이메일만(마스터 판정용, lib/premiumServer.ts verifyRequestUser와 같은 기준)
+    email = decoded.email_verified ? decoded.email ?? null : null;
   } catch (err) {
     console.error("[팩인백] AI 로그인 토큰 검증 실패:", err);
     throw new AiAuthError("로그인 정보를 확인할 수 없어요. 다시 로그인해주세요");
@@ -109,6 +110,15 @@ export async function verifyAndCheckAiQuota(req: Request): Promise<AiQuotaCheckR
     }
 
     const userSnap = await db.collection("users").doc(uid).get();
+
+    // 인앱결제(RevenueCat 웹훅이 기록한 영구구매)도 프리미엄(lib/premiumServer.ts isPremiumServer와 같은 기준).
+    // 예전에는 여기서 빠져 있어, 구매자가 AI로 정리하기·AI 클립보드에서 "프리미엄 전용"으로 막히고
+    // 다른 AI 기능도 하루 3회로 제한됐다(2026-10-09).
+    const premiumPurchase = userSnap.data()?.premiumPurchase as { purchased?: boolean } | undefined;
+    if (premiumPurchase?.purchased) {
+      return { allowed: true, unlimited: true, usedCount: 0, limit: AI_FREE_DAILY_LIMIT, uid };
+    }
+
     const claimedCode = userSnap.data()?.unlockCode as string | undefined;
 
     if (claimedCode) {

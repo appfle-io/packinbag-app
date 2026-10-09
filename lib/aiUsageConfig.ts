@@ -15,10 +15,15 @@ export function todayKstKey(): string {
 
 const CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
+// 암호학적 난수로 만든다(2026-10-09). Math.random은 앞에서 나온 값으로 다음 값을 추측할 수 있어
+// 이용권처럼 값 자체가 권한인 코드에는 맞지 않다. 252(=36×7) 이상은 버려서 글자마다 확률을 같게 맞춘다.
 export function generateRandomCode(length = UNLOCK_CODE_LENGTH): string {
   let code = "";
-  for (let i = 0; i < length; i++) {
-    code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  const buf = new Uint8Array(1);
+  while (code.length < length) {
+    globalThis.crypto.getRandomValues(buf);
+    if (buf[0] >= 252) continue;
+    code += CODE_CHARS[buf[0] % CODE_CHARS.length];
   }
   return code;
 }

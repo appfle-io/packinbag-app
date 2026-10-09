@@ -169,8 +169,12 @@ async function handlePOST(req: NextRequest) {
     return NextResponse.json({ error: "붙여넣은 내용이 비어있어요" }, { status: 400 });
   }
 
+  // 항목마다 60자까지(아이템 글자 상한과 같음). 예전에는 길이 제한이 없어 프롬프트가 한없이 커질 수 있었다(2026-10-09)
   const existingItems = Array.isArray(existingItemsRaw)
-    ? existingItemsRaw.filter((i): i is string => typeof i === "string")
+    ? existingItemsRaw
+        .filter((i): i is string => typeof i === "string")
+        .slice(0, 2000)
+        .map((i) => i.slice(0, 60))
     : [];
 
   const apiKey = process.env.GEMINI_API_KEY;

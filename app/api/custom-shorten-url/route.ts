@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
-import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
-import { checkShortLinkQuota, consumeShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
+import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
+import { reserveShortLinkQuota, refundShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
 
 // 아이템/메모 텍스트에 붙여넣은 긴 URL을 사용자가 직접 고른 코드로 커스텀 링크(/c/{code})로
 // 바꿔주는 라우트. app/api/shorten-url(랜덤 코드 자동생성)과 같은 패턴이지만, 코드를
@@ -24,6 +24,7 @@ const RESERVED_CUSTOM_CODES = new Set([
   "favicon.ico",
   "manifest",
 ]);
+const MAX_URL_LENGTH = 2048;
 
 function isHttpUrl(value: string): boolean {
   try {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   const longUrl = (body as { longUrl?: string })?.longUrl;
   const rawCode = (body as { code?: string })?.code;
 
-  if (!longUrl || typeof longUrl !== "string" || !isHttpUrl(longUrl)) {
+  if (!longUrl || typeof longUrl !== "string" || longUrl.length > MAX_URL_LENGTH || !isHttpUrl(longUrl)) {
     return NextResponse.json({ error: "올바른 URL이 아니에요" }, { status: 400 });
   }
   // 우리 서비스의 숏/커스텀 URL을 또 축약하려는 경우 무한 리다이렉트로 이어질 수 있어 막는다.
@@ -71,9 +72,11 @@ export async function POST(req: NextRequest) {
   }
 
   let uid: string;
+  let email: string | null;
   try {
     const verified = await verifyRequestUser(req);
     uid = verified.uid;
+    email = verified.email;
   } catch (err) {
     if (err instanceof ServerAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
@@ -81,9 +84,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인 정보를 확인할 수 없어요" }, { status: 401 });
   }
 
-  const quota = await checkShortLinkQuota(uid);
-  if (!quota.allowed) {
-    return NextResponse.json({ error: SHORT_LINK_LIMIT_MESSAGE }, { status: 429 });
+  // 커스텀 URL은 프리미엄 전용(무료는 짧은 URL만). 예전에는 화면에서만 막고 서버는 확인하지 않아
+  // 무료 회원도 이 라우트를 직접 불러 만들 수 있었다(2026-10-09).
+  if (!(await isPremiumServer(uid, email))) {
+    return NextResponse.json(
+      { error: "커스텀 URL은 프리미엄 전용 기능이에요", premiumRequired: true },
+      { status: 403 }
+    );
   }
 
   const db = adminDb();
@@ -94,19 +101,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이미 사용 중인 URL이에요" }, { status: 409 });
   }
 
+  if (!(await reserveShortLinkQuota(uid))) {
+    return NextResponse.json({ error: SHORT_LINK_LIMIT_MESSAGE }, { status: 429 });
+  }
+
   try {
-    await col.doc(code).set({
+    // create는 같은 코드가 그사이 생겼으면 실패한다(동시에 같은 코드를 만들어 남의 링크를 덮는 것 방지)
+    await col.doc(code).create({
       longUrl,
       label,
       createdBy: uid,
       createdAt: new Date().toISOString(),
     });
   } catch (err) {
+    await refundShortLinkQuota(uid);
+    if ((err as { code?: number })?.code === 6) {
+      return NextResponse.json({ error: "이미 사용 중인 URL이에요" }, { status: 409 });
+    }
     console.error("[팩인백] 커스텀 URL 생성 실패(서버):", err);
     return NextResponse.json({ error: "링크 생성에 실패했어요" }, { status: 500 });
   }
-
-  await consumeShortLinkQuota(uid);
 
   // 짧은 URL과 동일하게 SHORT_URL_BASE_URL 환경변수가 있으면 그걸, 없으면 요청 도메인을 쓴다.
   const configuredBase = process.env.SHORT_URL_BASE_URL?.trim().replace(/\/+$/, "");

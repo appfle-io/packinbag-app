@@ -89,22 +89,31 @@ async function handlePOST(req: NextRequest) {
   }
 
   const { bagName, travelDate, weatherSummary, packs } = (body ?? {}) as {
-    bagName?: string;
-    travelDate?: string;
-    weatherSummary?: string;
-    packs?: Array<{ name: string; items: string[] }>;
+    bagName?: unknown;
+    travelDate?: unknown;
+    weatherSummary?: unknown;
+    packs?: unknown;
   };
 
+  // 입력 길이·개수 상한(2026-10-09). 예전에는 제한이 없어 한 번 부르는 데 수 MB 프롬프트를 보낼 수 있었다(AI 비용).
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
   const packSummary = Array.isArray(packs)
     ? packs
-        .map((p) => `[${p.name}]: ${(p.items || []).join(", ")}`)
+        .slice(0, 30)
+        .filter((p): p is { name?: unknown; items?: unknown } => !!p && typeof p === "object")
+        .map((p) => {
+          const items = Array.isArray(p.items)
+            ? p.items.filter((i): i is string => typeof i === "string").slice(0, 100).map((i) => i.slice(0, 60))
+            : [];
+          return `[${str(p.name, 30)}]: ${items.join(", ")}`;
+        })
         .join("\n")
     : "";
 
   const userPrompt = `[가방 정보]
-- 가방 이름: ${bagName || "여행 가방"}
-- 여행일정: ${travelDate || "미정"}
-- 날씨/현지 정보: ${weatherSummary || "정보 없음"}
+- 가방 이름: ${str(bagName, 60) || "여행 가방"}
+- 여행일정: ${str(travelDate, 40) || "미정"}
+- 날씨/현지 정보: ${str(weatherSummary, 300) || "정보 없음"}
 
 [현재 등록된 팩 및 아이템 목록]
 ${packSummary || "(등록된 아이템 없음)"}

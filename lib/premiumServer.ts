@@ -28,7 +28,9 @@ export async function verifyRequestUser(req: Request): Promise<VerifiedUser> {
   }
   try {
     const decoded = await adminAuth().verifyIdToken(idToken);
-    return { uid: decoded.uid, email: decoded.email ?? null };
+    // 인증하지 않은 이메일은 넘기지 않는다(2026-10-09). 마스터 판정이 이메일을 보기 때문에, 마스터 이메일로
+    // 가입만 하고 인증하지 않은 계정이 관리자가 될 수 있었다. Google·Apple 로그인은 항상 인증된 이메일이다.
+    return { uid: decoded.uid, email: decoded.email_verified ? decoded.email ?? null : null };
   } catch (err) {
     console.error("[팩인백] 로그인 토큰 검증 실패:", err);
     throw new ServerAuthError("로그인 정보를 확인할 수 없어요. 다시 로그인해주세요");

@@ -155,7 +155,10 @@ async function handlePOST(req: NextRequest) {
 
   const validCount = items.length;
   const existingPackNames = Array.isArray(existingPackNamesRaw)
-    ? existingPackNamesRaw.filter((n): n is string => typeof n === "string").slice(0, 10)
+    ? existingPackNamesRaw
+        .filter((n): n is string => typeof n === "string")
+        .slice(0, 10)
+        .map((n) => n.slice(0, 30)) // 이름 길이 상한(2026-10-09, 프롬프트 크기)
     : [];
 
   const apiKey = process.env.GEMINI_API_KEY;

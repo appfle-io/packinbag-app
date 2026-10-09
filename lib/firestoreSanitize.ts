@@ -15,3 +15,19 @@ export function stripUndefined<T>(value: T): T {
   }
   return value;
 }
+
+// 보관함 팩을 서버가 만들 때(create-library-pack · trash-bag-pack · import-shared-pack) 클라이언트가 보낸 값에서
+// 서버만 정하는 필드를 버린다(2026-10-09). 예전에는 그대로 펼쳐 저장해서,
+// isQuickPack:true로 무료 개수 한도·잠금을 피하거나 locked:false로 잠긴 팩을 풀 수 있었다.
+const SERVER_ONLY_PACK_FIELDS = ["locked", "trashedAt", "trashSourceBagId", "trashSourceBagName", "isQuickPack"];
+
+export function stripServerOnlyPackFields<T extends object>(pack: T): T {
+  const copy = { ...pack } as unknown as Record<string, unknown>;
+  for (const key of SERVER_ONLY_PACK_FIELDS) delete copy[key];
+  return copy as unknown as T;
+}
+
+// 클라이언트가 정한 문서 id를 그대로 쓸 수 있는지(슬래시·빈 값·너무 긴 값은 안 됨)
+export function isSafeDocId(id: unknown): id is string {
+  return typeof id === "string" && id.length > 0 && id.length <= 128 && !id.includes("/") && id !== "." && id !== "..";
+}

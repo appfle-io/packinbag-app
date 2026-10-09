@@ -12,7 +12,8 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   const kind = req.nextUrl.searchParams.get("kind");
   const code = req.nextUrl.searchParams.get("code");
-  if ((kind !== "s" && kind !== "c") || !code) {
+  // 문서 id로 쓸 수 없는 값(/ 포함, 너무 긴 값)은 Firestore가 예외를 던져 500이 났다 - 여기서 400으로(2026-10-09)
+  if ((kind !== "s" && kind !== "c") || !code || code.length > 40 || code.includes("/")) {
     return NextResponse.json({ error: "잘못된 요청이에요" }, { status: 400 });
   }
 

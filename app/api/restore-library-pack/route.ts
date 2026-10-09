@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
-import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
 import { recordAuditLog } from "@/lib/auditLog";
+import { syncLibraryPackLocks } from "@/lib/bagLockSync";
 import { Pack } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -30,9 +31,11 @@ export async function POST(req: NextRequest) {
   }
 
   let uid: string;
+  let email: string | null;
   try {
     const verified = await verifyRequestUser(req);
     uid = verified.uid;
+    email = verified.email;
   } catch (err) {
     if (err instanceof ServerAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
@@ -61,6 +64,16 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[팩인백] 팩 복구 실패(서버):", err);
     return NextResponse.json({ error: "팩 복구에 실패했어요" }, { status: 500 });
+  }
+
+  // 무료 회원은 복구로 10개를 넘으면 오래된 팩부터 잠긴다(새로 만들 때와 같은 기준). 예전에는 복구가
+  // 개수를 전혀 보지 않아, 휴지통에 넣었다 되살리기를 반복해 한도를 넘길 수 있었다(2026-10-09).
+  // 폴더 복구는 이 라우트를 여러 번 부르므로, 요청마다 다시 계산해도 마지막 결과가 맞다.
+  try {
+    const premium = await isPremiumServer(uid, email);
+    if (!premium) await syncLibraryPackLocks(uid, false);
+  } catch (err) {
+    console.error("[팩인백] 팩 복구 후 잠금 재계산 실패:", err);
   }
 
   await recordAuditLog({

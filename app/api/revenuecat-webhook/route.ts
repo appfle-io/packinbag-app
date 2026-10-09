@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { PREMIUM_ENTITLEMENT_ID } from "@/lib/purchaseConfig";
 
@@ -25,10 +26,17 @@ const GRANT_EVENT_TYPES = new Set([
 // 승인하면 RevenueCat이 CANCELLATION 이벤트를 보내준다.
 const REVOKE_EVENT_TYPES = new Set(["CANCELLATION"]);
 
+// 길이가 같을 때만 한 글자씩 걸리는 시간이 같은 비교(응답 시간으로 값을 한 글자씩 맞히는 것을 막는다)
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
 export async function POST(req: NextRequest) {
   const expected = process.env.REVENUECAT_WEBHOOK_AUTH_HEADER;
   const received = req.headers.get("authorization") ?? "";
-  if (!expected || received !== expected) {
+  if (!expected || !safeEqual(received, expected)) {
     console.error("[팩인백] RevenueCat 웹훅 인증 실패");
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
-import { syncOwnedBagLocks } from "@/lib/bagLockSync";
+import { syncOwnedBagLocks, syncLibraryPackLocks } from "@/lib/bagLockSync";
 
 // 이용권 상태(등록/무효화/만료)가 바뀔 때마다 클라이언트(AppShell)가 호출하는 라우트.
 //
@@ -33,7 +32,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인 정보를 확인할 수 없어요" }, { status: 401 });
   }
 
-  const db = adminDb();
   const premium = await isPremiumServer(uid, email);
 
   try {
@@ -41,33 +39,7 @@ export async function POST(req: NextRequest) {
     await syncOwnedBagLocks(uid);
 
     // 2. 팩 보관함 잠금 상태 동기화 (무료는 최신 10개 제외 나머지 locked: true, 프리미엄은 전부 false)
-    const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
-    const packsSnap = await packsCol.get();
-    const activePacks = packsSnap.docs
-      .map((d) => ({
-        id: d.id,
-        createdAt: d.data().createdAt as string | undefined,
-        locked: d.data().locked as boolean | undefined,
-        trashedAt: d.data().trashedAt as string | undefined,
-        isQuick: d.id === "quick-pack" || !!d.data().isQuickPack,
-      }))
-      .filter((p) => !p.trashedAt && !p.isQuick)
-      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
-
-    const packBatch = db.batch();
-    let packWrites = 0;
-
-    activePacks.forEach((p, idx) => {
-      const shouldLock = !premium && idx >= 10;
-      if (!!p.locked !== shouldLock) {
-        packBatch.update(packsCol.doc(p.id), { locked: shouldLock });
-        packWrites++;
-      }
-    });
-
-    if (packWrites > 0) {
-      await packBatch.commit();
-    }
+    await syncLibraryPackLocks(uid, premium);
 
     return NextResponse.json({ ok: true, premium });
   } catch (err) {

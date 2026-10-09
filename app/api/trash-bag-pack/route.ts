@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { recordAuditLog } from "@/lib/auditLog";
 import { Pack } from "@/lib/types";
-import { stripUndefined } from "@/lib/firestoreSanitize";
+import { stripUndefined, stripServerOnlyPackFields, isSafeDocId } from "@/lib/firestoreSanitize";
 
 // 가방 "안"에서 팩을 삭제했을 때, 그 팩을 완전히 없애버리는 대신 팩 보관함의
 // 휴지통(trashedAt)으로 복사해 넣는 라우트. firestore.rules에서 libraryPacks의
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     sourceBagName?: string;
   }) ?? {};
 
-  if (!pack?.id || typeof pack.name !== "string" || !Array.isArray(pack.items)) {
+  if (!pack || !isSafeDocId(pack.id) || typeof pack.name !== "string" || !Array.isArray(pack.items)) {
     return NextResponse.json({ error: "요청 데이터가 올바르지 않아요" }, { status: 400 });
   }
   if (typeof sourceBagId !== "string" || typeof sourceBagName !== "string") {
@@ -51,9 +51,15 @@ export async function POST(req: NextRequest) {
   const db = adminDb();
   const packsCol = db.collection("users").doc(uid).collection("libraryPacks");
 
+  // 보관함에 같은 id가 이미 있으면(가방에 불러온 보관함 팩 등) 새 id로 사본을 만든다. 예전에는 그 팩을
+  // 통째 덮어서, 잠긴 팩을 풀거나(휴지통 → 복구) 다른 팩을 지울 수 있었다(2026-10-09).
+  const existing = await packsCol.doc(pack.id).get();
+  const targetId = existing.exists ? `${pack.id}-trash-${Date.now()}` : pack.id;
+
   const now = new Date().toISOString();
   const trashedPack: Pack = {
-    ...pack,
+    ...stripServerOnlyPackFields(pack),
+    id: targetId,
     // 가방 안에서 쓰던 라이브러리 연동 필드는 휴지통 사본에는 의미가 없으니 지운다 -
     // 복구되면 그냥 새 라이브러리 팩 하나로 취급된다.
     savedAsLibraryPack: undefined,
@@ -62,12 +68,12 @@ export async function POST(req: NextRequest) {
     createdAt: pack.createdAt ?? now,
     updatedAt: now,
     trashedAt: now,
-    trashSourceBagId: sourceBagId,
-    trashSourceBagName: sourceBagName,
+    trashSourceBagId: sourceBagId.slice(0, 128),
+    trashSourceBagName: sourceBagName.slice(0, 60),
   };
 
   try {
-    await packsCol.doc(pack.id).set(stripUndefined(trashedPack));
+    await packsCol.doc(targetId).set(stripUndefined(trashedPack));
   } catch (err) {
     console.error("[팩인백] 가방 팩 휴지통 이동 실패(서버):", err);
     return NextResponse.json({ error: "휴지통으로 옮기지 못했어요" }, { status: 500 });

@@ -22,7 +22,9 @@ export const runtime = "nodejs";
 async function isOwnerPremium(ownerId: string): Promise<boolean> {
   let ownerEmail: string | null = null;
   try {
-    ownerEmail = (await adminAuth().getUser(ownerId)).email ?? null;
+    const owner = await adminAuth().getUser(ownerId);
+    // 인증한 이메일만(마스터 판정용, lib/premiumServer.ts와 같은 기준)
+    ownerEmail = owner.emailVerified ? owner.email ?? null : null;
   } catch {
     // 탈퇴 등으로 계정을 못 찾으면 이메일 없이 판정
   }

@@ -11,6 +11,7 @@ import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 export const runtime = "nodejs";
 
 const LABEL_MAX_LENGTH = 60;
+const MAX_URL_LENGTH = 2048;
 
 function isHttpUrl(value: string): boolean {
   try {
@@ -34,7 +35,13 @@ export async function PATCH(req: NextRequest) {
   const rawLabel = (body as { label?: string })?.label;
   const rawLongUrl = (body as { longUrl?: string })?.longUrl;
 
-  if ((kind !== "s" && kind !== "c") || !code || typeof code !== "string") {
+  if (
+    (kind !== "s" && kind !== "c") ||
+    !code ||
+    typeof code !== "string" ||
+    code.length > 40 ||
+    code.includes("/")
+  ) {
     return NextResponse.json({ error: "잘못된 요청이에요" }, { status: 400 });
   }
 
@@ -50,7 +57,7 @@ export async function PATCH(req: NextRequest) {
     updates.label = trimmed || null;
   }
   if (typeof rawLongUrl === "string") {
-    if (!isHttpUrl(rawLongUrl)) {
+    if (rawLongUrl.length > MAX_URL_LENGTH || !isHttpUrl(rawLongUrl)) {
       return NextResponse.json({ error: "올바른 URL이 아니에요" }, { status: 400 });
     }
     if (/\/(s|c)\/[^/\s]+\/?$/.test(rawLongUrl)) {

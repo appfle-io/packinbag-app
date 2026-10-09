@@ -177,7 +177,8 @@ export function computeLockedBagIds(bags: Bag[], currentUid: string): Set<string
  */
 export function computeLockedPackIds(libraryPacks: Pack[]): Set<string> {
   const active = sortByCreatedAtDesc(
-    libraryPacks.filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID && !p.isQuickPack)
+    // 빠른팩은 문서 id로만(서버 lib/bagLockSync.ts syncLibraryPackLocks와 같은 기준, 2026-10-09)
+    libraryPacks.filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID)
   );
   return new Set(active.slice(FREE_MAX_LIBRARY_PACKS).map((p) => p.id));
 }

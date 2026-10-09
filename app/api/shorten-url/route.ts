@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
-import { checkShortLinkQuota, consumeShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
+import { reserveShortLinkQuota, refundShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
 
 // 아이템/메모 텍스트에 붙여넣은 긴 URL을 짧은 링크(/s/{code})로 바꿔주는 라우트.
 // shortLinks 컬렉션은 firestore.rules에서 client read/write를 전부 막아뒀다(코드 추측으로
@@ -12,6 +12,8 @@ export const runtime = "nodejs";
 
 const CODE_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const CODE_LENGTH = 7;
+// 주소 길이 상한. 예전에는 제한이 없어 아주 긴 문자열을 문서에 쌓을 수 있었다(2026-10-09)
+const MAX_URL_LENGTH = 2048;
 
 function generateShortCode(): string {
   const bytes = crypto.randomBytes(CODE_LENGTH);
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const longUrl = (body as { longUrl?: string })?.longUrl;
-  if (!longUrl || typeof longUrl !== "string" || !isHttpUrl(longUrl)) {
+  if (!longUrl || typeof longUrl !== "string" || longUrl.length > MAX_URL_LENGTH || !isHttpUrl(longUrl)) {
     return NextResponse.json({ error: "올바른 URL이 아니에요" }, { status: 400 });
   }
   // 표시 이름(label)은 선택 입력 - 비어있으면 null로 저장해서, 화면에서는 링크 그대로
@@ -64,8 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "로그인 정보를 확인할 수 없어요" }, { status: 401 });
   }
 
-  const quota = await checkShortLinkQuota(uid);
-  if (!quota.allowed) {
+  if (!(await reserveShortLinkQuota(uid))) {
     return NextResponse.json({ error: SHORT_LINK_LIMIT_MESSAGE }, { status: 429 });
   }
 
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
     }
   }
   if (!code) {
+    await refundShortLinkQuota(uid);
     return NextResponse.json(
       { error: "링크 생성에 실패했어요. 다시 시도해주세요" },
       { status: 500 }
@@ -98,10 +100,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[팩인백] 숏 URL 생성 실패(서버):", err);
+    await refundShortLinkQuota(uid);
     return NextResponse.json({ error: "링크 생성에 실패했어요" }, { status: 500 });
   }
-
-  await consumeShortLinkQuota(uid);
 
   // 짧은 URL은 기본 도메인(packinbag.seeuson.com)보다 더 짧은 전용 도메인(short.seeuson.com 등)을
   // 쓰고 싶을 수 있어서, 환경변수 SHORT_URL_BASE_URL(Vercel 환경변수)이 있으면 그것을, 없으면

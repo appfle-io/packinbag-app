@@ -103,10 +103,11 @@ service cloud.firestore {
         // 2026-10-07: 무료 보관함 개수(10개)를 넘긴 팩(locked:true, app/api/sync-lock-status만 기록)은 수정할 수 없고,
         // locked 필드 자체도 클라이언트가 못 바꾼다(예전에는 직접 false로 바꿔 풀 수 있었다).
         // 휴지통 보내기·삭제는 잠긴 팩도 된다(자리를 비우는 동작).
+        // 2026-10-09: isQuickPack(빠른팩 표시)도 바꿀 수 없다. 예전에는 아무 팩에나 true를 넣어 무료 한도·잠금에서 빠질 수 있었다.
         allow update: if request.auth != null && request.auth.uid == uid &&
           resource.data.get('locked', false) != true &&
           request.resource.data.get('locked', false) == false &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedAt']);
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['trashedAt', 'isQuickPack']);
 
         // 휴지통으로 보내기: trashedAt을 null -> 값으로 바꾸는 것만 허용(다른 필드는 안 됨).
         allow update: if request.auth != null && request.auth.uid == uid &&

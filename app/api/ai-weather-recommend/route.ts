@@ -10,18 +10,18 @@ function extractJsonItems(rawText: string): { text: string; icon: string }[] {
     const parsed = JSON.parse(cleaned);
     if (!parsed) return [];
 
-    let list: any[] = [];
+    let list: unknown[] = [];
     if (Array.isArray(parsed)) {
       list = parsed;
     } else if (Array.isArray(parsed.items)) {
       list = parsed.items;
     } else if (typeof parsed === "object") {
-      const firstArrayKey = Object.keys(parsed).find((k) => Array.isArray((parsed as any)[k]));
-      if (firstArrayKey) list = (parsed as any)[firstArrayKey];
+      const firstArrayKey = Object.keys(parsed).find((k) => Array.isArray(parsed[k]));
+      if (firstArrayKey) list = parsed[firstArrayKey];
     }
 
     return list
-      .filter((i) => i && typeof i === "object")
+      .filter((i): i is Record<string, unknown> => !!i && typeof i === "object")
       .slice(0, 4)
       .map((i) => ({
         text: String(i.text || i.name || i.item || "").slice(0, 15) || "추천 아이템",
@@ -83,9 +83,12 @@ async function handlePOST(req: NextRequest) {
   const tempMaxRaw = (body as { tempMax?: unknown })?.tempMax;
 
   const bagName = typeof bagNameRaw === "string" ? bagNameRaw.trim().slice(0, 60) : "";
-  const weatherText = typeof weatherTextRaw === "string" ? weatherTextRaw.trim() : "맑음";
-  const tempMin = typeof tempMinRaw === "number" ? tempMinRaw : 15;
-  const tempMax = typeof tempMaxRaw === "number" ? tempMaxRaw : 25;
+  // 길이·범위 상한(2026-10-09, AI 비용·프롬프트 끼워넣기 방지)
+  const weatherText = typeof weatherTextRaw === "string" ? weatherTextRaw.trim().slice(0, 40) || "맑음" : "맑음";
+  const clampTemp = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.max(-60, Math.min(60, Math.round(v))) : fallback;
+  const tempMin = clampTemp(tempMinRaw, 15);
+  const tempMax = clampTemp(tempMaxRaw, 25);
 
   if (!bagName) {
     return NextResponse.json({ error: "가방 이름을 입력해주세요" }, { status: 400 });

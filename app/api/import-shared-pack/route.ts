@@ -3,9 +3,8 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
 import { FREE_MAX_LIBRARY_PACKS, QUICK_PACK_ID } from "@/lib/premiumLimits";
 import { Pack, SharedPackSnapshot } from "@/lib/types";
-import { stripUndefined } from "@/lib/firestoreSanitize";
+import { stripUndefined, stripServerOnlyPackFields } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
-import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
     const userPacksSnap = await packsCol.get();
     const activeCount = userPacksSnap.docs.filter((doc) => {
       const d = doc.data();
-      return !d.trashedAt && doc.id !== QUICK_PACK_ID && !d.isQuickPack;
+      return !d.trashedAt && doc.id !== QUICK_PACK_ID;
     }).length;
 
     const neededSlots = data.type === "folder" ? 1 + (data.packs?.length ?? 0) : 1;
@@ -86,7 +85,7 @@ export async function POST(req: NextRequest) {
 
       const childPacks = (data.packs ?? []).filter((p) => p.type !== "folder");
       for (const cp of childPacks) {
-        const deserializedCp = deserializePack(cp);
+        const deserializedCp = stripServerOnlyPackFields(deserializePack(cp));
         const childPackId = uid();
         const newChildPack: Pack = {
           ...deserializedCp,
@@ -108,7 +107,8 @@ export async function POST(req: NextRequest) {
         message: `"${data.title}" 폴더와 팩들을 보관함으로 가져왔어요!`,
       });
     } else if (data.pack) {
-      const deserializedPack = deserializePack(data.pack);
+      // 공유된 팩에 남아 있던 locked·isQuickPack 같은 서버 필드는 가져오지 않는다(2026-10-09)
+      const deserializedPack = stripServerOnlyPackFields(deserializePack(data.pack));
       const newPackId = uid();
       const newPack: Pack = {
         ...deserializedPack,

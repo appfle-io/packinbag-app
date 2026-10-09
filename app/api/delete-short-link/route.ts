@@ -19,7 +19,13 @@ export async function POST(req: NextRequest) {
 
   const kind = (body as { kind?: string })?.kind;
   const code = (body as { code?: string })?.code;
-  if ((kind !== "s" && kind !== "c") || !code || typeof code !== "string") {
+  if (
+    (kind !== "s" && kind !== "c") ||
+    !code ||
+    typeof code !== "string" ||
+    code.length > 40 ||
+    code.includes("/")
+  ) {
     return NextResponse.json({ error: "잘못된 요청이에요" }, { status: 400 });
   }
 
