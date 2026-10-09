@@ -523,11 +523,11 @@ export default function AppShell() {
 
   const requestUnlockForBag = () =>
     setPremiumLimitMessage(
-      "이 가방은 읽기 전용이에요. 이용권 코드를 등록하면 다시 수정할 수 있어요."
+      "이 가방은 읽기 전용이에요. 프리미엄이면 다시 수정할 수 있어요."
     );
   const requestUnlockForPack = () =>
     setPremiumLimitMessage(
-      "이 팩은 읽기 전용이에요. 이용권 코드를 등록하면 다시 수정할 수 있어요."
+      "이 팩은 읽기 전용이에요. 프리미엄이면 다시 수정할 수 있어요."
     );
   const handleDismissAnnouncement = useCallback(
     (id: string) => {
@@ -759,7 +759,7 @@ export default function AppShell() {
     }
     if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
-        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
+        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 프리미엄이 필요해요.`
       );
       return;
     }
@@ -818,7 +818,7 @@ export default function AppShell() {
   const openNewBagFromNote = async (result: ImportedBagResult) => {
     if (ownedBagCount >= FREE_MAX_ACTIVE_BAGS && !premium) {
       setPremiumLimitMessage(
-        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`
+        `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 프리미엄이 필요해요.`
       );
       return;
     }

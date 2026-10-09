@@ -108,7 +108,7 @@ async function handlePOST(req: NextRequest) {
   if (!quota.allowed) {
     return NextResponse.json(
       {
-        error: `오늘 무료 AI 사용 한도(${quota.limit}회)를 다 썼어요. 내일 다시 시도하거나, 설정 > 이용권 코드에서 코드를 입력하면 무제한으로 쓸 수 있어요`,
+        error: `오늘 무료 AI 사용 한도(${quota.limit}회)를 다 썼어요. 내일 다시 시도하거나, 프리미엄으로 더 많이 쓸 수 있어요`,
         limitReached: true,
         usedCount: quota.usedCount,
         limit: quota.limit,

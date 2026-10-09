@@ -883,7 +883,7 @@ export default function BagScreenV2(props: BagScreenProps) {
           if (id) openNote(id);
         }}
         onAddFiles={attachments.addFiles}
-        onImportClipboard={() => guard(() => (premium ? setClipboardOpen(true) : setPremiumMessage("AI 가져오기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요.")))}
+        onImportClipboard={() => guard(() => (premium ? setClipboardOpen(true) : setPremiumMessage("AI 가져오기는 프리미엄 전용 기능이에요.")))}
         onAudit={() => guard(() => setAuditOpen(true))}
         onDeleteOrLeave={() => (members.isOwner ? setConfirmDelete(true) : setConfirmLeave(true))}
         weather={
@@ -894,7 +894,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                   guard(() =>
                     premium
                       ? setWeatherOpen(true)
-                      : setPremiumMessage("날씨로 준비물 추천은 프리미엄 기능이에요. 이용권을 등록하면 바로 쓸 수 있어요."),
+                      : setPremiumMessage("날씨로 준비물 추천은 프리미엄 기능이에요."),
                   ),
               }
             : null

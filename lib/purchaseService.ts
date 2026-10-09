@@ -18,9 +18,9 @@
 
 import { Capacitor } from "@capacitor/core";
 import { Purchases, LOG_LEVEL } from "@revenuecat/purchases-capacitor";
+import type { User } from "firebase/auth";
 import { PREMIUM_ENTITLEMENT_ID } from "@/lib/purchaseConfig";
-
-;
+import { getApiUrl } from "@/lib/apiBase";
 
 export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
@@ -31,9 +31,12 @@ export function isNativePlatform(): boolean {
 const REVENUECAT_IOS_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_IOS_API_KEY ?? "";
 
 let configuredForUid: string | null = null;
+let configured = false;
 
-// 앱 전체에서 로그인한 uid가 바뀔 때마다(최초 로그인 포함) 한 번만 다시 설정하면 된다.
-// 웹에서는 아무 일도 하지 않는다(네이티브 전용 기능).
+// 앱 전체에서 로그인한 uid가 바뀔 때마다(최초 로그인 포함) 부른다. 웹에서는 아무 일도 하지 않는다(네이티브 전용 기능).
+// configure는 앱에서 한 번만 하고, 그 뒤 다른 계정으로 바뀌면 logIn으로 전환한다(2026-10-09).
+// 예전에는 계정을 바꿀 때마다 configure를 다시 불렀는데, RevenueCat은 두 번째 configure를 보장하지 않는다
+// (이전 계정으로 구매가 기록될 수 있음).
 export async function ensurePurchasesConfigured(uid: string): Promise<void> {
   if (!isNativePlatform()) return;
   if (configuredForUid === uid) return;
@@ -41,9 +44,32 @@ export async function ensurePurchasesConfigured(uid: string): Promise<void> {
     console.error("[팩인백] NEXT_PUBLIC_REVENUECAT_IOS_API_KEY가 설정되지 않았어요");
     return;
   }
-  await Purchases.setLogLevel({ level: LOG_LEVEL.WARN });
-  await Purchases.configure({ apiKey: REVENUECAT_IOS_API_KEY, appUserID: uid });
+  if (!configured) {
+    await Purchases.setLogLevel({ level: LOG_LEVEL.WARN });
+    await Purchases.configure({ apiKey: REVENUECAT_IOS_API_KEY, appUserID: uid });
+    configured = true;
+  } else {
+    await Purchases.logIn({ appUserID: uid });
+  }
   configuredForUid = uid;
+}
+
+// 구매·복원 직후 서버가 RevenueCat에 직접 물어봐서 users/{uid}.premiumPurchase를 바로 기록하게 한다
+// (app/api/sync-purchase). 웹훅은 몇 초~몇 분 늦거나, 같은 계정 복원처럼 이벤트가 아예 안 올 수 있다.
+// 돌려주는 값: 서버가 프리미엄으로 확인했는지. 실패해도 예외를 던지지 않는다(웹훅이 뒤따라 반영).
+export async function syncPurchaseToServer(user: User): Promise<boolean> {
+  try {
+    const idToken = await user.getIdToken();
+    const res = await fetch(getApiUrl("/api/sync-purchase"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    return res.ok && data?.premium === true;
+  } catch (err) {
+    console.error("[팩인백] 구매 서버 확인 실패:", err);
+    return false;
+  }
 }
 
 export interface PremiumOffering {

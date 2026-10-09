@@ -264,7 +264,7 @@ export function MembersSheet({
       <ConfirmSheet
         open={confirm?.kind === "transfer"}
         title={`${confirm?.member?.nickname ?? ""} 님에게 넘길까요?`}
-        message="넘기면 나는 일반 멤버가 돼요. 함께 쓸 수 있는 인원은 새 만든 사람의 이용권을 따라요."
+        message="넘기면 나는 일반 멤버가 돼요. 함께 쓸 수 있는 인원은 새 만든 사람의 프리미엄 여부를 따라요."
         confirmLabel="넘기기"
         onClose={() => setConfirm(null)}
         onConfirm={() =>

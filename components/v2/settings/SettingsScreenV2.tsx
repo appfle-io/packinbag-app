@@ -35,6 +35,7 @@ import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, Segmen
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { isNativePlatform } from "@/lib/purchaseService";
 
 // AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -281,18 +282,19 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         {/* 이용권 */}
         {!isOfflineMode && (
           <section className="flex flex-col">
-            <SectionHeader>이용권</SectionHeader>
+            <SectionHeader>프리미엄</SectionHeader>
             {premium ? (
               <InfoRow title="프리미엄" trailing={<Badge tone="brand">이용 중</Badge>} />
             ) : (
               <ListRow
                 title={<span className="font-semibold">프리미엄</span>}
-                subtitle="가족 모두와 무제한으로 · 이용권 코드 입력"
+                subtitle={isNativePlatform() ? "가족 모두와 무제한으로 · 한 번 결제" : "가족 모두와 무제한으로 · 이용권 코드 입력"}
                 onClick={() => guard(openPremium)}
                 chevron
               />
             )}
-            <InfoRow title="AI 기능" trailing={aiUnlimited ? "무제한" : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회`} />
+            {/* 프리미엄도 하루 50회 상한이 있다(lib/aiQuotaServer.ts AI_PREMIUM_DAILY_CAP, 2026-10-09) */}
+            <InfoRow title="AI 기능" trailing={aiUnlimited ? "하루 50회" : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회`} />
             <ListRow divider={false} title="내가 만든 URL" onClick={() => guard(() => setShowMyShortLinks(true))} chevron />
           </section>
         )}

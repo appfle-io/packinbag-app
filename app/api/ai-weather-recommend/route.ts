@@ -61,7 +61,7 @@ async function handlePOST(req: NextRequest) {
     }
     if (!quotaCheck.allowed) {
       return NextResponse.json(
-        { error: "오늘 무료 AI 사용 횟수를 다 사용했어요. 이용권을 등록하시면 무제한으로 이용할 수 있어요!" },
+        { error: "오늘 무료 AI 사용 횟수를 다 사용했어요. 프리미엄으로 더 많이 쓸 수 있어요" },
         { status: 429 }
       );
     }

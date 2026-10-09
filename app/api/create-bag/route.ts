@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     if (activeCount >= FREE_MAX_ACTIVE_BAGS) {
       return NextResponse.json(
         {
-          error: `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`,
+          error: `무료로는 가방을 동시에 ${FREE_MAX_ACTIVE_BAGS}개까지만 진행할 수 있어요. 더 만들려면 프리미엄이 필요해요.`,
           code: "BAG_LIMIT_REACHED",
         },
         { status: 403 }

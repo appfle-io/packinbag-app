@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   const exists = existingSnap.exists;
   if (exists && existingSnap.data()?.locked === true) {
     return NextResponse.json(
-      { code: "PACK_LOCKED", error: "잠긴 팩이에요. 이용권 코드를 등록하면 다시 고칠 수 있어요." },
+      { code: "PACK_LOCKED", error: "잠긴 팩이에요. 프리미엄이면 다시 고칠 수 있어요." },
       { status: 403 }
     );
   }
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             code: "PACK_LIMIT_REACHED",
-            error: `무료로는 팩/폴더를 최대 ${FREE_MAX_LIBRARY_PACKS}개까지만 보관할 수 있어요. 더 만들려면 이용권 코드를 등록해주세요.`,
+            error: `무료로는 팩/폴더를 최대 ${FREE_MAX_LIBRARY_PACKS}개까지만 보관할 수 있어요. 더 만들려면 프리미엄이 필요해요.`,
           },
           { status: 403 }
         );
