@@ -1,11 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle } from "@tabler/icons-react";
+import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle, IconBell, IconChevronRight } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { useAuth } from "@/contexts/AuthProvider";
+import { isLocalNotificationsAvailable, reminderSummary } from "@/lib/v2/bagReminders";
+import { ReminderSheet } from "./ReminderSheet";
 
 // 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
@@ -51,6 +54,11 @@ export function MoreSheet({
   const fileRef = useRef<HTMLInputElement>(null);
   // 사진·파일 올리기는 인터넷이 필요하다(오프라인 모드는 이 기기에 저장하므로 그대로 된다)
   const { guard } = useOnlineGuard();
+  const { profile } = useAuth();
+  // 알림은 iOS 앱(로컬 알림 플러그인이 든 1.5 이상)에서만 보인다
+  const [notificationsAvailable] = useState(isLocalNotificationsAvailable);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const reminderText = reminderSummary(profile?.bagReminders?.[bag.id], !!bag.travelDate);
   const [notice, setNotice] = useState(bag.notice ?? "");
   const [editingNoticeFor, setEditingNoticeFor] = useState(bag.id);
   // 다른 가방으로 바뀌면 입력칸 초기화
@@ -67,6 +75,7 @@ export function MoreSheet({
   };
 
   return (
+    <>
     <Sheet open={open} onClose={close} title={bag.name}>
       <div className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
@@ -114,16 +123,26 @@ export function MoreSheet({
           </label>
         </section>
 
-        {keepScreenOn && (
+        {(keepScreenOn || notificationsAvailable) && (
           <section className="flex flex-col">
             <SectionHeader>챙길 때</SectionHeader>
-            <Toggle
-              checked={keepScreenOn.on}
-              onChange={keepScreenOn.onChange}
-              label="화면 켜두기"
-              description="가방을 보는 동안 화면이 꺼지지 않아요 · 이 기기에만 적용"
-              className="border-b border-line"
-            />
+            {notificationsAvailable && (
+              <button type="button" className={row} onClick={() => (close(), window.setTimeout(() => setReminderOpen(true), 300))}>
+                <IconBell size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+                <span className="min-w-0 flex-1">알림</span>
+                <span className="truncate text-caption text-sub">{reminderText ?? "꺼짐"}</span>
+                <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            )}
+            {keepScreenOn && (
+              <Toggle
+                checked={keepScreenOn.on}
+                onChange={keepScreenOn.onChange}
+                label="화면 켜두기"
+                description="가방을 보는 동안 화면이 꺼지지 않아요 · 이 기기에만 적용"
+                className="border-b border-line"
+              />
+            )}
           </section>
         )}
 
@@ -192,5 +211,7 @@ export function MoreSheet({
         </Button>
       </div>
     </Sheet>
+    {notificationsAvailable && <ReminderSheet open={reminderOpen} onClose={() => setReminderOpen(false)} bag={bag} />}
+    </>
   );
 }

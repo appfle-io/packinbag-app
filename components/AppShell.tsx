@@ -107,6 +107,7 @@ import { FirestoreRecoveryOverlay } from "@/components/v2/shell/FirestoreRecover
 import { OpenDetailContext } from "@/lib/v2/openDetail";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
 import { getApiUrl } from "@/lib/apiBase";
+import { isLocalNotificationsAvailable, onBagNotificationTap, syncBagNotifications } from "@/lib/v2/bagReminders";
 
 // 시작 공지 시트에 띄울 항목(안 본 공지)
 type AnnouncementEntry = { id: string; announcement: Announcement; onDismiss: () => void };
@@ -587,6 +588,36 @@ export default function AppShell() {
       // ignore
     }
   }, []);
+
+  // 가방 알림(D-Day · 반복) - iOS 앱에서만. 가방 목록이나 내 알림 설정이 바뀌면 조금 모았다가 다시 예약한다.
+  // 체크할 때마다 bags가 바뀌지만 예약 내용(이름·D-Day·설정)이 같으면 syncBagNotifications가 건너뛴다(lib/v2/bagReminders.ts)
+  const bagReminders = profile?.bagReminders;
+  useEffect(() => {
+    if (!user || !isLocalNotificationsAvailable()) return;
+    const mine = bags.filter((b) => !(b.ownerId === user.uid && b.trashedByOwnerAt));
+    const t = window.setTimeout(() => void syncBagNotifications(mine, bagReminders), 1500);
+    return () => window.clearTimeout(t);
+  }, [user, bags, bagReminders]);
+
+  // 알림을 눌러 열면 그 가방을 연다. 앱이 꺼져 있다 열린 경우 가방 목록이 오기 전일 수 있어 기다렸다가 연다(15초 뒤 포기)
+  const [notificationBagId, setNotificationBagId] = useState<string | null>(null);
+  useEffect(() => onBagNotificationTap((bagId) => setNotificationBagId(bagId)), []);
+  useEffect(() => {
+    if (!notificationBagId) return;
+    const target = bags.find((b) => b.id === notificationBagId);
+    if (!target) {
+      const t = window.setTimeout(() => setNotificationBagId(null), 15000);
+      return () => window.clearTimeout(t);
+    }
+    // 알림 누름(외부 이벤트)으로 가방을 연다
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setNotificationBagId(null);
+    setIsNewBag(false);
+    setEditingPack(null);
+    setBagFocus(null);
+    setEditingBag(target);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [notificationBagId, bags]);
 
   // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기/팩 가져오기 작업 자동 실행
   const pendingActionProcessedRef = useRef(false);

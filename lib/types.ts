@@ -471,6 +471,21 @@ export interface UserProfile {
     productId?: string | null;
     platform?: "ios" | "android" | null;
   };
+  // 가방별 알림 설정(2026-10-10, iOS 앱 로컬 알림 - lib/v2/bagReminders.ts). 키는 bagId.
+  // 사람마다 다르므로 가방 문서가 아니라 계정에 둔다(같은 계정의 다른 기기도 같은 설정으로 예약).
+  bagReminders?: Record<string, BagReminder>;
+}
+
+// 가방 하나의 내 알림 설정. 배열이 비어 있으면 그 알림은 꺼진 것
+export interface BagReminder {
+  // D-Day 며칠 전에 알릴지(0 = 당일, 최대 30). 가방에 travelDate가 있을 때만 울린다
+  ddayOffsets?: number[];
+  // "HH:MM"(없으면 09:00)
+  ddayTime?: string;
+  // 매주 반복할 요일(JS getDay 기준 0 = 일요일 ~ 6 = 토요일)
+  repeatDays?: number[];
+  // "HH:MM"(없으면 07:30)
+  repeatTime?: string;
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.

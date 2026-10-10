@@ -1,49 +1,70 @@
 import UIKit
 import Capacitor
 
+// iOS 27 SDK(Xcode 27)부터 UIScene 생명주기를 쓰지 않는 앱은 실행되지 않는다(2026-10-10).
+// 화면(window)은 SceneDelegate가 갖고, Info.plist의 UIApplicationSceneManifest가 Main 스토리보드로 첫 화면을 만든다.
+// 앱 단위 일(푸시 등록 등)은 AppDelegate, 화면 단위 일(URL 열기·유니버설 링크)은 SceneDelegate가 받는다.
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
         return true
     }
 
-    func applicationWillResignActive(_ application: UIApplication) {
-        // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-        // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
+    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-        // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
-    }
-
-    func applicationWillEnterForeground(_ application: UIApplication) {
-        // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
-    }
-
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-    }
-
-    func applicationWillTerminate(_ application: UIApplication) {
-        // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
-    }
-
+    // scene을 쓰면 아래 두 개는 iOS가 부르지 않는다(SceneDelegate로 옮김). 혹시 모를 경우를 위해 남겨 둔다.
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
+}
 
+// 새 파일로 나누면 Xcode 프로젝트에 등록해야 해서, 이미 앱 타깃에 들어 있는 이 파일에 함께 둔다.
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    // Main 스토리보드가 만든 창을 UIKit이 여기에 넣어 준다
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        // 앱이 꺼져 있을 때 링크(구글 로그인 복귀, 공유 링크 등)로 열린 경우
+        if let urlContext = connectionOptions.urlContexts.first {
+            openURL(urlContext)
+        }
+        if let activity = connectionOptions.userActivities.first {
+            continueActivity(activity)
+        }
+    }
+
+    // 앱이 켜져 있을 때 URL로 열림 (예전 AppDelegate application(_:open:options:))
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        for context in URLContexts {
+            openURL(context)
+        }
+    }
+
+    // 유니버설 링크 (예전 AppDelegate application(_:continue:restorationHandler:))
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        continueActivity(userActivity)
+    }
+
+    private func openURL(_ context: UIOpenURLContext) {
+        var options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+        if let source = context.options.sourceApplication {
+            options[.sourceApplication] = source
+        }
+        options[.openInPlace] = context.options.openInPlace
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: context.url, options: options)
+    }
+
+    private func continueActivity(_ activity: NSUserActivity) {
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: activity, restorationHandler: { _ in })
+    }
 }

@@ -59,7 +59,7 @@ npx cap sync ios
 npx cap open ios
 ```
 - 햅틱은 꼭 `@^6`(앱의 Capacitor가 6). 버전 없이 깔면 최신(7 이상)이 들어와 peer 충돌·빌드 실패
-- 10/10 빌드 오류 해결: ① Pods 배포 대상 13·14 → 15.0(`ios/App/Podfile` post_install, 최신 Xcode는 15 미만 거부) ② RevenueCat SDK 5.20이 최신 Xcode에서 PaywallColor 오류 → `capacitor.config.ts` `includePlugins`에서 RevenueCat 제외, `lib/purchaseService.ts`는 플러그인이 있을 때만 호출. **새 플러그인 설치 시 includePlugins에도 추가**
+- 10/10 빌드 오류 해결: ① Pods 배포 대상 13·14 → 15.0(`ios/App/Podfile` post_install, 최신 Xcode는 15 미만 거부) ② RevenueCat SDK 5.20이 최신 Xcode에서 PaywallColor 오류 → `capacitor.config.ts` `includePlugins`에서 RevenueCat 제외, `lib/purchaseService.ts`는 플러그인이 있을 때만 호출. **새 플러그인 설치 시 includePlugins에도 추가** ③ 실행 직후 `EXC_BREAKPOINT`(`_UIApplicationEvaluateRuntimeIssueForNoScene…`) = iOS 27 SDK는 **UIScene 생명주기 필수** → `AppDelegate.swift`에 `SceneDelegate` 추가(URL 열기·유니버설 링크도 여기로), `Info.plist`의 `UIMainStoryboardFile` → `UIApplicationSceneManifest`(Main 스토리보드)
 - **스토어에 나가 있는 버전 = 1.3**(8/19 승인, "배포 준비됨") → 이번 Xcode Version은 **1.5**, Build **5**(TestFlight에 4까지 있음)
 - 10/10 기준 Xcode 설정(project.pbxproj): Version 1.1(→1.5로 바꿔야 함) · Build 4 · 서명 **Manual**(프로필 "PackInBag AppStore", 팀 2ZHYLWBV2H) · iPhone+iPad(TARGETED_DEVICE_FAMILY 1,2 → 아이패드 13″ 스크린샷 필요)
 - 왼쪽 파란 **App** → **TARGETS > App**
@@ -75,7 +75,8 @@ npx cap open ios
 - ✅ Apple Developer(https://developer.apple.com/account) **Certificates, IDs & Profiles > Keys +** → APNs 키 "PackInBag APNs" 발급(10/10, **Sandbox & Production · Team Scoped**). `.p8`은 git 밖에 보관
 - ✅ **Identifiers** → `com.appfle.packinbag`에 Push Notifications · App Groups(`group.com.appfle.packinbag`) 켜짐(10/10). Broadcast Capability는 안 씀. 위젯 ID는 Xcode가 타깃 만들 때 자동 생성
 - ✅ Xcode 서명 **Automatically manage signing**(10/10). 아이폰(iPhone 17)을 케이블로 연결해 기기 등록 → Xcode Managed Profile · Apple Development. 수동 프로필 "PackInBag AppStore"는 더 안 씀(업로드 때 Organizer가 배포용으로 다시 서명)
-- ⬜ Xcode **+ Capability**: Push Notifications · Background Modes(Remote notifications) · App Groups / **File > New > Target > Widget Extension**
+- ✅ Xcode 기반 설정(10/10): Capability(App Groups · Push · Background Modes Remote notifications) · 햅틱·로컬 알림 플러그인 · 위 오류 ①~③ 해결 → 아이폰 실행 OK(이메일 · Google 로그인 복귀 · 햅틱 확인)
+- ⬜ Xcode **File > New > Target > Widget Extension**(2단계)
 - ⬜ 플러그인: `@capacitor/push-notifications@^6` · `@capacitor/local-notifications@^6`, 위젯 데이터 전달용 작은 네이티브 플러그인(App Group UserDefaults 쓰기 + WidgetCenter 새로고침)
 - ⬜ 서버: 푸시 토큰 저장 · 발송(FCM 또는 APNs 직접) · 횟수 제한, Firestore 규칙
 - ⬜ 웹 코드는 플러그인 있을 때만 동작(1.3 앱 보호)

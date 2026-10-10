@@ -43,7 +43,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
-import { UserProfile, StartPageConfig } from "@/lib/types";
+import { UserProfile, StartPageConfig, BagReminder } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
@@ -155,6 +155,8 @@ interface AuthContextValue {
   ) => Promise<void>;
   updateBagViewMode: (bagId: string, mode: "pack" | "notebook") => Promise<void>;
   updateDefaultBagViewMode: (mode: "pack" | "notebook") => Promise<void>;
+  // 가방 하나의 내 알림 설정(null이면 지움). lib/v2/bagReminders.ts
+  updateBagReminder: (bagId: string, reminder: BagReminder | null) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -521,6 +523,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           unlockCodeExpiresAt: data?.unlockCodeExpiresAt as string | null | undefined,
           // 인앱결제(RevenueCat 웹훅이 기록). 예전에는 여기서 빠져 있어 구매자가 화면에서 무료로 보였다(2026-10-09)
           premiumPurchase: data?.premiumPurchase as UserProfile["premiumPurchase"],
+          // 가방 알림(2026-10-10)
+          bagReminders: data?.bagReminders as UserProfile["bagReminders"],
         });
         setLoading(false);
       },
@@ -661,6 +665,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = toFirestorePatch(patch);
     if (dotted) await updateDoc(ref, data);
     else await setDoc(ref, data, { merge: true });
+  };
+
+  // 가방 알림 설정은 그 가방 키만 고친다(다른 가방 설정을 덮어쓰지 않게 점 경로). 비었으면 키를 지운다
+  const updateBagReminder = async (bagId: string, reminder: BagReminder | null) => {
+    const empty = !reminder || ((reminder.ddayOffsets?.length ?? 0) === 0 && (reminder.repeatDays?.length ?? 0) === 0);
+    await writeUser({ [`bagReminders.${bagId}`]: empty ? REMOVE_FIELD : stripUndefined(reminder) }, true);
   };
 
   const signUpWithEmail = async (
@@ -1507,6 +1517,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateAllPackDisplayStates,
         updateBagViewMode,
         updateDefaultBagViewMode,
+        updateBagReminder,
         resendVerificationEmail,
         resendVerificationByCredential,
         sendPasswordReset,
