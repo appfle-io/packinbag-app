@@ -140,6 +140,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             if #available(iOS 16.2, *) { await PIBLiveActivity.updateAll() }
             call.resolve()
+            // 위젯에서 눌렀는데 아직 못 보낸 체크가 있으면 지금 보낸다
+            if !PIBStore.pending().isEmpty, await PIBSync.flush() { PIBWidgets.reload() }
         }
     }
 

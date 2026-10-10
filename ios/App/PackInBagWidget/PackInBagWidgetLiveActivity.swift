@@ -25,7 +25,7 @@ struct PackLockScreenView: View {
             ProgressView(value: Double(state.done), total: Double(max(state.total, 1)))
                 .tint(c.brand)
             ForEach(state.items, id: \.id) { item in
-                Button(intent: ToggleItemIntent(bagId: attributes.bagId, packId: attributes.packId, itemId: item.id)) {
+                Button(intent: ToggleItemLiveIntent(bagId: attributes.bagId, packId: attributes.packId, itemId: item.id)) {
                     ItemRow(item: item, style: style, c: c)
                 }
                 .buttonStyle(.plain)
@@ -60,7 +60,7 @@ struct PackInBagWidgetLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(context.state.items.prefix(3), id: \.id) { item in
-                            Button(intent: ToggleItemIntent(bagId: context.attributes.bagId, packId: context.attributes.packId, itemId: item.id)) {
+                            Button(intent: ToggleItemLiveIntent(bagId: context.attributes.bagId, packId: context.attributes.packId, itemId: item.id)) {
                                 ItemRow(item: item, style: style, c: c)
                             }
                             .buttonStyle(.plain)

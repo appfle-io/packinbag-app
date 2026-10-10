@@ -39,14 +39,26 @@ struct PIBSummary: Codable {
 
 enum PIBError: LocalizedError {
     case notSignedIn
+    // 서버가 거절(4xx) - 다시 보내도 안 됨
+    case rejected(String)
+    // 잠깐 안 됨(5xx · 네트워크) - 나중에 다시
     case server(String)
 
     var errorDescription: String? {
         switch self {
         case .notSignedIn: return "팩인백 앱에서 먼저 로그인해 주세요"
-        case .server(let message): return message
+        case .rejected(let message), .server(let message): return message
         }
     }
+}
+
+// 위젯에서 누른 체크(서버에 아직 안 올라간 것). 누르자마자 화면에 반영하고 뒤에서 보낸다
+struct PIBPendingToggle: Codable, Hashable {
+    let bagId: String
+    let packId: String
+    let itemId: String
+    let checked: Bool
+    let at: Double
 }
 
 // ---- App Group 저장소 ---------------------------------------------------------
@@ -57,13 +69,17 @@ enum PIBStore {
     private static let tokenKey = "pib.token"
     private static let uidKey = "pib.uid"
     private static let apiKey = "pib.apiBase"
+    private static let pendingKey = "pib.pendingToggles"
 
     static func summary() -> PIBSummary? {
         guard let data = PIB.defaults.data(forKey: summaryKey) else { return nil }
         return try? JSONDecoder().decode(PIBSummary.self, from: data)
     }
 
+    // 서버 · 앱에서 온 요약을 저장할 때, 아직 못 보낸 체크는 그 위에 덮어 둔다(눌렀던 게 되돌아가 보이지 않게)
     static func save(_ summary: PIBSummary) {
+        var summary = summary
+        for p in pending() { apply(p, to: &summary) }
         guard let data = try? JSONEncoder().encode(summary) else { return }
         PIB.defaults.set(data, forKey: summaryKey)
         PIB.defaults.set(Date().timeIntervalSince1970, forKey: savedAtKey)
@@ -95,15 +111,43 @@ enum PIBStore {
         pack(bagId: bagId, packId: packId)?.pack.items.first { $0.id == itemId }
     }
 
-    // 서버 응답을 기다리지 않고 화면에 먼저 반영(실패하면 되돌린다)
+    // 서버 응답을 기다리지 않고 화면에 먼저 반영
     static func setChecked(bagId: String, packId: String, itemId: String, checked: Bool) {
-        guard var summary = summary(),
-              let b = summary.bags.firstIndex(where: { $0.id == bagId }),
-              let p = summary.bags[b].packs.firstIndex(where: { $0.id == packId }),
-              let i = summary.bags[b].packs[p].items.firstIndex(where: { $0.id == itemId }) else { return }
-        summary.bags[b].packs[p].items[i].checked = checked
+        guard var summary = summary() else { return }
+        apply(PIBPendingToggle(bagId: bagId, packId: packId, itemId: itemId, checked: checked, at: 0), to: &summary)
         guard let data = try? JSONEncoder().encode(summary) else { return }
         PIB.defaults.set(data, forKey: summaryKey) // 저장 시각은 그대로(서버 최신본이 아님)
+    }
+
+    private static func apply(_ t: PIBPendingToggle, to summary: inout PIBSummary) {
+        guard let b = summary.bags.firstIndex(where: { $0.id == t.bagId }),
+              let p = summary.bags[b].packs.firstIndex(where: { $0.id == t.packId }),
+              let i = summary.bags[b].packs[p].items.firstIndex(where: { $0.id == t.itemId }) else { return }
+        summary.bags[b].packs[p].items[i].checked = t.checked
+    }
+
+    // ---- 못 보낸 체크 ----
+    static func pending() -> [PIBPendingToggle] {
+        guard let data = PIB.defaults.data(forKey: pendingKey),
+              let list = try? JSONDecoder().decode([PIBPendingToggle].self, from: data) else { return [] }
+        // 하루 넘은 것은 버린다
+        let cutoff = Date().timeIntervalSince1970 - 24 * 3600
+        return list.filter { $0.at > cutoff }
+    }
+
+    private static func setPending(_ list: [PIBPendingToggle]) {
+        if let data = try? JSONEncoder().encode(list) { PIB.defaults.set(data, forKey: pendingKey) }
+    }
+
+    static func enqueue(bagId: String, packId: String, itemId: String, checked: Bool) {
+        var list = pending().filter { !($0.bagId == bagId && $0.packId == packId && $0.itemId == itemId) }
+        list.append(PIBPendingToggle(bagId: bagId, packId: packId, itemId: itemId, checked: checked, at: Date().timeIntervalSince1970))
+        setPending(list)
+    }
+
+    // 보낸 뒤 그사이 다시 누른 것은 남긴다(같은 값일 때만 지운다)
+    static func removePending(_ t: PIBPendingToggle) {
+        setPending(pending().filter { $0 != t })
     }
 
     // ---- 기기 토큰(로그인한 계정) ----
@@ -118,7 +162,7 @@ enum PIBStore {
     }
 
     static func clearSession() {
-        [tokenKey, uidKey, summaryKey, savedAtKey].forEach { PIB.defaults.removeObject(forKey: $0) }
+        [tokenKey, uidKey, summaryKey, savedAtKey, pendingKey].forEach { PIB.defaults.removeObject(forKey: $0) }
     }
 }
 
@@ -142,7 +186,9 @@ enum PIBAPI {
         }
         guard (200..<300).contains(status) else {
             let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
-            throw PIBError.server(message ?? "잠시 후 다시 시도해 주세요")
+            let text = message ?? "잠시 후 다시 시도해 주세요"
+            // 429(하루 횟수)는 나중에 다시 보낼 수 있다
+            throw (400..<500).contains(status) && status != 429 ? PIBError.rejected(text) : PIBError.server(text)
         }
         return data
     }
@@ -174,5 +220,31 @@ enum PIBAPI {
 enum PIBWidgets {
     static func reload() {
         WidgetCenter.shared.reloadAllTimelines()
+    }
+}
+
+// 못 보낸 체크를 서버로 보낸다(위젯을 누른 직후 · 위젯이 다시 그려질 때 · 앱이 요약을 넘길 때).
+// 체크는 "이 값으로 맞추기"라 두 번 보내도 괜찮다.
+enum PIBSync {
+    @discardableResult
+    static func flush() async -> Bool {
+        var changed = false
+        for t in PIBStore.pending() {
+            do {
+                try await PIBAPI.toggle(bagId: t.bagId, packId: t.packId, itemId: t.itemId, checked: t.checked)
+                PIBStore.removePending(t)
+            } catch PIBError.rejected {
+                // 지워진 아이템 · 잠긴 가방 등 - 버리고 서버 값으로 돌린다
+                PIBStore.removePending(t)
+                PIBStore.setChecked(bagId: t.bagId, packId: t.packId, itemId: t.itemId, checked: !t.checked)
+                changed = true
+            } catch PIBError.notSignedIn {
+                PIBStore.clearSession()
+                return true
+            } catch {
+                // 네트워크 · 서버 잠깐 안 됨 - 다음에 다시
+            }
+        }
+        return changed
     }
 }

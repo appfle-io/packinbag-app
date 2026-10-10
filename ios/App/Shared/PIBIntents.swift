@@ -8,8 +8,10 @@ import Foundation
 import AppIntents
 import WidgetKit
 
+// 위젯 버튼: 위젯 확장 안에서 바로 돈다(앱을 깨우지 않아 빠름). 화면에 먼저 반영하고 서버는 뒤에서 보낸다.
+// 예전에는 앱 프로세스(LiveActivityIntent)에서 서버 응답까지 기다려 3~4초 걸렸다(10/10)
 @available(iOS 17.0, *)
-struct ToggleItemIntent: LiveActivityIntent {
+struct ToggleItemIntent: AppIntent {
     static let title: LocalizedStringResource = "아이템 체크"
     static let isDiscoverable = false
 
@@ -28,17 +30,42 @@ struct ToggleItemIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         guard let current = PIBStore.item(bagId: bagId, packId: packId, itemId: itemId) else { return .result() }
         let next = !current.checked
-        // 화면 먼저 바꾸고(누르자마자 취소선 · 맨 아래로), 서버가 실패하면 되돌린다
         PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: next)
-        PIBWidgets.reload()
+        PIBStore.enqueue(bagId: bagId, packId: packId, itemId: itemId, checked: next)
+        // 서버 전송은 기다리지 않는다(돌아가자마자 위젯이 다시 그려진다). 못 보내면 다음 그릴 때 · 앱이 열릴 때 다시
+        Task { await PIBSync.flush() }
+        return .result()
+    }
+}
+
+// 잠금화면 실시간 현황 버튼: 실시간 현황을 고칠 수 있는 앱 프로세스에서 돈다
+@available(iOS 17.0, *)
+struct ToggleItemLiveIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "아이템 체크(잠금화면)"
+    static let isDiscoverable = false
+
+    @Parameter(title: "가방") var bagId: String
+    @Parameter(title: "팩") var packId: String
+    @Parameter(title: "아이템") var itemId: String
+
+    init() {}
+
+    init(bagId: String, packId: String, itemId: String) {
+        self.bagId = bagId
+        self.packId = packId
+        self.itemId = itemId
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let current = PIBStore.item(bagId: bagId, packId: packId, itemId: itemId) else { return .result() }
+        let next = !current.checked
+        PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: next)
+        PIBStore.enqueue(bagId: bagId, packId: packId, itemId: itemId, checked: next)
         await PIBLiveActivity.updateAll()
-        do {
-            try await PIBAPI.toggle(bagId: bagId, packId: packId, itemId: itemId, checked: next)
-        } catch {
-            PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: !next)
-            PIBWidgets.reload()
+        PIBWidgets.reload()
+        if await PIBSync.flush() {
             await PIBLiveActivity.updateAll()
-            throw error
+            PIBWidgets.reload()
         }
         return .result()
     }
