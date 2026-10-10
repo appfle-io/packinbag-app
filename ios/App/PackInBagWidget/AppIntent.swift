@@ -55,6 +55,9 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "배경", default: .system)
     var theme: PIBTheme
 
+    @Parameter(title: "배경 투명도", default: .p100)
+    var opacity: PIBOpacity
+
     @Parameter(title: "글꼴", default: .system)
     var font: PIBFont
 

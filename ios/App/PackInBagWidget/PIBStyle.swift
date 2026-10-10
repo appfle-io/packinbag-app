@@ -1,7 +1,50 @@
-// 위젯 · 실시간 현황 꾸미기(배경 · 글꼴 · 글자 크기)와 색(2026-10-10).
-// 글꼴 파일(TTF/OTF)은 이 위젯 폴더의 Fonts/에 넣고 Info.plist UIAppFonts에 등록한다. 파일이 없으면 시스템 글꼴로 보인다.
+// 위젯 · 실시간 현황 꾸미기(배경 · 투명도 · 글꼴 · 글자 크기)와 색(2026-10-10).
+// 글꼴 파일(TTF/OTF)은 이 위젯 폴더의 Fonts/에 넣는다(자동으로 위젯에 포함). 처음 쓸 때 코드로 등록하고,
+// 글꼴 이름(PostScript)은 가족 이름으로 찾는다(지마켓 산스처럼 파일마다 이름이 다를 수 있어서). 파일이 없으면 시스템 글꼴.
 import SwiftUI
+import UIKit
+import CoreText
 import AppIntents
+
+enum PIBFonts {
+    // 위젯 묶음 안의 글꼴을 한 번만 등록
+    private static let registered: Bool = {
+        for ext in ["ttf", "otf"] {
+            let urls = (Bundle.main.urls(forResourcesWithExtension: ext, subdirectory: nil) ?? [])
+                + (Bundle.main.urls(forResourcesWithExtension: ext, subdirectory: "Fonts") ?? [])
+            for url in urls { CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil) }
+        }
+        return true
+    }()
+
+    nonisolated(unsafe) private static var cache: [String: String] = [:]
+
+    // key: pretendard | gmarket | gaegu | d2coding
+    static func name(_ key: String, bold: Bool) -> String? {
+        _ = registered
+        let cacheKey = "\(key)-\(bold)"
+        if let hit = cache[cacheKey] { return hit }
+        let needle: String
+        switch key {
+        case "pretendard": needle = "pretendard"
+        case "gmarket": needle = "gmarket"
+        case "gaegu": needle = "gaegu"
+        case "d2coding": needle = "d2coding"
+        default: return nil
+        }
+        let names = UIFont.familyNames
+            .filter { $0.lowercased().contains(needle) }
+            .flatMap { UIFont.fontNames(forFamilyName: $0) }
+        guard !names.isEmpty else { return nil }
+        let isBold = { (n: String) in n.lowercased().contains("bold") }
+        let picked = bold
+            ? (names.first { $0.lowercased().contains("semibold") } ?? names.first(where: isBold) ?? names.first)
+            : (names.first { $0.lowercased().contains("medium") } ?? names.first { $0.lowercased().contains("regular") }
+                ?? names.first { !isBold($0) && !$0.lowercased().contains("light") } ?? names.first)
+        cache[cacheKey] = picked
+        return picked
+    }
+}
 
 enum PIBTheme: String, AppEnum {
     case system, light, dark
@@ -24,6 +67,14 @@ enum PIBTextSize: String, AppEnum {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "글자 크기"
     static let caseDisplayRepresentations: [PIBTextSize: DisplayRepresentation] = [
         .small: "작게", .medium: "보통", .large: "크게",
+    ]
+}
+
+enum PIBOpacity: String, AppEnum {
+    case p100, p80, p60, p40
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경 투명도"
+    static let caseDisplayRepresentations: [PIBOpacity: DisplayRepresentation] = [
+        .p100: "불투명", .p80: "80%", .p60: "60%", .p40: "40%",
     ]
 }
 
@@ -60,6 +111,17 @@ struct PIBStyle {
     var theme: String
     var font: String
     var size: String
+    // p100 | p80 | p60 | p40
+    var opacity: String = "p100"
+
+    var backgroundOpacity: Double {
+        switch opacity {
+        case "p80": return 0.8
+        case "p60": return 0.6
+        case "p40": return 0.4
+        default: return 1
+        }
+    }
 
     var scale: CGFloat {
         switch size {
@@ -79,15 +141,7 @@ struct PIBStyle {
 
     func font(_ base: CGFloat, bold: Bool = false) -> Font {
         let s = (base * scale).rounded()
-        let name: String?
-        switch font {
-        case "pretendard": name = bold ? "Pretendard-SemiBold" : "Pretendard-Regular"
-        case "gmarket": name = bold ? "GmarketSansBold" : "GmarketSansMedium"
-        case "gaegu": name = bold ? "Gaegu-Bold" : "Gaegu-Regular"
-        case "d2coding": name = bold ? "D2CodingBold" : "D2Coding"
-        default: name = nil
-        }
-        if let name { return .custom(name, size: s) }
+        if let name = PIBFonts.name(font, bold: bold) { return .custom(name, fixedSize: s) }
         return .system(size: s, weight: bold ? .semibold : .regular)
     }
 }

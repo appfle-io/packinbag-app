@@ -21,6 +21,8 @@ struct PackActivityAttributes: ActivityAttributes {
     var theme: String
     var font: String
     var size: String
+    // 배경 투명도 p100|p80|p60|p40 (10/10 추가 - 예전에 띄운 것은 값이 없을 수 있어 선택)
+    var opacity: String?
 }
 
 @available(iOS 16.2, *)
@@ -43,7 +45,7 @@ enum PIBLiveActivity {
 
     // 같은 팩이 이미 떠 있으면 그것을 내리고 새로 띄운다
     @discardableResult
-    static func start(bagId: String, packId: String, theme: String, font: String, size: String) async throws -> String {
+    static func start(bagId: String, packId: String, theme: String, font: String, size: String, opacity: String) async throws -> String {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             throw PIBError.server("설정 > 팩인백에서 실시간 현황을 켜 주세요")
         }
@@ -51,7 +53,7 @@ enum PIBLiveActivity {
         for activity in Activity<PackActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
-        let attributes = PackActivityAttributes(bagId: bagId, packId: packId, theme: theme, font: font, size: size)
+        let attributes = PackActivityAttributes(bagId: bagId, packId: packId, theme: theme, font: font, size: size, opacity: opacity)
         let activity = try Activity.request(
             attributes: attributes,
             content: .init(state: state, staleDate: nil),

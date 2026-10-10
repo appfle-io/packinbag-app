@@ -157,9 +157,10 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let theme = call.getString("theme") ?? "system"
         let font = call.getString("font") ?? "system"
         let size = call.getString("size") ?? "medium"
+        let opacity = call.getString("opacity") ?? "p100"
         Task {
             do {
-                let id = try await PIBLiveActivity.start(bagId: bagId, packId: packId, theme: theme, font: font, size: size)
+                let id = try await PIBLiveActivity.start(bagId: bagId, packId: packId, theme: theme, font: font, size: size, opacity: opacity)
                 call.resolve(["id": id])
             } catch {
                 call.reject(error.localizedDescription)

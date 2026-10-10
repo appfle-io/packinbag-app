@@ -68,7 +68,12 @@ struct PackWidgetView: View {
     let entry: PackEntry
 
     private var style: PIBStyle {
-        PIBStyle(theme: entry.configuration.theme.rawValue, font: entry.configuration.font.rawValue, size: entry.configuration.textSize.rawValue)
+        PIBStyle(
+            theme: entry.configuration.theme.rawValue,
+            font: entry.configuration.font.rawValue,
+            size: entry.configuration.textSize.rawValue,
+            opacity: entry.configuration.opacity.rawValue
+        )
     }
 
     private var rowSpacing: CGFloat { family == .systemSmall ? 4 : 6 }
@@ -78,7 +83,7 @@ struct PackWidgetView: View {
         let c = PIBPalette.of(scheme)
         content(c)
             .environment(\.colorScheme, scheme)
-            .containerBackground(c.background, for: .widget)
+            .containerBackground(c.background.opacity(style.backgroundOpacity), for: .widget)
     }
 
     // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 다 못 보여 주면 마지막 한 줄은 "외 N개"에 쓴다
