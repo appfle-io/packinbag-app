@@ -1,5 +1,7 @@
 import UIKit
 import Capacitor
+import AppIntents
+import ActivityKit
 
 // iOS 27 SDK(Xcode 27)부터 UIScene 생명주기를 쓰지 않는 앱은 실행되지 않는다(2026-10-10).
 // 화면(window)은 SceneDelegate가 갖고, Info.plist의 UIApplicationSceneManifest가 Main 스토리보드로 첫 화면을 만든다.
@@ -66,5 +68,143 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private func continueActivity(_ activity: NSUserActivity) {
         _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: activity, restorationHandler: { _ in })
+    }
+}
+
+// ---- 웹 ↔ 네이티브 다리(2026-10-10) ------------------------------------------------------
+// Main.storyboard의 최상위 화면이 이 클래스다. 앱 안에 직접 만든 플러그인을 여기서 등록한다.
+class MainViewController: CAPBridgeViewController {
+    override open func capacitorDidLoad() {
+        bridge?.registerPluginInstance(PackInBagNativePlugin())
+    }
+}
+
+// 웹(lib/v2/nativeBridge.ts)이 부르는 플러그인 "PackInBagNative".
+// 기기 토큰 · 가방 요약을 App Group에 저장하고 위젯 · 잠금화면 실시간 현황을 새로 그린다(Shared/ 폴더).
+@objc(PackInBagNativePlugin)
+public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "PackInBagNativePlugin"
+    public let jsName = "PackInBagNative"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "getSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveSummary", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startLiveActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "endLiveActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "liveActivityState", returnType: CAPPluginReturnPromise),
+    ]
+
+    @objc func getSession(_ call: CAPPluginCall) {
+        var result: [String: Any] = ["hasToken": PIBStore.token != nil]
+        if let uid = PIBStore.uid { result["uid"] = uid }
+        call.resolve(result)
+    }
+
+    @objc func setSession(_ call: CAPPluginCall) {
+        guard let uid = call.getString("uid"), let token = call.getString("token") else {
+            call.reject("uid, token이 필요해요")
+            return
+        }
+        let apiBase = call.getString("apiBase") ?? PIBStore.apiBase
+        // 다른 계정으로 바뀌면 예전 토큰은 서버에서 지운다
+        if let old = PIBStore.token, old != token {
+            let oldBase = PIBStore.apiBase
+            Task { await PIBAPI.revoke(token: old, base: oldBase) }
+        }
+        if PIBStore.uid != uid { PIBStore.clearSession() }
+        PIBStore.setSession(uid: uid, token: token, apiBase: apiBase)
+        PIBWidgets.reload()
+        call.resolve()
+    }
+
+    @objc func clearSession(_ call: CAPPluginCall) {
+        if let old = PIBStore.token {
+            let oldBase = PIBStore.apiBase
+            Task { await PIBAPI.revoke(token: old, base: oldBase) }
+        }
+        PIBStore.clearSession()
+        PIBWidgets.reload()
+        Task {
+            if #available(iOS 16.2, *) { await PIBLiveActivity.endAll() }
+            call.resolve()
+        }
+    }
+
+    @objc func saveSummary(_ call: CAPPluginCall) {
+        guard let json = call.getString("json"), PIBStore.save(json: json) else {
+            call.reject("요약 형식이 올바르지 않아요")
+            return
+        }
+        PIBWidgets.reload()
+        Task {
+            if #available(iOS 16.2, *) { await PIBLiveActivity.updateAll() }
+            call.resolve()
+        }
+    }
+
+    @objc func startLiveActivity(_ call: CAPPluginCall) {
+        guard #available(iOS 16.2, *) else {
+            call.reject("iOS 16.2 이상에서 쓸 수 있어요")
+            return
+        }
+        guard let bagId = call.getString("bagId"), let packId = call.getString("packId") else {
+            call.reject("bagId, packId가 필요해요")
+            return
+        }
+        let theme = call.getString("theme") ?? "system"
+        let font = call.getString("font") ?? "system"
+        let size = call.getString("size") ?? "medium"
+        Task {
+            do {
+                let id = try await PIBLiveActivity.start(bagId: bagId, packId: packId, theme: theme, font: font, size: size)
+                call.resolve(["id": id])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc func endLiveActivity(_ call: CAPPluginCall) {
+        Task {
+            if #available(iOS 16.2, *) { await PIBLiveActivity.endAll() }
+            call.resolve()
+        }
+    }
+
+    @objc func liveActivityState(_ call: CAPPluginCall) {
+        guard #available(iOS 16.2, *) else {
+            call.resolve(["supported": false, "enabled": false, "active": false])
+            return
+        }
+        var result: [String: Any] = [
+            "supported": true,
+            "enabled": ActivityAuthorizationInfo().areActivitiesEnabled,
+            "active": PIBLiveActivity.current != nil,
+        ]
+        if let current = PIBLiveActivity.current {
+            result["bagId"] = current.bagId
+            result["packId"] = current.packId
+        }
+        call.resolve(result)
+    }
+}
+
+// 단축어 앱에 바로 보이는 동작(앱만 깔면 됨). 자세한 동작은 Shared/PIBIntents.swift
+@available(iOS 17.0, *)
+struct PackInBagShortcuts: AppShortcutsProvider {
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: QuickAddIntent(),
+            phrases: ["\(.applicationName) 빠른팩에 입력", "\(.applicationName)에 적어 두기"],
+            shortTitle: "빠른팩에 입력",
+            systemImageName: "square.and.pencil"
+        )
+        AppShortcut(
+            intent: RefreshIntent(),
+            phrases: ["\(.applicationName) 새로고침"],
+            shortTitle: "팩인백 새로고침",
+            systemImageName: "arrow.clockwise"
+        )
     }
 }

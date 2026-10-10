@@ -108,6 +108,7 @@ import { OpenDetailContext } from "@/lib/v2/openDetail";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
 import { getApiUrl } from "@/lib/apiBase";
 import { isLocalNotificationsAvailable, onBagNotificationTap, syncBagNotifications } from "@/lib/v2/bagReminders";
+import { isNativeBridgeAvailable, pushNativeSummary, syncNativeSession } from "@/lib/v2/nativeBridge";
 
 // 시작 공지 시트에 띄울 항목(안 본 공지)
 type AnnouncementEntry = { id: string; announcement: Announcement; onDismiss: () => void };
@@ -618,6 +619,18 @@ export default function AppShell() {
     setEditingBag(target);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [notificationBagId, bags]);
+
+  // iOS 위젯 · 단축어 · 실시간 현황: 로그인 계정에 맞는 기기 토큰을 네이티브에 두고, 가방이 바뀌면 요약을 넘긴다(lib/v2/nativeBridge.ts)
+  // 앱을 켤 때 로그인 복원 전(loading)에는 user가 잠깐 null이라, 그때 지우면 켤 때마다 토큰을 다시 받게 된다 → 로딩·가입 중에는 건너뛴다
+  useEffect(() => {
+    if (loading || authBusy) return;
+    void syncNativeSession(user, isOfflineMode);
+  }, [user, isOfflineMode, loading, authBusy]);
+  useEffect(() => {
+    if (!user || isOfflineMode || !isNativeBridgeAvailable()) return;
+    const t = window.setTimeout(() => void pushNativeSummary(bags, user.uid), 1200);
+    return () => window.clearTimeout(t);
+  }, [user, isOfflineMode, bags]);
 
   // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기/팩 가져오기 작업 자동 실행
   const pendingActionProcessedRef = useRef(false);

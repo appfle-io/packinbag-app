@@ -1,14 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle, IconBell, IconChevronRight } from "@tabler/icons-react";
+import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { useAuth } from "@/contexts/AuthProvider";
 import { isLocalNotificationsAvailable, reminderSummary } from "@/lib/v2/bagReminders";
+import { isNativeBridgeAvailable } from "@/lib/v2/nativeBridge";
 import { ReminderSheet } from "./ReminderSheet";
+import { LiveActivitySheet } from "./LiveActivitySheet";
 
 // 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
@@ -58,6 +60,9 @@ export function MoreSheet({
   // 알림은 iOS 앱(로컬 알림 플러그인이 든 1.5 이상)에서만 보인다
   const [notificationsAvailable] = useState(isLocalNotificationsAvailable);
   const [reminderOpen, setReminderOpen] = useState(false);
+  // 잠금화면 실시간 현황은 네이티브 다리가 든 iOS 앱(1.5 이상)에서만
+  const [liveAvailable] = useState(isNativeBridgeAvailable);
+  const [liveOpen, setLiveOpen] = useState(false);
   const reminderText = reminderSummary(profile?.bagReminders?.[bag.id], !!bag.travelDate);
   const [notice, setNotice] = useState(bag.notice ?? "");
   const [editingNoticeFor, setEditingNoticeFor] = useState(bag.id);
@@ -123,7 +128,7 @@ export function MoreSheet({
           </label>
         </section>
 
-        {(keepScreenOn || notificationsAvailable) && (
+        {(keepScreenOn || notificationsAvailable || liveAvailable) && (
           <section className="flex flex-col">
             <SectionHeader>챙길 때</SectionHeader>
             {notificationsAvailable && (
@@ -131,6 +136,13 @@ export function MoreSheet({
                 <IconBell size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
                 <span className="min-w-0 flex-1">알림</span>
                 <span className="truncate text-caption text-sub">{reminderText ?? "꺼짐"}</span>
+                <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            )}
+            {liveAvailable && (
+              <button type="button" className={row} onClick={() => (close(), window.setTimeout(() => setLiveOpen(true), 300))}>
+                <IconDeviceMobile size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+                <span className="min-w-0 flex-1">잠금화면에 띄우기</span>
                 <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
               </button>
             )}
@@ -212,6 +224,7 @@ export function MoreSheet({
       </div>
     </Sheet>
     {notificationsAvailable && <ReminderSheet open={reminderOpen} onClose={() => setReminderOpen(false)} bag={bag} />}
+    {liveAvailable && <LiveActivitySheet open={liveOpen} onClose={() => setLiveOpen(false)} bag={bag} />}
     </>
   );
 }

@@ -5,7 +5,7 @@ import { IconPlus } from "@tabler/icons-react";
 import type { Bag, BagReminder } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { Button, Chip, SectionHeader, Sheet } from "@/components/v2/ui";
+import { Button, Chip, SectionHeader, Sheet, cx } from "@/components/v2/ui";
 import {
   DDAY_PRESETS,
   DEFAULT_DDAY_TIME,
@@ -162,10 +162,25 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
 
         <section className="flex flex-col gap-3">
           <SectionHeader>반복 알림</SectionHeader>
-          <div className="flex flex-wrap gap-2">
-            {WEEKDAYS.map((w) => (
-              <Chip key={w.day} label={w.label} selected={weekdaySet.has(w.day)} onClick={() => toggleDay(w.day)} />
-            ))}
+          {/* 요일 7개는 폰 폭에서도 한 줄에 들어가게 칸을 나눠 채운다(칩 기본 여백으로는 일요일이 다음 줄로 넘어감) */}
+          <div className="grid grid-cols-7 gap-1">
+            {WEEKDAYS.map((w) => {
+              const on = weekdaySet.has(w.day);
+              return (
+                <button
+                  key={w.day}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleDay(w.day)}
+                  className={cx(
+                    "h-9 rounded-full border text-caption font-semibold transition-colors duration-160 ease-snappy",
+                    on ? "border-ink bg-ink text-on-ink" : "border-line bg-card text-ink active:bg-fill",
+                  )}
+                >
+                  {w.label}
+                </button>
+              );
+            })}
           </div>
           <div className="flex gap-2">
             <Chip label="평일" selected={isWeekdays} onClick={() => setDays(isWeekdays ? [] : [1, 2, 3, 4, 5])} />

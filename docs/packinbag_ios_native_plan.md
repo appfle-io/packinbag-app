@@ -60,4 +60,21 @@
 3. 서버 푸시(공유 묶음 · 담당 지정 · 새 멤버)
 4. 실시간 현황(꾸미기 · 잠금화면 체크)
 5. 위젯 바로 체크 · 다른 멤버 변경 실시간 반영
+- 10/10 결정: 2~5를 **한번에** 진행(사용자). 진행 순서는 서버·웹 → 위젯 타깃 → 위젯·단축어·체크 → 실시간 현황 → 서버 푸시(알림 + 위젯·실시간 현황 원격 갱신)
+
+## 7. 구현 현황 (서버 · 웹, 10/10)
+- 기기 토큰: `lib/nativeDeviceServer.ts`(SHA-256만 저장 `deviceTokens/{hash}`, 토큰당 하루 800회, 계정당 10개), `POST/DELETE /api/native/device-token`
+- `GET /api/native/summary`(가방 요약), `POST /api/native/toggle-item`(체크·해제, 멤버·잠김·packsRev 규칙 동일, 다 챙기면 lastPackedAt), `POST /api/native/quick-add`(빠른팩, 줄마다 1개 · 최대 20)
+- 요약 모양: `lib/nativeSummary.ts`(체크리스트 팩의 체크 아이템만, 가방 30 · 팩당 80 · 80자, 메모 본문 없음)
+- 웹 다리: `lib/v2/nativeBridge.ts`(로그인 계정 토큰 → 네이티브, 가방 바뀌면 요약 → 네이티브), AppShell에서 호출. 네이티브 플러그인 이름 `PackInBagNative`
+- firestore.rules: `deviceTokens` 클라이언트 접근 금지(명시)
+- 위젯 글꼴: 앱 글꼴은 woff2라 iOS가 못 씀 → TTF/OTF를 따로 위젯에 넣어야 함(없으면 시스템 글꼴로)
+
+## 8. 구현 현황 (네이티브, 10/10)
+- Xcode: 위젯 타깃 `PackInBagWidgetExtension`(iOS 17, App Groups, 버전 1.5/5, 표시 이름 팩인백, Swift 플래그 `PIB_WIDGET`). `ios/App/Shared/`는 **앱 · 위젯 두 타깃에 같이 들어가는 동기화 폴더**(pbxproj에 직접 등록). 앱 Info.plist `NSSupportsLiveActivities`
+- Shared: `PIBShared.swift`(요약 모델 · App Group 저장 · 서버 호출), `PIBActivity.swift`(실시간 현황 데이터 · 시작/갱신/종료), `PIBIntents.swift`(아이템 체크 · 새로고침 · 빠른팩에 입력)
+- 위젯 폴더: `PIBStyle.swift`(배경 · 글꼴 · 크기 · 색), `AppIntent.swift`(위젯 편집: 팩 · 배경 · 글꼴 · 글자 크기), `PackInBagWidget.swift`(홈 3크기 + 잠금화면 위젯), `PackInBagWidgetLiveActivity.swift`(잠금화면 · 다이내믹 아일랜드). Control 템플릿은 안 씀(파일 삭제는 git rm)
+- 앱: `AppDelegate.swift`에 `MainViewController`(Main.storyboard 최상위) · `PackInBagNativePlugin` · 단축어 `PackInBagShortcuts`
+- 웹: 더보기 "챙길 때 > 잠금화면에 띄우기" → `LiveActivitySheet.tsx`(팩 · 배경 · 글꼴 · 글자 크기, 이 기기에 기억)
+- 남은 것: 서버 푸시(APNs - 공유 묶음 · 담당 · 새 멤버 알림 + 위젯 조용한 갱신 + 실시간 현황 원격 갱신), 위젯 글꼴 파일
 - 4·5가 길어지면 1.6으로 넘길 수 있음

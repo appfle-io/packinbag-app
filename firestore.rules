@@ -214,6 +214,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // iOS 위젯 · 단축어용 기기 토큰(2026-10-10, lib/nativeDeviceServer.ts). 토큰 원문의 SHA-256이 문서 id.
+    // 발급·확인·삭제는 app/api/native/*(Admin SDK)만 한다. 클라이언트는 읽지도 못 한다.
+    match /deviceTokens/{tokenHash} {
+      allow read, write: if false;
+    }
+
     // 회원탈퇴(계정 완전 삭제) 마커. lib/accountService.ts의 deleteAllUserData가 계정을 지우기 직전에
     // 자신의 uid로 딱 한 번 쓴다. 다른 그룹원이 이 uid를 조회해서 댓글 작성자가
     // "그룹만 나갔다/강퇴됐다"가 아니라 "진짜로 회원탈퇴했다"를 구별해서 익명화 표시를 할
