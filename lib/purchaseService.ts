@@ -26,6 +26,13 @@ export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+// RevenueCat 네이티브 플러그인이 앱에 들어 있는지(2026-10-10). 1.5 빌드는 무료 출시라 capacitor.config.ts의
+// includePlugins에서 RevenueCat을 뺐다(옛 SDK가 최신 Xcode에서 빌드 안 됨). 플러그인이 없는 앱에서는
+// Purchases 호출을 하지 않는다. isNativePlatform은 iOS 화면 분기(코드 입력 숨김 등)에도 쓰여서 그대로 둔다.
+function purchasesAvailable(): boolean {
+  return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("Purchases");
+}
+
 // RevenueCat 대시보드 > Project settings > API keys 의 "Apple App Store" 공개(public) 키.
 // 서버 비밀키가 아니라 클라이언트에 그대로 노출돼도 되는 값이라 NEXT_PUBLIC_ 접두사를 쓴다.
 const REVENUECAT_IOS_API_KEY = process.env.NEXT_PUBLIC_REVENUECAT_IOS_API_KEY ?? "";
@@ -38,7 +45,7 @@ let configured = false;
 // 예전에는 계정을 바꿀 때마다 configure를 다시 불렀는데, RevenueCat은 두 번째 configure를 보장하지 않는다
 // (이전 계정으로 구매가 기록될 수 있음).
 export async function ensurePurchasesConfigured(uid: string): Promise<void> {
-  if (!isNativePlatform()) return;
+  if (!purchasesAvailable()) return;
   if (configuredForUid === uid) return;
   if (!REVENUECAT_IOS_API_KEY) {
     console.error("[팩인백] NEXT_PUBLIC_REVENUECAT_IOS_API_KEY가 설정되지 않았어요");
@@ -83,7 +90,7 @@ export interface PremiumOffering {
 // RevenueCat 대시보드에 "라이프타임 상품 1개"만 있는 오퍼링을 하나 구성해뒀다는 전제로,
 // 현재(current) 오퍼링의 첫 번째 패키지를 그대로 구매 버튼에 쓴다.
 export async function fetchPremiumOffering(): Promise<PremiumOffering | null> {
-  if (!isNativePlatform()) return null;
+  if (!purchasesAvailable()) return null;
   try {
     const offerings = await Purchases.getOfferings();
     const pkg = offerings.current?.availablePackages?.[0];
@@ -109,6 +116,9 @@ export async function purchasePremiumLifetime(offering: PremiumOffering): Promis
   if (!isNativePlatform()) {
     throw new Error("웹에서는 구매할 수 없어요. 앱에서 진행해주세요");
   }
+  if (!purchasesAvailable()) {
+    throw new Error("지금은 구매할 수 없어요");
+  }
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { customerInfo } = await Purchases.purchasePackage({ aPackage: offering.raw } as any);
@@ -124,7 +134,7 @@ export async function purchasePremiumLifetime(offering: PremiumOffering): Promis
 
 // 기기 변경/앱 재설치 후 "이미 구매한 적 있음"을 되찾을 때 쓴다(설정 화면 "구매 복원" 버튼).
 export async function restorePremiumPurchase(): Promise<boolean> {
-  if (!isNativePlatform()) return false;
+  if (!purchasesAvailable()) return false;
   const { customerInfo } = await Purchases.restorePurchases();
   return !!customerInfo.entitlements.active[PREMIUM_ENTITLEMENT_ID];
 }

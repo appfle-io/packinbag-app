@@ -13,6 +13,19 @@ const config: CapacitorConfig = {
   appId: "com.appfle.packinbag",
   appName: "팩인백",
   webDir: "public", // server.url을 쓰는 동안은 실제로 사용되지 않는 더미 폴더입니다.
+  // iOS 앱에 넣을 네이티브 플러그인 목록(2026-10-10). 여기 없는 npm 플러그인은 `npx cap sync ios`가 Podfile에 넣지 않는다.
+  // - RevenueCat(@revenuecat/purchases-capacitor 9.x)은 뺐다: Capacitor 6용 마지막 버전이 옛 RevenueCat SDK(5.20)를 고정해서
+  //   최신 Xcode에서 PaywallColor 빌드 오류가 난다(5.78 이상에서 해결). 무료 출시라 결제는 안 쓴다.
+  //   결제를 붙일 때(출시가이드 B단계) Capacitor 8 + purchases-capacitor 13.x로 올리고 여기에 다시 추가한다.
+  // - 새 플러그인을 설치하면 반드시 여기에도 추가한다.
+  includePlugins: [
+    "@capacitor/app",
+    "@capacitor/haptics",
+    "@capacitor/local-notifications",
+    "@capacitor/splash-screen",
+    "@capacitor/status-bar",
+    "@capgo/capacitor-social-login",
+  ],
   server: {
     url: "https://packinbag.seeuson.com",
     cleartext: false,
