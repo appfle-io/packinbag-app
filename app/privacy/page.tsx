@@ -6,6 +6,8 @@ export const metadata = {
 // App Store Connect의 개인정보 처리방침 URL은 https://packinbag.seeuson.com/privacy
 export default function PrivacyPage() {
   return (
+    // 앱 전체가 바디 스크롤을 막아 두어(앱 셸 기준) 이 페이지는 자기 스크롤 칸을 갖는다(10/11 - 아래가 잘려 안 보였다)
+    <div className="h-dvh overflow-y-auto">
     <main className="mx-auto max-w-2xl px-6 py-12 text-sm leading-7 text-neutral-800">
       <h1 className="mb-6 text-xl font-bold">팩인백(Pack In Bag) 개인정보처리방침</h1>
 
@@ -78,5 +80,6 @@ export default function PrivacyPage() {
         <p>개인정보 관련 문의: appfle.io@gmail.com</p>
       </section>
     </main>
+    </div>
   );
 }

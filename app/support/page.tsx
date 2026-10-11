@@ -11,6 +11,8 @@ export default function SupportPage() {
   }, {});
 
   return (
+    // 앱 전체가 바디 스크롤을 막아 두어 이 페이지는 자기 스크롤 칸을 갖는다(10/11 - 앱스토어 지원 URL)
+    <div className="h-dvh overflow-y-auto">
     <main className="mx-auto max-w-2xl px-6 py-12 text-sm leading-7 text-neutral-800">
       <h1 className="mb-2 text-xl font-bold">팩인백(Pack In Bag) 고객지원</h1>
       <p className="mb-8 text-neutral-500">
@@ -44,5 +46,6 @@ export default function SupportPage() {
         </section>
       ))}
     </main>
+    </div>
   );
 }
