@@ -12,6 +12,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.0.32",
+    date: "2026-10-11",
+    items: [
+      "iPhone 홈 화면 위젯: 가방이나 팩을 골라 위젯에서 바로 체크해요",
+      "잠금화면에 띄우기: 잠금화면과 다이내믹 아일랜드에서 체크해요",
+      "알림: 함께 쓰는 가방 소식 · 나에게 맡긴 아이템 · D-Day · 요일 반복",
+      "단축어 · Siri: 빠른팩에 입력, 가방에 추가",
+    ],
+  },
+  {
     version: "1.0.20",
     date: "2026-10-05",
     items: [
