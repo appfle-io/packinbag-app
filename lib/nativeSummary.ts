@@ -28,7 +28,15 @@ export interface NativeSummaryBag {
   id: string;
   name: string;
   travelDate?: string;
+  // 내가 고정한 가방(10/11). 위젯 편집 · 단축어 가방 목록에서 "고정한 가방" 묶음
+  pinned?: true;
   packs: NativeSummaryPack[];
+}
+
+// 요약에 쓰는 내 계정 설정(users/{uid}). 보관함 가방은 빼고, 고정한 가방은 표시한다(10/11)
+export interface NativeSummaryProfile {
+  archivedBagIds?: string[];
+  pinnedBagIds?: string[];
 }
 
 export interface NativeSummary {
@@ -39,12 +47,24 @@ export interface NativeSummary {
 
 const clip = (s: unknown) => (typeof s === "string" ? s : "").slice(0, MAX_TEXT);
 
-// uid가 소유자이면서 휴지통에 넣은 가방은 뺀다(목록 화면과 같은 기준).
+// uid가 소유자이면서 휴지통에 넣은 가방은 뺀다(목록 화면과 같은 기준). 보관함 가방도 뺀다(10/11).
+// 고정한 가방이 먼저(30개 안에 꼭 들게), 그다음 최근 체크 순.
 // 팩 순서는 가방 화면과 같게 미분류가 맨 앞. 체크 아이템이 없는 팩도 넣는다(단축어 "가방에 추가"에서 고를 수 있게, 10/11)
-export function buildNativeSummary(bags: Bag[], uid: string, now: Date = new Date()): NativeSummary {
-  const active = bags.filter((b) => !(b.ownerId === uid && b.trashedByOwnerAt));
+export function buildNativeSummary(
+  bags: Bag[],
+  uid: string,
+  now: Date = new Date(),
+  profile: NativeSummaryProfile = {},
+): NativeSummary {
+  const archived = new Set(profile.archivedBagIds ?? []);
+  const pinned = new Set(profile.pinnedBagIds ?? []);
+  const active = bags.filter((b) => !(b.ownerId === uid && b.trashedByOwnerAt) && !archived.has(b.id));
   const recent = [...active]
-    .sort((a, b) => (b.lastCheckedAt ?? b.updatedAt ?? "").localeCompare(a.lastCheckedAt ?? a.updatedAt ?? ""))
+    .sort(
+      (a, b) =>
+        Number(pinned.has(b.id)) - Number(pinned.has(a.id)) ||
+        (b.lastCheckedAt ?? b.updatedAt ?? "").localeCompare(a.lastCheckedAt ?? a.updatedAt ?? ""),
+    )
     .slice(0, MAX_BAGS);
   return {
     v: NATIVE_SUMMARY_VERSION,
@@ -53,6 +73,7 @@ export function buildNativeSummary(bags: Bag[], uid: string, now: Date = new Dat
       id: bag.id,
       name: clip(bag.name) || "가방",
       ...(bag.travelDate ? { travelDate: bag.travelDate } : {}),
+      ...(pinned.has(bag.id) ? { pinned: true as const } : {}),
       packs: (Array.isArray(bag.packs) ? bag.packs : [])
         .filter((p) => p && p.kind !== "editor" && p.type !== "folder")
         .sort((a, b) => Number(!!b.isInbox) - Number(!!a.isInbox))

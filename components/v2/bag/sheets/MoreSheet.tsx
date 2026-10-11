@@ -9,6 +9,7 @@ import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { useAuth } from "@/contexts/AuthProvider";
 import { isLocalNotificationsAvailable, reminderSummary } from "@/lib/v2/bagReminders";
 import { isNativeBridgeAvailable } from "@/lib/v2/nativeBridge";
+import { bagPushSummary, bagPushView, showsBagPush } from "@/lib/v2/serverPush";
 import { ReminderSheet } from "./ReminderSheet";
 import { LiveActivitySheet } from "./LiveActivitySheet";
 
@@ -56,14 +57,17 @@ export function MoreSheet({
   const fileRef = useRef<HTMLInputElement>(null);
   // 사진·파일 올리기는 인터넷이 필요하다(오프라인 모드는 이 기기에 저장하므로 그대로 된다)
   const { guard } = useOnlineGuard();
-  const { profile } = useAuth();
+  const { user, profile, isOfflineMode } = useAuth();
   // 알림은 iOS 앱(로컬 알림 플러그인이 든 1.5 이상)에서만 보인다
   const [notificationsAvailable] = useState(isLocalNotificationsAvailable);
   const [reminderOpen, setReminderOpen] = useState(false);
   // 잠금화면 실시간 현황은 네이티브 다리가 든 iOS 앱(1.5 이상)에서만
   const [liveAvailable] = useState(isNativeBridgeAvailable);
   const [liveOpen, setLiveOpen] = useState(false);
-  const reminderText = reminderSummary(profile?.bagReminders?.[bag.id], !!bag.travelDate);
+  // 오른쪽 글 = 소식(함께 쓰는 가방) + D-Day · 반복 알림. 둘 다 꺼져야 "꺼짐"(10/11 - 예전에는 알림만 봐서 소식을 받는데도 꺼짐)
+  const pushText = showsBagPush(bag, isOfflineMode) ? bagPushSummary(bagPushView(profile, bag, user?.uid)) : null;
+  const reminderText =
+    [pushText, reminderSummary(profile?.bagReminders?.[bag.id], !!bag.travelDate)].filter(Boolean).join(" · ") || null;
   const [notice, setNotice] = useState(bag.notice ?? "");
   const [editingNoticeFor, setEditingNoticeFor] = useState(bag.id);
   // 다른 가방으로 바뀌면 입력칸 초기화

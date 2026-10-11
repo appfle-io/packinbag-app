@@ -79,7 +79,25 @@
 - 남은 것: 서버 푸시(APNs - 공유 묶음 · 담당 · 새 멤버 알림 + 위젯 조용한 갱신 + 실시간 현황 원격 갱신), 위젯 글꼴 파일
 - 10/10 후속 수정: 위젯 체크는 위젯 확장에서 바로(`ToggleItemIntent` AppIntent) + 못 보낸 체크 큐(`PIBStore.pending` · `PIBSync.flush`, 거절되면 되돌림), 잠금화면은 `ToggleItemLiveIntent`. 취소선은 overlay로 직접. 줄 수는 위젯 높이 · 글자 크기로 자동. 실시간 현황 여백 20/18 · 투명도(p100/80/60/40, 위젯 편집에도). 글꼴은 코드로 등록 + 가족 이름으로 찾기(`PIBFonts`), 파일은 `ios/App/PackInBagWidget/Fonts/`
 
-## 9. 다음 채팅에서 이어서 (10/10 기준)
+## 9. 다음 채팅에서 이어서 (10/11 기준)
+
+**10/11 끝난 것 · 남은 것(요약)**
+- 끝: 버그 4건, B-1~B-6 전부(푸시 토큰 · Cloud Functions · 공유 가방 알림 · 조용한 푸시 · 실시간 현황 원격 갱신 · 누르면 가방 열기), 위젯 · 실시간 현황 ↻ + "N분 전", 30분 자동 새로고침, 단축어 "가방에 추가", 위젯 "가방 전체" · 크게 2열, 배경 투명도 제거
+- 기기 확인 완료: 푸시 토큰 저장, 테스트 알림, 활동 묶음 알림, 담당 지정 알림, 단축어(빠른팩 · 새로고침)
+- 기기 확인 남음: 버그 4건 수정, 새 멤버 알림, "다 쌌어요", 알림 끄기(종류별 · 가방별), 조용한 푸시로 위젯 갱신, 실시간 현황 원격 갱신(다시 띄워야 토큰 생김), 누르면 가방 열기, ↻ · 시각 표시, 단축어 "가방에 추가", 가방 전체 · 2열, 로그아웃/계정 전환 때 위젯
+- 다음: C(1.5 제출 전 마무리) → Archive → TestFlight(Build 5)
+- 배포 메모: Functions 배포는 `npx firebase-tools deploy --only functions`(루트에서), 로그는 `npx firebase-tools functions:log --only onBagUpdated,flushBagActivity`. `firebase-functions` v6 업그레이드 경고는 나중에
+
+**10/11 오후 수정(C 들어가기 전)**
+- 새로고침 시각: "N분 N초 전" → 오늘이면 "14시 05분에 새로고침", 다른 날이면 "10/9 14시 05분"(`pibSyncedLabel`, 홈 위젯 · 실시간 현황 · 잠금화면 사각)
+- 위젯 편집 2단계: "가방"(`BagEntity`, 곧 출발 D-7 이내 · 고정한 가방 · 최근 쓴 가방 묶음 + 검색) → "팩"(`WidgetPackEntity`, 그 가방 팩만, 맨 위 가방 전체). 팩을 비우거나 예전 가방 팩이 남아 있으면 가방 전체. 예전 `PackEntity`는 없앴다 → 이미 놓인 위젯은 다시 골라야 함
+  - 가방 묶음 · 검색은 단축어 "가방에 추가"에도 같이 적용(같은 `BagEntity`)
+  - 요약(`lib/nativeSummary.ts`)에서 보관함 가방 제외 + `pinned`, 고정 가방이 먼저(30개 안에). 서버 요약은 users 문서를 한 번 더 읽음
+- 가방 알림: 더보기 오른쪽 글이 소식 + D-Day · 반복을 합침("소식 · D-1 · 평일 07:30", 일부만이면 "소식 일부"). 예전에는 알림만 봐서 소식을 받는데도 "꺼짐"
+  - 알림 시트: "이 가방 소식 받기"(pushMutedBagIds) 아래 종류별 3개(새 멤버는 그룹장만), `UserProfile.bagPushOff[bagId]`(끈 종류). 설정 > 알림에서 끈 종류는 흐리게. Functions `wantsPush`가 bagPushOff도 봄 → **Functions 재배포 필요**
+- 비밀 파일: 프로젝트 맨 위 `_secrets/`(폴더째 gitignore) + `_secrets/README.md`에 목록. `.env.local`은 맨 위 그대로
+
+(아래는 10/10에 적은 계획과 그 진행 기록)
 
 **10/11 버그 수정(웹 3 · iOS 1)**
 - 팩 마지막 아이템을 체크하면 풀림: 저장 A가 끝날 때 dirty를 무조건 내려, 그 사이 체크한 B가 A의 스냅샷에 덮였다(공유 가방 트랜잭션에서 잘 보임) → `useBagDocument` 변경 번호(`editSeqRef`)로 새 변경이 없을 때만 dirty 해제
@@ -142,6 +160,6 @@
 - Archive → TestFlight(Build 5) → 출시가이드 A-3 점검표 → A-4 제출
 
 **D. 나중에**
-- AppShell · AuthProvider 기존 eslint 오류(set-state-in-effect) 정리(기본 lint 범위 밖)
+- ~~AppShell · AuthProvider 기존 eslint 오류(set-state-in-effect) 정리~~ → 10/11 완료. 확인 명령에 `contexts components/AppShell.tsx`도 넣는다
 - 결제 도입 시 Capacitor 8 + purchases-capacitor 13.x 업그레이드 먼저(출시가이드 B-6)
 - 4·5가 길어지면 1.6으로 넘길 수 있음

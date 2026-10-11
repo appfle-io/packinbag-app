@@ -170,6 +170,8 @@ export default function AppShell() {
       remotePack.name !== editingPack.name ||
       isDocDifferent
     ) {
+      // 열려 있는 메모를 보관함 최신본(외부 구독)에 맞춘다. 닫힘 애니메이션용 캐시라 파생값으로 못 바꾼다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedEditorPack(remotePack);
     }
   }, [libraryPacks, editingPack]);
@@ -190,6 +192,8 @@ export default function AppShell() {
     const remotePack = libraryPacks.find((p) => p.id === editingPack.id);
     if (!remotePack) return;
     if (remotePack.updatedAt !== editingPack.updatedAt || remotePack.name !== editingPack.name) {
+      // 위와 같은 이유(닫힘 애니메이션용 캐시를 최신본에 맞춤)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedSheetPack(remotePack);
     }
   }, [libraryPacks, editingPack]);
@@ -269,6 +273,8 @@ export default function AppShell() {
   useEffect(() => {
     if (!user) return;
     if (isOfflineMode) {
+      // 이 기기 저장소(localStorage)의 처음 값을 읽고 구독한다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBags(getLocalBags());
       return subscribeLocalData(() => {
         setBags(getLocalBags());
@@ -344,6 +350,8 @@ export default function AppShell() {
   useEffect(() => {
     if (!user) return;
     if (isOfflineMode) {
+      // 이 기기 저장소(localStorage)의 처음 값을 읽고 구독한다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLibraryPacks(getLocalLibraryPacks());
       return subscribeLocalData(() => {
         setLibraryPacks(getLocalLibraryPacks());
@@ -365,6 +373,8 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!user || isOfflineMode) {
+      // 로그아웃 · 오프라인 모드에서는 예전 공지를 비운다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnnouncements([]);
       return;
     }
@@ -409,7 +419,6 @@ export default function AppShell() {
           console.error("[팩인백] 휴지통 자동 영구삭제(팩) 실패:", err);
         });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bags, libraryPacks, user, isOfflineMode]);
 
   // 지금 이 사용자가 프리미엄인지 - AuthProvider가 unlockCodes/{code} 문서까지 실시간
@@ -462,7 +471,7 @@ export default function AppShell() {
       }, 700);
       return () => clearTimeout(t);
     }
-  }, [premium, user, show]);
+  }, [premium, user, show, isOfflineMode]);
 
   // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄/마스터이면 항상 빈 집합.
   // (computeLockedBagIds/computeLockedPackIds 내부에서 휴지통으로 보낸 항목은 이미 제외된다.)
@@ -559,10 +568,13 @@ export default function AppShell() {
     }));
 
     if (entries.length > 0) {
+      // 앱을 열 때 한 번만(introCheckedRef) 시작 공지 시트를 연다
+      /* eslint-disable react-hooks/set-state-in-effect */
       setIntroEntries(entries);
       setShowIntroModal(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
-  }, [profile, activeUndismissed, handleDismissAnnouncement]);
+  }, [profile, activeUndismissed, handleDismissAnnouncement, isOfflineMode]);
 
   // 1. URL 쿼리 파라미터(?invite=, ?join=, ?openBag=, ?importPack=)를 접속 즉시 sessionStorage에 보존하여 로그인/회원가입 후 유실 방지
   useEffect(() => {
@@ -626,11 +638,14 @@ export default function AppShell() {
     if (loading || authBusy) return;
     void syncNativeSession(user, isOfflineMode);
   }, [user, isOfflineMode, loading, authBusy]);
+  // 보관함 가방은 위젯 · 단축어 목록에서 빼고 고정 가방은 "고정한 가방"으로 묶는다(10/11)
+  const archivedBagIds = profile?.archivedBagIds;
+  const pinnedBagIds = profile?.pinnedBagIds;
   useEffect(() => {
     if (!user || isOfflineMode || !isNativeBridgeAvailable()) return;
-    const t = window.setTimeout(() => void pushNativeSummary(bags, user.uid), 1200);
+    const t = window.setTimeout(() => void pushNativeSummary(bags, user.uid, { archivedBagIds, pinnedBagIds }), 1200);
     return () => window.clearTimeout(t);
-  }, [user, isOfflineMode, bags]);
+  }, [user, isOfflineMode, bags, archivedBagIds, pinnedBagIds]);
 
   // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기/팩 가져오기 작업 자동 실행
   const pendingActionProcessedRef = useRef(false);

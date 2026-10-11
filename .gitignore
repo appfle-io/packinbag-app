@@ -75,3 +75,6 @@ AGENTS.md
 /functions/lib/
 *.p8
 
+# 비밀 파일 모음(.p8 등, 2026-10-11). 폴더째 제외 - _secrets/README.md 참고
+/_secrets/
+

@@ -2,7 +2,7 @@
 // - 팩 하나의 체크 아이템을 보여 준다. 누르면 바로 체크 · 해제(ToggleItemIntent, 서버는 뒤에서), 챙긴 것은 취소선 + 맨 아래
 // - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님). 크게(large)는 2열
 // - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 30분마다(30분 넘게 지난 요약만 서버에서)
-//   아래 줄에 마지막으로 받은 시각을 "1분 15초 전"처럼 보여 준다(저절로 바뀜). 자정에는 D-Day만 다시 그린다
+//   아래 줄에 마지막으로 받은 시각을 "14시 05분에 새로고침"처럼 보여 준다(10/11 - "N분 N초 전"에서 바꿈). 자정에는 D-Day · 날짜를 다시 그린다
 // - 위젯을 누르면(버튼 밖) 그 가방이 열린다(packinbag://bag/{id})
 import WidgetKit
 import SwiftUI
@@ -24,6 +24,15 @@ func pibBagURL(_ bagId: String) -> URL? {
     URL(string: "packinbag://bag/\(bagId)")
 }
 
+// 마지막으로 받은 시각(10/11): 오늘이면 "14시 05분에 새로고침", 다른 날이면 "10/9 14시 05분"
+func pibSyncedLabel(_ date: Date, now: Date = Date()) -> String {
+    let cal = Calendar.current
+    let c = cal.dateComponents([.month, .day, .hour, .minute], from: date)
+    let time = "\(c.hour ?? 0)시 " + String(format: "%02d분", c.minute ?? 0)
+    if cal.isDate(date, inSameDayAs: now) { return "\(time)에 새로고침" }
+    return "\(c.month ?? 0)/\(c.day ?? 0) \(time)"
+}
+
 // 가방 전체 → 팩 하나처럼. 요약의 팩 순서(미분류 먼저) 그대로 아이템을 잇는다
 func pibWholeBag(_ bag: PIBBag) -> (pack: PIBPack, itemPacks: [String: String]) {
     var map: [String: String] = [:]
@@ -34,7 +43,7 @@ func pibWholeBag(_ bag: PIBBag) -> (pack: PIBPack, itemPacks: [String: String]) 
             items.append(item)
         }
     }
-    return (PIBPack(id: PackEntity.wholeBag, name: bag.name, items: items), map)
+    return (PIBPack(id: WidgetPackEntity.wholeBag, name: bag.name, items: items), map)
 }
 
 struct Provider: AppIntentTimelineProvider {
@@ -70,14 +79,21 @@ struct Provider: AppIntentTimelineProvider {
         let signedIn = PIBStore.token != nil
         var found: (bag: PIBBag, pack: PIBPack)?
         var itemPacks: [String: String] = [:]
-        let whole = configuration.pack?.isWholeBag == true
-        if let picked = configuration.pack {
-            if whole, let bag = PIBStore.bag(picked.bagId) {
-                let joined = pibWholeBag(bag)
-                found = (bag, joined.pack)
-                itemPacks = joined.itemPacks
-            } else if !whole {
-                found = PIBStore.pack(bagId: picked.bagId, packId: picked.packId)
+        var whole = false
+        if let bagId = configuration.bag?.id {
+            // 가방 → 팩(10/11). 팩을 비웠거나 "가방 전체"거나, 가방을 바꾼 뒤 예전 가방의 팩이 남아 있거나,
+            // 그 팩이 지워졌으면 가방 전체로 보여 준다
+            if let bag = PIBStore.bag(bagId) {
+                let picked = configuration.pack
+                if let picked, picked.bagId == bagId, !picked.isWholeBag,
+                   let pack = bag.packs.first(where: { $0.id == picked.packId }) {
+                    found = (bag, pack)
+                } else {
+                    let joined = pibWholeBag(bag)
+                    found = (bag, joined.pack)
+                    itemPacks = joined.itemPacks
+                    whole = true
+                }
             }
         } else if let bag = PIBStore.summary()?.bags.first(where: { !$0.packs.isEmpty }), let pack = bag.packs.first {
             found = (bag, pack)
@@ -147,7 +163,7 @@ struct PackWidgetView: View {
                 packView(bag: bag, pack: pack, size: geo.size, c: c)
             }
         } else {
-            message("길게 눌러 \"위젯 편집\"에서 팩을 골라 주세요", c)
+            message("길게 눌러 \"위젯 편집\"에서 가방을 골라 주세요", c)
         }
     }
 
@@ -242,8 +258,8 @@ struct ItemRow: View {
     }
 }
 
-// 맨 아래 새로고침 줄(홈 위젯 · 잠금화면 실시간 현황 공용): "1분 15초 전" + ↻ 버튼.
-// 시각은 Text(.relative)라 위젯을 다시 그리지 않아도 저절로 올라간다. 버튼은 부르는 쪽이 넣는다(위젯 · 실시간 현황의 동작이 다름)
+// 맨 아래 새로고침 줄(홈 위젯 · 잠금화면 실시간 현황 공용): "14시 05분에 새로고침" + ↻ 버튼.
+// 시각은 고정 글자라 저절로 바뀌지 않는다(위젯은 30분 · 자정마다 다시 그려 "오늘/다른 날"이 맞춰짐). 버튼은 부르는 쪽이 넣는다
 struct RefreshFooter<Trailing: View>: View {
     let syncedAt: Date?
     let style: PIBStyle
@@ -254,8 +270,10 @@ struct RefreshFooter<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 4) {
             if let syncedAt {
-                (Text(syncedAt, style: .relative) + Text(" 전"))
+                Text(pibSyncedLabel(syncedAt))
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
+                    // 작게 위젯 · 큰 글자에서도 한 줄에(↻ 자리를 비켜서)
+                    .minimumScaleFactor(0.75)
             } else {
                 Text("새로고침해 주세요").font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
             }
@@ -330,13 +348,13 @@ struct LockWidgetView: View {
                     if let next = pack.items.first(where: { !$0.checked }) {
                         Text(next.text).font(.caption).lineLimit(1).foregroundStyle(.secondary)
                     } else if let syncedAt = entry.syncedAt {
-                        (Text(syncedAt, style: .relative) + Text(" 전")).font(.caption2).lineLimit(1).foregroundStyle(.secondary)
+                        Text(pibSyncedLabel(syncedAt, now: entry.date)).font(.caption2).lineLimit(1).foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
-            Text(entry.signedIn ? "팩을 골라 주세요" : "팩인백 로그인").font(.caption)
+            Text(entry.signedIn ? "가방을 골라 주세요" : "팩인백 로그인").font(.caption)
         }
     }
 }

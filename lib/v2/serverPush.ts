@@ -8,16 +8,70 @@
 import { Capacitor } from "@capacitor/core";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { firebaseApp } from "@/lib/firebase";
+import type { Bag, BagPushKind, UserProfile } from "@/lib/types";
 import { isNativeBridgeAvailable } from "@/lib/v2/nativeBridge";
 import { ensureNotificationPermission, getNotificationPermission } from "@/lib/v2/bagReminders";
 
-export type PushKind = "activity" | "assign" | "member";
+export type PushKind = BagPushKind;
 
 export const PUSH_KINDS: { kind: PushKind; label: string; description: string }[] = [
   { kind: "activity", label: "함께 쓰는 가방 소식", description: "다른 사람이 추가하거나 챙기면 10분마다 모아서" },
   { kind: "assign", label: "나에게 맡긴 아이템", description: "다른 사람이 아이템을 맡기면 바로" },
   { kind: "member", label: "새 멤버 참여", description: "내가 만든 가방에 누가 들어오면" },
 ];
+
+// ---- 가방 하나의 소식 설정(가방 더보기 > 알림, 2026-10-11) -------------------------------------
+// "이 가방 소식 받기"(pushMutedBagIds) + 종류별(bagPushOff[bagId]). 설정 > 알림에서 끈 종류(pushPrefs)는 여기서는 못 켠다.
+// 새 멤버 참여는 그룹장에게만 가므로 내가 만든 가방에서만 보인다
+const BAG_PUSH_TEXT: Record<PushKind, { label: string; description: string }> = {
+  activity: { label: "추가 · 체크 · 다 쌌어요", description: "다른 사람이 바꾸면 10분마다 모아서" },
+  assign: { label: "나에게 맡긴 아이템", description: "누가 아이템을 맡기면 바로" },
+  member: { label: "새 멤버 참여", description: "내가 만든 가방에 누가 들어오면" },
+};
+
+export interface BagPushKindView {
+  kind: PushKind;
+  label: string;
+  description: string;
+  on: boolean;
+  // 설정 > 알림에서 끈 종류(여기서는 못 켬)
+  locked: boolean;
+}
+
+export interface BagPushView {
+  // "이 가방 소식 받기"가 켜진 것으로 보일지(모두 끄기 아님 + 켜진 종류가 하나 이상)
+  master: boolean;
+  muted: boolean;
+  kinds: BagPushKindView[];
+  onCount: number;
+  usable: number;
+  off: PushKind[];
+}
+
+export function bagPushView(profile: UserProfile | null | undefined, bag: Bag, uid: string | undefined): BagPushView {
+  const muted = (profile?.pushMutedBagIds ?? []).includes(bag.id);
+  const off = profile?.bagPushOff?.[bag.id] ?? [];
+  const kinds = (Object.keys(BAG_PUSH_TEXT) as PushKind[])
+    .filter((kind) => kind !== "member" || (!!uid && bag.ownerId === uid))
+    .map((kind) => {
+      const locked = profile?.pushPrefs?.[kind] === false;
+      return { kind, ...BAG_PUSH_TEXT[kind], locked, on: !locked && !off.includes(kind) };
+    });
+  const onCount = kinds.filter((k) => k.on).length;
+  const usable = kinds.filter((k) => !k.locked).length;
+  return { master: !muted && onCount > 0, muted, kinds, onCount, usable, off };
+}
+
+// 더보기 "알림" 줄 오른쪽에 붙는 소식 부분. 꺼져 있으면 null
+export function bagPushSummary(view: BagPushView): string | null {
+  if (!view.master) return null;
+  return view.onCount === view.usable ? "소식" : "소식 일부";
+}
+
+// 이 가방에서 서버 푸시 설정을 보여 줄지(함께 쓰는 가방 · 계정 모드 · iOS 1.5 앱)
+export function showsBagPush(bag: Bag, isOfflineMode: boolean): boolean {
+  return !isOfflineMode && bag.memberIds.length > 1 && isServerPushAvailable();
+}
 
 export function isServerPushAvailable(): boolean {
   return isNativeBridgeAvailable() && Capacitor.isPluginAvailable("PushNotifications") && Capacitor.isPluginAvailable("LocalNotifications");

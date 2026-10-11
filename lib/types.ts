@@ -480,9 +480,14 @@ export interface UserProfile {
   // 서버 푸시 종류별 켜기(2026-10-11, functions/src/bagEvents.ts). 값이 없으면 켜짐. 설정 > 알림
   // activity: 함께 쓰는 가방 활동(추가·체크·다 쌌어요, 10분 묶음) / assign: 담당 지정 / member: 새 멤버 참여(그룹장)
   pushPrefs?: { activity?: boolean; assign?: boolean; member?: boolean };
-  // 이 가방의 서버 푸시를 모두 끈 가방 id(가방 더보기 > 알림)
+  // 이 가방의 서버 푸시를 모두 끈 가방 id(가방 더보기 > 알림 "이 가방 소식 받기")
   pushMutedBagIds?: string[];
+  // 가방별로 끈 소식 종류(2026-10-11). 키는 bagId, 값은 끈 종류. pushMutedBagIds(모두 끄기)와 따로 둔다
+  bagPushOff?: Record<string, BagPushKind[]>;
 }
+
+// 서버 푸시 종류(functions/src/bagEvents.ts): 활동(추가·체크·다 쌌어요) / 담당 지정 / 새 멤버 참여
+export type BagPushKind = "activity" | "assign" | "member";
 
 // 가방 하나의 내 알림 설정. 배열이 비어 있으면 그 알림은 꺼진 것
 export interface BagReminder {

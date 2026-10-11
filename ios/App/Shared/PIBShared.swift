@@ -37,6 +37,18 @@ struct PIBBag: Codable, Hashable {
     var name: String
     var travelDate: String?
     var packs: [PIBPack]
+    // 내가 고정한 가방(10/11). 위젯 편집 · 단축어 가방 목록에서 "고정한 가방" 묶음
+    var pinned: Bool? = nil
+
+    // D-Day까지 남은 날(오늘 0, 지났으면 음수). 날짜가 없으면 nil
+    var daysLeft: Int? {
+        guard let travelDate else { return nil }
+        let parts = travelDate.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        let cal = Calendar.current
+        guard let day = cal.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else { return nil }
+        return cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: day).day
+    }
 }
 
 struct PIBSummary: Codable {

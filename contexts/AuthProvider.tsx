@@ -43,7 +43,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
-import { UserProfile, StartPageConfig, BagReminder } from "@/lib/types";
+import { UserProfile, StartPageConfig, BagReminder, BagPushKind } from "@/lib/types";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
@@ -160,6 +160,8 @@ interface AuthContextValue {
   // 서버 푸시 종류별 켜기 · 가방별 끄기(2026-10-11)
   updatePushPref: (kind: "activity" | "assign" | "member", on: boolean) => Promise<void>;
   setBagPushMuted: (bagId: string, muted: boolean) => Promise<void>;
+  // 이 가방에서 끈 소식 종류(빈 배열이면 지움, 2026-10-11)
+  setBagPushOff: (bagId: string, kinds: BagPushKind[]) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -355,6 +357,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       urlParams.get("offline") === "true";
 
     if (isExplicitOffline) {
+      // 시작할 때 한 번: 주소(?offline=true)나 이 기기에 남은 오프라인 모드 표시를 따른다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startOfflineMode();
       return;
     }
@@ -363,9 +367,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user || isOfflineMode) {
+      // 로그아웃 · 오프라인 모드면 마스터 판정을 비운다
+      /* eslint-disable react-hooks/set-state-in-effect */
       setIsMasterDoc(false);
       setIsMasterToken(false);
       setIsMasterApi(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
 
@@ -401,7 +408,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
     return () => unsubMaster();
-  }, [user]);
+  }, [user, isOfflineMode]);
 
   // 앱을 켜고 처음 받는 로그인 상태인지. "세션 없음 + 인터넷 없음 → 바로 오프라인 모드"는 시작할 때만 한다.
   // 로그아웃·탈퇴 뒤에는 항상 로그인 화면으로(2026-10-11). 끊겨 있으면 로그인 화면이 "오프라인 모드로 시작"을 보여 준다
@@ -457,6 +464,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     });
     return unsubAuth;
+    // 로그인 상태 구독은 한 번만 한다. isOfflineMode를 넣으면 오프라인 모드로 바꿀 때 다시 구독되면서
+    // 남아 있는 세션이 곧바로 들어와 계정 모드로 되돌린다(오프라인 여부는 localStorage로도 확인함)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 오프라인 모드(가짜 user)는 Firestore를 구독하지 않는다. 구독하면 폐쇄망에서 "문서 없음" 캐시 스냅샷이
@@ -546,6 +556,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // 서버 푸시 설정(2026-10-11)
           pushPrefs: data?.pushPrefs as UserProfile["pushPrefs"],
           pushMutedBagIds: data?.pushMutedBagIds as string[] | undefined,
+          bagPushOff: data?.bagPushOff as UserProfile["bagPushOff"],
         };
         // 구글·애플 로그인 직후: 로그아웃 때 캐시를 지워서, ensureUserDoc(이메일·이름만 merge)의 내 쓰기만 담긴
         // 스냅샷(닉네임 없음)이 먼저 온다. 이걸 믿으면 기존 계정인데 "닉네임 정하기"가 잠깐 뜨니,
@@ -584,6 +595,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const code = rawProfile?.unlockCode;
     if (!code) {
+      // 이용권이 없으면 구독하지 않고 상태를 비운다
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUnlockLiveStatus(null);
       return;
     }
@@ -715,6 +728,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const next = muted ? Array.from(new Set([...current, bagId])) : current.filter((id) => id !== bagId);
     setRawProfile((prev) => (prev ? { ...prev, pushMutedBagIds: next } : prev));
     await writeUser({ pushMutedBagIds: next });
+  };
+
+  // 이 가방에서 끈 소식 종류. 그 가방 키만 점 경로로, 비면 키를 지운다
+  const setBagPushOff = async (bagId: string, kinds: BagPushKind[]) => {
+    const next = Array.from(new Set(kinds));
+    setRawProfile((prev) => {
+      if (!prev) return prev;
+      const map = { ...(prev.bagPushOff ?? {}) };
+      if (next.length) map[bagId] = next;
+      else delete map[bagId];
+      return { ...prev, bagPushOff: map };
+    });
+    await writeUser({ [`bagPushOff.${bagId}`]: next.length ? next : REMOVE_FIELD }, true);
   };
 
   const signUpWithEmail = async (
@@ -1564,6 +1590,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateBagReminder,
         updatePushPref,
         setBagPushMuted,
+        setBagPushOff,
         resendVerificationEmail,
         resendVerificationByCredential,
         sendPasswordReset,

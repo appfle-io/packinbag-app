@@ -8,7 +8,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { User } from "firebase/auth";
 import type { Bag } from "@/lib/types";
-import { buildNativeSummary } from "@/lib/nativeSummary";
+import { buildNativeSummary, type NativeSummaryProfile } from "@/lib/nativeSummary";
 import { getApiUrl } from "@/lib/apiBase";
 
 interface PackInBagNativePlugin {
@@ -77,13 +77,16 @@ export function syncNativeSession(user: User | null, offlineMode: boolean): Prom
 let lastSummary = "";
 let lastBags: Bag[] = [];
 let lastUid = "";
+let lastProfile: NativeSummaryProfile = {};
 
-// 가방 요약을 네이티브에 넘긴다(같은 내용이면 건너뜀). 위젯 · 실시간 현황이 바로 새로 그려진다
-export function pushNativeSummary(bags: Bag[], uid: string): Promise<void> {
+// 가방 요약을 네이티브에 넘긴다(같은 내용이면 건너뜀). 위젯 · 실시간 현황이 바로 새로 그려진다.
+// profile: 보관함 가방은 빼고 고정 가방은 표시(10/11, 서버 /api/native/summary와 같은 기준)
+export function pushNativeSummary(bags: Bag[], uid: string, profile: NativeSummaryProfile = lastProfile): Promise<void> {
   if (!isNativeBridgeAvailable()) return Promise.resolve();
   lastBags = bags;
   lastUid = uid;
-  const summary = buildNativeSummary(bags, uid);
+  lastProfile = profile;
+  const summary = buildNativeSummary(bags, uid, new Date(), profile);
   const json = JSON.stringify(summary.bags);
   if (json === lastSummary) return Promise.resolve();
   lastSummary = json;

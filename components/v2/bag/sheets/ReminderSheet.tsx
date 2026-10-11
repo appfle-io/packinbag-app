@@ -6,7 +6,7 @@ import type { Bag, BagReminder } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { Button, Chip, SectionHeader, Sheet, Toggle, cx } from "@/components/v2/ui";
-import { isServerPushAvailable } from "@/lib/v2/serverPush";
+import { bagPushView, showsBagPush, type PushKind } from "@/lib/v2/serverPush";
 import {
   DDAY_PRESETS,
   DEFAULT_DDAY_TIME,
@@ -22,7 +22,7 @@ import {
 // 내 계정에만 저장되고(다른 멤버에게는 영향 없음) 이 아이폰·아이패드가 예약한다(AppShell → syncBagNotifications).
 // 시트를 닫을 때 한 번만 저장한다. 알림 권한은 처음 켤 때 묻는다.
 export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: () => void; bag: Bag }) {
-  const { profile, updateBagReminder, setBagPushMuted, isOfflineMode } = useAuth();
+  const { user, profile, updateBagReminder, setBagPushMuted, setBagPushOff, isOfflineMode } = useAuth();
   const { show } = useToast();
   const saved = profile?.bagReminders?.[bag.id];
   const [draft, setDraft] = useState<BagReminder>(saved ?? {});
@@ -98,14 +98,32 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
   };
 
   const timeInput = "h-10 rounded-field border border-line bg-card px-2 text-caption outline-none";
-  // 함께 쓰는 가방의 서버 푸시(2026-10-11). 누르면 바로 저장한다(닫을 때가 아니라)
-  const showPush = !isOfflineMode && bag.memberIds.length > 1 && isServerPushAvailable();
-  const pushMuted = (profile?.pushMutedBagIds ?? []).includes(bag.id);
-  const togglePush = (on: boolean) => {
-    setBagPushMuted(bag.id, !on)
+  // 함께 쓰는 가방의 서버 푸시(2026-10-11). 누르면 바로 저장한다(닫을 때가 아니라).
+  // "이 가방 소식 받기" + 켜져 있을 때만 종류별. 설정 > 알림에서 끈 종류는 흐리게(여기서는 못 켠다)
+  const showPush = showsBagPush(bag, isOfflineMode);
+  const push = bagPushView(profile, bag, user?.uid);
+  const saveFailed = () => show("설정을 저장하지 못했어요");
+  const toggleMaster = (on: boolean) => {
+    const tasks: Promise<void>[] = [];
+    if (push.muted === on) tasks.push(setBagPushMuted(bag.id, !on));
+    // 종류를 모두 꺼 두었던 가방을 다시 켜면 전부 다시 켠다
+    if (on && push.onCount === 0 && push.off.length > 0) tasks.push(setBagPushOff(bag.id, []));
+    Promise.all(tasks)
       .then(() => show(on ? "이 가방 소식을 다시 받아요" : "이 가방 소식 알림을 껐어요. 여기서 다시 켤 수 있어요"))
-      .catch(() => show("설정을 저장하지 못했어요"));
+      .catch(saveFailed);
   };
+  const toggleKind = (kind: PushKind, on: boolean) => {
+    const next = on ? push.off.filter((k) => k !== kind) : [...push.off, kind];
+    setBagPushOff(bag.id, next).catch(saveFailed);
+  };
+  const masterDescription =
+    push.usable === 0
+      ? "설정 > 알림에서 모두 꺼 두었어요"
+      : !push.master
+        ? "꺼져 있어요 · 켜면 아래에서 종류를 골라요"
+        : push.onCount === push.usable
+          ? "모두 받아요"
+          : `${push.usable}개 중 ${push.onCount}개 받아요`;
   const weekdaySet = new Set(days);
   const isWeekdays = weekdaySet.size === 5 && [1, 2, 3, 4, 5].every((d) => weekdaySet.has(d));
   const isEveryday = weekdaySet.size === 7;
@@ -120,14 +138,29 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
         )}
 
         {showPush && (
-          <section className="flex flex-col">
+          <section className="flex flex-col gap-2">
             <SectionHeader>함께 쓰는 사람 소식</SectionHeader>
-            <Toggle
-              checked={!pushMuted}
-              onChange={togglePush}
-              label="이 가방 소식 받기"
-              description="추가·체크·다 쌌어요, 나에게 맡긴 아이템, 새 멤버"
-            />
+            <div className="flex flex-col rounded-card border border-line bg-card px-4">
+              <Toggle
+                checked={push.master}
+                onChange={toggleMaster}
+                disabled={push.usable === 0}
+                label="이 가방 소식 받기"
+                description={masterDescription}
+              />
+              {push.master &&
+                push.kinds.map((k) => (
+                  <Toggle
+                    key={k.kind}
+                    checked={k.on}
+                    onChange={(on) => toggleKind(k.kind, on)}
+                    disabled={k.locked}
+                    label={k.label}
+                    description={k.locked ? "설정 > 알림에서 꺼 두었어요" : k.description}
+                    className="border-t border-line pl-3"
+                  />
+                ))}
+            </div>
           </section>
         )}
 

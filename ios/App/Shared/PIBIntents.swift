@@ -156,6 +156,8 @@ struct QuickAddIntent: AppIntent {
 // 가방을 고르고(필수) 팩을 고른다(선택 - 비워 두면 미분류). 팩 목록은 고른 가방의 팩만 보인다(IntentParameterDependency).
 // 목록은 App Group 요약(최근 가방 30개)에서 만든다. 비어 있으면 서버에서 한 번 받는다
 
+// 가방 목록(단축어 "가방에 추가" · 위젯 편집 공용, 10/11): 곧 출발(D-Day 7일 이내) → 고정한 가방 → 최근 쓴 가방 묶음 + 검색.
+// 보관함 가방은 요약에서 이미 빠져 있다(lib/nativeSummary.ts)
 @available(iOS 17.0, *)
 struct BagEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "가방"
@@ -163,12 +165,36 @@ struct BagEntity: AppEntity {
 
     let id: String
     let name: String
+    var detail: String = ""
+    var group: Group = .recent
 
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+    enum Group { case soon, pinned, recent }
+
+    var displayRepresentation: DisplayRepresentation {
+        detail.isEmpty ? DisplayRepresentation(title: "\(name)") : DisplayRepresentation(title: "\(name)", subtitle: "\(detail)")
+    }
+
+    init(id: String, name: String, detail: String = "", group: Group = .recent) {
+        self.id = id
+        self.name = name
+        self.detail = detail
+        self.group = group
+    }
+
+    init(_ bag: PIBBag) {
+        let items = bag.packs.reduce(0) { $0 + $1.items.count }
+        var parts = ["팩 \(bag.packs.count)개", "아이템 \(items)개"]
+        if let d = bag.daysLeft, d >= 0 { parts.append(d == 0 ? "D-Day" : "D-\(d)") }
+        let group: Group
+        if let d = bag.daysLeft, d >= 0, d <= 7 { group = .soon }
+        else if bag.pinned == true { group = .pinned }
+        else { group = .recent }
+        self.init(id: bag.id, name: bag.name, detail: parts.joined(separator: " · "), group: group)
+    }
 
     static func all() async -> [BagEntity] {
         if PIBStore.summary() == nil, PIBStore.token != nil { try? await PIBAPI.refreshSummary() }
-        return (PIBStore.summary()?.bags ?? []).map { BagEntity(id: $0.id, name: $0.name) }
+        return (PIBStore.summary()?.bags ?? []).map { BagEntity($0) }
     }
 }
 
@@ -179,12 +205,21 @@ struct BagEntityQuery: EntityStringQuery {
         return identifiers.compactMap { id in all.first { $0.id == id } }
     }
 
-    func entities(matching string: String) async throws -> [BagEntity] {
-        await BagEntity.all().filter { $0.name.localizedCaseInsensitiveContains(string) }
+    func entities(matching string: String) async throws -> IntentItemCollection<BagEntity> {
+        let found = await BagEntity.all().filter { $0.name.localizedCaseInsensitiveContains(string) }
+        return IntentItemCollection(sections: [IntentItemSection("검색 결과", items: found)])
     }
 
-    func suggestedEntities() async throws -> [BagEntity] {
-        await BagEntity.all()
+    func suggestedEntities() async throws -> IntentItemCollection<BagEntity> {
+        let all = await BagEntity.all()
+        let soon = all.filter { $0.group == .soon }
+        let pinned = all.filter { $0.group == .pinned }
+        let recent = all.filter { $0.group == .recent }
+        var sections: [IntentItemSection<BagEntity>] = []
+        if !soon.isEmpty { sections.append(IntentItemSection("곧 출발", items: soon)) }
+        if !pinned.isEmpty { sections.append(IntentItemSection("고정한 가방", items: pinned)) }
+        if !recent.isEmpty { sections.append(IntentItemSection("최근 쓴 가방", items: recent)) }
+        return IntentItemCollection(sections: sections)
     }
 }
 

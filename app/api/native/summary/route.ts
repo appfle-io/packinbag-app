@@ -18,9 +18,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
   try {
-    const snap = await adminDb().collection("bags").where("memberIds", "array-contains", uid).get();
+    const db = adminDb();
+    // 보관함 가방을 빼고 고정 가방을 표시하려고 내 계정 문서도 읽는다(10/11, 읽기 1 - 요약은 30분 안전망 · ↻ 때만)
+    const [snap, userSnap] = await Promise.all([
+      db.collection("bags").where("memberIds", "array-contains", uid).get(),
+      db.collection("users").doc(uid).get(),
+    ]);
     const bags = snap.docs.map((d) => ({ ...(d.data() as Bag), id: d.id }));
-    return NextResponse.json(buildNativeSummary(bags, uid), { headers: { "Cache-Control": "no-store" } });
+    const u = userSnap.data() ?? {};
+    const profile = {
+      archivedBagIds: Array.isArray(u.archivedBagIds) ? (u.archivedBagIds as string[]) : undefined,
+      pinnedBagIds: Array.isArray(u.pinnedBagIds) ? (u.pinnedBagIds as string[]) : undefined,
+    };
+    return NextResponse.json(buildNativeSummary(bags, uid, new Date(), profile), { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("[팩인백] 위젯 요약 실패:", err);
     return NextResponse.json({ error: "잠시 후 다시 시도해 주세요" }, { status: 500 });

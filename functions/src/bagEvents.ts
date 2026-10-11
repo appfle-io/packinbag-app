@@ -3,7 +3,8 @@
 // - 담당 지정: 바로. 맡은 사람에게만
 // - 새 멤버: 바로. 그룹장에게만
 // - 내가 바꾼 것은 나에게 보내지 않는다. 누가 바꿨는지는 가방 문서의 editedBy(앱 · 위젯 저장이 자기 uid를 씀)
-// - 받는 사람 설정: users/{uid}.pushPrefs { activity, assign, member }(없으면 켜짐) · pushMutedBagIds(가방별 끄기)
+// - 받는 사람 설정: users/{uid}.pushPrefs { activity, assign, member }(없으면 켜짐) · pushMutedBagIds(가방별 모두 끄기)
+//   · bagPushOff[bagId](가방별로 끈 종류, 10/11)
 // - 보이는 알림은 알림 권한이 있는 기기에만(devices.ts)
 // 체크 해제 · 삭제 · 이름 바꾸기 · 메모 수정은 알리지 않는다.
 import { getFirestore, type DocumentData } from "firebase-admin/firestore";
@@ -97,8 +98,14 @@ export async function wantsPush(uids: string[], bagId: string, kind: PrefKind): 
   return snaps
     .filter((s) => {
       if (!s.exists) return false;
-      const d = s.data() as { pushPrefs?: Partial<Record<PrefKind, boolean>>; pushMutedBagIds?: string[] };
+      const d = s.data() as {
+        pushPrefs?: Partial<Record<PrefKind, boolean>>;
+        pushMutedBagIds?: string[];
+        bagPushOff?: Record<string, PrefKind[]>;
+      };
       if (d.pushPrefs?.[kind] === false) return false;
+      const off = d.bagPushOff?.[bagId];
+      if (Array.isArray(off) && off.includes(kind)) return false;
       return !(Array.isArray(d.pushMutedBagIds) && d.pushMutedBagIds.includes(bagId));
     })
     .map((s) => s.id);
