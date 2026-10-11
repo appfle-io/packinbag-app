@@ -13,7 +13,7 @@ struct PackLockScreenView: View {
     let state: PackActivityAttributes.ContentState
 
     var body: some View {
-        let style = PIBStyle(theme: attributes.theme, font: attributes.font, size: attributes.size, opacity: attributes.opacity ?? "p100")
+        let style = PIBStyle(theme: attributes.theme, font: attributes.font, size: attributes.size)
         let c = PIBPalette.of(style.scheme(systemScheme))
         let left = state.total - state.done
         let hidden = state.total - state.items.count
@@ -47,8 +47,7 @@ struct PackLockScreenView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
         .environment(\.colorScheme, style.scheme(systemScheme))
-        // 투명도를 낮추면 잠금화면 배경이 흐리게 비친다
-        .activityBackgroundTint(c.background.opacity(style.backgroundOpacity))
+        .activityBackgroundTint(c.background)
         .activitySystemActionForegroundColor(c.ink)
         // 버튼 밖을 누르면 그 가방이 열린다
         .widgetURL(pibBagURL(attributes.bagId))

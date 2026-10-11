@@ -24,7 +24,6 @@ interface PackInBagNativePlugin {
 export type LiveActivityTheme = "system" | "light" | "dark";
 export type LiveActivityFont = "system" | "pretendard" | "gmarket" | "gaegu" | "d2coding";
 export type LiveActivitySize = "small" | "medium" | "large";
-export type LiveActivityOpacity = "p100" | "p80" | "p60" | "p40" | "clear";
 
 export interface LiveActivityOptions {
   bagId: string;
@@ -32,7 +31,6 @@ export interface LiveActivityOptions {
   theme: LiveActivityTheme;
   font: LiveActivityFont;
   size: LiveActivitySize;
-  opacity: LiveActivityOpacity;
 }
 
 export interface LiveActivityState {

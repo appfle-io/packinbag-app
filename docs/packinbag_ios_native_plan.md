@@ -131,7 +131,8 @@
 8. (10/11) 단축어 "가방에 추가": 가방(필수) → 팩(선택, 비우면 미분류) → 내용. `AddToBagIntent` · `BagEntity` · `BagPackEntity`(고른 가방 팩만 - `IntentParameterDependency`, 미분류는 목록에서 빠짐), `POST /api/native/add-item`(미분류 없으면 맨 앞에 새로, 팩 10개 제한, 줄마다 1개 · 최대 20, editedBy). App Shortcuts에 추가
    - 요약(`lib/nativeSummary.ts`): 미분류가 맨 앞 + `inbox: true`, 체크 아이템이 없는 팩도 포함(빈 미분류만 뺀)
 9. (10/11) 위젯 "가방 전체": 위젯 편집 팩 목록 맨 위(`bagId|*`). 팩 순서대로(미분류 먼저) 아이템을 잇고(`pibWholeBag`), 체크는 아이템의 원래 팩으로(`itemPacks`). 챙긴 것은 전체에서 아래로
-10. (10/11) 투명: 배경 투명도에 "투명(배경 없음)" 추가(위젯 · 실시간 현황). 80~40%가 기기에서 안 보인 문제는 iOS가 위젯 밑에 자기 바탕을 깔기 때문일 수 있음 - 기기에서 확인 후 결정
+   - 크게(large) 위젯은 아이템 2열(왼쪽→오른쪽, 위→아래 - 앱 가방 화면과 같은 순서). 작게 · 중간은 1열
+10. (10/11) 배경 투명도 옵션 **제거**(위젯 편집 · 잠금화면에 띄우기 시트 · `PIBStyle.opacity` · `PackActivityAttributes.opacity`). iOS가 위젯 · 실시간 현황 밑에 자기 바탕을 깔아 기기에서 투명하게 보이지 않았음(사용자 결정). 배경은 테마 색 불투명
 
 **C. 1.5 제출 전 마무리**
 - 앱 개인정보(App Store Connect "앱이 수집하는 개인정보")·처리방침 `app/privacy`에 푸시 토큰 · 기기 토큰 추가, 처리방침 URL을 seeuson.com으로

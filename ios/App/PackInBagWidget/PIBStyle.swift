@@ -1,4 +1,4 @@
-// 위젯 · 실시간 현황 꾸미기(배경 · 투명도 · 글꼴 · 글자 크기)와 색(2026-10-10).
+// 위젯 · 실시간 현황 꾸미기(배경 · 글꼴 · 글자 크기)와 색(2026-10-10). 배경 투명도 옵션은 10/11에 제거(iOS가 위젯 밑에 자기 바탕을 깔아 안 보임).
 // 글꼴 파일(TTF/OTF)은 이 위젯 폴더의 Fonts/에 넣는다(자동으로 위젯에 포함). 처음 쓸 때 코드로 등록하고,
 // 글꼴 이름(PostScript)은 가족 이름으로 찾는다(지마켓 산스처럼 파일마다 이름이 다를 수 있어서). 파일이 없으면 시스템 글꼴.
 import SwiftUI
@@ -70,14 +70,6 @@ enum PIBTextSize: String, AppEnum {
     ]
 }
 
-enum PIBOpacity: String, AppEnum {
-    case p100, p80, p60, p40, clear
-    static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경 투명도"
-    static let caseDisplayRepresentations: [PIBOpacity: DisplayRepresentation] = [
-        .p100: "불투명", .p80: "80%", .p60: "60%", .p40: "40%", .clear: "투명(배경 없음)",
-    ]
-}
-
 struct PIBPalette {
     let background: Color
     let card: Color
@@ -111,20 +103,6 @@ struct PIBStyle {
     var theme: String
     var font: String
     var size: String
-    // p100 | p80 | p60 | p40 | clear(배경을 아예 안 그림, 10/11)
-    var opacity: String = "p100"
-
-    var backgroundOpacity: Double {
-        switch opacity {
-        case "p80": return 0.8
-        case "p60": return 0.6
-        case "p40": return 0.4
-        case "clear": return 0
-        default: return 1
-        }
-    }
-
-    var isClear: Bool { opacity == "clear" }
 
     var scale: CGFloat {
         switch size {

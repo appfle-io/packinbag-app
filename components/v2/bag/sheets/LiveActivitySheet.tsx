@@ -10,7 +10,6 @@ import {
   getLiveActivityState,
   startLiveActivity,
   type LiveActivityFont,
-  type LiveActivityOpacity,
   type LiveActivitySize,
   type LiveActivityState,
   type LiveActivityTheme,
@@ -36,21 +35,21 @@ const SIZES: { id: LiveActivitySize; label: string }[] = [
   { id: "medium", label: "보통" },
   { id: "large", label: "크게" },
 ];
-const OPACITIES: { id: LiveActivityOpacity; label: string }[] = [
-  { id: "p100", label: "불투명" },
-  { id: "p80", label: "80%" },
-  { id: "p60", label: "60%" },
-  { id: "p40", label: "40%" },
-  { id: "clear", label: "투명" },
-];
 
-type Style = { theme: LiveActivityTheme; opacity: LiveActivityOpacity; font: LiveActivityFont; size: LiveActivitySize };
-const DEFAULT_STYLE: Style = { theme: "system", opacity: "p100", font: "system", size: "medium" };
+type Style = { theme: LiveActivityTheme; font: LiveActivityFont; size: LiveActivitySize };
+const DEFAULT_STYLE: Style = { theme: "system", font: "system", size: "medium" };
 
+// 예전에 저장한 배경 투명도(opacity)는 10/11에 없앤 옵션이라 버린다
 function loadStyle(): Style {
   try {
     const saved = JSON.parse(localStorage.getItem(STYLE_KEY) ?? "null");
-    if (saved && typeof saved === "object") return { ...DEFAULT_STYLE, ...saved };
+    if (saved && typeof saved === "object") {
+      return {
+        theme: saved.theme ?? DEFAULT_STYLE.theme,
+        font: saved.font ?? DEFAULT_STYLE.font,
+        size: saved.size ?? DEFAULT_STYLE.size,
+      };
+    }
   } catch {}
   return DEFAULT_STYLE;
 }
@@ -156,15 +155,6 @@ export function LiveActivitySheet({ open, onClose, bag }: { open: boolean; onClo
           <div className="flex flex-wrap gap-2">
             {THEMES.map((t) => (
               <Chip key={t.id} label={t.label} selected={style.theme === t.id} onClick={() => changeStyle({ theme: t.id })} />
-            ))}
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <SectionHeader>배경 투명도</SectionHeader>
-          <div className="flex flex-wrap gap-2">
-            {OPACITIES.map((o) => (
-              <Chip key={o.id} label={o.label} selected={style.opacity === o.id} onClick={() => changeStyle({ opacity: o.id })} />
             ))}
           </div>
         </section>

@@ -1,6 +1,6 @@
 // 홈 화면 위젯(작게 · 중간 · 크게) + 잠금화면 위젯(2026-10-10, 10-11 새로고침 버튼).
 // - 팩 하나의 체크 아이템을 보여 준다. 누르면 바로 체크 · 해제(ToggleItemIntent, 서버는 뒤에서), 챙긴 것은 취소선 + 맨 아래
-// - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님)
+// - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님). 크게(large)는 2열
 // - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 30분마다(30분 넘게 지난 요약만 서버에서)
 //   아래 줄에 마지막으로 받은 시각을 "1분 15초 전"처럼 보여 준다(저절로 바뀜). 자정에는 D-Day만 다시 그린다
 // - 위젯을 누르면(버튼 밖) 그 가방이 열린다(packinbag://bag/{id})
@@ -110,8 +110,7 @@ struct PackWidgetView: View {
         PIBStyle(
             theme: entry.configuration.theme.rawValue,
             font: entry.configuration.font.rawValue,
-            size: entry.configuration.textSize.rawValue,
-            opacity: entry.configuration.opacity.rawValue
+            size: entry.configuration.textSize.rawValue
         )
     }
 
@@ -122,9 +121,7 @@ struct PackWidgetView: View {
         let c = PIBPalette.of(scheme)
         content(c)
             .environment(\.colorScheme, scheme)
-            // 투명(배경 없음)일 때 배경화면 위에서도 글자가 읽히게 약한 그림자(10/11)
-            .shadow(color: style.isClear ? .black.opacity(0.35) : .clear, radius: style.isClear ? 2 : 0)
-            .containerBackground(style.isClear ? Color.clear : c.background.opacity(style.backgroundOpacity), for: .widget)
+            .containerBackground(c.background, for: .widget)
     }
 
     // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 다 못 보여 주면 마지막 한 줄은 "외 N개"에 쓴다.
@@ -158,7 +155,12 @@ struct PackWidgetView: View {
         let left = pack.items.filter { !$0.checked }
         let items = left + pack.items.filter { $0.checked }
         let done = pack.items.count - left.count
-        let limit = rowLimit(height: size.height, itemCount: items.count)
+        // 크게(large)는 2열(10/11). 앱 가방 화면처럼 왼쪽→오른쪽, 위→아래
+        let columns = family == .systemLarge ? 2 : 1
+        let neededRows = (items.count + columns - 1) / columns
+        let rows = rowLimit(height: size.height, itemCount: neededRows)
+        let shown = Array(items.prefix(rows * columns))
+        let hidden = items.count - shown.count
         return VStack(alignment: .leading, spacing: rowSpacing) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(pack.name).font(style.font(15, bold: true)).foregroundStyle(c.ink).lineLimit(1)
@@ -169,14 +171,24 @@ struct PackWidgetView: View {
                 Text([entry.wholeBag ? "가방 전체" : bag.name, pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
             }
-            ForEach(items.prefix(limit), id: \.id) { item in
-                Button(intent: ToggleItemIntent(bagId: bag.id, packId: entry.itemPacks[item.id] ?? pack.id, itemId: item.id)) {
-                    ItemRow(item: item, style: style, c: c)
+            if columns == 1 {
+                ForEach(shown, id: \.id) { item in itemButton(item, bag: bag, pack: pack, c: c) }
+            } else {
+                ForEach(0..<((shown.count + 1) / 2), id: \.self) { r in
+                    HStack(spacing: 12) {
+                        itemButton(shown[r * 2], bag: bag, pack: pack, c: c)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if r * 2 + 1 < shown.count {
+                            itemButton(shown[r * 2 + 1], bag: bag, pack: pack, c: c)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
             }
-            if items.count > limit {
-                Text(left.isEmpty ? "다 챙겼어요 · 외 \(items.count - limit)개" : "외 \(items.count - limit)개")
+            if hidden > 0 {
+                Text(left.isEmpty ? "다 챙겼어요 · 외 \(hidden)개" : "외 \(hidden)개")
                     .font(style.font(11)).foregroundStyle(left.isEmpty ? c.brand : c.sub)
             }
             Spacer(minLength: 0)
@@ -186,6 +198,13 @@ struct PackWidgetView: View {
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .widgetURL(pibBagURL(bag.id))
+    }
+
+    private func itemButton(_ item: PIBItem, bag: PIBBag, pack: PIBPack, c: PIBPalette) -> some View {
+        Button(intent: ToggleItemIntent(bagId: bag.id, packId: entry.itemPacks[item.id] ?? pack.id, itemId: item.id)) {
+            ItemRow(item: item, style: style, c: c)
+        }
+        .buttonStyle(.plain)
     }
 
     private func message(_ text: String, _ c: PIBPalette) -> some View {
