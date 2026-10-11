@@ -128,6 +128,10 @@
    - 홈 위젯 맨 아래 줄: `Text(.relative) + " 전"`(저절로 올라감) + ↻(`RefreshWidgetIntent`, 위젯 확장에서 서버 요약). 실시간 현황: ↻(`RefreshLiveIntent`, 앱 프로세스). 잠금화면 사각 위젯은 다 챙기면 시각 표시(버튼 없음)
    - 시각 = `PIBStore.summarySavedAt`(서버 · 앱에서 받은 시각, 위젯 체크는 안 바뀜), 실시간 현황은 `ContentState.syncedAt`
    - 다른 멤버 변경은 4·5번 푸시로 바로, 나머지는 30분 안전망 · ↻ (10/11 사용자 확정: 자동 새로고침도 유지)
+8. (10/11) 단축어 "가방에 추가": 가방(필수) → 팩(선택, 비우면 미분류) → 내용. `AddToBagIntent` · `BagEntity` · `BagPackEntity`(고른 가방 팩만 - `IntentParameterDependency`, 미분류는 목록에서 빠짐), `POST /api/native/add-item`(미분류 없으면 맨 앞에 새로, 팩 10개 제한, 줄마다 1개 · 최대 20, editedBy). App Shortcuts에 추가
+   - 요약(`lib/nativeSummary.ts`): 미분류가 맨 앞 + `inbox: true`, 체크 아이템이 없는 팩도 포함(빈 미분류만 뺀)
+9. (10/11) 위젯 "가방 전체": 위젯 편집 팩 목록 맨 위(`bagId|*`). 팩 순서대로(미분류 먼저) 아이템을 잇고(`pibWholeBag`), 체크는 아이템의 원래 팩으로(`itemPacks`). 챙긴 것은 전체에서 아래로
+10. (10/11) 투명: 배경 투명도에 "투명(배경 없음)" 추가(위젯 · 실시간 현황). 80~40%가 기기에서 안 보인 문제는 iOS가 위젯 밑에 자기 바탕을 깔기 때문일 수 있음 - 기기에서 확인 후 결정
 
 **C. 1.5 제출 전 마무리**
 - 앱 개인정보(App Store Connect "앱이 수집하는 개인정보")·처리방침 `app/privacy`에 푸시 토큰 · 기기 토큰 추가, 처리방침 URL을 seeuson.com으로

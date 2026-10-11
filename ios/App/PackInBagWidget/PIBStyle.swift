@@ -71,10 +71,10 @@ enum PIBTextSize: String, AppEnum {
 }
 
 enum PIBOpacity: String, AppEnum {
-    case p100, p80, p60, p40
+    case p100, p80, p60, p40, clear
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경 투명도"
     static let caseDisplayRepresentations: [PIBOpacity: DisplayRepresentation] = [
-        .p100: "불투명", .p80: "80%", .p60: "60%", .p40: "40%",
+        .p100: "불투명", .p80: "80%", .p60: "60%", .p40: "40%", .clear: "투명(배경 없음)",
     ]
 }
 
@@ -111,7 +111,7 @@ struct PIBStyle {
     var theme: String
     var font: String
     var size: String
-    // p100 | p80 | p60 | p40
+    // p100 | p80 | p60 | p40 | clear(배경을 아예 안 그림, 10/11)
     var opacity: String = "p100"
 
     var backgroundOpacity: Double {
@@ -119,9 +119,12 @@ struct PIBStyle {
         case "p80": return 0.8
         case "p60": return 0.6
         case "p40": return 0.4
+        case "clear": return 0
         default: return 1
         }
     }
+
+    var isClear: Bool { opacity == "clear" }
 
     var scale: CGFloat {
         switch size {

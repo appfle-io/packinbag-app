@@ -15,10 +15,26 @@ struct PackEntry: TimelineEntry {
     let pack: PIBPack?
     let signedIn: Bool
     var syncedAt: Date? = nil
+    // 가방 전체(10/11): 팩을 이어 붙인 가짜 팩을 보여 주고, 체크는 아이템마다 원래 팩 id로 보낸다
+    var wholeBag = false
+    var itemPacks: [String: String] = [:]
 }
 
 func pibBagURL(_ bagId: String) -> URL? {
     URL(string: "packinbag://bag/\(bagId)")
+}
+
+// 가방 전체 → 팩 하나처럼. 요약의 팩 순서(미분류 먼저) 그대로 아이템을 잇는다
+func pibWholeBag(_ bag: PIBBag) -> (pack: PIBPack, itemPacks: [String: String]) {
+    var map: [String: String] = [:]
+    var items: [PIBItem] = []
+    for p in bag.packs {
+        for item in p.items where map[item.id] == nil {
+            map[item.id] = p.id
+            items.append(item)
+        }
+    }
+    return (PIBPack(id: PackEntity.wholeBag, name: bag.name, items: items), map)
 }
 
 struct Provider: AppIntentTimelineProvider {
@@ -53,12 +69,23 @@ struct Provider: AppIntentTimelineProvider {
     private func makeEntry(_ configuration: ConfigurationAppIntent) -> PackEntry {
         let signedIn = PIBStore.token != nil
         var found: (bag: PIBBag, pack: PIBPack)?
+        var itemPacks: [String: String] = [:]
+        let whole = configuration.pack?.isWholeBag == true
         if let picked = configuration.pack {
-            found = PIBStore.pack(bagId: picked.bagId, packId: picked.packId)
+            if whole, let bag = PIBStore.bag(picked.bagId) {
+                let joined = pibWholeBag(bag)
+                found = (bag, joined.pack)
+                itemPacks = joined.itemPacks
+            } else if !whole {
+                found = PIBStore.pack(bagId: picked.bagId, packId: picked.packId)
+            }
         } else if let bag = PIBStore.summary()?.bags.first(where: { !$0.packs.isEmpty }), let pack = bag.packs.first {
             found = (bag, pack)
         }
-        return PackEntry(date: Date(), configuration: configuration, bag: found?.bag, pack: found?.pack, signedIn: signedIn, syncedAt: PIBStore.summarySavedAt)
+        return PackEntry(
+            date: Date(), configuration: configuration, bag: found?.bag, pack: found?.pack, signedIn: signedIn,
+            syncedAt: PIBStore.summarySavedAt, wholeBag: whole, itemPacks: itemPacks
+        )
     }
 }
 
@@ -95,7 +122,9 @@ struct PackWidgetView: View {
         let c = PIBPalette.of(scheme)
         content(c)
             .environment(\.colorScheme, scheme)
-            .containerBackground(c.background.opacity(style.backgroundOpacity), for: .widget)
+            // 투명(배경 없음)일 때 배경화면 위에서도 글자가 읽히게 약한 그림자(10/11)
+            .shadow(color: style.isClear ? .black.opacity(0.35) : .clear, radius: style.isClear ? 2 : 0)
+            .containerBackground(style.isClear ? Color.clear : c.background.opacity(style.backgroundOpacity), for: .widget)
     }
 
     // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 다 못 보여 주면 마지막 한 줄은 "외 N개"에 쓴다.
@@ -137,11 +166,11 @@ struct PackWidgetView: View {
                 Text("\(done)/\(pack.items.count)").font(style.font(12, bold: true)).foregroundStyle(c.brand)
             }
             if family != .systemSmall {
-                Text([bag.name, pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
+                Text([entry.wholeBag ? "가방 전체" : bag.name, pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
             }
             ForEach(items.prefix(limit), id: \.id) { item in
-                Button(intent: ToggleItemIntent(bagId: bag.id, packId: pack.id, itemId: item.id)) {
+                Button(intent: ToggleItemIntent(bagId: bag.id, packId: entry.itemPacks[item.id] ?? pack.id, itemId: item.id)) {
                     ItemRow(item: item, style: style, c: c)
                 }
                 .buttonStyle(.plain)

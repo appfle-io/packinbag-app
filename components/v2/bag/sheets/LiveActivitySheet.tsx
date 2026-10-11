@@ -41,6 +41,7 @@ const OPACITIES: { id: LiveActivityOpacity; label: string }[] = [
   { id: "p80", label: "80%" },
   { id: "p60", label: "60%" },
   { id: "p40", label: "40%" },
+  { id: "clear", label: "투명" },
 ];
 
 type Style = { theme: LiveActivityTheme; opacity: LiveActivityOpacity; font: LiveActivityFont; size: LiveActivitySize };

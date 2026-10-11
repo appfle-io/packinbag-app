@@ -20,6 +20,8 @@ export interface NativeSummaryPack {
   id: string;
   name: string;
   items: NativeSummaryItem[];
+  // 하단 입력창으로 넣은 "미분류" 팩(10/11). 가방 전체 위젯에서 맨 앞, 단축어 팩 목록에서는 "미분류(기본)"
+  inbox?: true;
 }
 
 export interface NativeSummaryBag {
@@ -37,7 +39,8 @@ export interface NativeSummary {
 
 const clip = (s: unknown) => (typeof s === "string" ? s : "").slice(0, MAX_TEXT);
 
-// uid가 소유자이면서 휴지통에 넣은 가방은 뺀다(목록 화면과 같은 기준)
+// uid가 소유자이면서 휴지통에 넣은 가방은 뺀다(목록 화면과 같은 기준).
+// 팩 순서는 가방 화면과 같게 미분류가 맨 앞. 체크 아이템이 없는 팩도 넣는다(단축어 "가방에 추가"에서 고를 수 있게, 10/11)
 export function buildNativeSummary(bags: Bag[], uid: string, now: Date = new Date()): NativeSummary {
   const active = bags.filter((b) => !(b.ownerId === uid && b.trashedByOwnerAt));
   const recent = [...active]
@@ -52,6 +55,7 @@ export function buildNativeSummary(bags: Bag[], uid: string, now: Date = new Dat
       ...(bag.travelDate ? { travelDate: bag.travelDate } : {}),
       packs: (Array.isArray(bag.packs) ? bag.packs : [])
         .filter((p) => p && p.kind !== "editor" && p.type !== "folder")
+        .sort((a, b) => Number(!!b.isInbox) - Number(!!a.isInbox))
         .map((p) => ({
           id: p.id,
           name: clip(p.name) || "팩",
@@ -59,8 +63,10 @@ export function buildNativeSummary(bags: Bag[], uid: string, now: Date = new Dat
             .filter((i) => i && i.type !== "text")
             .slice(0, MAX_ITEMS)
             .map((i) => ({ id: i.id, text: clip(i.text), checked: !!i.checked })),
+          ...(p.isInbox ? { inbox: true as const } : {}),
         }))
-        .filter((p) => p.items.length > 0),
+        // 빈 미분류는 숨긴다(가방 화면도 빈 미분류는 안 보임)
+        .filter((p) => !(p.inbox && p.items.length === 0)),
     })),
   };
 }

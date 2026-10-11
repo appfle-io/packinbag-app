@@ -292,6 +292,12 @@ struct PackInBagShortcuts: AppShortcutsProvider {
             systemImageName: "square.and.pencil"
         )
         AppShortcut(
+            intent: AddToBagIntent(),
+            phrases: ["\(.applicationName) 가방에 추가", "\(.applicationName) 가방에 넣기"],
+            shortTitle: "가방에 추가",
+            systemImageName: "bag.badge.plus"
+        )
+        AppShortcut(
             intent: RefreshIntent(),
             phrases: ["\(.applicationName) 새로고침"],
             shortTitle: "팩인백 새로고침",

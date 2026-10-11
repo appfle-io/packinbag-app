@@ -151,3 +151,116 @@ struct QuickAddIntent: AppIntent {
         return .result(dialog: "\(message)")
     }
 }
+
+// ---- 단축어 "가방에 추가"(10/11) --------------------------------------------------------
+// 가방을 고르고(필수) 팩을 고른다(선택 - 비워 두면 미분류). 팩 목록은 고른 가방의 팩만 보인다(IntentParameterDependency).
+// 목록은 App Group 요약(최근 가방 30개)에서 만든다. 비어 있으면 서버에서 한 번 받는다
+
+@available(iOS 17.0, *)
+struct BagEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "가방"
+    static let defaultQuery = BagEntityQuery()
+
+    let id: String
+    let name: String
+
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+
+    static func all() async -> [BagEntity] {
+        if PIBStore.summary() == nil, PIBStore.token != nil { try? await PIBAPI.refreshSummary() }
+        return (PIBStore.summary()?.bags ?? []).map { BagEntity(id: $0.id, name: $0.name) }
+    }
+}
+
+@available(iOS 17.0, *)
+struct BagEntityQuery: EntityStringQuery {
+    func entities(for identifiers: [String]) async throws -> [BagEntity] {
+        let all = await BagEntity.all()
+        return identifiers.compactMap { id in all.first { $0.id == id } }
+    }
+
+    func entities(matching string: String) async throws -> [BagEntity] {
+        await BagEntity.all().filter { $0.name.localizedCaseInsensitiveContains(string) }
+    }
+
+    func suggestedEntities() async throws -> [BagEntity] {
+        await BagEntity.all()
+    }
+}
+
+@available(iOS 17.0, *)
+struct BagPackEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "팩"
+    static let defaultQuery = BagPackEntityQuery()
+
+    // "가방id|팩id"
+    let id: String
+    let name: String
+
+    var bagId: String { String(id.split(separator: "|").first ?? "") }
+    var packId: String { String(id.split(separator: "|").last ?? "") }
+
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+
+    // 미분류는 목록에서 뺀다(팩을 비워 두면 미분류)
+    static func of(bagId: String?) -> [BagPackEntity] {
+        (PIBStore.summary()?.bags ?? [])
+            .filter { bagId == nil || $0.id == bagId }
+            .flatMap { bag in
+                bag.packs.filter { $0.inbox != true }.map { BagPackEntity(id: "\(bag.id)|\($0.id)", name: $0.name) }
+            }
+    }
+}
+
+@available(iOS 17.0, *)
+struct BagPackEntityQuery: EntityQuery {
+    @IntentParameterDependency<AddToBagIntent>(\.$bag)
+    var addIntent
+
+    func entities(for identifiers: [String]) async throws -> [BagPackEntity] {
+        let all = BagPackEntity.of(bagId: nil)
+        return identifiers.compactMap { id in all.first { $0.id == id } }
+    }
+
+    func suggestedEntities() async throws -> [BagPackEntity] {
+        BagPackEntity.of(bagId: addIntent?.bag.id)
+    }
+}
+
+@available(iOS 17.0, *)
+struct AddToBagIntent: AppIntent {
+    static let title: LocalizedStringResource = "가방에 추가"
+    static let description = IntentDescription("앱을 열지 않고 고른 가방에 아이템을 넣어요. 팩을 비워 두면 미분류에, 여러 줄이면 줄마다 하나씩 들어가요")
+    #if PIB_WIDGET
+    static let isDiscoverable = false
+    #else
+    static let isDiscoverable = true
+    #endif
+    static let openAppWhenRun = false
+
+    @Parameter(title: "가방", requestValueDialog: IntentDialog("어느 가방에 넣을까요?"))
+    var bag: BagEntity
+
+    @Parameter(title: "팩", description: "비워 두면 미분류에 넣어요")
+    var pack: BagPackEntity?
+
+    @Parameter(title: "내용", requestValueDialog: IntentDialog("넣을 내용을 적어 주세요"))
+    var text: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("\(\.$bag)의 \(\.$pack)에 \(\.$text) 넣기")
+    }
+
+    init() {}
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        // 다른 가방의 팩을 골랐으면 미분류로
+        let packId = pack.flatMap { $0.bagId == bag.id ? $0.packId : nil }
+        let result = try await PIBAPI.addItem(bagId: bag.id, packId: packId, text: text)
+        // 위젯에도 바로 보이게
+        try? await PIBAPI.refreshSummary()
+        PIBWidgets.reload()
+        let count = result.added > 1 ? "\(result.added)개 " : ""
+        return .result(dialog: "\(bag.name) · \(result.packName)에 \(count)넣었어요")
+    }
+}

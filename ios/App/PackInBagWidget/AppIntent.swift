@@ -1,4 +1,4 @@
-// 위젯을 길게 눌러 "위젯 편집"에서 고르는 값(2026-10-10): 보여 줄 팩 · 배경 · 글꼴 · 글자 크기.
+// 위젯을 길게 눌러 "위젯 편집"에서 고르는 값(2026-10-10): 보여 줄 팩(또는 가방 전체, 10/11) · 배경 · 글꼴 · 글자 크기.
 // 팩 목록은 App Group에 저장된 요약(앱이 넘기거나 서버에서 받은 것)에서 만든다.
 import WidgetKit
 import AppIntents
@@ -21,9 +21,15 @@ struct PackEntity: AppEntity {
 
     static func all() -> [PackEntity] {
         (PIBStore.summary()?.bags ?? []).flatMap { bag in
-            bag.packs.map { PackEntity(id: "\(bag.id)|\($0.id)", bagName: bag.name, packName: $0.name) }
+            // 맨 위에 "가방 전체"(10/11): 팩 순서대로(미분류 먼저) 아이템을 이어 보여 준다
+            [PackEntity(id: "\(bag.id)|\(PackEntity.wholeBag)", bagName: bag.name, packName: "가방 전체")]
+                + bag.packs.map { PackEntity(id: "\(bag.id)|\($0.id)", bagName: bag.name, packName: $0.name) }
         }
     }
+
+    // "가방 전체"를 고른 위젯의 팩 자리 값
+    static let wholeBag = "*"
+    var isWholeBag: Bool { packId == PackEntity.wholeBag }
 }
 
 struct PackQuery: EntityQuery {
@@ -49,7 +55,7 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "팩 고르기"
     static let description = IntentDescription("위젯에 보여 줄 팩과 모양을 골라요")
 
-    @Parameter(title: "팩")
+    @Parameter(title: "팩 또는 가방 전체")
     var pack: PackEntity?
 
     @Parameter(title: "배경", default: .system)

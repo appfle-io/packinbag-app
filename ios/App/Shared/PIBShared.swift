@@ -28,6 +28,8 @@ struct PIBPack: Codable, Hashable {
     let id: String
     var name: String
     var items: [PIBItem]
+    // "미분류" 팩(가방 하단 입력창으로 넣은 것, 10/11). 요약에서 맨 앞에 온다
+    var inbox: Bool? = nil
 }
 
 struct PIBBag: Codable, Hashable {
@@ -221,6 +223,15 @@ enum PIBAPI {
     static func quickAdd(text: String) async throws -> Int {
         let data = try await request("/api/native/quick-add", method: "POST", body: ["text": text, "type": "check"])
         return ((try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["added"] as? Int) ?? 1
+    }
+
+    // 단축어 "가방에 추가"(10/11). packId가 없으면 미분류. (넣은 개수, 넣은 팩 이름)
+    static func addItem(bagId: String, packId: String?, text: String) async throws -> (added: Int, packName: String) {
+        var body: [String: Any] = ["bagId": bagId, "text": text]
+        if let packId { body["packId"] = packId }
+        let data = try await request("/api/native/add-item", method: "POST", body: body)
+        let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        return ((json["added"] as? Int) ?? 1, (json["packName"] as? String) ?? "미분류")
     }
 
     // 로그아웃 · 다른 계정 로그인 때 예전 토큰을 서버에서 지운다(실패해도 괜찮다)
