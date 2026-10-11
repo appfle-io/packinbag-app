@@ -116,8 +116,18 @@
    - 화면: 설정 > 알림(권한 상태 · 종류별 토글 · 테스트 알림), 가방 더보기 > 알림 "이 가방 소식 받기", 끄면 토스트. 공유 가방을 처음 열 때 iOS 허용 창 1회(사용 가이드 뜨는 처음은 다음으로), 거절 상태면 토스트 1회(`lib/v2/serverPush.ts`, `pushTest.ts`는 합침)
    - 알리지 않음: 체크 해제 · 삭제 · 이름 바꾸기 · 메모 수정, editedBy 없는 변경(옛 포터블 등)
 4. 같은 트리거에서 조용한 푸시(content-available) → 앱이 `/api/native/summary` 받아 위젯 갱신
+   - ✅ 10/11: 함께 쓰는 가방 팩이 바뀌면 `pushSilent/{bagId}` 표시 → `flushBagActivity`(2분마다)가 멤버 기기에 background 푸시 1번(`functions/src/live.ts`). 앱 `AppDelegate didReceiveRemoteNotification` → 요약 받기 → 위젯 · 실시간 현황. iOS가 횟수를 줄일 수 있고 강제 종료한 앱에는 안 옴
 5. 실시간 현황 원격 갱신: `Activity.request(pushType: .token)` → 토큰을 서버에 → 다른 멤버가 체크하면 APNs liveactivity 푸시
+   - ✅ 10/11: 시작 때 `pushType: .token`(안 되면 토큰 없이), `pushTokenUpdates` → `POST /api/native/live-token`(그 가방 멤버만) → `deviceTokens.apnsLive { token, bagId, packId, env }`. 내리면 DELETE
+   - `onBagUpdated`: 팩이나 이름이 바뀌면(혼자 쓰는 가방도) `apnsLive.bagId`로 찾아 content-state 보냄(다 챙기면 end + 5분 뒤 내림), `onBagDeleted`는 end. content-state는 `ContentState`와 같은 모양(`syncedAt`은 1970년 초)
+   - 잠금화면 체크는 보이는 값을 기준으로(`PIBLiveActivity.toggle`), `updateAll`은 요약이 더 오래되면(syncedAt) 되돌리지 않음
 6. 알림 눌렀을 때 그 가방 열기(로컬 알림과 같은 방식), 위젯 탭하면 그 가방 열기(`packinbag://` URL 스킴 추가)
+   - ✅ 10/11: `lib/v2/bagReminders.onBagNotificationTap`이 로컬 알림 + 서버 푸시(`pushNotificationActionPerformed` data.bagId) + `appUrlOpen` · `getLaunchUrl`(`packinbag://bag/{id}`)을 한 곳에서 받음(AppShell은 그대로). Info.plist URL 스킴 `packinbag`, 위젯 · 잠금화면 위젯 · 실시간 현황 · 다이내믹 아일랜드에 `widgetURL`
+7. (10/11 추가 요청) 위젯 · 실시간 현황 새로고침 버튼 + "N분 전"
+   - ✅ 자동 새로고침 = 안전망으로 30분마다(`PIB.staleAfter`, 30분 넘게 지난 요약만 서버). 다른 기기에서 고친 혼자 쓰는 가방(조용한 푸시는 공유 가방만) · iOS가 버린 조용한 푸시를 따라잡는 용도. 자정에는 D-Day 다시 그림(예전: 20분 주기 · 15분 기준)
+   - 홈 위젯 맨 아래 줄: `Text(.relative) + " 전"`(저절로 올라감) + ↻(`RefreshWidgetIntent`, 위젯 확장에서 서버 요약). 실시간 현황: ↻(`RefreshLiveIntent`, 앱 프로세스). 잠금화면 사각 위젯은 다 챙기면 시각 표시(버튼 없음)
+   - 시각 = `PIBStore.summarySavedAt`(서버 · 앱에서 받은 시각, 위젯 체크는 안 바뀜), 실시간 현황은 `ContentState.syncedAt`
+   - 다른 멤버 변경은 4·5번 푸시로 바로, 나머지는 30분 안전망 · ↻ (10/11 사용자 확정: 자동 새로고침도 유지)
 
 **C. 1.5 제출 전 마무리**
 - 앱 개인정보(App Store Connect "앱이 수집하는 개인정보")·처리방침 `app/privacy`에 푸시 토큰 · 기기 토큰 추가, 처리방침 URL을 seeuson.com으로

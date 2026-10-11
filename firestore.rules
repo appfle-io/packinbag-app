@@ -224,6 +224,10 @@ service cloud.firestore {
     match /pushQueue/{bagId} {
       allow read, write: if false;
     }
+    // 위젯 갱신 조용한 푸시 표시(2026-10-11, functions/src/live.ts). Cloud Functions만
+    match /pushSilent/{bagId} {
+      allow read, write: if false;
+    }
 
     // 회원탈퇴(계정 완전 삭제) 마커. lib/accountService.ts의 deleteAllUserData가 계정을 지우기 직전에
     // 자신의 uid로 딱 한 번 쓴다. 다른 그룹원이 이 uid를 조회해서 댓글 작성자가

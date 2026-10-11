@@ -127,12 +127,17 @@ export async function sendImmediate(p8: string, bagId: string, after: BagLite, d
   const title = after.name || "가방";
   if (actor && diff.assigned.size > 0) {
     const targets = await wantsPush([...diff.assigned.keys()], bagId, "assign");
+    console.log("[push] 담당 지정", { bagId, assignees: [...diff.assigned.keys()].map((u) => u.slice(0, 6)), wants: targets.length });
     for (const uid of targets) {
       const names = diff.assigned.get(uid) ?? [];
       const devices = await devicesOf([uid]);
-      if (devices.length === 0) continue;
+      if (devices.length === 0) {
+        console.log("[push] 담당 지정: 기기 없음", uid.slice(0, 6));
+        continue;
+      }
       const body = `${nick(after, actor)}님이 ${names.length}개를 맡겼어요: ${namesLine(names)}`;
-      await sendToDevices(p8, devices, { ...alert(bagId, title, body, "assign"), collapseId: `assign-${bagId}` });
+      const result = await sendToDevices(p8, devices, { ...alert(bagId, title, body, "assign"), collapseId: `assign-${bagId}` });
+      console.log("[push] 담당 지정 보냄", { to: uid.slice(0, 6), devices: devices.length, alerts: devices.filter((d) => d.alerts).length, ...result });
     }
   }
   const owner = after.ownerId;

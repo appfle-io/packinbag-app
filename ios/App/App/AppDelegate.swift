@@ -15,6 +15,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // 로그인된 기기면 켤 때마다 APNs에 등록한다(토큰이 바뀌면 서버에 올림 - 애플 권장)
         if PIBStore.token != nil { PIBPush.register() }
+        // 떠 있는 실시간 현황의 푸시 토큰을 다시 지켜본다(앱이 꺼졌다 켜져도 서버가 올바른 토큰을 갖게)
+        if #available(iOS 16.2, *) { PIBLiveActivity.observeExisting() }
         return true
     }
 
@@ -28,6 +30,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
         print("[팩인백] 푸시 등록 실패:", error.localizedDescription)
+    }
+
+    // 조용한 푸시(content-available) · 알림 도착(2026-10-11, B-4): 다른 멤버가 가방을 바꿨다.
+    // 앱이 꺼져 있어도(강제 종료가 아니면) iOS가 잠깐 깨워 준다 → 서버에서 요약을 받아 위젯 · 실시간 현황을 새로 그린다.
+    // iOS가 횟수를 줄일 수 있어(배터리 · 사용 빈도) 안 올 때도 있다 - 그때는 위젯의 새로고침 버튼
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        guard PIBStore.token != nil else {
+            completionHandler(.noData)
+            return
+        }
+        Task {
+            do {
+                try await PIBAPI.refreshSummary()
+                PIBWidgets.reload()
+                if #available(iOS 16.2, *) { await PIBLiveActivity.updateAll() }
+                completionHandler(.newData)
+            } catch {
+                completionHandler(.failed)
+            }
+        }
     }
 
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
@@ -227,11 +249,7 @@ enum PIBPush {
     private static let sentKey = "pib.apnsSent"
 
     // Xcode에서 바로 설치(Debug) = 개발용 APNs, Archive(Release → TestFlight · App Store) = 운영 APNs
-    #if DEBUG
-    static let environment = "sandbox"
-    #else
-    static let environment = "production"
-    #endif
+    static let environment = PIB.apnsEnvironment
 
     static func register() {
         DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }

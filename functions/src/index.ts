@@ -8,11 +8,12 @@
 import { initializeApp } from "firebase-admin/app";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { devicesOf, sendToDevices } from "./devices";
 import { diffBag, enqueueActivity, flushDue, sendImmediate } from "./bagEvents";
+import { flushSilent, markSilent, updateLiveActivities } from "./live";
 
 initializeApp();
 setGlobalOptions({ region: "asia-northeast3", maxInstances: 10 });
@@ -41,17 +42,25 @@ export const sendTestPush = onCall({ secrets: [APNS_KEY_P8], timeoutSeconds: 30 
   return { devices: devices.length, ...result };
 });
 
-// 가방이 저장될 때마다 불린다. 혼자 쓰는 가방은 바로 끝낸다(읽기 · 쓰기 없음)
+// 가방이 저장될 때마다 불린다.
+// - 팩 내용이 바뀌었으면: 그 가방을 띄운 잠금화면 실시간 현황을 고친다(혼자 쓰는 가방도, 읽기 1)
+// - 함께 쓰는 가방만: 위젯 조용한 푸시 표시 · 담당 · 새 멤버 · 활동 묶음
 export const onBagUpdated = onDocumentUpdated({ document: "bags/{bagId}", secrets: [APNS_KEY_P8] }, async (event) => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
   if (!before || !after) return;
+  const bagId = event.params.bagId;
+  const packsChanged = before.name !== after.name || JSON.stringify(before.packs ?? []) !== JSON.stringify(after.packs ?? []);
+  if (packsChanged) {
+    await updateLiveActivities(APNS_KEY_P8.value(), bagId, after).catch((err) => console.error("[push] 실시간 현황 갱신 실패", err));
+  }
   const members: string[] = Array.isArray(after.memberIds) ? after.memberIds : [];
   if (members.length < 2) return;
   if (after.trashedByOwnerAt) return;
-  const bagId = event.params.bagId;
+  if (packsChanged) await markSilent(bagId).catch((err) => console.error("[push] 조용한 푸시 표시 실패", err));
   const actor = typeof after.editedBy === "string" && members.includes(after.editedBy) ? after.editedBy : undefined;
   const diff = diffBag(before, after, actor);
+  if (diff.assigned.size > 0 && !actor) console.log("[push] 담당 지정을 누가 했는지 몰라 건너뜀", { bagId, editedBy: String(after.editedBy ?? "").slice(0, 6) });
   if (diff.assigned.size > 0 || diff.newMembers.length > 0) {
     await sendImmediate(APNS_KEY_P8.value(), bagId, after, diff, actor).catch((err) => console.error("[push] 바로 알림 실패", err));
   }
@@ -62,7 +71,18 @@ export const onBagUpdated = onDocumentUpdated({ document: "bags/{bagId}", secret
 export const flushBagActivity = onSchedule(
   { schedule: "every 2 minutes", timeZone: "Asia/Seoul", secrets: [APNS_KEY_P8], timeoutSeconds: 120 },
   async () => {
-    const n = await flushDue(APNS_KEY_P8.value());
+    const p8 = APNS_KEY_P8.value();
+    const n = await flushDue(p8);
     if (n > 0) console.log(`[push] 활동 묶음 ${n}개 보냄`);
+    const s = await flushSilent(p8).catch((err) => {
+      console.error("[push] 조용한 푸시 실패", err);
+      return 0;
+    });
+    if (s > 0) console.log(`[push] 위젯 갱신 푸시 ${s}대`);
   },
 );
+
+// 가방이 완전히 지워지면 그 가방을 띄운 잠금화면을 내린다
+export const onBagDeleted = onDocumentDeleted({ document: "bags/{bagId}", secrets: [APNS_KEY_P8] }, async (event) => {
+  await updateLiveActivities(APNS_KEY_P8.value(), event.params.bagId, null).catch((err) => console.error("[push] 실시간 현황 내리기 실패", err));
+});

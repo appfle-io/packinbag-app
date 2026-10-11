@@ -26,6 +26,14 @@
 				<string>com.googleusercontent.apps.510272302140-fng4e9vd6e5h10s7sim87ua7bchhiajr</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.appfle.packinbag.open</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>packinbag</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>

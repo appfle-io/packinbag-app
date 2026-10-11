@@ -1,6 +1,7 @@
 // 잠금화면 실시간 현황 · 다이내믹 아일랜드(2026-10-10). 데이터 · 시작은 Shared/PIBActivity.swift.
 // 잠금화면에서 바로 체크(ToggleItemLiveIntent - 앱 프로세스에서 서버에 저장하고 이 화면도 갱신).
 // 여백: 잠금화면 카드 안쪽 좌우 20 · 위아래 18, 줄 사이 10(10/10 - 처음엔 16으로 붙어 보였다)
+// 다이내믹 아일랜드 · 잠금화면을 누르면 그 가방이 열린다(packinbag://bag/{id}, 10/11). 잠금화면 아래 줄에 받은 시각 + ↻
 import ActivityKit
 import WidgetKit
 import SwiftUI
@@ -38,6 +39,10 @@ struct PackLockScreenView: View {
             if hidden > 0 {
                 Text("외 \(hidden)개").font(style.font(11)).foregroundStyle(c.sub)
             }
+            // 마지막으로 받은 시각 + 새로고침(10/11). 다른 멤버 체크는 서버가 바로 반영하고, 놓친 게 있으면 ↻
+            RefreshFooter(syncedAt: state.syncedAt.map { Date(timeIntervalSince1970: $0) }, style: style, c: c) {
+                Button(intent: RefreshLiveIntent()) { RefreshIcon(style: style, c: c) }.buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
@@ -45,6 +50,8 @@ struct PackLockScreenView: View {
         // 투명도를 낮추면 잠금화면 배경이 흐리게 비친다
         .activityBackgroundTint(c.background.opacity(style.backgroundOpacity))
         .activitySystemActionForegroundColor(c.ink)
+        // 버튼 밖을 누르면 그 가방이 열린다
+        .widgetURL(pibBagURL(attributes.bagId))
     }
 }
 
@@ -85,6 +92,7 @@ struct PackInBagWidgetLiveActivity: Widget {
             } minimal: {
                 Text("\(left)").font(.system(size: 12, weight: .semibold)).foregroundStyle(c.brand)
             }
+            .widgetURL(pibBagURL(context.attributes.bagId))
         }
     }
 }

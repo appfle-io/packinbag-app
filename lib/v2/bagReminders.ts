@@ -6,6 +6,7 @@
 // - iOS는 앱당 예약 알림이 64개까지라, 가까운 것부터 MAX_SCHEDULED개만 예약한다(반복 알림은 요일마다 1개).
 // - 웹·PC·플러그인이 없는 옛 앱(스토어 1.3)에서는 아무것도 하지 않는다(isLocalNotificationsAvailable).
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { App as CapacitorApp } from "@capacitor/app";
 import type { Bag, BagReminder } from "@/lib/types";
 
 export const DDAY_PRESETS = [7, 3, 1, 0] as const;
@@ -216,22 +217,74 @@ export async function syncBagNotifications(bags: Bag[], reminders: Record<string
   await syncing;
 }
 
-// 알림을 눌러 앱이 열렸을 때 그 가방 id를 알려 준다. 앱이 꺼져 있다가 열린 경우도 플러그인이 이벤트를 보관했다가 준다
+// 알림을 눌러 앱이 열렸을 때 그 가방 id를 알려 준다. 앱이 꺼져 있다가 열린 경우도 플러그인이 이벤트를 보관했다가 준다.
+// 10/11(B-6): 서버 푸시(활동 · 담당 · 새 멤버, data.bagId)와 위젯 · 잠금화면 누름(packinbag://bag/{id})도 같은 자리로 모은다
 export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
   if (!isLocalNotificationsAvailable()) return () => {};
-  let handle: { remove: () => Promise<void> } | null = null;
+  const handles: { remove: () => Promise<void> }[] = [];
   let removed = false;
-  LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
-    const extra = action.notification?.extra;
-    if (extra?.kind === KIND && typeof extra.bagId === "string") cb(extra.bagId);
-  })
-    .then((h) => {
-      if (removed) h.remove().catch(() => {});
-      else handle = h;
-    })
-    .catch(() => {});
+  const keep = (p: Promise<{ remove: () => Promise<void> }>) =>
+    p
+      .then((h) => {
+        if (removed) h.remove().catch(() => {});
+        else handles.push(h);
+      })
+      .catch(() => {});
+  // 같은 누름이 두 길로 들어오면(launch URL + appUrlOpen) 한 번만
+  let last = { id: "", at: 0 };
+  const open = (bagId: string) => {
+    const now = Date.now();
+    if (last.id === bagId && now - last.at < 1500) return;
+    last = { id: bagId, at: now };
+    cb(bagId);
+  };
+
+  keep(
+    LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
+      const extra = action.notification?.extra;
+      if (extra?.kind === KIND && typeof extra.bagId === "string") open(extra.bagId);
+    }),
+  );
+
+  if (Capacitor.isPluginAvailable("PushNotifications")) {
+    keep(
+      PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+        const bagId = action.notification?.data?.bagId;
+        if (typeof bagId === "string" && bagId) open(bagId);
+      }),
+    );
+  }
+
+  if (Capacitor.isPluginAvailable("App")) {
+    const fromUrl = (url: string | undefined) => {
+      const m = url ? /^packinbag:\/\/bag\/([A-Za-z0-9_-]+)/.exec(url) : null;
+      if (m) open(m[1]);
+    };
+    keep(AppPlugin.addListener("appUrlOpen", (e) => fromUrl(e.url)));
+    // 앱이 꺼져 있다가 위젯으로 열린 경우(처음 한 번만 - 다시 구독해도 같은 주소를 또 열지 않게)
+    if (!launchUrlChecked) {
+      launchUrlChecked = true;
+      AppPlugin.getLaunchUrl()
+        .then((r) => !removed && fromUrl(r?.url))
+        .catch(() => {});
+    }
+  }
+
   return () => {
     removed = true;
-    handle?.remove().catch(() => {});
+    handles.forEach((h) => h.remove().catch(() => {}));
   };
 }
+
+interface PushNotificationsTapPlugin {
+  addListener(
+    event: "pushNotificationActionPerformed",
+    cb: (action: { notification?: { data?: Record<string, unknown> } }) => void,
+  ): Promise<{ remove: () => Promise<void> }>;
+}
+const PushNotifications = registerPlugin<PushNotificationsTapPlugin>("PushNotifications");
+
+let launchUrlChecked = false;
+
+// @capacitor/app은 다른 곳에서도 쓰므로 패키지에서 가져온다(registerPlugin을 두 번 하면 경고)
+const AppPlugin = CapacitorApp;

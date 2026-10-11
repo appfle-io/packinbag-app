@@ -1,7 +1,9 @@
-// 홈 화면 위젯(작게 · 중간 · 크게) + 잠금화면 위젯(2026-10-10).
+// 홈 화면 위젯(작게 · 중간 · 크게) + 잠금화면 위젯(2026-10-10, 10-11 새로고침 버튼).
 // - 팩 하나의 체크 아이템을 보여 준다. 누르면 바로 체크 · 해제(ToggleItemIntent, 서버는 뒤에서), 챙긴 것은 취소선 + 맨 아래
 // - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님)
-// - 앱이 열려 있으면 앱이 바로 새로 그리게 하고, 아니면 15분 넘게 지난 요약은 서버에서 다시 받는다(20분마다 다시 그림)
+// - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 30분마다(30분 넘게 지난 요약만 서버에서)
+//   아래 줄에 마지막으로 받은 시각을 "1분 15초 전"처럼 보여 준다(저절로 바뀜). 자정에는 D-Day만 다시 그린다
+// - 위젯을 누르면(버튼 밖) 그 가방이 열린다(packinbag://bag/{id})
 import WidgetKit
 import SwiftUI
 import AppIntents
@@ -12,6 +14,11 @@ struct PackEntry: TimelineEntry {
     let bag: PIBBag?
     let pack: PIBPack?
     let signedIn: Bool
+    var syncedAt: Date? = nil
+}
+
+func pibBagURL(_ bagId: String) -> URL? {
+    URL(string: "packinbag://bag/\(bagId)")
 }
 
 struct Provider: AppIntentTimelineProvider {
@@ -33,9 +40,14 @@ struct Provider: AppIntentTimelineProvider {
             // 방금 위젯에서 누른 체크: 화면은 바로 그리고 서버는 뒤에서(기다리면 다시 느려진다)
             Task { if await PIBSync.flush() { PIBWidgets.reload() } }
         } else if PIBStore.token != nil && PIBStore.summaryAge > PIB.staleAfter {
+            // 안전망(10/11): 다른 기기에서 고친 내 가방 · 놓친 조용한 푸시를 여기서 따라잡는다
             try? await PIBAPI.refreshSummary()
         }
-        return Timeline(entries: [makeEntry(configuration)], policy: .after(Date().addingTimeInterval(20 * 60)))
+        // 30분마다 다시 그린다(iOS 위젯 갱신 한도 안). 자정이 더 가까우면 자정에(D-Day 글자)
+        let midnight = Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 0, minute: 0, second: 5), matchingPolicy: .nextTime)
+            ?? Date().addingTimeInterval(24 * 3600)
+        let next = min(midnight, Date().addingTimeInterval(PIB.staleAfter))
+        return Timeline(entries: [makeEntry(configuration)], policy: .after(next))
     }
 
     private func makeEntry(_ configuration: ConfigurationAppIntent) -> PackEntry {
@@ -46,7 +58,7 @@ struct Provider: AppIntentTimelineProvider {
         } else if let bag = PIBStore.summary()?.bags.first(where: { !$0.packs.isEmpty }), let pack = bag.packs.first {
             found = (bag, pack)
         }
-        return PackEntry(date: Date(), configuration: configuration, bag: found?.bag, pack: found?.pack, signedIn: signedIn)
+        return PackEntry(date: Date(), configuration: configuration, bag: found?.bag, pack: found?.pack, signedIn: signedIn, syncedAt: PIBStore.summarySavedAt)
     }
 }
 
@@ -86,15 +98,19 @@ struct PackWidgetView: View {
             .containerBackground(c.background.opacity(style.backgroundOpacity), for: .widget)
     }
 
-    // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 다 못 보여 주면 마지막 한 줄은 "외 N개"에 쓴다
+    // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 다 못 보여 주면 마지막 한 줄은 "외 N개"에 쓴다.
+    // 맨 아래 새로고침 줄(시각 + ↻) 높이도 빼고 계산한다
     private func rowLimit(height: CGFloat, itemCount: Int) -> Int {
         let s = style.scale
         let rowH = 14 * s * 1.3 + rowSpacing
         var header = 15 * s * 1.3 + rowSpacing
         if family != .systemSmall { header += 11 * s * 1.3 + rowSpacing }
+        header += footerHeight + rowSpacing
         let fits = max(1, Int((height - header + rowSpacing) / rowH))
         return itemCount > fits ? max(1, fits - 1) : fits
     }
+
+    private var footerHeight: CGFloat { max(20, 11 * style.scale * 1.3) }
 
     @ViewBuilder
     private func content(_ c: PIBPalette) -> some View {
@@ -135,8 +151,12 @@ struct PackWidgetView: View {
                     .font(style.font(11)).foregroundStyle(left.isEmpty ? c.brand : c.sub)
             }
             Spacer(minLength: 0)
+            RefreshFooter(syncedAt: entry.syncedAt, style: style, c: c, height: footerHeight) {
+                Button(intent: RefreshWidgetIntent()) { RefreshIcon(style: style, c: c) }.buttonStyle(.plain)
+            }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .widgetURL(pibBagURL(bag.id))
     }
 
     private func message(_ text: String, _ c: PIBPalette) -> some View {
@@ -174,6 +194,45 @@ struct ItemRow: View {
     }
 }
 
+// 맨 아래 새로고침 줄(홈 위젯 · 잠금화면 실시간 현황 공용): "1분 15초 전" + ↻ 버튼.
+// 시각은 Text(.relative)라 위젯을 다시 그리지 않아도 저절로 올라간다. 버튼은 부르는 쪽이 넣는다(위젯 · 실시간 현황의 동작이 다름)
+struct RefreshFooter<Trailing: View>: View {
+    let syncedAt: Date?
+    let style: PIBStyle
+    let c: PIBPalette
+    var height: CGFloat = 20
+    @ViewBuilder let trailing: () -> Trailing
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let syncedAt {
+                (Text(syncedAt, style: .relative) + Text(" 전"))
+                    .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
+            } else {
+                Text("새로고침해 주세요").font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            trailing()
+        }
+        .frame(height: height)
+    }
+}
+
+struct RefreshIcon: View {
+    let style: PIBStyle
+    let c: PIBPalette
+
+    var body: some View {
+        Image(systemName: "arrow.clockwise")
+            .font(.system(size: 13 * style.scale, weight: .semibold))
+            .foregroundStyle(c.sub)
+            // 손가락으로 누르기 쉽게 누르는 자리는 넓게
+            .frame(width: 28, height: 22, alignment: .trailing)
+            .contentShape(Rectangle())
+            .accessibilityLabel("새로고침")
+    }
+}
+
 struct PackInBagWidget: Widget {
     let kind: String = "PackInBagWidget"
 
@@ -194,7 +253,9 @@ struct LockWidgetView: View {
     let entry: PackEntry
 
     var body: some View {
-        content.containerBackground(.clear, for: .widget)
+        content
+            .containerBackground(.clear, for: .widget)
+            .widgetURL(entry.bag.flatMap { pibBagURL($0.id) })
     }
 
     @ViewBuilder
@@ -220,6 +281,8 @@ struct LockWidgetView: View {
                         .font(.caption)
                     if let next = pack.items.first(where: { !$0.checked }) {
                         Text(next.text).font(.caption).lineLimit(1).foregroundStyle(.secondary)
+                    } else if let syncedAt = entry.syncedAt {
+                        (Text(syncedAt, style: .relative) + Text(" 전")).font(.caption2).lineLimit(1).foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

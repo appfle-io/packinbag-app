@@ -98,6 +98,40 @@ export async function detachPushToken(req: Request): Promise<void> {
   await adminDb().collection(DEVICE_TOKENS).doc(hashToken(token)).update({ apns: FieldValue.delete() });
 }
 
+// ---- 잠금화면 실시간 현황 푸시 토큰(2026-10-11, B-5) ----------------------------------------
+// 기기당 하나만 떠 있다(새로 띄우면 이전 것을 내린다) → deviceTokens/{hash}.apnsLive = { token, bagId, packId, env, updatedAt }.
+// Cloud Functions(functions/src/live.ts)가 가방이 바뀔 때 apnsLive.bagId로 찾아 잠금화면을 바로 고친다
+export interface DeviceLive {
+  token: string;
+  bagId: string;
+  packId: string;
+  env: "sandbox" | "production";
+}
+
+export function parseDeviceLive(body: unknown): DeviceLive | null {
+  const b = (body ?? {}) as { token?: unknown; bagId?: unknown; packId?: unknown; env?: unknown };
+  const token = typeof b.token === "string" ? b.token.trim().toLowerCase() : "";
+  if (!/^[0-9a-f]{32,400}$/.test(token)) return null;
+  const bagId = typeof b.bagId === "string" ? b.bagId : "";
+  const packId = typeof b.packId === "string" ? b.packId : "";
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(bagId) || !packId || packId.length > 128) return null;
+  if (b.env !== "sandbox" && b.env !== "production") return null;
+  return { token, bagId, packId, env: b.env };
+}
+
+export async function attachLiveToken(req: Request, live: DeviceLive): Promise<void> {
+  await adminDb()
+    .collection(DEVICE_TOKENS)
+    .doc(hashToken(tokenFromRequest(req)))
+    .update({ apnsLive: { ...live, updatedAt: new Date().toISOString() } });
+}
+
+export async function detachLiveToken(req: Request): Promise<void> {
+  const token = tokenFromRequest(req);
+  if (!token) return;
+  await adminDb().collection(DEVICE_TOKENS).doc(hashToken(token)).update({ apnsLive: FieldValue.delete() });
+}
+
 // 토큰을 확인하고 하루 횟수를 하나 쓴다. 통과하면 uid
 export async function verifyDeviceRequest(req: Request): Promise<string> {
   const token = tokenFromRequest(req);

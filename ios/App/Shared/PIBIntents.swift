@@ -57,16 +57,54 @@ struct ToggleItemLiveIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        guard let current = PIBStore.item(bagId: bagId, packId: packId, itemId: itemId) else { return .result() }
-        let next = !current.checked
+        // 지금 잠금화면에 보이는 값을 기준으로 뒤집는다(서버가 원격으로 고쳤을 수 있어 요약보다 최신일 수 있다, 10/11)
+        let next: Bool
+        if let shown = await PIBLiveActivity.toggle(bagId: bagId, packId: packId, itemId: itemId) {
+            next = shown
+        } else {
+            guard let current = PIBStore.item(bagId: bagId, packId: packId, itemId: itemId) else { return .result() }
+            next = !current.checked
+        }
         PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: next)
         PIBStore.enqueue(bagId: bagId, packId: packId, itemId: itemId, checked: next)
-        await PIBLiveActivity.updateAll()
         PIBWidgets.reload()
         if await PIBSync.flush() {
             await PIBLiveActivity.updateAll()
             PIBWidgets.reload()
         }
+        return .result()
+    }
+}
+
+// 위젯의 새로고침 버튼(10/11): 위젯 확장 안에서 서버 최신 요약을 받는다. 자동 새로고침 주기는 없다(사용자가 누를 때만)
+@available(iOS 17.0, *)
+struct RefreshWidgetIntent: AppIntent {
+    static let title: LocalizedStringResource = "위젯 새로고침"
+    static let isDiscoverable = false
+
+    init() {}
+
+    func perform() async throws -> some IntentResult {
+        if !PIBStore.pending().isEmpty { await PIBSync.flush() }
+        try? await PIBAPI.refreshSummary()
+        PIBWidgets.reload()
+        return .result()
+    }
+}
+
+// 잠금화면 실시간 현황의 새로고침 버튼: 실시간 현황을 고칠 수 있는 앱 프로세스에서 돈다
+@available(iOS 17.0, *)
+struct RefreshLiveIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "잠금화면 새로고침"
+    static let isDiscoverable = false
+
+    init() {}
+
+    func perform() async throws -> some IntentResult {
+        if !PIBStore.pending().isEmpty { await PIBSync.flush() }
+        try? await PIBAPI.refreshSummary()
+        await PIBLiveActivity.updateAll()
+        PIBWidgets.reload()
         return .result()
     }
 }

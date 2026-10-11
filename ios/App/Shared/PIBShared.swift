@@ -8,8 +8,14 @@ import WidgetKit
 enum PIB {
     static let appGroup = "group.com.appfle.packinbag"
     static var defaults: UserDefaults { UserDefaults(suiteName: appGroup) ?? .standard }
-    // 위젯이 이 시간보다 오래된 요약을 보면 서버에서 다시 받는다
-    static let staleAfter: TimeInterval = 15 * 60
+    // 위젯 자동 새로고침 주기(안전망): 이 시간보다 오래된 요약을 보면 서버에서 다시 받는다(10/11 15분 → 30분)
+    static let staleAfter: TimeInterval = 30 * 60
+    // 푸시 환경: Xcode에서 바로 설치(Debug) = 개발용 APNs, Archive(Release → TestFlight · App Store) = 운영 APNs
+    #if DEBUG
+    static let apnsEnvironment = "sandbox"
+    #else
+    static let apnsEnvironment = "production"
+    #endif
 }
 
 struct PIBItem: Codable, Hashable {
@@ -96,6 +102,12 @@ enum PIBStore {
     static var summaryAge: TimeInterval {
         let t = PIB.defaults.double(forKey: savedAtKey)
         return t == 0 ? .infinity : Date().timeIntervalSince1970 - t
+    }
+
+    // 마지막으로 서버 · 앱에서 최신 내용을 받은 시각(위젯 · 실시간 현황의 "N분 전"). 위젯에서 누른 체크는 바꾸지 않는다
+    static var summarySavedAt: Date? {
+        let t = PIB.defaults.double(forKey: savedAtKey)
+        return t == 0 ? nil : Date(timeIntervalSince1970: t)
     }
 
     static func bag(_ bagId: String) -> PIBBag? {
@@ -220,6 +232,16 @@ enum PIBAPI {
     static func registerPush(token: String, environment: String, alerts: Bool) async throws {
         _ = try await request("/api/native/push-token", method: "POST",
                               body: ["token": token, "env": environment, "alerts": alerts])
+    }
+
+    // 실시간 현황 푸시 토큰(다른 멤버 체크를 서버가 잠금화면에 바로 반영, 2026-10-11)
+    static func registerLive(token: String, bagId: String, packId: String) async throws {
+        _ = try await request("/api/native/live-token", method: "POST",
+                              body: ["token": token, "bagId": bagId, "packId": packId, "env": PIB.apnsEnvironment])
+    }
+
+    static func clearLive() async {
+        _ = try? await request("/api/native/live-token", method: "DELETE")
     }
 }
 
