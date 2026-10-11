@@ -9,6 +9,7 @@
     "out/**",
     "dist/**",
     "docs/**",
+    "functions/**",
     "*.py"
   ]
 }

@@ -20,6 +20,8 @@ const firebaseConfig = {
 
 // Next.js는 파일을 여러 번 로드할 수 있어서, 이미 초기화됐으면 재사용
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+// Cloud Functions 호출(lib/v2/pushTest.ts) 등 다른 Firebase 서비스를 열 때
+export const firebaseApp = app;
 
 export const auth = getAuth(app);
 

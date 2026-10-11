@@ -1,0 +1,21 @@
+{
+  "name": "packinbag-functions",
+  "private": true,
+  "description": "팩인백 Cloud Functions - 서버 푸시(APNs) (2026-10-11)",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "deploy": "npm run build && cd .. && npx firebase-tools deploy --only functions",
+    "logs": "cd .. && npx firebase-tools functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

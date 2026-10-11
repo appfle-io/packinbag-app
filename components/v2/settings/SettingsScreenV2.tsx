@@ -36,6 +36,7 @@ import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isNativePlatform } from "@/lib/purchaseService";
+import { isPushTestAvailable, sendTestPush } from "@/lib/v2/pushTest";
 import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // AppShell이 넘기는 props.
@@ -124,6 +125,21 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [pushTesting, setPushTesting] = useState(false);
+  const pushTestAvailable = useMemo(() => !isOfflineMode && isPushTestAvailable(), [isOfflineMode]);
+  const runPushTest = async () => {
+    if (pushTesting) return;
+    setPushTesting(true);
+    show("5초 뒤에 알림이 와요. 홈 화면으로 나가 보세요");
+    try {
+      show(await sendTestPush());
+    } catch (err) {
+      console.error("[팩인백] 테스트 알림 실패:", err);
+      show("테스트 알림을 보내지 못했어요");
+    } finally {
+      setPushTesting(false);
+    }
+  };
 
   const offlineSummary = useMemo(
     () => getOfflineDataSummary(),
@@ -375,6 +391,14 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             }}
           />
           <ListRow title="버전 정보" trailing={`v${APP_VERSION}`} onClick={() => setView("version")} chevron />
+          {/* 서버 푸시 확인용(iOS 1.5 앱만). B-3 설정 > 알림이 생기면 그쪽으로 옮긴다 */}
+          {pushTestAvailable && (
+            <ListRow
+              title="테스트 알림 보내기"
+              subtitle={pushTesting ? "보내는 중…" : "이 기기로 알림이 오는지 확인해요"}
+              onClick={() => guard(runPushTest)}
+            />
+          )}
           <ListRow divider={false} title="오픈소스 라이선스" onClick={() => setView("licenses")} chevron />
         </section>
 

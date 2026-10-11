@@ -102,6 +102,11 @@
    - env는 `#if DEBUG` sandbox / Release production. 플러그인은 B-6 알림 누름을 웹에서 받으려고 지금 넣어 둠(Build 5에 포함되면 이후는 웹 배포만으로), foreground 배너 없음
    - 알림 권한 요청 시점은 B-3(설정 > 알림)에서. 지금은 로컬 알림을 켜며 허용한 사람만 alerts true
 2. Firebase Cloud Functions(Blaze) 새로: `functions/` 폴더, APNs .p8(Key ID GT8XUF9U3R · Team 2ZHYLWBV2H)을 Secret Manager에. APNs 직접(HTTP/2) vs FCM 결정
+   - ✅ 10/11: **APNs 직접**(토큰이 APNs 원본이라 FCM 불필요). Secret `APNS_KEY_P8` 등록 완료(version 1)
+   - `functions/`(Node 22, firebase-functions v6, 리전 asia-northeast3): `src/apns.ts`(JWT ES256 50분 재사용, HTTP/2, env별 호스트, 410·BadDeviceToken 등 = 죽은 토큰), `src/devices.ts`(uid로 deviceTokens 찾기 · 보내기 · 죽은 토큰의 apns 지우기, alert는 alerts true 기기만), `src/index.ts`(`sendTestPush` 호출형 - 5초 뒤 내 기기에 테스트 알림)
+   - 웹: 설정 > 정보 > "테스트 알림 보내기"(`lib/v2/pushTest.ts`, iOS 1.5 앱만, 권한 없으면 물어봄). B-3에서 설정 > 알림으로 옮김
+   - 루트 tsconfig·knip에서 functions 제외, `.gitignore`에 functions/lib·node_modules·`*.p8`
+   - 배포: `cd functions && npm install && cd .. && npx firebase-tools deploy --only functions`(predeploy가 build)
 3. `bags/{bagId}` onUpdate 트리거 → 다른 멤버에게 10분 묶음 알림(추가 · 체크 · "다 쌌어요"), 담당 지정(assigneeUid 바뀜), 새 멤버(memberIds 늘어남 → 그룹장). 내 변경은 안 보냄, 설정 > 알림 종류별 끄기 · 가방별 끄기
 4. 같은 트리거에서 조용한 푸시(content-available) → 앱이 `/api/native/summary` 받아 위젯 갱신
 5. 실시간 현황 원격 갱신: `Activity.request(pushType: .token)` → 토큰을 서버에 → 다른 멤버가 체크하면 APNs liveactivity 푸시

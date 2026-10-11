@@ -70,3 +70,8 @@ AGENTS.md
 # Firestore backup (user data - never commit, scripts/backup-firestore.mjs)
 /backups/
 
+# Cloud Functions(functions/, 2026-10-11) - 빌드 결과·의존성, APNs 키는 Secret Manager에만
+/functions/node_modules/
+/functions/lib/
+*.p8
+
