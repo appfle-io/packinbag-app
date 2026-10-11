@@ -69,6 +69,10 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
+  // 내 변경 번호. 저장이 끝났을 때 그 사이 새 변경이 없을 때만 dirty를 내린다(2026-10-11).
+  // 예전에는 저장 A가 끝나면 무조건 dirty=false라, A가 날아가는 동안 체크한 B가 대기 중인데도 "변경 없음"이 됐다.
+  // 그 직후 A의 스냅샷(B 체크 전)이 오면 그대로 덮어써 B 체크가 풀렸다(팩의 마지막 아이템을 빠르게 체크할 때 잘 보임)
+  const editSeqRef = useRef(0);
   const isApplyingRemoteRef = useRef(false);
   const skipFirstRef = useRef(true);
   const hasConfirmedNewRef = useRef(false);
@@ -144,12 +148,15 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
       if (!isDirtyRef.current) return;
     }
     isDirtyRef.current = true;
+    editSeqRef.current += 1;
     if (timerRef.current) clearTimeout(timerRef.current);
     const delay = isNewRef.current && !hasConfirmedNewRef.current ? 0 : AUTOSAVE_DEBOUNCE_MS;
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
+      const seq = editSeqRef.current;
       persist(bag, false).finally(() => {
-        isDirtyRef.current = false;
+        // 저장하는 동안 새 변경이 생겼으면(다음 저장 대기 중) 아직 dirty다
+        if (editSeqRef.current === seq && !timerRef.current) isDirtyRef.current = false;
       });
     }, delay);
     return () => {
@@ -165,8 +172,11 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      isDirtyRef.current = false;
-      persist(bagRef.current, true);
+      // 저장이 끝날 때까지는 dirty로 둔다 - 그 사이 이전 스냅샷이 와도 덮어쓰지 않고 합치게
+      const seq = editSeqRef.current;
+      persist(bagRef.current, true).finally(() => {
+        if (editSeqRef.current === seq && !timerRef.current) isDirtyRef.current = false;
+      });
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();

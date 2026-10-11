@@ -77,4 +77,40 @@
 - 앱: `AppDelegate.swift`에 `MainViewController`(Main.storyboard 최상위) · `PackInBagNativePlugin` · 단축어 `PackInBagShortcuts`
 - 웹: 더보기 "챙길 때 > 잠금화면에 띄우기" → `LiveActivitySheet.tsx`(팩 · 배경 · 글꼴 · 글자 크기, 이 기기에 기억)
 - 남은 것: 서버 푸시(APNs - 공유 묶음 · 담당 · 새 멤버 알림 + 위젯 조용한 갱신 + 실시간 현황 원격 갱신), 위젯 글꼴 파일
+- 10/10 후속 수정: 위젯 체크는 위젯 확장에서 바로(`ToggleItemIntent` AppIntent) + 못 보낸 체크 큐(`PIBStore.pending` · `PIBSync.flush`, 거절되면 되돌림), 잠금화면은 `ToggleItemLiveIntent`. 취소선은 overlay로 직접. 줄 수는 위젯 높이 · 글자 크기로 자동. 실시간 현황 여백 20/18 · 투명도(p100/80/60/40, 위젯 편집에도). 글꼴은 코드로 등록 + 가족 이름으로 찾기(`PIBFonts`), 파일은 `ios/App/PackInBagWidget/Fonts/`
+
+## 9. 다음 채팅에서 이어서 (10/10 기준)
+
+**10/11 버그 수정(웹 3 · iOS 1)**
+- 팩 마지막 아이템을 체크하면 풀림: 저장 A가 끝날 때 dirty를 무조건 내려, 그 사이 체크한 B가 A의 스냅샷에 덮였다(공유 가방 트랜잭션에서 잘 보임) → `useBagDocument` 변경 번호(`editSeqRef`)로 새 변경이 없을 때만 dirty 해제
+- 구글 로그인 때 기존 계정인데 닉네임 화면이 잠깐: 로그아웃 때 캐시를 지워 `ensureUserDoc`의 내 쓰기(닉네임 없음) 스냅샷이 먼저 옴 → users 구독 `includeMetadataChanges`, 닉네임 없는 캐시·대기 쓰기 스냅샷은 서버 답까지 로딩 유지
+- 로그아웃하면 오프라인 모드로: 세션 없음 + 연결 확인 실패 → 자동 오프라인은 **앱 시작 때만**(`authResolvedOnceRef`). 로그아웃 뒤엔 항상 로그인 화면
+- 아이콘 누르면 스플래시가 확대됐다 줄어듦: `LaunchScreen.storyboard`가 정사각 이미지를 꽉 채워(aspectFill) 로고가 웹(104pt)의 약 2배 → 가운데 404pt 고정(로고 ≈104pt), 흰 바탕. 런치 화면은 iOS가 캐시하니 앱을 지웠다 다시 설치해서 확인
+먼저 확인: 사용자가 10/10 마지막 빌드(여백 · 투명도 · 글꼴)를 테스트했는지, 글꼴 zip(프리텐다드 · 개구 · D2코딩) + 지마켓 산스 TTF(Medium · Bold)를 `Fonts/`에 넣었는지, 커밋·푸시했는지
+
+**A. 테스트 결과 반영**
+- 위젯: 체크 즉시 반영 · 취소선 · 줄 수 자동 · 배경/투명도/글꼴/글자 크기 · 잠금화면 위젯(원형 · 한 줄 · 사각형)
+- 실시간 현황: 여백 · 투명도 · 잠금화면 체크 · 다 챙기면 자동 종료 · 다이내믹 아일랜드
+- 단축어: "빠른팩에 입력"(위 입력창 → 빠른팩) + "팩인백 새로고침" 이어 붙이기, Siri
+- 로그아웃 → 위젯이 "로그인하면…"로 바뀌는지, 다른 계정 로그인 시 예전 계정 내용이 안 보이는지
+- 알려진 한계: 요약은 최근 가방 30개만(그 밖 가방은 실시간 현황 "팩을 찾을 수 없어요" 가능), 홈 위젯 투명도는 iOS가 배경화면을 비추는지 기기에서 확인 필요
+
+**B. 서버 푸시(3단계 · 5단계 남은 부분)**
+1. `@capacitor/push-notifications@^6` 설치 + `capacitor.config.ts` includePlugins에 추가, 앱 푸시 토큰을 서버에 저장(기기 토큰 문서에 묶기 또는 `users/{uid}/pushTokens`)
+2. Firebase Cloud Functions(Blaze) 새로: `functions/` 폴더, APNs .p8(Key ID GT8XUF9U3R · Team 2ZHYLWBV2H)을 Secret Manager에. APNs 직접(HTTP/2) vs FCM 결정
+3. `bags/{bagId}` onUpdate 트리거 → 다른 멤버에게 10분 묶음 알림(추가 · 체크 · "다 쌌어요"), 담당 지정(assigneeUid 바뀜), 새 멤버(memberIds 늘어남 → 그룹장). 내 변경은 안 보냄, 설정 > 알림 종류별 끄기 · 가방별 끄기
+4. 같은 트리거에서 조용한 푸시(content-available) → 앱이 `/api/native/summary` 받아 위젯 갱신
+5. 실시간 현황 원격 갱신: `Activity.request(pushType: .token)` → 토큰을 서버에 → 다른 멤버가 체크하면 APNs liveactivity 푸시
+6. 알림 눌렀을 때 그 가방 열기(로컬 알림과 같은 방식), 위젯 탭하면 그 가방 열기(`packinbag://` URL 스킴 추가)
+
+**C. 1.5 제출 전 마무리**
+- 앱 개인정보(App Store Connect "앱이 수집하는 개인정보")·처리방침 `app/privacy`에 푸시 토큰 · 기기 토큰 추가, 처리방침 URL을 seeuson.com으로
+- 심사 메모 "Native features"에 local notifications · push · widgets · Live Activities · Shortcuts 추가, 앱 설명에 "알림 · 위젯 · 잠금화면" 단락
+- FAQ(`lib/faqs.ts`) "푸시 알림 준비 중" 답변 · 여행 전용 말투 정리, 설정 > 버전 정보(CHANGELOG) 1.5 항목
+- 스크린샷에 위젯 · 잠금화면 한 장 넣을지(선택)
+- Archive → TestFlight(Build 5) → 출시가이드 A-3 점검표 → A-4 제출
+
+**D. 나중에**
+- AppShell · AuthProvider 기존 eslint 오류(set-state-in-effect) 정리(기본 lint 범위 밖)
+- 결제 도입 시 Capacitor 8 + purchases-capacitor 13.x 업그레이드 먼저(출시가이드 B-6)
 - 4·5가 길어지면 1.6으로 넘길 수 있음

@@ -400,8 +400,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubMaster();
   }, [user]);
 
+  // 앱을 켜고 처음 받는 로그인 상태인지. "세션 없음 + 인터넷 없음 → 바로 오프라인 모드"는 시작할 때만 한다.
+  // 로그아웃·탈퇴 뒤에는 항상 로그인 화면으로(2026-10-11). 끊겨 있으면 로그인 화면이 "오프라인 모드로 시작"을 보여 준다
+  const authResolvedOnceRef = useRef(false);
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      const isStartup = !authResolvedOnceRef.current;
+      authResolvedOnceRef.current = true;
       // 1. 유효한 로그인 계정 세션이 감지된 경우:
       // 기존 오프라인 플래그(pib_offline_mode)에 가로막히지 않고 세션을 최우선 적용.
       // 케이스 1-2(오프라인 캐시 이어쓰기), 3-1(로그인 후 계정 진입), 3-2(자동 동기화) 완벽 보장.
@@ -435,6 +441,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setRawProfile(null);
 
+      if (!isStartup) {
+        setLoading(false);
+        return;
+      }
+
       // 세션이 없는데 인터넷(폐쇄망 포함)이 안 되면 모든 플랫폼에서 바로 오프라인 모드로 시작한다.
       // 나중에 연결되면 연결 줄의 "로그인"으로 계정에 합친다(lib/v2/connectivity, ConnectionBar). 확인하는 동안은 스플래시
       recheckConnectivity(1500).then((c) => {
@@ -451,16 +462,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || isOfflineMode) return;
     const ref = doc(db, "users", user.uid);
     // 오프라인 상태이거나 네트워크 지연 시 스플래시 화면이 무한정 멈추지 않도록 안전 타이머 설정
+    // 닉네임이 없는 캐시·내 쓰기 스냅샷은 서버 답을 기다린다(아래). 끊겨서 서버 답이 안 오면 안전 타이머가 그것을 쓴다
+    let deferred: UserProfile | null = null;
     const safetyTimer = setTimeout(() => {
+      if (deferred) setRawProfile(deferred);
       setLoading(false);
     }, 2500);
 
     const unsubDoc = onSnapshot(
       ref,
+      // 캐시 → 서버 확인처럼 내용은 같고 출처만 바뀌는 스냅샷도 받는다(읽기 비용 없음)
+      { includeMetadataChanges: true },
       (snap) => {
-        clearTimeout(safetyTimer);
         const data = snap.data();
-        setRawProfile({
+        const next: UserProfile = {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName,
@@ -525,7 +540,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           premiumPurchase: data?.premiumPurchase as UserProfile["premiumPurchase"],
           // 가방 알림(2026-10-10)
           bagReminders: data?.bagReminders as UserProfile["bagReminders"],
-        });
+        };
+        // 구글·애플 로그인 직후: 로그아웃 때 캐시를 지워서, ensureUserDoc(이메일·이름만 merge)의 내 쓰기만 담긴
+        // 스냅샷(닉네임 없음)이 먼저 온다. 이걸 믿으면 기존 계정인데 "닉네임 정하기"가 잠깐 뜨니,
+        // 닉네임이 없고 서버에서 확인된 값이 아니면 로딩을 유지한다(2026-10-11)
+        if (!next.nickname && (snap.metadata.fromCache || snap.metadata.hasPendingWrites)) {
+          deferred = next;
+          return;
+        }
+        clearTimeout(safetyTimer);
+        deferred = null;
+        setRawProfile(next);
         setLoading(false);
       },
       (err) => {
