@@ -215,6 +215,12 @@ enum PIBAPI {
     static func revoke(token: String, base: String) async {
         _ = try? await request("/api/native/device-token", method: "DELETE", token: token, base: base)
     }
+
+    // 푸시(APNs) 토큰을 이 기기 토큰에 붙인다(앱 AppDelegate PIBPush가 부름, 2026-10-11)
+    static func registerPush(token: String, environment: String, alerts: Bool) async throws {
+        _ = try await request("/api/native/push-token", method: "POST",
+                              body: ["token": token, "env": environment, "alerts": alerts])
+    }
 }
 
 enum PIBWidgets {

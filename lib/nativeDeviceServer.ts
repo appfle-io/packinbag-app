@@ -6,6 +6,7 @@
 // - Firestore에는 토큰 원문이 아니라 SHA-256만 저장한다(deviceTokens/{hash}, 클라이언트 규칙 없음 = 서버만)
 // - 로그아웃 · 다른 계정 로그인 때 앱이 지운다(DELETE). 토큰마다 하루 호출 횟수 제한
 import { createHash, randomBytes } from "crypto";
+import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebaseAdmin";
 
 export const DEVICE_TOKENS = "deviceTokens";
@@ -59,6 +60,42 @@ export async function revokeDeviceToken(req: Request): Promise<void> {
   const token = tokenFromRequest(req);
   if (!token) return;
   await adminDb().collection(DEVICE_TOKENS).doc(hashToken(token)).delete();
+}
+
+// ---- 푸시(APNs) 토큰(2026-10-11, 1.5 빌드부터) -------------------------------------------------
+// 앱이 APNs에 등록해 받은 푸시 토큰을 그 기기의 deviceTokens 문서에 붙인다(apns 필드).
+// - 로그아웃·계정 전환 때 기기 토큰 문서가 지워지므로 푸시 토큰도 같이 사라진다(다른 계정 알림이 오지 않게)
+// - 같은 푸시 토큰이 다른 문서에 남아 있으면(예전 계정 토큰 삭제 실패) 거기서는 떼 낸다
+// - env: Xcode에서 바로 설치한 빌드는 sandbox, TestFlight·App Store는 production(보낼 APNs 서버가 다르다)
+// - alerts: 알림 표시 권한이 있는지(없으면 보이는 알림은 보내지 않고 조용한 푸시만)
+// Cloud Functions는 deviceTokens를 uid로 찾아 apns가 있는 기기에 보낸다
+export interface DevicePush {
+  token: string;
+  env: "sandbox" | "production";
+  alerts: boolean;
+}
+
+export function parseDevicePush(body: unknown): DevicePush | null {
+  const b = (body ?? {}) as { token?: unknown; env?: unknown; alerts?: unknown };
+  const token = typeof b.token === "string" ? b.token.trim().toLowerCase() : "";
+  if (!/^[0-9a-f]{64,200}$/.test(token)) return null;
+  if (b.env !== "sandbox" && b.env !== "production") return null;
+  return { token, env: b.env, alerts: b.alerts === true };
+}
+
+// verifyDeviceRequest를 통과한 요청에서만 부른다
+export async function attachPushToken(req: Request, push: DevicePush): Promise<void> {
+  const db = adminDb();
+  const id = hashToken(tokenFromRequest(req));
+  await db.collection(DEVICE_TOKENS).doc(id).update({ apns: { ...push, updatedAt: new Date().toISOString() } });
+  const dupes = await db.collection(DEVICE_TOKENS).where("apns.token", "==", push.token).get();
+  await Promise.all(dupes.docs.filter((d) => d.id !== id).map((d) => d.ref.update({ apns: FieldValue.delete() })));
+}
+
+export async function detachPushToken(req: Request): Promise<void> {
+  const token = tokenFromRequest(req);
+  if (!token) return;
+  await adminDb().collection(DEVICE_TOKENS).doc(hashToken(token)).update({ apns: FieldValue.delete() });
 }
 
 // 토큰을 확인하고 하루 횟수를 하나 쓴다. 통과하면 uid

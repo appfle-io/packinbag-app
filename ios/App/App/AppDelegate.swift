@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import AppIntents
 import ActivityKit
+import UserNotifications
 
 // iOS 27 SDK(Xcode 27)부터 UIScene 생명주기를 쓰지 않는 앱은 실행되지 않는다(2026-10-10).
 // 화면(window)은 SceneDelegate가 갖고, Info.plist의 UIApplicationSceneManifest가 Main 스토리보드로 첫 화면을 만든다.
@@ -12,7 +13,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // 로그인된 기기면 켤 때마다 APNs에 등록한다(토큰이 바뀌면 서버에 올림 - 애플 권장)
+        if PIBStore.token != nil { PIBPush.register() }
         return true
+    }
+
+    // ---- 푸시(APNs) 등록 결과(2026-10-11) ----
+    // Capacitor 푸시 플러그인(@capacitor/push-notifications)에도 알려 주고, 서버 저장은 네이티브가 직접 한다
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+        PIBPush.didRegister(deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+        print("[팩인백] 푸시 등록 실패:", error.localizedDescription)
     }
 
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
@@ -55,6 +70,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // 유니버설 링크 (예전 AppDelegate application(_:continue:restorationHandler:))
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         continueActivity(userActivity)
+    }
+
+    // 앱으로 돌아올 때: 알림 권한을 설정 앱에서 바꾼 경우 등 바뀐 게 있을 때만 서버에 알린다(바뀐 게 없으면 네트워크 안 함)
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        Task { await PIBPush.upload() }
     }
 
     private func openURL(_ context: UIOpenURLContext) {
@@ -115,6 +135,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         if PIBStore.uid != uid { PIBStore.clearSession() }
         PIBStore.setSession(uid: uid, token: token, apiBase: apiBase)
         PIBWidgets.reload()
+        // 새 기기 토큰에 푸시 토큰을 붙인다(등록 결과가 오면 PIBPush.didRegister → 업로드)
+        PIBPush.register()
         call.resolve()
     }
 
@@ -124,6 +146,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             Task { await PIBAPI.revoke(token: old, base: oldBase) }
         }
         PIBStore.clearSession()
+        // 서버의 푸시 토큰은 기기 토큰 문서와 함께 지워진다. 다음 로그인 때 다시 올리도록 표시만 지운다
+        PIBPush.forget()
         PIBWidgets.reload()
         Task {
             if #available(iOS 16.2, *) { await PIBLiveActivity.endAll() }
@@ -190,6 +214,52 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             result["packId"] = current.packId
         }
         call.resolve(result)
+    }
+}
+
+// ---- 푸시(APNs) 토큰(2026-10-11) -----------------------------------------------------------
+// 로그인하면(setSession) · 앱을 켤 때 APNs에 등록하고, 받은 토큰을 기기 토큰으로 서버에 붙인다(/api/native/push-token).
+// - 등록에는 알림 권한이 필요 없다. 권한이 없어도 조용한 푸시(위젯 갱신)는 온다. 권한 여부는 alerts로 함께 알린다
+// - 기기 토큰 · 푸시 토큰 · 환경 · 권한이 마지막으로 보낸 것과 같으면 다시 보내지 않는다
+// - 로그아웃하면 서버 쪽은 기기 토큰 문서째 지워지므로 여기서는 "보냈음" 표시만 지운다
+enum PIBPush {
+    private static let apnsKey = "pib.apnsToken"
+    private static let sentKey = "pib.apnsSent"
+
+    // Xcode에서 바로 설치(Debug) = 개발용 APNs, Archive(Release → TestFlight · App Store) = 운영 APNs
+    #if DEBUG
+    static let environment = "sandbox"
+    #else
+    static let environment = "production"
+    #endif
+
+    static func register() {
+        DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+    }
+
+    static func didRegister(_ deviceToken: Data) {
+        let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        PIB.defaults.set(hex, forKey: apnsKey)
+        Task { await upload() }
+    }
+
+    static func forget() {
+        PIB.defaults.removeObject(forKey: sentKey)
+    }
+
+    static func upload() async {
+        guard let session = PIBStore.token, let apns = PIB.defaults.string(forKey: apnsKey) else { return }
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        let alerts = status == .authorized || status == .provisional || status == .ephemeral
+        let mark = "\(session.prefix(16))|\(apns)|\(environment)|\(alerts)"
+        if PIB.defaults.string(forKey: sentKey) == mark { return }
+        do {
+            try await PIBAPI.registerPush(token: apns, environment: environment, alerts: alerts)
+            PIB.defaults.set(mark, forKey: sentKey)
+        } catch {
+            // 다음에 앱으로 돌아올 때 다시 한다
+            print("[팩인백] 푸시 토큰 업로드 실패:", error.localizedDescription)
+        }
     }
 }
 

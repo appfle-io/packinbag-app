@@ -22,6 +22,7 @@ const config: CapacitorConfig = {
     "@capacitor/app",
     "@capacitor/haptics",
     "@capacitor/local-notifications",
+    "@capacitor/push-notifications",
     "@capacitor/splash-screen",
     "@capacitor/status-bar",
     "@capgo/capacitor-social-login",
@@ -44,6 +45,11 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: "DARK",
+    },
+    // 서버 푸시(2026-10-11). 토큰 등록·서버 저장은 네이티브(AppDelegate PIBPush)가 하고, 이 플러그인은 알림을 눌렀을 때(가방 열기)
+    // 웹에서 받는 용도다. 앱을 보는 중에는 바뀐 내용이 화면에 바로 보이므로 배너를 띄우지 않는다
+    PushNotifications: {
+      presentationOptions: [],
     },
   },
 };

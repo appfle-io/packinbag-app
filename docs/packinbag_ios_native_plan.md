@@ -97,6 +97,10 @@
 
 **B. 서버 푸시(3단계 · 5단계 남은 부분)**
 1. `@capacitor/push-notifications@^6` 설치 + `capacitor.config.ts` includePlugins에 추가, 앱 푸시 토큰을 서버에 저장(기기 토큰 문서에 묶기 또는 `users/{uid}/pushTokens`)
+   - ✅ 10/11 코드 완료. **기기 토큰 문서에 묶음**: `deviceTokens/{hash}.apns = { token, env: sandbox|production, alerts, updatedAt }` → 로그아웃·계정 전환 때 같이 사라짐, 같은 푸시 토큰이 다른 문서에 있으면 떼 냄
+   - 등록·업로드는 네이티브(`AppDelegate.swift` `PIBPush`): setSession · 앱 시작 때 `registerForRemoteNotifications`(알림 권한 불필요), `POST /api/native/push-token`(Device 인증). 바뀐 게 있을 때만 올림(화면 복귀 시 권한 변화 확인)
+   - env는 `#if DEBUG` sandbox / Release production. 플러그인은 B-6 알림 누름을 웹에서 받으려고 지금 넣어 둠(Build 5에 포함되면 이후는 웹 배포만으로), foreground 배너 없음
+   - 알림 권한 요청 시점은 B-3(설정 > 알림)에서. 지금은 로컬 알림을 켜며 허용한 사람만 alerts true
 2. Firebase Cloud Functions(Blaze) 새로: `functions/` 폴더, APNs .p8(Key ID GT8XUF9U3R · Team 2ZHYLWBV2H)을 Secret Manager에. APNs 직접(HTTP/2) vs FCM 결정
 3. `bags/{bagId}` onUpdate 트리거 → 다른 멤버에게 10분 묶음 알림(추가 · 체크 · "다 쌌어요"), 담당 지정(assigneeUid 바뀜), 새 멤버(memberIds 늘어남 → 그룹장). 내 변경은 안 보냄, 설정 > 알림 종류별 끄기 · 가방별 끄기
 4. 같은 트리거에서 조용한 푸시(content-available) → 앱이 `/api/native/summary` 받아 위젯 갱신
