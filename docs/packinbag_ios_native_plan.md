@@ -96,6 +96,10 @@
 - 가방 알림: 더보기 오른쪽 글이 소식 + D-Day · 반복을 합침("소식 · D-1 · 평일 07:30", 일부만이면 "소식 일부"). 예전에는 알림만 봐서 소식을 받는데도 "꺼짐"
   - 알림 시트: "이 가방 소식 받기"(pushMutedBagIds) 아래 종류별 3개(새 멤버는 그룹장만), `UserProfile.bagPushOff[bagId]`(끈 종류). 설정 > 알림에서 끈 종류는 흐리게. Functions `wantsPush`가 bagPushOff도 봄 → **Functions 재배포 필요**
 - 비밀 파일: 프로젝트 맨 위 `_secrets/`(폴더째 gitignore) + `_secrets/README.md`에 목록. `.env.local`은 맨 위 그대로
+- 실시간 현황 잘림: iOS가 잠금화면 카드를 최대 160pt로 자름 → 아이템 2열 2줄(최대 4개), "외 N개 · 시각" 한 줄. 홈 위젯은 체크 아이템 없는 팩이면 "체크할 아이템이 없어요"
+- 잠금화면에 띄우기: 팩 맨 앞 "전체"(packId `*`, 기본값). `ContentState.itemPacks`(아이템 → 원래 팩)로 체크, 서버 `functions/src/live.ts`도 `*` 처리 → **Functions 재배포**
+  - 배경 "직접": 색 8개 + iOS 기본 색 고르기 창(`PackInBagNative.pickColor`, UIColorPickerViewController · 불투명도 포함) + 불투명도 슬라이더(20~100%). `PackActivityAttributes.bgColor/bgAlpha`, 글자색은 배경 밝기로. 투명도는 10/11 오전에 "기기에서 안 비침"으로 뺀 적 있음 → `activityBackgroundTint`에 투명도를 주는 방식으로 다시 확인
+- 버그: 실시간 현황을 다 체크한 뒤 해제가 안 됨(가방에는 해제됨). 다 챙기는 순간 `end`(5분 뒤 사라짐)를 불렀는데 끝난 화면은 고칠 수 없었다 → 다 챙겨도 `update`만 하고 `ContentState.doneAt` 기록, 5분 지나면 다음 `updateAll` 때 내림. 서버 `live.ts`도 다 챙겨도 end를 안 보냄(팩이 사라질 때만). 홈 위젯은 요약을 직접 고치는 방식이라 같은 문제 없음
 
 (아래는 10/10에 적은 계획과 그 진행 기록)
 

@@ -19,18 +19,23 @@ interface PackInBagNativePlugin {
   startLiveActivity(options: LiveActivityOptions): Promise<{ id: string }>;
   endLiveActivity(): Promise<void>;
   liveActivityState(): Promise<LiveActivityState>;
+  pickColor(options: { color?: string; alpha?: number }): Promise<{ color: string; alpha: number }>;
 }
 
-export type LiveActivityTheme = "system" | "light" | "dark";
+// custom = 직접 고른 배경색(bgColor "#RRGGBB" + bgAlpha 0.2~1, 10/11)
+export type LiveActivityTheme = "system" | "light" | "dark" | "custom";
 export type LiveActivityFont = "system" | "pretendard" | "gmarket" | "gaegu" | "d2coding";
 export type LiveActivitySize = "small" | "medium" | "large";
 
 export interface LiveActivityOptions {
   bagId: string;
+  // "*" = 가방 전체(10/11)
   packId: string;
   theme: LiveActivityTheme;
   font: LiveActivityFont;
   size: LiveActivitySize;
+  bgColor?: string;
+  bgAlpha?: number;
 }
 
 export interface LiveActivityState {
@@ -117,6 +122,16 @@ export async function getLiveActivityState(): Promise<LiveActivityState | null> 
   if (!isNativeBridgeAvailable()) return null;
   try {
     return await Native.liveActivityState();
+  } catch {
+    return null;
+  }
+}
+
+// iOS 기본 색 고르기 창(격자 · 스펙트럼 · 슬라이더 + 불투명도). 앱이 예전 빌드라 없으면 null
+export async function pickNativeColor(color: string, alpha: number): Promise<{ color: string; alpha: number } | null> {
+  if (!isNativeBridgeAvailable()) return null;
+  try {
+    return await Native.pickColor({ color, alpha });
   } catch {
     return null;
   }

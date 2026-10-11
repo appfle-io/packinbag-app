@@ -135,7 +135,11 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "startLiveActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endLiveActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "liveActivityState", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pickColor", returnType: CAPPluginReturnPromise),
     ]
+
+    // 색 고르기 창이 닫힐 때 돌려줄 호출(10/11)
+    private var colorCall: CAPPluginCall?
 
     @objc func getSession(_ call: CAPPluginCall) {
         var result: [String: Any] = ["hasToken": PIBStore.token != nil]
@@ -203,9 +207,13 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let theme = call.getString("theme") ?? "system"
         let font = call.getString("font") ?? "system"
         let size = call.getString("size") ?? "medium"
+        let bgColor = call.getString("bgColor")
+        let bgAlpha = call.getDouble("bgAlpha").map { min(1, max(0.2, $0)) }
         Task {
             do {
-                let id = try await PIBLiveActivity.start(bagId: bagId, packId: packId, theme: theme, font: font, size: size)
+                let id = try await PIBLiveActivity.start(
+                    bagId: bagId, packId: packId, theme: theme, font: font, size: size, bgColor: bgColor, bgAlpha: bgAlpha
+                )
                 call.resolve(["id": id])
             } catch {
                 call.reject(error.localizedDescription)
@@ -235,6 +243,50 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             result["packId"] = current.packId
         }
         call.resolve(result)
+    }
+
+    // iOS 기본 색 고르기 창(격자 · 스펙트럼 · 슬라이더 + 불투명도, 10/11). 잠금화면에 띄우기 "직접" 배경색
+    // { color: "#RRGGBB", alpha: 0~1 } → 닫으면 고른 값을 같은 모양으로 돌려준다
+    @objc func pickColor(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let host = self.bridge?.viewController else {
+                call.reject("화면을 찾지 못했어요")
+                return
+            }
+            let picker = UIColorPickerViewController()
+            picker.title = "배경 색"
+            picker.supportsAlpha = true
+            let alpha = CGFloat(call.getDouble("alpha") ?? 1)
+            if let color = UIColor(pibHex: call.getString("color")) {
+                picker.selectedColor = color.withAlphaComponent(alpha)
+            }
+            picker.delegate = self
+            self.colorCall?.resolve(self.colorResult(picker.selectedColor))
+            self.colorCall = call
+            host.present(picker, animated: true)
+        }
+    }
+
+    private func colorResult(_ color: UIColor) -> [String: Any] {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
+        color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let hex = String(format: "#%02X%02X%02X", Int(round(max(0, min(1, r)) * 255)), Int(round(max(0, min(1, g)) * 255)), Int(round(max(0, min(1, b)) * 255)))
+        return ["color": hex, "alpha": Double(a)]
+    }
+}
+
+extension PackInBagNativePlugin: UIColorPickerViewControllerDelegate {
+    public func colorPickerViewControllerDidFinish(_ viewController: UIColorPickerViewController) {
+        colorCall?.resolve(colorResult(viewController.selectedColor))
+        colorCall = nil
+    }
+}
+
+extension UIColor {
+    // "#RRGGBB" → 색(잘못된 값이면 nil)
+    convenience init?(pibHex: String?) {
+        guard let hex = pibHex, hex.count == 7, hex.hasPrefix("#"), let v = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        self.init(red: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: 1)
     }
 }
 

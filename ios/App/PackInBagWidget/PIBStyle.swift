@@ -127,6 +127,22 @@ struct PIBStyle {
     }
 }
 
+// 잠금화면에 띄우기 "직접" 배경색(10/11). "#RRGGBB" → 색 + 밝은지(글자를 어둡게 쓸지)
+struct PIBCustomColor {
+    let color: Color
+    let isLight: Bool
+
+    init?(hex: String?) {
+        guard let hex, hex.count == 7, hex.hasPrefix("#"), let v = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        let r = Double((v >> 16) & 0xFF) / 255
+        let g = Double((v >> 8) & 0xFF) / 255
+        let b = Double(v & 0xFF) / 255
+        color = Color(red: r, green: g, blue: b)
+        // 사람 눈 기준 밝기(대략). 중간보다 밝으면 라이트 글자색(진한 글자)
+        isLight = 0.299 * r + 0.587 * g + 0.114 * b > 0.6
+    }
+}
+
 // "2026-10-14" → "D-3" / "D-Day" / "D+2"
 func pibDDay(_ travelDate: String?) -> String? {
     guard let travelDate else { return nil }

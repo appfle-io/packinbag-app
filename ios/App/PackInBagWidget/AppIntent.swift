@@ -57,8 +57,9 @@ struct WidgetPackQuery: EntityQuery {
         if PIBStore.summary() == nil, PIBStore.token != nil {
             try? await PIBAPI.refreshSummary()
         }
-        // 가방을 아직 안 골랐으면 위젯이 보여 주는 가방(맨 앞 가방)의 팩
-        let bagId = config?.bag?.id ?? PIBStore.summary()?.bags.first?.id
+        // 가방을 아직 안 골랐으면 위젯이 보여 주는 가방(맨 앞 가방)의 팩.
+        // IntentParameterDependency는 값이 있을 때만 config를 주고, 그때 bag은 이미 풀린 값이다(? 불필요)
+        let bagId = config?.bag.id ?? PIBStore.summary()?.bags.first?.id
         return WidgetPackEntity.of(bagId: bagId)
     }
 }

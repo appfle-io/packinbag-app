@@ -187,7 +187,10 @@ struct PackWidgetView: View {
                 Text([entry.wholeBag ? "가방 전체" : bag.name, pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
             }
-            if columns == 1 {
+            if items.isEmpty {
+                // 체크 아이템이 없는 팩(글 아이템만 있거나 빈 팩, 10/11 - 예전에는 "0/0"만 보이고 비어 있었다)
+                Text("체크할 아이템이 없어요").font(style.font(13)).foregroundStyle(c.sub)
+            } else if columns == 1 {
                 ForEach(shown, id: \.id) { item in itemButton(item, bag: bag, pack: pack, c: c) }
             } else {
                 ForEach(0..<((shown.count + 1) / 2), id: \.self) { r in
