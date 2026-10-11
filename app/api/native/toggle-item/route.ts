@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         p?.id !== packId ? p : { ...p, items: items.map((i) => (i?.id === itemId ? { ...i, checked } : i)) },
       );
       const now = new Date().toISOString();
-      const patch: Record<string, unknown> = { packs: nextPacks, lastCheckedAt: now, updatedAt: now };
+      const patch: Record<string, unknown> = { packs: nextPacks, lastCheckedAt: now, updatedAt: now, editedBy: uid };
       if (data.notesV === 2) patch.packsRev = (typeof data.packsRev === "number" ? data.packsRev : 0) + 1;
 
       // 다 챙긴 순간이면 "마지막으로 다 싼 날"을 남긴다(앱과 같은 기준: 체크리스트 팩의 체크 아이템 전부)

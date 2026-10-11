@@ -171,6 +171,10 @@ function bagContentPatch(serialized: Record<string, unknown>): Record<string, un
     if (!(k in patch)) patch[k] = deleteField();
   }
   patch.updatedAt = new Date().toISOString();
+  // 누가 저장했는지(서버 푸시가 "내 변경은 나에게 안 보냄"에 씀). 화면 가방에 남아 있는 다른 사람 uid를 덮어쓴다(규칙: 본인 uid만)
+  const uid = auth.currentUser?.uid;
+  if (uid) patch.editedBy = uid;
+  else delete patch.editedBy;
   return patch;
 }
 
@@ -226,6 +230,8 @@ export async function saveSharedBagMergedRemote(
           updatedAt: new Date().toISOString(),
           notesV: NOTES_VERSION,
           packsRev: (server.packsRev ?? 0) + 1,
+          // 서버 최신본에 남아 있는 다른 사람 uid가 아니라 나(규칙: 본인 uid만, functions/src/bagEvents.ts)
+          editedBy: auth.currentUser?.uid ?? server.editedBy,
         }),
       );
       noteWrites.forEach((w) => {

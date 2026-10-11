@@ -157,6 +157,9 @@ interface AuthContextValue {
   updateDefaultBagViewMode: (mode: "pack" | "notebook") => Promise<void>;
   // 가방 하나의 내 알림 설정(null이면 지움). lib/v2/bagReminders.ts
   updateBagReminder: (bagId: string, reminder: BagReminder | null) => Promise<void>;
+  // 서버 푸시 종류별 켜기 · 가방별 끄기(2026-10-11)
+  updatePushPref: (kind: "activity" | "assign" | "member", on: boolean) => Promise<void>;
+  setBagPushMuted: (bagId: string, muted: boolean) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -540,6 +543,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           premiumPurchase: data?.premiumPurchase as UserProfile["premiumPurchase"],
           // 가방 알림(2026-10-10)
           bagReminders: data?.bagReminders as UserProfile["bagReminders"],
+          // 서버 푸시 설정(2026-10-11)
+          pushPrefs: data?.pushPrefs as UserProfile["pushPrefs"],
+          pushMutedBagIds: data?.pushMutedBagIds as string[] | undefined,
         };
         // 구글·애플 로그인 직후: 로그아웃 때 캐시를 지워서, ensureUserDoc(이메일·이름만 merge)의 내 쓰기만 담긴
         // 스냅샷(닉네임 없음)이 먼저 온다. 이걸 믿으면 기존 계정인데 "닉네임 정하기"가 잠깐 뜨니,
@@ -696,6 +702,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateBagReminder = async (bagId: string, reminder: BagReminder | null) => {
     const empty = !reminder || ((reminder.ddayOffsets?.length ?? 0) === 0 && (reminder.repeatDays?.length ?? 0) === 0);
     await writeUser({ [`bagReminders.${bagId}`]: empty ? REMOVE_FIELD : stripUndefined(reminder) }, true);
+  };
+
+  // 서버 푸시 설정(2026-10-11). 점 경로로 그 값만. 서버(functions)는 값이 없으면 켜진 것으로 본다
+  const updatePushPref = async (kind: "activity" | "assign" | "member", on: boolean) => {
+    setRawProfile((prev) => (prev ? { ...prev, pushPrefs: { ...(prev.pushPrefs ?? {}), [kind]: on } } : prev));
+    await writeUser({ [`pushPrefs.${kind}`]: on }, true);
+  };
+
+  const setBagPushMuted = async (bagId: string, muted: boolean) => {
+    const current = profile?.pushMutedBagIds ?? [];
+    const next = muted ? Array.from(new Set([...current, bagId])) : current.filter((id) => id !== bagId);
+    setRawProfile((prev) => (prev ? { ...prev, pushMutedBagIds: next } : prev));
+    await writeUser({ pushMutedBagIds: next });
   };
 
   const signUpWithEmail = async (
@@ -1543,6 +1562,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateBagViewMode,
         updateDefaultBagViewMode,
         updateBagReminder,
+        updatePushPref,
+        setBagPushMuted,
         resendVerificationEmail,
         resendVerificationByCredential,
         sendPasswordReset,

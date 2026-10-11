@@ -5,7 +5,8 @@ import { IconPlus } from "@tabler/icons-react";
 import type { Bag, BagReminder } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { Button, Chip, SectionHeader, Sheet, cx } from "@/components/v2/ui";
+import { Button, Chip, SectionHeader, Sheet, Toggle, cx } from "@/components/v2/ui";
+import { isServerPushAvailable } from "@/lib/v2/serverPush";
 import {
   DDAY_PRESETS,
   DEFAULT_DDAY_TIME,
@@ -21,7 +22,7 @@ import {
 // 내 계정에만 저장되고(다른 멤버에게는 영향 없음) 이 아이폰·아이패드가 예약한다(AppShell → syncBagNotifications).
 // 시트를 닫을 때 한 번만 저장한다. 알림 권한은 처음 켤 때 묻는다.
 export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: () => void; bag: Bag }) {
-  const { profile, updateBagReminder } = useAuth();
+  const { profile, updateBagReminder, setBagPushMuted, isOfflineMode } = useAuth();
   const { show } = useToast();
   const saved = profile?.bagReminders?.[bag.id];
   const [draft, setDraft] = useState<BagReminder>(saved ?? {});
@@ -97,6 +98,14 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
   };
 
   const timeInput = "h-10 rounded-field border border-line bg-card px-2 text-caption outline-none";
+  // 함께 쓰는 가방의 서버 푸시(2026-10-11). 누르면 바로 저장한다(닫을 때가 아니라)
+  const showPush = !isOfflineMode && bag.memberIds.length > 1 && isServerPushAvailable();
+  const pushMuted = (profile?.pushMutedBagIds ?? []).includes(bag.id);
+  const togglePush = (on: boolean) => {
+    setBagPushMuted(bag.id, !on)
+      .then(() => show(on ? "이 가방 소식을 다시 받아요" : "이 가방 소식 알림을 껐어요. 여기서 다시 켤 수 있어요"))
+      .catch(() => show("설정을 저장하지 못했어요"));
+  };
   const weekdaySet = new Set(days);
   const isWeekdays = weekdaySet.size === 5 && [1, 2, 3, 4, 5].every((d) => weekdaySet.has(d));
   const isEveryday = weekdaySet.size === 7;
@@ -108,6 +117,18 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
           <p className="m-0 rounded-card bg-fill px-4 py-3 text-caption text-sub">
             알림이 꺼져 있어요. 아이폰 설정 &gt; 팩인백 &gt; 알림에서 허용해 주세요.
           </p>
+        )}
+
+        {showPush && (
+          <section className="flex flex-col">
+            <SectionHeader>함께 쓰는 사람 소식</SectionHeader>
+            <Toggle
+              checked={!pushMuted}
+              onChange={togglePush}
+              label="이 가방 소식 받기"
+              description="추가·체크·다 쌌어요, 나에게 맡긴 아이템, 새 멤버"
+            />
+          </section>
         )}
 
         <section className="flex flex-col gap-3">

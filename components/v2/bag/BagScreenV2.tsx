@@ -51,6 +51,7 @@ import { CoachTour } from "@/components/v2/guide/CoachTour";
 import { BAG_GUIDE_STEPS, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
 import { keepScreenOnSupported, readKeepScreenOnPref, useKeepScreenOn, writeKeepScreenOnPref } from "@/lib/v2/keepAwake";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
+import { promptForSharedBag } from "@/lib/v2/serverPush";
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -192,6 +193,18 @@ export default function BagScreenV2(props: BagScreenProps) {
     if (prevPackingStateRef.current !== "packed" && packingState === "packed") successHaptic();
     prevPackingStateRef.current = packingState;
   }, [packingState]);
+
+  // 함께 쓰는 가방을 처음 열 때 iOS 알림 허용 창(한 번만). 이미 거절돼 있으면 한 번만 토스트(lib/v2/serverPush)
+  const shared = bag.memberIds.length > 1;
+  useEffect(() => {
+    // 사용 가이드가 뜨는 처음 열기에는 겹치지 않게 미룬다(다음에 가방을 열 때)
+    if (!shared || isOfflineMode || readOnly || !hasSeenBagGuide()) return;
+    const t = window.setTimeout(() => {
+      void promptForSharedBag().then((msg) => msg && show(msg));
+    }, 900);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 공유 가방이 됐을 때 한 번
+  }, [shared]);
 
   const memberNames = useMemo(
     () => Object.fromEntries(members.members.map((m) => [m.uid, m.isMe ? "나" : m.nickname])),

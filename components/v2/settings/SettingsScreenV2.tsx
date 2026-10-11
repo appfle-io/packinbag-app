@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { IconChevronRight, IconCloudUpload, IconDownload, IconUpload } from "@tabler/icons-react";
 import { useTheme, type FontScale, type ThemeMode } from "@/components/ThemeProvider";
@@ -36,7 +36,7 @@ import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isNativePlatform } from "@/lib/purchaseService";
-import { isPushTestAvailable, sendTestPush } from "@/lib/v2/pushTest";
+import { PUSH_KINDS, askNotificationPermission, getNotificationPermission, isServerPushAvailable, sendTestPush } from "@/lib/v2/serverPush";
 import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // AppShell이 넘기는 props.
@@ -108,7 +108,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     hideNotificationBell,
   } = props;
   const { mode, setMode, fontScale, setFontScale, fontFamily, setFontFamily } = useTheme();
-  const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOnlineMode, updatePackSettings } =
+  const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOnlineMode, updatePackSettings, updatePushPref } =
     useAuth();
   const { show } = useToast();
   // 계정 연동·이용권·내 URL·공지·문의는 인터넷이 필요하다(끊겨 있으면 열기 전에 알린다)
@@ -126,7 +126,27 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [pushTesting, setPushTesting] = useState(false);
-  const pushTestAvailable = useMemo(() => !isOfflineMode && isPushTestAvailable(), [isOfflineMode]);
+  // 서버 푸시(iOS 1.5 앱만). 알림 권한은 앱으로 돌아올 때마다 다시 본다(아이폰 설정에서 바꿀 수 있어서)
+  const pushAvailable = useMemo(() => !isOfflineMode && !isGuest && isServerPushAvailable(), [isOfflineMode, isGuest]);
+  const [pushPermission, setPushPermission] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pushAvailable) return;
+    const load = () => void getNotificationPermission().then(setPushPermission);
+    load();
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [pushAvailable]);
+  const allowPush = async () => {
+    const ok = await askNotificationPermission();
+    setPushPermission(await getNotificationPermission());
+    show(ok ? "알림을 받을 수 있어요" : "아이폰 설정 > 팩인백 > 알림에서 허용해 주세요");
+  };
+  const togglePush = (kind: (typeof PUSH_KINDS)[number]["kind"], label: string, on: boolean) => {
+    updatePushPref(kind, on)
+      .then(() => show(on ? `${label} 알림을 켰어요` : `${label} 알림을 껐어요. 여기서 언제든 다시 켜실 수 있어요`))
+      .catch(() => show("설정을 저장하지 못했어요"));
+  };
   const runPushTest = async () => {
     if (pushTesting) return;
     setPushTesting(true);
@@ -296,6 +316,37 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           />
         </section>
 
+        {/* 알림(서버 푸시, iOS 1.5 앱만). 서비스 알림이라 기본 켜짐 - iOS 허용 창이 옵트인. 광고성 알림은 보내지 않는다 */}
+        {pushAvailable && (
+          <section className="flex flex-col">
+            <SectionHeader>알림</SectionHeader>
+            {pushPermission === "denied" && (
+              <p className="m-0 mb-2 rounded-card bg-fill px-4 py-3 text-caption text-sub">
+                알림이 꺼져 있어요. 아이폰 설정 &gt; 팩인백 &gt; 알림에서 허용해 주세요.
+              </p>
+            )}
+            {(pushPermission === "prompt" || pushPermission === "prompt-with-rationale") && (
+              <ListRow title={<span className="font-semibold text-brand">알림 허용하기</span>} subtitle="함께 쓰는 가방 소식을 받아요" onClick={allowPush} chevron />
+            )}
+            {PUSH_KINDS.map(({ kind, label, description }) => (
+              <Toggle
+                key={kind}
+                checked={profile?.pushPrefs?.[kind] !== false}
+                onChange={(on) => togglePush(kind, label, on)}
+                label={label}
+                description={description}
+              />
+            ))}
+            <ListRow
+              divider={false}
+              title="테스트 알림 보내기"
+              subtitle={pushTesting ? "보내는 중…" : "이 기기로 알림이 오는지 확인해요"}
+              onClick={() => guard(runPushTest)}
+            />
+            <p className="m-0 pt-2 text-micro text-faint">가방마다 끄려면 가방 더보기 &gt; 알림에서 바꿔요. 광고·이벤트 알림은 보내지 않아요.</p>
+          </section>
+        )}
+
         {/* 이용권 */}
         {!isOfflineMode && (
           <section className="flex flex-col">
@@ -391,14 +442,6 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             }}
           />
           <ListRow title="버전 정보" trailing={`v${APP_VERSION}`} onClick={() => setView("version")} chevron />
-          {/* 서버 푸시 확인용(iOS 1.5 앱만). B-3 설정 > 알림이 생기면 그쪽으로 옮긴다 */}
-          {pushTestAvailable && (
-            <ListRow
-              title="테스트 알림 보내기"
-              subtitle={pushTesting ? "보내는 중…" : "이 기기로 알림이 오는지 확인해요"}
-              onClick={() => guard(runPushTest)}
-            />
-          )}
           <ListRow divider={false} title="오픈소스 라이선스" onClick={() => setView("licenses")} chevron />
         </section>
 

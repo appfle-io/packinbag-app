@@ -108,6 +108,13 @@
    - 루트 tsconfig·knip에서 functions 제외, `.gitignore`에 functions/lib·node_modules·`*.p8`
    - 배포: `cd functions && npm install && cd .. && npx firebase-tools deploy --only functions`(predeploy가 build)
 3. `bags/{bagId}` onUpdate 트리거 → 다른 멤버에게 10분 묶음 알림(추가 · 체크 · "다 쌌어요"), 담당 지정(assigneeUid 바뀜), 새 멤버(memberIds 늘어남 → 그룹장). 내 변경은 안 보냄, 설정 > 알림 종류별 끄기 · 가방별 끄기
+   - ✅ 10/11 코드 완료(결정: 10분 묶음, 추가·체크·다 쌌어요 전부, 기본 켜짐 = iOS 허용 창이 옵트인, 광고성 알림 없음)
+   - 누가 바꿨는지: 가방 문서 `editedBy`(앱 자동저장 `bagContentPatch` · 공유 트랜잭션 · 위젯 `toggle-item`이 자기 uid). 규칙: 바꿀 때는 본인 uid만
+   - `functions/src/bagEvents.ts`: `diffBag`(새 아이템 · 체크됨 · 다 쌌음 · 담당 바뀜 · 새 멤버), `enqueueActivity`(→ `pushQueue/{bagId}` actors별 합계, dueAt = 첫 활동+10분, 다 쌌으면 즉시), `flushDue`(받는 사람별로 자기 활동 빼고 문구, collapse `activity-{bagId}`), `sendImmediate`(담당 · 새 멤버)
+   - `index.ts`: `onBagUpdated`(혼자 쓰는 가방은 바로 종료), `flushBagActivity`(2분마다) → 실제 지연 10~12분
+   - 설정: `UserProfile.pushPrefs { activity, assign, member }`(없으면 켜짐) · `pushMutedBagIds`, AuthProvider 매핑 + `updatePushPref` · `setBagPushMuted`
+   - 화면: 설정 > 알림(권한 상태 · 종류별 토글 · 테스트 알림), 가방 더보기 > 알림 "이 가방 소식 받기", 끄면 토스트. 공유 가방을 처음 열 때 iOS 허용 창 1회(사용 가이드 뜨는 처음은 다음으로), 거절 상태면 토스트 1회(`lib/v2/serverPush.ts`, `pushTest.ts`는 합침)
+   - 알리지 않음: 체크 해제 · 삭제 · 이름 바꾸기 · 메모 수정, editedBy 없는 변경(옛 포터블 등)
 4. 같은 트리거에서 조용한 푸시(content-available) → 앱이 `/api/native/summary` 받아 위젯 갱신
 5. 실시간 현황 원격 갱신: `Activity.request(pushType: .token)` → 토큰을 서버에 → 다른 멤버가 체크하면 APNs liveactivity 푸시
 6. 알림 눌렀을 때 그 가방 열기(로컬 알림과 같은 방식), 위젯 탭하면 그 가방 열기(`packinbag://` URL 스킴 추가)

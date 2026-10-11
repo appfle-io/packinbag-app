@@ -220,6 +220,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // 공유 가방 활동 알림 묶음(2026-10-11, functions/src/bagEvents.ts). Cloud Functions(Admin SDK)만 쓴다
+    match /pushQueue/{bagId} {
+      allow read, write: if false;
+    }
+
     // 회원탈퇴(계정 완전 삭제) 마커. lib/accountService.ts의 deleteAllUserData가 계정을 지우기 직전에
     // 자신의 uid로 딱 한 번 쓴다. 다른 그룹원이 이 uid를 조회해서 댓글 작성자가
     // "그룹만 나갔다/강퇴됐다"가 아니라 "진짜로 회원탈퇴했다"를 구별해서 익명화 표시를 할
@@ -278,6 +283,11 @@ service cloud.firestore {
           resource.data.get('notesV', 0) != 2 ||
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['packs']) ||
           request.resource.data.get('packsRev', 0) == resource.data.get('packsRev', 0) + 1
+        ) &&
+        // 마지막으로 저장한 사람(2026-10-11, 서버 푸시가 "내 변경은 나에게 안 보냄"에 씀). 바꿀 때는 본인 uid로만
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['editedBy']) ||
+          request.resource.data.editedBy == request.auth.uid
         );
 
       // 소유자가 이 가방을 휴지통으로 보내기: trashedByOwnerAt을 null -> 값으로 바꾸는 것만

@@ -239,6 +239,9 @@ export interface Bag {
   // packsRev를 정확히 1 올려야 한다(firestore.rules) - 새 구조를 모르는 옛 앱이 본문 없는 메모를 덮어쓰지 못하게.
   notesV?: number;
   packsRev?: number;
+  // 마지막으로 이 가방을 저장한 사람 uid(2026-10-11). 앱 자동저장 · 위젯 체크가 자기 uid를 쓴다(규칙: 바꿀 때는 본인 uid만).
+  // 서버 푸시(functions/src/bagEvents.ts)가 "누가 바꿨는지"를 알고 내 변경을 나에게 보내지 않는 데 쓴다
+  editedBy?: string;
 }
 
 // 가방 보관함 폴더. 팩 폴더(Pack, type:"folder")와 달리 가방은 여러 명이 함께 쓰는
@@ -474,6 +477,11 @@ export interface UserProfile {
   // 가방별 알림 설정(2026-10-10, iOS 앱 로컬 알림 - lib/v2/bagReminders.ts). 키는 bagId.
   // 사람마다 다르므로 가방 문서가 아니라 계정에 둔다(같은 계정의 다른 기기도 같은 설정으로 예약).
   bagReminders?: Record<string, BagReminder>;
+  // 서버 푸시 종류별 켜기(2026-10-11, functions/src/bagEvents.ts). 값이 없으면 켜짐. 설정 > 알림
+  // activity: 함께 쓰는 가방 활동(추가·체크·다 쌌어요, 10분 묶음) / assign: 담당 지정 / member: 새 멤버 참여(그룹장)
+  pushPrefs?: { activity?: boolean; assign?: boolean; member?: boolean };
+  // 이 가방의 서버 푸시를 모두 끈 가방 id(가방 더보기 > 알림)
+  pushMutedBagIds?: string[];
 }
 
 // 가방 하나의 내 알림 설정. 배열이 비어 있으면 그 알림은 꺼진 것
