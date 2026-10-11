@@ -204,6 +204,27 @@ enum PIBLiveActivity {
         await PIBAPI.clearLive()
     }
 
+    // 단축어 "잠금화면 다시 띄우기"(10/11): iOS는 띄운 때부터 8시간이 지나면 끝낸다(갱신해도 늘어나지 않음).
+    // 같은 설정(가방 · 팩 · 꾸미기)으로 내렸다 새로 띄워 8시간을 다시 시작한다. 자동화(00 · 08 · 16시 등)에 걸어 둔다.
+    // 8시간이 막 지나 끝난(ended) 것도 잠금화면에 남아 있는 동안은 그 설정으로 다시 띄운다. 떠 있는 게 없거나 다 챙겨 두었으면 false
+    static func restart() async -> Bool {
+        guard let activity = Activity<PackActivityAttributes>.activities.first(where: { $0.activityState != .dismissed }) else {
+            return false
+        }
+        let a = activity.attributes
+        guard let fresh = state(bagId: a.bagId, packId: a.packId), !isAllDone(fresh) else { return false }
+        do {
+            _ = try await start(
+                bagId: a.bagId, packId: a.packId, theme: a.theme, font: a.font, size: a.size,
+                bgColor: a.bgColor, bgAlpha: a.bgAlpha
+            )
+            return true
+        } catch {
+            print("[팩인백] 잠금화면 다시 띄우기 실패:", error.localizedDescription)
+            return false
+        }
+    }
+
     static func endAll() async {
         let list = Activity<PackActivityAttributes>.activities
         for activity in list {

@@ -100,6 +100,7 @@
 - 잠금화면에 띄우기: 팩 맨 앞 "전체"(packId `*`, 기본값). `ContentState.itemPacks`(아이템 → 원래 팩)로 체크, 서버 `functions/src/live.ts`도 `*` 처리 → **Functions 재배포**
   - 배경 "직접": 색 8개 + iOS 기본 색 고르기 창(`PackInBagNative.pickColor`, UIColorPickerViewController · 불투명도 포함) + 불투명도 슬라이더(20~100%). `PackActivityAttributes.bgColor/bgAlpha`, 글자색은 배경 밝기로. 투명도는 10/11 오전에 "기기에서 안 비침"으로 뺀 적 있음 → `activityBackgroundTint`에 투명도를 주는 방식으로 다시 확인
 - 버그: 실시간 현황을 다 체크한 뒤 해제가 안 됨(가방에는 해제됨). 다 챙기는 순간 `end`(5분 뒤 사라짐)를 불렀는데 끝난 화면은 고칠 수 없었다 → 다 챙겨도 `update`만 하고 `ContentState.doneAt` 기록, 5분 지나면 다음 `updateAll` 때 내림. 서버 `live.ts`도 다 챙겨도 end를 안 보냄(팩이 사라질 때만). 홈 위젯은 요약을 직접 고치는 방식이라 같은 문제 없음
+- 단축어 "잠금화면 다시 띄우기"(`RestartLiveIntent`, LiveActivityIntent): iOS 8시간 제한은 띄운 때부터라 갱신으로는 안 늘어남 → 같은 설정으로 내렸다 새로 띄움(`PIBLiveActivity.restart`). 끝난 직후(잠금화면에 남아 있는 동안)도 됨, 없거나 다 챙긴 건 안 띄움. 사용자는 단축어 자동화(특정 시간 · 즉시 실행)로 0 · 8 · 16시. 사용 가이드 · FAQ에 안내 필요(C)
 
 (아래는 10/10에 적은 계획과 그 진행 기록)
 

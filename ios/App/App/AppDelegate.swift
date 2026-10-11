@@ -354,5 +354,12 @@ struct PackInBagShortcuts: AppShortcutsProvider {
             shortTitle: "팩인백 새로고침",
             systemImageName: "arrow.clockwise"
         )
+        // 실시간 현황 8시간 제한을 다시 시작(10/11). 자동화에 걸어 둔다
+        AppShortcut(
+            intent: RestartLiveIntent(),
+            phrases: ["\(.applicationName) 잠금화면 다시 띄우기"],
+            shortTitle: "잠금화면 다시 띄우기",
+            systemImageName: "lock.rotation"
+        )
     }
 }

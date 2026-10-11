@@ -307,7 +307,8 @@ export function LiveActivitySheet({ open, onClose, bag }: { open: boolean; onClo
         </section>
 
         <p className="m-0 text-micro text-faint">
-          잠금화면에서 바로 체크할 수 있어요. 최대 8시간 동안 보이고, 다 챙기면 자동으로 내려가요.
+          잠금화면에서 바로 체크할 수 있어요. iOS 규칙으로 최대 8시간 동안 보이고, 다 챙기면 내려가요. 계속 띄워 두려면 단축어 앱 &gt; 자동화에
+          “잠금화면 다시 띄우기”를 하루 세 번(예: 0시 · 8시 · 16시) 걸어 두세요.
         </p>
       </div>
     </Sheet>

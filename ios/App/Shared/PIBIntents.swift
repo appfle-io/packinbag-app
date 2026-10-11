@@ -129,6 +129,29 @@ struct RefreshIntent: LiveActivityIntent {
     }
 }
 
+// 잠금화면 실시간 현황을 같은 설정으로 새로 띄운다(10/11). iOS 제한 8시간을 다시 시작 - 단축어 자동화(00 · 08 · 16시)용.
+// 앱 프로세스에서 돈다(LiveActivityIntent - 앱을 열지 않고도 실시간 현황을 띄울 수 있는 방법)
+@available(iOS 17.0, *)
+struct RestartLiveIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "잠금화면 다시 띄우기"
+    static let description = IntentDescription("잠금화면에 띄운 가방을 같은 설정으로 새로 띄워요. iOS는 8시간이 지나면 내리니 자동화로 하루 세 번(예: 0시 · 8시 · 16시) 실행해 두세요")
+    #if PIB_WIDGET
+    static let isDiscoverable = false
+    #else
+    static let isDiscoverable = true
+    #endif
+
+    init() {}
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        if !PIBStore.pending().isEmpty { await PIBSync.flush() }
+        try? await PIBAPI.refreshSummary()
+        let restarted = await PIBLiveActivity.restart()
+        PIBWidgets.reload()
+        return .result(dialog: restarted ? "잠금화면에 다시 띄웠어요" : "다시 띄울 게 없어요")
+    }
+}
+
 @available(iOS 17.0, *)
 struct QuickAddIntent: AppIntent {
     static let title: LocalizedStringResource = "빠른팩에 입력"
