@@ -6,10 +6,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { IconLock } from "@tabler/icons-react";
 import GuestBagClientView from "@/components/GuestBagClientView";
+import type { Metadata } from "next";
+import { APP_STORE_ID } from "@/lib/v2/appBridge";
 
 // 예전에는 force-dynamic이라 볼 때마다 함수 실행 + Firestore 읽기가 생겼다. 잠깐(60초) 캐시한다(2026-10-07).
 // 초대코드(?code= / ?join=)는 페이지가 아니라 GuestBagClientView가 주소에서 직접 읽는다(캐시되는 HTML에 섞이지 않게).
 export const revalidate = 60;
+
+// 아이폰 사파리 위쪽 앱 배너(스마트 앱 배너, 2026-10-12): 앱이 있으면 "열기", 없으면 "받기"를 iOS가 알아서 보여 준다
+export const metadata: Metadata = {
+  itunes: { appId: APP_STORE_ID },
+};
 
 interface GuestPageProps {
   params: Promise<{ token: string }>;

@@ -484,6 +484,24 @@ export interface UserProfile {
   pushMutedBagIds?: string[];
   // 가방별로 끈 소식 종류(2026-10-11). 키는 bagId, 값은 끈 종류. pushMutedBagIds(모두 끄기)와 따로 둔다
   bagPushOff?: Record<string, BagPushKind[]>;
+  // 개인 잠금(2026-10-12, lib/v2/privateLock.ts). 나만 잠그는 PIN 잠금이라 가방 문서가 아니라 계정에 둔다
+  privateLock?: PrivateLock;
+}
+
+// 개인 잠금 설정. PIN은 PBKDF2-SHA256 해시(base64)만 저장한다
+export interface PrivateLock {
+  v: 1;
+  pinHash: string;
+  salt: string;
+  iterations: number;
+  length: 4 | 6;
+  // 잠근 가방 id
+  bags?: string[];
+  // 잠근 가방 속 팩 `${bagId}/${packId}`
+  packs?: string[];
+  // 잠근 보관함 팩 id(이 팩을 불러온 가방 속 팩도 같이 잠긴다 - linkedLibraryPackId)
+  library?: string[];
+  updatedAt: string;
 }
 
 // 서버 푸시 종류(functions/src/bagEvents.ts): 활동(추가·체크·다 쌌어요) / 담당 지정 / 새 멤버 참여

@@ -8,6 +8,7 @@ import {
   IconChevronRight,
   IconFolder,
   IconFolderPlus,
+  IconLock,
   IconNotes,
   IconPin,
   IconPlus,
@@ -30,6 +31,7 @@ import { entriesIn, metaOf, moveTargets, pathLabel, pathTo } from "./packsModel"
 import { useShellCommands } from "@/lib/v2/shell";
 import { useOpenDetail } from "@/lib/v2/openDetail";
 import { getPendingPacks } from "@/lib/v2/pendingCreates";
+import { useLockGuard } from "@/components/v2/lock/LockUI";
 
 // AppShell이 넘기는 props.
 // (onBack / onSelectModeChange는 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음, 다중선택 제거)
@@ -67,6 +69,7 @@ function EntryRow({
   meta,
   pinned,
   pending,
+  privateLocked,
   last,
   onOpen,
   onMenu,
@@ -75,6 +78,8 @@ function EntryRow({
   meta: string;
   pinned: boolean;
   pending?: boolean;
+  // 개인 잠금으로 잠근 팩(내용 요약 대신 "잠긴 팩")
+  privateLocked?: boolean;
   last: boolean;
   onOpen: () => void;
   onMenu: () => void;
@@ -103,9 +108,10 @@ function EntryRow({
         <span className="flex min-w-0 items-center gap-1">
           <span className="truncate text-body font-semibold text-ink">{entry.name || (isFolder ? "이름 없는 폴더" : "이름 없는 팩")}</span>
           {pinned && <IconPin size={14} stroke={2} className="shrink-0 text-faint" aria-label="고정됨" />}
+          {privateLocked && <IconLock size={14} stroke={2} className="shrink-0 text-faint" aria-label="잠금" />}
           {pending && <Badge>올리기 대기</Badge>}
         </span>
-        <span className="truncate text-caption text-sub">{meta}</span>
+        <span className="truncate text-caption text-sub">{privateLocked ? (entry.kind === "editor" ? "잠긴 메모" : "잠긴 팩") : meta}</span>
       </span>
       {isFolder && <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />}
     </button>
@@ -122,7 +128,8 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   const { packs, bags, quickPack, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks } = props;
   const { profile, isOfflineMode, togglePackPinned, updatePackOrderByParent } = useAuth();
   const { show } = useToast();
-
+  // 개인 잠금(2026-10-12): 잠근 팩은 "잠긴 팩"으로 보이고, 검색에서는 이름만 찾힌다. 여는 화면이 PIN을 묻는다(PackEditorV2 · 메모 편집기)
+  const privacy = useLockGuard();
   // 빠른팩은 트리에 넣지 않는다(하단 한 줄로 따로)
   const treePacks = useMemo(() => packs.filter((p) => !p.isQuickPack), [packs]);
   const pinnedIds = useMemo(() => profile?.pinnedPackIds ?? [], [profile?.pinnedPackIds]);
@@ -163,9 +170,12 @@ export default function PacksScreenV2(props: PacksScreenProps) {
 
   // --- 검색 ------------------------------------------------------------------------
   const searchable = useMemo(() => {
-    const real = treePacks.filter((p) => p.type !== "folder");
+    const real = treePacks
+      .filter((p) => p.type !== "folder")
+      .map((p) => (privacy.libraryHidden(p.id) ? { ...p, items: [], editorDoc: undefined, editorPreviewText: undefined } : p));
     return quickPack ? [...real, quickPack] : real;
-  }, [treePacks, quickPack]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 잠금 설정 · 풀림 상태가 바뀌면 다시
+  }, [treePacks, quickPack, privacy.lock, privacy.unlocked]);
   const { results, truncated } = useMemo(() => searchLibraryPacks(searchable, query), [searchable, query]);
   const [searchOpen, setSearchOpen] = useState(false);
   const searching = searchOpen;
@@ -382,6 +392,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
                     meta={metaOf(treePacks, entry)}
                     pinned={pinnedSet.has(entry.id)}
                     pending={pendingIds.has(entry.id)}
+                    privateLocked={entry.type !== "folder" && privacy.libraryLocked(entry.id)}
                     last={i === entries.length - 1}
                     onOpen={() => openEntry(entry)}
                     onMenu={() => setEntryId(entry.id)}
@@ -444,6 +455,18 @@ export default function PacksScreenV2(props: PacksScreenProps) {
         onShare={() => entryTarget && setShareId(entryTarget.id)}
         onDelete={() => entryTarget && setDeleteId(entryTarget.id)}
         onReorder={isOfflineMode || currentEntries.length < 2 ? undefined : () => setReorderOpen(true)}
+        privacyLock={
+          entryTarget && entryTarget.type !== "folder" && privacy.available
+            ? {
+                locked: privacy.libraryLocked(entryTarget.id),
+                onToggle: () =>
+                  privacy.toggleLock("library", entryTarget.id, !privacy.libraryLocked(entryTarget.id), {
+                    name: entryTarget.name,
+                    memo: entryTarget.kind === "editor",
+                  }),
+              }
+            : undefined
+        }
       />
       <ReorderSheet
         open={reorderOpen}
@@ -483,6 +506,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
       {!isOfflineMode && (
         <PackShareSheet open={!!shareSheetTarget} target={shareSheetTarget} onClose={() => setShareId(null)} />
       )}
+      {privacy.element}
     </div>
   );
 }

@@ -13,6 +13,8 @@ import { Button, CheckMark, IconButton, Sheet, Toggle, cx, useLongPress } from "
 import { PackShareSheet } from "@/components/v2/sheets/PackShareSheet";
 import { AlsoAddSheet, LibraryItemSheet, MoveDestSheet, type MoveDestination } from "./sheets/PackEditorSheets";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { PrivateLockGate } from "@/components/v2/lock/LockUI";
+import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -43,7 +45,7 @@ export interface PackEditorProps {
 // - 아래 입력창으로 바로 추가, 왼쪽 버튼으로 "다른 팩에도 같이 추가"
 // - 0.5초 자동저장, 나갈 때 남은 변경 즉시 저장(구 화면과 같은 규칙). 공유한 팩은 나갈 때 공유 링크도 갱신
 // 구 화면에서 빠진 것: 스와이프 수정/삭제(→ 길게 누르기 시트), 끌어서 순서 바꾸기, 글 아이템 서식 편집(기존 서식은 그대로 보존)
-export default function PackEditorV2(props: PackEditorProps) {
+function PackEditorV2Inner(props: PackEditorProps) {
   const {
     initialPack,
     libraryPacks,
@@ -416,7 +418,7 @@ export default function PackEditorV2(props: PackEditorProps) {
               className="mx-5 mt-2 flex min-h-11 w-auto items-center gap-2 rounded-field bg-fill px-3 text-left text-caption text-sub"
             >
               <IconLock size={16} stroke={1.9} aria-hidden="true" />
-              무료 한도를 넘어 잠긴 팩이에요. 보기만 할 수 있어요.
+              무료 한도를 넘어 읽기 전용인 팩이에요. 보기만 할 수 있어요.
               <span className="ml-auto font-semibold text-brand">풀기</span>
             </button>
           )}
@@ -603,6 +605,16 @@ export default function PackEditorV2(props: PackEditorProps) {
         </div>
       </Sheet>
     </div>
+  );
+}
+
+// 개인 잠금(2026-10-12): 보관함에서 잠근 팩이면 잠금 화면으로 덮는다(앱을 떠났다 오면 다시)
+export default function PackEditorV2(props: PackEditorProps) {
+  const privacy = usePrivateLock();
+  return (
+    <PrivateLockGate locked={privacy.libraryLocked(props.initialPack.id)} title="잠긴 팩" name={props.initialPack.name} onBack={props.onBack}>
+      <PackEditorV2Inner {...props} />
+    </PrivateLockGate>
   );
 }
 

@@ -43,7 +43,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
-import { UserProfile, StartPageConfig, BagReminder, BagPushKind } from "@/lib/types";
+import { UserProfile, StartPageConfig, BagReminder, BagPushKind, PrivateLock } from "@/lib/types";
+import { setNativeSummaryLocks } from "@/lib/v2/nativeBridge";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
@@ -162,6 +163,10 @@ interface AuthContextValue {
   setBagPushMuted: (bagId: string, muted: boolean) => Promise<void>;
   // 이 가방에서 끈 소식 종류(빈 배열이면 지움, 2026-10-11)
   setBagPushOff: (bagId: string, kinds: BagPushKind[]) => Promise<void>;
+  // 개인 잠금 설정 통째로 쓰기(null이면 지움, 2026-10-12)
+  updatePrivateLock: (next: PrivateLock | null) => Promise<void>;
+  // 본인 확인(이메일 계정은 비밀번호, 소셜은 다시 로그인 창). PIN을 잊었을 때 재설정에 쓴다
+  reauthenticate: (password?: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
   resendVerificationByCredential: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -414,6 +419,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 로그아웃·탈퇴 뒤에는 항상 로그인 화면으로(2026-10-11). 끊겨 있으면 로그인 화면이 "오프라인 모드로 시작"을 보여 준다
   const authResolvedOnceRef = useRef(false);
 
+  // 개인 잠금으로 잠근 가방 · 팩은 위젯 · 잠금화면 요약에서 뺀다(lib/v2/nativeBridge, 2026-10-12)
+  const privateLockValue = rawProfile?.privateLock;
+  useEffect(() => {
+    setNativeSummaryLocks(privateLockValue ?? null);
+  }, [privateLockValue]);
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       const isStartup = !authResolvedOnceRef.current;
@@ -557,6 +568,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           pushPrefs: data?.pushPrefs as UserProfile["pushPrefs"],
           pushMutedBagIds: data?.pushMutedBagIds as string[] | undefined,
           bagPushOff: data?.bagPushOff as UserProfile["bagPushOff"],
+          // 개인 잠금(2026-10-12)
+          privateLock: data?.privateLock as UserProfile["privateLock"],
         };
         // 구글·애플 로그인 직후: 로그아웃 때 캐시를 지워서, ensureUserDoc(이메일·이름만 merge)의 내 쓰기만 담긴
         // 스냅샷(닉네임 없음)이 먼저 온다. 이걸 믿으면 기존 계정인데 "닉네임 정하기"가 잠깐 뜨니,
@@ -1400,6 +1413,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await writeUser({ defaultBagViewMode: mode });
   };
 
+  // 개인 잠금(lib/v2/privateLock.ts). 통째로 쓴다(작은 객체). 화면에 먼저 반영한다
+  const updatePrivateLock = async (next: PrivateLock | null) => {
+    if (!user || isOfflineMode) return;
+    setRawProfile((prev) => (prev ? { ...prev, privateLock: next ?? undefined } : prev));
+    await writeUser({ privateLock: next ?? REMOVE_FIELD });
+  };
+
   const resendVerificationEmail = async () => {
     if (!user) return;
     try {
@@ -1591,6 +1611,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatePushPref,
         setBagPushMuted,
         setBagPushOff,
+        updatePrivateLock,
+        reauthenticate: reauthenticateForDelete,
         resendVerificationEmail,
         resendVerificationByCredential,
         sendPasswordReset,

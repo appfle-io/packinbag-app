@@ -7,9 +7,10 @@
 // 플러그인이 없는 웹 · PC · 스토어 1.3 앱에서는 아무것도 하지 않는다.
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { User } from "firebase/auth";
-import type { Bag } from "@/lib/types";
+import type { Bag, PrivateLock } from "@/lib/types";
 import { buildNativeSummary, type NativeSummaryProfile } from "@/lib/nativeSummary";
 import { getApiUrl } from "@/lib/apiBase";
+import { nativeLockFilter } from "@/lib/v2/privateLock";
 
 interface PackInBagNativePlugin {
   getSession(): Promise<{ uid?: string; hasToken: boolean }>;
@@ -26,6 +27,8 @@ interface PackInBagNativePlugin {
 export type LiveActivityTheme = "system" | "light" | "dark" | "custom";
 export type LiveActivityFont = "system" | "pretendard" | "gmarket" | "gaegu" | "d2coding";
 export type LiveActivitySize = "small" | "medium" | "large";
+// 글자색(2026-10-12): auto = 배경에 맞춰(예전과 같음) / white / black / custom(textColor "#RRGGBB"). 1.6 네이티브부터 반영, 그 전 빌드는 무시
+export type LiveActivityTextTone = "auto" | "white" | "black" | "custom";
 
 export interface LiveActivityOptions {
   bagId: string;
@@ -36,6 +39,8 @@ export interface LiveActivityOptions {
   size: LiveActivitySize;
   bgColor?: string;
   bgAlpha?: number;
+  textTone?: LiveActivityTextTone;
+  textColor?: string;
 }
 
 export interface LiveActivityState {
@@ -83,6 +88,18 @@ let lastSummary = "";
 let lastBags: Bag[] = [];
 let lastUid = "";
 let lastProfile: NativeSummaryProfile = {};
+let lockProfile: Pick<NativeSummaryProfile, "lockedBagIds" | "lockedPackKeys" | "lockedLibraryIds"> = {};
+
+// 개인 잠금(2026-10-12): 잠근 가방 · 팩은 위젯 · 잠금화면 요약에서 뺀다. AuthProvider가 잠금 설정이 바뀔 때마다 부른다
+export function setNativeSummaryLocks(lock: PrivateLock | null) {
+  lockProfile = nativeLockFilter(lock);
+  if (lastUid) void pushNativeSummary(lastBags, lastUid, lastProfile);
+}
+
+// 잠금화면 미리 보기가 실제로 뜨는 것과 같은 요약을 만들 때 쓴다
+export function nativeSummaryLockProfile(): NativeSummaryProfile {
+  return { ...lockProfile };
+}
 
 // 가방 요약을 네이티브에 넘긴다(같은 내용이면 건너뜀). 위젯 · 실시간 현황이 바로 새로 그려진다.
 // profile: 보관함 가방은 빼고 고정 가방은 표시(10/11, 서버 /api/native/summary와 같은 기준)
@@ -91,7 +108,7 @@ export function pushNativeSummary(bags: Bag[], uid: string, profile: NativeSumma
   lastBags = bags;
   lastUid = uid;
   lastProfile = profile;
-  const summary = buildNativeSummary(bags, uid, new Date(), profile);
+  const summary = buildNativeSummary(bags, uid, new Date(), { ...profile, ...lockProfile });
   const json = JSON.stringify(summary.bags);
   if (json === lastSummary) return Promise.resolve();
   lastSummary = json;

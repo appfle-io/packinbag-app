@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { IconChevronRight, IconFolder, IconNotes, IconPlus, IconSearch } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Badge, Button, CheckMark, ListRow, Sheet, cx } from "@/components/v2/ui";
+import { useLockGuard } from "@/components/v2/lock/LockUI";
 
 // 팩 불러오기 시트: 보관함 폴더를 한 단계씩 들어가며 여러 팩을 고른다. 검색은 모든 폴더 대상.
 // 이미 이 가방에 들어 있는 보관함 팩(linkedLibraryPackId)은 "가방에 있음"으로 흐리게 보여준다.
@@ -25,6 +26,8 @@ export function PackImportSheet({
   const [path, setPath] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // 개인 잠금(2026-10-12): 잠근 보관함 팩은 내용을 가리고, 고를 때 PIN을 물어요(불러온 팩도 같이 잠김 - linkedLibraryPackId)
+  const privacy = useLockGuard();
 
   const entries = useMemo(() => libraryPacks.filter((p) => !p.trashedAt), [libraryPacks]);
   const inBag = useMemo(() => new Set(bagPacks.map((p) => p.linkedLibraryPackId).filter(Boolean) as string[]), [bagPacks]);
@@ -36,12 +39,15 @@ export function PackImportSheet({
       return entries.filter(
         (p) =>
           p.type !== "folder" &&
-          (p.name.toLowerCase().includes(q) || p.items.some((i) => i.text.toLowerCase().includes(q)) || (p.editorPreviewText ?? "").toLowerCase().includes(q)),
+          (p.name.toLowerCase().includes(q) ||
+            (!privacy.libraryHidden(p.id) &&
+              (p.items.some((i) => i.text.toLowerCase().includes(q)) || (p.editorPreviewText ?? "").toLowerCase().includes(q)))),
       );
     }
     const here = entries.filter((p) => (p.parentId ?? undefined) === folderId);
     return [...here.filter((p) => p.type === "folder"), ...here.filter((p) => p.type !== "folder")];
-  }, [entries, folderId, query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 잠금 풀림 상태가 바뀌면 다시
+  }, [entries, folderId, query, privacy.unlocked, privacy.lock]);
 
   const crumbs = [{ id: undefined as string | undefined, name: "보관함" }, ...path.map((id) => ({ id, name: entries.find((p) => p.id === id)?.name ?? "폴더" }))];
 
@@ -58,13 +64,20 @@ export function PackImportSheet({
     onClose();
   };
 
-  const toggle = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggle = (id: string) => {
+    const flip = () =>
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    if (privacy.libraryHidden(id) && !selected.has(id)) {
+      privacy.requireUnlock(flip, { title: "잠긴 팩", name: entries.find((p) => p.id === id)?.name });
+      return;
+    }
+    flip();
+  };
 
   const countIn = (folder: string): number =>
     entries.filter((p) => p.parentId === folder).reduce((n, p) => n + (p.type === "folder" ? countIn(p.id) : 1), 0);
@@ -134,8 +147,9 @@ export function PackImportSheet({
             }
             const already = inBag.has(p.id);
             const on = selected.has(p.id);
-            const preview =
-              p.kind === "editor"
+            const preview = privacy.libraryHidden(p.id)
+              ? "잠긴 팩"
+              : p.kind === "editor"
                 ? (p.editorPreviewText ?? "").slice(0, 40) || "메모"
                 : p.items
                     .slice(0, 4)
@@ -180,6 +194,7 @@ export function PackImportSheet({
           </button>
         </div>
       </div>
+      {privacy.element}
     </Sheet>
   );
 }

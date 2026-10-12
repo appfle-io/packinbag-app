@@ -1,6 +1,6 @@
 "use client";
 
-import { IconLock } from "@tabler/icons-react";
+import { IconEye, IconLock } from "@tabler/icons-react";
 import { Badge, ProgressBar, ProgressRing, cx, useLongPress } from "@/components/v2/ui";
 import { formatRelativeDay } from "@/components/v2/bag/format";
 import { useOpenDetail } from "@/lib/v2/openDetail";
@@ -8,7 +8,10 @@ import type { BagSummary } from "./homeModel";
 
 interface RowProps {
   summary: BagSummary;
+  // 무료 한도를 넘어 읽기 전용(서버 Bag.locked)
   locked?: boolean;
+  // 개인 잠금으로 잠근 가방(2026-10-12). 이름만 보이고 진행률 · 상태는 가린다
+  privateLocked?: boolean;
   // 목록 마지막 줄은 구분선을 뺀다
   last?: boolean;
   // 보관함 목록에서는 진행 상태 대신 "마지막 사용"만 보여준다
@@ -30,7 +33,7 @@ function PendingBadge({ summary }: { summary: BagSummary }) {
 
 // 가방 한 줄: 진행률 링 · 이름(+D-day) · 상태 한 줄 · 챙긴 개수. 길게 누르기/우클릭으로 가방 메뉴.
 // 넓은 화면에서 상세 칸에 열려 있는 가방은 줄 바탕을 칠해 표시한다
-export function BagRow({ summary, locked, last, archived, onOpen, onMenu }: RowProps) {
+export function BagRow({ summary, locked, privateLocked, last, archived, onOpen, onMenu }: RowProps) {
   const press = useLongPress(onMenu, onOpen);
   const { bag } = summary;
   const open = useOpenDetail().bagId === bag.id;
@@ -47,19 +50,25 @@ export function BagRow({ summary, locked, last, archived, onOpen, onMenu }: RowP
         !last && !open && "border-b border-line",
       )}
     >
-      <ProgressRing value={summary.ratio} label={`${bag.name} 챙긴 비율`} className={archived ? "opacity-50" : undefined} />
+      {privateLocked ? (
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-fill text-sub" aria-hidden="true">
+          <IconLock size={18} stroke={1.9} />
+        </span>
+      ) : (
+        <ProgressRing value={summary.ratio} label={`${bag.name} 챙긴 비율`} className={archived ? "opacity-50" : undefined} />
+      )}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cx("truncate text-body font-semibold", archived ? "text-sub" : "text-ink")}>{bag.name || "이름 없는 가방"}</span>
           {!archived && <DdayBadge summary={summary} />}
           <PendingBadge summary={summary} />
-          {locked && <IconLock size={14} stroke={1.9} className="shrink-0 text-faint" aria-label="잠긴 가방" />}
+          {locked && <IconEye size={14} stroke={1.9} className="shrink-0 text-faint" aria-label="읽기 전용 가방" />}
         </span>
         <span className="truncate text-caption text-sub">
-          {archived ? `마지막 사용 · ${formatRelativeDay(summary.activityAt)}` : summary.status}
+          {privateLocked ? "잠긴 가방" : archived ? `마지막 사용 · ${formatRelativeDay(summary.activityAt)}` : summary.status}
         </span>
       </span>
-      {summary.total > 0 && (
+      {summary.total > 0 && !privateLocked && (
         <span className="shrink-0 text-caption font-semibold text-sub">
           {summary.done}/{summary.total}
         </span>
@@ -93,7 +102,7 @@ export function FeaturedBagCard({
           <span className="truncate text-micro font-semibold text-brand">{label}</span>
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-heading font-bold text-ink">{bag.name || "이름 없는 가방"}</span>
-            {locked && <IconLock size={16} stroke={1.9} className="shrink-0 text-faint" aria-label="잠긴 가방" />}
+            {locked && <IconEye size={16} stroke={1.9} className="shrink-0 text-faint" aria-label="읽기 전용 가방" />}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">

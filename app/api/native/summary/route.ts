@@ -26,9 +26,15 @@ export async function GET(req: NextRequest) {
     ]);
     const bags = snap.docs.map((d) => ({ ...(d.data() as Bag), id: d.id }));
     const u = userSnap.data() ?? {};
+    // 개인 잠금(2026-10-12): PIN이 있을 때만 잠근 것을 뺀다(lib/v2/privateLock nativeLockFilter와 같은 기준)
+    const pl = u.privateLock && typeof u.privateLock === "object" && u.privateLock.pinHash ? u.privateLock : null;
+    const arr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : undefined);
     const profile = {
-      archivedBagIds: Array.isArray(u.archivedBagIds) ? (u.archivedBagIds as string[]) : undefined,
-      pinnedBagIds: Array.isArray(u.pinnedBagIds) ? (u.pinnedBagIds as string[]) : undefined,
+      archivedBagIds: arr(u.archivedBagIds),
+      pinnedBagIds: arr(u.pinnedBagIds),
+      lockedBagIds: pl ? arr(pl.bags) : undefined,
+      lockedPackKeys: pl ? arr(pl.packs) : undefined,
+      lockedLibraryIds: pl ? arr(pl.library) : undefined,
     };
     return NextResponse.json(buildNativeSummary(bags, uid, new Date(), profile), { headers: { "Cache-Control": "no-store" } });
   } catch (err) {

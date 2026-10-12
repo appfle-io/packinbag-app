@@ -81,6 +81,9 @@
 
 ## 9. 다음 채팅에서 이어서 (10/11 기준)
 
+> **10/11 23:04 iOS 1.5 (Build 5) 심사 제출 완료** (제출 ID `406ecb16-1b77-4577-83c2-b91ee3ca7500`, 수동 출시). C 끝. 승인 메일이 오면 1.5 페이지에서 "이 버전 출시", 거절되면 메일 원문으로 대응
+> 같이 나간 것: 웹 v1.0.32(FAQ · 업데이트 노트 · 개인정보처리방침 · /privacy · /support 스크롤), Functions, 스크린샷 10장(09 위젯 · 10 잠금화면, 6.3″), 앱 개인정보에 기기 ID 추가, 처리방침 URL seeuson.com
+
 **10/11 끝난 것 · 남은 것(요약)**
 - 끝: 버그 4건, B-1~B-6 전부(푸시 토큰 · Cloud Functions · 공유 가방 알림 · 조용한 푸시 · 실시간 현황 원격 갱신 · 누르면 가방 열기), 위젯 · 실시간 현황 ↻ + "N분 전", 30분 자동 새로고침, 단축어 "가방에 추가", 위젯 "가방 전체" · 크게 2열, 배경 투명도 제거
 - 기기 확인 완료: 푸시 토큰 저장, 테스트 알림, 활동 묶음 알림, 담당 지정 알림, 단축어(빠른팩 · 새로고침)
@@ -157,7 +160,7 @@
    - 크게(large) 위젯은 아이템 2열(왼쪽→오른쪽, 위→아래 - 앱 가방 화면과 같은 순서). 작게 · 중간은 1열
 10. (10/11) 배경 투명도 옵션 **제거**(위젯 편집 · 잠금화면에 띄우기 시트 · `PIBStyle.opacity` · `PackActivityAttributes.opacity`). iOS가 위젯 · 실시간 현황 밑에 자기 바탕을 깔아 기기에서 투명하게 보이지 않았음(사용자 결정). 배경은 테마 색 불투명
 
-**C. 1.5 제출 전 마무리**
+**C. 1.5 제출 전 마무리** — ✅ 10/11 완료
 - 앱 개인정보(App Store Connect "앱이 수집하는 개인정보")·처리방침 `app/privacy`에 푸시 토큰 · 기기 토큰 추가, 처리방침 URL을 seeuson.com으로
 - 심사 메모 "Native features"에 local notifications · push · widgets · Live Activities · Shortcuts 추가, 앱 설명에 "알림 · 위젯 · 잠금화면" 단락
 - FAQ(`lib/faqs.ts`) "푸시 알림 준비 중" 답변 · 여행 전용 말투 정리, 설정 > 버전 정보(CHANGELOG) 1.5 항목
@@ -168,3 +171,11 @@
 - ~~AppShell · AuthProvider 기존 eslint 오류(set-state-in-effect) 정리~~ → 10/11 완료. 확인 명령에 `contexts components/AppShell.tsx`도 넣는다
 - 결제 도입 시 Capacitor 8 + purchases-capacitor 13.x 업그레이드 먼저(출시가이드 B-6)
 - 4·5가 길어지면 1.6으로 넘길 수 있음
+
+## 10. 1.6 네이티브 묶음 (10/12 기획 · 웹쪽은 먼저 완료)
+웹에서 만든 것은 이미 배포 가능(1.5 앱에서는 네이티브가 없으면 조용히 건너뜀). 아래는 Xcode 27에서 할 일.
+1. **Face ID(개인 잠금)**: `PackInBagNativePlugin`에 `biometricInfo()` → `{ available, type: faceId|touchId|opticId|none }`(LAContext.canEvaluatePolicy `.deviceOwnerAuthenticationWithBiometrics`), `authenticateBiometric({ reason })` → `{ ok }`(evaluatePolicy, 취소·실패는 ok:false). Info.plist `NSFaceIDUsageDescription`("잠근 가방·팩을 열 때 Face ID를 써요"). 웹: `lib/v2/biometric.ts`
+2. **잠금화면 글자색**: `startLiveActivity` 옵션 `textTone`(auto|white|black|custom) · `textColor`("#RRGGBB") → `PackActivityAttributes`에 추가(옛 활동 디코딩 위해 옵셔널). `PackLockScreenView`에서 auto가 아니면 `c.ink`를 그 색, `c.sub`를 같은 색 72%로. `RestartLiveIntent`도 새 값 그대로 넘기기. 다이내믹 아일랜드는 그대로(다크). 웹 미리 보기 기준: `LiveActivitySheet.tsx` LockScreenPreview
+3. **위젯 열 수**: `ConfigurationAppIntent`에 "열 수"(1열 · 2열, 기본 2열) 추가, 중간(systemMedium)에서도 2열 가능. `PackWidgetView.packView`의 `columns = family == .systemLarge ? 2 : 1` → 작게는 1열 고정, 중간 · 크게는 설정값
+4. **iOS 27 Siri 검색**: `BagEntity` · 팩 · 보관함 팩을 `IndexedEntity`(+ App Schema)로, 열기는 `packinbag://bag/{id}?pack=` · `packinbag://library/{id}`(웹 라우팅 추가 필요). 색인은 App Group 요약을 기준으로, 개인 잠금으로 잠근 것은 요약에서 이미 빠짐(`lib/nativeSummary.ts`). 보관함 팩은 요약에 없으니 요약에 `library` 목록 추가 필요
+5. **유니버설 링크**: Associated Domains `applinks:packinbag.seeuson.com` + `public/.well-known/apple-app-site-association`(appID `2ZHYLWBV2H.번들ID`, `/v/*` `/s/*` `/c/*`). 앱에서 https 주소를 `appUrlOpen`으로 받아 같은 경로로 이동(`onBagNotificationTap` fromUrl에 추가). 카톡 안 브라우저는 여전히 브리지(`lib/v2/appBridge.ts`, `packinbag://open?to=`)

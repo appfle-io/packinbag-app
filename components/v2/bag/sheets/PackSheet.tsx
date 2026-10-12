@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconArrowRight, IconCloudCheck, IconCloudUpload, IconRefreshAlert } from "@tabler/icons-react";
+import { IconArrowRight, IconCloudCheck, IconCloudUpload, IconLock, IconLockOpen, IconRefreshAlert } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Button, Sheet, Toggle, cx } from "@/components/v2/ui";
 
@@ -11,6 +11,13 @@ export interface PackLibraryRow {
   // 보관함과 같음 / 달라짐 / 아직 없음
   tone: "same" | "changed" | "unsaved";
   onClick: () => void;
+}
+
+// 개인 잠금 줄(2026-10-12). inherited = 보관함에서 잠근 팩을 불러와 같이 잠긴 것(여기서는 못 풀고 안내만)
+export interface PackPrivacyRow {
+  locked: boolean;
+  inherited: boolean;
+  onToggle: () => void;
 }
 
 // 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 팩 보관함 · 다른 가방으로 옮기기 · 삭제
@@ -23,6 +30,7 @@ export function PackSheet({
   onDelete,
   library,
   onMoveToBag,
+  privacyLock,
 }: {
   pack: Pack | null;
   onClose: () => void;
@@ -34,6 +42,8 @@ export function PackSheet({
   library?: PackLibraryRow | null;
   // 없으면(옮길 가방이 없음) 줄을 숨긴다
   onMoveToBag?: () => void;
+  // 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
+  privacyLock?: PackPrivacyRow;
 }) {
   return (
     <Sheet open={!!pack} onClose={onClose} showClose={false}>
@@ -48,6 +58,7 @@ export function PackSheet({
           onDelete={onDelete}
           library={library}
           onMoveToBag={onMoveToBag}
+          privacyLock={privacyLock}
         />
       )}
     </Sheet>
@@ -63,6 +74,7 @@ function PackSheetBody({
   onDelete,
   library,
   onMoveToBag,
+  privacyLock,
 }: {
   pack: Pack;
   onClose: () => void;
@@ -72,6 +84,7 @@ function PackSheetBody({
   onDelete: () => void;
   library?: PackLibraryRow | null;
   onMoveToBag?: () => void;
+  privacyLock?: PackPrivacyRow;
 }) {
   const [name, setName] = useState(pack.name);
   const isMemo = pack.kind === "editor";
@@ -166,6 +179,33 @@ function PackSheetBody({
             다른 가방으로 옮기기
           </button>
         )}
+        {privacyLock &&
+          (privacyLock.inherited ? (
+            <div className="flex min-h-13 items-center gap-3 border-b border-line text-caption text-sub">
+              <IconLock size={20} stroke={1.75} className="shrink-0" aria-hidden="true" />
+              보관함에서 잠근 팩이라 같이 잠겨 있어요. 풀려면 팩 탭에서 풀어 주세요
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={rowCls}
+              onClick={() => {
+                commitName();
+                onClose();
+                privacyLock.onToggle();
+              }}
+            >
+              {privacyLock.locked ? (
+                <IconLockOpen size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+              ) : (
+                <IconLock size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+              )}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span>{privacyLock.locked ? "잠금 풀기" : isMemo ? "이 메모 잠그기" : "이 팩 잠그기"}</span>
+                {!privacyLock.locked && <span className="text-micro text-sub">나만 잠기고, 함께 쓰는 사람에게는 그대로 보여요</span>}
+              </span>
+            </button>
+          ))}
         <button
           type="button"
           className="flex min-h-13 items-center bg-transparent text-left text-body text-alert"

@@ -16,6 +16,8 @@ import {
 } from "@tabler/icons-react";
 import { Bag, Pack } from "@/lib/types";
 import GuestMemoPackView from "@/components/GuestMemoPackView";
+import AppBridge from "@/components/AppBridge";
+import { openViaBridge } from "@/lib/v2/appBridge";
 
 interface GuestBagClientViewProps {
   bag: Bag;
@@ -597,6 +599,10 @@ export default function GuestBagClientView({
           </div>
           <Link
             href={appEntryUrl}
+            onClick={(e) => {
+              // 아이폰은 앱으로, 앱 안 브라우저(카톡 등)는 기본 브라우저로(lib/v2/appBridge, 2026-10-12)
+              if (openViaBridge(appEntryUrl)) e.preventDefault();
+            }}
             className="shrink-0 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-[13px] shadow-sm flex items-center gap-1.5 transition-all"
           >
             {activeInviteCode ? (
@@ -620,6 +626,8 @@ export default function GuestBagClientView({
           </span>
         </div>
       )}
+      {/* 초대 링크로 들어오면 앱 · 기본 브라우저로 넘긴다(로그인 없는 카톡 안 브라우저 대신) */}
+      <AppBridge path={appEntryUrl} auto={!!activeInviteCode} />
     </main>
   );
 }

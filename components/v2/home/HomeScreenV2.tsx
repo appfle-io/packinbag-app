@@ -51,6 +51,7 @@ import { V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { useShellCommands } from "@/lib/v2/shell";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { getPendingBags } from "@/lib/v2/pendingCreates";
+import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 
 // AppShell이 넘기는 props. (onOpenQuickPack / onSelectModeChange는 쓰지 않는다: 빠른팩·다중선택은 다른 곳에서)
 export interface HomeScreenProps {
@@ -123,6 +124,8 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   const { guard } = useOnlineGuard();
   const premium = isOfflineMode || isPremiumUser(profile?.email, profile ?? null);
   const personal = !isOfflineMode;
+  // 개인 잠금(2026-10-12): 잠근 가방은 목록에서 이름만, 캐러셀에서는 빠지고, 검색은 이름만(잠긴 팩도 이름만)
+  const privacy = usePrivateLock();
 
   // --- 폴더 (1단계) ---------------------------------------------------------------
   const bagFolders = useMemo(() => validBagFolders(profile?.bagFolders), [profile?.bagFolders]);
@@ -183,6 +186,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   const customOrder = profile?.bagOrderByParent?.[orderKey] ?? (orderKey === "root" ? profile?.bagOrder : undefined);
   const [bagReorderOpen, setBagReorderOpen] = useState(false);
   const sections = buildSections(active, pinnedIds, sort, customOrder);
+  const highlights = sections.highlights.filter((h) => !privacy.bagLocked(h.summary.bag.id));
   const suggestions = activeFolderId || !personal ? [] : archiveSuggestionsOf(activeAll, profile?.archiveSuggestionDismissedIds ?? []);
 
   // --- 보기: 홈 / 보관함 / 검색 ------------------------------------------------------
@@ -203,8 +207,16 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     new: () => setNewBagOpen(true),
   });
   const searchable = useMemo(
-    () => (premium ? bags : bags.map((b) => ({ ...b, packs: getViewablePacks(b.packs, premium) }))),
-    [bags, premium],
+    () =>
+      bags.map((b) => {
+        if (privacy.bagHidden(b.id)) return { ...b, packs: [] };
+        const packs = (premium ? b.packs : getViewablePacks(b.packs, premium)).map((p) =>
+          privacy.packHidden(b.id, p) ? { ...p, items: [], editorDoc: undefined, editorPreviewText: undefined, searchText: undefined } : p,
+        );
+        return { ...b, packs };
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 잠금 설정 · 풀림 상태가 바뀌면 다시
+    [bags, premium, privacy.lock, privacy.unlocked],
   );
   const { results, truncated } = useMemo(() => searchBags(searchable, query), [searchable, query]);
 
@@ -261,12 +273,13 @@ export default function HomeScreenV2(props: HomeScreenProps) {
 
   const rowHandlers = (s: BagSummary) => ({
     locked: lockedBagIds?.has(s.bag.id),
+    privateLocked: privacy.bagLocked(s.bag.id),
     onOpen: () => onOpenBag(s.bag),
     onMenu: () => setActionBagId(s.bag.id),
   });
 
   const hasAnyBag = bags.length > 0;
-  const listEmpty = sections.highlights.length === 0 && sections.pinned.length === 0 && sections.list.length === 0;
+  const listEmpty = highlights.length === 0 && sections.pinned.length === 0 && sections.list.length === 0;
 
   // --- 화면 -------------------------------------------------------------------------------
   // 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(팩 탭과 똑같이). 여기서 따로 패딩을 주지 않는다.
@@ -375,7 +388,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
             )}
 
             <BagCarousel
-              highlights={sections.highlights}
+              highlights={highlights}
               lockedIds={lockedBagIds}
               onOpen={(s) => onOpenBag(s.bag)}
               onMenu={(s) => setActionBagId(s.bag.id)}

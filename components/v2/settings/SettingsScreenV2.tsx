@@ -38,6 +38,9 @@ import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isNativePlatform } from "@/lib/purchaseService";
 import { PUSH_KINDS, askNotificationPermission, getNotificationPermission, isServerPushAvailable, sendTestPush } from "@/lib/v2/serverPush";
 import { FREE_LAUNCH } from "@/lib/freeLaunch";
+import { LockSettingsScreen } from "./LockSettingsScreen";
+import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
+import { lockedCount } from "@/lib/v2/privateLock";
 
 // AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -62,7 +65,7 @@ export interface SettingsScreenProps {
   embedded?: boolean;
 }
 
-type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries";
+type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock";
 
 const MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "시스템" },
@@ -113,6 +116,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const { show } = useToast();
   // 계정 연동·이용권·내 URL·공지·문의는 인터넷이 필요하다(끊겨 있으면 열기 전에 알린다)
   const { guard } = useOnlineGuard();
+  // 개인 잠금(2026-10-12). 오프라인 모드 · 게스트는 본인 확인을 할 수 없어 숨긴다
+  const privacy = usePrivateLock();
 
   const [view, setView] = useState<SubView | null>(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
@@ -314,6 +319,16 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             label="다 챙긴 아이템은 아래로"
             description="체크하면 그 팩의 맨 뒤로 내려가요"
           />
+          {privacy.available && (
+            <ListRow
+              divider={false}
+              title="잠금"
+              subtitle="가방 · 팩을 나만 PIN으로 잠가요"
+              trailing={privacy.hasPin ? `켜짐 · ${lockedCount(privacy.lock)}개` : "꺼짐"}
+              onClick={() => setView("lock")}
+              chevron
+            />
+          )}
         </section>
 
         {/* 알림(서버 푸시, iOS 1.5 앱만). 서비스 알림이라 기본 켜짐 - iOS 허용 창이 옵트인. 광고성 알림은 보내지 않는다 */}
@@ -497,6 +512,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       <SlideScreen active={view === "inquiries"} onBackdropClick={close} swipeBack>
         <InquiryScreenV2 uid={uid} nickname={profile?.nickname ?? ""} onBack={close} />
       </SlideScreen>
+      {privacy.available && (
+        <SlideScreen active={view === "lock"} onBackdropClick={close} swipeBack>
+          <LockSettingsScreen onBack={close} />
+        </SlideScreen>
+      )}
 
       {/* 시트 */}
       <AnnouncementsListSheet

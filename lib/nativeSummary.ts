@@ -37,6 +37,10 @@ export interface NativeSummaryBag {
 export interface NativeSummaryProfile {
   archivedBagIds?: string[];
   pinnedBagIds?: string[];
+  // 개인 잠금(2026-10-12, lib/v2/privateLock): 잠근 가방은 통째로, 잠근 팩(`bagId/packId`)과 잠근 보관함 팩을 불러온 팩은 뺀다
+  lockedBagIds?: string[];
+  lockedPackKeys?: string[];
+  lockedLibraryIds?: string[];
 }
 
 export interface NativeSummary {
@@ -56,7 +60,9 @@ export function buildNativeSummary(
   now: Date = new Date(),
   profile: NativeSummaryProfile = {},
 ): NativeSummary {
-  const archived = new Set(profile.archivedBagIds ?? []);
+  const archived = new Set([...(profile.archivedBagIds ?? []), ...(profile.lockedBagIds ?? [])]);
+  const lockedPacks = new Set(profile.lockedPackKeys ?? []);
+  const lockedLibrary = new Set(profile.lockedLibraryIds ?? []);
   const pinned = new Set(profile.pinnedBagIds ?? []);
   const active = bags.filter((b) => !(b.ownerId === uid && b.trashedByOwnerAt) && !archived.has(b.id));
   const recent = [...active]
@@ -76,6 +82,7 @@ export function buildNativeSummary(
       ...(pinned.has(bag.id) ? { pinned: true as const } : {}),
       packs: (Array.isArray(bag.packs) ? bag.packs : [])
         .filter((p) => p && p.kind !== "editor" && p.type !== "folder")
+        .filter((p) => !lockedPacks.has(`${bag.id}/${p.id}`) && !(p.linkedLibraryPackId && lockedLibrary.has(p.linkedLibraryPackId)))
         .sort((a, b) => Number(!!b.isInbox) - Number(!!a.isInbox))
         .map((p) => ({
           id: p.id,

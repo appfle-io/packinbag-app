@@ -8,6 +8,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import type { Bag, BagReminder } from "@/lib/types";
+import { isSafeAppPath } from "@/lib/v2/appBridge";
 
 export const DDAY_PRESETS = [7, 3, 1, 0] as const;
 export const MAX_CUSTOM_OFFSET = 30;
@@ -256,7 +257,24 @@ export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
   }
 
   if (Capacitor.isPluginAvailable("App")) {
-    const fromUrl = (url: string | undefined) => {
+    const fromUrl = (url: string | undefined, launch = false) => {
+      // 공유 링크 브리지(2026-10-12, lib/v2/appBridge): packinbag://open?to=/?invite=코드 → 앱 안에서 그 경로로(같은 사이트 경로만)
+      if (url?.startsWith("packinbag://open")) {
+        try {
+          // 앱을 켜면서 받은 주소(getLaunchUrl)는 페이지를 옮긴 뒤에도 그대로 남는다 → 한 번만(되풀이 새로고침 방지)
+          if (launch) {
+            if (sessionStorage.getItem("pib_launch_open_done") === url) return;
+            sessionStorage.setItem("pib_launch_open_done", url);
+          }
+          // 같은 누름이 두 길(appUrlOpen + getLaunchUrl)로 와도 한 번만
+          const [lastUrl, lastAt] = (sessionStorage.getItem("pib_open_last") ?? "").split("|");
+          if (lastUrl === url && Date.now() - Number(lastAt) < 15_000) return;
+          sessionStorage.setItem("pib_open_last", `${url}|${Date.now()}`);
+          const to = new URL(url.replace(/^packinbag:\/\//, "https://app/")).searchParams.get("to");
+          if (to && isSafeAppPath(to)) window.location.assign(to);
+        } catch {}
+        return;
+      }
       const m = url ? /^packinbag:\/\/bag\/([A-Za-z0-9_-]+)/.exec(url) : null;
       if (m) open(m[1]);
     };
@@ -265,7 +283,7 @@ export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
     if (!launchUrlChecked) {
       launchUrlChecked = true;
       AppPlugin.getLaunchUrl()
-        .then((r) => !removed && fromUrl(r?.url))
+        .then((r) => !removed && fromUrl(r?.url, true))
         .catch(() => {});
     }
   }

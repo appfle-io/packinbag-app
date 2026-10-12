@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconLayoutColumns, IconLayoutList, IconLock, IconPackage, IconRotateClockwise, IconSun, IconUsers } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconPackage, IconRotateClockwise, IconSun, IconUsers } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -33,7 +33,9 @@ import {
   type PackingState,
 } from "@/hooks/bag";
 import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, Sheet, cx } from "@/components/v2/ui";
-import { PackSection } from "./PackSection";
+import { PackSection, LockedPackSection } from "./PackSection";
+import { LockScreen, useLockGuard } from "@/components/v2/lock/LockUI";
+import { packLockKey } from "@/lib/v2/privateLock";
 import { MemoSection } from "./MemoSection";
 import { PackImportSheet } from "./sheets/PackImportSheet";
 import { MembersSheet } from "./sheets/MembersSheet";
@@ -145,6 +147,15 @@ export default function BagScreenV2(props: BagScreenProps) {
     setEditingNoteId(packId);
   };
 
+  // --- 개인 잠금(2026-10-12, lib/v2/privateLock) ------------------------------------------------
+  // 가방을 잠갔으면 화면 전체를 잠금 화면으로 덮는다(앱을 떠났다 오면 다시). 잠긴 팩 · 메모는 "잠긴 팩" 줄로 보이고, 누르면 PIN
+  const privacy = useLockGuard();
+  const bagGate = privacy.bagLocked(initialBag.id) && !privacy.unlocked;
+  const openNoteChecked = (p: Pack, query?: string | null) => {
+    if (privacy.packHidden(initialBag.id, p)) privacy.requireUnlock(() => openNote(p.id, query), { title: "잠긴 메모", name: p.name });
+    else openNote(p.id, query);
+  };
+
   const presence = useBagPresence({
     bagId: bag.id,
     currentUid,
@@ -198,7 +209,7 @@ export default function BagScreenV2(props: BagScreenProps) {
   const shared = bag.memberIds.length > 1;
   useEffect(() => {
     // 사용 가이드가 뜨는 처음 열기에는 겹치지 않게 미룬다(다음에 가방을 열 때)
-    if (!shared || isOfflineMode || readOnly || !hasSeenBagGuide()) return;
+    if (!shared || isOfflineMode || readOnly || !hasSeenBagGuide() || bagGate) return;
     const t = window.setTimeout(() => {
       void promptForSharedBag().then((msg) => msg && show(msg));
     }, 900);
@@ -296,7 +307,7 @@ export default function BagScreenV2(props: BagScreenProps) {
   // 화면이 밀려 들어오는 애니메이션이 끝난 뒤 띄운다. 더보기 > 사용 가이드로 다시 볼 수 있다.
   const [tourOpen, setTourOpen] = useState(false);
   useEffect(() => {
-    if (isNew || readOnly || focusTarget || hasSeenBagGuide()) return;
+    if (isNew || readOnly || focusTarget || hasSeenBagGuide() || bagGate) return;
     const t = window.setTimeout(() => setTourOpen(true), 700);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 열 때만
@@ -403,7 +414,7 @@ export default function BagScreenV2(props: BagScreenProps) {
     const target = packId ? bag.packs.find((p) => p.id === packId) : undefined;
     if (target?.kind === "editor") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부(검색)에서 넘어온 이동 요청 처리
-      openNote(target.id, searchQuery);
+      openNoteChecked(target, searchQuery);
       onFocusHandled?.();
       return;
     }
@@ -491,8 +502,8 @@ export default function BagScreenV2(props: BagScreenProps) {
               onClick={onRequestUnlock}
               className="mx-5 mt-2 flex min-h-11 w-auto items-center gap-2 rounded-field bg-fill px-3 text-left text-caption text-sub"
             >
-              <IconLock size={16} stroke={1.9} aria-hidden="true" />
-              무료 한도를 넘어 잠긴 가방이에요. 보기만 할 수 있어요.
+              <IconEye size={16} stroke={1.9} aria-hidden="true" />
+              무료 한도를 넘어 읽기 전용이에요. 보기만 할 수 있어요.
               <span className="ml-auto font-semibold text-brand">풀기</span>
             </button>
           )}
@@ -609,12 +620,19 @@ export default function BagScreenV2(props: BagScreenProps) {
           <div className="px-5 pb-6">
             <div>
               {visibleSections.map((p) =>
-              p.kind === "editor" ? (
+              privacy.packHidden(bag.id, p) ? (
+                <LockedPackSection
+                  key={p.id}
+                  pack={p}
+                  onOpen={() => privacy.requireUnlock(() => {}, { title: p.kind === "editor" ? "잠긴 메모" : "잠긴 팩", name: p.name })}
+                  onMenu={() => (readOnly ? onRequestUnlock() : setPackTargetId(p.id))}
+                />
+              ) : p.kind === "editor" ? (
                 <MemoSection
                   key={p.id}
                   pack={p}
                   editors={presence.noteEditorsOf(p.id).map((e) => e.nickname)}
-                  onOpen={() => openNote(p.id)}
+                  onOpen={() => openNoteChecked(p)}
                   onMenu={() => setPackTargetId(p.id)}
                 />
               ) : (
@@ -846,6 +864,19 @@ export default function BagScreenV2(props: BagScreenProps) {
         onDelete={() => packTargetId && packOps.deletePack(packTargetId)}
         library={packTarget ? libraryRowFor(packTarget) : null}
         onMoveToBag={library.moveTargets.length > 0 && packTargetId ? () => setMoveTargetId(packTargetId) : undefined}
+        privacyLock={
+          packTarget && privacy.available
+            ? {
+                locked: privacy.packLocked(bag.id, packTarget),
+                inherited: privacy.packLockInherited(bag.id, packTarget),
+                onToggle: () =>
+                  privacy.toggleLock("pack", packLockKey(bag.id, packTarget.id), !privacy.packLocked(bag.id, packTarget), {
+                    name: packTarget.name,
+                    memo: packTarget.kind === "editor",
+                  }),
+              }
+            : undefined
+        }
       />
       <LibrarySheet
         pack={libraryTarget}
@@ -914,6 +945,11 @@ export default function BagScreenV2(props: BagScreenProps) {
         }
         onGuide={() => window.setTimeout(() => setTourOpen(true), 320)}
         keepScreenOn={{ on: keepOn, onChange: changeKeepOn }}
+        privacyLock={
+          privacy.available
+            ? { locked: privacy.bagLocked(bag.id), onToggle: () => privacy.toggleLock("bag", bag.id, !privacy.bagLocked(bag.id), { name: bag.name }) }
+            : undefined
+        }
       />
       <ConfirmSheet
         open={confirmDelete}
@@ -1004,7 +1040,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         onAddItemToPack={items.addToNamedPack}
         onLimit={(msg) => setPremiumMessage(msg)}
       />
-      <CoachTour open={tourOpen} steps={BAG_GUIDE_STEPS} onClose={closeTour} />
+      <CoachTour open={tourOpen && !bagGate} steps={BAG_GUIDE_STEPS} onClose={closeTour} />
       <PremiumSheet
         open={!!premiumMessage}
         message={premiumMessage}
@@ -1014,6 +1050,9 @@ export default function BagScreenV2(props: BagScreenProps) {
           show("프리미엄이 적용됐어요. 다시 시도해 주세요");
         }}
       />
+      {/* 개인 잠금: 가방 잠금 문 + 잠그기 · 풀기 · 잠긴 팩 열기 */}
+      <LockScreen open={bagGate} title="잠긴 가방" name={bag.name} onCancel={handleBack} cancelLabel="뒤로" />
+      {privacy.element}
     </div>
   );
 }

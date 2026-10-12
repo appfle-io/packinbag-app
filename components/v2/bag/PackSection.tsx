@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconChevronDown, IconListDetails, IconPlus } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconListDetails, IconLock, IconPlus } from "@tabler/icons-react";
 import type { Item, Pack } from "@/lib/types";
 import { Badge, Button, CheckMark, IconButton, cx, useLongPress } from "@/components/v2/ui";
 
@@ -138,6 +138,25 @@ export function PackSection({
           )}
         </div>
       </div>
+    </section>
+  );
+}
+
+// 개인 잠금으로 잠긴 팩 · 메모(2026-10-12). 이름만 보이고 내용은 가린다. 누르면 PIN, 길게 누르면 팩 메뉴(잠금 풀기 등)
+export function LockedPackSection({ pack, onOpen, onMenu }: { pack: Pack; onOpen: () => void; onMenu: () => void }) {
+  const press = useLongPress(onMenu, onOpen);
+  return (
+    <section data-pack-id={pack.id} className="break-inside-avoid border-b border-line">
+      <button type="button" {...press} className="flex min-h-13 w-full select-none items-center justify-between gap-3 bg-transparent text-left">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-body font-bold">{pack.name}</span>
+          {pack.kind === "editor" && <Badge>메모</Badge>}
+        </span>
+        <span className="flex shrink-0 items-center gap-1 text-caption text-sub">
+          <IconLock size={16} stroke={1.9} aria-hidden="true" />
+          잠김
+        </span>
+      </button>
     </section>
   );
 }

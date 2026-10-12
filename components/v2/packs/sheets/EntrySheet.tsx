@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconArrowRight, IconEdit, IconMenu2, IconPin, IconPinnedOff, IconShare } from "@tabler/icons-react";
+import { IconArrowRight, IconEdit, IconLock, IconLockOpen, IconMenu2, IconPin, IconPinnedOff, IconShare } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Button, Sheet } from "@/components/v2/ui";
 
@@ -18,6 +18,7 @@ export function EntrySheet({
   onShare,
   onDelete,
   onReorder,
+  privacyLock,
 }: {
   entry: Pack | null;
   onClose: () => void;
@@ -32,6 +33,8 @@ export function EntrySheet({
   onDelete: () => void;
   // 이 폴더(또는 맨 위) 항목 순서 바꾸기. 없으면 숨김(오프라인)
   onReorder?: () => void;
+  // 개인 잠금(2026-10-12, 팩 · 메모만). 없으면 숨김
+  privacyLock?: { locked: boolean; onToggle: () => void };
 }) {
   // 닫히는 동안 내용 유지
   const [cached, setCached] = useState<Pack | null>(entry);
@@ -77,6 +80,19 @@ export function EntrySheet({
               <button type="button" className={row} onClick={act(onShare)}>
                 <IconShare size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
                 폴더 공유
+              </button>
+            )}
+            {privacyLock && (
+              <button type="button" className={row} onClick={() => (onClose(), window.setTimeout(privacyLock.onToggle, 300))}>
+                {privacyLock.locked ? (
+                  <IconLockOpen size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+                ) : (
+                  <IconLock size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+                )}
+                <span className="flex min-w-0 flex-1 flex-col py-2">
+                  <span>{privacyLock.locked ? "잠금 풀기" : e.kind === "editor" ? "이 메모 잠그기" : "이 팩 잠그기"}</span>
+                  {!privacyLock.locked && <span className="text-micro text-sub">열 때 PIN을 물어요 · 이 팩을 불러온 가방 속 팩도 같이 잠겨요</span>}
+                </span>
               </button>
             )}
           </section>

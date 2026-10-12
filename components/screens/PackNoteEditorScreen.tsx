@@ -81,6 +81,8 @@ import { PdfViewer } from "@/components/v2/bag/PdfViewer";
 import { mergeEditorDocs } from "@/lib/syncMerge";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { sweepRemovedAttachments } from "@/lib/storageCleanup";
+import { PrivateLockGate } from "@/components/v2/lock/LockUI";
+import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 
 // 문서를 통째로 바꿔 넣되, 커서가 있던 맨 위 문단을 새 문서에서 찾아 같은 자리로 돌려놓는다
 // (위쪽에 다른 사람이 문단을 넣어도 치던 자리가 튀지 않게). 예외는 삼킨다 - 커서는 부가 기능이다.
@@ -126,7 +128,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 // 아이폰 메모처럼 자유롭게 제목/체크박스/표를 섞어 쓰는 "에디터팩" 전체화면 편집기.
 // 노션 페이지처럼 팩을 탭하면 이 화면으로 진입한다(팩 보관함/가방 속 EditorPackCard 둘 다
 // 동일 화면을 재사용 - onSave로 어디에 반영할지만 다르게 넘겨받는다).
-export default function PackNoteEditorScreen({
+function PackNoteEditorScreenInner({
   pack,
   readOnly,
   otherEditorNickname,
@@ -1289,4 +1291,15 @@ export default function PackNoteEditorScreen({
       </div>
     );
   }
+}
+
+// 개인 잠금(2026-10-12): 보관함에서 잠근 메모면 잠금 화면으로 덮는다. 가방 안 메모(bagId)는 가방 화면이 따로 막는다
+export default function PackNoteEditorScreen(props: React.ComponentProps<typeof PackNoteEditorScreenInner>) {
+  const privacy = usePrivateLock();
+  const locked = !props.bagId && privacy.libraryLocked(props.pack.id);
+  return (
+    <PrivateLockGate locked={locked} title="잠긴 메모" name={props.pack.name} onBack={props.onBack}>
+      <PackNoteEditorScreenInner {...props} />
+    </PrivateLockGate>
+  );
 }

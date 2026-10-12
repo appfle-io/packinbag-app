@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile } from "@tabler/icons-react";
+import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconLockOpen, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
@@ -32,6 +32,7 @@ export function MoreSheet({
   weather,
   onGuide,
   keepScreenOn,
+  privacyLock,
 }: {
   open: boolean;
   onClose: () => void;
@@ -53,6 +54,8 @@ export function MoreSheet({
   onGuide?: () => void;
   // 화면 켜두기(구 UI 집중 패킹 모드). 이 기기에 기억
   keepScreenOn?: { on: boolean; onChange: (on: boolean) => void };
+  // 개인 잠금(2026-10-12). 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
+  privacyLock?: { locked: boolean; onToggle: () => void };
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   // 사진·파일 올리기는 인터넷이 필요하다(오프라인 모드는 이 기기에 저장하므로 그대로 된다)
@@ -130,6 +133,25 @@ export function MoreSheet({
               className="h-11 rounded-field border border-line bg-card px-3 text-body outline-none focus:border-ink"
             />
           </label>
+          {privacyLock && (
+            <button
+              type="button"
+              className={`${row} mt-2 border-t`}
+              onClick={() => (close(), window.setTimeout(privacyLock.onToggle, 300))}
+            >
+              {privacyLock.locked ? (
+                <IconLockOpen size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+              ) : (
+                <IconLock size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+              )}
+              <span className="flex min-w-0 flex-1 flex-col py-2">
+                <span>{privacyLock.locked ? "가방 잠금 풀기" : "이 가방 잠그기"}</span>
+                <span className="text-micro text-sub">
+                  {privacyLock.locked ? "열 때 PIN을 묻고 있어요" : "열 때 PIN(또는 Face ID)을 물어요 · 나만 잠겨요"}
+                </span>
+              </span>
+            </button>
+          )}
         </section>
 
         {(keepScreenOn || notificationsAvailable || liveAvailable) && (
