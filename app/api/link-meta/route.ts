@@ -9,6 +9,15 @@ import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 // 검증에 성공했을 때만 계산한다.
 export const runtime = "nodejs";
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const kind = req.nextUrl.searchParams.get("kind");
   const code = req.nextUrl.searchParams.get("code");
@@ -22,7 +31,8 @@ export async function GET(req: NextRequest) {
   const snap = await col.doc(code).get();
   const data = snap.exists ? snap.data() ?? {} : {};
   const longUrl = data.longUrl as string | undefined;
-  if (!longUrl) {
+  // http(s)가 아닌 주소(예전 데이터 등)는 화면 링크로 내려보내지 않는다(2026-10-12)
+  if (!longUrl || !isHttpUrl(longUrl)) {
     return NextResponse.json({ error: "존재하지 않는 링크예요" }, { status: 404 });
   }
 
