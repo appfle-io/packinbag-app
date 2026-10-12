@@ -258,6 +258,11 @@ export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
 
   if (Capacitor.isPluginAvailable("App")) {
     const fromUrl = (url: string | undefined, launch = false) => {
+      // 유니버설 링크(1.6 Associated Domains부터, app/.well-known/apple-app-site-association): https 주소를 같은 경로의 packinbag://open으로 바꿔 아래와 같이 처리
+      if (url && /^https:\/\/packinbag\.seeuson\.com\//.test(url)) {
+        const u = new URL(url);
+        url = `packinbag://open?to=${encodeURIComponent(u.pathname + u.search)}`;
+      }
       // 공유 링크 브리지(2026-10-12, lib/v2/appBridge): packinbag://open?to=/?invite=코드 → 앱 안에서 그 경로로(같은 사이트 경로만)
       if (url?.startsWith("packinbag://open")) {
         try {

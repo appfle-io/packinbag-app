@@ -78,7 +78,7 @@ const TEXT_SWATCHES: { hex: string; label: string }[] = [
   { hex: "#8EC5FF", label: "스카이" },
   { hex: "#C3B1F2", label: "라벤더" },
 ];
-const MIN_ALPHA = 0.2;
+const MIN_ALPHA = 0;
 
 type Style = {
   theme: LiveActivityTheme;

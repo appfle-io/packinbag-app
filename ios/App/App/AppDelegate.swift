@@ -208,7 +208,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let font = call.getString("font") ?? "system"
         let size = call.getString("size") ?? "medium"
         let bgColor = call.getString("bgColor")
-        let bgAlpha = call.getDouble("bgAlpha").map { min(1, max(0.2, $0)) }
+        // 0%(완전 투명)까지 허용(10/12). 예전 20% 하한은 글자색을 배경 밝기로만 정하던 때 읽기 어려워지는 걸 막으려던 것
+        let bgAlpha = call.getDouble("bgAlpha").map { min(1, max(0, $0)) }
         Task {
             do {
                 let id = try await PIBLiveActivity.start(

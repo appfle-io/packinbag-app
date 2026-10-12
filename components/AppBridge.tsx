@@ -9,6 +9,19 @@ import { APP_STORE_URL, detectBridgeEnv, externalBrowserUrl, isSafeAppPath, tryO
 // - 아이폰 사파리: 아래 카드로 "앱에서 열기"(사파리는 앱이 없으면 오류 창이 떠서 자동으로 시도하지 않는다)
 // - 안드로이드 앱 안 브라우저: 기본 브라우저에서 바로 참여 화면으로
 // 같은 주소에서 자동 시도는 한 번만(뒤로 가기 · 새로고침으로 되풀이하지 않게)
+// 첫 화면(/)에서: 링크 복사로 보낸 초대 링크는 /?invite=코드 라 게스트 보기(/v)를 거치지 않는다(10/12). 같은 브리지를 태운다
+export function InviteLinkBridge() {
+  const [path, setPath] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const code = (new URLSearchParams(window.location.search).get("invite") || "").trim();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 주소는 처음 한 번만 읽는다
+      if (/^[A-Za-z0-9_-]{4,40}$/.test(code)) setPath(`/?invite=${encodeURIComponent(code)}`);
+    } catch {}
+  }, []);
+  return path ? <AppBridge path={path} auto /> : null;
+}
+
 export default function AppBridge({ path, auto }: { path: string; auto: boolean }) {
   const [env, setEnv] = useState<BridgeEnv | null>(null);
   const [card, setCard] = useState<"opening" | "safari" | null>(null);

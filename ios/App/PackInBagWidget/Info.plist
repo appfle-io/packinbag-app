@@ -7,5 +7,30 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
+	<!--
+	  위젯 · 잠금화면(실시간 현황) 글꼴(2026-10-12). 위젯 화면은 iOS(스프링보드)가 따로 그려서,
+	  위젯 확장 안에서 코드로만 등록한 글꼴(PIBFonts CTFontManagerRegisterFontsForURL)은 잠금화면에 안 먹는다.
+	  여기 적어야 iOS가 그릴 때도 글꼴을 찾는다. 파일은 ios/App/PackInBagWidget/Fonts/
+	  (동기화 폴더라 번들 맨 위에 복사되는 경우와 Fonts/ 아래로 복사되는 경우 둘 다 적어 둠 - 없는 쪽은 무시됨)
+	-->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Pretendard-Regular.otf</string>
+		<string>Pretendard-SemiBold.otf</string>
+		<string>GmarketSansTTFMedium.ttf</string>
+		<string>GmarketSansTTFBold.ttf</string>
+		<string>Gaegu-Regular.ttf</string>
+		<string>Gaegu-Bold.ttf</string>
+		<string>D2Coding-Regular.ttf</string>
+		<string>D2Coding-Bold.ttf</string>
+		<string>Fonts/Pretendard-Regular.otf</string>
+		<string>Fonts/Pretendard-SemiBold.otf</string>
+		<string>Fonts/GmarketSansTTFMedium.ttf</string>
+		<string>Fonts/GmarketSansTTFBold.ttf</string>
+		<string>Fonts/Gaegu-Regular.ttf</string>
+		<string>Fonts/Gaegu-Bold.ttf</string>
+		<string>Fonts/D2Coding-Regular.ttf</string>
+		<string>Fonts/D2Coding-Bold.ttf</string>
+	</array>
 </dict>
 </plist>
