@@ -96,12 +96,16 @@ export function liveState(bag: RawBag, packId: string): LiveState | null {
 export async function updateLiveActivities(p8: string, bagId: string, bag: RawBag | null): Promise<number> {
   const db = getFirestore();
   const snap = await db.collection(DEVICE_TOKENS).where("apnsLive.bagId", "==", bagId).get();
+  // 지금 멤버가 아닌 기기(나갔거나 내보낸 사람)에는 새 내용을 보내지 않고 내린다(2026-10-12 보안 점검).
+  // 예전에는 등록할 때만 멤버를 확인해서, 내보낸 뒤에도 잠금화면으로 아이템 이름이 계속 갔다
+  const members: string[] = bag && Array.isArray(bag.memberIds) ? (bag.memberIds as string[]) : [];
   let sent = 0;
   for (const doc of snap.docs) {
     const live = doc.data().apnsLive as { token?: string; packId?: string; env?: string } | undefined;
     if (!live?.token || !live.packId) continue;
     const now = Math.floor(Date.now() / 1000);
-    const state = bag ? liveState(bag, live.packId) : null;
+    const isMember = members.includes(String(doc.data().uid ?? ""));
+    const state = bag && isMember ? liveState(bag, live.packId) : null;
     // 팩이 사라졌거나 가방이 지워졌을 때만 내린다. 다 챙겨도 내리지 않고 doneAt만 적는다(10/11 - 끝낸 화면은
     // 다시 풀 수 없어서). 5분 뒤 내리는 건 앱(PIBLiveActivity.updateAll)이 한다
     const gone = !state || state.total === 0;

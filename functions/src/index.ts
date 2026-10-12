@@ -11,7 +11,9 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
-import { devicesOf, sendToDevices } from "./devices";
+import * as functionsV1 from "firebase-functions/v1";
+import { getFirestore } from "firebase-admin/firestore";
+import { DEVICE_TOKENS, devicesOf, sendToDevices } from "./devices";
 import { diffBag, enqueueActivity, flushDue, sendImmediate } from "./bagEvents";
 import { flushSilent, markSilent, updateLiveActivities } from "./live";
 
@@ -51,7 +53,10 @@ export const onBagUpdated = onDocumentUpdated({ document: "bags/{bagId}", secret
   if (!before || !after) return;
   const bagId = event.params.bagId;
   const packsChanged = before.name !== after.name || JSON.stringify(before.packs ?? []) !== JSON.stringify(after.packs ?? []);
-  if (packsChanged) {
+  // 멤버가 빠졌으면 그 사람 잠금화면도 바로 내린다(updateLiveActivities가 멤버 아닌 기기는 내림, 10/12)
+  const afterIds: string[] = Array.isArray(after.memberIds) ? after.memberIds : [];
+  const memberRemoved = (Array.isArray(before.memberIds) ? (before.memberIds as string[]) : []).some((id) => !afterIds.includes(id));
+  if (packsChanged || memberRemoved) {
     await updateLiveActivities(APNS_KEY_P8.value(), bagId, after).catch((err) => console.error("[push] 실시간 현황 갱신 실패", err));
   }
   const members: string[] = Array.isArray(after.memberIds) ? after.memberIds : [];
@@ -86,3 +91,16 @@ export const flushBagActivity = onSchedule(
 export const onBagDeleted = onDocumentDeleted({ document: "bags/{bagId}", secrets: [APNS_KEY_P8] }, async (event) => {
   await updateLiveActivities(APNS_KEY_P8.value(), event.params.bagId, null).catch((err) => console.error("[push] 실시간 현황 내리기 실패", err));
 });
+
+// 회원 탈퇴(Auth 계정 삭제) → 그 계정의 기기 토큰을 모두 지운다(2026-10-12 보안 점검).
+// 예전에는 남아 있어서, 탈퇴한 기기의 위젯·단축어가 계속 서버를 부르고 푸시도 받을 수 있었다.
+// Auth 삭제 트리거는 v2에 없어 v1을 쓴다(리전은 같게 서울)
+export const onUserDeleted = functionsV1
+  .region("asia-northeast3")
+  .auth.user()
+  .onDelete(async (user) => {
+    const db = getFirestore();
+    const snap = await db.collection(DEVICE_TOKENS).where("uid", "==", user.uid).get();
+    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+    if (snap.size > 0) console.log(`[push] 탈퇴 계정 기기 토큰 ${snap.size}개 삭제`);
+  });
