@@ -220,7 +220,11 @@ export async function syncBagNotifications(bags: Bag[], reminders: Record<string
 
 // 알림을 눌러 앱이 열렸을 때 그 가방 id를 알려 준다. 앱이 꺼져 있다가 열린 경우도 플러그인이 이벤트를 보관했다가 준다.
 // 10/11(B-6): 서버 푸시(활동 · 담당 · 새 멤버, data.bagId)와 위젯 · 잠금화면 누름(packinbag://bag/{id})도 같은 자리로 모은다
-export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
+// 1.6(10/12): Siri · Spotlight 검색 결과 - packinbag://bag/{id}?pack={packId}(가방 속 팩) · packinbag://library/{id}(보관함 팩, onLibrary)
+export function onBagNotificationTap(
+  cb: (bagId: string, packId?: string) => void,
+  onLibrary?: (libraryPackId: string) => void,
+): () => void {
   if (!isLocalNotificationsAvailable()) return () => {};
   const handles: { remove: () => Promise<void> }[] = [];
   let removed = false;
@@ -233,11 +237,12 @@ export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
       .catch(() => {});
   // 같은 누름이 두 길로 들어오면(launch URL + appUrlOpen) 한 번만
   let last = { id: "", at: 0 };
-  const open = (bagId: string) => {
+  const open = (bagId: string, packId?: string) => {
+    const key = `${bagId}|${packId ?? ""}`;
     const now = Date.now();
-    if (last.id === bagId && now - last.at < 1500) return;
-    last = { id: bagId, at: now };
-    cb(bagId);
+    if (last.id === key && now - last.at < 1500) return;
+    last = { id: key, at: now };
+    cb(bagId, packId);
   };
 
   keep(
@@ -280,8 +285,22 @@ export function onBagNotificationTap(cb: (bagId: string) => void): () => void {
         } catch {}
         return;
       }
-      const m = url ? /^packinbag:\/\/bag\/([A-Za-z0-9_-]+)/.exec(url) : null;
-      if (m) open(m[1]);
+      // packinbag://bag/{id}(?pack={packId}) · packinbag://library/{id}
+      if (!url?.startsWith("packinbag://")) return;
+      try {
+        const u = new URL(url.replace(/^packinbag:\/\//, "https://app/"));
+        const [kind, id] = u.pathname.split("/").filter(Boolean);
+        if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) return;
+        if (kind === "bag") {
+          const pack = u.searchParams.get("pack");
+          open(id, pack && /^[A-Za-z0-9_-]+$/.test(pack) ? pack : undefined);
+        } else if (kind === "library" && onLibrary) {
+          const now = Date.now();
+          if (last.id === `lib|${id}` && now - last.at < 1500) return;
+          last = { id: `lib|${id}`, at: now };
+          onLibrary(id);
+        }
+      } catch {}
     };
     keep(AppPlugin.addListener("appUrlOpen", (e) => fromUrl(e.url)));
     // 앱이 꺼져 있다가 위젯으로 열린 경우(처음 한 번만 - 다시 구독해도 같은 주소를 또 열지 않게)

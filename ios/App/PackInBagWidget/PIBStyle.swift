@@ -70,6 +70,15 @@ enum PIBTextSize: String, AppEnum {
     ]
 }
 
+// 위젯 열 수(1.6, 10/12). 중간 · 크게에만 적용, 작게는 항상 1열
+enum PIBColumns: String, AppEnum {
+    case one, two
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "열 수"
+    static let caseDisplayRepresentations: [PIBColumns: DisplayRepresentation] = [
+        .one: "1열", .two: "2열",
+    ]
+}
+
 struct PIBPalette {
     let background: Color
     let card: Color

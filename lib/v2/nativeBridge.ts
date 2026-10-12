@@ -7,8 +7,8 @@
 // 플러그인이 없는 웹 · PC · 스토어 1.3 앱에서는 아무것도 하지 않는다.
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { User } from "firebase/auth";
-import type { Bag, PrivateLock } from "@/lib/types";
-import { buildNativeSummary, type NativeSummaryProfile } from "@/lib/nativeSummary";
+import type { Bag, Pack, PrivateLock } from "@/lib/types";
+import { buildNativeLibrary, buildNativeSummary, type NativeSummaryProfile } from "@/lib/nativeSummary";
 import { getApiUrl } from "@/lib/apiBase";
 import { nativeLockFilter } from "@/lib/v2/privateLock";
 
@@ -88,6 +88,8 @@ let lastSummary = "";
 let lastBags: Bag[] = [];
 let lastUid = "";
 let lastProfile: NativeSummaryProfile = {};
+// 보관함 팩(1.6 Siri · Spotlight 검색, 10/12). 휴지통 · 빠른팩은 AppShell이 빼고 넘긴다. 아직 안 받았으면 null(요약에 키를 넣지 않음)
+let lastLibrary: Pack[] | null = null;
 let lockProfile: Pick<NativeSummaryProfile, "lockedBagIds" | "lockedPackKeys" | "lockedLibraryIds"> = {};
 
 // 개인 잠금(2026-10-12): 잠근 가방 · 팩은 위젯 · 잠금화면 요약에서 뺀다. AuthProvider가 잠금 설정이 바뀔 때마다 부른다
@@ -103,13 +105,21 @@ export function nativeSummaryLockProfile(): NativeSummaryProfile {
 
 // 가방 요약을 네이티브에 넘긴다(같은 내용이면 건너뜀). 위젯 · 실시간 현황이 바로 새로 그려진다.
 // profile: 보관함 가방은 빼고 고정 가방은 표시(10/11, 서버 /api/native/summary와 같은 기준)
-export function pushNativeSummary(bags: Bag[], uid: string, profile: NativeSummaryProfile = lastProfile): Promise<void> {
+// library: 보관함 팩(검색 색인용). 서버 요약에는 없고 앱이 열려 있을 때만 넘긴다(1.6, 10/12 A안)
+export function pushNativeSummary(
+  bags: Bag[],
+  uid: string,
+  profile: NativeSummaryProfile = lastProfile,
+  library: Pack[] | null = lastLibrary,
+): Promise<void> {
   if (!isNativeBridgeAvailable()) return Promise.resolve();
   lastBags = bags;
   lastUid = uid;
   lastProfile = profile;
+  lastLibrary = library;
   const summary = buildNativeSummary(bags, uid, new Date(), { ...profile, ...lockProfile });
-  const json = JSON.stringify(summary.bags);
+  if (library) summary.library = buildNativeLibrary(library, lockProfile.lockedLibraryIds);
+  const json = JSON.stringify([summary.bags, summary.library ?? null]);
   if (json === lastSummary) return Promise.resolve();
   lastSummary = json;
   return Native.saveSummary({ json: JSON.stringify(summary) }).catch((err) => {

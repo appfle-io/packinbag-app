@@ -254,18 +254,22 @@ struct BagPackEntity: AppEntity {
     // "가방id|팩id"
     let id: String
     let name: String
+    // 검색 결과 아래 줄(1.6)
+    var bagName: String = ""
 
     var bagId: String { String(id.split(separator: "|").first ?? "") }
     var packId: String { String(id.split(separator: "|").last ?? "") }
 
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+    var displayRepresentation: DisplayRepresentation {
+        bagName.isEmpty ? DisplayRepresentation(title: "\(name)") : DisplayRepresentation(title: "\(name)", subtitle: "\(bagName)")
+    }
 
     // 미분류는 목록에서 뺀다(팩을 비워 두면 미분류)
     static func of(bagId: String?) -> [BagPackEntity] {
         (PIBStore.summary()?.bags ?? [])
             .filter { bagId == nil || $0.id == bagId }
             .flatMap { bag in
-                bag.packs.filter { $0.inbox != true }.map { BagPackEntity(id: "\(bag.id)|\($0.id)", name: $0.name) }
+                bag.packs.filter { $0.inbox != true }.map { BagPackEntity(id: "\(bag.id)|\($0.id)", name: $0.name, bagName: bag.name) }
             }
     }
 }
@@ -320,5 +324,68 @@ struct AddToBagIntent: AppIntent {
         PIBWidgets.reload()
         let count = result.added > 1 ? "\(result.added)개 " : ""
         return .result(dialog: "\(bag.name) · \(result.packName)에 \(count)넣었어요")
+    }
+}
+
+// ---- Siri · Spotlight 검색(1.6, 2026-10-12) ---------------------------------------------
+// 가방 · 가방 속 팩 · 보관함 팩을 기기 검색 색인에 넣는다(IndexedEntity, iOS 18 이상). 색인은 앱 프로세스에서만(AppDelegate PIBSpotlight).
+// 목록은 App Group 요약 기준 - 개인 잠금으로 잠근 가방 · 팩 · 보관함 팩은 요약에서 이미 빠져 있다(lib/nativeSummary.ts).
+// 보관함 팩은 앱이 열려 있을 때 웹이 넘긴 목록(PIBSummary.library)만 쓴다(A안 - 서버 읽기 비용 없음).
+// 결과를 누르면 열기 인텐트(AppDelegate의 Open*Intent)가 packinbag:// 주소로 앱을 연다 → 웹 bagReminders.onBagNotificationTap
+
+@available(iOS 17.0, *)
+struct LibraryPackEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "보관함 팩"
+    static let defaultQuery = LibraryPackEntityQuery()
+
+    let id: String
+    let name: String
+    var detail: String = ""
+
+    var displayRepresentation: DisplayRepresentation {
+        detail.isEmpty ? DisplayRepresentation(title: "\(name)") : DisplayRepresentation(title: "\(name)", subtitle: "\(detail)")
+    }
+
+    static func all() -> [LibraryPackEntity] {
+        (PIBStore.summary()?.library ?? []).map { p in
+            let detail = p.kind == "note" ? "보관함 · 메모" : "보관함 · 아이템 \(p.count ?? 0)개"
+            return LibraryPackEntity(id: p.id, name: p.name, detail: detail)
+        }
+    }
+}
+
+@available(iOS 17.0, *)
+struct LibraryPackEntityQuery: EntityStringQuery {
+    func entities(for identifiers: [String]) async throws -> [LibraryPackEntity] {
+        let all = LibraryPackEntity.all()
+        return identifiers.compactMap { id in all.first { $0.id == id } }
+    }
+
+    func entities(matching string: String) async throws -> [LibraryPackEntity] {
+        LibraryPackEntity.all().filter { $0.name.localizedCaseInsensitiveContains(string) }
+    }
+
+    func suggestedEntities() async throws -> [LibraryPackEntity] {
+        LibraryPackEntity.all()
+    }
+}
+
+@available(iOS 18.0, *)
+extension BagEntity: IndexedEntity {}
+
+@available(iOS 18.0, *)
+extension BagPackEntity: IndexedEntity {}
+
+@available(iOS 18.0, *)
+extension LibraryPackEntity: IndexedEntity {}
+
+enum PIBLinks {
+    static func bag(_ bagId: String, packId: String? = nil) -> URL? {
+        guard let packId, !packId.isEmpty else { return URL(string: "packinbag://bag/\(bagId)") }
+        return URL(string: "packinbag://bag/\(bagId)?pack=\(packId)")
+    }
+
+    static func library(_ packId: String) -> URL? {
+        URL(string: "packinbag://library/\(packId)")
     }
 }

@@ -55,6 +55,18 @@ struct PIBSummary: Codable {
     var v: Int
     var updatedAt: String
     var bags: [PIBBag]
+    // 보관함 팩(1.6 Siri · Spotlight 검색, 10/12). 앱이 열려 있을 때 웹만 넣는다.
+    // 서버 요약(/api/native/summary)에는 없다 → 저장할 때 없으면 예전 목록을 그대로 둔다(PIBStore.save)
+    var library: [PIBLibraryPack]? = nil
+}
+
+struct PIBLibraryPack: Codable, Hashable {
+    let id: String
+    var name: String
+    // "checklist" | "note"
+    var kind: String
+    // 체크리스트 팩의 아이템 수
+    var count: Int? = nil
 }
 
 enum PIBError: LocalizedError {
@@ -100,6 +112,7 @@ enum PIBStore {
     static func save(_ summary: PIBSummary) {
         var summary = summary
         for p in pending() { apply(p, to: &summary) }
+        if summary.library == nil { summary.library = self.summary()?.library }
         guard let data = try? JSONEncoder().encode(summary) else { return }
         PIB.defaults.set(data, forKey: summaryKey)
         PIB.defaults.set(Date().timeIntervalSince1970, forKey: savedAtKey)

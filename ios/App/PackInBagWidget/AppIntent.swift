@@ -1,4 +1,4 @@
-// 위젯을 길게 눌러 "위젯 편집"에서 고르는 값(2026-10-10): 가방 → 팩(또는 가방 전체) · 배경 · 글꼴 · 글자 크기.
+// 위젯을 길게 눌러 "위젯 편집"에서 고르는 값(2026-10-10): 가방 → 팩(또는 가방 전체) · 배경 · 글꼴 · 글자 크기 · 열 수(1.6).
 // 10/11: 예전에는 "팩 또는 가방 전체" 한 목록에 모든 가방의 팩이 다 나와 너무 길었다 → 가방을 먼저 고르고(BagEntity, 묶음 + 검색)
 // 팩 목록에는 그 가방의 팩만 보인다(IntentParameterDependency). 팩을 비워 두면 가방 전체.
 // 가방을 바꿨는데 팩이 예전 가방 것이면 가방 전체로 보여 준다(편집 화면은 iOS가 그려서 자동으로 비울 수 없음).
@@ -82,4 +82,8 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
 
     @Parameter(title: "글자 크기", default: .medium)
     var textSize: PIBTextSize
+
+    // 1.6(10/12). 중간 · 크게만(작게는 1열 고정). 예전에 놓인 위젯은 기본값 2열이 된다
+    @Parameter(title: "열 수", description: "작게 위젯은 항상 1열", default: .two)
+    var columns: PIBColumns
 }

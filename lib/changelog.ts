@@ -12,6 +12,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.0.34",
+    date: "2026-10-12",
+    items: [
+      "가방 · 팩을 나만 잠글 수 있어요(PIN, iPhone은 Face ID도)",
+      "잠금화면에 띄우기: 글자색을 고르고 미리 보며 꾸며요",
+      "홈 화면 위젯: 중간 · 크게에서 1열 · 2열을 골라요",
+      "iPhone 검색 · Siri에서 가방 · 팩 이름으로 찾아 바로 열어요",
+      "공유 링크를 누르면 팩인백 앱에서 바로 열려요",
+    ],
+  },
+  {
     version: "1.0.32",
     date: "2026-10-11",
     items: [

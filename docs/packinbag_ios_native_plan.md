@@ -174,6 +174,16 @@
 
 ## 10. 1.6 네이티브 묶음 (10/12 기획 · 웹쪽은 먼저 완료)
 웹에서 만든 것은 이미 배포 가능(1.5 앱에서는 네이티브가 없으면 조용히 건너뜀). 아래는 Xcode 27에서 할 일.
+
+> **10/12 진행**: 1~5 코드 완료(기기 확인 전). 웹 v1.0.34 + iOS 1.6(Build 6)으로 한번에 배포
+> - 4(A안 확정): 보관함 팩은 앱이 열려 있을 때 웹이 요약 `library`로 넘김(`buildNativeLibrary`, 휴지통 · 빠른팩 · 올리기 대기 · 폴더 · 개인 잠금 제외, 최근 100개, 메모 본문 없음). 서버 요약에는 없고 네이티브 `PIBStore.save`가 없으면 예전 목록 유지
+>   - 엔티티: `BagEntity` · `BagPackEntity`(부제 가방 이름) · `LibraryPackEntity` → `IndexedEntity`(iOS 18+). App Schema는 맞는 도메인이 없어 안 씀
+>   - 색인: AppDelegate `PIBSpotlight.reindex()`(saveSummary · 조용한 푸시 뒤, id·이름이 바뀌면 바로 / 부제만 바뀌면 30분에 한 번), 로그아웃 때 `clear()`
+>   - 열기: `OpenBagIntent` · `OpenBagPackIntent` · `OpenLibraryPackIntent` → `PIBOpen`(브리지 준비 전이면 미뤘다가) → Capacitor appUrlOpen → 웹 `onBagNotificationTap(cb(bagId, packId), onLibrary)` → AppShell(가방 + `bagFocus.packId` / 팩 탭 + 보관함 팩)
+> - 5: 엔타이틀먼트 · AASA · 웹 처리가 이미 있어 기기 확인만
+> - 1: `PackInBagNativePlugin.biometricInfo` · `authenticateBiometric`(생체 인증만, 대체 버튼 "PIN 입력" → ok:false), Info.plist `NSFaceIDUsageDescription`
+> - 2: `PackActivityAttributes.textTone/textColor`(옵셔널, auto는 nil로 저장), `PIBLiveActivity.start/restart`가 넘김, `PackLockScreenView.toned`(흰색 72% · 검정 #17171A 62% · 직접 72% - 웹 미리 보기와 같은 값). 강조색 · 진행 막대 · 다이내믹 아일랜드는 그대로
+> - 3: `PIBColumns`(PIBStyle.swift) + `ConfigurationAppIntent.columns`(기본 2열). 작게 1열 고정. 이미 놓인 중간 위젯도 2열로 바뀜. 잠금화면 위젯 편집에도 "열 수"가 보이지만 쓰지 않음(같은 인텐트)
 1. **Face ID(개인 잠금)**: `PackInBagNativePlugin`에 `biometricInfo()` → `{ available, type: faceId|touchId|opticId|none }`(LAContext.canEvaluatePolicy `.deviceOwnerAuthenticationWithBiometrics`), `authenticateBiometric({ reason })` → `{ ok }`(evaluatePolicy, 취소·실패는 ok:false). Info.plist `NSFaceIDUsageDescription`("잠근 가방·팩을 열 때 Face ID를 써요"). 웹: `lib/v2/biometric.ts`
 2. **잠금화면 글자색**: `startLiveActivity` 옵션 `textTone`(auto|white|black|custom) · `textColor`("#RRGGBB") → `PackActivityAttributes`에 추가(옛 활동 디코딩 위해 옵셔널). `PackLockScreenView`에서 auto가 아니면 `c.ink`를 그 색, `c.sub`를 같은 색 72%로. `RestartLiveIntent`도 새 값 그대로 넘기기. 다이내믹 아일랜드는 그대로(다크). 웹 미리 보기 기준: `LiveActivitySheet.tsx` LockScreenPreview
 3. **위젯 열 수**: `ConfigurationAppIntent`에 "열 수"(1열 · 2열, 기본 2열) 추가, 중간(systemMedium)에서도 2열 가능. `PackWidgetView.packView`의 `columns = family == .systemLarge ? 2 : 1` → 작게는 1열 고정, 중간 · 크게는 설정값

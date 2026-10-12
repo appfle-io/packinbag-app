@@ -4,6 +4,7 @@
 // 높이(10/11): iOS가 잠금화면 실시간 현황을 최대 160pt로 자른다(넘치면 위아래가 잘림). 예전에는 아이템 4줄을 세로로 쌓아 잘렸다 →
 //   아이템은 2열 2줄(최대 4개), "외 N개"와 새로고침 시각은 맨 아래 한 줄에
 // 다이내믹 아일랜드 · 잠금화면을 누르면 그 가방이 열린다(packinbag://bag/{id}, 10/11). 잠금화면 아래 줄에 받은 시각 + ↻
+// 글자색(1.6, 10/12): attributes.textTone(자동 · 흰색 · 검정 · 직접). 잠금화면 카드만, 다이내믹 아일랜드는 그대로
 import ActivityKit
 import WidgetKit
 import SwiftUI
@@ -22,7 +23,8 @@ struct PackLockScreenView: View {
         // 직접 고른 배경색(10/11): 밝기로 글자색(라이트/다크)을 정한다
         let custom = attributes.theme == "custom" ? PIBCustomColor(hex: attributes.bgColor) : nil
         let scheme = custom.map { $0.isLight ? ColorScheme.light : .dark } ?? style.scheme(systemScheme)
-        let c = PIBPalette.of(scheme)
+        // 글자색(1.6): 자동이 아니면 글자 · 보조 글자만 바꾼다(강조색 · 진행 막대는 그대로)
+        let c = Self.toned(PIBPalette.of(scheme), tone: attributes.textTone, hex: attributes.textColor)
         let background = custom.map { $0.color.opacity(attributes.bgAlpha ?? 1) } ?? c.background
         let left = state.total - state.done
         let shown = Array(state.items.prefix(Self.maxShown))
@@ -71,6 +73,28 @@ struct PackLockScreenView: View {
         .activitySystemActionForegroundColor(c.ink)
         // 버튼 밖을 누르면 그 가방이 열린다
         .widgetURL(pibBagURL(attributes.bagId))
+    }
+
+    // 웹 미리 보기(LiveActivitySheet.tsx LockScreenPreview)와 같은 값: 흰색 = 흰 글자 + 72% / 검정 = #17171A + 62% / 직접 = 그 색 + 72%
+    static func toned(_ base: PIBPalette, tone: String?, hex: String?) -> PIBPalette {
+        let ink: Color
+        let sub: Color
+        switch tone {
+        case "white":
+            ink = .white
+            sub = Color.white.opacity(0.72)
+        case "black":
+            let black = Color(red: 23 / 255, green: 23 / 255, blue: 26 / 255)
+            ink = black
+            sub = black.opacity(0.62)
+        case "custom":
+            guard let picked = PIBCustomColor(hex: hex) else { return base }
+            ink = picked.color
+            sub = picked.color.opacity(0.72)
+        default:
+            return base
+        }
+        return PIBPalette(background: base.background, card: base.card, ink: ink, sub: sub, line: base.line, brand: base.brand)
     }
 
     private func itemButton(_ item: PIBItem, style: PIBStyle, c: PIBPalette) -> some View {

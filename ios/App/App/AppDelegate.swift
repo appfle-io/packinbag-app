@@ -3,6 +3,8 @@ import Capacitor
 import AppIntents
 import ActivityKit
 import UserNotifications
+import LocalAuthentication
+import CoreSpotlight
 
 // iOS 27 SDK(Xcode 27)부터 UIScene 생명주기를 쓰지 않는 앱은 실행되지 않는다(2026-10-10).
 // 화면(window)은 SceneDelegate가 갖고, Info.plist의 UIApplicationSceneManifest가 Main 스토리보드로 첫 화면을 만든다.
@@ -45,6 +47,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 try await PIBAPI.refreshSummary()
                 PIBWidgets.reload()
                 if #available(iOS 16.2, *) { await PIBLiveActivity.updateAll() }
+                if #available(iOS 18.0, *) { await PIBSpotlight.reindex() }
                 completionHandler(.newData)
             } catch {
                 completionHandler(.failed)
@@ -97,6 +100,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // 앱으로 돌아올 때: 알림 권한을 설정 앱에서 바꾼 경우 등 바뀐 게 있을 때만 서버에 알린다(바뀐 게 없으면 네트워크 안 함)
     func sceneDidBecomeActive(_ scene: UIScene) {
         Task { await PIBPush.upload() }
+        // 앱이 꺼져 있을 때 검색 결과로 열린 경우(1.6) - 미뤄 둔 주소를 웹에 넘긴다
+        PIBOpen.flush()
     }
 
     private func openURL(_ context: UIOpenURLContext) {
@@ -118,6 +123,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(PackInBagNativePlugin())
+        PIBOpen.ready = true
+        PIBOpen.flush()
+    }
+}
+
+// 검색 결과(열기 인텐트)가 연 packinbag:// 주소를 웹에 넘긴다(1.6, 10/12). 웹은 @capacitor/app appUrlOpen으로 받는다.
+// 앱이 막 켜지는 중이면(브리지 준비 전) 미뤄 두었다가 준비되면 넘긴다
+@MainActor
+enum PIBOpen {
+    static var ready = false
+    private static var pending: URL?
+
+    static func open(_ url: URL) {
+        pending = url
+        if ready && UIApplication.shared.applicationState == .active { flush() }
+    }
+
+    static func flush() {
+        guard ready, let url = pending else { return }
+        pending = nil
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
     }
 }
 
@@ -136,6 +162,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "endLiveActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "liveActivityState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "pickColor", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "biometricInfo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "authenticateBiometric", returnType: CAPPluginReturnPromise),
     ]
 
     // 색 고르기 창이 닫힐 때 돌려줄 호출(10/11)
@@ -177,6 +205,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         PIBWidgets.reload()
         Task {
             if #available(iOS 16.2, *) { await PIBLiveActivity.endAll() }
+            // 검색 색인도 지운다(다른 계정 · 로그아웃 뒤 예전 가방이 검색되지 않게)
+            if #available(iOS 18.0, *) { await PIBSpotlight.clear() }
             call.resolve()
         }
     }
@@ -192,6 +222,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve()
             // 위젯에서 눌렀는데 아직 못 보낸 체크가 있으면 지금 보낸다
             if !PIBStore.pending().isEmpty, await PIBSync.flush() { PIBWidgets.reload() }
+            // Siri · Spotlight 검색 색인(1.6). 바뀐 게 없으면 건너뜀
+            if #available(iOS 18.0, *) { await PIBSpotlight.reindex() }
         }
     }
 
@@ -210,10 +242,16 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         let bgColor = call.getString("bgColor")
         // 0%(완전 투명)까지 허용(10/12). 예전 20% 하한은 글자색을 배경 밝기로만 정하던 때 읽기 어려워지는 걸 막으려던 것
         let bgAlpha = call.getDouble("bgAlpha").map { min(1, max(0, $0)) }
+        // 글자색(1.6, 10/12): auto | white | black | custom(+ textColor "#RRGGBB"). 모르는 값 · 잘못된 색은 auto
+        var textTone = call.getString("textTone") ?? "auto"
+        if !["auto", "white", "black", "custom"].contains(textTone) { textTone = "auto" }
+        let textColor = textTone == "custom" ? call.getString("textColor").flatMap { UIColor(pibHex: $0) != nil ? $0.uppercased() : nil } : nil
+        if textTone == "custom" && textColor == nil { textTone = "auto" }
         Task {
             do {
                 let id = try await PIBLiveActivity.start(
-                    bagId: bagId, packId: packId, theme: theme, font: font, size: size, bgColor: bgColor, bgAlpha: bgAlpha
+                    bagId: bagId, packId: packId, theme: theme, font: font, size: size, bgColor: bgColor, bgAlpha: bgAlpha,
+                    textTone: textTone, textColor: textColor
                 )
                 call.resolve(["id": id])
             } catch {
@@ -265,6 +303,42 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             self.colorCall?.resolve(self.colorResult(picker.selectedColor))
             self.colorCall = call
             host.present(picker, animated: true)
+        }
+    }
+
+    // ---- 개인 잠금 Face ID · Touch ID(1.6, 2026-10-12) ----
+    // 웹 lib/v2/biometric.ts가 부른다. 생체 인증만 쓴다(.deviceOwnerAuthenticationWithBiometrics) - 기기 암호로 넘어가지 않고,
+    // 안 되면 웹이 팩인백 PIN을 받는다. Face ID 안내 문구는 Info.plist NSFaceIDUsageDescription
+    @objc func biometricInfo(_ call: CAPPluginCall) {
+        let ctx = LAContext()
+        var error: NSError?
+        let available = ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        // canEvaluatePolicy를 부른 뒤에야 biometryType이 채워진다(등록 안 됨 · 거절이어도 기기 종류는 알려 줌)
+        call.resolve(["available": available, "type": Self.biometryName(ctx)])
+    }
+
+    // { reason } → { ok }. 취소 · 실패 · "PIN 입력"(대체 버튼)은 모두 ok:false → 웹이 PIN 화면으로
+    @objc func authenticateBiometric(_ call: CAPPluginCall) {
+        let reason = call.getString("reason").flatMap { $0.isEmpty ? nil : $0 } ?? "잠근 가방·팩을 열어요"
+        let ctx = LAContext()
+        ctx.localizedFallbackTitle = "PIN 입력"
+        ctx.localizedCancelTitle = "취소"
+        var error: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            call.resolve(["ok": false])
+            return
+        }
+        ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { ok, _ in
+            call.resolve(["ok": ok])
+        }
+    }
+
+    private static func biometryName(_ ctx: LAContext) -> String {
+        if #available(iOS 17.0, *), ctx.biometryType == .opticID { return "opticId" }
+        switch ctx.biometryType {
+        case .faceID: return "faceId"
+        case .touchID: return "touchId"
+        default: return "none"
         }
     }
 
@@ -362,5 +436,101 @@ struct PackInBagShortcuts: AppShortcutsProvider {
             shortTitle: "잠금화면 다시 띄우기",
             systemImageName: "lock.rotation"
         )
+    }
+}
+
+// ---- Siri · Spotlight 검색(1.6, 2026-10-12) ---------------------------------------------
+// 가방 · 가방 속 팩 · 보관함 팩을 기기 검색 색인에 넣는다(엔티티는 Shared/PIBIntents.swift).
+// 요약을 받을 때마다(웹 saveSummary · 조용한 푸시) 부른다. id · 이름이 바뀌면 바로, 개수 같은 부제만 바뀌면 30분에 한 번.
+// 로그아웃하면 모두 지운다. 이 앱은 다른 Spotlight 항목을 쓰지 않아 통째로 지우고 다시 넣는다
+@available(iOS 18.0, *)
+enum PIBSpotlight {
+    private static let namesKey = "pib.spotlightNames"
+    private static let fullKey = "pib.spotlightFull"
+    private static let atKey = "pib.spotlightAt"
+    private static let detailEvery: TimeInterval = 30 * 60
+
+    static func reindex() async {
+        guard PIBStore.token != nil else { return }
+        let bags = (PIBStore.summary()?.bags ?? []).map { BagEntity($0) }
+        let packs = BagPackEntity.of(bagId: nil)
+        let library = LibraryPackEntity.all()
+        let names = (bags.map { "b|\($0.id)|\($0.name)" } + packs.map { "p|\($0.id)|\($0.name)|\($0.bagName)" }
+            + library.map { "l|\($0.id)|\($0.name)" }).joined(separator: "\n")
+        let full = names + "\n" + (bags.map(\.detail) + library.map(\.detail)).joined(separator: "\n")
+        let d = PIB.defaults
+        if d.string(forKey: namesKey) == names {
+            if d.string(forKey: fullKey) == full { return }
+            if Date().timeIntervalSince1970 - d.double(forKey: atKey) < detailEvery { return }
+        }
+        let index = CSSearchableIndex.default()
+        do {
+            try await index.deleteAllSearchableItems()
+            if !bags.isEmpty { try await index.indexAppEntities(bags) }
+            if !packs.isEmpty { try await index.indexAppEntities(packs) }
+            if !library.isEmpty { try await index.indexAppEntities(library) }
+            d.set(names, forKey: namesKey)
+            d.set(full, forKey: fullKey)
+            d.set(Date().timeIntervalSince1970, forKey: atKey)
+        } catch {
+            print("[팩인백] 검색 색인 실패:", error.localizedDescription)
+        }
+    }
+
+    static func clear() async {
+        try? await CSSearchableIndex.default().deleteAllSearchableItems()
+        [namesKey, fullKey, atKey].forEach { PIB.defaults.removeObject(forKey: $0) }
+    }
+}
+
+// 검색 결과를 누르면 열리는 동작. 단축어 앱에도 "가방 열기" 등으로 보인다
+@available(iOS 18.0, *)
+struct OpenBagIntent: OpenIntent {
+    static let title: LocalizedStringResource = "가방 열기"
+    static let openAppWhenRun = true
+
+    @Parameter(title: "가방")
+    var target: BagEntity
+
+    init() {}
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        if let url = PIBLinks.bag(target.id) { PIBOpen.open(url) }
+        return .result()
+    }
+}
+
+@available(iOS 18.0, *)
+struct OpenBagPackIntent: OpenIntent {
+    static let title: LocalizedStringResource = "가방 속 팩 열기"
+    static let openAppWhenRun = true
+
+    @Parameter(title: "팩")
+    var target: BagPackEntity
+
+    init() {}
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        if let url = PIBLinks.bag(target.bagId, packId: target.packId) { PIBOpen.open(url) }
+        return .result()
+    }
+}
+
+@available(iOS 18.0, *)
+struct OpenLibraryPackIntent: OpenIntent {
+    static let title: LocalizedStringResource = "보관함 팩 열기"
+    static let openAppWhenRun = true
+
+    @Parameter(title: "보관함 팩")
+    var target: LibraryPackEntity
+
+    init() {}
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        if let url = PIBLinks.library(target.id) { PIBOpen.open(url) }
+        return .result()
     }
 }

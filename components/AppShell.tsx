@@ -613,24 +613,49 @@ export default function AppShell() {
   }, [user, bags, bagReminders]);
 
   // 알림을 눌러 열면 그 가방을 연다. 앱이 꺼져 있다 열린 경우 가방 목록이 오기 전일 수 있어 기다렸다가 연다(15초 뒤 포기)
-  const [notificationBagId, setNotificationBagId] = useState<string | null>(null);
-  useEffect(() => onBagNotificationTap((bagId) => setNotificationBagId(bagId)), []);
+  // 1.6(10/12): Siri · Spotlight 검색 결과도 같은 길 - 가방 속 팩이면 그 팩으로 스크롤(packId), 보관함 팩이면 그 팩을 연다
+  const [notificationTarget, setNotificationTarget] = useState<{ bagId: string; packId?: string } | null>(null);
+  const [notificationLibraryId, setNotificationLibraryId] = useState<string | null>(null);
+  useEffect(
+    () =>
+      onBagNotificationTap(
+        (bagId, packId) => setNotificationTarget({ bagId, packId }),
+        (libraryPackId) => setNotificationLibraryId(libraryPackId),
+      ),
+    [],
+  );
   useEffect(() => {
-    if (!notificationBagId) return;
-    const target = bags.find((b) => b.id === notificationBagId);
+    if (!notificationTarget) return;
+    const target = bags.find((b) => b.id === notificationTarget.bagId);
     if (!target) {
-      const t = window.setTimeout(() => setNotificationBagId(null), 15000);
+      const t = window.setTimeout(() => setNotificationTarget(null), 15000);
       return () => window.clearTimeout(t);
     }
     // 알림 누름(외부 이벤트)으로 가방을 연다
     /* eslint-disable react-hooks/set-state-in-effect */
-    setNotificationBagId(null);
+    setNotificationTarget(null);
     setIsNewBag(false);
     setEditingPack(null);
-    setBagFocus(null);
+    setBagFocus(notificationTarget.packId ? { packId: notificationTarget.packId } : null);
     setEditingBag(target);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [notificationBagId, bags]);
+  }, [notificationTarget, bags]);
+  useEffect(() => {
+    if (!notificationLibraryId) return;
+    const target = libraryPacks.find((p) => p.id === notificationLibraryId && !p.trashedAt);
+    if (!target) {
+      const t = window.setTimeout(() => setNotificationLibraryId(null), 15000);
+      return () => window.clearTimeout(t);
+    }
+    // 검색 결과 누름(외부 이벤트)으로 보관함 팩을 연다
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setNotificationLibraryId(null);
+    setTab("packs");
+    setPackFocusItemId(null);
+    setPackFocusSearchQuery(null);
+    setEditingPack(target);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [notificationLibraryId, libraryPacks]);
 
   // iOS 위젯 · 단축어 · 실시간 현황: 로그인 계정에 맞는 기기 토큰을 네이티브에 두고, 가방이 바뀌면 요약을 넘긴다(lib/v2/nativeBridge.ts)
   // 앱을 켤 때 로그인 복원 전(loading)에는 user가 잠깐 null이라, 그때 지우면 켤 때마다 토큰을 다시 받게 된다 → 로딩·가입 중에는 건너뛴다
@@ -643,9 +668,13 @@ export default function AppShell() {
   const pinnedBagIds = profile?.pinnedBagIds;
   useEffect(() => {
     if (!user || isOfflineMode || !isNativeBridgeAvailable()) return;
-    const t = window.setTimeout(() => void pushNativeSummary(bags, user.uid, { archivedBagIds, pinnedBagIds }), 1200);
+    // 보관함 팩도 함께(1.6 Siri · Spotlight 검색). 휴지통 · 빠른팩 · 올리기 대기는 뺀다
+    const library = libraryPacks.filter(
+      (p) => !p.trashedAt && p.id !== QUICK_PACK_ID && !p.isQuickPack && !isPendingPack(user.uid, p.id),
+    );
+    const t = window.setTimeout(() => void pushNativeSummary(bags, user.uid, { archivedBagIds, pinnedBagIds }, library), 1200);
     return () => window.clearTimeout(t);
-  }, [user, isOfflineMode, bags, archivedBagIds, pinnedBagIds]);
+  }, [user, isOfflineMode, bags, libraryPacks, archivedBagIds, pinnedBagIds]);
 
   // 2. 로그인 완료 및 프로필이 준비되었을 때 보류된 초대/가방 열기/팩 가져오기 작업 자동 실행
   const pendingActionProcessedRef = useRef(false);

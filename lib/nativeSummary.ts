@@ -3,7 +3,7 @@
 // 네이티브는 이 JSON을 App Group에 저장해 두고 읽는다(ios/App/PackInBagWidget/Shared/SummaryStore.swift).
 // - 체크리스트 팩의 체크 아이템만(메모 · 글 아이템 · 폴더 제외). 메모 본문은 절대 넣지 않는다
 // - 크기를 작게: 가방 최근 30개, 팩당 아이템 80개, 글자 80자
-import type { Bag } from "@/lib/types";
+import type { Bag, Pack } from "@/lib/types";
 
 export const NATIVE_SUMMARY_VERSION = 1;
 const MAX_BAGS = 30;
@@ -47,6 +47,38 @@ export interface NativeSummary {
   v: number;
   updatedAt: string;
   bags: NativeSummaryBag[];
+  // 보관함 팩(1.6 Siri · Spotlight 검색용, 10/12). 앱이 열려 있을 때 웹만 넣는다(lib/v2/nativeBridge).
+  // 서버 /api/native/summary는 넣지 않는다(읽기 비용) → 네이티브는 이 키가 없으면 마지막에 받은 목록을 그대로 둔다
+  library?: NativeSummaryLibraryPack[];
+}
+
+export interface NativeSummaryLibraryPack {
+  id: string;
+  name: string;
+  // checklist = 체크리스트 팩(count = 아이템 수) / note = 메모팩(본문은 넣지 않음)
+  kind: "checklist" | "note";
+  count?: number;
+}
+
+const MAX_LIBRARY = 100;
+
+// 보관함 팩 검색 목록. 휴지통 · 빠른팩은 부르는 쪽에서 뺀다. 폴더 · 개인 잠금한 팩은 여기서 뺀다
+export function buildNativeLibrary(packs: Pack[], lockedLibraryIds: string[] = []): NativeSummaryLibraryPack[] {
+  const locked = new Set(lockedLibraryIds);
+  return packs
+    .filter((p) => p && p.type !== "folder" && !p.trashedAt && !locked.has(p.id))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
+    .slice(0, MAX_LIBRARY)
+    .map((p) =>
+      p.kind === "editor"
+        ? { id: p.id, name: clip(p.name) || "메모", kind: "note" as const }
+        : {
+            id: p.id,
+            name: clip(p.name) || "팩",
+            kind: "checklist" as const,
+            count: (Array.isArray(p.items) ? p.items : []).filter((i) => i && i.type !== "text").length,
+          },
+    );
 }
 
 const clip = (s: unknown) => (typeof s === "string" ? s : "").slice(0, MAX_TEXT);

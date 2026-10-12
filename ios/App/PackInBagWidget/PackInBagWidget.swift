@@ -1,6 +1,6 @@
 // 홈 화면 위젯(작게 · 중간 · 크게) + 잠금화면 위젯(2026-10-10, 10-11 새로고침 버튼).
 // - 팩 하나의 체크 아이템을 보여 준다. 누르면 바로 체크 · 해제(ToggleItemIntent, 서버는 뒤에서), 챙긴 것은 취소선 + 맨 아래
-// - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님). 크게(large)는 2열
+// - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님). 중간 · 크게는 열 수를 고른다(1.6, 기본 2열)
 // - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 30분마다(30분 넘게 지난 요약만 서버에서)
 //   아래 줄에 마지막으로 받은 시각을 "14시 05분에 새로고침"처럼 보여 준다(10/11 - "N분 N초 전"에서 바꿈). 자정에는 D-Day · 날짜를 다시 그린다
 // - 위젯을 누르면(버튼 밖) 그 가방이 열린다(packinbag://bag/{id})
@@ -171,8 +171,8 @@ struct PackWidgetView: View {
         let left = pack.items.filter { !$0.checked }
         let items = left + pack.items.filter { $0.checked }
         let done = pack.items.count - left.count
-        // 크게(large)는 2열(10/11). 앱 가방 화면처럼 왼쪽→오른쪽, 위→아래
-        let columns = family == .systemLarge ? 2 : 1
+        // 열 수(1.6, 10/12): 작게는 1열 고정, 중간 · 크게는 위젯 편집 "열 수"(기본 2열). 앱 가방 화면처럼 왼쪽→오른쪽, 위→아래
+        let columns = family == .systemSmall ? 1 : (entry.configuration.columns == .one ? 1 : 2)
         let neededRows = (items.count + columns - 1) / columns
         let rows = rowLimit(height: size.height, itemCount: neededRows)
         let shown = Array(items.prefix(rows * columns))

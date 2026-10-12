@@ -30,9 +30,13 @@ struct PackActivityAttributes: ActivityAttributes {
     var theme: String
     var font: String
     var size: String
-    // theme "custom"일 때 배경색 "#RRGGBB"와 불투명도(0.2~1, 10/11)
+    // theme "custom"일 때 배경색 "#RRGGBB"와 불투명도(0~1, 10/12)
     var bgColor: String? = nil
     var bgAlpha: Double? = nil
+    // 글자색(1.6, 10/12): nil = auto(배경에 맞춰, 예전과 같음) | "white" | "black" | "custom"(textColor "#RRGGBB").
+    // 옛 빌드가 띄운 활동에는 없다(옵셔널이라 그대로 읽힌다). 다이내믹 아일랜드는 쓰지 않음(항상 다크)
+    var textTone: String? = nil
+    var textColor: String? = nil
 }
 
 @available(iOS 16.2, *)
@@ -85,7 +89,7 @@ enum PIBLiveActivity {
     @discardableResult
     static func start(
         bagId: String, packId: String, theme: String, font: String, size: String,
-        bgColor: String? = nil, bgAlpha: Double? = nil
+        bgColor: String? = nil, bgAlpha: Double? = nil, textTone: String? = nil, textColor: String? = nil
     ) async throws -> String {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             throw PIBError.server("설정 > 팩인백에서 실시간 현황을 켜 주세요")
@@ -94,9 +98,11 @@ enum PIBLiveActivity {
         for activity in Activity<PackActivityAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
+        let tone = (textTone == nil || textTone == "auto") ? nil : textTone
         let attributes = PackActivityAttributes(
             bagId: bagId, packId: packId, theme: theme, font: font, size: size,
-            bgColor: theme == "custom" ? bgColor : nil, bgAlpha: theme == "custom" ? bgAlpha : nil
+            bgColor: theme == "custom" ? bgColor : nil, bgAlpha: theme == "custom" ? bgAlpha : nil,
+            textTone: tone, textColor: tone == "custom" ? textColor : nil
         )
         let activity: Activity<PackActivityAttributes>
         do {
@@ -216,7 +222,7 @@ enum PIBLiveActivity {
         do {
             _ = try await start(
                 bagId: a.bagId, packId: a.packId, theme: a.theme, font: a.font, size: a.size,
-                bgColor: a.bgColor, bgAlpha: a.bgAlpha
+                bgColor: a.bgColor, bgAlpha: a.bgAlpha, textTone: a.textTone, textColor: a.textColor
             )
             return true
         } catch {
