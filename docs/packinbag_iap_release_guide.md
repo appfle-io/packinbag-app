@@ -36,7 +36,7 @@
 | A-2 | Xcode 기능 추가(푸시 · 위젯) → **1.5 (Build 5)** 빌드 · 업로드 | ✅ 10/11 (로컬 알림 · 위젯 · 실시간 현황 · 단축어 · 서버 푸시, `docs/packinbag_ios_native_plan.md`) |
 | A-3 | TestFlight 확인 | ✅ 10/11 |
 | A-4 | 심사 제출(1.5) | ✅ 10/11 23:04 제출 → 10/12 승인 · 출시(제출 ID 406ecb16-1b77-4577-83c2-b91ee3ca7500) |
-| A-5 | 1.6 (Build 6): Face ID · 잠금화면 글자색 · 위젯 열 수 · Siri · Spotlight · 유니버설 링크 | 🔄 코드 완료(10/12), 기기 확인 · 제출 전 |
+| A-5 | 1.6 (Build 6): Face ID · 잠금화면 글자색 · 위젯 열 수 · Siri · Spotlight · 유니버설 링크 · 되돌리기 · 완료 숨기기(10/13) | 🔄 코드 완료(10/13), 기기 확인 · 제출 전 |
 
 ## A-0. 새 버전 내는 순서 (매번 같음)
 1. 웹: `cd ~/Desktop/packinbag.nosync` → 빌드 확인(`rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin contexts components/AppShell.tsx && npm run build`) → `npm version 1.0.x --no-git-tag-version` → commit · push(Vercel 자동 배포). Functions · 규칙을 바꾸었으면 그것도 배포
@@ -52,10 +52,13 @@
 기획 · 파일은 `docs/packinbag_ios_native_plan.md` 10절, 기기 확인은 `docs/qa_checklist.md` X- 절
 - ⬜ 웹 v1.0.34 push(위 A-0 1). 확인: https://packinbag.seeuson.com/.well-known/apple-app-site-association 이 JSON으로 열림
 - ⬜ Xcode 1.6 / 6(두 타깃). App 타깃 Signing & Capabilities에 **Associated Domains**(`applinks:packinbag.seeuson.com` · `webcredentials:packinbag.seeuson.com`) 보이는지. 없으면 + Capability
-- ⬜ 실기기 확인 X-01~X-12 → Archive → 업로드
-- ⬜ 새로운 기능:
+- ⬜ 실기기 확인 X-01~X-17 → Archive → 업로드
+- ⬜ 새로운 기능(10/13 되돌리기 · 완료 숨기기 · 체크 반응 3줄 추가):
   ```
   · 가방과 팩을 나만 잠글 수 있어요 (PIN · Face ID)
+  · 위젯과 잠금화면에서 체크한 것을 하나씩 되돌릴 수 있어요
+  · 위젯과 잠금화면에서 다 챙긴 아이템을 숨길 수 있어요
+  · 잠금화면에서 체크하면 바로 정리돼요
   · 잠금화면에 띄울 때 글자색을 고를 수 있어요
   · 홈 화면 위젯을 1열 · 2열로 바꿀 수 있어요
   · iPhone 검색과 Siri에서 가방 · 팩 이름으로 바로 열어요

@@ -130,6 +130,8 @@ struct PackInBagWidgetLiveActivity: Widget {
             let style = PIBStyle(theme: "dark", font: context.attributes.font, size: context.attributes.size)
             let c = PIBPalette.of(.dark)
             let left = context.state.total - context.state.done
+            // 완료된 항목 보이기(10/13): 잠금화면 카드와 같게
+            let islandItems = Array((context.attributes.showDone == false ? context.state.items.filter { !$0.checked } : context.state.items).prefix(3))
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Text(context.state.packName).font(style.font(15, bold: true)).foregroundStyle(c.ink).lineLimit(1)
@@ -141,7 +143,7 @@ struct PackInBagWidgetLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(context.state.items.prefix(3), id: \.id) { item in
+                        ForEach(islandItems, id: \.id) { item in
                             Button(intent: ToggleItemLiveIntent(bagId: context.attributes.bagId, packId: context.state.itemPacks?[item.id] ?? context.attributes.packId, itemId: item.id)) {
                                 ItemRow(item: item, style: style, c: c)
                             }
