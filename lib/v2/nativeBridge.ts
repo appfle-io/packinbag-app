@@ -41,6 +41,8 @@ export interface LiveActivityOptions {
   bgAlpha?: number;
   textTone?: LiveActivityTextTone;
   textColor?: string;
+  // 완료된 항목 보이기(2026-10-13). false면 잠금화면에서 챙긴 것을 뺀다. 1.6 네이티브부터, 그 전 빌드는 무시(항상 보임)
+  showDone?: boolean;
 }
 
 export interface LiveActivityState {

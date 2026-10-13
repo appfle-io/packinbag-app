@@ -247,11 +247,13 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         if !["auto", "white", "black", "custom"].contains(textTone) { textTone = "auto" }
         let textColor = textTone == "custom" ? call.getString("textColor").flatMap { UIColor(pibHex: $0) != nil ? $0.uppercased() : nil } : nil
         if textTone == "custom" && textColor == nil { textTone = "auto" }
+        // 완료된 항목 보이기(1.6, 10/13). 없으면 보임
+        let showDone = call.getBool("showDone") ?? true
         Task {
             do {
                 let id = try await PIBLiveActivity.start(
                     bagId: bagId, packId: packId, theme: theme, font: font, size: size, bgColor: bgColor, bgAlpha: bgAlpha,
-                    textTone: textTone, textColor: textColor
+                    textTone: textTone, textColor: textColor, showDone: showDone
                 )
                 call.resolve(["id": id])
             } catch {

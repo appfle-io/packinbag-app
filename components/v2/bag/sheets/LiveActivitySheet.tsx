@@ -5,7 +5,7 @@ import { IconCircle, IconCircleCheckFilled, IconColorPicker, IconRefresh } from 
 import type { Bag } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { Button, Chip, SectionHeader, SegmentedControl, Sheet, cx } from "@/components/v2/ui";
+import { Button, Chip, SectionHeader, SegmentedControl, Sheet, Toggle, cx } from "@/components/v2/ui";
 import { buildNativeSummary, type NativeSummaryItem } from "@/lib/nativeSummary";
 import {
   endLiveActivity,
@@ -27,6 +27,7 @@ import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 // 10/12: 맨 위에 실제 잠금화면 카드와 같은 미리 보기(고르는 즉시 바뀜), 글자색(자동 · 흰색 · 검정 · 직접), 화면 정리.
 //   미리 보기는 ios/App/PackInBagWidget/PackInBagWidgetLiveActivity.swift(여백 18/14 · 2열 2줄 · 진행 막대 · "외 N개 · 시각")와
 //   PIBStyle.swift(PIBPalette 색 · 글자 크기 배율)를 그대로 옮긴 것. 둘 중 하나를 바꾸면 같이 바꾼다
+// 10/13: "완료된 항목 보이기"(끄면 챙긴 것을 뺀다), 색 샘플은 6개 + 더 고르기를 한 줄 격자로(좁은 폭에서는 동그라미가 줄어든다)
 const STYLE_KEY = "pib_live_activity_style";
 const WHOLE_BAG = "*";
 // 잠금화면 카드에 보이는 아이템 수(2열 × 2줄, 네이티브 maxShown과 같게)
@@ -56,18 +57,16 @@ const SIZES: { value: LiveActivitySize; label: string }[] = [
   { value: "medium", label: "보통" },
   { value: "large", label: "크게" },
 ];
-// 바로 고르는 배경색(그 밖은 iOS 색 고르기 창)
+// 바로 고르는 배경색(그 밖은 iOS 색 고르기 창). 한 줄에 들어가게 6개(10/13 - 민트 그레이 · 퍼플 빼었다). 예전에 고른 색은 "더 고르기"에 표시된다
 const BG_SWATCHES: { hex: string; label: string }[] = [
   { hex: "#2E5E4E", label: "딥그린" },
   { hex: "#17171A", label: "블랙" },
   { hex: "#FFFFFF", label: "화이트" },
-  { hex: "#ECF1EE", label: "민트 그레이" },
   { hex: "#1E3A5F", label: "네이비" },
-  { hex: "#6B4E9B", label: "퍼플" },
   { hex: "#C65A3A", label: "테라코타" },
   { hex: "#E8B931", label: "머스터드" },
 ];
-// 바로 고르는 글자색
+// 바로 고르는 글자색(10/13 - 스카이 · 라벤더 빼었다)
 const TEXT_SWATCHES: { hex: string; label: string }[] = [
   { hex: "#FFFFFF", label: "화이트" },
   { hex: "#17171A", label: "블랙" },
@@ -75,8 +74,6 @@ const TEXT_SWATCHES: { hex: string; label: string }[] = [
   { hex: "#9ED8C3", label: "민트" },
   { hex: "#E8B931", label: "머스터드" },
   { hex: "#F08A6C", label: "코랄" },
-  { hex: "#8EC5FF", label: "스카이" },
-  { hex: "#C3B1F2", label: "라벤더" },
 ];
 const MIN_ALPHA = 0;
 
@@ -88,6 +85,7 @@ type Style = {
   bgAlpha: number;
   textTone: LiveActivityTextTone;
   textColor: string;
+  showDone: boolean;
 };
 const DEFAULT_STYLE: Style = {
   theme: "system",
@@ -97,6 +95,7 @@ const DEFAULT_STYLE: Style = {
   bgAlpha: 1,
   textTone: "auto",
   textColor: "#FFFFFF",
+  showDone: true,
 };
 
 const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9A-Fa-f]{6}$/.test(v);
@@ -128,6 +127,7 @@ function loadStyle(): Style {
         bgAlpha: clampAlpha(saved.bgAlpha),
         textTone: TEXT_TONES.some((t) => t.value === saved.textTone) ? saved.textTone : DEFAULT_STYLE.textTone,
         textColor: isHex(saved.textColor) ? saved.textColor.toUpperCase() : DEFAULT_STYLE.textColor,
+        showDone: saved.showDone !== false,
       };
     }
   } catch {}
@@ -202,10 +202,10 @@ function LockScreenPreview({ data, style, systemDark }: { data: PreviewData | nu
 
   const now = new Date();
   const synced = `${now.getHours()}시 ${String(now.getMinutes()).padStart(2, "0")}분에 새로고침`;
-  const shown = data ? data.items.slice(0, MAX_SHOWN) : [];
-  const hidden = data ? Math.max(0, data.total - shown.length) : 0;
-  const footer = [hidden > 0 ? `외 ${hidden}개` : null, synced].filter(Boolean).join(" · ");
+  const shown = data ? (style.showDone ? data.items : data.items.filter((i) => !i.checked)).slice(0, MAX_SHOWN) : [];
   const left = data ? data.total - data.done : 0;
+  const hidden = data ? Math.max(0, (style.showDone ? data.total : left) - shown.length) : 0;
+  const footer = [hidden > 0 ? `외 ${hidden}개` : null, synced].filter(Boolean).join(" · ");
   const ratio = data && data.total > 0 ? data.done / data.total : 0;
 
   // 네이티브 값을 그대로 옮긴 크기라 런타임 style로 넘긴다
@@ -251,7 +251,7 @@ function LockScreenPreview({ data, style, systemDark }: { data: PreviewData | nu
               ))}
               {shown.length === 0 && (
                 <span className="col-span-2" style={{ fontSize: px(13), color: sub }}>
-                  체크할 아이템이 없어요
+                  {data.total === 0 ? "체크할 아이템이 없어요" : "다 챙겼어요"}
                 </span>
               )}
             </div>
@@ -350,6 +350,7 @@ export function LiveActivitySheet({ open, onClose, bag }: { open: boolean; onClo
         ...(custom ? { bgColor: style.bgColor, bgAlpha: style.bgAlpha } : {}),
         textTone: style.textTone,
         ...(style.textTone === "custom" ? { textColor: style.textColor } : {}),
+        showDone: style.showDone,
       });
       show("잠금화면에 띄웠어요");
       onClose();
@@ -420,6 +421,12 @@ export function LiveActivitySheet({ open, onClose, bag }: { open: boolean; onClo
           ) : (
             <p className="m-0 text-caption text-sub">체크 아이템이 있는 팩이 없어요.</p>
           )}
+          <Toggle
+            label="완료된 항목 보이기"
+            description="끄면 챙긴 아이템은 잠금화면에서 빠져요"
+            checked={style.showDone}
+            onChange={(showDone) => changeStyle({ showDone })}
+          />
         </section>
 
         <section className="flex flex-col gap-3">
@@ -508,8 +515,11 @@ function SwatchRow({
 }) {
   const known = swatches.some((s) => s.hex === value);
   const iconStyle = known ? undefined : { color: isLightHex(value) ? "#17171A" : "#FFFFFF" };
+  // 한 줄 격자(10/13): 칸 수 = 샘플 + 더 고르기. 동그라미는 칸 폭에 맞춰 줄고(최대 36px) 줄이 넘어가지 않는다
+  const gridStyle = { gridTemplateColumns: `repeat(${swatches.length + 1}, minmax(0, 1fr))` };
+  const dot = "aspect-square w-full max-w-9 justify-self-center rounded-full border";
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="grid items-center gap-2" style={gridStyle}>
       {swatches.map((s) => {
         const on = value === s.hex;
         return (
@@ -520,7 +530,8 @@ function SwatchRow({
             aria-pressed={on}
             onClick={() => onPick(s.hex)}
             className={cx(
-              "size-9 rounded-full border transition-shadow duration-160 ease-snappy",
+              dot,
+              "transition-shadow duration-160 ease-snappy",
               on ? "border-ink ring-2 ring-ink ring-offset-2 ring-offset-card" : "border-line",
             )}
             style={{ backgroundColor: s.hex }}
@@ -532,7 +543,8 @@ function SwatchRow({
         aria-label={moreLabel}
         onClick={onMore}
         className={cx(
-          "flex size-9 items-center justify-center rounded-full border bg-fill text-ink active:bg-line",
+          dot,
+          "flex items-center justify-center bg-fill text-ink active:bg-line",
           !known ? "border-ink ring-2 ring-ink ring-offset-2 ring-offset-card" : "border-line",
         )}
         style={known ? undefined : { backgroundColor: value }}

@@ -13,13 +13,13 @@
    cd ~/Desktop/packinbag.nosync
    npm version 1.0.34 --no-git-tag-version
    rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin contexts components/AppShell.tsx && npm run build
-   git add -A && git commit -m "feat(1.6): Face ID 개인 잠금, 잠금화면 글자색, 위젯 열 수, Siri·Spotlight 검색 / v1.0.34" && git push origin main
+   git add -A && git commit -m "feat(1.6): Face ID 개인 잠금, 잠금화면 글자색, 위젯 열 수, Siri·Spotlight 검색, 위젯·잠금화면 되돌리기·완료 숨기기 / v1.0.34" && git push origin main
    ```
    - 확인: https://packinbag.seeuson.com/.well-known/apple-app-site-association 이 JSON으로 열리는지, 설정 > 버전 정보 1.0.34
    - 포터블은 새 기능이 없음. 업데이트 노트만 맞추려면 `git tag v1.0.34-offline-portable && git push origin v1.0.34-offline-portable`
 2. **Xcode**: `npx cap sync ios` → `open ios/App/App.xcworkspace` → App · PackInBagWidgetExtension 두 타깃 Version 1.6 / Build 6 → Signing & Capabilities에 Associated Domains(`applinks:packinbag.seeuson.com`) 확인 → 실기기 실행
    - 빌드 오류는 원문 그대로 Claude에게(iOS 18 검색 API `indexAppEntities` · `OpenIntent`는 빌드로 확인 못 한 부분)
-3. **기기 확인**: 저장소 `docs/qa_checklist.md` **X-01 ~ X-12**
+3. **기기 확인**: 저장소 `docs/qa_checklist.md` **X-01 ~ X-17**(X-13~17은 10/13 추가: 잠금화면 체크 반응 · 완료 숨기기 · 되돌리기 · 색 샘플 한 줄)
 4. **Archive → 업로드 → 심사**: 출시가이드 A-5(새로운 기능 문구 · 심사 메모 · 수동 출시)
 
 ---

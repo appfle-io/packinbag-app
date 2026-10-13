@@ -32,6 +32,7 @@ struct ToggleItemIntent: AppIntent {
         let next = !current.checked
         PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: next)
         PIBStore.enqueue(bagId: bagId, packId: packId, itemId: itemId, checked: next)
+        PIBUndo.push(bagId: bagId, packId: packId, itemId: itemId, prev: current.checked)
         // 서버 전송은 기다리지 않는다(돌아가자마자 위젯이 다시 그려진다). 못 보내면 다음 그릴 때 · 앱이 열릴 때 다시
         Task { await PIBSync.flush() }
         return .result()
@@ -67,6 +68,64 @@ struct ToggleItemLiveIntent: LiveActivityIntent {
         }
         PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: next)
         PIBStore.enqueue(bagId: bagId, packId: packId, itemId: itemId, checked: next)
+        PIBUndo.push(bagId: bagId, packId: packId, itemId: itemId, prev: !next)
+        PIBWidgets.reload()
+        // B안(10/13): 체크 표시를 먼저 보여 주고 잠깐 뒤 맨 뒤로. 서버 갱신을 기다리지 않는다
+        // (예전에는 flush가 성공하면 로컬 정렬이 없어서 Cloud Function 푸시가 올 때까지 몇 초 그대로였다)
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        await PIBLiveActivity.reorder(bagId: bagId, packId: packId)
+        if await PIBSync.flush() {
+            await PIBLiveActivity.updateAll()
+            PIBWidgets.reload()
+        }
+        return .result()
+    }
+}
+
+// 위젯 되돌리기(1.6, 10/13): 위젯이 보여 주는 가방 · 팩("*" = 가방 전체)에서 마지막 체크를 하나 되돌린다(Shared PIBUndo).
+// 위젯 확장 안에서 바로 돈다(ToggleItemIntent와 같이 서버는 뒤에서)
+@available(iOS 17.0, *)
+struct UndoWidgetIntent: AppIntent {
+    static let title: LocalizedStringResource = "체크 되돌리기"
+    static let isDiscoverable = false
+
+    @Parameter(title: "가방") var bagId: String
+    @Parameter(title: "팩") var packId: String
+
+    init() {}
+
+    init(bagId: String, packId: String) {
+        self.bagId = bagId
+        self.packId = packId
+    }
+
+    func perform() async throws -> some IntentResult {
+        if PIBUndo.undo(bagId: bagId, packId: packId) != nil {
+            Task { await PIBSync.flush() }
+        }
+        return .result()
+    }
+}
+
+// 잠금화면 되돌리기(1.6, 10/13): 실시간 현황을 고칠 수 있는 앱 프로세스에서 돈다. 되돌린 아이템은 바로 제자리로(정렬)
+@available(iOS 17.0, *)
+struct UndoLiveIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "체크 되돌리기(잠금화면)"
+    static let isDiscoverable = false
+
+    @Parameter(title: "가방") var bagId: String
+    @Parameter(title: "팩") var packId: String
+
+    init() {}
+
+    init(bagId: String, packId: String) {
+        self.bagId = bagId
+        self.packId = packId
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let e = PIBUndo.undo(bagId: bagId, packId: packId) else { return .result() }
+        await PIBLiveActivity.set(bagId: e.bagId, packId: e.packId, itemId: e.itemId, checked: e.prev)
         PIBWidgets.reload()
         if await PIBSync.flush() {
             await PIBLiveActivity.updateAll()

@@ -201,7 +201,74 @@ enum PIBStore {
     }
 
     static func clearSession() {
-        [tokenKey, uidKey, summaryKey, savedAtKey, pendingKey].forEach { PIB.defaults.removeObject(forKey: $0) }
+        [tokenKey, uidKey, summaryKey, savedAtKey, pendingKey, PIBUndo.key].forEach { PIB.defaults.removeObject(forKey: $0) }
+    }
+}
+
+// ---- 되돌리기(1.6, 2026-10-13) ---------------------------------------------------------
+// 위젯 · 잠금화면 실시간 현황에서 누른 체크를 하나씩 되돌린다(앱 · 웹에서 누른 체크는 쌓지 않음).
+// - 한 줄 = 누르기 전 값. 되돌리기는 "그 값으로 맞추기"라 같은 아이템을 체크 → 해제해도 순서대로 정확히 돌아간다
+// - 일반 실행 취소와 같다: 체크 A · B → 되돌리기(B) → 체크 C · D 이면 [A, C, D]가 남아 3번 더 되돌릴 수 있다. 다시 실행은 없다
+// - 범위: 위젯 · 잠금화면이 보여 주는 가방 · 팩(가방 전체면 그 가방 전부). 같은 팩이면 위젯 · 잠금화면이 기록을 함께 쓴다
+// - 시간 제한 없이 최근 50개. 그사이 지워진 아이템 · 이미 그 값인 아이템(다른 기기에서 바뀜)은 건너뛴다. 로그아웃하면 지운다
+struct PIBUndoEntry: Codable, Hashable {
+    let bagId: String
+    // 아이템의 원래 팩(가방 전체로 띄웠어도)
+    let packId: String
+    let itemId: String
+    // 누르기 전 값
+    let prev: Bool
+    let at: Double
+}
+
+enum PIBUndo {
+    static let key = "pib.undoStack"
+    static let limit = 50
+    static let wholeBag = "*"
+
+    private static func all() -> [PIBUndoEntry] {
+        guard let data = PIB.defaults.data(forKey: key),
+              let list = try? JSONDecoder().decode([PIBUndoEntry].self, from: data) else { return [] }
+        return list
+    }
+
+    private static func set(_ list: [PIBUndoEntry]) {
+        if list.isEmpty {
+            PIB.defaults.removeObject(forKey: key)
+        } else if let data = try? JSONEncoder().encode(Array(list.suffix(limit))) {
+            PIB.defaults.set(data, forKey: key)
+        }
+    }
+
+    private static func matches(_ e: PIBUndoEntry, bagId: String, packId: String) -> Bool {
+        e.bagId == bagId && (packId == wholeBag || e.packId == packId)
+    }
+
+    static func push(bagId: String, packId: String, itemId: String, prev: Bool) {
+        var list = all()
+        list.append(PIBUndoEntry(bagId: bagId, packId: packId, itemId: itemId, prev: prev, at: Date().timeIntervalSince1970))
+        set(list)
+    }
+
+    // ↶ 버튼을 보일지(지워진 아이템이 섞여 있을 수 있지만 누르면 건너뛰며 정리된다)
+    static func count(bagId: String, packId: String) -> Int {
+        all().filter { matches($0, bagId: bagId, packId: packId) }.count
+    }
+
+    // 범위 안의 가장 최근 것을 꺼내 요약에 반영하고 서버 대기열에 넣는다. 서버 전송(PIBSync.flush)은 부르는 쪽이
+    @discardableResult
+    static func undo(bagId: String, packId: String) -> PIBUndoEntry? {
+        var list = all()
+        defer { set(list) }
+        while let i = list.lastIndex(where: { matches($0, bagId: bagId, packId: packId) }) {
+            let e = list.remove(at: i)
+            guard let current = PIBStore.item(bagId: e.bagId, packId: e.packId, itemId: e.itemId),
+                  current.checked != e.prev else { continue }
+            PIBStore.setChecked(bagId: e.bagId, packId: e.packId, itemId: e.itemId, checked: e.prev)
+            PIBStore.enqueue(bagId: e.bagId, packId: e.packId, itemId: e.itemId, checked: e.prev)
+            return e
+        }
+        return nil
     }
 }
 

@@ -1,5 +1,6 @@
 // 홈 화면 위젯(작게 · 중간 · 크게) + 잠금화면 위젯(2026-10-10, 10-11 새로고침 버튼).
 // - 팩 하나의 체크 아이템을 보여 준다. 누르면 바로 체크 · 해제(ToggleItemIntent, 서버는 뒤에서), 챙긴 것은 취소선 + 맨 아래
+// - 1.6(10/13): 위젯 편집 "완료된 항목 보이기"(끄면 챙긴 것을 뺌), 아래 줄 ↶ 되돌리기(UndoWidgetIntent, 최근 50개)
 // - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님). 중간 · 크게는 열 수를 고른다(1.6, 기본 2열)
 // - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 30분마다(30분 넘게 지난 요약만 서버에서)
 //   아래 줄에 마지막으로 받은 시각을 "14시 05분에 새로고침"처럼 보여 준다(10/11 - "N분 N초 전"에서 바꿈). 자정에는 D-Day · 날짜를 다시 그린다
@@ -169,8 +170,12 @@ struct PackWidgetView: View {
 
     private func packView(bag: PIBBag, pack: PIBPack, size: CGSize, c: PIBPalette) -> some View {
         let left = pack.items.filter { !$0.checked }
-        let items = left + pack.items.filter { $0.checked }
+        // 완료된 항목 보이기(1.6, 10/13): 끄면 챙긴 것을 목록에서 뺀다(제목 줄 n/m은 그대로)
+        let items = entry.configuration.showDone ? left + pack.items.filter { $0.checked } : left
         let done = pack.items.count - left.count
+        // ↶ 되돌리기 범위(10/13): 이 위젯이 보여 주는 팩, 가방 전체면 그 가방 전부
+        let undoScope = entry.wholeBag ? PIBUndo.wholeBag : pack.id
+        let canUndo = PIBUndo.count(bagId: bag.id, packId: undoScope) > 0
         // 열 수(1.6, 10/12): 작게는 1열 고정, 중간 · 크게는 위젯 편집 "열 수"(기본 2열). 앱 가방 화면처럼 왼쪽→오른쪽, 위→아래
         let columns = family == .systemSmall ? 1 : (entry.configuration.columns == .one ? 1 : 2)
         let rows = rowLimit(height: size.height)
@@ -185,9 +190,12 @@ struct PackWidgetView: View {
                 Text([entry.wholeBag ? "가방 전체" : bag.name, pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
             }
-            if items.isEmpty {
+            if pack.items.isEmpty {
                 // 체크 아이템이 없는 팩(글 아이템만 있거나 빈 팩, 10/11 - 예전에는 "0/0"만 보이고 비어 있었다)
                 Text("체크할 아이템이 없어요").font(style.font(13)).foregroundStyle(c.sub)
+            } else if items.isEmpty {
+                // 완료된 항목을 숨기고 다 챙긴 때
+                Text("다 챙겼어요").font(style.font(13)).foregroundStyle(c.sub)
             } else if columns == 1 {
                 ForEach(shown, id: \.id) { item in itemButton(item, bag: bag, pack: pack, c: c) }
             } else {
@@ -206,6 +214,9 @@ struct PackWidgetView: View {
             }
             Spacer(minLength: 0)
             RefreshFooter(syncedAt: entry.syncedAt, style: style, c: c, height: footerHeight) {
+                if canUndo {
+                    Button(intent: UndoWidgetIntent(bagId: bag.id, packId: undoScope)) { UndoIcon(style: style, c: c) }.buttonStyle(.plain)
+                }
                 Button(intent: RefreshWidgetIntent()) { RefreshIcon(style: style, c: c) }.buttonStyle(.plain)
             }
         }
@@ -293,6 +304,21 @@ struct RefreshIcon: View {
             .frame(width: 28, height: 22, alignment: .trailing)
             .contentShape(Rectangle())
             .accessibilityLabel("새로고침")
+    }
+}
+
+// ↶ 되돌리기(1.6, 10/13): 홈 위젯 · 잠금화면 실시간 현황 아래 줄, ↻ 왼쪽. 되돌릴 게 있을 때만 보인다
+struct UndoIcon: View {
+    let style: PIBStyle
+    let c: PIBPalette
+
+    var body: some View {
+        Image(systemName: "arrow.uturn.backward")
+            .font(.system(size: 13 * style.scale, weight: .semibold))
+            .foregroundStyle(c.sub)
+            .frame(width: 28, height: 22)
+            .contentShape(Rectangle())
+            .accessibilityLabel("되돌리기")
     }
 }
 

@@ -1,4 +1,5 @@
 // 잠금화면 실시간 현황 · 다이내믹 아일랜드(2026-10-10). 데이터 · 시작은 Shared/PIBActivity.swift.
+// 10/13(1.6): "완료된 항목 보이기"(attributes.showDone) · 아래 줄 ↶ 되돌리기(UndoLiveIntent, 되돌릴 게 있을 때만)
 // 잠금화면에서 바로 체크(ToggleItemLiveIntent - 앱 프로세스에서 서버에 저장하고 이 화면도 갱신).
 // 여백: 잠금화면 카드 안쪽 좌우 18 · 위아래 14, 줄 사이 8
 // 높이(10/11): iOS가 잠금화면 실시간 현황을 최대 160pt로 자른다(넘치면 위아래가 잘림). 예전에는 아이템 4줄을 세로로 쌓아 잘렸다 →
@@ -27,10 +28,15 @@ struct PackLockScreenView: View {
         let c = Self.toned(PIBPalette.of(scheme), tone: attributes.textTone, hex: attributes.textColor)
         let background = custom.map { $0.color.opacity(attributes.bgAlpha ?? 1) } ?? c.background
         let left = state.total - state.done
-        let shown = Array(state.items.prefix(Self.maxShown))
-        let hidden = max(0, state.total - shown.count)
+        // 완료된 항목 보이기(1.6, 10/13): 끄면 챙긴 것을 뺀다. 남은 개수 기준으로 "외 N개"
+        let showDone = attributes.showDone != false
+        let visible = showDone ? state.items : state.items.filter { !$0.checked }
+        let shown = Array(visible.prefix(Self.maxShown))
+        let hidden = max(0, (showDone ? state.total : left) - shown.count)
         let synced = state.syncedAt.map { pibSyncedLabel(Date(timeIntervalSince1970: $0)) }
         let footer = [hidden > 0 ? "외 \(hidden)개" : nil, synced].compactMap { $0 }.joined(separator: " · ")
+        // ↶ 되돌리기(10/13): 기록은 App Group(PIBUndo). 서버 푸시로 다시 그려질 때도 여기서 읽어 맞춘다
+        let canUndo = PIBUndo.count(bagId: attributes.bagId, packId: attributes.packId) > 0
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(state.packName).font(style.font(15, bold: true)).foregroundStyle(c.ink).lineLimit(1)
@@ -43,6 +49,10 @@ struct PackLockScreenView: View {
                 .tint(c.brand)
             // 아이템 2열(왼쪽→오른쪽, 위→아래 - 홈 위젯 크게와 같은 순서)
             VStack(alignment: .leading, spacing: 6) {
+                if shown.isEmpty {
+                    Text(state.total == 0 ? "체크할 아이템이 없어요" : left == 0 ? "다 챙겼어요" : "새로고침하면 더 보여요")
+                        .font(style.font(13)).foregroundStyle(c.sub).lineLimit(1)
+                }
                 ForEach(0..<((shown.count + 1) / 2), id: \.self) { r in
                     HStack(spacing: 12) {
                         itemButton(shown[r * 2], style: style, c: c)
@@ -62,6 +72,10 @@ struct PackLockScreenView: View {
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
                     .minimumScaleFactor(0.75)
                 Spacer(minLength: 4)
+                if canUndo {
+                    Button(intent: UndoLiveIntent(bagId: attributes.bagId, packId: attributes.packId)) { UndoIcon(style: style, c: c) }
+                        .buttonStyle(.plain)
+                }
                 Button(intent: RefreshLiveIntent()) { RefreshIcon(style: style, c: c) }.buttonStyle(.plain)
             }
             .frame(height: 20)

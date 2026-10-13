@@ -16,6 +16,10 @@
 | **Siri · Spotlight 검색** (1.6, iOS 18+) | 🆕 신규 | `BagEntity` · `BagPackEntity` · `LibraryPackEntity`를 `IndexedEntity`로 색인(`PIBSpotlight`, 요약을 받을 때 - id · 이름이 바뀌면 바로, 부제만 바뀌면 30분에 한 번, 로그아웃 때 삭제). 열기 `OpenBagIntent` · `OpenBagPackIntent` · `OpenLibraryPackIntent` → `packinbag://bag/{id}?pack=` · `packinbag://library/{id}` → AppShell(가방 + `bagFocus.packId` / 팩 탭 보관함 팩) |
 | ↳ 보관함 팩 목록 | ℹ️ 규칙 | 요약 `library`(`buildNativeLibrary`: 휴지통 · 빠른팩 · 올리기 대기 · 폴더 · 개인 잠금 제외, 최근 100개, 메모 본문 없음). 앱이 열려 있을 때 웹만 넣고 서버 요약에는 없다(읽기 비용) → 네이티브 `PIBStore.save`는 없으면 예전 목록 유지 |
 | **iOS 1.5 출시** | ℹ️ | 10/12 승인 · 출시(알림 · 위젯 · 잠금화면 실시간 현황 · 단축어). 기능 목록은 아래 "10/10 ~ 10/11" |
+| **잠금화면 체크 반응** (1.6, 10/13) | 🐛 수정 | 체크 후 맨 뒤로 가는 게 몇 초 늦었다(서버 저장이 성공하면 로컬 정렬이 없어 Cloud Function 푸시를 기다림). 체크 표시를 바로 보여 주고 0.4초 뒤 intent 안에서 요약 순서대로 다시 세움(`PIBLiveActivity.reorder`), 안 챙긴 것이 모자라면 요약에서 채움 |
+| **완료된 항목 보이기** (1.6, 10/13) | 🆕 신규 | 홈 위젯 편집 `showDone`(기본 켬) · 잠금화면 시트 토글(`PackActivityAttributes.showDone`, nil = 보임). 끄면 챙긴 것을 화면에서만 뺀다(서버 content-state는 그대로 안 챙긴 것 먼저) |
+| **되돌리기** (1.6, 10/13) | 🆕 신규 | 홈 위젯 · 잠금화면 아래 줄 ↶(`UndoWidgetIntent` · `UndoLiveIntent`). App Group `pib.undoStack`(`PIBUndo`): 위젯 · 잠금화면 체크만 쌓고 누르기 전 값으로 맞춤. 시간 제한 없이 최근 50개, 범위는 그 팩(가방 전체면 가방), 같은 팩이면 위젯 · 잠금화면 공유. 지워진 · 이미 그 값인 아이템은 건너뜀, 로그아웃 때 삭제. 서버 변경 없음(기존 체크 대기열) |
+| **색 샘플 한 줄** (10/13) | 🔄 변경 | 잠금화면 시트 배경 · 글자색 샘플 8 → 6개(민트 그레이 · 퍼플 / 스카이 · 라벤더 빼었음), 샘플 + 더 고르기를 한 줄 격자로(동그라미 최대 36px, 좁으면 줄어듦) |
 
 ## 10/10 ~ 10/11 iOS 네이티브 1.5 (v1.0.30 ~ v1.0.32, iOS 1.5 Build 5)
 

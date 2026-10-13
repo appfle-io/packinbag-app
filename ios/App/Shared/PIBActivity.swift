@@ -37,6 +37,8 @@ struct PackActivityAttributes: ActivityAttributes {
     // 옛 빌드가 띄운 활동에는 없다(옵셔널이라 그대로 읽힌다). 다이내믹 아일랜드는 쓰지 않음(항상 다크)
     var textTone: String? = nil
     var textColor: String? = nil
+    // 완료된 항목 보이기(1.6, 10/13): nil = 보임(예전과 같음) | false = 챙긴 것을 화면에서 뺀다(서버는 그대로 안 챙긴 것 먼저 보낸다)
+    var showDone: Bool? = nil
 }
 
 @available(iOS 16.2, *)
@@ -89,7 +91,7 @@ enum PIBLiveActivity {
     @discardableResult
     static func start(
         bagId: String, packId: String, theme: String, font: String, size: String,
-        bgColor: String? = nil, bgAlpha: Double? = nil, textTone: String? = nil, textColor: String? = nil
+        bgColor: String? = nil, bgAlpha: Double? = nil, textTone: String? = nil, textColor: String? = nil, showDone: Bool? = nil
     ) async throws -> String {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             throw PIBError.server("설정 > 팩인백에서 실시간 현황을 켜 주세요")
@@ -102,7 +104,8 @@ enum PIBLiveActivity {
         let attributes = PackActivityAttributes(
             bagId: bagId, packId: packId, theme: theme, font: font, size: size,
             bgColor: theme == "custom" ? bgColor : nil, bgAlpha: theme == "custom" ? bgAlpha : nil,
-            textTone: tone, textColor: tone == "custom" ? textColor : nil
+            textTone: tone, textColor: tone == "custom" ? textColor : nil,
+            showDone: showDone == false ? false : nil
         )
         let activity: Activity<PackActivityAttributes>
         do {
@@ -169,24 +172,88 @@ enum PIBLiveActivity {
         return Date().timeIntervalSince1970 - at > doneLinger
     }
 
-    // 잠금화면에서 누른 체크: 지금 보이는 화면을 기준으로 바로 고친다(요약이 서버 원격 갱신보다 늦을 수 있어서).
     // packId는 아이템의 원래 팩. 가방 전체("*")로 띄운 것도 같은 가방이면 찾는다.
     // 이미 끝난(ended) 것은 고칠 수 없으니 찾지 않는다
-    static func toggle(bagId: String, packId: String, itemId: String) async -> Bool? {
-        guard let activity = Activity<PackActivityAttributes>.activities.first(where: {
+    private static func find(bagId: String, packId: String) -> Activity<PackActivityAttributes>? {
+        Activity<PackActivityAttributes>.activities.first(where: {
             $0.activityState == .active &&
             $0.attributes.bagId == bagId && ($0.attributes.packId == packId || $0.attributes.packId == wholeBag)
-        }) else {
-            return nil
-        }
+        })
+    }
+
+    // 잠금화면에서 누른 체크: 지금 보이는 화면을 기준으로 바로 고친다(요약이 서버 원격 갱신보다 늦을 수 있어서).
+    // 여기서는 체크 표시만 바꾼다. 정렬은 잠깐 뒤 reorder(B안, 10/13 - 누른 게 먼저 보이고 이어서 맨 뒤로)
+    static func toggle(bagId: String, packId: String, itemId: String) async -> Bool? {
+        guard let activity = find(bagId: bagId, packId: packId) else { return nil }
         var state = activity.content.state
         guard let index = state.items.firstIndex(where: { $0.id == itemId }) else { return nil }
         let next = !state.items[index].checked
         state.items[index].checked = next
         state.done = max(0, min(state.total, state.done + (next ? 1 : -1)))
-        // 다시 정렬하지 않는다(누른 줄이 손가락 아래에서 사라지지 않게). 다음 갱신 때 정렬된다
         await apply(state, to: activity)
         return next
+    }
+
+    // 체크 직후 정렬(10/13): 서버 갱신을 기다리지 않고 지금 화면을 요약 순서대로(안 챙긴 것 먼저) 다시 세운다.
+    // 예전에는 서버 저장 뒤 Cloud Function 푸시가 올 때까지(몇 초) 그대로라 안 눌린 줄 알았다
+    static func reorder(bagId: String, packId: String) async {
+        guard let activity = find(bagId: bagId, packId: packId) else { return }
+        await apply(resorted(activity.content.state, attributes: activity.attributes), to: activity)
+    }
+
+    // 되돌리기(10/13): 한 아이템을 그 값으로 맞추고 바로 정렬한다. 화면에서 빠진 아이템(챙겨서 밀려남)은 요약에서 다시 넣는다
+    static func set(bagId: String, packId: String, itemId: String, checked: Bool) async {
+        guard let activity = find(bagId: bagId, packId: packId) else { return }
+        var state = activity.content.state
+        if let index = state.items.firstIndex(where: { $0.id == itemId }) {
+            guard state.items[index].checked != checked else { return }
+            state.items[index].checked = checked
+        } else if let item = PIBStore.item(bagId: bagId, packId: packId, itemId: itemId) {
+            var item = item
+            item.checked = checked
+            state.items.append(item)
+            if activity.attributes.packId == wholeBag { state.itemPacks?[itemId] = packId }
+        } else {
+            return
+        }
+        state.done = max(0, min(state.total, state.done + (checked ? 1 : -1)))
+        await apply(resorted(state, attributes: activity.attributes), to: activity)
+    }
+
+    // 요약(App Group)의 순서로 안 챙긴 것 먼저 → 챙긴 것. 체크 값은 지금 화면 것을 쓴다(서버가 원격으로 고친 값일 수 있어서).
+    // 안 챙긴 것이 maxItems보다 적으면 요약에서 채운다(연달아 챙겨도 빈자리가 안 생기게, "완료된 항목 숨기기"에서 특히)
+    private static func resorted(_ s: PackActivityAttributes.ContentState, attributes a: PackActivityAttributes) -> PackActivityAttributes.ContentState {
+        var rank: [String: Int] = [:]
+        var owner: [String: String] = [:]
+        var catalog: [PIBItem] = []
+        if let bag = PIBStore.bag(a.bagId) {
+            for p in bag.packs where a.packId == wholeBag || p.id == a.packId {
+                for item in p.items where rank[item.id] == nil {
+                    rank[item.id] = catalog.count
+                    owner[item.id] = p.id
+                    catalog.append(item)
+                }
+            }
+        }
+        var state = s
+        var items = s.items
+        var have = Set(items.map(\.id))
+        for item in catalog where !item.checked && !have.contains(item.id) {
+            if items.filter({ !$0.checked }).count >= maxItems { break }
+            items.append(item)
+            have.insert(item.id)
+        }
+        let sorted = items.enumerated().sorted { x, y in
+            if x.element.checked != y.element.checked { return !x.element.checked }
+            let rx = rank[x.element.id] ?? Int.max
+            let ry = rank[y.element.id] ?? Int.max
+            return rx != ry ? rx < ry : x.offset < y.offset
+        }.map(\.element)
+        state.items = Array(sorted.prefix(maxItems))
+        if a.packId == wholeBag {
+            state.itemPacks = Dictionary(uniqueKeysWithValues: state.items.map { ($0.id, s.itemPacks?[$0.id] ?? owner[$0.id] ?? "") })
+        }
+        return state
     }
 
     // 다 챙겨도 바로 내리지 않는다(10/11 버그: 예전에는 다 챙기는 순간 end(5분 뒤 사라짐) → 끝난 화면은 고칠 수 없어
@@ -222,7 +289,7 @@ enum PIBLiveActivity {
         do {
             _ = try await start(
                 bagId: a.bagId, packId: a.packId, theme: a.theme, font: a.font, size: a.size,
-                bgColor: a.bgColor, bgAlpha: a.bgAlpha, textTone: a.textTone, textColor: a.textColor
+                bgColor: a.bgColor, bgAlpha: a.bgAlpha, textTone: a.textTone, textColor: a.textColor, showDone: a.showDone
             )
             return true
         } catch {
