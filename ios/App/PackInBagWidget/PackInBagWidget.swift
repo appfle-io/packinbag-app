@@ -140,16 +140,16 @@ struct PackWidgetView: View {
             .containerBackground(c.background, for: .widget)
     }
 
-    // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 다 못 보여 주면 마지막 한 줄은 "외 N개"에 쓴다.
-    // 맨 아래 새로고침 줄(시각 + ↻) 높이도 빼고 계산한다
-    private func rowLimit(height: CGFloat, itemCount: Int) -> Int {
+    // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 맨 아래 새로고침 줄(시각 + ↻) 높이도 빼고 계산한다.
+    // 1.6(10/12): 다 못 보여 줄 때 마지막 줄을 "외 N개"에 쓰던 것을 없앴다(사용자 결정) → 그 줄까지 아이템을 보여 준다.
+    // 남은 개수는 제목 줄의 n/m으로 충분
+    private func rowLimit(height: CGFloat) -> Int {
         let s = style.scale
         let rowH = 14 * s * 1.3 + rowSpacing
         var header = 15 * s * 1.3 + rowSpacing
         if family != .systemSmall { header += 11 * s * 1.3 + rowSpacing }
         header += footerHeight + rowSpacing
-        let fits = max(1, Int((height - header + rowSpacing) / rowH))
-        return itemCount > fits ? max(1, fits - 1) : fits
+        return max(1, Int((height - header + rowSpacing) / rowH))
     }
 
     private var footerHeight: CGFloat { max(20, 11 * style.scale * 1.3) }
@@ -173,10 +173,8 @@ struct PackWidgetView: View {
         let done = pack.items.count - left.count
         // 열 수(1.6, 10/12): 작게는 1열 고정, 중간 · 크게는 위젯 편집 "열 수"(기본 2열). 앱 가방 화면처럼 왼쪽→오른쪽, 위→아래
         let columns = family == .systemSmall ? 1 : (entry.configuration.columns == .one ? 1 : 2)
-        let neededRows = (items.count + columns - 1) / columns
-        let rows = rowLimit(height: size.height, itemCount: neededRows)
+        let rows = rowLimit(height: size.height)
         let shown = Array(items.prefix(rows * columns))
-        let hidden = items.count - shown.count
         return VStack(alignment: .leading, spacing: rowSpacing) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(pack.name).font(style.font(15, bold: true)).foregroundStyle(c.ink).lineLimit(1)
@@ -205,10 +203,6 @@ struct PackWidgetView: View {
                         }
                     }
                 }
-            }
-            if hidden > 0 {
-                Text(left.isEmpty ? "다 챙겼어요 · 외 \(hidden)개" : "외 \(hidden)개")
-                    .font(style.font(11)).foregroundStyle(left.isEmpty ? c.brand : c.sub)
             }
             Spacer(minLength: 0)
             RefreshFooter(syncedAt: entry.syncedAt, style: style, c: c, height: footerHeight) {

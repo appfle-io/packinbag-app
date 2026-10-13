@@ -184,6 +184,7 @@
 > - 1: `PackInBagNativePlugin.biometricInfo` · `authenticateBiometric`(생체 인증만, 대체 버튼 "PIN 입력" → ok:false), Info.plist `NSFaceIDUsageDescription`
 > - 2: `PackActivityAttributes.textTone/textColor`(옵셔널, auto는 nil로 저장), `PIBLiveActivity.start/restart`가 넘김, `PackLockScreenView.toned`(흰색 72% · 검정 #17171A 62% · 직접 72% - 웹 미리 보기와 같은 값). 강조색 · 진행 막대 · 다이내믹 아일랜드는 그대로
 > - 3: `PIBColumns`(PIBStyle.swift) + `ConfigurationAppIntent.columns`(기본 2열). 작게 1열 고정. 이미 놓인 중간 위젯도 2열로 바뀜. 잠금화면 위젯 편집에도 "열 수"가 보이지만 쓰지 않음(같은 인텐트)
+>   - 홈 위젯(작게 · 중간 · 크게)의 마지막 줄 "외 N개"(다 챙기면 "다 챙겼어요 · 외 N개")를 뺀다(10/12 사용자 결정). 그 줄까지 아이템을 보여 주고 남은 양은 제목 줄 n/m으로. 잠금화면 실시간 현황은 그대로
 1. **Face ID(개인 잠금)**: `PackInBagNativePlugin`에 `biometricInfo()` → `{ available, type: faceId|touchId|opticId|none }`(LAContext.canEvaluatePolicy `.deviceOwnerAuthenticationWithBiometrics`), `authenticateBiometric({ reason })` → `{ ok }`(evaluatePolicy, 취소·실패는 ok:false). Info.plist `NSFaceIDUsageDescription`("잠근 가방·팩을 열 때 Face ID를 써요"). 웹: `lib/v2/biometric.ts`
 2. **잠금화면 글자색**: `startLiveActivity` 옵션 `textTone`(auto|white|black|custom) · `textColor`("#RRGGBB") → `PackActivityAttributes`에 추가(옛 활동 디코딩 위해 옵셔널). `PackLockScreenView`에서 auto가 아니면 `c.ink`를 그 색, `c.sub`를 같은 색 72%로. `RestartLiveIntent`도 새 값 그대로 넘기기. 다이내믹 아일랜드는 그대로(다크). 웹 미리 보기 기준: `LiveActivitySheet.tsx` LockScreenPreview
 3. **위젯 열 수**: `ConfigurationAppIntent`에 "열 수"(1열 · 2열, 기본 2열) 추가, 중간(systemMedium)에서도 2열 가능. `PackWidgetView.packView`의 `columns = family == .systemLarge ? 2 : 1` → 작게는 1열 고정, 중간 · 크게는 설정값
