@@ -79,6 +79,10 @@
 * **넓은 화면**: 900px 이상은 [목록 | 상세] 2단, 1200px 이상은 [레일 | 목록 | 상세] 3단. 단축키(⌘/Ctrl + N 새로 만들기 · K 검색 · I 설정 · P 빠른팩 · Esc 닫기).
 * **연결이 끊겨도 그대로**: 로그인 상태에서 인터넷이 끊기면 저장해 둔 내용으로 계속 쓰고, 새로 만든 가방·팩도 연결되면 자동으로 올라갑니다. 로그인 없이 폐쇄망에서는 오프라인 모드(이 기기에 저장)로 시작하고, 나중에 로그인하면 계정으로 가져옵니다.
 * **화면 설정**: 라이트·다크·시스템, 글자 크기, 글꼴(Pretendard · 지마켓 산스 · 개구 · D2코딩).
+* **나만 잠그기**: 가방·팩을 PIN(iOS는 Face ID도)으로 나에게만 잠급니다. 함께 쓰는 사람에게는 영향이 없습니다.
+* **iPhone**: 홈 화면 위젯·잠금화면(실시간 현황)에서 바로 체크, 함께 쓰는 가방 소식·D-Day·반복 알림, 단축어·Siri, 검색(Spotlight), 링크를 누르면 바로 앱.
+
+> 지금은 출시 기념으로 **모든 기능 무료**입니다(AI만 하루 3회). 아래 표는 결제를 붙인 뒤의 기준입니다.
 
 ### 무료 · 프리미엄 (1회 구매)
 
@@ -101,7 +105,8 @@
 * **Database & Storage**: Firebase Firestore(오프라인 캐시), Cloud Storage
 * **Auth**: Firebase Authentication (이메일, Google, Apple, 게스트). 인증 메일은 Resend 발송 + Firebase 기본 메일 폴백
 * **AI**: Google Gemini API
-* **Mobile**: Capacitor 6 (iOS/iPadOS), RevenueCat 인앱결제
+* **Mobile**: Capacitor 6 (iOS/iPadOS) + Swift(위젯 확장 · App Intents · Live Activity · 로컬 플러그인 `PackInBagNative`), RevenueCat 인앱결제(준비만, 지금은 빠져 있음)
+* **Push**: Firebase Cloud Functions(`functions/`, asia-northeast3) + APNs 직접
 * **Desktop**: Electron 34 포터블(Windows zip · macOS zip/dmg), GitHub Actions로 빌드
 * **Deploy**: Vercel (+ Vercel Cron: 관리자 통계 스냅샷)
 
@@ -133,7 +138,9 @@ packinbag/
 ├── lib/                  # 서비스·유틸(bagsService, packsService, localBagsService, packSync 등)
 │   └── v2/               # 연결 판단, 만들기 대기, 글꼴, 셸 유틸
 ├── electron/             # 데스크톱 포터블 메인 프로세스
-├── docs/                 # 기능 명세, QA 체크리스트, 가이드
+├── docs/                 # 기능 명세, QA 체크리스트, 작업 계획, 출시 진행판, 사용설명서
+├── functions/            # Cloud Functions(서버 푸시 · 실시간 현황 원격 갱신)
+├── ios/App/              # iOS 앱 · 위젯 확장(PackInBagWidget) · 공용 Swift(Shared)
 ├── firestore.rules · storage.rules
 └── capacitor.config.ts
 ```
@@ -157,7 +164,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_MASTER_EMAILS=          # 관리자 이메일(쉼표 구분)
+MASTER_EMAILS=                      # 관리자 이메일(쉼표 구분, 서버 전용 · 인증한 이메일만)
 
 FIREBASE_SERVICE_ACCOUNT_KEY=       # 서비스 계정 JSON 한 줄
 GEMINI_API_KEY=
@@ -174,7 +181,7 @@ REVENUECAT_WEBHOOK_AUTH_HEADER=
 ### 3. 실행 · 빌드
 ```bash
 npm run dev
-rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin && npm run build
+rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin contexts components/AppShell.tsx && npm run build
 ```
 
 ### 4. 데스크톱 포터블 배포
@@ -190,15 +197,15 @@ git tag v1.0.x-offline-portable && git push origin v1.0.x-offline-portable
 npm run cap:sync
 npm run cap:open:ios
 ```
-iOS 앱은 운영 웹(server.url)을 불러오는 구조라, 웹 배포가 곧 앱 반영입니다.
+iOS 앱은 운영 웹(server.url)을 불러오는 구조라, 웹 배포가 곧 앱 반영입니다. 네이티브(위젯 · 알림 · 단축어 등)를 바꿨을 때만 Xcode 빌드 · 심사가 필요합니다(`docs/packinbag_iap_release_guide.md` A-0).
 
 ---
 
 ## 관련 문서
 
-* [기능 명세](docs/packinbag_settings_spec_v1.md)
-* [QA 체크리스트](docs/qa_checklist.md)
-* [사용자 가이드](docs/packinbag_user_guide.md)
-* [앱스토어 배포 가이드](docs/app_store_guide.md)
-* [환경 설정 가이드](docs/setup_guide.md)
+* [작업 계획 · 진행 기록](docs/packinbag_리디자인_작업계획.md) · [UI/UX 방향](docs/packinbag_UIUX_리디자인_방향.md) · [남은 작업](docs/packinbag_남은작업_2026-10-13.md)
+* [기능 명세](docs/packinbag_settings_spec_v1.md) · [QA 체크리스트](docs/qa_checklist.md)
+* [iOS 네이티브 기획](docs/packinbag_ios_native_plan.md) · [출시 진행판](docs/packinbag_iap_release_guide.md)
+* [사용설명서](docs/packinbag_user_guide.md) · [마케팅 소재](docs/packinbag_marketing_materials.md)
+* [인증 메일(Resend)](docs/claude_packinbag_이메일인증_resend_구현.md)
 * [릴리즈 노트](CHANGELOG.md)

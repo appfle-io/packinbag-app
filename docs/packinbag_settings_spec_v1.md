@@ -1,6 +1,33 @@
 # 팩인백 기능 스펙 문서 (리디자인 v2)
 
-앱은 v2 화면만 있다. 2026-10-05에 구 UI(v1) 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 전부 지웠다(v1.0.20). 아래 표의 "플래그를 끄면 구 UI"·"구 UI는 그대로" 같은 말은 그 전 기록이다. 기준 문서: 프로젝트 `UIUX_리디자인_방향.md`, `리디자인_작업계획.md`.
+앱은 v2 화면만 있다. 2026-10-05에 구 UI(v1) 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 전부 지웠다(v1.0.20). 아래 표의 "플래그를 끄면 구 UI"·"구 UI는 그대로" 같은 말은 그 전 기록이다. 기준 문서: 프로젝트 `UIUX_리디자인_방향.md`, `리디자인_작업계획.md`. iOS 네이티브 상세는 `docs/packinbag_ios_native_plan.md`.
+
+## 10/12 개인 잠금 · 링크 · iOS 1.6 (v1.0.33 ~ v1.0.34, iOS 1.6 Build 6)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **개인 잠금** | 🆕 신규 | 가방 · 가방 속 팩 · 보관함 팩을 나만 PIN(4/6자리, 기본 6)으로. 설정 `users/{uid}.privateLock`(`bags` · `packs`="가방id/팩id" · `library`, PBKDF2-SHA256 15만 회 해시). 가방 문서에는 안 씀 → 멤버 영향 없음. 한 번 풀면 앱을 떠날 때까지, 틀린 횟수 · Face ID 사용은 이 기기(localStorage). 보관함에서 잠근 팩을 불러온 가방 팩(`linkedLibraryPackId`)도 잠김. 화면 가림이지 암호화 아님. `lib/v2/privateLock.ts`, `components/v2/lock/*`, 설정 > 잠금 `LockSettingsScreen` |
+| ↳ 네이티브 요약 | 🔒 보안 | 잠근 것은 위젯 · 잠금화면 · 검색 요약에서 뺀다(`nativeLockFilter` → `setNativeSummaryLocks`, 서버 `/api/native/summary`도 같은 기준) |
+| **Face ID** (1.6) | 🆕 신규 | `PackInBagNative.biometricInfo` · `authenticateBiometric`(생체 인증만, 기기 암호로 넘어가지 않음. 취소 · 실패 · "PIN 입력"은 PIN 화면). 웹 `lib/v2/biometric.ts`는 플러그인이 없으면 없음으로. Info.plist `NSFaceIDUsageDescription` |
+| **공유 링크 브리지** | 🆕 신규 | 카톡 등 앱 안 브라우저에서 `/v/…` 링크: 아이폰은 `packinbag://open?to=경로`(앱이 안 열리면 앱스토어), 안드로이드는 기본 브라우저(카톡 `kakaotalk://web/openExternal`, 그 밖 `intent://`). PC · 보통 브라우저 · 앱 안에서는 아무것도 안 함. `lib/v2/appBridge.ts`, `components/AppBridge.tsx` |
+| **유니버설 링크** (1.6) | 🆕 신규 | `app/.well-known/apple-app-site-association`(초대 `/?invite=` · `/v/*`, webcredentials). 짧은 URL은 다른 사이트로 가는 링크가 있어 제외. 앱 엔타이틀먼트 `applinks:packinbag.seeuson.com`. https 주소는 `onBagNotificationTap` fromUrl이 받음 |
+| **잠금화면 띄우기 시트** | 🔄 변경 | 잠금화면 미리 보기, 글자색(자동 · 흰색 · 검정 · 직접), 배경 불투명도 0~100%(예전 20% 하한). 글자색은 1.6부터 반영(`PackActivityAttributes.textTone/textColor`, 옛 활동은 자동) |
+| **홈 위젯 열 수** (1.6) | 🔄 변경 | 위젯 편집 "열 수" 1열/2열(기본 2열) - 중간 · 크게. 작게는 1열. 마지막 줄 "외 N개"(· "다 챙겼어요 · 외 N개") 삭제 → 그 줄까지 아이템. 잠금화면 실시간 현황은 그대로 |
+| **Siri · Spotlight 검색** (1.6, iOS 18+) | 🆕 신규 | `BagEntity` · `BagPackEntity` · `LibraryPackEntity`를 `IndexedEntity`로 색인(`PIBSpotlight`, 요약을 받을 때 - id · 이름이 바뀌면 바로, 부제만 바뀌면 30분에 한 번, 로그아웃 때 삭제). 열기 `OpenBagIntent` · `OpenBagPackIntent` · `OpenLibraryPackIntent` → `packinbag://bag/{id}?pack=` · `packinbag://library/{id}` → AppShell(가방 + `bagFocus.packId` / 팩 탭 보관함 팩) |
+| ↳ 보관함 팩 목록 | ℹ️ 규칙 | 요약 `library`(`buildNativeLibrary`: 휴지통 · 빠른팩 · 올리기 대기 · 폴더 · 개인 잠금 제외, 최근 100개, 메모 본문 없음). 앱이 열려 있을 때 웹만 넣고 서버 요약에는 없다(읽기 비용) → 네이티브 `PIBStore.save`는 없으면 예전 목록 유지 |
+| **iOS 1.5 출시** | ℹ️ | 10/12 승인 · 출시(알림 · 위젯 · 잠금화면 실시간 현황 · 단축어). 기능 목록은 아래 "10/10 ~ 10/11" |
+
+## 10/10 ~ 10/11 iOS 네이티브 1.5 (v1.0.30 ~ v1.0.32, iOS 1.5 Build 5)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **로컬 알림** | 🆕 신규 | 가방마다 D-Day(D-7 · D-3 · D-1 · 당일 · 직접) · 요일 반복. `UserProfile.bagReminders`, 가방 더보기 > 알림. `lib/v2/bagReminders.ts` |
+| **서버 푸시** | 🆕 신규 | Cloud Functions + APNs 직접: 함께 쓰는 가방 활동 10분 묶음 · 담당 지정 · 새 멤버(그룹장). 내 변경은 안 보냄(`editedBy`). 설정 > 알림 종류별, 가방별 `pushMutedBagIds` · `bagPushOff`. `functions/src/*` |
+| **홈 · 잠금화면 위젯** | 🆕 신규 | iOS 17. 편집은 가방 → 팩 2단계(보관함 가방 제외, 팩을 비우면 가방 전체), 바로 체크, "14시 05분에 새로고침" + ↻, 30분 안전망 |
+| **잠금화면 실시간 현황** | 🆕 신규 | 팩 또는 전체, 배경 · 글꼴 · 글자 크기, 잠금화면에서 체크, 다른 멤버 체크는 서버 원격 갱신, 160pt 카드(2열 2줄), 다 챙기면 5분 뒤 내림 |
+| **단축어 · Siri** | 🆕 신규 | 빠른팩에 입력 · 가방에 추가 · 팩인백 새로고침 · 잠금화면 다시 띄우기 |
+| **기반** | 🆕 신규 | 기기 토큰(`deviceTokens`, 해시만, 하루 800회) · `/api/native/*` · App Group 요약(`lib/nativeSummary.ts`) · 조용한 푸시 · 누르면 가방 열기(`packinbag://bag/{id}`) |
+| **버그 (10/11)** | 🐛 수정 | 마지막 아이템 체크가 풀림(`editSeqRef`), 구글 로그인 때 닉네임 화면 깜빡임, 로그아웃 → 오프라인 모드로 빠짐, 스플래시 확대 |
 
 ## 10/9 보안 점검 2차
 

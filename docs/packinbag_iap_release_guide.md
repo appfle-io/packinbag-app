@@ -1,4 +1,6 @@
-# 팩인백 출시 진행판 (2026-10-09 개정)
+# 팩인백 출시 진행판 (2026-10-09 개정 · 10-13 갱신)
+
+> **지금(10/13)**: iOS 1.5 10/12 출시. 다음은 **1.6 (Build 6)** 제출(아래 A-5). 버전마다 똑같이 도는 순서는 "A-0. 새 버전 내는 순서"
 
 > **결정(10/9)**: 직장인이라 사업자등록을 낼 수 없어 **결제 없이 무료 앱으로 먼저 출시**한다.
 > 한국 거주 개인이 App Store에서 돈을 받으려면(앱 가격·인앱결제 모두) 유료 앱 계약 + 대한민국 세금 양식(사업자등록번호 또는 고유번호)이 필요하다.
@@ -33,14 +35,44 @@
 | A-1b | App Store Connect 설정(빌드 없이 할 수 있는 것, 아래 A-4-0 · A-4) | ✅ 10/10 (가격 · 개인정보 · 1.5 버전 · 스크린샷 · 설명 · 지원 URL · 심사 정보) |
 | A-2 | Xcode 기능 추가(푸시 · 위젯) → **1.5 (Build 5)** 빌드 · 업로드 | ✅ 10/11 (로컬 알림 · 위젯 · 실시간 현황 · 단축어 · 서버 푸시, `docs/packinbag_ios_native_plan.md`) |
 | A-3 | TestFlight 확인 | ✅ 10/11 |
-| A-4 | 심사 제출(1.5) | 🔄 10/11 23:04 제출 · 심사 대기 중(제출 ID 406ecb16-1b77-4577-83c2-b91ee3ca7500, 수동 출시) |
+| A-4 | 심사 제출(1.5) | ✅ 10/11 23:04 제출 → 10/12 승인 · 출시(제출 ID 406ecb16-1b77-4577-83c2-b91ee3ca7500) |
+| A-5 | 1.6 (Build 6): Face ID · 잠금화면 글자색 · 위젯 열 수 · Siri · Spotlight · 유니버설 링크 | 🔄 코드 완료(10/12), 기기 확인 · 제출 전 |
+
+## A-0. 새 버전 내는 순서 (매번 같음)
+1. 웹: `cd ~/Desktop/packinbag.nosync` → 빌드 확인(`rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin contexts components/AppShell.tsx && npm run build`) → `npm version 1.0.x --no-git-tag-version` → commit · push(Vercel 자동 배포). Functions · 규칙을 바꾸었으면 그것도 배포
+2. Xcode: `npx cap sync ios` → `open ios/App/App.xcworkspace` → TARGETS **App** · **PackInBagWidgetExtension** 둘 다 General > Identity의 Version · Build를 같은 값으로(Build는 TestFlight에 있는 것보다 크게)
+3. 실기기 Debug 실행 → `docs/qa_checklist.md` 해당 절 확인
+4. 상단 기기 `Any iOS Device (arm64)` → Product > Archive → Organizer **Distribute App > App Store Connect > Upload**
+5. https://appstoreconnect.apple.com → 앱 → 팩인백 → 왼쪽 "iOS 앱" 옆 **+** → 새 버전 → TestFlight에서 빌드 처리(10~30분, 수출 규정 질문은 "아니요") → 버전 페이지 **빌드 +** → "이번 버전의 새로운 기능" → 앱 심사 정보 메모 → "이 버전을 수동으로 출시" → **심사에 제출**
+6. 승인 메일 → 버전 페이지 "이 버전 출시". 거절되면 메일 · Resolution Center 원문을 그대로 Claude에게
+- 스크린샷은 심사 중에 바꿀 수 없다 → 바꿀 거면 제출 전에
+- 새 네이티브 권한(카메라 · Face ID 등)을 넣으면 Info.plist 안내 문구가 있는지, 앱 개인정보에 바뀔 게 있는지 확인
+
+## A-5. 1.6 (Build 6) — 10/12 코드 완료
+기획 · 파일은 `docs/packinbag_ios_native_plan.md` 10절, 기기 확인은 `docs/qa_checklist.md` X- 절
+- ⬜ 웹 v1.0.34 push(위 A-0 1). 확인: https://packinbag.seeuson.com/.well-known/apple-app-site-association 이 JSON으로 열림
+- ⬜ Xcode 1.6 / 6(두 타깃). App 타깃 Signing & Capabilities에 **Associated Domains**(`applinks:packinbag.seeuson.com` · `webcredentials:packinbag.seeuson.com`) 보이는지. 없으면 + Capability
+- ⬜ 실기기 확인 X-01~X-12 → Archive → 업로드
+- ⬜ 새로운 기능:
+  ```
+  · 가방과 팩을 나만 잠글 수 있어요 (PIN · Face ID)
+  · 잠금화면에 띄울 때 글자색을 고를 수 있어요
+  · 홈 화면 위젯을 1열 · 2열로 바꿀 수 있어요
+  · iPhone 검색과 Siri에서 가방 · 팩 이름으로 바로 열어요
+  · 공유 링크를 누르면 팩인백 앱에서 바로 열려요
+  ```
+- ⬜ 심사 메모 Native features 줄에 `Face ID (local only, for private lock) · Spotlight/Siri search (App Intents) · Universal Links` 덧붙이기
+- 앱 개인정보: 바꿀 것 없음(Face ID 결과 · 검색 색인은 기기 안에만)
+- (선택) 스크린샷 교체: 잠금화면 컷(충전기 없이) · 홈 위젯 컷(아이템 있는 팩, 중간 2열)
+
+> 아래 A-1 ~ A-4는 1.5까지의 기록이다(⬜로 남은 줄도 1.5 때 끝남). 메뉴 위치 · 오류 해결 기록으로 남겨 둔다
 
 > **순서 결정(10/10)**: App Store Connect 설정을 먼저 끝내고 → Xcode에 푸시 알림 · 위젯을 넣어 → **1.5 하나로 제출**. 1.4는 만들지 않는다(스토어 1.3보다 크면 됨). TestFlight 빌드는 4까지 있음 → 다음은 5
 > 주의: 앱이 server.url 구조라 웹에 올린 코드는 **스토어 1.3 앱에도 바로 뜬다**. 푸시·위젯 웹 코드는 플러그인이 있을 때만 도는지(`Capacitor.isPluginAvailable`) 확인해야 1.3 사용자가 안 깨진다
 
 ## A-1. 코드 · 규칙 배포
 ```
-cd ~/Desktop/packinbag
+cd ~/Desktop/packinbag.nosync
 rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin app/api && npm run build
 npx firebase-tools deploy --only storage
 npm version 1.0.29 --no-git-tag-version
@@ -52,7 +84,7 @@ git add -A && git commit -m "feat: 출시 기념 전원 무료(FREE_LAUNCH), 인
 
 ## A-2. Xcode (Mac)
 ```
-cd ~/Desktop/packinbag
+cd ~/Desktop/packinbag.nosync
 git pull && npm install
 npm i @capacitor/haptics@^6
 npx cap sync ios

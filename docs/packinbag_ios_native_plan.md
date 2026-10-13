@@ -1,4 +1,7 @@
-# 팩인백 iOS 네이티브 기능 기획 (1.5) — 2026-10-10
+# 팩인백 iOS 네이티브 기능 기획 (1.5 · 1.6) — 2026-10-10 작성 · 10-13 갱신
+
+> **상태(10/13)**: 1.5 (Build 5) 10/12 승인 · 출시. 1.6 (Build 6)은 코드 완료, 기기 확인 · 제출 전(아래 10절, QA `X-` 절, 출시가이드 A-5)
+> 1~9절은 1.5를 만들 때의 기획 · 진행 기록이다. 지금 동작과 다른 부분은 나중 항목이 이긴다(예: 홈 위젯 "크게만 2열" → 1.6에서 열 수 선택, 위젯의 "외 N개" 줄 삭제)
 
 함께 볼 문서: `packinbag_iap_release_guide.md`(A-2a), `packinbag_리디자인_작업계획.md`(로드맵)
 앱은 server.url 구조(웹 화면을 불러옴). 네이티브 기능은 Swift(위젯 확장 · App Intents · ActivityKit) + 작은 Capacitor 플러그인으로 앱(웹)과 연결한다.
@@ -81,7 +84,7 @@
 
 ## 9. 다음 채팅에서 이어서 (10/11 기준)
 
-> **10/11 23:04 iOS 1.5 (Build 5) 심사 제출 완료** (제출 ID `406ecb16-1b77-4577-83c2-b91ee3ca7500`, 수동 출시). C 끝. 승인 메일이 오면 1.5 페이지에서 "이 버전 출시", 거절되면 메일 원문으로 대응
+> **10/11 23:04 iOS 1.5 (Build 5) 심사 제출 완료** (제출 ID `406ecb16-1b77-4577-83c2-b91ee3ca7500`, 수동 출시). C 끝. **10/12 승인 · 출시**
 > 같이 나간 것: 웹 v1.0.32(FAQ · 업데이트 노트 · 개인정보처리방침 · /privacy · /support 스크롤), Functions, 스크린샷 10장(09 위젯 · 10 잠금화면, 6.3″), 앱 개인정보에 기기 ID 추가, 처리방침 URL seeuson.com
 
 **10/11 끝난 것 · 남은 것(요약)**
@@ -188,5 +191,5 @@
 1. **Face ID(개인 잠금)**: `PackInBagNativePlugin`에 `biometricInfo()` → `{ available, type: faceId|touchId|opticId|none }`(LAContext.canEvaluatePolicy `.deviceOwnerAuthenticationWithBiometrics`), `authenticateBiometric({ reason })` → `{ ok }`(evaluatePolicy, 취소·실패는 ok:false). Info.plist `NSFaceIDUsageDescription`("잠근 가방·팩을 열 때 Face ID를 써요"). 웹: `lib/v2/biometric.ts`
 2. **잠금화면 글자색**: `startLiveActivity` 옵션 `textTone`(auto|white|black|custom) · `textColor`("#RRGGBB") → `PackActivityAttributes`에 추가(옛 활동 디코딩 위해 옵셔널). `PackLockScreenView`에서 auto가 아니면 `c.ink`를 그 색, `c.sub`를 같은 색 72%로. `RestartLiveIntent`도 새 값 그대로 넘기기. 다이내믹 아일랜드는 그대로(다크). 웹 미리 보기 기준: `LiveActivitySheet.tsx` LockScreenPreview
 3. **위젯 열 수**: `ConfigurationAppIntent`에 "열 수"(1열 · 2열, 기본 2열) 추가, 중간(systemMedium)에서도 2열 가능. `PackWidgetView.packView`의 `columns = family == .systemLarge ? 2 : 1` → 작게는 1열 고정, 중간 · 크게는 설정값
-4. **iOS 27 Siri 검색**: `BagEntity` · 팩 · 보관함 팩을 `IndexedEntity`(+ App Schema)로, 열기는 `packinbag://bag/{id}?pack=` · `packinbag://library/{id}`(웹 라우팅 추가 필요). 색인은 App Group 요약을 기준으로, 개인 잠금으로 잠근 것은 요약에서 이미 빠짐(`lib/nativeSummary.ts`). 보관함 팩은 요약에 없으니 요약에 `library` 목록 추가 필요
-5. **유니버설 링크**: Associated Domains `applinks:packinbag.seeuson.com` + `public/.well-known/apple-app-site-association`(appID `2ZHYLWBV2H.번들ID`, `/v/*` `/s/*` `/c/*`). 앱에서 https 주소를 `appUrlOpen`으로 받아 같은 경로로 이동(`onBagNotificationTap` fromUrl에 추가). 카톡 안 브라우저는 여전히 브리지(`lib/v2/appBridge.ts`, `packinbag://open?to=`)
+4. **Siri · Spotlight 검색**: `BagEntity` · 팩 · 보관함 팩을 `IndexedEntity`로(App Schema는 맞는 도메인이 없어 안 씀), 열기는 `packinbag://bag/{id}?pack=` · `packinbag://library/{id}`. 색인은 App Group 요약을 기준으로, 개인 잠금으로 잠근 것은 요약에서 이미 빠짐(`lib/nativeSummary.ts`). 보관함 팩은 요약 `library`(A안, 위 진행 기록)
+5. **유니버설 링크**: Associated Domains `applinks:packinbag.seeuson.com` + `app/.well-known/apple-app-site-association/route.ts`(appID `2ZHYLWBV2H.com.appfle.packinbag`, 초대 링크 `/?invite=` · `/v/*`만 - 짧은 URL `/s` · `/c`는 다른 사이트로 가는 링크가 있어 빼기로 함). 앱에서 https 주소를 `appUrlOpen`으로 받아 같은 경로로 이동(`onBagNotificationTap` fromUrl). 카톡 안 브라우저는 여전히 브리지(`lib/v2/appBridge.ts`, `packinbag://open?to=`)
