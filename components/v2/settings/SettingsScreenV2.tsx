@@ -11,12 +11,16 @@ import { isAnnouncementActive } from "@/lib/announcementsService";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { APP_VERSION } from "@/lib/changelog";
 import { AI_FREE_DAILY_LIMIT, currentAiUsageCount, isUnlimitedAiUser } from "@/lib/aiUsageService";
-import { exportBackupData, parseBackupFile, restoreBackupData } from "@/lib/backupService";
+import { RestorePartialError, exportBackupData, parseBackupFile, restoreBackupData, withBagNoteBodies } from "@/lib/backupService";
 import { getLocalBags, getLocalLibraryPacks, resetLocalAllData } from "@/lib/localBagsService";
 import { deleteBagWithInviteCodeRemote, leaveBagRemote } from "@/lib/bagsService";
 import { deleteLibraryPackRemote } from "@/lib/packsService";
-import { deleteBagImage } from "@/lib/storageService";
+import { bagFileUrls, deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
+import { getPendingBags, getPendingPacks, removePendingBag, removePendingPack } from "@/lib/v2/pendingCreates";
+import { blockedBagLabel, planDataReset, type ResetPlan } from "@/lib/v2/resetPlan";
 import { getOfflineDataSummary } from "@/lib/offlineImportService";
+import Portal from "@/components/Portal";
+import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import LegacyAvatar from "@/components/Avatar";
 import NotificationBell from "@/components/NotificationBell";
 import SlideScreen from "@/components/SlideScreen";
@@ -31,7 +35,7 @@ import { MyLinksSheet } from "./MyLinksSheet";
 import { OfflineImportSheet } from "./OfflineImportSheet";
 import { FontSheet } from "./FontSheet";
 import { APP_FONTS } from "@/lib/v2/appFonts";
-import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
+import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Sheet, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
@@ -129,7 +133,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [showFont, setShowFont] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // 내가 그룹장인 함께 쓰는 가방이 있어 초기화를 막을 때(SET-ACC-05)
+  const [resetBlocked, setResetBlocked] = useState<ResetPlan["blocked"] | null>(null);
   const [resetting, setResetting] = useState(false);
+  // 백업 만들기 · 복원 · 초기화 중 화면(여러 개면 진행 막대)
+  const [busy, setBusy] = useState<{ message: string; progress?: { total: number; completed: number } } | null>(null);
   const [pushTesting, setPushTesting] = useState(false);
   // 서버 푸시(iOS 1.5 앱만). 알림 권한은 앱으로 돌아올 때마다 다시 본다(아이폰 설정에서 바꿀 수 있어서)
   const pushAvailable = useMemo(() => !isOfflineMode && !isGuest && isServerPushAvailable(), [isOfflineMode, isGuest]);
@@ -155,7 +163,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const runPushTest = async () => {
     if (pushTesting) return;
     setPushTesting(true);
-    show("5초 뒤에 알림이 와요. 홈 화면으로 나가 보세요");
+    // 보내는 동안에는 줄 아랫줄이 "보내는 중…". 결과 토스트 하나만 띄운다(예전에는 안내 토스트가 바로 덮여 안 보였다)
     try {
       show(await sendTestPush());
     } catch (err) {
@@ -192,62 +200,134 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     setShowPremium(true);
   };
 
-  // --- 백업 · 초기화 (구 설정 화면과 같은 로직) ---------------------------------------------
-  const handleExportBackup = () => {
+  // --- 백업 · 초기화 (docs/spec/settings.md SET-BAK · SET-ACC) ---------------------------------
+  // 계정 모드는 목록 가방에 메모 본문이 없어서(notes에 따로) 내보내기 전에 읽어 채운다. 못 읽으면 파일을 만들지 않는다
+  const handleExportBackup = async () => {
+    if (busy) return;
     const currentBags = bags ?? (isOfflineMode ? getLocalBags() : []);
     const currentPacks = libraryPacks ?? (isOfflineMode ? getLocalLibraryPacks() : []);
-    exportBackupData(currentBags, currentPacks);
+    let full = currentBags;
+    if (!isOfflineMode) {
+      setBusy({ message: "백업 파일을 만들고 있어요" });
+      try {
+        full = await withBagNoteBodies(currentBags);
+      } catch (err) {
+        console.error("[팩인백] 백업 메모 본문 읽기 실패:", err);
+        show("가방 메모를 불러오지 못해 백업을 만들지 못했어요. 인터넷 연결을 확인해 주세요");
+        return;
+      } finally {
+        setBusy(null);
+      }
+    }
+    exportBackupData(full, currentPacks);
     show("백업 파일을 다운로드했어요");
   };
 
+  // 덮어쓰지 않고 새로 만든다. 하나씩 만들며 진행 막대, 중간에 멈추면 같은 파일을 다시 고를 때 이어서(lib/backupPlan)
   const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    e.target.value = "";
+    if (!file || busy) return;
+    const message = "백업을 복원하고 있어요";
     try {
       const parsed = await parseBackupFile(file);
-      const result = await restoreBackupData(parsed, isOfflineMode ? "local" : "cloud", user, {
-        nickname: profile?.nickname || user?.displayName || "사용자",
-        avatarId: profile?.avatarId || "avatar-1",
-      });
-      show(
-        isOfflineMode && result.hasExcludedRemoteMedia
-          ? `가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 복원했어요 (온라인 이미지·파일은 제외)`
-          : `가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 복원했어요`,
+      setBusy({ message, progress: { total: 0, completed: 0 } });
+      const result = await restoreBackupData(
+        parsed,
+        isOfflineMode ? "local" : "cloud",
+        user,
+        {
+          nickname: profile?.nickname || user?.displayName || "사용자",
+          avatarId: profile?.avatarId || "avatar-1",
+        },
+        (completed, total) => setBusy({ message, progress: { total, completed } }),
       );
+      const counts = `가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 ${result.resumed ? "이어서 " : ""}복원했어요`;
+      show(isOfflineMode && result.hasExcludedRemoteMedia ? `${counts} (온라인 이미지·파일은 제외)` : counts);
     } catch (err) {
       console.error("[팩인백] 백업 복원 실패:", err);
-      show(err instanceof Error ? err.message : "백업 파일을 불러오지 못했어요");
+      if (err instanceof RestorePartialError) {
+        show(
+          err.done > 0
+            ? `${err.total}개 중 ${err.done}개를 복원하고 멈췄어요. 같은 파일을 다시 불러오면 이어서 해요 (${err.message})`
+            : err.message,
+        );
+      } else {
+        show(err instanceof Error ? err.message : "백업 파일을 불러오지 못했어요");
+      }
     } finally {
-      e.target.value = "";
+      setBusy(null);
     }
+  };
+
+  // 초기화 버튼: 내가 그룹장인 함께 쓰는 가방이 있으면 먼저 안내하고 멈춘다(lib/v2/resetPlan)
+  const resetPlan = (): ResetPlan =>
+    planDataReset(uid, [...(bags ?? []), ...trashedBags], [...(libraryPacks ?? []), ...trashedPacks], {
+      bagIds: new Set(getPendingBags(uid).map((b) => b.id)),
+      packIds: new Set(getPendingPacks(uid).map((p) => p.id)),
+    });
+  const askReset = () => {
+    if (!isOfflineMode) {
+      const plan = resetPlan();
+      if (plan.blocked.length > 0) {
+        setResetBlocked(plan.blocked);
+        return;
+      }
+    }
+    setConfirmReset(true);
   };
 
   const handleResetAllData = async () => {
     if (resetting) return;
+    if (isOfflineMode) {
+      resetLocalAllData();
+      show("모든 데이터가 초기화되었어요");
+      return;
+    }
+    const plan = resetPlan();
+    if (plan.blocked.length > 0) {
+      setResetBlocked(plan.blocked);
+      return;
+    }
     setResetting(true);
-    show("데이터를 지우고 있어요");
+    const message = "데이터를 지우고 있어요";
+    const total = plan.deleteBags.length + plan.leaveBags.length + plan.deletePacks.length;
+    let completed = 0;
+    const step = () => setBusy({ message, progress: { total, completed: ++completed } });
+    setBusy({ message, progress: { total, completed: 0 } });
     try {
-      if (isOfflineMode) {
-        resetLocalAllData();
-      } else {
-        for (const bag of trashedBags) await onPermanentDeleteBag(bag);
-        for (const pack of trashedPacks) await onPermanentDeletePack(pack.id);
-        for (const p of libraryPacks ?? []) await deleteLibraryPackRemote(uid, p.id);
-        for (const bag of bags ?? []) {
-          if (bag.memberIds.length <= 1) {
-            await Promise.all((bag.images ?? []).map((url) => deleteBagImage(url)));
-            await deleteBagWithInviteCodeRemote(bag);
-          } else {
-            await leaveBagRemote(uid, bag.id);
-          }
-        }
+      // 만들기 대기(아직 서버에 없음)는 이 기기에서만
+      plan.pendingBagIds.forEach((id) => removePendingBag(uid, id));
+      plan.pendingPackIds.forEach((id) => removePendingPack(uid, id));
+      // 첨부: 지우는 것들을 뺀 나머지(나가기만 하는 함께 쓰는 가방)가 쓰지 않는 것만(휴지통 완전삭제와 같은 기준)
+      const allBags = [...(bags ?? []), ...trashedBags];
+      const allPacks = [...(libraryPacks ?? []), ...trashedPacks];
+      const inUse = urlsInUse(allBags, allPacks, {
+        bagIds: plan.deleteBags.map((b) => b.id),
+        packIds: plan.deletePacks.map((p) => p.id),
+      });
+      await deleteUnusedFiles([...plan.deleteBags.flatMap(bagFileUrls), ...plan.deletePacks.flatMap(packFileUrls)], inUse).catch((err) =>
+        console.error("[팩인백] 초기화 첨부 정리 실패:", err),
+      );
+      for (const bag of plan.deleteBags) {
+        await deleteBagWithInviteCodeRemote(bag);
+        step();
+      }
+      for (const bag of plan.leaveBags) {
+        await leaveBagRemote(uid, bag.id);
+        step();
+      }
+      for (const p of plan.deletePacks) {
+        await deleteLibraryPackRemote(uid, p.id);
+        step();
       }
       show("모든 데이터가 초기화되었어요");
     } catch (err) {
       console.error("[팩인백] 데이터 초기화 실패:", err);
-      show("데이터 초기화에 실패했어요");
+      show("데이터 초기화에 실패했어요. 다시 하면 남은 것만 지워요");
     } finally {
       setResetting(false);
+      setBusy(null);
     }
   };
 
@@ -415,7 +495,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             title="백업 파일 내보내기"
             subtitle="가방과 팩을 .json 파일로 저장해요"
             trailing={<IconDownload size={18} stroke={1.75} className="text-faint" aria-hidden="true" />}
-            onClick={handleExportBackup}
+            onClick={() => void handleExportBackup()}
           />
           {/* 파일 선택은 label + 숨긴 input (ListRow와 같은 모양) */}
           <label className="flex min-h-13 w-full cursor-pointer items-center gap-3 py-2 transition-colors duration-160 ease-snappy active:bg-fill">
@@ -482,7 +562,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
               {isGuest ? "게스트 모드 종료" : "로그아웃"}
             </Button>
           )}
-          <Button variant="danger" size="sm" disabled={resetting} onClick={() => setConfirmReset(true)}>
+          <Button variant="danger" size="sm" disabled={resetting} onClick={askReset}>
             {resetting ? "초기화 중" : "데이터 초기화"}
           </Button>
         </section>
@@ -555,11 +635,33 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         danger
         onConfirm={() => logout()}
       />
+      <Sheet
+        open={!!resetBlocked}
+        onClose={() => setResetBlocked(null)}
+        title="먼저 그룹장을 넘겨 주세요"
+        footer={
+          <Button block onClick={() => setResetBlocked(null)}>
+            확인
+          </Button>
+        }
+      >
+        <p className="m-0 text-body text-sub">
+          {`내가 그룹장인 함께 쓰는 가방 ${resetBlocked?.length ?? 0}개(${blockedBagLabel(resetBlocked ?? [])})가 있어요. 초기화하면 다른 멤버가 쓰는 가방도 사라지거나 그룹장이 없어져요. 가방의 멤버 화면에서 다른 멤버에게 그룹장을 넘기거나 멤버를 내보낸 뒤 다시 해 주세요.`}
+        </p>
+        {resetBlocked?.some((b) => !!b.trashedByOwnerAt) && (
+          <p className="m-0 pt-2 text-caption text-faint">휴지통에 있는 가방은 되살린 뒤 넘겨 주세요.</p>
+        )}
+      </Sheet>
+      {busy && (
+        <Portal>
+          <BusyOverlay visible message={busy.message} progress={busy.progress} />
+        </Portal>
+      )}
       <ConfirmSheet
         open={confirmReset}
         onClose={() => setConfirmReset(false)}
         title="모든 데이터를 지울까요?"
-        message="가방, 팩 보관함, 휴지통의 모든 데이터가 영구히 지워지고 되돌릴 수 없어요. 함께 쓰는 가방에서는 나가기만 해요."
+        message="가방, 팩 보관함, 휴지통의 모든 데이터가 영구히 지워지고 되돌릴 수 없어요. 함께 쓰는 가방 중 다른 사람이 그룹장인 가방에서는 나가기만 해요."
         confirmLabel="모두 지우기"
         danger
         onConfirm={handleResetAllData}

@@ -73,6 +73,8 @@ import { firebaseErrorCode } from "@/lib/errorMessage";
 import {
   isPremiumUser,
   FREE_MAX_ACTIVE_BAGS,
+  FREE_MAX_JOINED_BAGS,
+  countJoinedBags,
   QUICK_PACK_ID,
   PremiumLimitError,
   computeLockedBagIds,
@@ -87,8 +89,10 @@ import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import { WideShell } from "@/components/v2/shell/WideShell";
 import { WIDE_QUERY, useMediaQuery, type TabKey } from "@/lib/v2/shell";
 import { RECONNECTED_EVENT, getConnectivity, reportNetworkFailure } from "@/lib/v2/connectivity";
+import { stopPackShares } from "@/lib/shareCleanup";
 import {
   PENDING_CHANGE_EVENT,
+  LOCAL_SAVE_FAILED_EVENT,
   addPendingBag,
   addPendingPack,
   flushPendingCreates,
@@ -304,6 +308,7 @@ export default function AppShell() {
         createBag: createBagRemote,
         saveBag: saveBagRemote,
         createPack: (u, p) => saveLibraryPackRemote(u, p, true),
+        savePack: (p) => saveLibraryPackRemote(user, p),
         isLimitError: (e) => e instanceof PremiumLimitError,
       })
         .then((r) => {
@@ -414,6 +419,8 @@ export default function AppShell() {
     });
     expiredPacks.forEach((pack) => {
       tried.add(`pack:${pack.id}`);
+      // 공유 링크도 같이 끈다(2026-10-15)
+      if (pack.publicShareToken) void stopPackShares(user, [pack.publicShareToken]);
       deleteUnusedFiles(packFileUrls(pack), inUse)
         .then(() => deleteLibraryPackRemote(user.uid, pack.id))
         .catch((err) => {
@@ -421,6 +428,37 @@ export default function AppShell() {
         });
     });
   }, [bags, libraryPacks, user, isOfflineMode]);
+
+  // 오프라인 모드 휴지통도 30일이 지나면 지운다(2026-10-15, offline.md 확인 필요 8). 이 기기 저장소라 서버 호출은 없다.
+  // bags · libraryPacks는 오프라인 모드에서 휴지통까지 들어 있는 이 기기 목록이다
+  useEffect(() => {
+    if (!user || !isOfflineMode) return;
+    const tried = trashPurgeTriedRef.current;
+    bags
+      .filter((b) => isTrashExpired(b.trashedByOwnerAt) && !tried.has(`bag:${b.id}`))
+      .forEach((b) => {
+        tried.add(`bag:${b.id}`);
+        permanentDeleteLocalBag(b.id);
+      });
+    libraryPacks
+      .filter((p) => isTrashExpired(p.trashedAt) && !tried.has(`pack:${p.id}`))
+      .forEach((p) => {
+        tried.add(`pack:${p.id}`);
+        permanentDeleteLocalLibraryPack(p.id);
+      });
+  }, [bags, libraryPacks, user, isOfflineMode]);
+
+  // 이 기기 저장(localStorage)이 실패하면 알린다(용량 초과 등, 2026-10-15 offline.md 확인 필요 9). 10초에 한 번만
+  useEffect(() => {
+    let last = 0;
+    const onFail = () => {
+      if (Date.now() - last < 10_000) return;
+      last = Date.now();
+      show("이 기기 저장 공간이 부족해 저장하지 못했어요. 사진을 줄이거나 백업 파일로 내보낸 뒤 정리해 주세요");
+    };
+    window.addEventListener(LOCAL_SAVE_FAILED_EVENT, onFail);
+    return () => window.removeEventListener(LOCAL_SAVE_FAILED_EVENT, onFail);
+  }, [show]);
 
   // 지금 이 사용자가 프리미엄인지 - AuthProvider가 unlockCodes/{code} 문서까지 실시간
   // 구독해서 profile에 얹어주므로(unlockCodeLiveStatus), 관리자가 무효화하는 순간
@@ -439,6 +477,11 @@ export default function AppShell() {
   //   (app/api/sync-lock-status - 무료<->프리미엄 양방향 모두), (2) 무료로 떨어진 경우에만
   //   짧은 오버레이 + 안내 토스트로 "뭔가 바뀌었다"는 걸 직관적으로 알린다.
   const premiumRef = useRef<boolean | null>(null);
+  // 무료 전환 뒤 서버가 참여 가방 한도를 넘는 것에서 나갔으면 알린다(2026-10-15, premium.md 확인 필요 2)
+  const notifyLeftJoined = (n?: number) => {
+    if (n && n > 0)
+      show(`무료로는 참여 가방을 ${FREE_MAX_JOINED_BAGS}개까지 쓸 수 있어 오래된 ${n}개에서 나왔어요. 다시 들어가려면 초대 코드가 필요해요`);
+  };
   useEffect(() => {
     if (!user || isOfflineMode) {
       premiumRef.current = null;
@@ -455,11 +498,13 @@ export default function AppShell() {
     user
       .getIdToken()
       .then((idToken: string) =>
-        fetch("/api/sync-lock-status", {
+        fetch(getApiUrl("/api/sync-lock-status"), {
           method: "POST",
           headers: { Authorization: `Bearer ${idToken}` },
         })
       )
+      .then((res) => res.json().catch(() => ({})))
+      .then((data: { leftJoinedBags?: number }) => notifyLeftJoined(data?.leftJoinedBags))
       .catch((err) => {
         console.error("[팩인백] 잠금 상태 동기화 요청 실패:", err);
       });
@@ -472,6 +517,7 @@ export default function AppShell() {
       }, 700);
       return () => clearTimeout(t);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- notifyLeftJoined는 토스트만 띄운다
   }, [premium, user, show, isOfflineMode]);
 
   // 무료 전환으로 잠긴(내가 소유한/보관한) 가방/팩 id 집합. 프리미엄/마스터이면 항상 빈 집합.
@@ -496,6 +542,8 @@ export default function AppShell() {
             .filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID && !p.isQuickPack && !isPendingPack(user.uid, p.id))
             .filter((p) => !!p.locked !== lockedPackIds.has(p.id))
             .map((p) => `p:${p.id}`),
+          // 참여 가방이 무료 한도를 넘으면 서버가 오래된 것부터 나간다(앱을 닫아 둔 사이 이용권이 끝난 경우)
+          ...(!premium && countJoinedBags(bags, user.uid) > FREE_MAX_JOINED_BAGS ? [`j:${countJoinedBags(bags, user.uid)}`] : []),
         ]
           .sort()
           .join(",")
@@ -518,9 +566,12 @@ export default function AppShell() {
             headers: { Authorization: `Bearer ${idToken}` },
           })
         )
+        .then((res) => res.json().catch(() => ({})))
+        .then((data: { leftJoinedBags?: number }) => notifyLeftJoined(data?.leftJoinedBags))
         .catch((err) => console.error("[팩인백] 잠금 상태 맞추기 실패:", err));
     }, 3000);
     return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- notifyLeftJoined는 토스트만 띄운다
   }, [user, lockMismatch]);
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
@@ -955,18 +1006,16 @@ export default function AppShell() {
       createdAt: now,
       updatedAt: now,
     };
-    const isOffline = isOfflineMode || (typeof navigator !== "undefined" && !navigator.onLine);
-    if (isOffline) {
+    // 오프라인 모드만 이 기기 저장. 계정 모드에서 끊겼으면 다른 새 가방처럼 "만들기 대기"(연결 판단은 앱 공통).
+    // 예전에는 navigator.onLine을 보고 오프라인 모드 저장소에 넣어 계정 목록에 안 보였다(2026-10-15, offline.md 확인 필요 1)
+    if (isOfflineMode) {
       saveLocalBag(draft);
       setEditingBag(draft);
       setIsNewBag(false);
-      show(
-        isOfflineMode
-          ? "가방을 만들었어요"
-          : "오프라인 상태에서 로컬 가방으로 만들었어요. 인터넷 연결 후 [설정 > 오프라인 데이터 가져오기]로 계정에 보관할 수 있어요"
-      );
+      show("가방을 만들었어요");
       return draft;
     }
+    if (offlineNow()) return createPendingBag(draft);
     setIsNewBag(true);
     setCreatingBag(true);
     try {
@@ -982,6 +1031,10 @@ export default function AppShell() {
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
         return;
+      }
+      if (isNetworkError(err)) {
+        reportNetworkFailure();
+        return createPendingBag(draft);
       }
       console.error("[팩인백] 가방 생성 실패:", err);
       show(`가방 생성에 실패했어요 (${firebaseErrorCode(err)})`);
@@ -1330,15 +1383,28 @@ export default function AppShell() {
       type: "folder",
       parentId,
     };
-    const isOffline = isOfflineMode || (typeof navigator !== "undefined" && !navigator.onLine);
-    if (isOffline) {
+    // 오프라인 모드만 이 기기 저장. 계정 모드에서 끊겼으면 "만들기 대기"(예전에는 오프라인 모드 저장소에 들어가 어디에도 안 보였다, 2026-10-15)
+    if (isOfflineMode) {
       saveLocalLibraryPack(draft);
+      return;
+    }
+    const pendFolder = () => {
+      addPendingPack(user.uid, draft);
+      show("폴더를 만들었어요. 인터넷에 연결되면 계정에 올라가요");
+    };
+    if (offlineNow()) {
+      pendFolder();
       return;
     }
     setCreatingPack(true);
     try {
       await saveLibraryPackRemote(user, draft);
     } catch (err) {
+      if (isNetworkError(err)) {
+        reportNetworkFailure();
+        pendFolder();
+        return;
+      }
       if (err instanceof PremiumLimitError) {
         setPremiumLimitMessage(err.message);
         return;

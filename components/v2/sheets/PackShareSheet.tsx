@@ -6,6 +6,7 @@ import type { Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { Button, Sheet } from "@/components/v2/ui";
+import { StopShareButton } from "./StopShareButton";
 
 export interface PackShareTarget {
   // 팩 하나(체크리스트) 또는 폴더(안의 팩 목록과 함께)
@@ -21,12 +22,15 @@ export function PackShareSheet({
   target,
   bagId,
   onTokenGenerated,
+  onTokenCleared,
   onClose,
 }: {
   open: boolean;
   target: PackShareTarget | null;
   bagId?: string;
   onTokenGenerated?: (token: string) => void;
+  // "공유 끄기" 뒤 화면에 들고 있는 토큰을 비울 때(2026-10-15)
+  onTokenCleared?: () => void;
   onClose: () => void;
 }) {
   const { user } = useAuth();
@@ -71,7 +75,8 @@ export function PackShareSheet({
             pack: t.pack,
             folderId: t.folder?.id,
             folder: t.folder,
-            packs: t.folder ? (t.folderPacks ?? []).filter((p) => p.type !== "folder") : undefined,
+            // 하위 폴더도 함께 보낸다(parentId로 구조를 유지, 가져갈 때 그대로 다시 만든다 - 2026-10-15)
+            packs: t.folder ? (t.folderPacks ?? []) : undefined,
             bagId,
           }),
         });
@@ -170,6 +175,14 @@ export function PackShareSheet({
               ? "이 창을 열 때마다 지금 폴더 내용으로 링크가 갱신돼요. 주소는 그대로예요."
               : "팩을 고치면 화면을 나갈 때 링크에도 자동으로 반영돼요. 주소는 그대로예요."}
         </p>
+        <StopShareButton
+          token={syncing ? null : token}
+          onStopped={() => {
+            setToken(null);
+            onTokenCleared?.();
+            onClose();
+          }}
+        />
       </div>
     </Sheet>
   );

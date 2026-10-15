@@ -27,6 +27,8 @@ interface PendingStore {
 }
 
 export const PENDING_CHANGE_EVENT = "pib:pending-change";
+// 이 기기 저장(localStorage)이 실패했을 때(용량 초과 등). AppShell이 듣고 토스트를 띄운다(lib/localBagsService와 같은 이름)
+export const LOCAL_SAVE_FAILED_EVENT = "pib:local-save-failed";
 
 const keyFor = (uid: string) => `pib_pending_creates:${uid}`;
 
@@ -47,6 +49,7 @@ function write(uid: string, store: PendingStore) {
     else localStorage.setItem(keyFor(uid), JSON.stringify(store));
   } catch (err) {
     console.error("[팩인백] 만들기 대기 저장 실패:", err);
+    window.dispatchEvent(new CustomEvent(LOCAL_SAVE_FAILED_EVENT));
   }
   window.dispatchEvent(new CustomEvent(PENDING_CHANGE_EVENT));
 }
@@ -103,10 +106,20 @@ export function withPending<T extends { id: string }>(remote: T[], pending: T[])
   return [...pending.filter((x) => !ids.has(x.id)), ...remote];
 }
 
-/** fetch 자체가 실패한 경우(폐쇄망·끊김). 서버가 거절한 경우(4xx·5xx)와 구분한다 */
+/** fetch 자체가 실패한 경우(폐쇄망·끊김). 서버가 거절한 경우(4xx·5xx)와 구분한다.
+ * 브라우저별 문구: 크롬 "Failed to fetch" · 사파리 "Load failed" · 파이어폭스 "NetworkError when attempting to fetch resource".
+ * 예전에는 TypeError면 모두 네트워크로 봐서 코드 버그도 "다음 연결 때 다시"로 조용히 남았다(2026-10-15) */
 export function isNetworkError(err: unknown): boolean {
-  const msg = err instanceof Error ? `${err.name} ${err.message}` : String(err);
-  return /TypeError|Failed to fetch|NetworkError|Load failed|network/i.test(msg);
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Failed to fetch|NetworkError|Load failed|network ?(request )?(error|failed)/i.test(msg);
+}
+
+// 무료 개수를 넘어 올리지 못한 항목에 표시. 같은 항목으로 프리미엄 안내를 되풀이하지 않게 한다(다시 시도는 계속 한다)
+function markBlocked(uid: string, kind: "bag" | "pack", id: string, message: string) {
+  const store = read(uid);
+  if (kind === "bag") store.bags = store.bags.map((p) => (p.bag.id === id ? { ...p, blocked: message } : p));
+  else store.packs = store.packs.map((p) => (p.pack.id === id ? { ...p, blocked: message } : p));
+  write(uid, store);
 }
 
 export interface FlushResult {
@@ -126,6 +139,8 @@ export function flushPendingCreates(
     createBag: (user: User, bag: Bag, ownerProfile: { nickname: string; avatarId: string }) => Promise<Bag>;
     saveBag: (bag: Bag) => Promise<unknown>;
     createPack: (user: User, pack: Pack) => Promise<unknown>;
+    // 만드는 사이에 고친 팩을 다시 저장(가방의 saveBag과 같은 역할, 2026-10-15)
+    savePack?: (pack: Pack) => Promise<unknown>;
     isLimitError: (err: unknown) => boolean;
   },
 ): Promise<FlushResult> {
@@ -143,7 +158,11 @@ export function flushPendingCreates(
       } catch (err) {
         if (isNetworkError(err)) return result;
         if (deps.isLimitError(err)) {
-          result.blockedMessage = err instanceof Error ? err.message : "무료 개수를 넘었어요";
+          const message = err instanceof Error ? err.message : "무료 개수를 넘었어요";
+          if (!item.blocked) {
+            result.blockedMessage = message;
+            markBlocked(user.uid, "bag", sent.id, message);
+          }
           continue;
         }
         console.error("[팩인백] 대기 중인 가방 만들기 실패:", err);
@@ -153,12 +172,18 @@ export function flushPendingCreates(
       const sent = item.pack;
       try {
         await deps.createPack(user, sent);
+        const latest = read(user.uid).packs.find((p) => p.pack.id === sent.id)?.pack;
         removePendingPack(user.uid, sent.id);
+        if (latest && deps.savePack && JSON.stringify(latest) !== JSON.stringify(sent)) await deps.savePack(latest);
         result.created += 1;
       } catch (err) {
         if (isNetworkError(err)) return result;
         if (deps.isLimitError(err)) {
-          result.blockedMessage = err instanceof Error ? err.message : "무료 개수를 넘었어요";
+          const message = err instanceof Error ? err.message : "무료 개수를 넘었어요";
+          if (!item.blocked) {
+            result.blockedMessage = message;
+            markBlocked(user.uid, "pack", sent.id, message);
+          }
           continue;
         }
         console.error("[팩인백] 대기 중인 팩 만들기 실패:", err);

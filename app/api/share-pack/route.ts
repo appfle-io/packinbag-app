@@ -24,13 +24,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "요청 형식이 올바르지 않아요" }, { status: 400 });
   }
 
-  const { pack, packs, folder, folderId, packId, bagId } = body as {
+  const { pack, packs, folder, folderId, packId, bagId, refreshOnly } = body as {
     pack?: Pack;
     packs?: Pack[];
     folder?: Pack;
     folderId?: string;
     packId?: string;
     bagId?: string;
+    // 편집기를 나갈 때의 자동 갱신. 이미 있는 공유만 고치고 새로 만들지 않는다(공유를 끈 뒤 되살아나지 않게, 2026-10-15)
+    refreshOnly?: boolean;
   };
 
   let uid: string;
@@ -94,7 +96,13 @@ export async function POST(req: NextRequest) {
       // 다른 사람이 만든 스냅샷은 "이 가방의 이 팩"에서 만든 것일 때만 갱신한다(출처는 서버만 기록)
       const sameBagPack =
         !!packInBag && prevData?.sourceBagId === bagId && prevData?.sourcePackId === targetId;
-      if (!prev.exists || prevOwner === uid || sameBagPack) token = storedToken;
+      // 스냅샷이 없으면(공유를 끈 뒤 · 원본 삭제 뒤 남은 토큰) 새 주소를 만든다(2026-10-15)
+      if (prev.exists && (prevOwner === uid || sameBagPack)) token = storedToken;
+    }
+
+    // 자동 갱신은 살아 있는 공유만 고친다
+    if (refreshOnly && !token) {
+      return NextResponse.json({ skipped: true });
     }
 
     if (!token) {

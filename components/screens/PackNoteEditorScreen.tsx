@@ -818,7 +818,7 @@ function PackNoteEditorScreenInner({
         fetch("/api/share-pack", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-          body: JSON.stringify({ packId: current.id, pack: current, bagId }),
+          body: JSON.stringify({ packId: current.id, pack: current, bagId, refreshOnly: true }),
         }),
       )
       .catch((err) => console.error("[팩인백] 공유 스냅샷 자동 갱신 실패:", err));

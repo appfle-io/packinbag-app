@@ -197,14 +197,22 @@ export function MembersSheet({
                 </>
               )}
               {isOwner ? (
-                <Button
-                  variant="text"
-                  size="sm"
-                  className="self-start px-0"
-                  onClick={() => setConfirm({ kind: "regen" })}
-                >
-                  초대 코드 새로 받기
-                </Button>
+                <>
+                  <Button
+                    variant="text"
+                    size="sm"
+                    className="self-start px-0"
+                    onClick={() => setConfirm({ kind: "regen" })}
+                  >
+                    초대 코드 새로 받기
+                  </Button>
+                  {/* 만든 사람은 나가기가 없다 - 넘기는 길을 알려 준다(2026-10-15, share.md 확인 필요 8) */}
+                  {members.length > 1 && (
+                    <p className="m-0 text-caption text-faint">
+                      만든 사람은 가방에서 나갈 수 없어요. 멤버 오른쪽 ⋯에서 &apos;만든 사람 넘기기&apos;를 한 뒤 나갈 수 있어요.
+                    </p>
+                  )}
+                </>
               ) : (
                 <Button
                   variant="danger"

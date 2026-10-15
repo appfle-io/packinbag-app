@@ -1,11 +1,34 @@
 import type { User } from "firebase/auth";
-import { Bag, Pack, UserProfile } from "./types";
+import { Bag, Item, Pack, UserProfile } from "./types";
 import { getLocalBags, getLocalLibraryPacks } from "./localBagsService";
 import { createBagRemote } from "./bagsService";
-import { saveLibraryPackRemote } from "./packsService";
-import { PremiumLimitError } from "./premiumLimits";
+import { getLibraryPacksOnce, saveLibraryPackRemote } from "./packsService";
+import { PremiumLimitError, QUICK_PACK_ID } from "./premiumLimits";
+import { stripBagMedia, stripPackMedia } from "./offlineMediaStrip";
 
 const IMPORTED_OFFLINE_IDS_KEY = "pib_imported_offline_ids";
+// 옮긴 항목의 옛 id → 계정 새 id(2026-10-15). 폴더를 먼저 옮기고 그 안 팩을 나중에 옮겨도 폴더 안으로 이어 붙이려고 남긴다
+const IMPORTED_OFFLINE_MAP_KEY = "pib_imported_offline_map";
+
+function getImportedIdMap(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const v = JSON.parse(localStorage.getItem(IMPORTED_OFFLINE_MAP_KEY) ?? "null");
+    return v && typeof v === "object" ? (v as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberImportedId(oldId: string, newId: string) {
+  try {
+    const map = getImportedIdMap();
+    map[oldId] = newId;
+    localStorage.setItem(IMPORTED_OFFLINE_MAP_KEY, JSON.stringify(map));
+  } catch {}
+}
+
+const isQuickPack = (p: Pack) => p.id === QUICK_PACK_ID || !!p.isQuickPack;
 
 /**
  * 이미 온라인으로 가져온 오프라인 항목 ID 목록을 조회합니다.
@@ -85,6 +108,8 @@ export async function importOfflineDataToOnline({
   // 무료 개수를 넘어 멈춘 경우 서버가 돌려준 안내(남은 것은 이 기기에 그대로 남고, 다음에 다시 고를 수 있다)
   blockedMessage: string | null;
   skippedCount: number;
+  // 옮기지 않고 이 기기에 남긴 사진 · 파일 수(data URL, 2026-10-15)
+  removedMediaCount: number;
 }> {
   if (!user) throw new Error("로그인 상태가 아니에요.");
 
@@ -95,17 +120,25 @@ export async function importOfflineDataToOnline({
     ? allLocalBags.filter((b) => selectedBagIds.includes(b.id))
     : allLocalBags;
 
-  const targetPacks = selectedPackIds
+  const selectedPacks = selectedPackIds
     ? allLocalPacks.filter((p) => selectedPackIds.includes(p.id))
     : allLocalPacks;
+  // 빠른팩은 계정 빠른팩에 아이템을 합친다(새 id로 올리면 목록에 안 보이는 팩이 됐다, 2026-10-15)
+  const quickPack = selectedPacks.find(isQuickPack);
+  // 폴더 먼저(안쪽 팩이 올라갈 때 폴더가 이미 계정에 있게)
+  const targetPacks = [
+    ...selectedPacks.filter((p) => !isQuickPack(p) && p.type === "folder"),
+    ...selectedPacks.filter((p) => !isQuickPack(p) && p.type !== "folder"),
+  ];
 
-  // 1. 충돌 방지용 ID 매핑 테이블 (oldOfflineId -> newOnlineId)
-  const idMap = new Map<string, string>();
+  // 1. 충돌 방지용 ID 매핑 테이블 (oldOfflineId -> newOnlineId). 예전에 옮긴 것도 같이 본다
+  const idMap = new Map<string, string>(Object.entries(getImportedIdMap()));
 
   for (const pack of targetPacks) {
     const newPackId = `pack_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     idMap.set(pack.id, newPackId);
   }
+  let removedMediaCount = 0;
 
   // 2. 보관함 팩 먼저 생성 (폴더 등 부모 관계 정제)
   // 하나씩 올리고 올린 것은 바로 "가져옴"으로 적는다 - 중간에 멈춰도 다시 했을 때 같은 것이 두 번 올라가지 않게.
@@ -118,8 +151,10 @@ export async function importOfflineDataToOnline({
     const newId = idMap.get(pack.id) || `pack_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const newParentId = pack.parentId ? idMap.get(pack.parentId) : undefined;
 
+    const stripped = stripPackMedia(pack);
+    removedMediaCount += stripped.removed;
     const newPack: Pack = {
-      ...pack,
+      ...stripped.pack,
       id: newId,
       parentId: newParentId,
       locked: false,
@@ -138,7 +173,26 @@ export async function importOfflineDataToOnline({
       throw err;
     }
     markOfflineIdsAsImported([pack.id]);
+    rememberImportedId(pack.id, newId);
     importedPacksCount++;
+  }
+
+  // 2-1. 빠른팩: 계정 빠른팩 끝에 아이템을 이어 붙인다(없으면 만든다). 개수 제한에서 빠지는 팩이라 막히지 않는다
+  if (quickPack && (quickPack.items?.length ?? 0) > 0) {
+    const existing = (await getLibraryPacksOnce(user.uid)).find((p) => p.id === QUICK_PACK_ID);
+    const added: Item[] = quickPack.items.map((it) => ({
+      ...it,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    }));
+    if (existing) {
+      await saveLibraryPackRemote(user, { ...existing, items: [...existing.items, ...added], updatedAt: new Date().toISOString() });
+    } else {
+      await saveLibraryPackRemote(user, { id: QUICK_PACK_ID, name: "빠른팩", items: added, isQuickPack: true }, true);
+    }
+    markOfflineIdsAsImported([quickPack.id]);
+    importedPacksCount++;
+  } else if (quickPack) {
+    markOfflineIdsAsImported([quickPack.id]);
   }
 
   // 3. 가방 생성 (가방 안 팩의 linkedLibraryPackId 및 소유자 정제)
@@ -151,9 +205,11 @@ export async function importOfflineDataToOnline({
   for (let i = 0; i < targetBags.length; i++) {
     const bag = targetBags[i];
     const newBagId = `bag_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const strippedBag = stripBagMedia(bag);
+    removedMediaCount += strippedBag.removed;
 
     // 가방 내부 팩들의 linkedLibraryPackId를 신규 보관함 팩 ID로 치환
-    const sanitizedBagPacks = (bag.packs || []).map((p) => {
+    const sanitizedBagPacks = (strippedBag.bag.packs || []).map((p) => {
       const remappedLinkedId = p.linkedLibraryPackId ? idMap.get(p.linkedLibraryPackId) : undefined;
       return {
         ...p,
@@ -162,7 +218,7 @@ export async function importOfflineDataToOnline({
     });
 
     const newBag: Bag = {
-      ...bag,
+      ...strippedBag.bag,
       id: newBagId,
       ownerId: user.uid,
       memberIds: [user.uid],
@@ -199,5 +255,6 @@ export async function importOfflineDataToOnline({
     importedPacksCount,
     blockedMessage,
     skippedCount,
+    removedMediaCount,
   };
 }

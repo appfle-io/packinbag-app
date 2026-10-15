@@ -6,11 +6,24 @@
 // 로직이 두 곳에서 따로 놀며 어긋나는 걸 방지하기 위해 한 곳에 모아둔다.
 
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 import { isPremiumServer } from "@/lib/premiumServer";
-import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_LIBRARY_PACKS, QUICK_PACK_ID } from "@/lib/premiumLimits";
+import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_JOINED_BAGS, FREE_MAX_LIBRARY_PACKS, QUICK_PACK_ID } from "@/lib/premiumLimits";
 
 function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+}
+
+// Firestore 일괄 쓰기는 한 번에 500건까지라 나눠서 보낸다(2026-10-15, premium.md 확인 필요 3)
+async function commitInChunks(
+  db: FirebaseFirestore.Firestore,
+  updates: { ref: FirebaseFirestore.DocumentReference; data: { locked: boolean } }[],
+): Promise<void> {
+  for (let i = 0; i < updates.length; i += 450) {
+    const batch = db.batch();
+    updates.slice(i, i + 450).forEach((u) => batch.update(u.ref, u.data));
+    await batch.commit();
+  }
 }
 
 export async function syncOwnedBagLocks(uid: string): Promise<void> {
@@ -41,16 +54,37 @@ export async function syncOwnedBagLocks(uid: string): Promise<void> {
   );
   if (bagDocs.length === 0) return;
 
-  const batch = db.batch();
-  let writes = 0;
+  const updates: Parameters<typeof commitInChunks>[1] = [];
   bagDocs.forEach((b, index) => {
     const shouldLock = !premium && index >= FREE_MAX_ACTIVE_BAGS;
-    if (!!b.locked !== shouldLock) {
-      batch.update(db.collection("bags").doc(b.id), { locked: shouldLock });
-      writes++;
-    }
+    if (!!b.locked !== shouldLock) updates.push({ ref: db.collection("bags").doc(b.id), data: { locked: shouldLock } });
   });
-  if (writes > 0) await batch.commit();
+  await commitInChunks(db, updates);
+}
+
+// 무료 회원이 참여 가방(남이 만든 것, 휴지통 제외)을 3개를 넘게 갖고 있으면 오래된 것부터 나간다(2026-10-15, premium.md 확인 필요 2 → C).
+// 프리미엄일 때 많이 참여했다가 무료로 바뀐 때만 생긴다(참여는 join-bag이 3개로 막는다).
+// 남의 가방은 문서에 "나만 잠김"을 표시할 수 없어서(규칙으로 막으려면 저장마다 읽기 1번이 늘어난다) 잠그지 않고 나간다.
+// 기준은 화면의 computeLockedBagIds와 같은 "만든 시각 최신 3개만 남김". 나간 가방 수를 돌려준다
+export async function leaveExcessJoinedBags(uid: string, premium: boolean): Promise<number> {
+  if (premium) return 0;
+  const db = adminDb();
+  const snap = await db.collection("bags").where("memberIds", "array-contains", uid).get();
+  const joined = sortByCreatedAtDesc(
+    snap.docs
+      .map((d) => ({
+        ref: d.ref,
+        createdAt: d.data().createdAt as string | undefined,
+        ownerId: d.data().ownerId as string | undefined,
+        trashed: !!d.data().trashedByOwnerAt,
+      }))
+      .filter((b) => b.ownerId !== uid && !b.trashed),
+  );
+  const excess = joined.slice(FREE_MAX_JOINED_BAGS);
+  for (const b of excess) {
+    await b.ref.update({ memberIds: FieldValue.arrayRemove(uid), [`memberProfiles.${uid}`]: FieldValue.delete() });
+  }
+  return excess.length;
 }
 
 // 팩 보관함 잠금 동기화: 무료는 최신 10개를 넘는 팩·폴더를 locked:true, 프리미엄은 전부 false.
@@ -72,14 +106,10 @@ export async function syncLibraryPackLocks(uid: string, premium: boolean): Promi
       .filter((p) => !p.trashedAt && p.id !== QUICK_PACK_ID)
   );
 
-  const batch = db.batch();
-  let writes = 0;
+  const updates: Parameters<typeof commitInChunks>[1] = [];
   activePacks.forEach((p, idx) => {
     const shouldLock = !premium && idx >= FREE_MAX_LIBRARY_PACKS;
-    if (!!p.locked !== shouldLock) {
-      batch.update(packsCol.doc(p.id), { locked: shouldLock });
-      writes++;
-    }
+    if (!!p.locked !== shouldLock) updates.push({ ref: packsCol.doc(p.id), data: { locked: shouldLock } });
   });
-  if (writes > 0) await batch.commit();
+  await commitInChunks(db, updates);
 }

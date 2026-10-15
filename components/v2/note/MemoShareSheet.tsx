@@ -6,6 +6,7 @@ import type { Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { Button, Sheet } from "@/components/v2/ui";
+import { StopShareButton } from "@/components/v2/sheets/StopShareButton";
 
 // 메모 공유 시트(구 MemoPackShareModal의 v2). 열 때마다 지금 내용으로 공유 스냅샷을 갱신한다
 // (app/api/share-pack, 구 모달과 같은 요청·응답). 첫 발급된 토큰은 onTokenGenerated로 팩에 저장한다.
@@ -142,6 +143,14 @@ export function MemoShareSheet({
         <p className="m-0 text-caption text-faint">
           {syncing && shareUrl ? "지금 내용으로 갱신하는 중이에요" : "메모를 고치면 편집기를 나갈 때 링크에도 자동으로 반영돼요. 주소는 그대로예요."}
         </p>
+        {/* 공유 끄기(2026-10-15). 자동 갱신은 살아 있는 공유만 고치므로(refreshOnly) 끄고 나서 되살아나지 않는다 */}
+        <StopShareButton
+          token={syncing ? null : token}
+          onStopped={() => {
+            setToken(null);
+            onClose();
+          }}
+        />
       </div>
     </Sheet>
   );

@@ -135,7 +135,10 @@ function DeleteAccountSheet({ open, nickname, needsPassword, onClose }: { open: 
     >
       <div className="flex flex-col gap-3">
         <p className="m-0 text-body text-sub">
-          계정, 팩 보관함, 나만 쓰는 가방이 모두 영구히 지워지고 되돌릴 수 없어요. 함께 쓰던 가방에서는 나만 빠지고 다른 멤버는 계속 쓸 수 있어요.
+          계정과 모든 데이터가 영구히 지워지고 되돌릴 수 없어요. 팩 보관함, 나만 쓰는 가방, 사진 · 파일, 공유 링크, 내가 만든 URL, 알림, 문의까지 모두예요.
+        </p>
+        <p className="m-0 rounded-field bg-fill px-4 py-3 text-caption text-sub">
+          함께 쓰던 가방에서는 나만 빠져요. 내가 만든 함께 쓰는 가방은 가장 먼저 들어온 멤버에게 넘어가고, 휴지통에 넣어 둔 함께 쓰는 가방은 모두에게서 지워져요.
         </p>
         <label className="flex flex-col gap-2">
           <span className="text-caption text-sub">
@@ -317,7 +320,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
         open={logoutOpen}
         onClose={() => setLogoutOpen(false)}
         title={isGuest ? "게스트 모드를 끝낼까요?" : "로그아웃할까요?"}
-        message={isGuest ? "회원가입 없이 나가면 지금까지 만든 가방과 팩이 모두 지워질 수 있어요." : undefined}
+        message={isGuest ? "회원가입 없이 나가면 지금까지 만든 가방 · 팩 · 사진이 모두 지워지고 되돌릴 수 없어요. 함께 쓰던 가방에서는 빠지고, 내가 만든 함께 쓰는 가방은 다른 멤버에게 넘어가요." : undefined}
         confirmLabel={isGuest ? "지우고 나가기" : "로그아웃"}
         danger
         onConfirm={() => logout()}

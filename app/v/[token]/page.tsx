@@ -2,10 +2,9 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { Bag } from "@/lib/types";
 import { deserializeBag } from "@/lib/editorDocSerialize";
 import { hydrateBag, parseNoteData, type BagNote } from "@/lib/bagNotesCore";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { IconLock } from "@tabler/icons-react";
-import GuestBagClientView from "@/components/GuestBagClientView";
+import { GuestBagViewV2 } from "@/components/v2/guest/GuestBagViewV2";
+import { GuestEnded } from "@/components/v2/guest/GuestShell";
 import type { Metadata } from "next";
 import { APP_STORE_ID } from "@/lib/v2/appBridge";
 
@@ -116,44 +115,22 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
       ],
     };
   } else {
+    // 보기 토큰으로만 연다(2026-10-15, share.md 확인 필요 2). 예전에는 못 찾으면 초대코드로도 찾아 /v/{초대코드}가 열렸다
     const db = adminDb();
-    let snap = await db
+    const snap = await db
       .collection("bags")
       .where("publicShareToken", "==", token)
       .limit(1)
       .get();
 
-    if (snap.empty) {
-      snap = await db
-        .collection("bags")
-        .where("inviteCode", "==", token)
-        .limit(1)
-        .get();
-    }
-
-    if (snap.empty || snap.docs[0].data().publicShareEnabled === false) {
+    // 휴지통에 넣은 가방도 닫는다(2026-10-15, share.md 확인 필요 1)
+    const data = snap.empty ? null : snap.docs[0].data();
+    if (!data || data.publicShareEnabled === false || data.trashedByOwnerAt) {
       return (
-        <main className="h-screen w-full overflow-y-auto bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-          <div className="max-w-sm w-full text-center space-y-4 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-            <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-              <IconLock size={28} />
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-[17px] font-bold text-slate-900 dark:text-white">
-                공유가 종료되었거나 없는 가방이에요
-              </h1>
-              <p className="text-[13px] text-slate-500">
-                링크가 만료되었거나 비공개로 전환된 가방입니다.
-              </p>
-            </div>
-            <Link
-              href="/"
-              className="inline-block w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[14px] transition-colors shadow-sm"
-            >
-              팩인백 홈으로 이동
-            </Link>
-          </div>
-        </main>
+        <GuestEnded
+          title="공유가 끝났거나 없는 가방이에요"
+          message="링크가 만료됐거나 가방이 지워졌어요."
+        />
       );
     }
 
@@ -168,5 +145,5 @@ export default async function GuestBagPage({ params }: GuestPageProps) {
     bag = toGuestBag(hydrateBag(raw, notes));
   }
 
-  return <GuestBagClientView bag={bag} />;
+  return <GuestBagViewV2 bag={bag} />;
 }

@@ -125,6 +125,6 @@ export async function sendTestPush(): Promise<string> {
   const { data } = await call({});
   if (data.reason === "no-device") return "이 기기가 아직 등록되지 않았어요. 앱을 껐다 켠 뒤 다시 해 주세요";
   if (data.reason === "no-permission") return "알림 권한이 아직 서버에 반영되지 않았어요. 잠시 뒤 다시 해 주세요";
-  if (data.sent > 0) return "알림을 보냈어요";
+  if (data.sent > 0) return "알림을 보냈어요. 5초 뒤에 와요 · 홈 화면으로 나가 보세요";
   return `알림을 보내지 못했어요 (${(data.reasons ?? []).join(", ") || "알 수 없음"})`;
 }

@@ -70,7 +70,8 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
       const sent = await linkAccountWithEmail(email.trim(), password);
       if (sent) setStep("sent");
       else {
-        show("이메일 계정으로 연결했어요");
+        // 인증 메일이 안 갔다는 걸 알린다(2026-10-15, auth.md 확인 필요 8). 앱 위 안내 줄의 "다시 받기"로 받을 수 있다
+        show("이메일 계정으로 연결했어요. 인증 메일을 보내지 못했으니 화면 위 '다시 받기'를 눌러 주세요");
         onClose();
       }
     } catch (err) {
@@ -116,6 +117,9 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
               <strong className="font-semibold">{email.trim()}</strong>(으)로 인증 메일을 보냈어요.
             </p>
             <p className="m-0 text-caption text-sub">메일함(스팸함 포함)에서 인증을 마쳐 주세요.</p>
+            <p className="m-0 rounded-field bg-fill px-4 py-3 text-caption text-sub">
+              인증을 마치기 전에 로그아웃하면 이 이메일로 다시 로그인할 수 없어요. 지금 만든 가방과 팩을 잃지 않으려면 먼저 인증해 주세요.
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -190,12 +194,13 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
         open={confirmLogout}
         onClose={() => setConfirmLogout(false)}
         title="게스트 모드를 끝낼까요?"
-        message="회원가입 없이 나가면 지금까지 만든 가방과 팩이 모두 지워질 수 있어요."
+        message="회원가입 없이 나가면 지금까지 만든 가방 · 팩 · 사진이 모두 지워지고 되돌릴 수 없어요. 함께 쓰던 가방에서는 빠지고, 내가 만든 함께 쓰는 가방은 다른 멤버에게 넘어가요."
         confirmLabel="지우고 나가기"
         danger
-        onConfirm={() => {
+        onConfirm={async () => {
           onClose();
-          logout();
+          // 게스트 데이터를 모두 지운 뒤 나간다(AuthProvider logout, 2026-10-15)
+          await logout();
         }}
       />
     </>

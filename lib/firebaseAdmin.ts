@@ -4,6 +4,7 @@
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth, Auth } from "firebase-admin/auth";
 import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { getStorage, Storage } from "firebase-admin/storage";
 
 function adminApp() {
   const apps = getApps();
@@ -47,4 +48,11 @@ export function adminDb(): Firestore {
   const app = adminApp();
   if (!app) return null as unknown as Firestore;
   return getFirestore(app);
+}
+
+// Storage(공유 팩 가져올 때 첨부 복사, 2026-10-15). 버킷 이름은 다운로드 주소에서 읽는다
+export function adminStorage(): Storage {
+  const app = adminApp();
+  if (!app) return null as unknown as Storage;
+  return getStorage(app);
 }

@@ -33,6 +33,7 @@ import { isNativePlatform, nativeAppleIdToken, nativeGoogleIdToken } from "@/lib
 import { ensurePurchasesConfigured } from "@/lib/purchaseService";
 import {
   doc,
+  getDoc,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -50,7 +51,8 @@ import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
 import { recheckConnectivity } from "@/lib/v2/connectivity";
 import { resolveFolderNameClashes } from "@/lib/bagFolderNames";
-import { deleteAllUserData } from "@/lib/accountService";
+import { deleteAccountServerSide, deleteAllUserData } from "@/lib/accountService";
+import { getApiUrl } from "@/lib/apiBase";
 import { seedSampleDataForNewUser } from "@/lib/sampleOnboardingData";
 import { getUserBagsOnce } from "@/lib/bagsService";
 import {
@@ -73,7 +75,6 @@ interface AuthContextValue {
   isMaster: boolean;
   startOfflineMode: () => void;
   exitOfflineMode: () => void;
-  switchToOfflineMode: () => void;
   switchToOnlineMode: () => void;
   signInAsGuest: () => Promise<void>;
   linkAccountWithGoogle: () => Promise<void>;
@@ -210,12 +211,20 @@ function toFirestorePatch(patch: UserPatch): UserPatch {
 
 async function ensureUserDoc(user: User) {
   const ref = doc(db, "users", user.uid);
+  // createdAt은 문서가 처음 생길 때만 쓴다. 예전에는 Google · Apple · 게스트 로그인 · 연동 때마다 merge로 덮어써
+  // 가입 시각이 "마지막 로그인 시각"이 됐다(2026-10-15, auth.md 확인 필요 1). 로그인할 때 읽기 1번이 늘어난다
+  let exists = true;
+  try {
+    exists = (await getDoc(ref)).exists();
+  } catch {
+    // 못 읽으면 가입 시각을 건드리지 않는 쪽으로
+  }
   await setDoc(
     ref,
     {
       email: user.email,
       displayName: user.displayName,
-      createdAt: serverTimestamp(),
+      ...(exists ? {} : { createdAt: serverTimestamp() }),
       // nickname/avatarId는 merge라서 이미 있으면 덮어쓰지 않음 -> 처음 가입한 사람만 비어있음
     },
     { merge: true }
@@ -334,10 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
-  const switchToOfflineMode = () => {
-    startOfflineMode();
-  };
-
+  // 계정 → 오프라인 모드 전환(switchToOfflineMode)은 10/4에 화면에서 빠졌고 10/15에 함수도 지웠다(원칙 1: 세션이 있으면 언제나 계정 모드)
   const switchToOnlineMode = () => {
     // 새로고침 없이 그 자리에서 바꾼다. 이 기기에 로그인 세션이 남아 있으면 바로 그 계정으로,
     // 없으면 로그인 화면으로. 로그인 뒤 오프라인 데이터 합치기 시트는 AppShell이 띄운다
@@ -1462,7 +1468,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // 비밀번호 재설정 메일도 Resend(브랜드 도메인)로 먼저 보낸다(2026-10-15, auth.md 확인 필요 7).
+  // 서버가 못 보내면(sent:false · 연결 실패) Firebase 기본 발송으로 대신한다. 60초 안에 다시 누르면 "잠시 후"
   const sendPasswordReset = async (email: string) => {
+    try {
+      const res = await fetch(getApiUrl("/api/send-password-reset"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { sent?: boolean; code?: string };
+      if (res.status === 429 && data.code === "COOLDOWN") throw new Error("잠시 후 다시 시도해주세요");
+      if (data.sent) return;
+    } catch (err) {
+      if (err instanceof Error && err.message === "잠시 후 다시 시도해주세요") throw err;
+      console.warn("[팩인백] Resend 재설정 메일 실패, Firebase로 대신:", err);
+    }
     await sendPasswordResetEmail(auth, email);
   };
 
@@ -1518,7 +1539,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       exitOfflineMode();
       return;
     }
-    await signOut(auth);
+    // 게스트(익명 계정)는 다시 로그인할 길이 없어 끝낼 때 탈퇴처럼 모두 지운다(2026-10-15, auth.md 확인 필요 3).
+    // 예전에는 가방 · 팩 · 첨부가 주인 없이 서버에 계속 남았다. 지우다 실패해도 로그아웃은 한다
+    const current = auth.currentUser;
+    if (current?.isAnonymous) {
+      try {
+        await deleteAllUserData(current.uid);
+        await deleteAccountServerSide();
+      } catch (err) {
+        console.error("[팩인백] 게스트 데이터 정리 실패:", err);
+      }
+    }
+    await signOut(auth).catch(() => {});
     try {
       await clearIndexedDbPersistence(db);
     } catch {
@@ -1533,6 +1565,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Firestore/Storage 데이터를 먼저 정리하고, 마지막에 Auth 계정을 지운다.
     // (순서를 반대로 하면 로그인 정보가 먼저 사라져서 이후 Firestore 규칙상 접근이 막힘)
     await deleteAllUserData(user.uid);
+    // 앱이 못 지우는 것(짧은 URL · 공유 링크 · 알림 · 기기 토큰 · 문의 · 사용 기록)과 로그인 계정을 서버가 지운다(2026-10-15, auth.md 확인 필요 2).
+    // 서버가 계정까지 지웠으면 로그아웃만 하고 끝, 실패하면 예전처럼 앱에서 계정을 지운다
+    if (await deleteAccountServerSide()) {
+      await signOut(auth).catch(() => {});
+      try {
+        await clearIndexedDbPersistence(db);
+      } catch {}
+      return;
+    }
     try {
       await deleteUser(user);
       try {
@@ -1564,15 +1605,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isOfflineMode,
         startOfflineMode,
         exitOfflineMode,
-        switchToOfflineMode,
         switchToOnlineMode,
         authBusy,
         // 마스터 이메일 목록은 서버 전용(MASTER_EMAILS)이라 화면에서는 보지 않는다(2026-10-09). 서버 판정(master-status)·토큰·role·masters 문서로 충분하다
+        // 오프라인 모드는 가짜 프로필이 role: master라 빼고 본다(2026-10-15, auth.md 확인 필요 6)
         isMaster:
-          isMasterApi ||
-          isMasterToken ||
-          profile?.role === "master" ||
-          isMasterDoc,
+          !isOfflineMode &&
+          (isMasterApi ||
+            isMasterToken ||
+            profile?.role === "master" ||
+            isMasterDoc),
         signInAsGuest,
         linkAccountWithGoogle,
         linkAccountWithApple,

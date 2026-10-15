@@ -26,6 +26,7 @@ import {
   permanentDeleteLocalLibraryPack,
 } from "@/lib/localBagsService";
 import { deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
+import { packShareTokens, stopPackShares } from "@/lib/shareCleanup";
 
 // 팩 보관함은 공유되지 않는 개인 전용 공간이다.
 // 가방은 여러 명이 같이 쓰지만, 그 가방 안에서 누가 불러온 팩이든
@@ -278,6 +279,8 @@ export async function restoreLibraryEntryRecursive(user: User, allPacks: Pack[],
 export async function deleteLibraryEntryRecursive(uid: string, allPacks: Pack[], rootId: string, bags: Bag[] = []) {
   const ids = [rootId, ...collectDescendantPackIds(allPacks, rootId)];
   const targets = allPacks.filter((p) => ids.includes(p.id));
+  // 공유 링크(/p)도 같이 끈다(2026-10-15, share.md 확인 필요 3). 실패해도 삭제는 계속
+  if (!isOfflineEnvironment()) await stopPackShares(null, packShareTokens(targets));
   await deleteUnusedFiles(targets.flatMap(packFileUrls), urlsInUse(bags, allPacks, { packIds: ids }));
   await Promise.all(ids.map((id) => deleteLibraryPackRemote(uid, id)));
 }

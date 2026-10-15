@@ -351,7 +351,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
           fetch("/api/share-pack", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-            body: JSON.stringify({ packId: current.id, pack: current }),
+            body: JSON.stringify({ packId: current.id, pack: current, refreshOnly: true }),
           }),
         )
         .catch((err) => console.error("[팩인백] 팩 공유 스냅샷 자동 갱신 실패:", err));
@@ -597,6 +597,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
           onTokenGenerated={(token) => {
             if (packRef.current.publicShareToken !== token) setPack((p) => ({ ...p, publicShareToken: token }));
           }}
+          onTokenCleared={() => setPack((p) => ({ ...p, publicShareToken: undefined }))}
           onClose={() => setShareOpen(false)}
         />
       )}

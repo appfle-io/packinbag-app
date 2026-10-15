@@ -47,3 +47,11 @@ export async function deleteAllBagNotes(bagId: string): Promise<void> {
   const snap = await getDocs(notesCol(bagId));
   await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
 }
+
+/** 가방 하나의 메모 본문을 한 번 읽는다(백업 내보내기용, 2026-10-15). 목록 가방에는 본문이 없다 */
+export async function fetchBagNotesOnce(bagId: string): Promise<Map<string, BagNote>> {
+  const snap = await getDocs(notesCol(bagId));
+  const map = new Map<string, BagNote>();
+  snap.docs.forEach((d) => map.set(d.id, parseNoteData(d.data())));
+  return map;
+}

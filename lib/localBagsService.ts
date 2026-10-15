@@ -44,6 +44,8 @@ function safeSetItem(key: string, value: unknown) {
     window.dispatchEvent(new CustomEvent(LOCAL_CHANGE_EVENT, { detail: { key } }));
   } catch (err) {
     console.error(`[LocalBagsService] 로컬 스토리지 저장 실패 (${key}):`, err);
+    // 용량(약 5MB)을 넘는 등 저장이 안 됐으면 화면에 알린다(AppShell 토스트, 2026-10-15 offline.md 확인 필요 9)
+    window.dispatchEvent(new CustomEvent("pib:local-save-failed", { detail: { key } }));
   }
 }
 

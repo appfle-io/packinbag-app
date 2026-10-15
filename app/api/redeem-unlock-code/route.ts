@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
   try {
     const decoded = await adminAuth().verifyIdToken(idToken);
     uid = decoded.uid;
-    email = decoded.email ?? null;
+    // 인증한 이메일만 기록한다(다른 라우트의 verifyRequestUser와 같은 기준, 2026-10-15 premium.md 확인 필요 4)
+    email = decoded.email_verified ? decoded.email ?? null : null;
   } catch (err) {
     console.error("[팩인백] 이용권 코드 로그인 토큰 검증 실패:", err);
     return NextResponse.json(

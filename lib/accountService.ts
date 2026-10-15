@@ -9,6 +9,7 @@ import {
 import { getLibraryPacksOnce, deleteLibraryPackRemote } from "@/lib/packsService";
 import { bagFileUrls, deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
 import type { Bag } from "@/lib/types";
+import { getApiUrl } from "@/lib/apiBase";
 
 // 함께 쓰는 가방을 넘겨받을 사람: 가장 먼저 들어온 다른 멤버
 function nextOwner(bag: Bag, uid: string): string | null {
@@ -16,6 +17,24 @@ function nextOwner(bag: Bag, uid: string): string | null {
   if (others.length === 0) return null;
   const joined = (m: string) => bag.memberProfiles?.[m]?.joinedAt ?? "9999";
   return [...others].sort((a, b) => joined(a).localeCompare(joined(b)))[0];
+}
+
+// 탈퇴 · 게스트 모드 끝내기의 마지막 단계: 앱이 못 지우는 것(짧은 URL · 공유 스냅샷 · 알림 · 기기 토큰 · 문의 · 사용 기록)과
+// 로그인 계정을 서버가 지운다(app/api/delete-account-data, 2026-10-15). 성공하면 true(계정까지 사라짐)
+export async function deleteAccountServerSide(): Promise<boolean> {
+  const me = auth.currentUser;
+  if (!me) return false;
+  try {
+    const idToken = await me.getIdToken();
+    const res = await fetch(getApiUrl("/api/delete-account-data"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("[팩인백] 서버 탈퇴 정리 실패:", err);
+    return false;
+  }
 }
 
 // 회원탈퇴 시 Firestore/Storage에 남아있는 이 사용자의 데이터를 정리한다.
@@ -45,8 +64,14 @@ export async function deleteAllUserData(uid: string) {
 
   const me = auth.currentUser;
   for (const bag of sharedBags) {
-    // 휴지통에 넣어 둔 가방은 넘기지 않는다: 넘기면 새 그룹장 휴지통에 뜨고 30일 뒤 모두에게서 지워진다
-    if (bag.ownerId === uid && me && !bag.trashedByOwnerAt) {
+    // 휴지통에 넣어 둔 함께 쓰는 가방은 모두에게서 완전히 지운다(2026-10-15, auth.md 확인 필요 4).
+    // 예전에는 나가기만 해서 그룹장(탈퇴한 계정)이 없는 가방이 남아 30일 자동 삭제 · 되살리기 · 멤버 관리가 영영 안 됐다
+    if (bag.ownerId === uid && bag.trashedByOwnerAt) {
+      await deleteUnusedFiles(bagFileUrls(bag), urlsInUse(sharedBags.filter((b) => b.id !== bag.id), []));
+      await deleteBagWithInviteCodeRemote(bag);
+      continue;
+    }
+    if (bag.ownerId === uid && me) {
       const target = nextOwner(bag, uid);
       if (target) {
         try {

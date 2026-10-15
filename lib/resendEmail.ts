@@ -43,6 +43,47 @@ export async function sendVerificationEmailViaResend(to: string, verifyLink: str
   }
 }
 
+// 비밀번호 재설정 메일(2026-10-15, auth.md 확인 필요 7). 인증 메일과 같은 발신 주소 · 틀. 실패하면 예외(호출부가 Firebase로 대신)
+export async function sendPasswordResetViaResend(to: string, resetLink: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("RESEND_API_KEY 환경변수가 설정되어 있지 않아요");
+  const res = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: VERIFICATION_FROM,
+      to,
+      subject: "[팩인백] 비밀번호를 다시 정해 주세요",
+      html: buildEmailHtml({
+        title: "비밀번호를 다시 정해 주세요",
+        body: "아래 버튼을 눌러 새 비밀번호를 정해 주세요. 링크는 일정 시간이 지나면 쓸 수 없어요.",
+        button: "비밀번호 다시 정하기",
+        link: resetLink,
+        preheader: "팩인백 비밀번호 재설정 링크예요.",
+        footer: "본인이 요청하지 않았다면 이 메일은 무시하셔도 괜찮아요. 비밀번호는 바뀌지 않아요.",
+      }),
+    }),
+  });
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`Resend API 오류 (HTTP ${res.status}): ${bodyText}`);
+  }
+}
+
+// 같은 틀을 다른 메일에도 쓴다(글만 바꾼다)
+function buildEmailHtml(o: { title: string; body: string; button: string; link: string; preheader: string; footer: string }): string {
+  return buildVerificationEmailHtml(o.link)
+    .replace("팩인백 이메일 인증을 완료하고 아이템 싸기를 시작해보세요.", o.preheader)
+    .replace("<title>팩인백 이메일 인증</title>", `<title>${o.title}</title>`)
+    .replace("이메일 주소를 인증해주세요", o.title)
+    .replace(
+      /안녕하세요! 팩인백 가입을 완료하려면[\s\S]*?시작할 수 있어요\./,
+      o.body,
+    )
+    .replace("이메일 인증하기", o.button)
+    .replace("본인이 요청하지 않았다면 이 메일은 무시하셔도 괜찮아요. 계정에는 아무 변화도 생기지 않습니다.", o.footer);
+}
+
 // 브랜드 색상(lib/brandColor.ts의 BRAND_ICON_BG, 딥그린)과 맞춘 심플한 트랜잭션 메일 템플릿.
 // 2026-10-09: 주황(#FF6E2D)·베이지 배경 → 딥그린 + v2 무채색(앱스토어 스크린샷 배경 #ECF1EE과 같은 톤).
 // 이메일 클라이언트(특히 Outlook) 호환을 위해 CSS는 전부 인라인으로 작성하고,

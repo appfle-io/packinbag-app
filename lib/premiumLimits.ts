@@ -44,18 +44,14 @@ export function isOfflineEnvironment(): boolean {
     Boolean((window as unknown as { electronAPI?: unknown }).electronAPI) ||
     navigator.userAgent.toLowerCase().includes("electron");
 
-  // 4. 명시적 오프라인 모드 플래그 또는 URL 파라미터 검사
+  // 4. 명시적 오프라인 모드 표시 또는 URL 파라미터 검사.
+  // 로그인 세션이 없는데 표시가 있으면 인터넷이 돼도 오프라인 모드다(2026-10-15, offline.md 확인 필요 11).
+  // 예전에는 웹에서 navigator.onLine이면 "예전 표시"로 보고 지웠는데, 로그인 화면에서 오프라인 모드로 시작한 뒤 인터넷이 돌아오면
+  // 가방 자동저장이 Firestore로 가려다 실패하고 다음 실행 때 오프라인 모드가 풀렸다. 표시는 AuthProvider만 지운다(세션이 생기면 지움)
   if (
     localStorage.getItem("pib_offline_mode") === "true" ||
     new URLSearchParams(window.location.search).get("offline") === "true"
   ) {
-    // 웹/PWA에서 과거에 남아있던 잔여 플래그로 인해 온라인 상태의 일반 사용자가 로컬로 갇히는 현상 방지
-    if (!isElectron && typeof navigator !== "undefined" && navigator.onLine) {
-      try {
-        localStorage.removeItem("pib_offline_mode");
-      } catch {}
-      return false;
-    }
     return true;
   }
 
@@ -110,7 +106,9 @@ export const FREE_MAX_USER_BAG_IMAGES = 1;
 // 가방당 전체 사진 첨부 최대 장수 - 무료/유료 공통 상한 (멤버 혼재 정책 충돌 방지용)
 export const MAX_BAG_IMAGES = 5;
 
-// 메모(에디터) 팩당 사진/PDF 첨부 최대 개수 - 프리미엄 전용 (무료는 첨부 불가)
+// 메모(에디터) 팩 첨부 상한(예전 구 UI 값, 2026-10-15 주석 정리). 지금 메모 첨부 규칙은 무료 사진 1장(FREE_MAX_USER_BAG_IMAGES) ·
+// 프리미엄 사진 · PDF · 파일(개수 제한 없음, 파일 10MB)이고 이 값은 쓰지 않는다(components/screens/PackNoteEditorScreen.tsx).
+// 다른 곳에서 가져다 쓰지 않으면 지워도 된다(knip으로 확인)
 export const MAX_PACK_IMAGES = 3;
 
 // 휴지통(설정 > 휴지통)에 넣은 가방/팩을 며칠간 보관할지. 이 기간이 지나면 클라이언트가
@@ -152,26 +150,20 @@ function sortByCreatedAtDesc<T extends { createdAt?: string }>(items: T[]): T[] 
 
 /**
  * 무료 회원이 슬롯 한도를 초과했을 때 잠금(읽기 전용) 처리할 가방 ID 목록을 계산한다.
- * 1. 내가 소유한 가방(ownerId === currentUid): 최신 3개 제외 나머지 잠금
- * 2. 내가 참여한 가방(memberIds 포함 & ownerId !== currentUid): 최신 3개 제외 나머지 내 화면에서 잠금
- * (휴지통에 들어간 가방은 제외)
+ * 내가 소유한 가방(ownerId === currentUid)만: 최신 3개 제외 나머지 잠금 (휴지통에 들어간 가방은 제외)
+ * 참여 가방이 3개를 넘으면 잠그지 않고 서버(sync-lock-status)가 오래된 것부터 나간다(2026-10-15, premium.md 확인 필요 2).
+ * 예전에는 화면에서만 잠가 다른 화면 · 오래된 앱에서는 고쳐졌다
  */
 export function computeLockedBagIds(bags: Bag[], currentUid: string): Set<string> {
-  const activeBags = bags.filter((b) => !b.trashedByOwnerAt);
-
-  // 1. 내가 만든 소유 가방
   const owned = sortByCreatedAtDesc(
-    activeBags.filter((b) => b.ownerId === currentUid)
+    bags.filter((b) => !b.trashedByOwnerAt && b.ownerId === currentUid)
   );
-  const lockedOwned = owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id);
+  return new Set(owned.slice(FREE_MAX_ACTIVE_BAGS).map((b) => b.id));
+}
 
-  // 2. 친구에게 초대받은 참여 가방
-  const joined = sortByCreatedAtDesc(
-    activeBags.filter((b) => b.ownerId !== currentUid && b.memberIds.includes(currentUid))
-  );
-  const lockedJoined = joined.slice(FREE_MAX_JOINED_BAGS).map((b) => b.id);
-
-  return new Set([...lockedOwned, ...lockedJoined]);
+/** 무료 회원의 참여 가방(남이 만든 것, 휴지통 제외)이 한도를 넘는지 */
+export function countJoinedBags(bags: Bag[], currentUid: string): number {
+  return bags.filter((b) => !b.trashedByOwnerAt && b.ownerId !== currentUid && b.memberIds.includes(currentUid)).length;
 }
 
 /**

@@ -75,21 +75,31 @@ function ComposeSheet({
             <Chip key={c} label={INQUIRY_CATEGORY_LABELS[c]} selected={category === c} onClick={() => setCategory(c)} />
           ))}
         </div>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
-          aria-label="제목"
-          placeholder="제목"
-          className="h-12 w-full rounded-field border border-line bg-card px-4 text-body outline-none placeholder:text-faint focus:border-ink"
-        />
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
-          aria-label="내용"
-          placeholder="어떤 일이 있었는지 자세히 알려 주세요"
-          rows={8}
-          className="min-h-40 w-full resize-none rounded-field border border-line bg-card px-4 py-3 text-body outline-none placeholder:text-faint focus:border-ink"
-        />
+        <div className="flex flex-col gap-1">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))}
+            aria-label="제목"
+            placeholder="제목"
+            className="h-12 w-full rounded-field border border-line bg-card px-4 text-body outline-none placeholder:text-faint focus:border-ink"
+          />
+          <span className={cx("self-end text-micro tabular-nums", title.length >= TITLE_MAX ? "text-alert" : "text-faint")}>
+            {title.length}/{TITLE_MAX}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value.slice(0, CONTENT_MAX))}
+            aria-label="내용"
+            placeholder="어떤 일이 있었는지 자세히 알려 주세요"
+            rows={8}
+            className="min-h-40 w-full resize-none rounded-field border border-line bg-card px-4 py-3 text-body outline-none placeholder:text-faint focus:border-ink"
+          />
+          <span className={cx("self-end text-micro tabular-nums", content.length >= CONTENT_MAX ? "text-alert" : "text-faint")}>
+            {content.length.toLocaleString()}/{CONTENT_MAX.toLocaleString()}
+          </span>
+        </div>
         {error && (
           <p role="alert" className="m-0 text-caption text-alert">
             {error}

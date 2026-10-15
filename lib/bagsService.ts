@@ -27,6 +27,7 @@ import { NOTES_VERSION, parseNoteData, rawOf, splitBagForSave, type NoteWrite } 
 import { deleteAllBagNotes, noteRef } from "@/lib/bagNotesService";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
 import { getApiUrl } from "@/lib/apiBase";
+import { bagShareTokens, cleanupInviteCode, stopPackShares } from "@/lib/shareCleanup";
 import {
   getLocalBags,
   saveLocalBag,
@@ -343,22 +344,19 @@ export async function getUserBagsOnce(uid: string): Promise<Bag[]> {
   return snap.docs.map((d) => deserializeBag({ id: d.id, ...d.data() } as Bag));
 }
 
-// 가방 자체와 초대코드 매핑까지 함께 삭제 (이미지는 호출하는 쪽에서 별도 삭제)
+// 가방 자체와 초대코드 · 공유 링크까지 함께 삭제 (이미지는 호출하는 쪽에서 별도 삭제)
 export async function deleteBagWithInviteCodeRemote(bag: Bag) {
   if (isOfflineEnvironment()) {
     permanentDeleteLocalBag(bag.id);
     return;
   }
-  if (bag.inviteCode) {
-    try {
-      await deleteDoc(doc(db, "inviteCodes", bag.inviteCode));
-    } catch {
-      // 이미 없거나 권한 문제면 무시 (가방 삭제 자체는 계속 진행)
-    }
-  }
   // 메모 본문 문서를 먼저 지운다(가방 문서가 없으면 규칙의 멤버 확인이 안 돼 못 지운다)
   await deleteAllBagNotes(bag.id).catch(() => {});
   await deleteDoc(doc(bagsCol(), bag.id));
+  // 초대코드 문서와 가방 속 팩의 공유 링크는 서버만 지울 수 있다. 가방이 없어진 뒤에 부른다 -
+  // 서버는 가방이 이미 없을 때만 지운다(2026-10-15, share.md 확인 필요 3 · 4). 실패해도 삭제는 끝난 것으로 본다
+  void cleanupInviteCode(bag.inviteCode);
+  void stopPackShares(null, bagShareTokens(bag));
 }
 
 // 완전삭제 대신 휴지통으로 보낸다(소유자 전용). 이미지/문서는 그대로 두고 trashedByOwnerAt만

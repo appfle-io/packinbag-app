@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
-import { syncOwnedBagLocks, syncLibraryPackLocks } from "@/lib/bagLockSync";
+import { syncOwnedBagLocks, syncLibraryPackLocks, leaveExcessJoinedBags } from "@/lib/bagLockSync";
 
 // 이용권 상태(등록/무효화/만료)가 바뀔 때마다 클라이언트(AppShell)가 호출하는 라우트.
 //
@@ -41,7 +41,10 @@ export async function POST(req: NextRequest) {
     // 2. 팩 보관함 잠금 상태 동기화 (무료는 최신 10개 제외 나머지 locked: true, 프리미엄은 전부 false)
     await syncLibraryPackLocks(uid, premium);
 
-    return NextResponse.json({ ok: true, premium });
+    // 3. 무료면 참여 가방 3개를 넘는 것(오래된 것부터)에서 나간다(2026-10-15, premium.md 확인 필요 2)
+    const leftJoinedBags = await leaveExcessJoinedBags(uid, premium);
+
+    return NextResponse.json({ ok: true, premium, leftJoinedBags });
   } catch (err) {
     console.error("[팩인백] 잠금 상태 동기화 실패:", err);
     return NextResponse.json({ error: "잠금 상태 동기화에 실패했어요" }, { status: 500 });

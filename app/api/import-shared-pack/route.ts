@@ -5,6 +5,7 @@ import { FREE_MAX_LIBRARY_PACKS, QUICK_PACK_ID } from "@/lib/premiumLimits";
 import { Pack, SharedPackSnapshot } from "@/lib/types";
 import { stripUndefined, stripServerOnlyPackFields } from "@/lib/firestoreSanitize";
 import { serializePack, deserializePack } from "@/lib/editorDocSerialize";
+import { copyPackFilesToUser, newImportBudget } from "@/lib/storageCopyServer";
 
 export const runtime = "nodejs";
 
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
+  const budget = newImportBudget();
 
   try {
     if (data.type === "folder") {
@@ -83,22 +85,33 @@ export async function POST(req: NextRequest) {
       };
       await packsCol.doc(folderId).set(stripUndefined(serializePack(newFolder)));
 
-      const childPacks = (data.packs ?? []).filter((p) => p.type !== "folder");
-      for (const cp of childPacks) {
+      // 하위 폴더 구조를 그대로 다시 만든다(2026-10-15, share.md 확인 필요 5).
+      // 스냅샷 안 항목의 옛 id → 새 id. 부모가 스냅샷 안에 없으면(공유한 폴더 바로 아래 · 예전 스냅샷) 새 최상위 폴더 안으로
+      const entries = data.packs ?? [];
+      const idMap = new Map<string, string>(entries.map((p) => [p.id, uid()]));
+      // 폴더 먼저 쓴다(안쪽 항목이 부모를 가리킬 때 이미 있게)
+      const ordered = [...entries.filter((p) => p.type === "folder"), ...entries.filter((p) => p.type !== "folder")];
+      for (const cp of ordered) {
         const deserializedCp = stripServerOnlyPackFields(deserializePack(cp));
-        const childPackId = uid();
-        const newChildPack: Pack = {
+        const childId = idMap.get(cp.id) ?? uid();
+        const parentId = cp.parentId && idMap.has(cp.parentId) ? idMap.get(cp.parentId) : folderId;
+        const isSubFolder = cp.type === "folder";
+        let child: Pack = {
           ...deserializedCp,
-          id: childPackId,
-          parentId: folderId,
-          type: "pack",
-          items: Array.isArray(deserializedCp.items)
-            ? deserializedCp.items.map((i) => ({ ...i, id: uid() }))
-            : [],
+          id: childId,
+          parentId,
+          publicShareToken: undefined,
+          type: isSubFolder ? "folder" : "pack",
+          items: isSubFolder
+            ? []
+            : Array.isArray(deserializedCp.items)
+              ? deserializedCp.items.map((i) => ({ ...i, id: uid() }))
+              : [],
           createdAt: now,
           updatedAt: now,
         };
-        await packsCol.doc(childPackId).set(stripUndefined(serializePack(newChildPack)));
+        if (!isSubFolder) child = await copyPackFilesToUser(child, userUid, budget);
+        await packsCol.doc(childId).set(stripUndefined(serializePack(child)));
       }
 
       return NextResponse.json({
@@ -110,10 +123,11 @@ export async function POST(req: NextRequest) {
       // 공유된 팩에 남아 있던 locked·isQuickPack 같은 서버 필드는 가져오지 않는다(2026-10-09)
       const deserializedPack = stripServerOnlyPackFields(deserializePack(data.pack));
       const newPackId = uid();
-      const newPack: Pack = {
+      let newPack: Pack = {
         ...deserializedPack,
         id: newPackId,
         parentId: undefined,
+        publicShareToken: undefined,
         type: deserializedPack.type || "pack",
         items: Array.isArray(deserializedPack.items)
           ? deserializedPack.items.map((i) => ({ ...i, id: uid() }))
@@ -121,6 +135,8 @@ export async function POST(req: NextRequest) {
         createdAt: now,
         updatedAt: now,
       };
+      // 사진 · 파일을 내 저장소로 복사(2026-10-15, share.md 확인 필요 6)
+      newPack = await copyPackFilesToUser(newPack, userUid, budget);
       await packsCol.doc(newPackId).set(stripUndefined(serializePack(newPack)));
 
       return NextResponse.json({

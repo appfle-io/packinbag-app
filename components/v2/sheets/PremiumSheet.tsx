@@ -14,6 +14,7 @@ import {
   type PremiumOffering,
 } from "@/lib/purchaseService";
 import { Button, Sheet } from "@/components/v2/ui";
+import { AccountLinkSheet } from "@/components/v2/sheets/AccountLinkSheet";
 
 type Step = "choice" | "code";
 
@@ -39,7 +40,11 @@ export function PremiumSheet({
   // 코드 적용이면 만료 시각(없으면 영구), 구매·복원이면 null
   onUnlocked: (expiresAt: string | null) => void;
 }) {
-  const { user, profile } = useAuth();
+  const { user, profile, isGuest, isOfflineMode } = useAuth();
+  // 게스트(익명 계정)는 구매 · 이용권 대신 계정 연동을 먼저(2026-10-15 premium.md 확인 필요 1).
+  // 게스트로 쓴 이용권(1회용)은 게스트 모드를 끝내면 사라진다
+  const guestOnly = isGuest && !isOfflineMode;
+  const [linkOpen, setLinkOpen] = useState(false);
   const { show } = useToast();
   const unlimited = isUnlimitedAiUser(profile?.email, profile ?? null);
   const native = isNativePlatform();
@@ -195,13 +200,37 @@ export function PremiumSheet({
     );
 
   return (
+    <>
     <Sheet
       open={open}
       onClose={onClose}
       title={!native && step === "code" ? "이용권 코드" : "프리미엄"}
-      footer={native ? nativeFooter : webFooter}
+      footer={
+        guestOnly ? (
+          <Button
+            block
+            onClick={() => {
+              onClose();
+              setLinkOpen(true);
+            }}
+          >
+            정식 계정으로 전환하기
+          </Button>
+        ) : native ? (
+          nativeFooter
+        ) : (
+          webFooter
+        )
+      }
     >
-      {!native && step === "code" ? (
+      {guestOnly ? (
+        <div className="flex flex-col gap-3">
+          <p className="m-0 text-body text-sub">{kept}</p>
+          <p className="m-0 text-caption text-faint">
+            프리미엄은 정식 계정에서 쓸 수 있어요. 지금 만든 가방과 팩은 그대로 두고 계정을 연결해요.
+          </p>
+        </div>
+      ) : !native && step === "code" ? (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-body text-sub">{UNLOCK_CODE_LENGTH}자리 이용권 코드를 입력해 주세요.</p>
           <input
@@ -230,5 +259,7 @@ export function PremiumSheet({
         </div>
       )}
     </Sheet>
+    <AccountLinkSheet open={linkOpen} onClose={() => setLinkOpen(false)} />
+    </>
   );
 }
