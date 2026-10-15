@@ -167,7 +167,11 @@ export default function HomeScreenV2(props: HomeScreenProps) {
 
   // --- 목록 계산 ------------------------------------------------------------------
   const archivedSet = useMemo(() => new Set(profile?.archivedBagIds ?? []), [profile?.archivedBagIds]);
-  const pinnedIds = useMemo(() => (profile?.pinnedBagIds ?? []).slice(0, V2_MAX_PINNED_BAGS), [profile?.pinnedBagIds]);
+  // 보관한 가방은 고정에서 뺀다(보관하면 고정을 푸는데, 그 전에 남은 것도 칸을 차지하지 않게 - 2026-10-14)
+  const pinnedIds = useMemo(
+    () => (profile?.pinnedBagIds ?? []).filter((id) => !archivedSet.has(id)).slice(0, V2_MAX_PINNED_BAGS),
+    [profile?.pinnedBagIds, archivedSet],
+  );
   // 끊긴 동안 만든 가방("올리기 대기" 표시). 대기 목록이 바뀌면 AppShell이 bags를 새로 넘기므로 bags를 기준으로 다시 읽는다
   const summaries = useMemo(() => {
     const pendingIds = isOfflineMode ? new Set<string>() : new Set(getPendingBags(uid).map((b) => b.id));
@@ -268,7 +272,10 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   };
 
   const moveToFolder = (bagId: string, target: string | undefined) => {
-    moveBagsToFolder([bagId], target).catch(fail("폴더로 옮기지 못했어요"));
+    if ((assignments[bagId] ?? undefined) === target) return;
+    moveBagsToFolder([bagId], target)
+      .then(() => show(target ? `'${bagFolders[target]?.name ?? "폴더"}'(으)로 옮겼어요` : "폴더에서 뺐어요"))
+      .catch(fail("폴더로 옮기지 못했어요"));
   };
 
   const rowHandlers = (s: BagSummary) => ({
@@ -358,7 +365,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
 
       <ScreenBody className="gap-8">
         {isTop && searching ? (
-          <SearchResults query={query} results={results} truncated={truncated} onOpen={openResult} />
+          <SearchResults query={query} results={results} truncated={truncated} archivedIds={archivedSet} onOpen={openResult} />
         ) : !hasAnyBag ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center">
             <p className="m-0 text-body-lg font-semibold">첫 가방을 만들어 볼까요?</p>
@@ -622,11 +629,14 @@ function SearchResults({
   query,
   results,
   truncated,
+  archivedIds,
   onOpen,
 }: {
   query: string;
   results: BagSearchResult[];
   truncated: boolean;
+  // 보관한 가방(결과에 "보관함" 표시, 2026-10-14)
+  archivedIds: Set<string>;
   onOpen: (r: BagSearchResult) => void;
 }) {
   if (!query.trim()) return <p className="m-0 py-16 text-center text-caption text-faint">가방 이름, 팩 이름, 아이템을 찾아요</p>;
@@ -646,6 +656,7 @@ function SearchResults({
           <span className="flex min-w-0 items-center gap-2">
             <Badge tone={r.type === "bag" ? "brand" : "neutral"}>{r.type === "pack" && r.isEditorPack ? "메모" : RESULT_LABEL[r.type]}</Badge>
             <span className="truncate text-body font-semibold text-ink">{r.label}</span>
+            {r.bag && archivedIds.has(r.bag.id) && <Badge className="shrink-0">보관함</Badge>}
           </span>
           {r.subtitle && <span className="truncate text-caption text-sub">{r.subtitle}</span>}
           {r.snippet && <span className="line-clamp-2 text-caption text-faint">{r.snippet}</span>}

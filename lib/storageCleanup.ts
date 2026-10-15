@@ -68,6 +68,23 @@ export function setFileUsageSource(fn: (() => { bags: Bag[]; packs: Pack[] }) | 
 }
 
 /**
+ * 가방 화면에서 사진·파일 하나를 지울 때 부른다(2026-10-14). 다른 가방·보관함 팩(이 가방의 메모 첨부 포함)이 같은 파일을
+ * 쓰지 않을 때만 Storage에서 지운다. 지우는 순간 목록에는 아직 이 사진이 남아 있으므로 이 가방의 images는 "쓰는 곳"에서 뺀다.
+ * 목록을 모르면(usageSource 없음) 지우지 않는다 - 남은 파일은 가방을 영구삭제할 때 정리된다.
+ */
+export async function deleteBagAttachmentIfUnused(bagId: string, url: string): Promise<void> {
+  if (!usageSource || !isStorageUrl(url)) return;
+  const { bags, packs } = usageSource();
+  const used = new Set<string>();
+  bags.forEach((b) => {
+    if (b.id !== bagId) (b.images ?? []).forEach((u) => used.add(u));
+    (b.packs ?? []).forEach((p) => packFileUrls(p).forEach((u) => used.add(u)));
+  });
+  packs.forEach((p) => packFileUrls(p).forEach((u) => used.add(u)));
+  await deleteUnusedFiles([url], used);
+}
+
+/**
  * 메모 편집기를 닫을 때 부른다. 이번에 여는 동안 본문에 있었던 첨부(seen) 중 마지막 문서(finalUrls)에 없고
  * 다른 가방·보관함 팩도 쓰지 않는 것만 지운다. 편집기를 닫은 뒤라 되돌리기(undo)로 되살릴 일은 없다.
  * - 공유 가방(멤버 2명+)의 메모는 건드리지 않는다: 다른 멤버가 편집 중이거나 자기 보관함에 저장해 뒀을 수 있다

@@ -33,7 +33,7 @@ export function AuditSheet({
   open: boolean;
   bag: Bag;
   onClose: () => void;
-  onAddItemToPack: (packName: string, itemText: string) => void;
+  onAddItemToPack: (packName: string, itemText: string) => boolean;
   onLimit: (message: string) => void;
 }) {
   const { user } = useAuth();
@@ -93,7 +93,8 @@ export function AuditSheet({
   }, [snapshot]);
 
   const add = (item: MissingItem) => {
-    onAddItemToPack(item.suggestedPackName, item.text);
+    // 못 담았으면(팩 10개 · 읽기 전용) "담음"으로 바꾸지 않는다. 안내는 담는 쪽이 띄운다
+    if (!onAddItemToPack(item.suggestedPackName, item.text)) return;
     setAdded((prev) => new Set(prev).add(item.text));
   };
 

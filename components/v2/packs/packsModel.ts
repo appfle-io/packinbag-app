@@ -5,6 +5,23 @@ import { formatAgo } from "@/components/v2/bag/format";
 // 폴더 트리 깊이 방어(구 PacksScreen과 같은 값). parentId가 꼬여 순환해도 무한 루프에 빠지지 않게.
 const MAX_DEPTH = 20;
 
+// 팩 탭 정렬(2026-10-14, 가방 홈과 같은 4가지). 값은 UserProfile.packSortBy에 저장한다.
+// 최근순 = 최근에 고친 순(updatedAt, 없으면 만든 시각). 예전 기본값 "createdAt"을 포함해 나머지 값은 모두 최근순으로 읽는다
+export type PackSort = "recent" | "nameAsc" | "nameDesc" | "custom";
+export const PACK_SORT_LABEL: Record<PackSort, string> = {
+  recent: "최근순",
+  nameAsc: "이름순 (ㄱ→ㅎ)",
+  nameDesc: "이름 역순 (ㅎ→ㄱ)",
+  custom: "직접 정한 순서",
+};
+export function packSortOf(packSortBy: string | undefined): PackSort {
+  return packSortBy === "nameAsc" || packSortBy === "nameDesc" || packSortBy === "custom" ? packSortBy : "recent";
+}
+// arrangeList에 넘길 값
+export function packSortOption(sort: PackSort): ListSortOption {
+  return sort === "recent" ? "updatedAt" : sort;
+}
+
 // 이 폴더(없으면 최상위) 바로 아래 항목: 폴더 먼저, 그다음 팩/메모.
 // 각 묶음 안의 순서는 구 화면과 같은 규칙(정렬 기준 + 고정 + 직접 정한 순서)을 그대로 따른다.
 export function entriesIn(

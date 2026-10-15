@@ -103,7 +103,8 @@ service firebase.storage {
       allow delete: if request.auth != null && isMemberOf(bagId);
     }
 
-    // 가방 안 메모팩(kind==='editor')의 첨부파일: 프리미엄 회원만 사진/파일 첨부 가능 (무료 회원은 첨부 불가).
+    // 가방 안 메모팩(kind==='editor')의 첨부파일. 2026-10-14: 가방 사진과 같은 기준 - 사진은 누구나(무료는 메모당 1장, 개수는 앱이 막음),
+    // 이미지가 아닌 파일은 프리미엄만. 예전에는 무료 회원은 사진도 못 올렸다
     match /bags/{bagId}/packs/{packId}/{fileName} {
       allow read: if request.auth != null &&
         isMemberOf(bagId) &&
@@ -115,17 +116,16 @@ service firebase.storage {
       allow create, update: if request.auth != null &&
         isMemberOf(bagId) &&
         !isOwnerLockedOf(bagId) &&
-        isPremium() &&
         (
           (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
-          (!isImage(request.resource.contentType) && request.resource.size < 10 * 1024 * 1024)
+          (!isImage(request.resource.contentType) && isPremium() && request.resource.size < 10 * 1024 * 1024)
         );
 
       // 지우기는 멤버면 된다. 예전에는 write 하나로 묶여 있어 무료 회원은 첨부를 지울 수도 없었다(파일이 남음)
       allow delete: if request.auth != null && isMemberOf(bagId);
     }
 
-    // 팩 보관함(개인 공간) 메모팩의 첨부파일: 프리미엄 회원 본인 전용
+    // 팩 보관함(개인 공간) 메모팩의 첨부파일: 본인 전용. 사진은 무료도(메모당 1장은 앱이 막음), 파일은 프리미엄(2026-10-14)
     match /users/{userId}/packs/{packId}/{fileName} {
       allow read: if request.auth != null &&
         (request.auth.uid == userId || isMaster()) &&
@@ -136,10 +136,9 @@ service firebase.storage {
 
       allow create, update: if request.auth != null &&
         (request.auth.uid == userId || isMaster()) &&
-        isPremium() &&
         (
           (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
-          (!isImage(request.resource.contentType) && request.resource.size < 10 * 1024 * 1024)
+          (!isImage(request.resource.contentType) && isPremium() && request.resource.size < 10 * 1024 * 1024)
         );
 
       // 본인은 프리미엄이 끝난 뒤에도 자기 첨부를 지울 수 있다(팩 영구삭제·회원 탈퇴 정리)

@@ -3,12 +3,16 @@
 import { useMemo, useState } from "react";
 import {
   IconBolt,
+  IconCheck,
   IconChecklist,
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
+  IconEye,
   IconFolder,
   IconFolderPlus,
   IconLock,
+  IconMenu2,
   IconNotes,
   IconPin,
   IconPlus,
@@ -21,13 +25,13 @@ import { searchLibraryPacks, type PackSearchResult } from "@/lib/librarySearch";
 import { collectDescendantPackIds } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
 import { PackShareSheet, type PackShareTarget } from "@/components/v2/sheets/PackShareSheet";
-import { Badge, Button, IconButton, PageStack, ReorderSheet, ScreenBody, ScreenHeader, cx, useLongPress, type ReorderGroup } from "@/components/v2/ui";
-import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
+import { Badge, Button, IconButton, PageStack, ReorderSheet, ScreenBody, ScreenHeader, SectionHeader, Sheet, Toggle, cx, useLongPress, type ReorderGroup } from "@/components/v2/ui";
 import { AddSheet } from "./sheets/AddSheet";
 import { EntrySheet } from "./sheets/EntrySheet";
 import { MoveSheet } from "./sheets/MoveSheet";
 import { NameSheet, type NameRequest } from "./sheets/NameSheet";
-import { entriesIn, metaOf, moveTargets, pathLabel, pathTo } from "./packsModel";
+import { PACK_SORT_LABEL, entriesIn, metaOf, moveTargets, packSortOf, packSortOption, pathLabel, pathTo, type PackSort } from "./packsModel";
+import { normalizeFolderName } from "@/lib/bagFolderNames";
 import { useShellCommands } from "@/lib/v2/shell";
 import { useOpenDetail } from "@/lib/v2/openDetail";
 import { getPendingPacks } from "@/lib/v2/pendingCreates";
@@ -40,6 +44,8 @@ export interface PacksScreenProps {
   packs: Pack[];
   bags: Bag[];
   quickPack?: Pack;
+  // 무료 한도를 넘어 읽기 전용인 팩(AppShell computeLockedPackIds). 목록에 눈 아이콘으로 표시(2026-10-14)
+  lockedPackIds?: Set<string>;
   onOpenPack: (pack: Pack, focusItemId?: string, searchQuery?: string) => void;
   onOpenBag: (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string }) => void;
   onNewPack: (parentId?: string, kind?: "checklist" | "editor") => void;
@@ -70,6 +76,7 @@ function EntryRow({
   pinned,
   pending,
   privateLocked,
+  readOnly,
   last,
   onOpen,
   onMenu,
@@ -80,6 +87,8 @@ function EntryRow({
   pending?: boolean;
   // 개인 잠금으로 잠근 팩(내용 요약 대신 "잠긴 팩")
   privateLocked?: boolean;
+  // 무료 한도를 넘어 읽기 전용(가방 목록과 같은 눈 아이콘)
+  readOnly?: boolean;
   last: boolean;
   onOpen: () => void;
   onMenu: () => void;
@@ -109,6 +118,7 @@ function EntryRow({
           <span className="truncate text-body font-semibold text-ink">{entry.name || (isFolder ? "이름 없는 폴더" : "이름 없는 팩")}</span>
           {pinned && <IconPin size={14} stroke={2} className="shrink-0 text-faint" aria-label="고정됨" />}
           {privateLocked && <IconLock size={14} stroke={2} className="shrink-0 text-faint" aria-label="잠금" />}
+          {readOnly && <IconEye size={14} stroke={1.9} className="shrink-0 text-faint" aria-label="읽기 전용 팩" />}
           {pending && <Badge>올리기 대기</Badge>}
         </span>
         <span className="truncate text-caption text-sub">{privateLocked ? (entry.kind === "editor" ? "잠긴 메모" : "잠긴 팩") : meta}</span>
@@ -125,8 +135,8 @@ function EntryRow({
 // - 길게 누르기(PC 우클릭)로 이름 바꾸기 · 고정 · 옮기기 · 폴더 공유 · 삭제
 // - 빠른팩은 맨 위 화면 하단에 고정(엄지로 누르기 쉬운 자리)
 export default function PacksScreenV2(props: PacksScreenProps) {
-  const { packs, bags, quickPack, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks } = props;
-  const { profile, isOfflineMode, togglePackPinned, updatePackOrderByParent } = useAuth();
+  const { packs, bags, quickPack, lockedPackIds, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks } = props;
+  const { profile, isOfflineMode, togglePackPinned, updatePackOrderByParent, updatePackSortBy } = useAuth();
   const { show } = useToast();
   // 개인 잠금(2026-10-12): 잠근 팩은 "잠긴 팩"으로 보이고, 검색에서는 이름만 찾힌다. 여는 화면이 PIN을 묻는다(PackEditorV2 · 메모 편집기)
   const privacy = useLockGuard();
@@ -134,6 +144,10 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   const treePacks = useMemo(() => packs.filter((p) => !p.isQuickPack), [packs]);
   const pinnedIds = useMemo(() => profile?.pinnedPackIds ?? [], [profile?.pinnedPackIds]);
   const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+  // 정렬(가방 홈과 같은 4가지, 2026-10-14). 폴더는 항상 팩보다 위, 고정은 그 안에서 맨 위
+  const sort = packSortOf(profile?.packSortBy);
+  const sortOpt = packSortOption(sort);
+  const [sortOpen, setSortOpen] = useState(false);
   // 끊긴 동안 만든 팩("올리기 대기" 표시). 대기 목록이 바뀌면 AppShell이 packs를 새로 넘긴다
   const pendingIds = useMemo(
     () => (isOfflineMode ? new Set<string>() : new Set(getPendingPacks(props.uid).map((p) => p.id))),
@@ -220,8 +234,9 @@ export default function PacksScreenV2(props: PacksScreenProps) {
     return { folder: shareTarget, folderPacks: treePacks.filter((p) => ids.has(p.id) && p.type !== "folder") };
   }, [shareTarget, treePacks]);
 
-  // 삭제 확인 문구는 닫히는 동안에도 유지
+  // 삭제 확인 문구는 닫히는 동안에도 유지. 가방 속 사본도 같이 지울지는 팩 화면 휴지통과 같게 고른다(2026-10-14)
   const [deleteCached, setDeleteCached] = useState<Pack | null>(null);
+  const [alsoDeleteFromBags, setAlsoDeleteFromBags] = useState(false);
   const deleteTarget = find(deleteId);
   if (deleteTarget && deleteTarget !== deleteCached) setDeleteCached(deleteTarget);
   const deleteShown = deleteTarget ?? deleteCached;
@@ -229,16 +244,33 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   const descendantsOf = (id: string) => collectDescendantPackIds(treePacks, id);
   const targets = moveTarget ? moveTargets(treePacks, new Set([moveTarget.id]), descendantsOf) : [];
 
+  const deleteLinked = (() => {
+    if (!deleteShown) return 0;
+    const ids = new Set([deleteShown.id, ...descendantsOf(deleteShown.id)]);
+    return findLinkedBagPackRefs(bags, ids).length;
+  })();
   const deleteMessage = (() => {
     if (!deleteShown) return "";
-    const ids = new Set([deleteShown.id, ...descendantsOf(deleteShown.id)]);
-    const linked = findLinkedBagPackRefs(bags, ids).length;
     const base =
       deleteShown.type === "folder"
-        ? "안에 있는 팩과 폴더도 함께 휴지통으로 가요. 30일 안에 되살릴 수 있어요."
-        : "휴지통에서 30일 안에 되살릴 수 있어요.";
-    return linked > 0 ? `${base} 가방에 불러온 사본 ${linked}개는 가방에 그대로 남아요.` : base;
+        ? "안에 있는 팩과 폴더도 함께 휴지통으로 가요. 설정 > 휴지통에서 30일 안에 되살릴 수 있어요."
+        : "설정 > 휴지통에서 30일 안에 되살릴 수 있어요.";
+    return deleteLinked > 0
+      ? `${base} 가방에 불러온 사본이 ${deleteLinked}개 있어요. 같이 지우지 않으면 사본은 남고 연결만 끊어져요.`
+      : `${base} 이미 가방에 불러온 팩에는 영향이 없어요.`;
   })();
+
+  // 같은 이름 검사(2026-10-14): 같은 폴더 안에서 폴더는 폴더끼리, 팩 · 메모는 팩 · 메모끼리(가방 폴더와 같은 normalizeFolderName 기준)
+  const nameTakenIn = (parentId: string | undefined, folder: boolean, exceptId?: string) => (name: string) => {
+    const key = normalizeFolderName(name);
+    return treePacks.some(
+      (p) =>
+        p.id !== exceptId &&
+        (p.parentId ?? undefined) === parentId &&
+        (p.type === "folder") === folder &&
+        normalizeFolderName(p.name) === key,
+    );
+  };
 
   const newFolder = () =>
     setNameReq({
@@ -247,6 +279,8 @@ export default function PacksScreenV2(props: PacksScreenProps) {
       placeholder: "예: 여행, 아기, 캠핑",
       confirmLabel: "만들기",
       onSubmit: (name) => onNewFolder(currentId, name),
+      isTaken: nameTakenIn(currentId, true),
+      takenMessage: "이 위치에 같은 이름의 폴더가 있어요",
     });
 
   const rename = (entry: Pack) =>
@@ -255,6 +289,8 @@ export default function PacksScreenV2(props: PacksScreenProps) {
       initial: entry.name,
       confirmLabel: "저장",
       onSubmit: (name) => onRenameEntry(entry, name),
+      isTaken: nameTakenIn(entry.parentId ?? undefined, entry.type === "folder", entry.id),
+      takenMessage: entry.type === "folder" ? "이 위치에 같은 이름의 폴더가 있어요" : "같은 폴더에 같은 이름의 팩이 있어요",
     });
 
   const togglePin = (entry: Pack) =>
@@ -267,7 +303,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   // 고정한 항목은 항상 맨 위라 뺀다. 저장은 구 UI와 같은 packOrderByParent[폴더 id | "root"] + 정렬 "custom"(쓰기 1회)
   const [reorderOpen, setReorderOpen] = useState(false);
   const currentEntries = entriesIn(treePacks, currentId, {
-    sortBy: profile?.packSortBy ?? "createdAt",
+    sortBy: sortOpt,
     pinnedIds,
     orderByParent: profile?.packOrderByParent,
   }).filter((e) => !pinnedSet.has(e.id));
@@ -287,7 +323,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
     const pageAncestors = pathTo(treePacks, pageId).slice(0, -1);
     // 한 폴더 안 항목만 다루는 가벼운 계산이라 useMemo 없이 둔다(React Compiler가 최적화)
     const entries = entriesIn(treePacks, pageId, {
-      sortBy: profile?.packSortBy ?? "createdAt",
+      sortBy: sortOpt,
       pinnedIds,
       orderByParent: profile?.packOrderByParent,
     });
@@ -385,6 +421,23 @@ export default function PacksScreenV2(props: PacksScreenProps) {
           ) : (
             <>
               <section className="flex flex-col">
+                {!isOfflineMode && entries.length > 1 && (
+                  <SectionHeader
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setSortOpen(true)}
+                        aria-label={`정렬: ${PACK_SORT_LABEL[sort]}`}
+                        className="-my-2 -mr-2 inline-flex h-11 items-center gap-1 bg-transparent px-2 text-caption font-semibold text-sub active:opacity-60"
+                      >
+                        {PACK_SORT_LABEL[sort]}
+                        <IconChevronDown size={14} stroke={2} aria-hidden="true" />
+                      </button>
+                    }
+                  >
+                    {pageId ? `이 폴더 ${entries.length}` : `팩 ${entries.length}`}
+                  </SectionHeader>
+                )}
                 {entries.map((entry, i) => (
                   <EntryRow
                     key={entry.id}
@@ -393,6 +446,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
                     pinned={pinnedSet.has(entry.id)}
                     pending={pendingIds.has(entry.id)}
                     privateLocked={entry.type !== "folder" && privacy.libraryLocked(entry.id)}
+                    readOnly={entry.type !== "folder" && !!lockedPackIds?.has(entry.id)}
                     last={i === entries.length - 1}
                     onOpen={() => openEntry(entry)}
                     onMenu={() => setEntryId(entry.id)}
@@ -433,6 +487,46 @@ export default function PacksScreenV2(props: PacksScreenProps) {
     <div className="pib-v2 relative flex h-full min-h-0 w-full flex-1 flex-col bg-canvas">
       <PageStack stack={stack} renderPage={renderPage} onBack={() => goTo(current?.parentId)} swipeEnabled={!searching} />
 
+      {/* 정렬(가방 홈과 같은 모양, 2026-10-14) */}
+      <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="정렬">
+        <div className="flex flex-col">
+          {(Object.keys(PACK_SORT_LABEL) as PackSort[]).map((key, i, arr) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setSortOpen(false);
+                if (key !== sort) updatePackSortBy(packSortOption(key)).catch(() => show("정렬을 저장하지 못했어요"));
+              }}
+              className={cx(
+                "flex min-h-13 items-center justify-between gap-3 bg-transparent text-left text-body active:bg-fill",
+                i < arr.length - 1 && "border-b border-line",
+              )}
+            >
+              <span className={key === sort ? "font-semibold text-ink" : "text-ink"}>{PACK_SORT_LABEL[key]}</span>
+              {key === sort && <IconCheck size={18} stroke={2.2} className="text-brand" aria-label="선택됨" />}
+            </button>
+          ))}
+        </div>
+        <p className="m-0 pt-3 text-caption text-faint">
+          최근순은 최근에 고친 순서예요. 폴더는 항상 팩보다 위에, 고정한 항목은 항상 맨 위에 있어요. 폴더마다 같은 정렬을 써요.
+        </p>
+        {currentEntries.length > 1 && (
+          <Button
+            variant="secondary"
+            block
+            className="mt-4"
+            leading={<IconMenu2 size={18} stroke={1.9} />}
+            onClick={() => {
+              setSortOpen(false);
+              setReorderOpen(true);
+            }}
+          >
+            {current ? `'${current.name}' 순서 바꾸기` : "순서 바꾸기"}
+          </Button>
+        )}
+      </Sheet>
+
       {/* 시트 */}
       <AddSheet
         open={addOpen}
@@ -453,7 +547,11 @@ export default function PacksScreenV2(props: PacksScreenProps) {
         onTogglePin={() => entryTarget && togglePin(entryTarget)}
         onMove={() => entryTarget && setMoveId(entryTarget.id)}
         onShare={() => entryTarget && setShareId(entryTarget.id)}
-        onDelete={() => entryTarget && setDeleteId(entryTarget.id)}
+        onDelete={() => {
+          if (!entryTarget) return;
+          setAlsoDeleteFromBags(false);
+          setDeleteId(entryTarget.id);
+        }}
         onReorder={isOfflineMode || currentEntries.length < 2 ? undefined : () => setReorderOpen(true)}
         privacyLock={
           entryTarget && entryTarget.type !== "folder" && privacy.available
@@ -490,19 +588,46 @@ export default function PacksScreenV2(props: PacksScreenProps) {
           show(parentId ? `'${placeName(parentId)}'(으)로 옮겼어요` : "맨 위로 옮겼어요");
         }}
       />
-      <ConfirmSheet
+      {/* 삭제 확인: 가방에 불러온 사본이 있으면 같이 지울지 고른다(팩 화면 휴지통과 같은 모양) */}
+      <Sheet
         open={!!deleteTarget}
         onClose={() => setDeleteId(null)}
         title={
           deleteShown?.type === "folder"
-            ? `'${deleteShown.name}' 폴더를 삭제할까요?`
-            : `'${deleteShown?.name ?? ""}' ${deleteShown?.kind === "editor" ? "메모를" : "팩을"} 삭제할까요?`
+            ? `'${deleteShown.name}' 폴더를 휴지통으로 보낼까요?`
+            : `'${deleteShown?.name ?? ""}' ${deleteShown?.kind === "editor" ? "메모를" : "팩을"} 휴지통으로 보낼까요?`
         }
-        message={deleteMessage}
-        confirmLabel="삭제"
-        danger
-        onConfirm={() => deleteTarget && onBulkDeletePacks([deleteTarget.id])}
-      />
+        footer={
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setDeleteId(null)}>
+              취소
+            </Button>
+            <Button
+              className="flex-1 bg-alert text-on-brand"
+              onClick={() => {
+                if (deleteTarget) onBulkDeletePacks([deleteTarget.id], deleteLinked > 0 ? alsoDeleteFromBags : undefined);
+                setDeleteId(null);
+              }}
+            >
+              휴지통으로
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <p className="m-0 text-body text-sub">{deleteMessage}</p>
+          {deleteLinked > 0 && (
+            <div className="rounded-card border border-line bg-card px-4">
+              <Toggle
+                checked={alsoDeleteFromBags}
+                onChange={setAlsoDeleteFromBags}
+                label={`가방 속 사본도 같이 지우기 (${deleteLinked}개)`}
+                description="함께 쓰는 가방이면 다른 멤버의 화면에서도 사라져요"
+              />
+            </div>
+          )}
+        </div>
+      </Sheet>
       {!isOfflineMode && (
         <PackShareSheet open={!!shareSheetTarget} target={shareSheetTarget} onClose={() => setShareId(null)} />
       )}

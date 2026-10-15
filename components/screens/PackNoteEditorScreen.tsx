@@ -60,9 +60,11 @@ import {
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
 import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
-import { isPremiumUser, MAX_PACK_IMAGES } from "@/lib/premiumLimits";
+import { isPremiumUser, FREE_MAX_USER_BAG_IMAGES } from "@/lib/premiumLimits";
+// 무료 회원 메모 사진 수(가방 사진과 같은 값, 2026-10-14)
+const FREE_MAX_MEMO_IMAGES = FREE_MAX_USER_BAG_IMAGES;
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
-import { uploadPackImage, deletePackImage } from "@/lib/storageService";
+import { uploadPackImage } from "@/lib/storageService";
 import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { useIsDesktop } from "@/lib/useIsDesktop";
@@ -138,6 +140,7 @@ function PackNoteEditorScreenInner({
   bagId,
   premium,
   initialSearchQuery,
+  isNameTaken,
 }: {
   pack: Pack;
   readOnly?: boolean;
@@ -159,6 +162,8 @@ function PackNoteEditorScreenInner({
   premium?: boolean;
   // 검색창에서 메모 결과를 눌러 들어왔을 때 해당 검색어 위치로 자동 스크롤 & 블록 선택
   initialSearchQuery?: string;
+  // 같은 이름 검사(2026-10-14). 보관함 메모만 AppShell이 넘긴다(같은 폴더의 팩 · 메모 이름과 겹치면 true)
+  isNameTaken?: (name: string) => boolean;
 }) {
   const commitSaveRef = useRef<(() => void) | null>(null);
   // v2: 이미 공유한 메모를 고친 뒤 나갈 때 공유 스냅샷을 조용히 갱신(아래 refreshShareRef.current 정의 참고)
@@ -203,6 +208,8 @@ function PackNoteEditorScreenInner({
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewName, setPdfPreviewName] = useState<string | null>(null);
   const [showPdfPremiumModal, setShowPdfPremiumModal] = useState(false);
+  // 프리미엄 안내 문구(무료 첫 사진 1장 초과 · 파일 첨부)
+  const [premiumAttachMessage, setPremiumAttachMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const effectiveReadOnly = !!readOnly;
   // 문서가 너무 커져서 지금 상태로는 저장이 막혔는지. true인 동안은 자동저장을 건너뛰고
@@ -291,13 +298,25 @@ function PackNoteEditorScreenInner({
       if (effectiveReadOnly || !uploadTargetId) return;
       if (!files || files.length === 0) return;
 
-      // 메모팩 첨부파일은 프리미엄 전용 기능 (무료 회원은 첨부 불가)
+      // 무료 회원은 메모 하나에 사진 1장까지(가방 사진과 같은 기준, 2026-10-14). PDF · 파일은 프리미엄
+      let fileArray = Array.from(files);
       if (!isEffectivePremium) {
-        setShowPdfPremiumModal(true);
-        return;
+        const hasNonImage = fileArray.some((f) => !f.type.startsWith("image/"));
+        const images = fileArray.filter((f) => f.type.startsWith("image/"));
+        const existing = extractDocAttachmentUrls(editorRef.current?.getJSON()).filter((u) => getFileKind(u) === "image").length;
+        const room = Math.max(0, FREE_MAX_MEMO_IMAGES - existing);
+        if (hasNonImage || images.length > room) {
+          setPremiumAttachMessage(
+            hasNonImage
+              ? "메모에 PDF · 파일을 첨부하는 건 프리미엄 기능이에요. 무료 회원은 사진 1장까지 넣을 수 있어요."
+              : "무료 회원은 메모에 사진을 1장까지 첨부할 수 있어요. 더 넣으려면 프리미엄이 필요해요.",
+          );
+          setShowPdfPremiumModal(true);
+        }
+        fileArray = images.slice(0, room);
+        if (fileArray.length === 0) return;
       }
 
-      const fileArray = Array.from(files);
       const isNonImageFile = (f: File) => !f.type.startsWith("image/");
       const oversized = fileArray.find(
         (f) => isNonImageFile(f) && f.size > MAX_PACK_ATTACHMENT_FILE_BYTES
@@ -315,14 +334,24 @@ function PackNoteEditorScreenInner({
         : "파일을 첨부하고 있어요...";
       setUploadProgressMessage(msg);
       setUploadingImages(true);
+      // 하나씩 올리고, 실패한 것은 건너뛰고 계속한다. 끝나면 몇 개가 됐는지 알려준다(2026-10-14)
+      let added = 0;
+      let failed = 0;
       try {
         const ed = editorRef.current;
         for (const file of fileArray) {
-          const url = isOfflineMode
-            ? await readFileAsDataUrl(file)
-            : await uploadPackImage(uploadTargetId, packRef.current.id, file, !!bagId);
+          let url: string;
+          try {
+            url = isOfflineMode
+              ? await readFileAsDataUrl(file)
+              : await uploadPackImage(uploadTargetId, packRef.current.id, file, !!bagId);
+          } catch {
+            failed += 1;
+            continue;
+          }
           const kind = getFileKind(url);
           if (!ed) continue;
+          added += 1;
 
           if (kind === "image") {
             if (typeof insertPos === "number") {
@@ -370,9 +399,11 @@ function PackNoteEditorScreenInner({
             }
           }
         }
-        show("본문에 추가했어요");
+        if (failed === 0) show(added > 1 ? `${added}개를 본문에 추가했어요` : "본문에 추가했어요");
+        else if (added === 0) show(failed > 1 ? `${failed}개 모두 올리지 못했어요` : "파일을 올리지 못했어요");
+        else show(`${added}개는 추가했고 ${failed}개는 올리지 못했어요`);
       } catch {
-        show("파일 업로드에 실패했어요");
+        show("파일을 올리지 못했어요");
       } finally {
         setUploadingImages(false);
         setUploadProgressMessage(null);
@@ -658,8 +689,6 @@ function PackNoteEditorScreenInner({
   }, [editor, initialSearchQuery]);
 
   const lastSyncedDocRef = useRef<unknown>(pack.editorDoc);
-  const [remoteUpdatedBanner, setRemoteUpdatedBanner] = useState(false);
-  const pendingRemoteDocRef = useRef<object | null>(null);
 
   useEffect(() => {
     if (!editor) return;
@@ -679,9 +708,13 @@ function PackNoteEditorScreenInner({
     // 타이핑 중이어도 보류하지 않고 바로 합친다. 마지막으로 동기화한 문서(base) 대비 내 변경과 상대 변경을
     // 문단 단위로 합쳐서(lib/syncMerge) 서로 다른 문단은 둘 다 살리고, 치던 문단에 커서를 그대로 둔다.
     // 내 변경은 이미 자동저장이 예약돼 있어서 그 저장이 합친 문서를 올린다(추가 읽기·쓰기 없음).
+    // 포커스가 없어도 아직 올리지 않은 내 변경(자동저장 대기 중 · base와 다름)이 있으면 합친다.
+    // 예전에는 포커스가 없으면 통째로 바꿔서, 입력하고 칸을 벗어난 직후(0.6초 안) 내 글이 사라질 수 있었다(2026-10-14)
     const base = lastSyncedDocRef.current as object | undefined;
     const mine = editor.getJSON();
-    const next = editor.isFocused
+    const hasLocalChanges =
+      editor.isFocused || !!autosaveTimerRef.current || JSON.stringify(mine) !== JSON.stringify(base ?? null);
+    const next = hasLocalChanges
       ? (mergeEditorDocs(base, mine, (incomingDoc as object | undefined) ?? undefined) ?? "")
       : (incomingDoc ?? "");
     lastSyncedDocRef.current = incomingDoc;
@@ -692,7 +725,6 @@ function PackNoteEditorScreenInner({
     }
     if (JSON.stringify(next) !== JSON.stringify(mine)) applyDocKeepingCursor(editor, next);
     refreshHeadings();
-    setRemoteUpdatedBanner(false);
   }, [editor, pack, refreshHeadings]);
 
   // 렌더링된 링크(<a>) 중 우리 서비스 짧은/커스텀 링크의 화면 표시 텍스트를 캐시된 표시
@@ -857,25 +889,6 @@ function PackNoteEditorScreenInner({
     effectiveReadOnlyRef.current = effectiveReadOnly;
   }, [effectiveReadOnly]);
 
-  // 에디터 blur 시점에 보류 중이던 원격 최신 변경이 있으면 즉시 자동 적용
-  useEffect(() => {
-    if (!editor) return;
-    const handleBlur = () => {
-      if (pendingRemoteDocRef.current) {
-        const nextDoc = pendingRemoteDocRef.current;
-        pendingRemoteDocRef.current = null;
-        lastSyncedDocRef.current = nextDoc;
-        editor.commands.setContent(nextDoc, false);
-        refreshHeadings();
-        setRemoteUpdatedBanner(false);
-      }
-    };
-    editor.on("blur", handleBlur);
-    return () => {
-      editor.off("blur", handleBlur);
-    };
-  }, [editor, refreshHeadings]);
-
   // 모바일/태블릿 PWA 및 브라우저에서 화면을 끄거나 홈으로 스와이프(백그라운드 전환),
   // 혹은 화면을 나갈 때 디바운스 대기 중인 변경사항이 iOS WebKit 동결(Freeze)로 증발하지 않도록 즉시 플러시한다.
   useEffect(() => {
@@ -938,27 +951,15 @@ function PackNoteEditorScreenInner({
   {
     const canAttach = !effectiveReadOnly && !!(bagId || user);
     const syncOn = !!pack.autoSyncEnabled;
-    const status: "remote" | "size" | "depth" | "together" | "sync" | null = remoteUpdatedBanner
-      ? "remote"
-      : sizeBlocked
-        ? "size"
-        : depthBlocked
-          ? "depth"
-          : otherEditorNickname
-            ? "together"
-            : bagId && pack.linkedLibraryPackId
-              ? "sync"
-              : null;
-
-    const applyRemote = () => {
-      if (!pendingRemoteDocRef.current || !editor) return;
-      const nextDoc = pendingRemoteDocRef.current;
-      pendingRemoteDocRef.current = null;
-      lastSyncedDocRef.current = nextDoc;
-      editor.commands.setContent(nextDoc, false);
-      refreshHeadings();
-      setRemoteUpdatedBanner(false);
-    };
+    const status: "size" | "depth" | "together" | "sync" | null = sizeBlocked
+      ? "size"
+      : depthBlocked
+        ? "depth"
+        : otherEditorNickname
+          ? "together"
+          : bagId && pack.linkedLibraryPackId
+            ? "sync"
+            : null;
 
     // 보관함 자동 동기화 켜기/끄기: 가방 팩 시트(usePackOps.toggleAutoSync)와 같은 필드를 onSave로 바꾼다
     const toggleAutoSync = () => {
@@ -994,9 +995,7 @@ function PackNoteEditorScreenInner({
     };
 
     const statusText =
-      status === "remote"
-        ? "다른 기기에서 고친 내용이 있어요"
-        : status === "size"
+      status === "size"
           ? "용량이 커서 저장이 멈췄어요. 표나 글을 조금 줄여 주세요"
           : status === "depth"
             ? "목록·토글이 너무 깊게 겹쳐 저장이 멈췄어요. 몇 개를 바깥으로 꺼내 주세요"
@@ -1035,6 +1034,12 @@ function PackNoteEditorScreenInner({
             onChange={(e) => setName(e.target.value)}
             onBlur={() => {
               const next = name.trim() || "새 메모";
+              // 같은 폴더에 같은 이름의 팩 · 메모가 있으면 되돌린다(보관함 메모만, 2026-10-14)
+              if (next !== packRef.current.name && isNameTaken?.(next)) {
+                show("같은 폴더에 같은 이름의 팩이 있어요");
+                setName(packRef.current.name);
+                return;
+              }
               if (next !== packRef.current.name) handleRenamePack(next);
               else if (next !== name) setName(next);
             }}
@@ -1061,11 +1066,6 @@ function PackNoteEditorScreenInner({
                 <IconRefresh size={16} stroke={1.9} className={cx("shrink-0", status === "sync" && syncOn && "text-brand")} aria-hidden="true" />
               )}
               <span className="min-w-0 flex-1">{statusText}</span>
-              {status === "remote" && (
-                <button type="button" onClick={applyRemote} className="-my-2 h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60">
-                  반영
-                </button>
-              )}
               {status === "sync" && !effectiveReadOnly && (
                 <button type="button" onClick={toggleAutoSync} className="-my-2 h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60">
                   {syncOn ? "끄기" : "켜기"}
@@ -1081,6 +1081,7 @@ function PackNoteEditorScreenInner({
             type="file"
             multiple
             hidden
+            accept={isEffectivePremium ? undefined : "image/*"}
             onChange={(e) => {
               handleUploadAndInsertFiles(e.target.files);
               if (e.target) e.target.value = "";
@@ -1092,14 +1093,11 @@ function PackNoteEditorScreenInner({
           <NoteToolbar
             editor={editor}
             canAttach={canAttach}
-            attachLocked={!isEffectivePremium}
+            attachLocked={false}
             uploading={uploadingImages}
             onLink={openInsertLink}
             onAttach={() => {
-              if (!isEffectivePremium) {
-                setShowPdfPremiumModal(true);
-                return;
-              }
+              // 무료도 사진 1장은 된다(고른 뒤 handleUploadAndInsertFiles가 걸러낸다)
               guardOnline(() => fileInputRef.current?.click(), { localOk: true });
             }}
             onTableMenu={() => setTableSheetOpen(true)}
@@ -1245,7 +1243,7 @@ function PackNoteEditorScreenInner({
         />
         <PremiumSheet
           open={showPdfPremiumModal}
-          message="메모에 사진·파일을 첨부하거나 여는 건 프리미엄 기능이에요."
+          message={premiumAttachMessage || "무료 회원은 메모에 사진을 1장까지 첨부할 수 있어요. 더 넣거나 PDF · 파일을 올리려면 프리미엄이 필요해요."}
           onClose={() => setShowPdfPremiumModal(false)}
           onUnlocked={() => {
             setShowPdfPremiumModal(false);

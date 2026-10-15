@@ -15,6 +15,7 @@ import { AlsoAddSheet, LibraryItemSheet, MoveDestSheet, type MoveDestination } f
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { PrivateLockGate } from "@/components/v2/lock/LockUI";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
+import { normalizeFolderName } from "@/lib/bagFolderNames";
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -91,6 +92,33 @@ function PackEditorV2Inner(props: PackEditorProps) {
   );
   const linkedBagPackCount = useMemo(() => findLinkedBagPackRefs(bags ?? [], new Set([pack.id])).length, [bags, pack.id]);
 
+  // 이름: 같은 폴더에 같은 이름의 팩 · 메모가 있으면 되돌린다(2026-10-14, 목록의 이름 시트와 같은 기준)
+  const lastNameRef = useRef(initialPack.name);
+  const commitTitle = () => {
+    const trimmed = pack.name.trim();
+    if (!trimmed) {
+      setPack((p) => ({ ...p, name: lastNameRef.current.trim() || "새 팩" }));
+      return;
+    }
+    if (trimmed === lastNameRef.current.trim()) return;
+    const key = normalizeFolderName(trimmed);
+    const taken = libraryPacks.some(
+      (p) =>
+        p.id !== pack.id &&
+        p.type !== "folder" &&
+        !p.isQuickPack &&
+        (p.parentId ?? undefined) === (pack.parentId ?? undefined) &&
+        normalizeFolderName(p.name) === key,
+    );
+    if (taken) {
+      show("같은 폴더에 같은 이름의 팩이 있어요");
+      setPack((p) => ({ ...p, name: lastNameRef.current }));
+      return;
+    }
+    lastNameRef.current = trimmed;
+    if (trimmed !== pack.name) setPack((p) => ({ ...p, name: trimmed }));
+  };
+
   // --- 아이템 조작 ------------------------------------------------------------------------------
   const toggleItem = (itemId: string) => {
     if (guard()) return;
@@ -119,12 +147,13 @@ function PackEditorV2Inner(props: PackEditorProps) {
     }));
   };
 
+  // 복제본은 체크를 푼다(가방 화면과 같게, 2026-10-14)
   const duplicateItem = (itemId: string) => {
     if (guard()) return;
     setPack((p) => {
       const idx = p.items.findIndex((i) => i.id === itemId);
       if (idx < 0) return p;
-      const copy: Item = { ...p.items[idx], id: uid() };
+      const copy: Item = { ...p.items[idx], id: uid(), ...(p.items[idx].type === "check" ? { checked: false } : {}) };
       const items = [...p.items];
       items.splice(idx + 1, 0, copy);
       return { ...p, items };
@@ -147,11 +176,12 @@ function PackEditorV2Inner(props: PackEditorProps) {
     });
   };
 
-  // 옮기기: 이 팩에서 빼고 목적지에 새 복사본을 즉시 저장. 되돌리기는 복사본만 목적지에서 지우고 원래 아이템을 돌려놓는다
+  // 옮기기: 이 팩에서 빼고 목적지에 새 복사본을 즉시 저장. 되돌리기는 복사본만 목적지에서 지우고 원래 아이템을 원래 자리로 돌려놓는다(2026-10-14)
   const commitMove = (ids: string[], dest: MoveDestination) => {
     if (guard()) return;
     const idSet = new Set(ids);
-    const moved = pack.items.filter((i) => idSet.has(i.id));
+    const movedAt = pack.items.map((item, index) => ({ item, index })).filter((x) => idSet.has(x.item.id));
+    const moved = movedAt.map((x) => x.item);
     if (moved.length === 0) return;
     const copies = moved.map((i) => ({ ...i, id: uid() }));
     const copyIds = new Set(copies.map((c) => c.id));
@@ -175,7 +205,12 @@ function PackEditorV2Inner(props: PackEditorProps) {
     show(`'${label}'(으)로 ${moved.length}개 옮겼어요`, {
       actionLabel: "되돌리기",
       onAction: () => {
-        setPack((p) => ({ ...p, items: [...p.items, ...moved] }));
+        setPack((p) => {
+          // 앞자리부터 넣어야 원래 인덱스가 맞는다(삭제 되돌리기와 같은 방식)
+          const items = [...p.items];
+          movedAt.forEach(({ item, index }) => items.splice(Math.min(index, items.length), 0, item));
+          return { ...p, items };
+        });
         if (dest.kind === "library") {
           const latest = libraryPacks.find((p) => p.id === dest.packId);
           if (latest) onSaveOtherPack({ ...latest, items: latest.items.filter((i) => !copyIds.has(i.id)) });
@@ -187,6 +222,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
   };
 
   // --- 여러 개 선택 ------------------------------------------------------------------------------
+  // 다 풀어도 선택 모드는 남는다("아이템을 골라 주세요", 가방 화면과 같게 2026-10-14). 끝내려면 ✕ · 취소 · 밀기
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const selecting = selected !== null;
   const toggleSelect = (id: string) =>
@@ -195,8 +231,10 @@ function PackEditorV2Inner(props: PackEditorProps) {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next.size === 0 ? null : next;
+      return next;
     });
+  // 다른 기기에서 지운 아이템은 세지 않는다
+  const selectedCount = selected ? pack.items.filter((i) => selected.has(i.id)).length : 0;
 
   // --- 하단 입력창 + 같이 추가 --------------------------------------------------------------------
   const [draft, setDraft] = useState("");
@@ -379,7 +417,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
             <IconButton label="선택 끝내기" onClick={() => setSelected(null)}>
               <IconX size={22} stroke={1.9} />
             </IconButton>
-            <span className="text-body font-semibold">{selected?.size ?? 0}개 선택</span>
+            <span className="text-body font-semibold">{selectedCount > 0 ? `${selectedCount}개 선택` : "아이템을 골라 주세요"}</span>
             <span className="size-11" aria-hidden="true" />
           </>
         ) : (
@@ -433,7 +471,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
                 aria-label="팩 이름"
                 placeholder="새 팩"
                 onChange={(e) => setPack((p) => ({ ...p, name: e.target.value }))}
-                onBlur={() => !pack.name.trim() && setPack((p) => ({ ...p, name: "새 팩" }))}
+                onBlur={commitTitle}
                 onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                 className="m-0 w-full bg-transparent text-title font-bold outline-none placeholder:text-faint"
               />
@@ -483,6 +521,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
             <Button
               variant="danger"
               className="flex-1 border border-line-strong"
+              disabled={selectedCount === 0}
               onClick={() => {
                 if (selected) deleteItems(selected);
                 setSelected(null);
@@ -490,7 +529,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
             >
               삭제
             </Button>
-            <Button className="flex-1" onClick={() => selected && setMoveIds(Array.from(selected))}>
+            <Button className="flex-1" disabled={selectedCount === 0} onClick={() => selected && setMoveIds(Array.from(selected))}>
               옮기기
             </Button>
           </div>

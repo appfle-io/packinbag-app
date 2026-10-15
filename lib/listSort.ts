@@ -15,7 +15,8 @@ function sortByOption<T extends { name: string; createdAt?: string; updatedAt?: 
     case "nameDesc":
       return list.sort((a, b) => b.name.localeCompare(a.name, "ko"));
     case "updatedAt":
-      return list.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+      // 고친 적 없는 항목(폴더 등)은 만든 시각으로(2026-10-14 - 예전에는 맨 뒤로 밀렸다)
+      return list.sort((a, b) => (b.updatedAt ?? b.createdAt ?? "").localeCompare(a.updatedAt ?? a.createdAt ?? ""));
     case "createdAt":
     case "custom":
     default:

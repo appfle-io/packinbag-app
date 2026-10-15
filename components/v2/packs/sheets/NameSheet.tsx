@@ -9,6 +9,9 @@ export interface NameRequest {
   placeholder?: string;
   confirmLabel: string;
   onSubmit: (name: string) => void;
+  // 같은 이름 검사(2026-10-14). true를 돌려주면 takenMessage를 보여 주고 버튼을 끈다
+  isTaken?: (name: string) => boolean;
+  takenMessage?: string;
 }
 
 const MAX_NAME = 40;
@@ -24,9 +27,11 @@ export function NameSheet({ request, onClose }: { request: NameRequest | null; o
   }
   const r = request ?? cached;
   const trimmed = name.trim();
+  // 원래 이름 그대로면(이름 바꾸기) 검사하지 않는다
+  const taken = !!trimmed && trimmed !== r?.initial && !!r?.isTaken?.(trimmed);
 
   const submit = () => {
-    if (!r || !trimmed) return;
+    if (!r || !trimmed || taken) return;
     if (trimmed !== r.initial) r.onSubmit(trimmed);
     onClose();
   };
@@ -37,7 +42,7 @@ export function NameSheet({ request, onClose }: { request: NameRequest | null; o
       onClose={onClose}
       title={r?.title}
       footer={
-        <Button block disabled={!trimmed} onClick={submit}>
+        <Button block disabled={!trimmed || taken} onClick={submit}>
           {r?.confirmLabel ?? "저장"}
         </Button>
       }
@@ -59,6 +64,7 @@ export function NameSheet({ request, onClose }: { request: NameRequest | null; o
           enterKeyHint="done"
           className="h-12 w-full rounded-field border border-line bg-card px-4 text-body outline-none focus:border-ink"
         />
+        {taken && <p className="m-0 pt-2 text-caption text-alert">{r?.takenMessage ?? "같은 이름이 있어요"}</p>}
       </form>
     </Sheet>
   );

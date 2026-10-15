@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconPackage, IconRotateClockwise, IconSun, IconUsers } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconPackage, IconRotateClockwise, IconSun, IconUsers, IconX } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -273,6 +273,10 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [lightbox, setLightbox] = useState<number | null>(null);
   // 가방에 첨부한 PDF 미리보기(다운로드 · 새 탭 열기 포함). 그 외 파일은 누르면 바로 저장
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // 첨부 줄 X로 지울 파일(확인 시트)
+  const [removeUrl, setRemoveUrl] = useState<string | null>(null);
+  // 팩 시트에서 지울 메모(확인 시트, 편집기와 같게)
+  const [confirmDeleteMemoId, setConfirmDeleteMemoId] = useState<string | null>(null);
   const [libraryTargetId, setLibraryTargetId] = useState<string | null>(null);
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [weatherOpen, setWeatherOpen] = useState(false);
@@ -534,28 +538,43 @@ export default function BagScreenV2(props: BagScreenProps) {
               <div className="pib-v2-no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
                 {bag.images.map((url, i) => {
                   const kind = getFileKind(url);
+                  const label = kind === "image" ? `사진 ${i + 1}` : `파일 ${i + 1}`;
                   return (
-                    <button
-                      key={url}
-                      type="button"
-                      aria-label={kind === "image" ? `사진 ${i + 1}` : `파일 ${i + 1}`}
-                      onClick={() => {
-                        if (kind === "image") setLightbox(i);
-                        else if (kind === "pdf") setPdfUrl(url);
-                        else
-                          void downloadFileFromUrl(url).then((r) => {
-                            if (r === "failed") show("파일을 저장하지 못했어요");
-                          });
-                      }}
-                      className="flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-field bg-fill"
-                    >
-                      {kind === "image" ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- 업로드된 사용자 이미지(외부 URL)
-                        <img src={url} alt="" className="size-full object-cover" />
-                      ) : (
-                        <span className="text-micro font-bold text-sub">{getFileExtensionLabel(url)}</span>
+                    <div key={url} className="relative shrink-0">
+                      <button
+                        type="button"
+                        aria-label={label}
+                        onClick={() => {
+                          if (kind === "image") setLightbox(i);
+                          else if (kind === "pdf") setPdfUrl(url);
+                          else
+                            void downloadFileFromUrl(url).then((r) => {
+                              if (r === "failed") show("파일을 저장하지 못했어요");
+                            });
+                        }}
+                        className="flex size-18 items-center justify-center overflow-hidden rounded-field bg-fill"
+                      >
+                        {kind === "image" ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- 업로드된 사용자 이미지(외부 URL)
+                          <img src={url} alt="" className="size-full object-cover" />
+                        ) : (
+                          <span className="text-micro font-bold text-sub">{getFileExtensionLabel(url)}</span>
+                        )}
+                      </button>
+                      {/* 지우기(2026-10-14). 누르는 칸은 모서리 32px, 보이는 동그라미는 20px */}
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          aria-label={`${label} 삭제`}
+                          onClick={() => setRemoveUrl(url)}
+                          className="absolute top-0 right-0 flex size-8 items-start justify-end bg-transparent p-1"
+                        >
+                          <span className="flex size-5 items-center justify-center rounded-full bg-black/60 text-white">
+                            <IconX size={12} stroke={2.6} aria-hidden="true" />
+                          </span>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -861,7 +880,12 @@ export default function BagScreenV2(props: BagScreenProps) {
         onRename={(name) => packTargetId && packOps.renamePack(packTargetId, name)}
         onSetAllChecked={(checked) => packTargetId && items.setPackChecked(packTargetId, checked)}
         onToggleAutoSync={() => packTargetId && packOps.toggleAutoSync(packTargetId)}
-        onDelete={() => packTargetId && packOps.deletePack(packTargetId)}
+        onDelete={() => {
+          if (!packTargetId) return;
+          // 메모는 편집기 더보기와 같은 확인 시트를 거친다(2026-10-14). 체크 팩은 그대로 바로 휴지통
+          if (packTarget?.kind === "editor") setConfirmDeleteMemoId(packTargetId);
+          else packOps.deletePack(packTargetId);
+        }}
         library={packTarget ? libraryRowFor(packTarget) : null}
         onMoveToBag={library.moveTargets.length > 0 && packTargetId ? () => setMoveTargetId(packTargetId) : undefined}
         privacyLock={
@@ -961,10 +985,32 @@ export default function BagScreenV2(props: BagScreenProps) {
         onConfirm={() => onDeleteBag(bag)}
       />
       <ConfirmSheet
+        open={!!removeUrl}
+        onClose={() => setRemoveUrl(null)}
+        title={removeUrl && getFileKind(removeUrl) === "image" ? "이 사진을 삭제할까요?" : "이 파일을 삭제할까요?"}
+        message={
+          bag.memberIds.length > 1
+            ? "함께 쓰는 멤버에게서도 사라져요. 삭제하면 되살릴 수 없어요."
+            : "삭제하면 되살릴 수 없어요."
+        }
+        confirmLabel="삭제"
+        danger
+        onConfirm={() => removeUrl && attachments.removeImage(removeUrl)}
+      />
+      <ConfirmSheet
+        open={!!confirmDeleteMemoId}
+        onClose={() => setConfirmDeleteMemoId(null)}
+        title="이 메모를 삭제할까요?"
+        message="휴지통으로 옮겨져서 설정 > 휴지통에서 되살릴 수 있어요."
+        confirmLabel="삭제"
+        danger
+        onConfirm={() => confirmDeleteMemoId && packOps.deletePack(confirmDeleteMemoId)}
+      />
+      <ConfirmSheet
         open={confirmLeave}
         onClose={() => setConfirmLeave(false)}
         title="이 가방에서 나갈까요?"
-        message="다시 참여하려면 초대 코드가 필요해요."
+        message="다시 참여하려면 초대 코드가 필요해요. 가방과 다른 멤버의 내용은 그대로 남아요."
         confirmLabel="나가기"
         danger
         onConfirm={async () => {

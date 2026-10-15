@@ -31,6 +31,7 @@ import {
   collectDescendantPackIds,
 } from "@/lib/packsService";
 import { findLinkedBagPackRefs } from "@/lib/packSync";
+import { normalizeFolderName } from "@/lib/bagFolderNames";
 import {
   getAnnouncementsOnce,
   createAnnouncementRemote,
@@ -1608,6 +1609,7 @@ export default function AppShell() {
       packs={activePacks}
       bags={activeBags}
       quickPack={quickPack}
+      lockedPackIds={lockedPackIds}
       onOpenPack={openPack}
       onOpenBag={openBag}
       onNewPack={openNewPack}
@@ -1693,6 +1695,18 @@ export default function AppShell() {
       onSave={handleSavePack}
       onDeletePack={() => handleDeletePack(pack.id)}
       premium={premium}
+      isNameTaken={(name) => {
+        // 같은 폴더의 팩 · 메모 이름과 겹치는지(팩 탭 이름 시트와 같은 기준, 2026-10-14)
+        const key = normalizeFolderName(name);
+        return activePacks.some(
+          (p) =>
+            p.id !== pack.id &&
+            p.type !== "folder" &&
+            !p.isQuickPack &&
+            (p.parentId ?? undefined) === (pack.parentId ?? undefined) &&
+            normalizeFolderName(p.name) === key,
+        );
+      }}
     />
   );
   const renderPackEditor = (pack: Pack) => (
@@ -1701,6 +1715,7 @@ export default function AppShell() {
       variant="sheet"
       initialPack={pack}
       libraryPacks={activePacks}
+      lockedPackIds={lockedPackIds}
       bags={activeBags}
       lockedBagIds={lockedBagIds}
       readOnly={lockedPackIds.has(pack.id)}

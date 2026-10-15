@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconArrowRight, IconCloudCheck, IconCloudUpload, IconLock, IconLockOpen, IconRefreshAlert } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Button, Sheet, Toggle, cx } from "@/components/v2/ui";
@@ -21,6 +21,7 @@ export interface PackPrivacyRow {
 }
 
 // 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 팩 보관함 · 다른 가방으로 옮기기 · 삭제
+// 이름 칸을 고쳤으면 시트를 어떻게 닫든(완료 · 다른 줄 · 바깥 · 끌어내리기 · Esc) 이름을 같이 저장한다. 삭제만 예외(2026-10-14)
 export function PackSheet({
   pack,
   onClose,
@@ -45,12 +46,19 @@ export function PackSheet({
   // 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
   privacyLock?: PackPrivacyRow;
 }) {
+  // 본문이 지금 이름 칸 값을 저장하는 함수를 여기 걸어 둔다(바깥 · 끌어내리기로 닫을 때도 저장하려고)
+  const commitRef = useRef<(() => void) | null>(null);
+  const closeWithName = () => {
+    commitRef.current?.();
+    onClose();
+  };
   return (
-    <Sheet open={!!pack} onClose={onClose} showClose={false}>
+    <Sheet open={!!pack} onClose={closeWithName} showClose={false}>
       {pack && (
         <PackSheetBody
           key={pack.id}
           pack={pack}
+          commitRef={commitRef}
           onClose={onClose}
           onRename={onRename}
           onSetAllChecked={onSetAllChecked}
@@ -67,6 +75,7 @@ export function PackSheet({
 
 function PackSheetBody({
   pack,
+  commitRef,
   onClose,
   onRename,
   onSetAllChecked,
@@ -77,6 +86,7 @@ function PackSheetBody({
   privacyLock,
 }: {
   pack: Pack;
+  commitRef: React.RefObject<(() => void) | null>;
   onClose: () => void;
   onRename: (name: string) => void;
   onSetAllChecked: (checked: boolean) => void;
@@ -89,10 +99,21 @@ function PackSheetBody({
   const [name, setName] = useState(pack.name);
   const isMemo = pack.kind === "editor";
   const rowCls = "flex min-h-13 items-center gap-3 border-b border-line bg-transparent text-left text-body";
-  // 이름을 고친 채로 다른 줄을 누르면 이름도 같이 저장한다
+  // 이름을 고친 채로 다른 줄을 누르거나 닫으면 이름도 같이 저장한다. 마지막으로 저장한 이름과 같으면 다시 쓰지 않는다
+  const savedNameRef = useRef(pack.name);
+  const deletingRef = useRef(false);
   const commitName = () => {
-    if (name.trim() && name.trim() !== pack.name) onRename(name);
+    const trimmed = name.trim();
+    if (deletingRef.current || !trimmed || trimmed === savedNameRef.current) return;
+    savedNameRef.current = trimmed;
+    onRename(trimmed);
   };
+  useEffect(() => {
+    commitRef.current = commitName;
+    return () => {
+      commitRef.current = null;
+    };
+  });
   const LibraryIcon = library?.tone === "same" ? IconCloudCheck : library?.tone === "changed" ? IconRefreshAlert : IconCloudUpload;
   return (
     <form
@@ -118,6 +139,7 @@ function PackSheetBody({
               type="button"
               className={rowCls}
               onClick={() => {
+                commitName();
                 onSetAllChecked(true);
                 onClose();
               }}
@@ -128,6 +150,7 @@ function PackSheetBody({
               type="button"
               className={rowCls}
               onClick={() => {
+                commitName();
                 onSetAllChecked(false);
                 onClose();
               }}
@@ -140,7 +163,10 @@ function PackSheetBody({
           <div className="border-b border-line">
             <Toggle
               checked={!!pack.autoSyncEnabled}
-              onChange={onToggleAutoSync}
+              onChange={() => {
+                commitName();
+                onToggleAutoSync();
+              }}
               label="보관함 팩과 자동 동기화"
               description="이 가방을 열어 둔 동안 더 최신 내용으로 맞춰요"
             />
@@ -210,6 +236,8 @@ function PackSheetBody({
           type="button"
           className="flex min-h-13 items-center bg-transparent text-left text-body text-alert"
           onClick={() => {
+            // 지우는 팩의 이름은 저장하지 않는다
+            deletingRef.current = true;
             onDelete();
             onClose();
           }}

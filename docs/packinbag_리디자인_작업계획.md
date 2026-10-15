@@ -39,6 +39,7 @@ iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 �
   - 안 쓰는 코드 찾기: `npx --yes knip --include exports,types --reporter compact 2>&1 | tee knip.txt`(`knip.json`이 ios·electron·public 제외). `--yes` 없으면 설치 질문에서 멈춘 것처럼 보인다
 - 서버 과금 원칙: 추가 Firestore 읽기·쓰기는 꼭 필요한 곳에만. 이미 구독 중인 실시간 데이터(onSnapshot)를 최대한 재사용
 - 버전: `npm version`만 올리면 설정 > 버전 정보도 바뀐다(`lib/changelog.ts`가 package.json을 읽음, 10/5). 사용자에게 알릴 내용이 있으면 CHANGELOG 배열 맨 앞에 추가
+  - **번호 규칙(10/14부터)**: 앞 두 자리 = 스토어 앱 버전, 끝자리 = 웹 · 포터블만 배포한 횟수. 웹 · 포터블만 바뀌면 1.6.1 → 1.6.2 …, 스토어에 새 빌드를 내면 Xcode 1.7 + 웹 1.7.0을 같이. 1.0.34 다음이 1.6.1(1.0.x 기록은 그대로). 포터블 태그도 같은 번호(`v1.6.1-offline-portable`)
 
 ## 코드 주의 사항
 - `UserProfile`에 새 필드를 만들면 `contexts/AuthProvider.tsx`의 users 문서 onSnapshot 매핑(필드를 하나씩 골라 담음)에도 반드시 추가. 빠지면 저장은 되는데 화면에 반영되지 않는다(10/3 bagFolderOrder 사고)

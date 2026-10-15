@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { uploadBagImage, deleteBagImage } from "@/lib/storageService";
+import { uploadBagImage } from "@/lib/storageService";
+import { deleteBagAttachmentIfUnused } from "@/lib/storageCleanup";
 import { FREE_MAX_USER_BAG_IMAGES, MAX_BAG_IMAGES } from "@/lib/premiumLimits";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
@@ -78,14 +79,17 @@ export function useBagAttachments({ doc, premium, offline, onPremiumRequired }: 
     [guard, premium, offline, bag.images.length, bag.id, update, show, onPremiumRequired],
   );
 
+  // 가방 화면 첨부 줄의 X(2026-10-14). 화면에서 바로 빼고, 다른 곳이 쓰지 않는 파일만 Storage에서 지운다.
+  // 인덱스가 아니라 URL로 찾는다 - 확인 시트를 띄운 사이 다른 멤버가 사진을 넣거나 빼도 엉뚱한 걸 지우지 않게
   const removeImage = useCallback(
-    (index: number) => {
+    (url: string) => {
       if (guard()) return;
-      const url = bag.images[index];
-      update((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
-      if (!offline && url) deleteBagImage(url);
+      if (!bag.images.includes(url)) return;
+      update((prev) => ({ ...prev, images: prev.images.filter((u) => u !== url) }));
+      if (!offline) void deleteBagAttachmentIfUnused(bag.id, url);
+      show("첨부를 삭제했어요");
     },
-    [guard, bag.images, update, offline],
+    [guard, bag.images, bag.id, update, offline, show],
   );
 
   return { uploading, addFiles, removeImage };

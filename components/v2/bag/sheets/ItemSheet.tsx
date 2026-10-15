@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Item, Pack } from "@/lib/types";
 import type { BagMember, ItemPatch } from "@/hooks/bag";
 import { Button, Chip, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
 
 // 아이템 길게 누르기: 이름 · 담당 · 다른 팩으로 옮기기 · 복제 · 삭제
+// 고친 내용은 삭제를 뺀 모든 닫기(완료 · 바깥 · 끌어내리기 · Esc · 다른 줄)에서 저장한다(2026-10-14)
 export function ItemSheet({
   target,
   onClose,
@@ -27,12 +28,18 @@ export function ItemSheet({
   // 이 아이템부터 여러 개 선택 모드 시작
   onSelectMany?: () => void;
 }) {
+  const commitRef = useRef<(() => void) | null>(null);
+  const closeWithSave = () => {
+    commitRef.current?.();
+    onClose();
+  };
   return (
-    <Sheet open={!!target} onClose={onClose} showClose={false}>
+    <Sheet open={!!target} onClose={closeWithSave} showClose={false}>
       {target && (
         <ItemSheetBody
           key={target.item.id}
           target={target}
+          commitRef={commitRef}
           packs={packs}
           members={members}
           onClose={onClose}
@@ -48,6 +55,7 @@ export function ItemSheet({
 
 function ItemSheetBody({
   target,
+  commitRef,
   packs,
   members,
   onClose,
@@ -57,6 +65,7 @@ function ItemSheetBody({
   onSelectMany,
 }: {
   target: { pack: Pack; item: Item };
+  commitRef: React.RefObject<(() => void) | null>;
   packs: Pack[];
   members: BagMember[];
   onClose: () => void;
@@ -70,12 +79,26 @@ function ItemSheetBody({
   const [packId, setPackId] = useState(target.pack.id);
   const shared = members.length > 1;
 
-  const save = () => {
+  // 한 번 저장하면 다시 쓰지 않는다. move=false면 팩 옮기기는 빼고(복제는 원래 팩에서 하므로) 이름 · 담당만
+  const doneRef = useRef(false);
+  const commit = (move = true) => {
+    if (doneRef.current) return;
+    doneRef.current = true;
     const patch: ItemPatch = {};
     if (text.trim() && text.trim() !== target.item.text) patch.text = text;
     if ((target.item.assigneeUid ?? "") !== assignee) patch.assigneeUid = assignee || null;
-    if (packId !== target.pack.id) patch.targetPackId = packId;
+    if (move && packId !== target.pack.id) patch.targetPackId = packId;
     if (Object.keys(patch).length > 0) onSave(patch);
+  };
+  useEffect(() => {
+    commitRef.current = () => commit();
+    return () => {
+      commitRef.current = null;
+    };
+  });
+
+  const save = () => {
+    commit();
     onClose();
   };
 
@@ -134,6 +157,7 @@ function ItemSheetBody({
             type="button"
             className="flex min-h-13 items-center border-b border-line bg-transparent text-left text-body"
             onClick={() => {
+              commit();
               onSelectMany();
               onClose();
             }}
@@ -145,6 +169,7 @@ function ItemSheetBody({
           type="button"
           className="flex min-h-13 items-center border-b border-line bg-transparent text-left text-body"
           onClick={() => {
+            commit(false);
             onDuplicate();
             onClose();
           }}
@@ -155,6 +180,7 @@ function ItemSheetBody({
           type="button"
           className="flex min-h-13 items-center bg-transparent text-left text-body text-alert"
           onClick={() => {
+            doneRef.current = true;
             onDelete();
             onClose();
           }}

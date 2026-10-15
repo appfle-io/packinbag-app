@@ -23,12 +23,14 @@ function initialPlaying(): boolean {
 
 function eyebrowOf(h: Highlight): string {
   const s = h.summary;
+  // "pinned"는 지금 나오지 않는다(고정한 가방은 캐러셀에서 빠짐 - homeModel.buildSections). 예전 값이 오면 그대로 표시만 한다
   if (h.reason === "pinned") return `고정 · ${STATE_LABEL[s.state]}`;
   if (h.reason === "soon") return `곧 출발 · ${STATE_LABEL[s.state]}`;
   return `지금 싸는 중${s.activityLabel ? ` · ${s.activityLabel}` : ""}`;
 }
 
-// 홈 상단 캐러셀: 고정 → D-day 임박 → 싸는 중 가방(최대 5장)을 가로로 넘겨 본다.
+// 홈 상단 캐러셀: 곧 출발(D-day 7일 이내) → 싸는 중 가방(최대 5장)을 가로로 넘겨 본다.
+// 고정한 가방·개인 잠금 가방은 넣지 않는다(고정은 바로 아래 "고정" 구역에 따로 있음). 고르는 규칙은 homeModel.buildSections
 // - 폰은 손으로 밀어서, 넓은 화면은 좌우 화살표로. 아래 점을 눌러 바로 이동
 // - 5초마다 자동으로 다음 장(마지막 다음은 처음). 손으로 만지면 그 자리에서 멈추고, ▶로 다시 돈다
 // - 1장뿐이면 점·버튼·자동 넘김 없이 카드만

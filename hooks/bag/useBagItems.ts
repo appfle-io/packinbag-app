@@ -118,12 +118,18 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
   );
 
   // AI 빠진 것 확인 결과를 이름으로 팩을 찾아 담는다(없으면 새 팩). 구 handleAddItemFromAudit와 같은 규칙.
+  // 담았으면 true. 그 이름 팩이 없고 팩이 이미 10개면 담지 않고 false(2026-10-14 - 예전에는 못 담아도 "담았어요")
   const addToNamedPack = useCallback(
-    (packName: string, text: string) => {
-      if (guard()) return;
+    (packName: string, text: string): boolean => {
+      if (guard()) return false;
+      const isTarget = (p: Pack) => p.name === packName && p.kind !== "editor" && p.type !== "folder";
+      if (!bag.packs.some(isTarget) && bag.packs.length >= MAX_PACKS_PER_BAG) {
+        show(`팩이 10개라 '${packName}' 팩을 만들 수 없어요. 다른 팩에 직접 넣어 주세요`);
+        return false;
+      }
       const item: Item = { id: newId(), type: "check", text, checked: false };
       update((prev) => {
-        const existing = prev.packs.find((p) => p.name === packName && p.kind !== "editor" && p.type !== "folder");
+        const existing = prev.packs.find(isTarget);
         if (existing) {
           return { ...prev, packs: prev.packs.map((p) => (p.id === existing.id ? { ...p, items: [...p.items, item] } : p)) };
         }
@@ -131,8 +137,9 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
         return { ...prev, packs: [...prev.packs, { id: newId(), name: packName, items: [item] }] };
       });
       show(`'${packName}' 팩에 '${text}'을(를) 담았어요`);
+      return true;
     },
-    [guard, update, show],
+    [guard, bag.packs, update, show],
   );
 
   const setPackChecked = useCallback(

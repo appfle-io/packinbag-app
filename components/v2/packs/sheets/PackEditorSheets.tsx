@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import type { Bag, Item, Pack } from "@/lib/types";
 import { Button, CheckMark, ListRow, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
@@ -8,6 +8,7 @@ import { Button, CheckMark, ListRow, SectionHeader, SegmentedControl, Sheet } fr
 // 팩 보관함 체크리스트 팩 화면(PackEditorV2)이 쓰는 시트들.
 
 // --- 아이템 길게 누르기: 이름 · 종류 · 여러 개 선택 · 옮기기 · 복제 · 삭제 ---------------------------
+// 고친 이름 · 종류는 삭제를 뺀 모든 닫기(완료 · 바깥 · 끌어내리기 · Esc · 다른 줄)에서 저장한다(2026-10-14, 가방 화면 아이템 시트와 같게)
 export function LibraryItemSheet({
   item,
   onClose,
@@ -25,12 +26,18 @@ export function LibraryItemSheet({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const commitRef = useRef<(() => void) | null>(null);
+  const closeWithSave = () => {
+    commitRef.current?.();
+    onClose();
+  };
   return (
-    <Sheet open={!!item} onClose={onClose} showClose={false}>
+    <Sheet open={!!item} onClose={closeWithSave} showClose={false}>
       {item && (
         <ItemBody
           key={item.id}
           item={item}
+          commitRef={commitRef}
           onClose={onClose}
           onSave={onSave}
           onSelectMany={onSelectMany}
@@ -45,6 +52,7 @@ export function LibraryItemSheet({
 
 function ItemBody({
   item,
+  commitRef,
   onClose,
   onSave,
   onSelectMany,
@@ -53,6 +61,7 @@ function ItemBody({
   onDelete,
 }: {
   item: Item;
+  commitRef: React.RefObject<(() => void) | null>;
   onClose: () => void;
   onSave: (patch: { text?: string; type?: Item["type"] }) => void;
   onSelectMany: () => void;
@@ -64,16 +73,37 @@ function ItemBody({
   const [type, setType] = useState<Item["type"]>(item.type);
   const rowCls = "flex min-h-13 items-center border-b border-line bg-transparent text-left text-body";
 
-  const save = () => {
+  // 한 번 저장한 변경은 다시 쓰지 않는다. 삭제하면 저장하지 않는다
+  const doneRef = useRef(false);
+  const commit = () => {
+    if (doneRef.current) return;
+    doneRef.current = true;
     const patch: { text?: string; type?: Item["type"] } = {};
     if (text.trim() && text.trim() !== item.text) patch.text = text.trim();
     if (type !== item.type) patch.type = type;
     if (Object.keys(patch).length > 0) onSave(patch);
+  };
+  useEffect(() => {
+    commitRef.current = commit;
+    return () => {
+      commitRef.current = null;
+    };
+  });
+
+  const save = () => {
+    commit();
     onClose();
   };
+  // 다른 줄(여러 개 선택 · 옮기기 · 복제)을 눌러도 고친 내용을 먼저 저장한다
   const then = (fn: () => void) => () => {
+    commit();
     onClose();
     fn();
+  };
+  const remove = () => {
+    doneRef.current = true;
+    onClose();
+    onDelete();
   };
 
   return (
@@ -114,7 +144,7 @@ function ItemBody({
         <button type="button" className={rowCls} onClick={then(onDuplicate)}>
           복제
         </button>
-        <button type="button" className="flex min-h-13 items-center bg-transparent text-left text-body text-alert" onClick={then(onDelete)}>
+        <button type="button" className="flex min-h-13 items-center bg-transparent text-left text-body text-alert" onClick={remove}>
           삭제
         </button>
       </div>

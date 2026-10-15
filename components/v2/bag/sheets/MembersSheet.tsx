@@ -275,7 +275,7 @@ export function MembersSheet({
       <ConfirmSheet
         open={confirm?.kind === "leave"}
         title="이 가방에서 나갈까요?"
-        message="다시 참여하려면 초대 코드가 필요해요."
+        message="다시 참여하려면 초대 코드가 필요해요. 가방과 다른 멤버의 내용은 그대로 남아요."
         confirmLabel="나가기"
         danger
         onClose={() => setConfirm(null)}

@@ -47,10 +47,11 @@ export function BagActionSheet({
           {personal && (
             <section className="flex flex-col gap-2">
               <SectionHeader>폴더</SectionHeader>
+              {/* 고르면 옮기고 닫힌다(2026-10-14, 고정 · 보관과 같게). 결과는 토스트로 */}
               <div className="pib-v2-no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
-                <Chip label="없음" selected={!folderId} onClick={() => onMoveToFolder(undefined)} />
+                <Chip label="없음" selected={!folderId} onClick={() => (onMoveToFolder(undefined), onClose())} />
                 {folders.map((f) => (
-                  <Chip key={f.id} label={f.name} selected={folderId === f.id} onClick={() => onMoveToFolder(f.id)} />
+                  <Chip key={f.id} label={f.name} selected={folderId === f.id} onClick={() => (onMoveToFolder(f.id), onClose())} />
                 ))}
               </div>
               {folders.length === 0 && <p className="m-0 text-caption text-faint">홈 위쪽 + 칩으로 폴더를 만들 수 있어요.</p>}

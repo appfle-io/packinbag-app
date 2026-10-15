@@ -1055,21 +1055,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await writeUser({ packSortBy: sortBy });
   };
 
-  // 고정핀 토글(최대 3개까지). 이미 고정된 걸 다시 누르면 해제되고, 3개가 다 찬 상태에서
+  // 고정핀 토글(최대 5개). 이미 고정된 걸 다시 누르면 해제되고, 다 찬 상태에서
   // 새로 고정하려 하면 togglePinned이 조용히 무시한다.
+  // 보관한 가방은 고정 칸을 차지하지 않는다(2026-10-14): 예전에 고정한 채로 보관해 남아 있던 id는 이때 같이 뺀다
   const toggleBagPinned = async (bagId: string) => {
     if (!user) return;
-    // v2 홈은 고정 가방을 상단 캐러셀에 보여주므로 5개까지(구 UI는 그대로 3개)
-    const next = togglePinned(profile?.pinnedBagIds, bagId, V2_MAX_PINNED_BAGS);
+    const archived = new Set(profile?.archivedBagIds ?? []);
+    const current = (profile?.pinnedBagIds ?? []).filter((id) => !archived.has(id));
+    // v2 홈은 고정 가방을 따로 보여주므로 5개까지(구 UI는 그대로 3개)
+    const next = togglePinned(current, bagId, V2_MAX_PINNED_BAGS);
     await writeUser({ pinnedBagIds: next });
+  };
+
+  // 보관하면 고정을 같이 푼다(2026-10-14). 고정된 채 보관되면 홈에는 안 보이는데 고정 칸만 차지했다
+  const unpinnedFor = (bagIds: string[]): string[] | null => {
+    const pinned = profile?.pinnedBagIds ?? [];
+    const drop = new Set(bagIds);
+    const next = pinned.filter((id) => !drop.has(id));
+    return next.length === pinned.length ? null : next;
   };
 
   // 보관 토글 (개수 제한 없음 - togglePinned은 이름과 달리 그냥 "배열에 넣고 빼기" 범용
   // 유틸이라 재사용한다. max에 Infinity를 넘겨 제한을 없앤다).
   const toggleBagArchived = async (bagId: string) => {
     if (!user) return;
+    const wasArchived = (profile?.archivedBagIds ?? []).includes(bagId);
     const next = togglePinned(profile?.archivedBagIds, bagId, Infinity);
-    await writeUser({ archivedBagIds: next });
+    const pinned = wasArchived ? null : unpinnedFor([bagId]);
+    await writeUser(pinned ? { archivedBagIds: next, pinnedBagIds: pinned } : { archivedBagIds: next });
   };
 
   // "지난 여행 보관함으로 옮길까요?" 배너에서 여러 개를 한 번에 보관 처리할 때 쓴다.
@@ -1080,7 +1093,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || bagIds.length === 0) return;
     const current = profile?.archivedBagIds ?? [];
     const next = Array.from(new Set([...current, ...bagIds]));
-    await writeUser({ archivedBagIds: next });
+    const pinned = unpinnedFor(bagIds);
+    await writeUser(pinned ? { archivedBagIds: next, pinnedBagIds: pinned } : { archivedBagIds: next });
   };
 
   // 보관 제안 배너를 "닫기"로 넘긴 가방들은 다음에 다시 물어보지 않는다.
