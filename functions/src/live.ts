@@ -2,13 +2,16 @@
 // - 실시간 현황: 가방이 바뀌면 그 가방 팩을 잠금화면에 띄운 기기(deviceTokens.apnsLive.bagId)에 새 화면을 바로 보낸다.
 //   content-state는 앱의 PackActivityAttributes.ContentState(ios/App/Shared/PIBActivity.swift)와 같은 모양이어야 한다
 //   혼자 쓰는 가방도 보낸다(웹 · PC에서 고친 것이 잠금화면에 보이게)
-// - 조용한 푸시: 함께 쓰는 가방이 바뀌면 pushSilent/{bagId}에 표시만 해 두고, 2분마다(flushSilent) 멤버 기기에 한 번씩 보낸다.
+// - 조용한 푸시: 함께 쓰는 가방이 바뀌면 2분 칸마다 한 번 Cloud Tasks 작업을 예약해(tasks.ts) 멤버 기기에 보낸다.
 //   앱이 깨어나 서버 요약을 받아 위젯을 새로 그린다(AppDelegate didReceiveRemoteNotification). iOS가 횟수를 줄일 수 있다
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+//   (2026-10-17 - 예전에는 pushSilent 문서에 표시하고 2분마다 조회해서, 아무도 안 써도 읽기가 나갔다)
+// - 실시간 현황을 띄운 가방에는 서버가 bags/{bagId}.liveOn = true를 적는다(app/api/native/live-token).
+//   트리거는 이 표시가 있을 때만 deviceTokens를 조회하고, 띄운 기기가 하나도 없으면 표시를 지운다(2026-10-17 - 예전에는 모든 저장마다 조회 1)
+import { getFirestore, FieldValue, type Timestamp } from "firebase-admin/firestore";
 import { sendApns } from "./apns";
 import { DEVICE_TOKENS, devicesOf, sendToDevices } from "./devices";
 
-export const PUSH_SILENT = "pushSilent";
+export const SILENT_BATCH_MS = 2 * 60 * 1000;
 // 앱 요약(lib/nativeSummary.ts)과 같은 제한, 잠금화면 줄 수는 PIBLiveActivity.maxItems와 같게
 const MAX_ITEMS = 80;
 const MAX_TEXT = 80;
@@ -92,14 +95,16 @@ export function liveState(bag: RawBag, packId: string): LiveState | null {
   };
 }
 
-// 가방이 바뀌었을 때(혹은 지워졌을 때 bag = null) 그 가방을 띄운 잠금화면을 고친다
-export async function updateLiveActivities(p8: string, bagId: string, bag: RawBag | null): Promise<number> {
+// 가방이 바뀌었을 때(혹은 지워졌을 때 bag = null) 그 가방을 띄운 잠금화면을 고친다.
+// 띄운 기기가 하나도 남지 않으면 liveOn 표시를 지운다. bagUpdateTime을 주면 그 뒤로 가방이 바뀌지 않았을 때만(방금 다시 띄운 것을 지우지 않게)
+export async function updateLiveActivities(p8: string, bagId: string, bag: RawBag | null, bagUpdateTime?: Timestamp): Promise<number> {
   const db = getFirestore();
   const snap = await db.collection(DEVICE_TOKENS).where("apnsLive.bagId", "==", bagId).get();
   // 지금 멤버가 아닌 기기(나갔거나 내보낸 사람)에는 새 내용을 보내지 않고 내린다(2026-10-12 보안 점검).
   // 예전에는 등록할 때만 멤버를 확인해서, 내보낸 뒤에도 잠금화면으로 아이템 이름이 계속 갔다
   const members: string[] = bag && Array.isArray(bag.memberIds) ? (bag.memberIds as string[]) : [];
   let sent = 0;
+  let alive = 0;
   for (const doc of snap.docs) {
     const live = doc.data().apnsLive as { token?: string; packId?: string; env?: string } | undefined;
     if (!live?.token || !live.packId) continue;
@@ -122,33 +127,26 @@ export async function updateLiveActivities(p8: string, bagId: string, bag: RawBa
     if (result.ok) sent += 1;
     else console.warn("[push] 실시간 현황 실패", { device: doc.id.slice(0, 8), status: result.status, reason: result.reason });
     if (gone || result.dead) await doc.ref.update({ apnsLive: FieldValue.delete() }).catch(() => {});
+    else alive += 1;
+  }
+  if (bag && alive === 0) {
+    const ref = db.collection("bags").doc(bagId);
+    await (bagUpdateTime ? ref.update({ liveOn: FieldValue.delete() }, { lastUpdateTime: bagUpdateTime }) : ref.update({ liveOn: FieldValue.delete() })).catch(() => {});
   }
   return sent;
 }
 
 // ---- 조용한 푸시(위젯 갱신) ----------------------------------------------------------
 
-export async function markSilent(bagId: string) {
-  await getFirestore().collection(PUSH_SILENT).doc(bagId).set({ bagId, at: Date.now() });
-}
-
-export async function flushSilent(p8: string): Promise<number> {
-  const db = getFirestore();
-  const marks = await db.collection(PUSH_SILENT).limit(100).get();
-  let sent = 0;
-  for (const mark of marks.docs) {
-    await mark.ref.delete();
-    const bagSnap = await db.collection("bags").doc(mark.id).get();
-    const members = (bagSnap.data()?.memberIds as string[] | undefined) ?? [];
-    if (!bagSnap.exists || members.length === 0) continue;
-    const devices = await devicesOf(members);
-    if (devices.length === 0) continue;
-    const result = await sendToDevices(p8, devices, {
-      pushType: "background",
-      payload: { aps: { "content-available": 1 }, kind: "refresh", bagId: mark.id },
-      expiresInSec: 30 * 60,
-    });
-    sent += result.sent;
-  }
-  return sent;
+// Cloud Tasks 작업에서 부른다. 멤버는 예약할 때 값이라 가방은 다시 읽지 않는다(기기 조회만)
+export async function sendSilent(p8: string, bagId: string, members: string[]): Promise<number> {
+  if (members.length === 0) return 0;
+  const devices = await devicesOf(members);
+  if (devices.length === 0) return 0;
+  const result = await sendToDevices(p8, devices, {
+    pushType: "background",
+    payload: { aps: { "content-available": 1 }, kind: "refresh", bagId },
+    expiresInSec: 30 * 60,
+  });
+  return result.sent;
 }

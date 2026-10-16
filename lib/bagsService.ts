@@ -148,6 +148,8 @@ const BAG_MANAGED_KEYS = new Set([
   "createdAt",
   "notesV",
   "packsRev",
+  // 잠금화면에 띄운 가방 표시(서버만 씀, functions/src/live.ts, 2026-10-17)
+  "liveOn",
 ]);
 // 화면에서 지울 수 있는 선택 필드. 값이 없으면 서버에서도 지운다(setDoc 통째 쓰기와 같은 결과)
 const BAG_OPTIONAL_KEYS = [

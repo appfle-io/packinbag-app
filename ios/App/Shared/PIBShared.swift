@@ -8,8 +8,9 @@ import WidgetKit
 enum PIB {
     static let appGroup = "group.com.appfle.packinbag"
     static var defaults: UserDefaults { UserDefaults(suiteName: appGroup) ?? .standard }
-    // 위젯 자동 새로고침 주기(안전망): 이 시간보다 오래된 요약을 보면 서버에서 다시 받는다(10/11 15분 → 30분)
-    static let staleAfter: TimeInterval = 30 * 60
+    // 위젯 자동 새로고침 주기(안전망): 이 시간보다 오래된 요약을 보면 서버에서 다시 받는다(10/11 15분 → 30분, 10/17 → 1시간).
+    // 요약 한 번 = 내가 멤버인 가방 수 + 2번 읽기라 기기마다 하루 48번 → 24번으로. 함께 쓰는 가방 변경은 조용한 푸시가 바로 알려 준다
+    static let staleAfter: TimeInterval = 60 * 60
     // 푸시 환경: Xcode에서 바로 설치(Debug) = 개발용 APNs, Archive(Release → TestFlight · App Store) = 운영 APNs
     #if DEBUG
     static let apnsEnvironment = "sandbox"

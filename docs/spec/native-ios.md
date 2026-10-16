@@ -57,7 +57,7 @@
 | NAT-WID-05 | 가방 전체: 팩 순서대로(미분류 먼저) 아이템을 잇고, 체크는 그 아이템의 원래 팩으로 |
 | NAT-WID-06 | 위젯에서 체크: 누르면 바로 취소선 + 아래로(위젯 확장에서 `POST /api/native/toggle-item`). 못 보낸 체크는 쌓아 두었다 다음에 보내고, 서버가 거절하면 되돌린다. 휴지통 가방 · 잠긴 가방 · 멤버 아님은 서버가 거절(API-NAT-04) |
 | NAT-WID-07 | 맨 아래 줄: "14시 05분에 새로고침"(다른 날이면 "10/9 14시 05분") + ↻(서버 요약 받기). 시각 = 요약을 받은 때(위젯 체크로는 안 바뀜) |
-| NAT-WID-08 | 자동 새로고침: 30분 넘게 지난 요약만 서버에서(안전망), 자정에 D-Day 다시 그림. 다른 멤버 변경은 조용한 푸시(NAT-PUSH-06)로 |
+| NAT-WID-08 | 자동 새로고침: 1시간 넘게 지난 요약만 서버에서(안전망, `PIB.staleAfter`, 10/17 30분 → 1시간 — 새 빌드부터), 자정에 D-Day 다시 그림. 다른 멤버 변경은 조용한 푸시(NAT-PUSH-06)로 |
 | NAT-WID-09 | 누르면 그 가방이 열린다(`packinbag://bag/{id}`, NAT-LINK-02) |
 | NAT-WID-10 | 로그아웃 · 다른 계정: 요약이 지워져 예전 계정 내용이 안 보인다 |
 | NAT-WID-11 | 글꼴: 앱 글꼴은 woff2라 iOS가 못 써서 위젯에 TTF/OTF를 따로 넣는다(`ios/App/PackInBagWidget/Fonts/`). 없으면 시스템 글꼴 |
@@ -124,12 +124,13 @@
 |---|---|
 | NAT-PUSH-01 | 받는 기기: `deviceTokens/{hash}.apns = { token, env, alerts }`가 있는 문서(네이티브 `PIBPush`가 로그인 · 앱 시작 때 등록하고 `POST /api/native/push-token`으로 올림, 바뀐 것만). 보이는 알림은 `alerts: true`(알림 권한 있음) 기기만. 죽은 토큰(410 등)은 `apns`를 지운다 |
 | NAT-PUSH-02 | 대상: **함께 쓰는 가방(2명 이상) · 휴지통 아님**만. 내가 한 변경은 나에게 안 보냄(누가 했는지 = 가방 `editedBy`, 모르면 활동 알림 안 보냄) |
-| NAT-PUSH-03 | 활동(추가 · 체크 · 다 쌌어요): `pushQueue/{bagId}`에 모아 첫 활동 10분 뒤(2분마다 도는 `flushBagActivity` → 실제 10~12분). 다 싼 순간은 다음 flush 때 바로. 받는 사람마다 자기 활동은 빼고 "OO님이 N개 챙겼어요 (n/m)" · "N개 챙기고 M개 추가했어요" · "N개 추가했어요: 이름, 이름 외 N개" · "다 쌌어요! OO님이 마지막 아이템을 챙겼어요". 체크 해제 · 삭제 · 이름 바꾸기 · 메모 수정은 안 알림 |
+| NAT-PUSH-03 | 활동(추가 · 체크 · 다 쌌어요): `pushQueue/{bagId}`에 **읽지 않고** 쌓고(increment · arrayUnion), 10분 칸의 첫 활동 10분 뒤 Cloud Tasks 작업(`bagPushTask`)이 보냄. 다 싼 순간은 바로. 예약이 실패한 묶음은 1시간마다 도는 `sweepBagActivity`가(20분 넘게 남은 것). 10/17 전에는 2분마다 도는 `flushBagActivity`가 조회(아무도 안 써도 하루 읽기 1,440건). 받는 사람마다 자기 활동은 빼고 "OO님이 N개 챙겼어요 (n/m)" · "N개 챙기고 M개 추가했어요" · "N개 추가했어요: 이름, 이름 외 N개" · "다 쌌어요! OO님이 마지막 아이템을 챙겼어요". 체크 해제 · 삭제 · 이름 바꾸기 · 메모 수정은 안 알림 |
 | NAT-PUSH-04 | 담당 지정: 바로, 맡은 사람에게만 "OO님이 N개를 맡겼어요: 이름…" |
 | NAT-PUSH-04a | 개인 잠금(10/16): 받는 사람이 그 가방을 잠갔으면(`users.privateLock`에 PIN 있고 `bags`에 그 가방) 제목을 "잠근 가방"으로, 본문에서 아이템 이름을 빼고 보낸다("OO님이 N개를 맡겼어요" · "N개 추가했어요"). 사람마다 따로 판단(`wantsPush` → `PushTarget.locked`). 팩만 잠근 것은 가리지 않는다 |
 | NAT-PUSH-05 | 새 멤버: 바로, 그룹장에게만 "OO님이 가방에 참여했어요 (N명)" |
-| NAT-PUSH-06 | 조용한 푸시(위젯 갱신): 함께 쓰는 가방의 팩이 바뀌면 `pushSilent/{bagId}` 표시 → 2분마다 멤버 기기에 background 푸시 한 번 → 앱이 깨어나 서버 요약 → 위젯 · 실시간 현황. iOS가 횟수를 줄일 수 있고 강제 종료한 앱에는 안 옴 |
-| NAT-PUSH-07 | 실시간 현황 원격 갱신: 띄울 때 받은 토큰을 `POST /api/native/live-token`(그 가방 멤버만) → `deviceTokens.apnsLive { token, bagId, packId, env }`. 가방 이름 · 팩이 바뀌면(**혼자 쓰는 가방도**) 그 가방을 띄운 기기에 새 화면. 팩이 사라졌거나 가방이 지워졌거나 **더 이상 멤버가 아니면** 내린다. 가방 완전 삭제 트리거 `onBagDeleted`도 내림 |
+| NAT-PUSH-06 | 조용한 푸시(위젯 갱신): 함께 쓰는 가방의 팩이 바뀌면 2분 칸마다 Cloud Tasks 작업을 하나 예약(멤버는 예약할 때 값) → 2분 뒤 멤버 기기에 background 푸시 → 앱이 깨어나 서버 요약 → 위젯 · 실시간 현황. 10/17 전에는 `pushSilent/{bagId}` 표시 + 2분마다 조회. iOS가 횟수를 줄일 수 있고 강제 종료한 앱에는 안 옴 |
+| NAT-PUSH-06a | 예약(`functions/src/tasks.ts`): 같은 id의 작업은 한 번만(두 번째는 task-already-exists → 무시). id = 종류 + 가방 + 시간 칸(활동 10분 · 조용한 푸시 2분 · 다 쌌어요는 그 순간). 실패하면 30초 뒤부터 두 번 더. 필요한 권한: 기본 컴퓨트 서비스 계정에 Cloud Tasks Enqueuer · 서비스 계정 사용자 |
+| NAT-PUSH-07 | 실시간 현황 원격 갱신: 띄울 때 받은 토큰을 `POST /api/native/live-token`(그 가방 멤버만) → `deviceTokens.apnsLive { token, bagId, packId, env }` + **가방 문서 `liveOn: true`**(없을 때만 씀, 서버 전용 필드, 10/17). 트리거는 `liveOn`이 있는 가방만 deviceTokens를 조회(예전에는 모든 저장마다 조회 1), 띄운 기기가 하나도 없으면 표시를 지움(그 사이 가방이 바뀌었으면 안 지움). 가방 이름 · 팩이 바뀌면(**혼자 쓰는 가방도**) 그 가방을 띄운 기기에 새 화면. 팩이 사라졌거나 가방이 지워졌거나 **더 이상 멤버가 아니면** 내린다. 가방 완전 삭제 트리거 `onBagDeleted`도 내림 |
 | NAT-PUSH-08 | 받는 사람 설정: `users.pushPrefs { activity, assign, member }`(없으면 켜짐) · `pushMutedBagIds`(가방 모두 끄기) · `bagPushOff[bagId]`(가방별로 끈 종류). 화면은 settings.md · bag.md |
 | NAT-PUSH-09 | 권한 묻기: 공유 가방을 처음 열 때 iOS 허용 창 한 번(`pib_push_asked_v1`). 거절하면 "알림을 허용하지 않아 함께 쓰는 사람 소식을 받지 않아요. 설정 > 알림에서 바꿀 수 있어요", 이미 꺼져 있으면 한 번만 "알림이 꺼져 있어 … 아이폰 설정 > 팩인백 > 알림에서 켤 수 있어요" |
 | NAT-PUSH-10 | 앱을 보는 중에는 배너를 띄우지 않는다(`presentationOptions: []`) |

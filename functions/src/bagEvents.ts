@@ -1,5 +1,6 @@
 // 공유 가방 알림(2026-10-11, B-3). bags/{bagId} 변경을 보고 다른 멤버에게 알린다.
-// - 활동(추가 · 체크 · 다 쌌어요): pushQueue/{bagId}에 10분 동안 모았다가 한 번에(flush). 다 싼 순간은 다음 flush 때 바로
+// - 활동(추가 · 체크 · 다 쌌어요): pushQueue/{bagId}에 모았다가 한 번에. 묶음의 첫 활동 10분 뒤 Cloud Tasks 작업이 보낸다(tasks.ts).
+//   다 싼 순간은 바로. 모을 때는 읽지 않고 merge로만 쓴다(2026-10-17 - 예전에는 저장마다 트랜잭션 읽기 1)
 // - 담당 지정: 바로. 맡은 사람에게만
 // - 새 멤버: 바로. 그룹장에게만
 // - 내가 바꾼 것은 나에게 보내지 않는다. 누가 바꿨는지는 가방 문서의 editedBy(앱 · 위젯 저장이 자기 uid를 씀)
@@ -7,8 +8,9 @@
 //   · bagPushOff[bagId](가방별로 끈 종류, 10/11)
 // - 보이는 알림은 알림 권한이 있는 기기에만(devices.ts)
 // 체크 해제 · 삭제 · 이름 바꾸기 · 메모 수정은 알리지 않는다.
-import { getFirestore, type DocumentData } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, type DocumentData } from "firebase-admin/firestore";
 import { devicesOf, sendToDevices } from "./devices";
+import { enqueueBagTask } from "./tasks";
 
 export const PUSH_QUEUE = "pushQueue";
 export const BATCH_MS = 10 * 60 * 1000;
@@ -183,32 +185,23 @@ interface QueueActor {
   names: string[];
 }
 
+// 읽지 않고 쌓는다(increment · arrayUnion). 보낼 작업은 10분 칸마다 하나(같은 칸의 두 번째부터는 이미 있음 → 무시)
 export async function enqueueActivity(bagId: string, actor: string, diff: BagDiff) {
   if (diff.checked === 0 && diff.added.length === 0 && !diff.packed) return;
-  const db = getFirestore();
-  const ref = db.collection(PUSH_QUEUE).doc(bagId);
   const now = Date.now();
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = (snap.exists ? snap.data() : {}) as { dueAt?: number; actors?: Record<string, QueueActor> };
-    const actors = { ...(data.actors ?? {}) };
-    const mine = actors[actor] ?? { checked: 0, added: 0, names: [] };
-    actors[actor] = {
-      checked: mine.checked + diff.checked,
-      added: mine.added + diff.added.length,
-      names: [...mine.names, ...diff.added].slice(0, 5),
-    };
-    let dueAt = typeof data.dueAt === "number" ? data.dueAt : now + BATCH_MS;
-    // 다 싼 순간은 기다리지 않고 다음 flush 때 보낸다
-    if (diff.packed) dueAt = Math.min(dueAt, now);
-    tx.set(ref, {
-      bagId,
-      dueAt,
-      actors,
-      ...(diff.packed ? { packedBy: actor } : {}),
-      updatedAt: now,
-    }, { merge: true });
-  });
+  const mine: Record<string, unknown> = {};
+  if (diff.checked > 0) mine.checked = FieldValue.increment(diff.checked);
+  if (diff.added.length > 0) {
+    mine.added = FieldValue.increment(diff.added.length);
+    mine.names = FieldValue.arrayUnion(...diff.added.slice(0, 5));
+  }
+  await getFirestore()
+    .collection(PUSH_QUEUE)
+    .doc(bagId)
+    .set({ bagId, actors: { [actor]: mine }, ...(diff.packed ? { packedBy: actor } : {}), updatedAt: now }, { merge: true });
+  // 다 싼 순간은 기다리지 않는다. 그 밖에는 이 10분 칸의 첫 활동 10분 뒤
+  if (diff.packed) await enqueueBagTask({ kind: "activity", bagId }, `p${now}`, 0);
+  else await enqueueBagTask({ kind: "activity", bagId }, `w${Math.floor(now / BATCH_MS)}`, BATCH_MS / 1000);
 }
 
 // 활동 묶음 하나를 받는 사람별 문구로 만든다(그 사람 자신의 활동은 빼고). 보낼 게 없으면 null
@@ -239,37 +232,52 @@ export function activityBody(
     : `${who} ${added}개 추가했어요`;
 }
 
-// 때가 된 묶음을 보낸다(스케줄러가 2분마다). 문서를 먼저 지우고(트랜잭션) 보내서 두 번 보내지 않는다
-export async function flushDue(p8: string): Promise<number> {
+// 가방 하나의 활동 묶음을 보낸다(Cloud Tasks 작업 · 1시간 안전망). 문서를 먼저 지우고(트랜잭션) 보내서 두 번 보내지 않는다.
+// 다 싼 순간 작업이 먼저 보냈으면 나중 10분 작업은 빈 문서를 보고 끝난다(읽기 1). 보냈으면 true
+export async function flushActivity(p8: string, bagId: string): Promise<boolean> {
   const db = getFirestore();
-  const due = await db.collection(PUSH_QUEUE).where("dueAt", "<=", Date.now()).limit(50).get();
-  let sentBags = 0;
-  for (const doc of due.docs) {
-    const claimed = await db.runTransaction(async (tx) => {
-      const snap = await tx.get(doc.ref);
-      if (!snap.exists) return null;
-      tx.delete(doc.ref);
-      return snap.data() as DocumentData;
-    });
-    if (!claimed) continue;
-    const bagId = String(claimed.bagId ?? doc.id);
-    const bagSnap = await db.collection("bags").doc(bagId).get();
-    if (!bagSnap.exists) continue;
-    const bag = bagSnap.data() as BagLite;
-    const members = bag.memberIds ?? [];
-    if (members.length < 2) continue;
-    const actors = (claimed.actors ?? {}) as Record<string, QueueActor>;
-    const packedBy = typeof claimed.packedBy === "string" ? claimed.packedBy : undefined;
-    const recipients = await wantsPush(members, bagId, "activity");
-    const devices = await devicesOf(recipients.map((r) => r.uid));
-    const title = bag.name || "가방";
-    for (const { uid, locked } of recipients) {
-      const body = activityBody(bag, uid, actors, packedBy, locked);
-      const mine = devices.filter((d) => d.uid === uid);
-      if (!body || mine.length === 0) continue;
-      await sendToDevices(p8, mine, { ...alert(bagId, locked ? LOCKED_TITLE : title, body, "activity"), collapseId: `activity-${bagId}` });
-    }
-    sentBags += 1;
+  const ref = db.collection(PUSH_QUEUE).doc(bagId);
+  const claimed = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return null;
+    tx.delete(ref);
+    return snap.data() as DocumentData;
+  });
+  if (!claimed) return false;
+  const bagSnap = await db.collection("bags").doc(bagId).get();
+  if (!bagSnap.exists) return false;
+  const bag = bagSnap.data() as BagLite;
+  const members = bag.memberIds ?? [];
+  if (members.length < 2 || bag.trashedByOwnerAt) return false;
+  // increment · arrayUnion으로 쌓여 빈 칸이 있을 수 있다. 예전 모양(숫자 · 배열)도 그대로 읽힌다
+  const rawActors = (claimed.actors ?? {}) as Record<string, Partial<QueueActor>>;
+  const actors: Record<string, QueueActor> = Object.fromEntries(
+    Object.entries(rawActors).map(([uid, a]) => [
+      uid,
+      { checked: Number(a?.checked ?? 0), added: Number(a?.added ?? 0), names: (Array.isArray(a?.names) ? a!.names : []).slice(0, 5) },
+    ]),
+  );
+  const packedBy = typeof claimed.packedBy === "string" ? claimed.packedBy : undefined;
+  const recipients = await wantsPush(members, bagId, "activity");
+  if (recipients.length === 0) return true;
+  const devices = await devicesOf(recipients.map((r) => r.uid));
+  const title = bag.name || "가방";
+  for (const { uid, locked } of recipients) {
+    const body = activityBody(bag, uid, actors, packedBy, locked);
+    const mine = devices.filter((d) => d.uid === uid);
+    if (!body || mine.length === 0) continue;
+    await sendToDevices(p8, mine, { ...alert(bagId, locked ? LOCKED_TITLE : title, body, "activity"), collapseId: `activity-${bagId}` });
   }
-  return sentBags;
+  return true;
+}
+
+// 안전망(1시간마다): 예약이 실패해 20분 넘게 남은 묶음만 보낸다. 빈 조회도 읽기 1건이라 하루 24건
+export async function sweepActivity(p8: string): Promise<number> {
+  const db = getFirestore();
+  const stale = await db.collection(PUSH_QUEUE).where("updatedAt", "<=", Date.now() - 20 * 60 * 1000).limit(50).get();
+  let sent = 0;
+  for (const doc of stale.docs) {
+    if (await flushActivity(p8, doc.id).catch(() => false)) sent += 1;
+  }
+  return sent;
 }

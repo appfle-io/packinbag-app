@@ -14,6 +14,9 @@
 | **폴더 · 팩 옮기기 같은 이름** | 🐛 수정 | 옮길 곳에 같은 이름이 있으면 그 줄이 흐려지고 "같은 이름의 폴더(팩)가 있어요"(PACK-MOVE-06, 확인 필요 10) |
 | **탈퇴 중간 실패 문구** | 🔧 변경 | 데이터를 지우다 멈추면 "일부만 지워졌어요. 다시 탈퇴하면 남은 것을 마저 지워요"(AUTH-DEL-05, auth.md 확인 필요 5) |
 | **명세 정리** | 📝 | 새 팩 자리 원칙 "직접 만든 것은 위, AI가 보탠 것은 아래"(BAG-PACKOP-06) · 하단 입력창 중복 검사 안 함은 의도(BAG-ADD-10) |
+| **Firestore 읽기 절감 — 스케줄러 없애기** | 💰 비용 | 2분마다 도는 `flushBagActivity`(빈 조회 2번 = 아무도 안 써도 하루 읽기 1,440건) 삭제 → 활동 묶음 · 위젯 갱신 푸시를 Cloud Tasks로 예약(`functions/src/tasks.ts` · `bagPushTask`). 안전망 `sweepBagActivity` 1시간마다(하루 24건). 활동 모으기는 읽지 않고 merge, 조용한 푸시는 가방을 다시 안 읽음(NAT-PUSH-03 · 06 · 06a). **Functions 배포 + Cloud Tasks 권한 필요** |
+| **Firestore 읽기 절감 — 잠금화면** | 💰 비용 | 저장마다 하던 deviceTokens 조회를 잠금화면에 띄운 가방(`bags.liveOn`, 서버 전용)만. `live-token` 라우트가 표시, 띄운 기기가 없으면 트리거가 지움. 앱 저장은 이 필드를 쓰지 않음(`BAG_MANAGED_KEYS` · `BAG_SERVER_KEYS`)(NAT-PUSH-07) |
+| **Firestore 읽기 절감 — 위젯** | 💰 비용 | 위젯 안전망 새로고침 30분 → 1시간(`PIB.staleAfter`, iOS 새 빌드부터, NAT-WID-08) |
 
 ## 10/16 보안 점검 3차 · api.md · security-rules.md · shell · native-ios · admin (v1.6.1)
 

@@ -32,6 +32,15 @@
 - [AUTH-DEL-05] 🔍 테스트 계정으로 탈퇴 시트에서 "영구 삭제"를 누른 직후 와이파이를 끄기 → "일부만 지워졌어요. 다시 탈퇴하면 남은 것을 마저 지워요", 다시 연결해 탈퇴하면 끝까지 됨. 틀린 비밀번호는 예전 문구(아무것도 안 지워짐)
 - [SET-BAK-01] 🔍 (iOS 앱) 설정 > 데이터 > 백업 파일 내보내기 → 저장 창이 뜨거나 파일 앱에 .json이 생기는지(settings.md 확인 필요 6)
 
+### Firestore 읽기 절감(Functions) — 2026-10-17
+
+Functions 배포 후 확인. 관련 파일: `functions/src/index.ts` · `bagEvents.ts` · `live.ts` · `tasks.ts`, `app/api/native/live-token/route.ts`
+
+- [NAT-PUSH-03] 🔍 함께 쓰는 가방에서 한 사람이 체크 몇 개 → 다른 사람 아이폰에 약 10분 뒤 "OO님이 N개 챙겼어요" 한 번. 마지막 아이템까지 체크 → 1분 안에 "다 쌌어요!" (그 뒤 10분 알림은 안 옴)
+- [NAT-PUSH-06] 🔍 함께 쓰는 가방을 한쪽에서 고치고 앱을 닫아 둔 다른 아이폰 위젯이 2~3분 안에 바뀌는지
+- [NAT-PUSH-07] 🔍 가방 더보기 > 잠금화면에 띄우기 → 웹·PC에서 그 가방 체크 → 잠금화면이 바뀌는지. Firebase 콘솔 > Firestore > 그 가방 문서에 `liveOn: true`, 잠금화면에서 내리고 가방을 한 번 더 고치면 `liveOn`이 사라지는지. 이미 띄워 둔 잠금화면은 배포 후 한 번 다시 띄워야 함
+- [비용] 🔍 배포 다음 날부터 Firebase 콘솔 > Firestore > 사용량에서 읽기 바닥값이 하루 1.4천 안팎 줄었는지. Functions 로그에 "작업 예약 실패"가 없는지
+
 ## API- · RULE- 보안 점검 3차 — 2026-10-16 (v1.6.1)
 
 코드는 `docs/spec/api.md` · `security-rules.md` ID. **규칙을 먼저 배포한 뒤** 확인한다. 관련 파일: `firestore.rules` · `storage.rules`, `lib/dailyCounter.ts` · `lib/shortLinkGuard.ts` · `lib/shortLinkService.ts`, `app/api/join-bag` · `share-pack` · `geocode` · `delete-account-data` · `native/*`

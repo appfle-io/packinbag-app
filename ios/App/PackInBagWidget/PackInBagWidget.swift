@@ -2,7 +2,7 @@
 // - 팩 하나의 체크 아이템을 보여 준다. 누르면 바로 체크 · 해제(ToggleItemIntent, 서버는 뒤에서), 챙긴 것은 취소선 + 맨 아래
 // - 1.6(10/13): 위젯 편집 "완료된 항목 보이기"(끄면 챙긴 것을 뺌), 아래 줄 ↶ 되돌리기(UndoWidgetIntent, 최근 50개)
 // - 줄 수는 위젯 높이와 글자 크기로 정한다(크기마다 고정 개수가 아님). 중간 · 크게는 열 수를 고른다(1.6, 기본 2열)
-// - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 30분마다(30분 넘게 지난 요약만 서버에서)
+// - 새로고침: ↻ 버튼 · 단축어 · 앱이 열려 있을 때 · 다른 멤버 변경 푸시 + 안전망으로 1시간마다(PIB.staleAfter보다 오래된 요약만 서버에서, 10/17 30분 → 1시간)
 //   아래 줄에 마지막으로 받은 시각을 "14시 05분에 새로고침"처럼 보여 준다(10/11 - "N분 N초 전"에서 바꿈). 자정에는 D-Day · 날짜를 다시 그린다
 // - 위젯을 누르면(버튼 밖) 그 가방이 열린다(packinbag://bag/{id})
 import WidgetKit
@@ -69,7 +69,7 @@ struct Provider: AppIntentTimelineProvider {
             // 안전망(10/11): 다른 기기에서 고친 내 가방 · 놓친 조용한 푸시를 여기서 따라잡는다
             try? await PIBAPI.refreshSummary()
         }
-        // 30분마다 다시 그린다(iOS 위젯 갱신 한도 안). 자정이 더 가까우면 자정에(D-Day 글자)
+        // PIB.staleAfter(1시간)마다 다시 그린다(iOS 위젯 갱신 한도 안). 자정이 더 가까우면 자정에(D-Day 글자)
         let midnight = Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 0, minute: 0, second: 5), matchingPolicy: .nextTime)
             ?? Date().addingTimeInterval(24 * 3600)
         let next = min(midnight, Date().addingTimeInterval(PIB.staleAfter))

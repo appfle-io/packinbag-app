@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "이 가방을 볼 수 없어요" }, { status: 403 });
     }
     await attachLiveToken(req, live);
+    // 트리거(functions onBagUpdated)가 이 표시가 있는 가방만 잠금화면 갱신을 찾는다(2026-10-17 비용 절감).
+    // 이미 있으면 쓰지 않는다(가방 문서를 쓰면 멤버 모두에게 읽기가 나감). 띄운 기기가 모두 내려가면 트리거가 지운다
+    if (bag.data()?.liveOn !== true) await bag.ref.update({ liveOn: true });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[팩인백] 실시간 현황 토큰 저장 실패:", err);
