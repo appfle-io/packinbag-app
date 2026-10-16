@@ -89,3 +89,32 @@ export async function answerInquiryRemote(inquiry: Inquiry, answer: string) {
 
   await batch.commit();
 }
+
+// 보낸 답변을 고친다(2026-10-16, admin.md 확인 필요 4). 처음 답한 시각(answeredAt)은 그대로, 고친 시각을 answerEditedAt에.
+// 사용자가 바뀐 걸 알 수 있게 알림함에도 한 줄 남긴다(등록과 같은 배치). 내용이 같으면 아무것도 안 한다
+export async function editInquiryAnswerRemote(inquiry: Inquiry, answer: string): Promise<boolean> {
+  const trimmed = answer.trim();
+  if (!trimmed || trimmed === (inquiry.answer ?? "").trim()) return false;
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+
+  batch.update(doc(inquiriesCol(), inquiry.id), {
+    status: "answered",
+    answer: trimmed,
+    answerEditedAt: now,
+  });
+
+  const notificationId = uid();
+  batch.set(doc(db, "users", inquiry.uid, "notifications", notificationId), {
+    id: notificationId,
+    type: "inquiry_answered",
+    title: "문의 답변이 수정됐어요",
+    body: inquiry.title,
+    relatedId: inquiry.id,
+    createdAt: now,
+    read: false,
+  });
+
+  await batch.commit();
+  return true;
+}

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
 import { reserveShortLinkQuota, refundShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
+import { isOwnShortLink, ownShortLinkHosts } from "@/lib/shortLinkGuard";
 
 // 아이템/메모 텍스트에 붙여넣은 긴 URL을 짧은 링크(/s/{code})로 바꿔주는 라우트.
 // shortLinks 컬렉션은 firestore.rules에서 client read/write를 전부 막아뒀다(코드 추측으로
@@ -50,8 +51,8 @@ export async function POST(req: NextRequest) {
   // 쪽에서 이미 lib/shortLinkService.ts의 validateLinkLabel로 막지만, 여기서도 한번 더 방어).
   const rawLabel = (body as { label?: string })?.label;
   const label = typeof rawLabel === "string" && rawLabel.trim() ? rawLabel.trim().slice(0, 60) : null;
-  // 우리 서비스의 숏 URL을 또 축약하려는 경우 무한 리다이렉트로 이어질 수 있어 막는다.
-  if (/\/s\/[a-zA-Z0-9]+\/?$/.test(longUrl)) {
+  // 우리 서비스의 숏 · 커스텀 URL을 또 축약하려는 경우 무한 리다이렉트로 이어질 수 있어 막는다(다른 사이트는 그대로, 2026-10-16).
+  if (isOwnShortLink(longUrl, ownShortLinkHosts(req.nextUrl.origin))) {
     return NextResponse.json({ error: "이미 축약된 링크예요" }, { status: 400 });
   }
 

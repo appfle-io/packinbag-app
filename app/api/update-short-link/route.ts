@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { isOwnShortLink, ownShortLinkHosts } from "@/lib/shortLinkGuard";
 
 // 본인이 만든 짧은/커스텀 URL의 표시 이름(label)·원본 주소(longUrl)를 수정하는 라우트.
 // shortLinks/customShortLinks 둘 다 firestore.rules에서 client read/write를 전부 막아뒀으므로
@@ -60,7 +61,7 @@ export async function PATCH(req: NextRequest) {
     if (rawLongUrl.length > MAX_URL_LENGTH || !isHttpUrl(rawLongUrl)) {
       return NextResponse.json({ error: "올바른 URL이 아니에요" }, { status: 400 });
     }
-    if (/\/(s|c)\/[^/\s]+\/?$/.test(rawLongUrl)) {
+    if (isOwnShortLink(rawLongUrl, ownShortLinkHosts(req.nextUrl.origin))) {
       return NextResponse.json({ error: "이미 축약된 링크예요" }, { status: 400 });
     }
     updates.longUrl = rawLongUrl;

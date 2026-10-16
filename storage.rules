@@ -134,8 +134,9 @@ service firebase.storage {
           (!isImage(resource.contentType) && isPremium())
         );
 
+      // 올리기는 본인만(2026-10-16, 예전에는 마스터도 남의 보관함 첨부 경로에 올릴 수 있었다. 쓰는 곳 없음)
       allow create, update: if request.auth != null &&
-        (request.auth.uid == userId || isMaster()) &&
+        request.auth.uid == userId &&
         (
           (isImage(request.resource.contentType) && request.resource.size < 5 * 1024 * 1024) ||
           (!isImage(request.resource.contentType) && isPremium() && request.resource.size < 10 * 1024 * 1024)

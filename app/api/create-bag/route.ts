@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
 import { FREE_MAX_ACTIVE_BAGS } from "@/lib/premiumLimits";
 import { Bag, BagMemberProfile } from "@/lib/types";
-import { stripUndefined } from "@/lib/firestoreSanitize";
+import { stripUndefined, isSafeDocId } from "@/lib/firestoreSanitize";
 import { serializeBag } from "@/lib/editorDocSerialize";
 import { NOTES_VERSION, splitPacksPlain } from "@/lib/bagNotesCore";
 import crypto from "crypto";
@@ -46,10 +46,18 @@ export async function POST(req: NextRequest) {
   }
 
   const draft = (body as { bag?: Bag })?.bag;
+  // 서버만 쓰는 필드는 클라이언트 값을 버린다(2026-10-16, api.md 확인 필요 9). 나머지(ownerId · memberIds 등)는 아래에서 덮어쓴다
+  if (draft && typeof draft === "object") {
+    const loose = draft as unknown as Record<string, unknown>;
+    delete loose.locked;
+    delete loose.trashedByOwnerAt;
+    delete loose.editedBy;
+  }
   const ownerProfile = (body as { ownerProfile?: { nickname?: string; avatarId?: string } })
     ?.ownerProfile;
   if (
     !draft?.id ||
+    !isSafeDocId(draft.id) ||
     typeof draft.name !== "string" ||
     !Array.isArray(draft.packs) ||
     !ownerProfile?.nickname ||

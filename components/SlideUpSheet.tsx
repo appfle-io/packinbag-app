@@ -9,8 +9,9 @@ import { useEscapeToClose } from "@/lib/useEscapeToClose";
 // 배경 딤 + 시트 자체가 트랜지션 없이 그냥 나타났다/사라졌다 하던 것을, 아래에서
 // 부드럽게 올라오고/내려가도록 만든다. 사용법은 SlideScreen과 동일 - active로만 제어하고,
 // active=false가 되어도 내용(children)이 사라지지 않도록 부모가 마지막 값을 캐싱해서 넘겨야 한다.
-const TRANSITION_MS = 220;
-const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+// 시트(components/v2/ui/Sheet.tsx)와 같은 움직임 · 같은 뒤 어둠(2026-10-16, shell.md 확인 필요 6): 280ms + ease-snappy, 배경은 v2 토큰 bg-scrim
+const TRANSITION_MS = 280;
+const EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
 export default function SlideUpSheet({
   active,
@@ -66,15 +67,17 @@ export default function SlideUpSheet({
           position: "fixed",
           inset: 0,
           zIndex: resolvedZIndex,
-          background: "rgba(0,0,0,0.45)",
-          opacity: entered ? 1 : 0,
-          transition: `opacity ${TRANSITION_MS}ms ${EASING}`,
         }}
         onClick={onBackdropClick}
       >
         <div
+          aria-hidden
+          className="absolute inset-0 bg-scrim"
+          style={{ opacity: entered ? 1 : 0, transition: `opacity ${TRANSITION_MS}ms ${EASING}` }}
+        />
+        <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
+          className="relative w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
           style={{
             maxHeight: "85vh",
             transform: entered ? "translateY(0%)" : "translateY(100%)",

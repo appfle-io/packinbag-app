@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
             <p className="m-0 text-caption text-sub">
               실제로 쓰는 사람 · 처음 쓰는 흐름 · 결제로 이어지는 곳을 봐요
               {data?.generatedAt && ` · ${new Date(data.generatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준`}
-              {data?.cached && " (5분 캐시)"}
+              {data?.cached && " (캐시)"}
             </p>
           </div>
           <button

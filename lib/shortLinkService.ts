@@ -1,6 +1,7 @@
 import type { User } from "firebase/auth";
 import { isPremiumUser, isOfflineEnvironment } from "@/lib/premiumLimits";
 import type { UserProfile } from "@/lib/types";
+import { ownShortLinkHosts, parseOwnShortLink } from "@/lib/shortLinkGuard";
 
 // app/api/shorten-url(Admin SDK)를 호출해서 숏 URL을 발급받는다. label(표시 이름)은 선택
 // 입력 - 비워두면 화면에는 이 링크 그대로(shortUrl 텍스트)가 보인다(lib/linkLabelCache.ts가
@@ -98,10 +99,11 @@ export function validateLinkLabel(label: string): string | null {
 
 // url이 우리 서비스의 짧은/커스텀 URL(/s/{code} 또는 /c/{code})이면 종류와 코드를 뽑아준다.
 // 표시 이름 조회(fetchLinkMeta)·수정(updateLinkMeta) 양쪽에서 재사용한다.
+// 도메인도 본다(2026-10-16, api.md 확인 필요 13): 지금 접속한 도메인 · 짧은 URL 도메인(NEXT_PUBLIC_SHORT_URL_BASE_URL,
+// 없으면 short.seeuson.com) · packinbag.seeuson.com만. 다른 사이트의 …/s/abc는 우리 링크가 아니다.
 export function parseShortLinkUrl(url: string): { kind: "s" | "c"; code: string } | null {
-  const match = url.match(/\/(s|c)\/([^/\s]+)\/?$/);
-  if (!match) return null;
-  return { kind: match[1] as "s" | "c", code: match[2] };
+  const currentOrigin = typeof window !== "undefined" ? window.location.origin : null;
+  return parseOwnShortLink(url, ownShortLinkHosts(currentOrigin));
 }
 
 // 이미 우리 서비스 짧은/커스텀 URL(/s/{code} 또는 /c/{code})인지 판단한다. 이미 축약된 링크는 또

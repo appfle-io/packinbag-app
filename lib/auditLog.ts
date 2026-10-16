@@ -12,6 +12,8 @@ import { adminDb } from "@/lib/firebaseAdmin";
 type AuditAction =
   | "bag_restore"
   | "bag_trash"
+  // 가방 속 팩 → 보관함 휴지통(app/api/trash-bag-pack). 2026-10-16 전에는 bag_trash로 기록했다(예전 로그는 그대로)
+  | "bag_pack_trash"
   | "library_pack_restore"
   | "library_pack_trash"
   | "unlock_code_redeem"

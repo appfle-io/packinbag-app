@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconX, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { adminApiFetch, AdminApiError } from "@/lib/adminApiClient";
-import { useOverlayLayer, POPOVER_OFFSET } from "@/lib/overlayLayer";
-import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { Button, Sheet, cx } from "@/components/v2/ui";
+
+// 대시보드 "가입자" · "최근 7일 새로 가입"을 누르면 뜨는 가입자 목록(admin.md ADM-ULIST).
+// 2026-10-16: 구 UI 색 · 글자 크기 → v2 Sheet · 토큰(admin.md 확인 필요 5). 1024px 이상은 가운데 창, 그 아래는 바텀시트.
+// 이메일 · 가입 시각은 서버가 Auth 계정 값으로 준다(app/api/admin/users-list)
 
 interface UserListItem {
   uid: string;
@@ -47,8 +50,6 @@ export default function UserListModal({
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const ambientLayer = useOverlayLayer();
-  useEscapeToClose(onClose);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +74,7 @@ export default function UserListModal({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 페이지가 바뀔 때만 다시 받는다
   }, [page]);
 
   const goNext = () => {
@@ -94,77 +95,55 @@ export default function UserListModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ zIndex: ambientLayer + POPOVER_OFFSET, background: "rgba(0,0,0,0.4)" }}
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-xl flex flex-col max-h-[80vh]"
-        style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-      >
-        <div
-          className="flex items-center justify-between px-5 py-4 border-b shrink-0"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <p className="text-[15px] font-semibold">{title}</p>
-          <button onClick={onClose} className="-m-2 p-2 text-text-muted" aria-label="닫기">
-            <IconX size={18} stroke={1.75} />
-          </button>
+    <Sheet
+      open
+      onClose={onClose}
+      title={title}
+      size="tall"
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="text" size="sm" className="px-2" disabled={page === 0 || loading} leading={<IconChevronLeft size={16} stroke={1.9} />} onClick={goPrev}>
+            이전
+          </Button>
+          <span className="text-caption text-sub tabular-nums">{page + 1} 페이지</span>
+          <Button variant="text" size="sm" className="px-2" disabled={!nextCursor || loading} onClick={goNext}>
+            다음
+            <IconChevronRight size={16} stroke={1.9} aria-hidden="true" />
+          </Button>
         </div>
-
-        <div className="flex-1 overflow-y-auto px-3 py-2">
-          {loading && <p className="text-[13px] text-text-muted text-center py-8">불러오는 중...</p>}
-          {error && (
-            <p className="text-[13px] text-center py-8" style={{ color: "var(--danger)" }}>
-              {error}
-            </p>
-          )}
-          {!loading && !error && users.length === 0 && (
-            <p className="text-[13px] text-text-muted text-center py-8">해당하는 유저가 없어요</p>
-          )}
-          {!loading &&
-            !error &&
-            users.map((u) => (
+      }
+    >
+      {loading ? (
+        <p className="m-0 py-16 text-center text-body text-sub">불러오고 있어요</p>
+      ) : error ? (
+        <p role="alert" className="m-0 py-16 text-center text-body text-alert">
+          {error}
+        </p>
+      ) : users.length === 0 ? (
+        <p className="m-0 py-16 text-center text-body text-sub">해당하는 유저가 없어요</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col p-0">
+          {users.map((u, i) => (
+            <li key={u.uid}>
               <button
-                key={u.uid}
+                type="button"
                 onClick={() => goToUser(u.email)}
                 disabled={!u.email}
-                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-surface-2 disabled:opacity-60"
+                className={cx(
+                  "flex min-h-15 w-full items-center justify-between gap-3 rounded-field bg-transparent px-2 py-2 text-left hover:bg-fill disabled:opacity-40 disabled:hover:bg-transparent",
+                  i < users.length - 1 && "border-b border-line",
+                )}
               >
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium truncate">{u.nickname ?? "(닉네임 없음)"}</p>
-                  <p className="text-[11px] text-text-muted truncate">{u.email ?? "-"}</p>
-                </div>
-                <p className="text-[11px] text-text-muted shrink-0">{formatDate(u.createdAt)}</p>
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="truncate text-body font-semibold text-ink">{u.nickname ?? "(닉네임 없음)"}</span>
+                  <span className="truncate text-caption text-sub">{u.email ?? "-"}</span>
+                </span>
+                <span className="shrink-0 text-micro text-faint tabular-nums">{formatDate(u.createdAt)}</span>
               </button>
-            ))}
-        </div>
-
-        <div
-          className="flex items-center justify-between px-5 py-3 border-t shrink-0"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <button
-            onClick={goPrev}
-            disabled={page === 0 || loading}
-            className="flex items-center gap-1 text-[12px] text-text-secondary disabled:opacity-40"
-          >
-            <IconChevronLeft size={15} stroke={1.75} />
-            이전
-          </button>
-          <p className="text-[11px] text-text-muted">{page + 1} 페이지</p>
-          <button
-            onClick={goNext}
-            disabled={!nextCursor || loading}
-            className="flex items-center gap-1 text-[12px] text-text-secondary disabled:opacity-40"
-          >
-            다음
-            <IconChevronRight size={15} stroke={1.75} />
-          </button>
-        </div>
-      </div>
-    </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Sheet>
   );
 }

@@ -4,6 +4,12 @@ import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
 import { FREE_MAX_JOINED_BAGS, FREE_MAX_BAG_MEMBERS, MAX_BAG_MEMBERS } from "@/lib/premiumLimits";
 import { BagMemberProfile } from "@/lib/types";
+import { JOIN_FAIL_COLLECTION, bumpDailyCount, readDailyCount } from "@/lib/dailyCounter";
+
+// 틀린 초대 코드는 계정마다 KST 하루 이 횟수까지(2026-10-16, api.md 확인 필요 1). 코드를 하나씩 넣어 보며 남의 가방을 찾는 것을 막는다.
+// 맞는 코드(참여 성공 · 인원 초과 등)는 세지 않는다. 규칙도 inviteCodes get을 막아 클라이언트가 직접 맞혀 볼 수 없다
+const MAX_FAILED_JOINS_PER_DAY = 20;
+const TOO_MANY_FAILS = "코드를 너무 많이 틀렸어요. 내일 다시 시도해주세요";
 
 export const runtime = "nodejs";
 
@@ -69,23 +75,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "데이터베이스 연결에 실패했어요" }, { status: 500 });
   }
 
+  // 틀린 코드로 끝나는 경우: 횟수를 올리고 404
+  const wrongCode = async (error: string) => {
+    await bumpDailyCount(JOIN_FAIL_COLLECTION, uid);
+    return NextResponse.json({ error }, { status: 404 });
+  };
+
   try {
+    if ((await readDailyCount(JOIN_FAIL_COLLECTION, uid)) >= MAX_FAILED_JOINS_PER_DAY) {
+      return NextResponse.json({ error: TOO_MANY_FAILS, code: "JOIN_TOO_MANY_FAILS" }, { status: 429 });
+    }
+  } catch (err) {
+    console.error("[팩인백] 초대 코드 횟수 조회 실패:", err);
+    return NextResponse.json({ error: "가방 참여 처리에 실패했어요. 잠시 후 다시 시도해주세요" }, { status: 500 });
+  }
+
+  try {
+    // 문서 id로 쓸 수 없는 값(/ 등)은 Firestore가 예외를 던져 500이 났다 - 틀린 코드로 본다
+    if (!/^[A-Z0-9]{4,12}$/.test(cleanCode)) {
+      return wrongCode("해당 초대코드의 가방을 찾을 수 없어요");
+    }
+
     // 1. 초대코드 문서 조회
     const codeDoc = await db.collection("inviteCodes").doc(cleanCode).get();
     if (!codeDoc.exists) {
-      return NextResponse.json({ error: "해당 초대코드의 가방을 찾을 수 없어요" }, { status: 404 });
+      return wrongCode("해당 초대코드의 가방을 찾을 수 없어요");
     }
 
     const bagId = codeDoc.data()?.bagId as string | undefined;
     if (!bagId) {
-      return NextResponse.json({ error: "초대코드 정보가 올바르지 않아요" }, { status: 404 });
+      return wrongCode("초대코드 정보가 올바르지 않아요");
     }
 
     // 2. 가방 문서 조회
     const bagRef = db.collection("bags").doc(bagId);
     const bagSnap = await bagRef.get();
     if (!bagSnap.exists) {
-      return NextResponse.json({ error: "가방이 삭제되었거나 존재하지 않아요" }, { status: 404 });
+      return wrongCode("가방이 삭제되었거나 존재하지 않아요");
     }
 
     const bagData = bagSnap.data();
@@ -93,10 +119,10 @@ export async function POST(req: NextRequest) {
     // - 재발급으로 바뀐 옛 코드, 가방 삭제 뒤 남은 코드 문서로는 못 들어온다
     // - inviteCodes 문서를 위조해 남의 bagId를 가리키게 해도 못 들어온다(규칙도 create false)
     if ((bagData?.inviteCode as string | undefined)?.toUpperCase() !== cleanCode) {
-      return NextResponse.json({ error: "해당 초대코드의 가방을 찾을 수 없어요" }, { status: 404 });
+      return wrongCode("해당 초대코드의 가방을 찾을 수 없어요");
     }
     if (bagData?.trashedByOwnerAt) {
-      return NextResponse.json({ error: "가방이 삭제되었거나 존재하지 않아요" }, { status: 404 });
+      return wrongCode("가방이 삭제되었거나 존재하지 않아요");
     }
 
     const memberIds = (bagData?.memberIds as string[] | undefined) ?? [];

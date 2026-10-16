@@ -137,7 +137,11 @@ export function InquiryScreenV2({ uid, nickname, onBack }: { uid: string; nickna
         </section>
         {selected.status === "answered" ? (
           <section className="flex flex-col gap-2 rounded-card bg-brand-soft px-4 py-4">
-            <span className="text-micro font-semibold text-brand">답변</span>
+            <span className="text-micro font-semibold text-brand">
+              답변
+              {/* 운영자가 답변을 고쳤으면(2026-10-16, admin.md ADM-INQ-07) */}
+              {selected.answerEditedAt ? ` · 수정됨 ${formatDate(selected.answerEditedAt)}` : ""}
+            </span>
             <p className="m-0 whitespace-pre-wrap text-body text-ink">{selected.answer}</p>
           </section>
         ) : (

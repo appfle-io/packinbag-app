@@ -30,19 +30,27 @@ export async function GET(req: NextRequest) {
   const db = adminDb();
 
   let uid: string;
+  let authEmail: string | null = null;
+  let authCreatedAt: string | null = null;
   try {
     const authUser = await adminAuth().getUserByEmail(email);
     uid = authUser.uid;
+    // 표시하는 이메일 · 가입 시각은 Auth 값(본인이 바꿀 수 있는 users 문서 값이 아니라, 2026-10-16 admin.md 확인 필요 1)
+    authEmail = authUser.email ?? null;
+    const created = authUser.metadata.creationTime ? new Date(authUser.metadata.creationTime) : null;
+    authCreatedAt = created && !Number.isNaN(created.getTime()) ? created.toISOString() : null;
   } catch {
     return NextResponse.json({ error: "해당 이메일로 가입된 계정을 찾을 수 없어요" }, { status: 404 });
   }
 
   try {
-    const [userSnap, ownedBagsSnap, memberBagsSnap, libraryPacksSnap] = await Promise.all([
+    const [userSnap, ownedBagsSnap, memberBagsSnap, libraryPacksSnap, aiUsageSnap] = await Promise.all([
       db.collection("users").doc(uid).get(),
       db.collection("bags").where("ownerId", "==", uid).get(),
       db.collection("bags").where("memberIds", "array-contains", uid).get(),
       db.collection("users").doc(uid).collection("libraryPacks").get(),
+      // 마지막 AI 사용(2026-10-16, admin.md 확인 필요 2): aiUsage/{uid}_{KST날짜}(lib/aiQuotaServer.ts). 가장 최근 날짜는 코드에서 고른다(복합 색인 없이)
+      db.collection("aiUsage").where("uid", "==", uid).select("dateKey", "count", "premiumCount").get(),
     ]);
 
     const userData = userSnap.data() ?? {};
@@ -106,15 +114,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    let aiUsage: { date: string; count: number } | null = null;
+    for (const doc of aiUsageSnap.docs) {
+      const d = doc.data();
+      const date = typeof d.dateKey === "string" ? d.dateKey : "";
+      const count = (Number(d.count) || 0) + (Number(d.premiumCount) || 0);
+      if (!date || count <= 0) continue;
+      if (!aiUsage || date > aiUsage.date) aiUsage = { date, count };
+    }
+
     return NextResponse.json({
       uid,
-      email: userData.email ?? email,
+      email: authEmail ?? email,
       nickname: userData.nickname ?? null,
       createdAt:
-        userData.createdAt && typeof userData.createdAt === "object" && "toDate" in userData.createdAt
+        authCreatedAt ??
+        (userData.createdAt && typeof userData.createdAt === "object" && "toDate" in userData.createdAt
           ? (userData.createdAt as { toDate: () => Date }).toDate().toISOString()
-          : null,
-      aiUsage: userData.aiUsage ?? null,
+          : null),
+      aiUsage,
       unlockCode: unlockCodeInfo,
       ownedBags,
       memberOfBags,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
+import { getGeminiEndpoint, GEMINI_LITE_MODEL } from "@/lib/geminiConfig";
 
 export const runtime = "nodejs";
 
@@ -60,9 +61,15 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: AI_PREMIUM_CAP_MESSAGE }, { status: 429 });
     }
     if (!quotaCheck.allowed) {
+      // 다른 AI 라우트와 같은 403 · 문구(2026-10-16, 예전에는 429)
       return NextResponse.json(
-        { error: "오늘 무료 AI 사용 횟수를 다 사용했어요. 프리미엄으로 더 많이 쓸 수 있어요" },
-        { status: 429 }
+        {
+          error: `오늘 무료 AI 사용 한도(${quotaCheck.limit}회)를 다 썼어요. 내일 다시 시도하거나, 프리미엄으로 더 많이 쓸 수 있어요`,
+          limitReached: true,
+          usedCount: quotaCheck.usedCount,
+          limit: quotaCheck.limit,
+        },
+        { status: 403 }
       );
     }
   } catch (err) {
@@ -127,9 +134,7 @@ async function handlePOST(req: NextRequest) {
   let geminiRes: Response | null = null;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent`,
-        {
+      const res = await fetch(getGeminiEndpoint(GEMINI_LITE_MODEL), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

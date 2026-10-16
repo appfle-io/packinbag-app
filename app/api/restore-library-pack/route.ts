@@ -9,9 +9,8 @@ import { FieldValue } from "firebase-admin/firestore";
 // 휴지통에 있는 보관함 팩/폴더를 복구(trashedAt 제거)하는 라우트.
 //
 // 왜 서버가 필요한가: firestore.rules에서 trashedAt을 값 -> null로 되돌리는 것 자체를
-// 클라이언트가 못 하게 막아둬서(개수 제한 검증 목적으로 만들어졌던 제약이지만, 팩 개수
-// 제한이 폐지된 v68 이후에도 규칙 구조를 그대로 유지하고 있어 이 라우트를 계속 거친다),
-// 복구는 이 라우트(Admin SDK)에서만 가능하다.
+// 클라이언트가 못 하게 막아두었다. 무료 보관함은 10개 한도가 있어서, 되살린 뒤 오래된 것부터
+// 다시 잠그는 것(아래 syncLibraryPackLocks)까지 서버가 한다.
 //
 // 폴더를 복구할 때는 클라이언트(lib/packsService.ts의 restoreLibraryEntryRecursive)가
 // 하위 팩/폴더 id를 전부 모아서 이 라우트를 여러 번(각 id마다 한 번씩) 호출한다.

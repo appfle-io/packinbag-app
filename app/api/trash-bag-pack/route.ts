@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
   await recordAuditLog({
     uid,
-    action: "bag_trash",
+    action: "bag_pack_trash",
     targetType: "bag",
     targetId: sourceBagId,
     meta: { bagName: sourceBagName, packName: pack.name, packId: pack.id },

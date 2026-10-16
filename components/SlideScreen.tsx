@@ -25,8 +25,9 @@ import { DetailPaneContext } from "@/lib/v2/openDetail";
 // 화면이 손가락을 따라 밀려나고, 뒤 화면을 덮은 어둠도 같이 걷힌다. 충분히 밀었거나 빠르게 튕기면
 // 그 속도 그대로 마저 닫히고, 아니면 제자리로 돌아온다. 닫는 함수는 안쪽 화면이 useSwipeBack으로
 // 등록한 것을 쓰고, 없으면 onSwipeBack → onBackdropClick 순서로 쓴다.
-const TRANSITION_MS = 250;
-const EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
+// 시트(components/v2/ui/Sheet.tsx)와 같은 움직임 · 같은 뒤 어둠(2026-10-16, shell.md 확인 필요 6): 280ms + ease-snappy, 배경은 v2 토큰 bg-scrim
+const TRANSITION_MS = 280;
+const EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 const PANEL_TRANSITION = `transform ${TRANSITION_MS}ms ${EASING}`;
 const BACKDROP_TRANSITION = `opacity ${TRANSITION_MS}ms ${EASING}`;
 const DRAG_SHADOW = "-8px 0 24px rgba(0, 0, 0, 0.12)";
@@ -195,11 +196,10 @@ export default function SlideScreen({
           aria-hidden
           onClick={onBackdropClick}
           // 상세 칸 안에 띄울 때는 어둡게 깔지 않고 앱 바탕색으로 채운다(폭이 좁은 화면이 가운데 놓여도 양옆이 회색으로 비치지 않게)
-          className={paneTarget ? "bg-canvas" : undefined}
+          className={paneTarget ? "bg-canvas" : "bg-scrim"}
           style={{
             position: "absolute",
             inset: 0,
-            background: paneTarget ? undefined : "rgba(0,0,0,0.4)",
             opacity: entered ? 1 : 0,
             transition: BACKDROP_TRANSITION,
             pointerEvents: onBackdropClick ? "auto" : "none",

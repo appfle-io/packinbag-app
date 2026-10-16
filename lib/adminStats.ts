@@ -9,6 +9,7 @@
 
 import { FieldPath } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { todayKstKey } from "@/lib/aiUsageConfig";
 import { Bag, Pack } from "@/lib/types";
 
 // lib/premiumLimits.ts의 FREE_MAX_ACTIVE_BAGS / bagMemberLimit(false)와 같은 값.
@@ -99,8 +100,8 @@ export async function computeAdminDashboard(): Promise<{ stats: AdminStats; insi
 
   const seriesIds = Array.from({ length: SERIES_DAYS }, (_, i) => kstDateStringDaysAgo(SERIES_DAYS - 1 - i));
 
-  const [usersSnap, bagsSnap, libraryPacksCountSnap, inquiriesCountSnap, pendingSnap, unlockCodesSnap, snapshotsSnap] = await Promise.all([
-    db.collection("users").select("createdAt", "unlockCode", "premiumPurchase", "aiUsage", "role").get(),
+  const [usersSnap, bagsSnap, libraryPacksCountSnap, inquiriesCountSnap, pendingSnap, unlockCodesSnap, snapshotsSnap, aiTodaySnap] = await Promise.all([
+    db.collection("users").select("createdAt", "unlockCode", "premiumPurchase", "role").get(),
     db
       .collection("bags")
       .select("packs", "memberIds", "ownerId", "trashedByOwnerAt", "createdAt", "updatedAt", "lastCheckedAt", "lastPackedAt", "travelDate")
@@ -114,6 +115,9 @@ export async function computeAdminDashboard(): Promise<{ stats: AdminStats; insi
       .where(FieldPath.documentId(), ">=", seriesIds[0])
       .where(FieldPath.documentId(), "<=", seriesIds[seriesIds.length - 1])
       .get(),
+    // 오늘 AI 사용(2026-10-16, admin.md 확인 필요 2). 서버 AI 횟수는 aiUsage/{uid}_{KST날짜}(lib/aiQuotaServer.ts)에 쌓인다.
+    // 예전에는 지금 아무도 쓰지 않는 users.aiUsage를 읽어 늘 0이었다
+    db.collection("aiUsage").where("dateKey", "==", todayKstKey()).select("count", "premiumCount").get(),
   ]);
 
   // --- 이용권 코드 ---------------------------------------------------------------
@@ -174,10 +178,13 @@ export async function computeAdminDashboard(): Promise<{ stats: AdminStats; insi
         viaCode++;
       }
     }
-    const ai = d.aiUsage as { date?: string; count?: number } | undefined;
-    if (ai?.date === todayKst && (ai.count ?? 0) > 0) {
+  }
+  for (const doc of aiTodaySnap.docs) {
+    const d = doc.data();
+    const calls = (Number(d.count) || 0) + (Number(d.premiumCount) || 0);
+    if (calls > 0) {
       aiUsersToday++;
-      aiCallsToday += ai.count ?? 0;
+      aiCallsToday += calls;
     }
   }
 

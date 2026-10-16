@@ -47,6 +47,7 @@ export function WideShell({
   onNewPack,
   onCloseDetail,
   banner,
+  footer,
 }: {
   tab: TabKey;
   onTab: (t: TabKey) => void;
@@ -58,6 +59,8 @@ export function WideShell({
   onNewPack: () => void;
   onCloseDetail: () => void;
   banner?: React.ReactNode;
+  // 목록 칸 맨 아래 한 줄(홈 화면에 추가 안내 InstallPrompt, 2026-10-16 shell.md 확인 필요 3). 탭바 아래에 붙는다
+  footer?: React.ReactNode;
 }) {
   const rail = useMediaQuery(RAIL_QUERY);
   // 설정 하위 화면(SlideScreen)을 띄울 상세 칸 안 자리. 크기 없는 요소라 클릭을 막지 않고,
@@ -117,6 +120,7 @@ export function WideShell({
           <DetailPaneContext.Provider value={tab === "settings" ? paneSlot : null}>{list}</DetailPaneContext.Provider>
           {!rail && <TabBarV2 active={tab} onChange={onTab} onQuickAdd={onQuickAdd} />}
         </div>
+        {footer}
       </section>
 
       <main aria-label="상세" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">

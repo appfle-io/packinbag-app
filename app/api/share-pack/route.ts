@@ -6,8 +6,12 @@ import { stripUndefined } from "@/lib/firestoreSanitize";
 import { serializePack } from "@/lib/editorDocSerialize";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import { SHARE_PACK_COLLECTION, refundDailyQuota, reserveDailyQuota } from "@/lib/dailyCounter";
 
 export const runtime = "nodejs";
+
+// 새 공유 주소(토큰)는 계정마다 KST 하루 이 개수까지(2026-10-16, api.md 확인 필요 2). 이미 있는 공유를 고치는 것은 안 셈
+const SHARE_DAILY_LIMIT = 50;
 
 // 예전에는 https://packinbag.app으로 고정돼 있었다(서비스 도메인은 packinbag.seeuson.com)
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://packinbag.seeuson.com").replace(/\/$/, "");
@@ -54,6 +58,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "공유할 대상이 지정되지 않았어요" }, { status: 400 });
   }
 
+  // 새 토큰을 위해 하루 횟수를 예약했는지(실패하면 되돌린다)
+  let reserved = false;
   try {
     // 1. 기존 토큰 찾기. 클라이언트가 보낸 토큰은 믿지 않는다(2026-10-07):
     //    예전에는 pack.publicShareToken을 그대로 써서, /p/{token} 링크를 본 사람이면 누구나 그 토큰으로
@@ -83,6 +89,13 @@ export async function POST(req: NextRequest) {
     const userDocRef = !bagId ? db.collection("users").doc(uid).collection("libraryPacks").doc(targetId) : null;
     const existingSnap = userDocRef ? await userDocRef.get() : null;
 
+    // 원본(가방 속 팩 또는 내 보관함 문서)이 있을 때만 공유한다(2026-10-16, api.md 확인 필요 2).
+    // 예전에는 없는 bagId · 없는 팩 id로도 요청 본문 그대로 공개 페이지(/p)가 만들어졌다
+    if (!packInBag && !existingSnap?.exists) {
+      if (refreshOnly) return NextResponse.json({ skipped: true });
+      return NextResponse.json({ error: "공유할 원본을 찾지 못했어요. 저장된 뒤 다시 시도해 주세요" }, { status: 404 });
+    }
+
     const storedToken =
       packInBag?.publicShareToken ||
       (existingSnap?.exists ? (existingSnap.data()?.publicShareToken as string | undefined) : undefined);
@@ -106,6 +119,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (!token) {
+      if (!(await reserveDailyQuota(SHARE_PACK_COLLECTION, uid, SHARE_DAILY_LIMIT))) {
+        return NextResponse.json(
+          { error: `공유 링크는 하루에 ${SHARE_DAILY_LIMIT}개까지 만들 수 있어요. 내일 다시 시도해 주세요`, code: "SHARE_LIMIT_REACHED" },
+          { status: 429 }
+        );
+      }
+      reserved = true;
       token = generateShareToken();
       if (bagRef && bagData && Array.isArray(bagData.packs) && packInBag) {
         // 트랜잭션: 읽은 뒤 다른 멤버가 고친 packs를 덮어쓰지 않게 최신본에 토큰만 넣는다
@@ -151,6 +171,7 @@ export async function POST(req: NextRequest) {
       shareUrl: `${APP_URL}/p/${token}`,
     });
   } catch (err) {
+    if (reserved) await refundDailyQuota(SHARE_PACK_COLLECTION, uid);
     console.error("[팩인백] 팩/폴더 공유 생성 실패:", err);
     return NextResponse.json({ error: "공유 링크 생성에 실패했어요" }, { status: 500 });
   }

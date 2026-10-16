@@ -114,6 +114,7 @@ import { getOfflineDataSummary } from "@/lib/offlineImportService";
 import { getApiUrl } from "@/lib/apiBase";
 import { isLocalNotificationsAvailable, onBagNotificationTap, syncBagNotifications } from "@/lib/v2/bagReminders";
 import { isNativeBridgeAvailable, pushNativeSummary, syncNativeSession } from "@/lib/v2/nativeBridge";
+import { nativeLockFilter } from "@/lib/v2/privateLock";
 
 // 시작 공지 시트에 띄울 항목(안 본 공지)
 type AnnouncementEntry = { id: string; announcement: Announcement; onDismiss: () => void };
@@ -575,12 +576,9 @@ export default function AppShell() {
   }, [user, lockMismatch]);
   // 하단 "+"(빠른입력) 버튼으로 만들어지는 시스템 팩. 사용자당 최대 1개, 고정 id.
   const quickPack = libraryPacks.find((p) => p.id === QUICK_PACK_ID);
-  // v2: 빠른팩 + → 빠른팩에 적어 둔 게 있으면 그 내용을 바로 연다(아래 입력칸으로 계속 추가). 비어 있으면 빠른 입력 시트
+  // v2: 빠른팩 + · 레일 빠른팩 · ⌘P는 항상 빠른 입력 시트를 연다(2026-10-16, shell.md 확인 필요 1).
+  // 예전에는 빠른팩에 아이템이 있으면 빠른팩 화면을 바로 열었다. 빠른팩 화면은 시트 안 "빠른팩 열기 N개" · 팩 탭에서
   const openQuickAdd = () => {
-    if (quickPack && quickPack.items.length > 0) {
-      setEditingPack(quickPack);
-      return;
-    }
     setShowQuickAdd(true);
   };
 
@@ -657,12 +655,15 @@ export default function AppShell() {
   // 가방 알림(D-Day · 반복) - iOS 앱에서만. 가방 목록이나 내 알림 설정이 바뀌면 조금 모았다가 다시 예약한다.
   // 체크할 때마다 bags가 바뀌지만 예약 내용(이름·D-Day·설정)이 같으면 syncBagNotifications가 건너뛴다(lib/v2/bagReminders.ts)
   const bagReminders = profile?.bagReminders;
+  // 개인 잠금한 가방은 알림 제목을 가린다(2026-10-16, native-ios.md 확인 필요 1). 배열은 매 렌더 새로 생기므로 문자열로 비교
+  const lockedReminderBagKey = nativeLockFilter(profile?.privateLock).lockedBagIds.join(",");
   useEffect(() => {
     if (!user || !isLocalNotificationsAvailable()) return;
     const mine = bags.filter((b) => !(b.ownerId === user.uid && b.trashedByOwnerAt));
-    const t = window.setTimeout(() => void syncBagNotifications(mine, bagReminders), 1500);
+    const locked = lockedReminderBagKey ? lockedReminderBagKey.split(",") : [];
+    const t = window.setTimeout(() => void syncBagNotifications(mine, bagReminders, locked), 1500);
     return () => window.clearTimeout(t);
-  }, [user, bags, bagReminders]);
+  }, [user, bags, bagReminders, lockedReminderBagKey]);
 
   // 알림을 눌러 열면 그 가방을 연다. 앱이 꺼져 있다 열린 경우 가방 목록이 오기 전일 수 있어 기다렸다가 연다(15초 뒤 포기)
   // 1.6(10/12): Siri · Spotlight 검색 결과도 같은 길 - 가방 속 팩이면 그 팩으로 스크롤(packId), 보관함 팩이면 그 팩을 연다
@@ -922,8 +923,6 @@ export default function AppShell() {
       updatedAt: now,
     };
     if (offlineNow()) return createPendingBag(draft);
-    // 넓은 화면: 손대지 않은 새 가방이 열려 있으면 지우고 새로 만든다(빈 가방이 쌓이지 않게)
-    if (editingBag && isNewBag) handleBackFromEditor(editingBag);
     setIsNewBag(true);
     setCreatingBag(true);
     try {
@@ -1182,27 +1181,12 @@ export default function AppShell() {
     }
   };
 
-  // 새로 만들다가(아직 한 번도 저장 안 하고) 뒤로가기 하면, 미리 만들어둔 임시 가방을 조용히
-  // 정리한다. 이건 "삭제"가 아니라 사용자 입장에서 한 번도 존재한 적 없는 임시 데이터를
-  // 치우는 것이므로 휴지통을 거치지 않고 곧바로 완전삭제한다.
-  const handleBackFromEditor = (currentBag: Bag) => {
-    const wasNew = isNewBag;
+  // 가방 화면에서 나갈 때. 새 가방은 만드는 순간 서버에 저장되고, 손대지 않고 나가도 그대로 남는다
+  // (2026-10-16, shell.md 확인 필요 2). 예전에는 한 번도 저장하지 않은 새 가방을 여기서 완전 삭제했다(Esc · 다른 가방 고르기에도)
+  const handleBackFromEditor = () => {
     setEditingBag(null);
     setIsNewBag(false);
     setBagFocus(null);
-    if (isOfflineMode) {
-      if (wasNew) {
-        permanentDeleteLocalBag(currentBag.id);
-      }
-      return;
-    }
-    if (wasNew) {
-      deleteUnusedFiles(bagFileUrls(currentBag), urlsInUse(bags, libraryPacks, { bagIds: [currentBag.id] }))
-        .then(() => deleteBagWithInviteCodeRemote(currentBag))
-        .catch((err) => {
-          console.error("[팩인백] 임시 가방 정리 실패:", err);
-        });
-    }
   };
 
   const handleLeaveBag = async (bagId: string) => {
@@ -1650,9 +1634,7 @@ export default function AppShell() {
 
   // ---- 화면 조각(좁은 화면·넓은 화면 공통) -------------------------------------------------
   // 넓은 화면에서는 상세 칸에 하나만 보인다: 팩·메모가 열려 있으면 그것, 아니면 가방. 가방을 새로 고르면 열려 있던 팩은 닫는다
-  // 만들기만 하고 손대지 않은 새 가방(isNewBag)을 둔 채 다른 가방을 고르면 그 빈 가방은 지운다(모바일의 뒤로가기와 같은 정리)
   const openBag = (bag: Bag, focus?: { packId?: string; itemId?: string; searchQuery?: string } | null) => {
-    if (editingBag && isNewBag && editingBag.id !== bag.id) handleBackFromEditor(editingBag);
     setIsNewBag(false);
     setEditingBag(bag);
     setBagFocus(focus ?? null);
@@ -1834,9 +1816,10 @@ export default function AppShell() {
           onNewPack={() => void openNewPack()}
           onCloseDetail={() => {
             if (editingPack) closePack();
-            else if (editingBag) handleBackFromEditor(editingBag);
+            else if (editingBag) handleBackFromEditor();
           }}
           banner={<EmailVerifyBanner />}
+          footer={!homeSelectMode && !packsSelectMode ? <InstallPrompt /> : null}
         />
         <QuickAddSheet
           open={showQuickAdd}

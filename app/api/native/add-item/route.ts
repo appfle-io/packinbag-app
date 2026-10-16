@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
       const memberIds: string[] = Array.isArray(data.memberIds) ? data.memberIds : [];
       if (!memberIds.includes(uid)) throw new BadRequest("이 가방을 볼 수 없어요", 403);
       if (data.ownerId === uid && data.locked === true) throw new BadRequest("잠긴 가방이에요", 403);
+      // 내가 휴지통에 넣은 가방은 고치지 않는다(다른 멤버는 그대로 씀, 2026-10-16 api.md 확인 필요 7)
+      if (data.ownerId === uid && data.trashedByOwnerAt) throw new BadRequest("휴지통에 있는 가방이에요", 403);
 
       let packs: Pack[] = Array.isArray(data.packs) ? data.packs : [];
       const items: Item[] = lines.map((text) => ({ id: newId(), type: "check", text, checked: false }));

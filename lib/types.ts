@@ -580,6 +580,8 @@ export interface Inquiry {
   status: "pending" | "answered";
   answer?: string;
   answeredAt?: string;
+  // 보낸 답변을 고친 시각(2026-10-16). 있으면 화면에 "수정됨"
+  answerEditedAt?: string;
 }
 
 // 범용 알림함(users/{uid}/notifications). 지금은 "내 문의에 답변 달림" +

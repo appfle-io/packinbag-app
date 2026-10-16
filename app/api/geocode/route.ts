@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser } from "@/lib/premiumServer";
+import { GEOCODE_COLLECTION, refundDailyQuota, reserveDailyQuota } from "@/lib/dailyCounter";
 
 export const runtime = "nodejs";
+
+// 캐시에 없는 단어로 외부 지명 서비스를 부르는 것은 계정마다 KST 하루 이 횟수까지(2026-10-16, api.md 확인 필요 10).
+// 넘으면 못 찾은 것처럼 result:null(화면은 "장소를 찾지 못했어요"와 같음). 가방 하나는 단어 4개까지만 묻는다(lib/weatherService)
+const GEOCODE_DAILY_LIMIT = 100;
 
 // 2026-10-06 비용 점검: Google Geocoding은 유료라 누구나 부를 수 있으면 안 된다.
 // - 로그인한 사람(idToken)만 부를 수 있다.
@@ -107,8 +112,9 @@ const isPureAsciiWord = (s: string) => /^[A-Za-z]+$/.test(s);
 const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
 
 export async function GET(req: NextRequest) {
+  let uid: string;
   try {
-    await verifyRequestUser(req);
+    uid = (await verifyRequestUser(req)).uid;
   } catch {
     return NextResponse.json({ error: "로그인이 필요해요", result: null }, { status: 401 });
   }
@@ -130,9 +136,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ result: cached.result });
   }
 
+  if (!(await reserveDailyQuota(GEOCODE_COLLECTION, uid, GEOCODE_DAILY_LIMIT))) {
+    return NextResponse.json({ result: null, limited: true });
+  }
+
   // 못 찾은 결과는 지명 서비스가 제대로 답했을 때만 남긴다(일시 장애를 30일간 "없음"으로 굳히지 않게)
   const { result, definitive } = await geocode(query);
   if (result || definitive) await writeCache(query, result);
+  // 지명 서비스가 둘 다 답하지 못했으면 횟수를 되돌린다
+  else await refundDailyQuota(GEOCODE_COLLECTION, uid);
   return NextResponse.json({ result });
 }
 

@@ -91,7 +91,17 @@ export function diffBag(before: BagLite, after: BagLite, actor: string | undefin
 
 type PrefKind = "activity" | "assign" | "member";
 
-export async function wantsPush(uids: string[], bagId: string, kind: PrefKind): Promise<string[]> {
+// 받는 사람 + 그 사람이 이 가방을 개인 잠금했는지(2026-10-16, native-ios.md 확인 필요 1).
+// 잠금은 users/{uid}.privateLock(앱 lib/v2/privateLock.ts) - PIN이 있고 bags에 이 가방이 있을 때만.
+// 잠근 사람에게는 제목을 "잠근 가방"으로, 본문에서 아이템 이름을 빼고 보낸다(잠금화면에 내용이 보이지 않게)
+export interface PushTarget {
+  uid: string;
+  locked: boolean;
+}
+
+export const LOCKED_TITLE = "잠근 가방";
+
+export async function wantsPush(uids: string[], bagId: string, kind: PrefKind): Promise<PushTarget[]> {
   if (uids.length === 0) return [];
   const db = getFirestore();
   const snaps = await db.getAll(...uids.map((uid) => db.collection("users").doc(uid)));
@@ -108,7 +118,10 @@ export async function wantsPush(uids: string[], bagId: string, kind: PrefKind): 
       if (Array.isArray(off) && off.includes(kind)) return false;
       return !(Array.isArray(d.pushMutedBagIds) && d.pushMutedBagIds.includes(bagId));
     })
-    .map((s) => s.id);
+    .map((s) => {
+      const lock = (s.data() as { privateLock?: { pinHash?: string; bags?: string[] } }).privateLock;
+      return { uid: s.id, locked: !!lock?.pinHash && Array.isArray(lock.bags) && lock.bags.includes(bagId) };
+    });
 }
 
 // ---- 문구 -----------------------------------------------------------------------
@@ -135,15 +148,17 @@ export async function sendImmediate(p8: string, bagId: string, after: BagLite, d
   if (actor && diff.assigned.size > 0) {
     const targets = await wantsPush([...diff.assigned.keys()], bagId, "assign");
     console.log("[push] 담당 지정", { bagId, assignees: [...diff.assigned.keys()].map((u) => u.slice(0, 6)), wants: targets.length });
-    for (const uid of targets) {
+    for (const { uid, locked } of targets) {
       const names = diff.assigned.get(uid) ?? [];
       const devices = await devicesOf([uid]);
       if (devices.length === 0) {
         console.log("[push] 담당 지정: 기기 없음", uid.slice(0, 6));
         continue;
       }
-      const body = `${nick(after, actor)}님이 ${names.length}개를 맡겼어요: ${namesLine(names)}`;
-      const result = await sendToDevices(p8, devices, { ...alert(bagId, title, body, "assign"), collapseId: `assign-${bagId}` });
+      const body = locked
+        ? `${nick(after, actor)}님이 ${names.length}개를 맡겼어요`
+        : `${nick(after, actor)}님이 ${names.length}개를 맡겼어요: ${namesLine(names)}`;
+      const result = await sendToDevices(p8, devices, { ...alert(bagId, locked ? LOCKED_TITLE : title, body, "assign"), collapseId: `assign-${bagId}` });
       console.log("[push] 담당 지정 보냄", { to: uid.slice(0, 6), devices: devices.length, alerts: devices.filter((d) => d.alerts).length, ...result });
     }
   }
@@ -155,7 +170,7 @@ export async function sendImmediate(p8: string, bagId: string, after: BagLite, d
       const devices = await devicesOf([owner]);
       const who = joined.length === 1 ? `${nick(after, joined[0])}님이` : `${nick(after, joined[0])}님 외 ${joined.length - 1}명이`;
       const body = `${who} 가방에 참여했어요 (${(after.memberIds ?? []).length}명)`;
-      if (devices.length > 0) await sendToDevices(p8, devices, alert(bagId, title, body, "member"));
+      if (devices.length > 0) await sendToDevices(p8, devices, alert(bagId, target.locked ? LOCKED_TITLE : title, body, "member"));
     }
   }
 }
@@ -202,6 +217,7 @@ export function activityBody(
   recipient: string,
   actors: Record<string, QueueActor>,
   packedBy: string | undefined,
+  hideNames = false,
 ): string | null {
   const others = Object.entries(actors).filter(([uid]) => uid !== recipient);
   const { done, total } = progressOf(bag);
@@ -218,7 +234,7 @@ export function activityBody(
   if (checked > 0 && added > 0) return `${who} ${checked}개 챙기고 ${added}개 추가했어요${progress}`;
   if (checked > 0) return `${who} ${checked}개 챙겼어요${progress}`;
   const names = others.flatMap(([, a]) => a.names);
-  return names.length > 0 && names.length === added
+  return !hideNames && names.length > 0 && names.length === added
     ? `${who} ${added}개 추가했어요: ${namesLine(names)}`
     : `${who} ${added}개 추가했어요`;
 }
@@ -245,13 +261,13 @@ export async function flushDue(p8: string): Promise<number> {
     const actors = (claimed.actors ?? {}) as Record<string, QueueActor>;
     const packedBy = typeof claimed.packedBy === "string" ? claimed.packedBy : undefined;
     const recipients = await wantsPush(members, bagId, "activity");
-    const devices = await devicesOf(recipients);
+    const devices = await devicesOf(recipients.map((r) => r.uid));
     const title = bag.name || "가방";
-    for (const uid of recipients) {
-      const body = activityBody(bag, uid, actors, packedBy);
+    for (const { uid, locked } of recipients) {
+      const body = activityBody(bag, uid, actors, packedBy, locked);
       const mine = devices.filter((d) => d.uid === uid);
       if (!body || mine.length === 0) continue;
-      await sendToDevices(p8, mine, { ...alert(bagId, title, body, "activity"), collapseId: `activity-${bagId}` });
+      await sendToDevices(p8, mine, { ...alert(bagId, locked ? LOCKED_TITLE : title, body, "activity"), collapseId: `activity-${bagId}` });
     }
     sentBags += 1;
   }

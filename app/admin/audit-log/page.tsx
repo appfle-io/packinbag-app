@@ -20,7 +20,8 @@ interface AuditLogEntry {
 
 const ACTION_LABELS: Record<string, string> = {
   bag_restore: "가방 복구",
-  bag_trash: "가방 속 팩 → 휴지통",
+  bag_trash: "가방 속 팩 → 휴지통", // 2026-10-16 전 기록
+  bag_pack_trash: "가방 속 팩 → 휴지통",
   library_pack_restore: "보관함 팩 복구",
   library_pack_trash: "보관함 팩 → 휴지통",
   unlock_code_redeem: "이용권 사용",

@@ -4,6 +4,37 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/16 보안 점검 3차 · api.md · security-rules.md · shell · native-ios · admin (v1.6.1)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **기능명세서 api.md** | 🆕 신규 | 라우트별 검사 순서 · 쓰는 필드 · 한도 카운터. 10/13 남은 확인 "update · delete · my-short-links 본인만" → 세 곳 모두 `createdBy` 확인 중 |
+| **기능명세서 security-rules.md** | 🆕 신규 | Firestore · Storage 규칙을 ID로 |
+| **이용권 코드 읽기** | 🔒 보안 | `unlockCodes` get을 내가 쓴 코드 · 마스터만(예전에는 누구나 get → 틀린 코드 10번 제한을 건너뛰고 대입 가능) |
+| **초대 코드 대입** | 🔒 보안 | `inviteCodes` 클라이언트 읽기 막음 + `join-bag` 틀린 코드 계정마다 하루 20번(429 "코드를 너무 많이 틀렸어요…"), 형식이 틀린 코드도 404로(예전 500) |
+| **공유 링크 만들기** | 🔒 보안 | `share-pack`은 원본(가방 속 팩 · 보관함 문서)이 있을 때만, 새 링크 하루 50개(`sharePackUsage`) |
+| **가방 필드 규칙** | 🔒 보안 | 멤버가 `inviteCode` · 있는 `publicShareToken`을 못 바꿈, `memberProfiles`는 내 항목만(내보내기 때 빠지는 사람 항목 삭제는 됨) |
+| **문의 · Storage · 죽은 규칙** | 🔒 보안 | 문의는 정해진 필드만, 보관함 첨부 올리기는 본인만(마스터 제외), `templateInspectLogs` 규칙 삭제, 낡은 주석 정리 |
+| **탈퇴 정리** | 🔒 보안 | `aiUsage` · `shortLinkUsage` · `passwordResetUsage` · 새 카운터 3개도 지움 |
+| **지명 찾기 비용** | 🔒 보안 | `geocode`는 캐시에 없는 단어만 계정마다 하루 100번(넘으면 못 찾음과 같이 보임) |
+| **위젯 · 단축어 휴지통 가방** | 🐛 수정 | 내가 휴지통에 넣은 가방은 `native/toggle-item` · `add-item`이 "휴지통에 있는 가방이에요"(다른 멤버는 그대로) |
+| **짧은 URL "이미 축약된 링크"** | 🐛 수정 | 우리 도메인 주소일 때만 막음(`lib/shortLinkGuard.ts`). 다른 사이트의 `…/s/abc`도 막혀 있었다 |
+| **화면의 짧은 URL 알아보기** | 🐛 수정 | `parseShortLinkUrl`도 도메인을 봄(지금 접속한 도메인 · short.seeuson.com · packinbag.seeuson.com, `NEXT_PUBLIC_SHORT_URL_BASE_URL`이 있으면 그 값). 다른 사이트 `…/s/abc`에 우리 링크 표시 이름이 보이거나 "짧은 URL로 변경"이 숨던 문제(api.md 확인 필요 13, API-LINK-10) |
+| **기능명세서 shell.md · native-ios.md · admin.md** | 🆕 신규 | 앱 틀(탭바 · 넓은 화면 · 단축키 · 제스처) / iOS 네이티브 / 관리자 사이트 |
+| **빠른팩 + · ⌘P** | 🔧 변경 | 항상 빠른 입력 시트. 예전에는 빠른팩에 아이템이 있으면 빠른팩 화면을 바로 열었다(SHELL-QUICK-01) |
+| **새 가방 바로 저장** | 🔧 변경 | 만들기만 하고 나가도(뒤로 · Esc · 다른 가방 고르기 · 새 가방 또 만들기) 지우지 않는다. `AppShell handleBackFromEditor`(SHELL-DETAIL-04 · STACK-05) |
+| **홈 화면에 추가 안내** | 🆕 | 넓은 화면(아이패드 가로 사파리)에도 목록 칸 아래(`WideShell footer`, SHELL-INSTALL-01) |
+| **이메일 인증 줄 ✕** | 🔧 변경 | 하루 동안 숨김(계정별 · 이 기기). 예전에는 새로고침하면 다시 떴다(SHELL-BAR-02) |
+| **겹 화면 · 팩 편집 시트 움직임** | 🔧 변경 | Sheet와 같은 280ms · ease-snappy · `bg-scrim`(`SlideScreen` · `SlideUpSheet`, SHELL-STACK-06) |
+| **잠근 가방 알림** | 🔒 보안 | 개인 잠금한 가방은 로컬 알림 · 서버 푸시 제목이 "잠근 가방", 푸시 본문에 아이템 이름 없음(`lib/v2/bagReminders.ts` · `functions/src/bagEvents.ts`, NAT-NOTI-03 · NAT-PUSH-04a). **Functions 배포 필요** |
+| **관리자 가입자 목록 · 유저 조회** | 🔒 보안 | 이메일 · 가입 시각을 Auth 계정 값으로(본인이 바꿀 수 있는 users 문서 값 대신, ADM-ULIST-05 · ADM-USER-03). 가입자 목록 창 v2 Sheet |
+| **관리자 AI 사용 숫자** | 🐛 수정 | "오늘 AI를 쓴 사람" · "마지막 AI 사용"이 늘 0 · 없음이던 문제(안 쓰는 `users.aiUsage` → `aiUsage` 문서, ADM-DASH-08) |
+| **문의 답변 고치기** | 🆕 | 관리자가 보낸 답변을 고침 → "수정됨" 표시(관리자 · 사용자 문의 상세) + 사용자 알림 "문의 답변이 수정됐어요". `Inquiry.answerEditedAt`, firestore.rules 허용 필드 추가(ADM-INQ-07 · RULE-INQ-01) |
+| **대시보드 캐시 문구** | 🔧 | "(5분 캐시)" → "(캐시)" |
+| **AI 날씨 추천** | 🧹 정리 | 한도 초과를 다른 AI와 같은 403 · 문구로, 모델 주소는 `GEMINI_LITE_MODEL`(`lib/geminiConfig.ts`) |
+| **create-bag · 감사 로그** | 🧹 정리 | create-bag이 draft의 `locked` · `trashedByOwnerAt` · `editedBy`를 버리고 id를 검사. 팩 휴지통 감사 로그는 `bag_pack_trash` |
+| **하루 카운터** | 🆕 신규 | `lib/dailyCounter.ts`(`joinFailUsage` · `sharePackUsage` · `geocodeUsage`, 규칙으로 클라이언트 거부) |
+
 ## 10/15 함께 쓰기 · 프리미엄 · 탈퇴 수정 · share.md · premium.md (v1.6.1)
 
 | 기능 | 상태 | 비고 |

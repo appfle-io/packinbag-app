@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { IconChevronLeft } from "@tabler/icons-react";
 import type { Inquiry } from "@/lib/types";
 import { INQUIRY_CATEGORY_LABELS } from "@/lib/inquiryCategories";
-import { answerInquiryRemote, subscribeToAllInquiries } from "@/lib/inquiriesService";
+import { answerInquiryRemote, editInquiryAnswerRemote, subscribeToAllInquiries } from "@/lib/inquiriesService";
 import { useToast } from "@/components/Toast";
 import { Badge, Button, Chip, cx } from "@/components/v2/ui";
 import { ADMIN_TEXTAREA, AdminCard, AdminEmpty, AdminLoading, AdminPage } from "@/components/admin/AdminPage";
@@ -23,11 +23,14 @@ function Detail({ inquiry, onBack }: { inquiry: Inquiry; onBack: () => void }) {
   const { show } = useToast();
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
+  // 보낸 답변 고치는 중(2026-10-16, admin.md 확인 필요 4)
+  const [editing, setEditing] = useState(false);
   const [shownId, setShownId] = useState(inquiry.id);
   // 다른 문의를 고르면 쓰던 답변을 비운다
   if (inquiry.id !== shownId) {
     setShownId(inquiry.id);
     setAnswer("");
+    setEditing(false);
   }
 
   const submit = async () => {
@@ -39,6 +42,26 @@ function Detail({ inquiry, onBack }: { inquiry: Inquiry; onBack: () => void }) {
       show("답변을 보냈어요. 사용자에게 알림이 가요");
     } catch {
       show("답변을 보내지 못했어요");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEdit = () => {
+    setAnswer(inquiry.answer ?? "");
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!answer.trim() || busy) return;
+    setBusy(true);
+    try {
+      const changed = await editInquiryAnswerRemote(inquiry, answer);
+      setEditing(false);
+      setAnswer("");
+      show(changed ? "답변을 고쳤어요. 사용자에게 알림이 가요" : "바뀐 내용이 없어요");
+    } catch {
+      show("답변을 고치지 못했어요");
     } finally {
       setBusy(false);
     }
@@ -61,9 +84,30 @@ function Detail({ inquiry, onBack }: { inquiry: Inquiry; onBack: () => void }) {
         </span>
       </div>
       <p className="m-0 whitespace-pre-wrap text-body text-ink">{inquiry.content}</p>
-      {inquiry.status === "answered" ? (
+      {inquiry.status === "answered" && editing ? (
+        <div className="flex flex-col gap-2 border-t border-line pt-4">
+          <span className="text-micro font-semibold text-sub">답변 고치기</span>
+          <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} aria-label="답변 고치기" rows={6} className={ADMIN_TEXTAREA} />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={busy} onClick={() => setEditing(false)}>
+              취소
+            </Button>
+            <Button disabled={busy || !answer.trim()} onClick={saveEdit}>
+              {busy ? "저장 중" : "고친 답변 보내기"}
+            </Button>
+          </div>
+        </div>
+      ) : inquiry.status === "answered" ? (
         <div className="flex flex-col gap-2 rounded-field bg-brand-soft px-4 py-3">
-          <span className="text-micro font-semibold text-brand">보낸 답변{inquiry.answeredAt ? ` · ${formatDate(inquiry.answeredAt)}` : ""}</span>
+          <span className="flex items-center justify-between gap-2">
+            <span className="text-micro font-semibold text-brand">
+              보낸 답변{inquiry.answeredAt ? ` · ${formatDate(inquiry.answeredAt)}` : ""}
+              {inquiry.answerEditedAt ? ` · 수정됨 ${formatDate(inquiry.answerEditedAt)}` : ""}
+            </span>
+            <Button variant="text" size="sm" className="px-2" onClick={startEdit}>
+              고치기
+            </Button>
+          </span>
           <p className="m-0 whitespace-pre-wrap text-body text-ink">{inquiry.answer}</p>
         </div>
       ) : (

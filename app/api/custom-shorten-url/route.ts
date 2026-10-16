@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, isPremiumServer, ServerAuthError } from "@/lib/premiumServer";
 import { reserveShortLinkQuota, refundShortLinkQuota, SHORT_LINK_LIMIT_MESSAGE } from "@/lib/shortLinkRateLimit";
+import { isOwnShortLink, ownShortLinkHosts } from "@/lib/shortLinkGuard";
 
 // 아이템/메모 텍스트에 붙여넣은 긴 URL을 사용자가 직접 고른 코드로 커스텀 링크(/c/{code})로
 // 바꿔주는 라우트. app/api/shorten-url(랜덤 코드 자동생성)과 같은 패턴이지만, 코드를
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest) {
   if (!longUrl || typeof longUrl !== "string" || longUrl.length > MAX_URL_LENGTH || !isHttpUrl(longUrl)) {
     return NextResponse.json({ error: "올바른 URL이 아니에요" }, { status: 400 });
   }
-  // 우리 서비스의 숏/커스텀 URL을 또 축약하려는 경우 무한 리다이렉트로 이어질 수 있어 막는다.
-  if (/\/(s|c)\/[^/\s]+\/?$/.test(longUrl)) {
+  // 우리 서비스의 숏/커스텀 URL을 또 축약하려는 경우 무한 리다이렉트로 이어질 수 있어 막는다(다른 사이트는 그대로, 2026-10-16).
+  if (isOwnShortLink(longUrl, ownShortLinkHosts(req.nextUrl.origin))) {
     return NextResponse.json({ error: "이미 축약된 링크예요" }, { status: 400 });
   }
 

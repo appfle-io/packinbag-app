@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { verifyRequestUser, ServerAuthError } from "@/lib/premiumServer";
+import { DAILY_COUNTER_COLLECTIONS } from "@/lib/dailyCounter";
 
 // 탈퇴 · 게스트 모드 끝내기의 마지막 단계(2026-10-15, auth.md 확인 필요 2 · 3).
 // 가방 · 팩 · 첨부 · 함께 쓰는 가방 넘기기는 앱(lib/accountService deleteAllUserData)이 먼저 끝낸다.
 // 여기서는 앱이 규칙상 지울 수 없거나 찾을 수 없는 것을 Admin SDK로 지우고, 마지막에 로그인 계정까지 지운다.
 // - 짧은 URL · 커스텀 URL(createdBy), 팩 · 폴더 · 메모 공유 스냅샷(ownerUid), 알림함(users/{uid}/notifications),
-//   위젯 · 푸시 기기 토큰(deviceTokens), 문의(inquiries), 사용 기록(emailVerifyUsage · unlockRedeemUsage), users/{uid}
+//   위젯 · 푸시 기기 토큰(deviceTokens), 문의(inquiries), 사용 기록(emailVerifyUsage · unlockRedeemUsage · aiUsage · shortLinkUsage ·
+//   passwordResetUsage · joinFailUsage · sharePackUsage · geocodeUsage), users/{uid}
 // - 하나가 실패해도 나머지는 계속 지운다. 계정 삭제가 실패하면 500(앱이 기존 방식 deleteUser로 한 번 더 시도)
 export const runtime = "nodejs";
 
@@ -47,6 +50,24 @@ export async function POST(req: NextRequest) {
     (await deleteQuery(db.collection("inquiries").where("uid", "==", uid), "inquiries.uid")) +
     (await deleteQuery(db.collection("inquiries").where("userId", "==", uid), "inquiries.userId"));
   removed.unlockRedeemUsage = await deleteQuery(db.collection("unlockRedeemUsage").where("uid", "==", uid), "unlockRedeemUsage");
+  // 남은 사용 기록도 지운다(2026-10-16, api.md 확인 필요 3): AI 하루 횟수 · 짧은 URL 횟수 · 초대 코드 · 공유 · 지명 찾기 횟수
+  removed.aiUsage = await deleteQuery(db.collection("aiUsage").where("uid", "==", uid), "aiUsage");
+  removed.shortLinkUsage = await deleteQuery(db.collection("shortLinkUsage").where("uid", "==", uid), "shortLinkUsage");
+  for (const col of DAILY_COUNTER_COLLECTIONS) {
+    removed[col] = await deleteQuery(db.collection(col).where("uid", "==", uid), col);
+  }
+  // 비밀번호 재설정 횟수는 이메일 해시가 문서 id다(uid 필드 없음) - Auth 계정을 지우기 전에 이메일을 읽는다
+  try {
+    const authEmail = (await adminAuth().getUser(uid)).email?.trim().toLowerCase();
+    if (authEmail) {
+      await db
+        .collection("passwordResetUsage")
+        .doc(createHash("sha256").update(authEmail).digest("hex"))
+        .delete();
+    }
+  } catch {
+    // 계정이 이미 없거나 이메일이 없으면 건너뛴다
+  }
   await db.collection("emailVerifyUsage").doc(uid).delete().catch(() => {});
   await db.collection("users").doc(uid).delete().catch(() => {});
 

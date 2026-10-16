@@ -75,17 +75,22 @@ export interface PlannedNotification {
 }
 
 // 가방 목록 + 내 알림 설정 → 예약할 알림 목록(가까운 순, 최대 MAX_SCHEDULED개)
+// lockedBagIds: 개인 잠금한 가방(lib/v2/privateLock nativeLockFilter). 제목을 "잠근 가방"으로 가린다(2026-10-16, native-ios.md 확인 필요 1)
+export const LOCKED_BAG_TITLE = "잠근 가방";
+
 export function planBagNotifications(
   bags: Bag[],
   reminders: Record<string, BagReminder> | undefined,
   now: Date = new Date(),
+  lockedBagIds: string[] = [],
 ): PlannedNotification[] {
   if (!reminders) return [];
+  const locked = new Set(lockedBagIds);
   const out: PlannedNotification[] = [];
   for (const bag of bags) {
     const r = reminders[bag.id];
     if (isReminderEmpty(r)) continue;
-    const title = bag.name || "가방";
+    const title = locked.has(bag.id) ? LOCKED_BAG_TITLE : bag.name || "가방";
 
     if (bag.travelDate && /^\d{4}-\d{2}-\d{2}$/.test(bag.travelDate)) {
       const [y, mo, d] = bag.travelDate.split("-").map(Number);
@@ -182,9 +187,13 @@ let syncing: Promise<void> | null = null;
 let lastSignature = "";
 
 // 팩인백이 예약한 가방 알림을 모두 지우고 지금 설정대로 다시 예약한다. 권한이 없으면 지우기만 한다
-export async function syncBagNotifications(bags: Bag[], reminders: Record<string, BagReminder> | undefined) {
+export async function syncBagNotifications(
+  bags: Bag[],
+  reminders: Record<string, BagReminder> | undefined,
+  lockedBagIds: string[] = [],
+) {
   if (!isLocalNotificationsAvailable()) return;
-  const plan = planBagNotifications(bags, reminders);
+  const plan = planBagNotifications(bags, reminders, new Date(), lockedBagIds);
   // 같은 내용이면 다시 예약하지 않는다(가방 체크할 때마다 bags가 바뀌어 불린다)
   const signature = JSON.stringify(plan.map((p) => [p.bagId, p.title, p.body, p.at?.getTime(), p.weekly]));
   if (signature === lastSignature) return;
