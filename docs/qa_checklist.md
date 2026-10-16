@@ -20,7 +20,7 @@
   - ⚠️ 정책/의도 확인이 필요함 (버그는 아니지만 의사결정 필요)
   - ❌→🔧 버그였다가 수정 완료 (하단 "발견 후 수정한 이슈" 참고)
 
-## 명세 확인 필요 정리 — 2026-10-17 (v1.6.2)
+## 명세 확인 필요 정리 — 2026-10-17 (v1.6.1 수정)
 
 코드는 `docs/spec/` ID. 관련 파일: `components/v2/bag/BagScreenV2.tsx` · `bag/sheets/ItemSheet.tsx` · `hooks/bag/useBagItems.ts` · `components/v2/packs/PackEditorV2.tsx` · `packs/sheets/MoveSheet.tsx` · `packs/PacksScreenV2.tsx` · `contexts/AuthProvider.tsx`
 

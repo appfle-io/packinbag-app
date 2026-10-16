@@ -1,6 +1,6 @@
 # 가방 화면 (체크 모드) — bag.md
 
-기준 코드: v1.6.2 (2026-10-17). 메모 편집기 내부는 `memo.md`, 잠금화면 띄우기(LiveActivitySheet)는 `native-ios.md`, 개인 잠금 PIN 화면 자체는 `settings.md`에서 다룬다.
+기준 코드: v1.6.1 (2026-10-17 수정). 메모 편집기 내부는 `memo.md`, 잠금화면 띄우기(LiveActivitySheet)는 `native-ios.md`, 개인 잠금 PIN 화면 자체는 `settings.md`에서 다룬다.
 
 - 화면: `components/v2/bag/BagScreenV2.tsx`
 - 섹션: `PackSection.tsx`(체크 팩 · 잠긴 팩) · `MemoSection.tsx` · `PhotoViewer.tsx` · `PdfViewer.tsx` · `format.ts`

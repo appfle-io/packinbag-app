@@ -1,6 +1,6 @@
 # 팩 탭 (팩 보관함) — packs.md
 
-기준 코드: v1.6.2 (2026-10-17). 메모(editor) 팩을 열면 메모 편집기라 `memo.md`, 공유 받은 쪽(`/p` 화면 · 가져오기)은 `share.md`, 무료 10개 초과 잠금 판정은 `premium.md`, 탭바 · 넓은 화면 · 단축키는 `shell.md`에서 다룬다.
+기준 코드: v1.6.1 (2026-10-17 수정). 메모(editor) 팩을 열면 메모 편집기라 `memo.md`, 공유 받은 쪽(`/p` 화면 · 가져오기)은 `share.md`, 무료 10개 초과 잠금 판정은 `premium.md`, 탭바 · 넓은 화면 · 단축키는 `shell.md`에서 다룬다.
 
 - 목록 화면: `components/v2/packs/PacksScreenV2.tsx`
 - 계산(순수 함수): `components/v2/packs/packsModel.ts` (`entriesIn` · `pathTo` · `metaOf` · `pathLabel` · `moveTargets`), `lib/listSort.ts` `arrangeList`
