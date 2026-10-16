@@ -93,30 +93,37 @@ function PackEditorV2Inner(props: PackEditorProps) {
   const linkedBagPackCount = useMemo(() => findLinkedBagPackRefs(bags ?? [], new Set([pack.id])).length, [bags, pack.id]);
 
   // 이름: 같은 폴더에 같은 이름의 팩 · 메모가 있으면 되돌린다(2026-10-14, 목록의 이름 시트와 같은 기준)
+  // 칸을 벗어나지 않고 닫거나(뒤로 · 밀기) 입력 중 0.5초 자동저장이 돌 때도 같은 기준으로 고른 이름을 쓴다(2026-10-17, 확인 필요 9)
   const lastNameRef = useRef(initialPack.name);
-  const commitTitle = () => {
-    const trimmed = pack.name.trim();
-    if (!trimmed) {
-      setPack((p) => ({ ...p, name: lastNameRef.current.trim() || "새 팩" }));
-      return;
-    }
-    if (trimmed === lastNameRef.current.trim()) return;
+  const libraryPacksRef = useRef(libraryPacks);
+  useEffect(() => {
+    libraryPacksRef.current = libraryPacks;
+  }, [libraryPacks]);
+  // 저장할 이름: 비었거나 같은 이름이 있으면 마지막으로 확정한 이름. taken = 같은 이름 때문에 되돌렸는지
+  const resolveName = (p: Pack): { name: string; taken: boolean } => {
+    const fallback = lastNameRef.current.trim() || "새 팩";
+    const trimmed = p.name.trim();
+    if (!trimmed) return { name: fallback, taken: false };
+    if (trimmed === lastNameRef.current.trim()) return { name: trimmed, taken: false };
     const key = normalizeFolderName(trimmed);
-    const taken = libraryPacks.some(
-      (p) =>
-        p.id !== pack.id &&
-        p.type !== "folder" &&
-        !p.isQuickPack &&
-        (p.parentId ?? undefined) === (pack.parentId ?? undefined) &&
-        normalizeFolderName(p.name) === key,
+    const taken = libraryPacksRef.current.some(
+      (o) =>
+        o.id !== p.id &&
+        o.type !== "folder" &&
+        !o.isQuickPack &&
+        (o.parentId ?? undefined) === (p.parentId ?? undefined) &&
+        normalizeFolderName(o.name) === key,
     );
-    if (taken) {
-      show("같은 폴더에 같은 이름의 팩이 있어요");
-      setPack((p) => ({ ...p, name: lastNameRef.current }));
-      return;
-    }
-    lastNameRef.current = trimmed;
-    if (trimmed !== pack.name) setPack((p) => ({ ...p, name: trimmed }));
+    return taken ? { name: lastNameRef.current, taken: true } : { name: trimmed, taken: false };
+  };
+  // 자동저장 · 닫을 때(이펙트 안)는 최신 함수를 쓴다
+  const resolveNameRef = useRef(resolveName);
+  const showRef = useRef(show);
+  const commitTitle = () => {
+    const { name, taken } = resolveName(pack);
+    if (taken) show("같은 폴더에 같은 이름의 팩이 있어요");
+    else lastNameRef.current = name;
+    if (name !== pack.name) setPack((p) => ({ ...p, name }));
   };
 
   // --- 아이템 조작 ------------------------------------------------------------------------------
@@ -301,8 +308,9 @@ function PackEditorV2Inner(props: PackEditorProps) {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
-      // updatedAt을 찍어야 다른 기기가 "더 최신인지" 비교할 수 있다(구 화면은 처음 값을 그대로 썼음)
-      onSaveRef.current({ ...pack, updatedAt: new Date().toISOString() });
+      // updatedAt을 찍어야 다른 기기가 "더 최신인지" 비교할 수 있다(구 화면은 처음 값을 그대로 썼음).
+      // 이름은 입력 중이어도 빈 이름 · 같은 이름이면 마지막 확정 이름으로 쓴다(겹치는 이름이 잠깐 저장되지 않게)
+      onSaveRef.current({ ...pack, name: resolveNameRef.current(pack).name, updatedAt: new Date().toISOString() });
       editedSinceShareRef.current = true;
     }, 500);
     return () => {
@@ -332,18 +340,23 @@ function PackEditorV2Inner(props: PackEditorProps) {
   useEffect(() => {
     userRef.current = user;
     offlineRef.current = isOfflineMode;
+    resolveNameRef.current = resolveName;
+    showRef.current = show;
   });
 
   useEffect(() => {
     return () => {
       if (deletingRef.current) return;
+      // 제목 칸을 벗어나지 않고 닫아도 같은 이름이면 마지막 이름으로 저장하고 알린다(2026-10-17)
+      const resolved = resolveNameRef.current(packRef.current);
+      if (resolved.taken) showRef.current("같은 폴더에 같은 이름의 팩이 있어 원래 이름으로 두었어요");
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
-        onSaveRef.current({ ...packRef.current, updatedAt: new Date().toISOString() });
+        onSaveRef.current({ ...packRef.current, name: resolved.name, updatedAt: new Date().toISOString() });
         editedSinceShareRef.current = true;
       }
       // 공유한 팩을 고쳤으면 같은 토큰으로 스냅샷을 다시 올린다(app/api/share-pack은 덮어쓴다)
-      const current = packRef.current;
+      const current = { ...packRef.current, name: resolved.name };
       const u = userRef.current;
       if (!editedSinceShareRef.current || !current.publicShareToken || !u || offlineRef.current) return;
       u.getIdToken()

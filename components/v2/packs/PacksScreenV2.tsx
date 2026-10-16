@@ -582,6 +582,11 @@ export default function PacksScreenV2(props: PacksScreenProps) {
         entry={moveTarget}
         onClose={() => setMoveId(null)}
         targets={targets}
+        isTakenAt={
+          moveTarget
+            ? (parentId) => nameTakenIn(parentId, moveTarget.type === "folder", moveTarget.id)(moveTarget.name)
+            : undefined
+        }
         onMove={(parentId) => {
           if (!moveTarget) return;
           onMoveEntries([moveTarget.id], parentId);

@@ -19,6 +19,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.6.2",
+    date: "2026-10-17",
+    items: [
+      "가방에서도 아이템을 체크 없는 글로 바꿀 수 있어요",
+      "가방 속 팩을 지울 때 한 번 더 물어요",
+      "자잘한 문제를 고쳤어요",
+    ],
+  },
+  {
     version: "1.6.1",
     date: "2026-10-16",
     items: [

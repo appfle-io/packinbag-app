@@ -20,6 +20,18 @@
   - ⚠️ 정책/의도 확인이 필요함 (버그는 아니지만 의사결정 필요)
   - ❌→🔧 버그였다가 수정 완료 (하단 "발견 후 수정한 이슈" 참고)
 
+## 명세 확인 필요 정리 — 2026-10-17 (v1.6.2)
+
+코드는 `docs/spec/` ID. 관련 파일: `components/v2/bag/BagScreenV2.tsx` · `bag/sheets/ItemSheet.tsx` · `hooks/bag/useBagItems.ts` · `components/v2/packs/PackEditorV2.tsx` · `packs/sheets/MoveSheet.tsx` · `packs/PacksScreenV2.tsx` · `contexts/AuthProvider.tsx`
+
+- [BAG-ISHEET-11] 🔍 가방 아이템 길게 누르기 > 종류 "글" → 닫으면 체크 동그라미가 없어지고 한 줄 전체 회색 글, 진행률 · "남은 것" 개수에서 빠짐. 다시 "체크 항목" → 체크 해제 상태로 돌아옴. 두 기기 함께 쓰는 가방에서 다른 기기에도 반영
+- [BAG-ISHEET-11 · BAG-CHK-04] 🔍 남은 체크 아이템 하나를 "글"로 바꿔 나머지가 모두 체크된 상태가 되면 "다 쌌어요" + 메타 줄 "마지막으로 다 싼 날"이 찍히는지
+- [BAG-PSHEET-08] 🔍 가방 팩 머리줄 길게 누르기 > 팩 삭제: 아이템이 있는 팩 → "이 팩을 삭제할까요?" 시트(닫히는 동안 제목이 "메모"로 바뀌지 않는지), 취소하면 그대로, 삭제하면 설정 > 휴지통에 있음. 빈 팩 → 확인 없이 바로 사라짐. 메모 → "이 메모를 삭제할까요?" 그대로
+- [PACK-ED-05] 🔍 팩 탭 > 팩 열기 > 제목을 같은 폴더의 다른 팩 이름으로 고친 뒤 ① 칸을 벗어나면 "같은 폴더에 같은 이름의 팩이 있어요" + 되돌림 ② 칸에 커서를 둔 채 오른쪽으로 밀어 닫기(모바일) → "… 원래 이름으로 두었어요", 목록에 원래 이름 ③ 칸을 비우고 닫기 → 원래 이름. 겹치지 않는 새 이름은 그대로 저장
+- [PACK-MOVE-06] 🔍 팩 탭 > 팩(또는 폴더) 길게 누르기 > 다른 폴더로 옮기기: 같은 이름의 팩(폴더)이 있는 폴더 · 맨 위 줄이 흐리고 "같은 이름의 팩(폴더)이 있어요", 눌러도 안 옮겨짐. 폴더는 같은 이름 팩이 있어도 옮겨짐(폴더끼리만 비교)
+- [AUTH-DEL-05] 🔍 테스트 계정으로 탈퇴 시트에서 "영구 삭제"를 누른 직후 와이파이를 끄기 → "일부만 지워졌어요. 다시 탈퇴하면 남은 것을 마저 지워요", 다시 연결해 탈퇴하면 끝까지 됨. 틀린 비밀번호는 예전 문구(아무것도 안 지워짐)
+- [SET-BAK-01] 🔍 (iOS 앱) 설정 > 데이터 > 백업 파일 내보내기 → 저장 창이 뜨거나 파일 앱에 .json이 생기는지(settings.md 확인 필요 6)
+
 ## API- · RULE- 보안 점검 3차 — 2026-10-16 (v1.6.1)
 
 코드는 `docs/spec/api.md` · `security-rules.md` ID. **규칙을 먼저 배포한 뒤** 확인한다. 관련 파일: `firestore.rules` · `storage.rules`, `lib/dailyCounter.ts` · `lib/shortLinkGuard.ts` · `lib/shortLinkService.ts`, `app/api/join-bag` · `share-pack` · `geocode` · `delete-account-data` · `native/*`

@@ -275,8 +275,11 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   // 첨부 줄 X로 지울 파일(확인 시트)
   const [removeUrl, setRemoveUrl] = useState<string | null>(null);
-  // 팩 시트에서 지울 메모(확인 시트, 편집기와 같게)
-  const [confirmDeleteMemoId, setConfirmDeleteMemoId] = useState<string | null>(null);
+  // 팩 시트에서 지울 팩 · 메모(확인 시트). 메모는 편집기와 같게(10/14), 아이템이 있는 체크 팩도(10/17)
+  const [confirmDeletePack, setConfirmDeletePack] = useState<{ id: string; memo: boolean } | null>(null);
+  // 닫히는 동안에도 제목(팩/메모)이 바뀌지 않게 마지막 값을 둔다
+  const [deletePackShown, setDeletePackShown] = useState(confirmDeletePack);
+  if (confirmDeletePack && confirmDeletePack !== deletePackShown) setDeletePackShown(confirmDeletePack);
   const [libraryTargetId, setLibraryTargetId] = useState<string | null>(null);
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [weatherOpen, setWeatherOpen] = useState(false);
@@ -882,8 +885,9 @@ export default function BagScreenV2(props: BagScreenProps) {
         onToggleAutoSync={() => packTargetId && packOps.toggleAutoSync(packTargetId)}
         onDelete={() => {
           if (!packTargetId) return;
-          // 메모는 편집기 더보기와 같은 확인 시트를 거친다(2026-10-14). 체크 팩은 그대로 바로 휴지통
-          if (packTarget?.kind === "editor") setConfirmDeleteMemoId(packTargetId);
+          // 메모와 아이템이 있는 체크 팩은 확인 시트를 거친다(메모 10/14, 체크 팩 10/17). 빈 체크 팩은 그대로 바로 지운다
+          if (packTarget?.kind === "editor") setConfirmDeletePack({ id: packTargetId, memo: true });
+          else if (packTarget && packTarget.items.length > 0) setConfirmDeletePack({ id: packTargetId, memo: false });
           else packOps.deletePack(packTargetId);
         }}
         library={packTarget ? libraryRowFor(packTarget) : null}
@@ -998,13 +1002,13 @@ export default function BagScreenV2(props: BagScreenProps) {
         onConfirm={() => removeUrl && attachments.removeImage(removeUrl)}
       />
       <ConfirmSheet
-        open={!!confirmDeleteMemoId}
-        onClose={() => setConfirmDeleteMemoId(null)}
-        title="이 메모를 삭제할까요?"
+        open={!!confirmDeletePack}
+        onClose={() => setConfirmDeletePack(null)}
+        title={deletePackShown?.memo === false ? "이 팩을 삭제할까요?" : "이 메모를 삭제할까요?"}
         message="휴지통으로 옮겨져서 설정 > 휴지통에서 되살릴 수 있어요."
         confirmLabel="삭제"
         danger
-        onConfirm={() => confirmDeleteMemoId && packOps.deletePack(confirmDeleteMemoId)}
+        onConfirm={() => confirmDeletePack && packOps.deletePack(confirmDeletePack.id)}
       />
       <ConfirmSheet
         open={confirmLeave}

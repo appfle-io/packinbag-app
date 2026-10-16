@@ -202,6 +202,7 @@
 | AUTH-DEL-02 | 순서(`deleteAllUserData`): `deletedAccounts/{uid}` 표시 → 내 가방 · 보관함 한 번 읽기 → 나 혼자인 가방: 다른 곳이 안 쓰는 첨부 삭제 + 가방 삭제(초대코드 · 메모 본문 포함) → 함께 쓰는 가방: 내가 그룹장이면 **가장 먼저 들어온 멤버에게 그룹장 넘김**(실패해도 계속, 휴지통 가방은 넘기지 않음) + 나가기 → 보관함 첨부(남는 공유 가방이 쓰는 것 제외) · 보관함 항목 삭제 → users/{uid} 삭제 → Auth 계정 삭제 → 캐시 지우기 |
 | AUTH-DEL-03 | 마지막 Auth 삭제가 requires-recent-login으로 막히면 "보안을 위해 다시 로그인한 뒤 탈퇴를 진행해주세요. (데이터는 이미 삭제되었어요)" |
 | AUTH-DEL-04 | 오프라인 모드 · 게스트는 탈퇴 없음 |
+| AUTH-DEL-05 | 본인 확인 뒤 데이터를 지우다(`deleteAllUserData`) 또는 마지막 계정 삭제가 네트워크 등으로 실패하면 "일부만 지워졌어요. 다시 탈퇴하면 남은 것을 마저 지워요"(탈퇴 시트 안 빨간 글, 10/17). 다시 하면 남은 것만 지워진다. requires-recent-login은 AUTH-DEL-03 문구 그대로 |
 
 ---
 
@@ -225,7 +226,7 @@
 | ~~2~~ ✅ 10/15 서버 라우트 `delete-account-data`가 모두 지움(함께 쓰는 가방은 그대로 넘김) | **탈퇴할 때 남는 데이터**: 내가 만든 짧은 URL · 커스텀 URL(`shortLinks` · `customShortLinks`), 공개 공유 스냅샷(`sharedPacks` — 링크만 있으면 누구나 계속 열림), `users/{uid}/notifications` 하위 문서(부모를 지워도 남음), 함께 쓰던 가방의 내 `presence`, 위젯 기기 토큰(`deviceTokens`), 문의(`inquiries`, 규칙상 삭제 불가)를 `deleteAllUserData`가 지우지 않음. 어디까지 지울지(서버 라우트로 옮겨 Admin SDK로 지우는 방법 포함) | `lib/accountService.ts` |
 | ~~3~~ ✅ 10/15 끝낼 때 탈퇴처럼 모두 지움(logout) | **게스트 모드를 끝내면 서버 데이터가 그대로 남는다.** 익명 계정은 다시 로그인할 방법이 없어 가방 · 팩 · users 문서 · Storage 첨부가 주인 없이 쌓임. 문구는 "지워질 수 있어요". 끝낼 때 지울지(탈퇴처럼 `deleteAllUserData` + 계정 삭제) | `AccountLinkSheet` · 설정 SET-ACC-02 |
 | ~~4~~ ✅ 10/15 휴지통 속 함께 쓰는 가방은 완전 삭제 | 탈퇴할 때 **휴지통에 넣어 둔 함께 쓰는 가방**은 그룹장을 넘기지 않고 나가기만 함 → 다른 멤버 화면에는 그대로 보이지만 그룹장(탈퇴한 계정)이 없어 휴지통 30일 자동 삭제 · 되살리기 · 멤버 관리가 영영 안 됨. 넘기고 휴지통 표시를 풀지 / 지금처럼 둘지 | `deleteAllUserData` |
-| 5 | 탈퇴 중간에 실패하면(네트워크 등) 일부만 지워진 채 계정은 남는다(`deletedAccounts` 표시는 이미 됨). 다시 하면 남은 것만 지워지긴 함 | `deleteAccount` |
+| ~~5~~ ✅ 10/17 실패 문구를 "일부만 지워졌어요 …"로(AUTH-DEL-05) | ~~탈퇴 중간에 실패하면 일부만 지워진 채 계정은 남는다~~ | `deleteAccount` |
 | ~~6~~ ✅ 10/15 오프라인 모드는 isMaster false(AUTH-BOOT-05) | 오프라인 모드의 가짜 프로필이 `role: "master"`라 `isMaster`가 true. 지금은 쓰는 곳마다 오프라인을 따로 걸러서 문제는 없지만(설정 관리자 줄 등), 새 코드가 `isMaster`만 보면 오프라인 모드에서 관리자 기능이 열릴 수 있음. `isMaster`에서 오프라인을 빼 둘지 | `AuthProvider` `isMaster` |
 | ~~7~~ ✅ 10/15 Resend 우선 + Firebase 폴백(`send-password-reset`, 이메일마다 60초 · 하루 5통, 가입 안 한 이메일도 "보냈다"고 답함) | 비밀번호 재설정 메일은 Firebase 기본 발신이라 인증 메일(Resend)과 달리 스팸함으로 갈 수 있음 | `sendPasswordReset` |
 | ~~8~~ ✅ 10/15 토스트에 메일 실패 안내(AUTH-LINK-05) | 게스트를 이메일로 연동할 때 인증 메일 발송이 실패하면 토스트가 "이메일 계정으로 연결했어요"뿐이라 메일이 안 간 걸 모름(앱 안 안내 줄로 다시 받을 수는 있음) | `AccountLinkSheet.submitEmail` |

@@ -17,6 +17,8 @@ export interface ItemPatch {
   assigneeUid?: string | null;
   // 다른 팩으로 옮길 때
   targetPackId?: string;
+  // 체크 항목 ↔ 글(2026-10-17, 팩 탭 아이템 시트와 같게). 글 → 체크는 체크 해제 상태로, 체크 → 글은 체크 값을 뜬다
+  type?: Item["type"];
 }
 
 // 아이템 단위 조작. 구 BagEditorScreen의 handleToggleItem / handleCreateItem / handleUpdateItem /
@@ -200,11 +202,13 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     [guard, update, bag.packs, show],
   );
 
-  // 이름/담당자 수정 + 다른 팩으로 이동. 같은 팩이면 제자리, 다른 팩이면 대상 팩 맨 끝으로.
+  // 이름/담당자/종류 수정 + 다른 팩으로 이동. 같은 팩이면 제자리, 다른 팩이면 대상 팩 맨 끝으로.
+  // 종류가 바뀌면 체크 수가 달라져 다 쌀 상태가 될 수 있어 체크 도장 규칙(withPackedStamp)을 같이 탄다
   const updateItem = useCallback(
     (sourcePackId: string, itemId: string, patch: ItemPatch) => {
       if (guard()) return;
       const target = patch.targetPackId ?? sourcePackId;
+      const stamp = (prev: Bag, next: Bag) => (patch.type ? withPackedStamp(prev, next) : next);
       update((prev) => {
         const original = prev.packs.find((p) => p.id === sourcePackId)?.items.find((i) => i.id === itemId);
         if (!original) return prev;
@@ -213,26 +217,31 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
           ...(patch.text !== undefined ? { text: patch.text.trim() || original.text } : {}),
           ...(patch.assigneeUid !== undefined ? { assigneeUid: patch.assigneeUid ?? undefined } : {}),
         };
+        if (patch.type && patch.type !== original.type) {
+          nextItem.type = patch.type;
+          if (patch.type === "check") nextItem.checked = false;
+          else delete nextItem.checked;
+        }
         if (target === sourcePackId) {
-          return {
+          return stamp(prev, {
             ...prev,
             packs: prev.packs.map((p) =>
               p.id === sourcePackId ? synced({ ...p, items: p.items.map((i) => (i.id === itemId ? nextItem : i)) }) : p,
             ),
-          };
+          });
         }
-        return {
+        return stamp(prev, {
           ...prev,
           packs: prev.packs.map((p) => {
             if (p.id === sourcePackId) return synced({ ...p, items: p.items.filter((i) => i.id !== itemId) });
             if (p.id === target) return synced({ ...p, items: [...p.items, nextItem] });
             return p;
           }),
-        };
+        });
       });
       if (target !== sourcePackId) show("아이템을 옮겼어요");
     },
-    [guard, update, synced, show],
+    [guard, update, synced, show, withPackedStamp],
   );
 
   const duplicateItem = useCallback(

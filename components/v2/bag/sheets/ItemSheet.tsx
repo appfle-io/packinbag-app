@@ -5,7 +5,8 @@ import type { Item, Pack } from "@/lib/types";
 import type { BagMember, ItemPatch } from "@/hooks/bag";
 import { Button, Chip, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
 
-// 아이템 길게 누르기: 이름 · 담당 · 다른 팩으로 옮기기 · 복제 · 삭제
+// 아이템 길게 누르기: 이름 · 종류 · 담당 · 다른 팩으로 옮기기 · 복제 · 삭제
+// 종류(체크 항목 · 글)는 팩 탭 아이템 시트와 같은 모양(2026-10-17)
 // 고친 내용은 삭제를 뺀 모든 닫기(완료 · 바깥 · 끌어내리기 · Esc · 다른 줄)에서 저장한다(2026-10-14)
 export function ItemSheet({
   target,
@@ -75,6 +76,7 @@ function ItemSheetBody({
   onSelectMany?: () => void;
 }) {
   const [text, setText] = useState(target.item.text);
+  const [type, setType] = useState<Item["type"]>(target.item.type);
   const [assignee, setAssignee] = useState<string>(target.item.assigneeUid ?? "");
   const [packId, setPackId] = useState(target.pack.id);
   const shared = members.length > 1;
@@ -86,6 +88,7 @@ function ItemSheetBody({
     doneRef.current = true;
     const patch: ItemPatch = {};
     if (text.trim() && text.trim() !== target.item.text) patch.text = text;
+    if (type !== target.item.type) patch.type = type;
     if ((target.item.assigneeUid ?? "") !== assignee) patch.assigneeUid = assignee || null;
     if (move && packId !== target.pack.id) patch.targetPackId = packId;
     if (Object.keys(patch).length > 0) onSave(patch);
@@ -118,6 +121,19 @@ function ItemSheetBody({
           className="h-12 rounded-field border border-line bg-card px-4 text-body-lg font-semibold outline-none focus:border-ink"
         />
       </label>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-caption font-semibold text-sub">종류</span>
+        <SegmentedControl
+          label="아이템 종류"
+          value={type}
+          onChange={setType}
+          options={[
+            { value: "check", label: "체크 항목" },
+            { value: "text", label: "글" },
+          ]}
+        />
+      </div>
 
       {shared && (
         <div className="flex flex-col gap-2">

@@ -1564,7 +1564,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await reauthenticateForDelete(password);
     // Firestore/Storage 데이터를 먼저 정리하고, 마지막에 Auth 계정을 지운다.
     // (순서를 반대로 하면 로그인 정보가 먼저 사라져서 이후 Firestore 규칙상 접근이 막힘)
-    await deleteAllUserData(user.uid);
+    // 중간에 실패하면(네트워크 등) 일부만 지워진 채 계정이 남는다. 다시 하면 남은 것만 지워지니 그렇게 안내한다(2026-10-17, auth.md 확인 필요 5)
+    try {
+      await deleteAllUserData(user.uid);
+    } catch (err) {
+      console.error("[팩인백] 탈퇴 데이터 정리 중 실패:", err);
+      throw new Error(PARTIAL_DELETE_MESSAGE);
+    }
     // 앱이 못 지우는 것(짧은 URL · 공유 링크 · 알림 · 기기 토큰 · 문의 · 사용 기록)과 로그인 계정을 서버가 지운다(2026-10-15, auth.md 확인 필요 2).
     // 서버가 계정까지 지웠으면 로그아웃만 하고 끝, 실패하면 예전처럼 앱에서 계정을 지운다
     if (await deleteAccountServerSide()) {
@@ -1591,7 +1597,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "보안을 위해 다시 로그인한 뒤 탈퇴를 진행해주세요. (데이터는 이미 삭제되었어요)"
         );
       }
-      throw err;
+      console.error("[팩인백] 탈퇴 계정 삭제 실패:", err);
+      throw new Error(PARTIAL_DELETE_MESSAGE);
     }
   };
 
@@ -1681,6 +1688,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
+// 탈퇴가 데이터를 지우는 도중 멈춘 경우(auth.md AUTH-DEL-05)
+const PARTIAL_DELETE_MESSAGE = "일부만 지워졌어요. 다시 탈퇴하면 남은 것을 마저 지워요";
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
