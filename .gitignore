@@ -64,8 +64,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# AI Agent Rules (로컬 전용)
+# AI Agent Rules (로컬 전용, 실제 내용은 _secrets/claude/)
 AGENTS.md
+CLAUDE.md
+.claude/
 
 # Firestore backup (user data - never commit, scripts/backup-firestore.mjs)
 /backups/

@@ -2,9 +2,9 @@
 
 기준 문서: packinbag_UIUX_리디자인_방향.md
 기준 코드: main v1.0.34 + iOS 1.6 (Build 6, 제출 준비) — 10/5 구 UI(v1) 삭제, 10/6 Firestore 멈춤 복구·아이콘, 10/7 보안 점검·Storage 정리·비용 절감, 10/8 코드 정리·가방 메모 본문 분리, 10/9 전원 무료 출시 결정·보안 점검 2차, 10/10~10/11 iOS 네이티브(알림·위젯·잠금화면·단축어), 10/12 iOS 1.5 출시·개인 잠금·공유 링크 브리지·1.6 네이티브(Face ID·검색·글자색·위젯 열 수)까지 반영
-iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 진행판: `docs/packinbag_iap_release_guide.md`, 남은 일: `packinbag_남은작업_2026-10-13.md`
-**문서 원본은 저장소 `docs/`** 이다. Claude 프로젝트 파일은 사본이라, 문서를 고치면 `docs/`에서 다시 올린다
-목업(Claude 아티팩트, 같은 계정이면 어느 기기에서나 열림): https://claude.ai/artifact/UdHuUnmG3Ncir2qm9TeH1p
+iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 진행판: `docs/packinbag_iap_release_guide.md`, 지금 상태 · 남은 일 · 세션 로그: `_secrets/claude/HANDOFF.md`(10/17~, git 밖, 남은작업 문서를 대신함)
+**문서 원본은 저장소 `docs/`** 이다. Claude 작업 지침 · 메모리 이관본은 `_secrets/claude/`(CLAUDE.md · project-memory.md, 10/17, master · worker 두 계정 공용)
+목업(Claude 아티팩트, master 계정에서만 열림): https://claude.ai/artifact/UdHuUnmG3Ncir2qm9TeH1p · 데이터 사본 `_secrets/claude/mockup/`
   - 10/3 "데스크톱 · 포터블" 줄 / 10/4 떠 있는 탭바·글꼴·아이패드 2단·"로그인 · 계정 · 오프라인" 줄
 
 ## 지금 상태 (10/13)

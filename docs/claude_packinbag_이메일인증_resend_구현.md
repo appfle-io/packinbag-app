@@ -2,7 +2,7 @@
 
 > 상태(10/13): 코드 완료, 변경 없음. Resend 가입·DNS·API 키 등록과 폴백 QA는 아직 사용자 몫(아래 "남은 작업"). 키가 없으면 지금처럼 Firebase 기본 메일이 나간다(스팸함 가능성만 남음).
 > 참고: 메일 템플릿 색이 예전 브랜드 주황(#FF6E2D)이다. 앱은 10/6부터 딥그린(#2E5E4E)이라, Resend를 켤 때 함께 바꿀지 정한다(`lib/resendEmail.ts`).
-> 이 문서는 저장소 `docs/`가 원본. 남은 일 목록은 `packinbag_남은작업_2026-10-13.md` 5절
+> 이 문서는 저장소 `docs/`가 원본. 남은 일 목록은 `_secrets/claude/HANDOFF.md` "다음 할 일" 7번(10/17~)
 
 ## 배경
 - 기존 문제: Firebase Auth 기본 이메일 발송이 스팸함으로 분류됨 (발신 도메인이 google/firebaseapp 계열이라 SPF/DKIM 서명 주체를 바꿀 수 없음)
