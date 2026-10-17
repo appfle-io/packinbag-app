@@ -111,11 +111,13 @@ export async function promptForSharedBag(): Promise<string | null> {
   return null;
 }
 
-// 테스트 알림(5초 뒤 이 계정 기기로). 화면에 띄울 문구를 돌려준다
-export async function sendTestPush(): Promise<string> {
+// 테스트 알림(5초 뒤 이 계정 기기로). sent = 애플에 보냈는지, message = 화면에 띄울 문구.
+// 서버는 5초 기다렸다 보낸 뒤에 응답한다 - 응답이 왔을 때는 알림이 이미 도착해 있다(앱을 보는 중이면 배너 없이 사라짐).
+// 그래서 "홈으로 나가라"는 안내는 부르는 쪽이 누르는 즉시 띄운다(2026-10-17)
+export async function sendTestPush(): Promise<{ sent: boolean; message: string }> {
   const state = await getNotificationPermission();
   if (state !== "granted" && !(await askNotificationPermission())) {
-    return "아이폰 설정 > 팩인백 > 알림에서 알림을 허용해 주세요";
+    return { sent: false, message: "아이폰 설정 > 팩인백 > 알림에서 알림을 허용해 주세요" };
   }
   const call = httpsCallable<unknown, { devices: number; sent: number; reason?: string; reasons?: string[] }>(
     getFunctions(firebaseApp, "asia-northeast3"),
@@ -123,8 +125,8 @@ export async function sendTestPush(): Promise<string> {
     { timeout: 30_000 },
   );
   const { data } = await call({});
-  if (data.reason === "no-device") return "이 기기가 아직 등록되지 않았어요. 앱을 껐다 켠 뒤 다시 해 주세요";
-  if (data.reason === "no-permission") return "알림 권한이 아직 서버에 반영되지 않았어요. 잠시 뒤 다시 해 주세요";
-  if (data.sent > 0) return "알림을 보냈어요. 5초 뒤에 와요 · 홈 화면으로 나가 보세요";
-  return `알림을 보내지 못했어요 (${(data.reasons ?? []).join(", ") || "알 수 없음"})`;
+  if (data.reason === "no-device") return { sent: false, message: "이 기기가 아직 등록되지 않았어요. 앱을 껐다 켠 뒤 다시 해 주세요" };
+  if (data.reason === "no-permission") return { sent: false, message: "알림 권한이 아직 서버에 반영되지 않았어요. 잠시 뒤 다시 해 주세요" };
+  if (data.sent > 0) return { sent: true, message: "알림을 보냈어요" };
+  return { sent: false, message: `알림을 보내지 못했어요 (${(data.reasons ?? []).join(", ") || "알 수 없음"})` };
 }

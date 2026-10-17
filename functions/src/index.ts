@@ -36,13 +36,13 @@ export const sendTestPush = onCall({ secrets: [APNS_KEY_P8], timeoutSeconds: 30 
   if (!devices.some((d) => d.alerts)) return { devices: devices.length, sent: 0, reason: "no-permission" };
   // 앱을 보는 중에는 배너가 안 뜨므로(presentationOptions: []) 홈 화면으로 나갈 시간을 준다
   await sleep(5000);
+  // collapse-id는 붙이지 않는다(테스트마다 새 알림으로, 2026-10-17)
   const result = await sendToDevices(APNS_KEY_P8.value(), devices, {
     pushType: "alert",
     payload: {
       aps: { alert: { title: "팩인백", body: "알림이 잘 도착했어요" }, sound: "default" },
       kind: "test",
     },
-    collapseId: "test",
     expiresInSec: 600,
   });
   return { devices: devices.length, ...result };

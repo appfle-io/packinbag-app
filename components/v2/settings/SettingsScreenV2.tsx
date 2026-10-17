@@ -163,13 +163,26 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const runPushTest = async () => {
     if (pushTesting) return;
     setPushTesting(true);
-    // 보내는 동안에는 줄 아랫줄이 "보내는 중…". 결과 토스트 하나만 띄운다(예전에는 안내 토스트가 바로 덮여 안 보였다)
+    // 서버는 5초 뒤 보내고 그다음에 응답한다. 안내는 누르는 즉시(2026-10-17).
+    // 10/15에 결과 토스트 하나로 합쳤더니 "홈으로 나가세요"가 알림이 이미 온 뒤에 떠서, 앱 안에서 배너 없이 사라졌다.
+    // 권한을 아직 안 물었으면 허용 창이 먼저 뜨므로 안내는 권한이 있을 때만
+    if (pushPermission === "granted") show("5초 뒤에 알림이 와요 · 지금 홈 화면으로 나가 주세요");
+    // 한 번이라도 앱을 떠났는지(응답은 돌아온 뒤에 받을 수 있어 지금 상태로는 모른다)
+    let leftApp = document.visibilityState === "hidden";
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") leftApp = true;
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     try {
-      show(await sendTestPush());
+      const result = await sendTestPush();
+      // 앱을 보는 동안 도착하면 iOS가 배너를 띄우지 않는다(presentationOptions: []). 떠났다 왔으면 이미 봤을 테니 따로 알리지 않는다
+      if (!result.sent) show(result.message);
+      else if (!leftApp) show("앱을 보고 있어서 배너가 뜨지 않았어요. 누른 뒤 바로 홈 화면으로 나가 주세요");
     } catch (err) {
       console.error("[팩인백] 테스트 알림 실패:", err);
       show("테스트 알림을 보내지 못했어요");
     } finally {
+      document.removeEventListener("visibilitychange", onVisibility);
       setPushTesting(false);
     }
   };
@@ -435,7 +448,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <ListRow
               divider={false}
               title="테스트 알림 보내기"
-              subtitle={pushTesting ? "보내는 중…" : "이 기기로 알림이 오는지 확인해요"}
+              subtitle={pushTesting ? "5초 안에 홈 화면으로 나가 주세요" : "누른 뒤 홈 화면으로 나가면 알림이 와요"}
               onClick={() => guard(runPushTest)}
             />
             <p className="m-0 pt-2 text-micro text-faint">가방마다 끄려면 가방 더보기 &gt; 알림에서 바꿔요. 광고·이벤트 알림은 보내지 않아요.</p>

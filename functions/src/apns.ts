@@ -33,6 +33,8 @@ export interface ApnsResult {
   reason?: string;
   // 다시 보내도 소용없는 토큰(지워야 함)
   dead: boolean;
+  // 애플이 돌려준 알림 id(2026-10-17). Apple 푸시 콘솔 > Delivery Log에서 이 값으로 도착 여부를 찾는다
+  apnsId?: string;
 }
 
 const DEAD_REASONS = new Set(["BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic", "ExpiredToken"]);
@@ -69,10 +71,11 @@ function session(host: string): http2.ClientHttp2Session {
   return s;
 }
 
-function post(host: string, path: string, headers: Record<string, string>, body: string): Promise<{ status: number; body: string }> {
+function post(host: string, path: string, headers: Record<string, string>, body: string): Promise<{ status: number; body: string; apnsId?: string }> {
   return new Promise((resolve, reject) => {
     const req = session(host).request({ ":method": "POST", ":path": path, ...headers });
     let status = 0;
+    let apnsId: string | undefined;
     let data = "";
     req.setEncoding("utf8");
     req.setTimeout(10_000, () => {
@@ -81,11 +84,13 @@ function post(host: string, path: string, headers: Record<string, string>, body:
     });
     req.on("response", (h) => {
       status = Number(h[":status"] ?? 0);
+      const id = h["apns-id"];
+      apnsId = Array.isArray(id) ? id[0] : id;
     });
     req.on("data", (chunk: string) => {
       data += chunk;
     });
-    req.on("end", () => resolve({ status, body: data }));
+    req.on("end", () => resolve({ status, body: data, apnsId }));
     req.on("error", reject);
     req.end(body);
   });
@@ -107,7 +112,7 @@ export async function sendApns(p8: string, device: { token: string; env: ApnsEnv
   }
   try {
     const res = await post(HOSTS[device.env] ?? HOSTS.production, `/3/device/${device.token}`, headers, JSON.stringify(message.payload));
-    if (res.status === 200) return { ok: true, status: 200, dead: false };
+    if (res.status === 200) return { ok: true, status: 200, dead: false, apnsId: res.apnsId };
     let reason: string | undefined;
     try {
       reason = (JSON.parse(res.body) as { reason?: string }).reason;
@@ -115,7 +120,7 @@ export async function sendApns(p8: string, device: { token: string; env: ApnsEnv
       reason = undefined;
     }
     if (reason === "ExpiredProviderToken") jwtCache = null;
-    return { ok: false, status: res.status, reason, dead: res.status === 410 || (!!reason && DEAD_REASONS.has(reason)) };
+    return { ok: false, status: res.status, reason, dead: res.status === 410 || (!!reason && DEAD_REASONS.has(reason)), apnsId: res.apnsId };
   } catch (err) {
     return { ok: false, status: 0, reason: err instanceof Error ? err.message : String(err), dead: false };
   }

@@ -47,6 +47,12 @@ export async function sendToDevices(p8: string, devices: PushDevice[], message: 
   await Promise.all(dead.map(({ d }) => db.collection(DEVICE_TOKENS).doc(d.id).update({ apns: FieldValue.delete() }).catch(() => {})));
   const failed = results.filter(({ r }) => !r.ok);
   for (const { d, r } of failed) console.warn("[push] 실패", { device: d.id.slice(0, 8), env: d.env, status: r.status, reason: r.reason });
+  // 보이는 알림은 기기마다 애플 알림 id를 남긴다(2026-10-17). "보냈는데 안 왔어요" 때 Apple 푸시 콘솔 > Delivery Log에서 이 id로 찾는다
+  if (message.pushType === "alert") {
+    for (const { d, r } of results.filter(({ r }) => r.ok)) {
+      console.log("[push] 보냄", { device: d.id.slice(0, 8), env: d.env, apnsId: r.apnsId, kind: (message.payload as { kind?: string }).kind });
+    }
+  }
   return {
     sent: results.length - failed.length,
     failed: failed.length,

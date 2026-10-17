@@ -17,6 +17,7 @@
 | **Firestore 읽기 절감 — 스케줄러 없애기** | 💰 비용 | 2분마다 도는 `flushBagActivity`(빈 조회 2번 = 아무도 안 써도 하루 읽기 1,440건) 삭제 → 활동 묶음 · 위젯 갱신 푸시를 Cloud Tasks로 예약(`functions/src/tasks.ts` · `bagPushTask`). 안전망 `sweepBagActivity` 1시간마다(하루 24건). 활동 모으기는 읽지 않고 merge, 조용한 푸시는 가방을 다시 안 읽음(NAT-PUSH-03 · 06 · 06a). **Functions 배포 + Cloud Tasks 권한 필요** |
 | **Firestore 읽기 절감 — 잠금화면** | 💰 비용 | 저장마다 하던 deviceTokens 조회를 잠금화면에 띄운 가방(`bags.liveOn`, 서버 전용)만. `live-token` 라우트가 표시, 띄운 기기가 없으면 트리거가 지움. 앱 저장은 이 필드를 쓰지 않음(`BAG_MANAGED_KEYS` · `BAG_SERVER_KEYS`)(NAT-PUSH-07) |
 | **Firestore 읽기 절감 — 위젯** | 💰 비용 | 위젯 안전망 새로고침 30분 → 1시간(`PIB.staleAfter`, iOS 새 빌드부터, NAT-WID-08) |
+| **테스트 알림이 안 오던 문제** | 🐛 수정 | 10/15에 결과 토스트 하나로 합치면서 "홈으로 나가세요"가 서버가 보낸 뒤에 떠, 앱 안에서 도착한 알림이 배너 없이 사라짐. 안내를 누르는 즉시, 앱을 안 떠났으면 그 사실을 알림(SET-PUSH-06). 서버 테스트 알림은 collapse-id 없이, 보이는 알림은 기기별 `[push] 보냄 { apnsId }` 로그 |
 
 ## 10/16 보안 점검 3차 · api.md · security-rules.md · shell · native-ios · admin (v1.6.1)
 
