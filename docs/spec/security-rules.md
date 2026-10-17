@@ -140,3 +140,10 @@
 | inviteCodes · unlockCodes · sharedPacks list 거부, unlockCodes 무효화 외 수정 거부 | RULE-INV-01 · RULE-CODE-01 · RULE-SHARE-01 |
 | inquiries 만들기 형식 · 마스터만 답변 | RULE-INQ-01 |
 | Storage: 멤버 아닌 사람 올리기 거부 · 잠긴 그룹장 올리기 거부 · 무료 파일 거부 · 5MB · 10MB 경계 · 지우기는 멤버 | STOR-BAG-01 · STOR-BPACK-01 · STOR-USER-01 |
+| Storage 위젯 사진: 남의 경로 거부 · 무료 올리기 거부 · JPEG 아님 거부 · 3MB 경계 · 본인 지우기 · 목록 | RULE-STO-WID-01 |
+
+## RULE-STO-WID 북마크 위젯 사진 (10/18 · 1.7)
+
+| ID | 규칙 |
+|---|---|
+| RULE-STO-WID-01 | `users/{userId}/widgetPhotos/{fileName}`: 읽기(목록 포함) · 지우기는 본인. 올리기는 본인 + `isPremium()` + `image/jpeg` + 3MB 미만. 위젯(기기)은 내려받기 주소(토큰)로 받아 규칙을 거치지 않는다(STOR-NOTE-01과 같은 성질, 본인 계정 문서에만 주소가 있음). 프리미엄이 끝나도 이미 올린 사진은 남고, 앱이 기본 바탕으로 그린다(SET-WID-03) |

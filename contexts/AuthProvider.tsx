@@ -46,8 +46,9 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
-import { UserProfile, StartPageConfig, BagReminder, BagPushKind, PrivateLock } from "@/lib/types";
-import { setNativeSummaryLocks } from "@/lib/v2/nativeBridge";
+import { UserProfile, StartPageConfig, BagReminder, BagPushKind, PrivateLock, WidgetStyle } from "@/lib/types";
+import { setNativeSummaryLocks, pushWidgetStyles } from "@/lib/v2/nativeBridge";
+import { effectiveWidgetStyles } from "@/lib/v2/widgetStyles";
 import { isPremiumUser } from "@/lib/premiumLimits";
 import { stripUndefined } from "@/lib/firestoreSanitize";
 import { togglePinned, V2_MAX_PINNED_BAGS } from "@/lib/listSort";
@@ -171,6 +172,8 @@ interface AuthContextValue {
   setBagPushOff: (bagId: string, kinds: BagPushKind[]) => Promise<void>;
   // 개인 잠금 설정 통째로 쓰기(null이면 지움, 2026-10-12)
   updatePrivateLock: (next: PrivateLock | null) => Promise<void>;
+  // 북마크 위젯 꾸미기 목록 통째로 쓰기(2026-10-18). 사진 올리기 · 지우기는 lib/v2/widgetStyles.ts
+  updateWidgetStyles: (next: WidgetStyle[]) => Promise<void>;
   // 본인 확인(이메일 계정은 비밀번호, 소셜은 다시 로그인 창). PIN을 잊었을 때 재설정에 쓴다
   reauthenticate: (password?: string) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
@@ -585,6 +588,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           bagPushOff: data?.bagPushOff as UserProfile["bagPushOff"],
           // 개인 잠금(2026-10-12)
           privateLock: data?.privateLock as UserProfile["privateLock"],
+          // 북마크 위젯 꾸미기(2026-10-18)
+          widgetStyles: data?.widgetStyles as UserProfile["widgetStyles"],
     });
 
     function open(p: UserProfile) {
@@ -726,6 +731,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       startPage: deviceStartPage,
     };
   }, [rawProfile, unlockLiveStatus, deviceStartPage]);
+
+  // 북마크 위젯 꾸미기를 iOS 위젯에 넘긴다(2026-10-18, 1.7 앱부터). 무료면 1개 · 기본 바탕만. 같은 내용이면 네이티브를 안 부른다
+  const widgetStylesValue = rawProfile?.widgetStyles;
+  const widgetPremium = !!profile && isPremiumUser(profile.email, profile);
+  const hasRawProfile = !!rawProfile;
+  useEffect(() => {
+    if (!user || isOfflineMode || !hasRawProfile) return;
+    void pushWidgetStyles(effectiveWidgetStyles(widgetStylesValue, widgetPremium));
+  }, [user, isOfflineMode, hasRawProfile, widgetStylesValue, widgetPremium]);
 
   const packDisplayStatesRef = useRef<NonNullable<UserProfile["packDisplayStates"]>>({});
   const packDisplayDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1480,6 +1494,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await writeUser({ privateLock: next ?? REMOVE_FIELD });
   };
 
+  // 북마크 위젯 꾸미기(2026-10-18). 작은 배열이라 통째로 쓴다(저장 · 지우기 때만 쓰기 1). 화면에 먼저 반영한다
+  // 계정 모드 전용(iOS 앱에서만 보이는 화면). 빈 배열이면 필드를 지운다
+  const updateWidgetStyles = async (next: WidgetStyle[]) => {
+    if (!user || isOfflineMode) return;
+    const clean = next.map((s) => stripUndefined(s) as WidgetStyle);
+    setRawProfile((prev) => (prev ? { ...prev, widgetStyles: clean } : prev));
+    await writeUser({ widgetStyles: clean.length ? clean : REMOVE_FIELD });
+  };
+
   const resendVerificationEmail = async () => {
     if (!user) return;
     try {
@@ -1717,6 +1740,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setBagPushMuted,
         setBagPushOff,
         updatePrivateLock,
+        updateWidgetStyles,
         reauthenticate: reauthenticateForDelete,
         resendVerificationEmail,
         resendVerificationByCredential,

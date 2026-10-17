@@ -91,3 +91,50 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "완료된 항목 보이기", default: true)
     var showDone: Bool
 }
+
+// ---- 북마크 위젯(가방 바로가기, 1.7 · 2026-10-18) ----------------------------------------------
+// 위젯 편집: 가방(위 BagEntity 그대로) + 꾸미기(앱 설정 > 위젯 꾸미기에서 저장한 것 + "기본").
+// 꾸미기 목록은 App Group(PIBStyleStore)에서. 지워진 꾸미기를 고른 위젯은 기본 모양으로 그린다
+struct WidgetStyleEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "꾸미기"
+    static let defaultQuery = WidgetStyleQuery()
+    static let plainId = "plain"
+
+    let id: String
+    let name: String
+    let detail: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(name)", subtitle: "\(detail)")
+    }
+
+    static func all() -> [WidgetStyleEntity] {
+        let plain = WidgetStyleEntity(id: plainId, name: "기본", detail: "앱과 같은 바탕")
+        return [plain] + PIBStyleStore.all().map { s in
+            let kind = s.bg == "photo" ? "사진" : s.bg == "solid" ? "단색" : "기본 바탕"
+            return WidgetStyleEntity(id: s.id, name: s.name, detail: kind)
+        }
+    }
+}
+
+struct WidgetStyleQuery: EntityQuery {
+    func entities(for identifiers: [WidgetStyleEntity.ID]) async throws -> [WidgetStyleEntity] {
+        let all = WidgetStyleEntity.all()
+        return identifiers.compactMap { id in all.first { $0.id == id } }
+    }
+
+    func suggestedEntities() async throws -> [WidgetStyleEntity] {
+        WidgetStyleEntity.all()
+    }
+}
+
+struct BookmarkConfigIntent: WidgetConfigurationIntent {
+    static let title: LocalizedStringResource = "가방 바로가기"
+    static let description = IntentDescription("누르면 고른 가방이 바로 열려요. 꾸미기는 앱 설정 > 위젯 꾸미기에서 만들어요")
+
+    @Parameter(title: "가방")
+    var bag: BagEntity?
+
+    @Parameter(title: "꾸미기", description: "비워 두면 기본")
+    var style: WidgetStyleEntity?
+}

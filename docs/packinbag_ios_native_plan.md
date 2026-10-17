@@ -1,4 +1,6 @@
-# 팩인백 iOS 네이티브 기능 기획 (1.5 · 1.6) — 2026-10-10 작성 · 10-13 갱신
+# 팩인백 iOS 네이티브 기능 기획 (1.5 · 1.6 · 1.7) — 2026-10-10 작성 · 10-18 갱신
+
+> **상태(10/18)**: 1.5 · 1.6 출시. **1.7 = 가방 바로가기(북마크 위젯) + 위젯 꾸미기** 코드 완료, 기기 확인 · 제출 전(아래 11절, QA `BW-`)
 
 > **상태(10/13)**: 1.5 (Build 5) 10/12 승인 · 출시. 1.6 (Build 6)은 코드 완료, 기기 확인 · 제출 전(아래 10절, QA `X-` 절, 출시가이드 A-5)
 > 1~9절은 1.5를 만들 때의 기획 · 진행 기록이다. 지금 동작과 다른 부분은 나중 항목이 이긴다(예: 홈 위젯 "크게만 2열" → 1.6에서 열 수 선택, 위젯의 "외 N개" 줄 삭제)
@@ -193,3 +195,12 @@
 3. **위젯 열 수**: `ConfigurationAppIntent`에 "열 수"(1열 · 2열, 기본 2열) 추가, 중간(systemMedium)에서도 2열 가능. `PackWidgetView.packView`의 `columns = family == .systemLarge ? 2 : 1` → 작게는 1열 고정, 중간 · 크게는 설정값
 4. **Siri · Spotlight 검색**: `BagEntity` · 팩 · 보관함 팩을 `IndexedEntity`로(App Schema는 맞는 도메인이 없어 안 씀), 열기는 `packinbag://bag/{id}?pack=` · `packinbag://library/{id}`. 색인은 App Group 요약을 기준으로, 개인 잠금으로 잠근 것은 요약에서 이미 빠짐(`lib/nativeSummary.ts`). 보관함 팩은 요약 `library`(A안, 위 진행 기록)
 5. **유니버설 링크**: Associated Domains `applinks:packinbag.seeuson.com` + `app/.well-known/apple-app-site-association/route.ts`(appID `2ZHYLWBV2H.com.appfle.packinbag`, 초대 링크 `/?invite=` · `/v/*`만 - 짧은 URL `/s` · `/c`는 다른 사이트로 가는 링크가 있어 빼기로 함). 앱에서 https 주소를 `appUrlOpen`으로 받아 같은 경로로 이동(`onBagNotificationTap` fromUrl). 카톡 안 브라우저는 여전히 브리지(`lib/v2/appBridge.ts`, `packinbag://open?to=`)
+
+## 11. 1.7 가방 바로가기(북마크 위젯) · 위젯 꾸미기 (10/18)
+기획 · 결정: 체크리스트가 길면 위젯으로 해결이 안 되니, 가방 정보만 보여 주고 누르면 그 가방으로 가는 작은 위젯. 꾸미기는 프리미엄(무료는 1개 · 기본 바탕만). 투명 배경은 안 함(홈 위젯은 앱이 배경화면을 비칠 수 없음). 목업 대지 `BookmarkWidget.dc.html`
+- 왜 앱 안에서 꾸미나: iOS "위젯 편집" 시트(AppIntent)는 사진 고르기 · 끌어서 자르기를 못 한다 → 설정 > 위젯 꾸미기(가방 더보기에도 바로가기)에서 저장해 두고, 위젯 편집에서는 가방 + 꾸미기를 고른다(같은 꾸미기를 여러 위젯에)
+- 저장: 모양은 `users/{uid}.widgetStyles`(이미 구독 중, 읽기 추가 없음), 사진은 Storage `users/{uid}/widgetPhotos/`(긴 변 1024px JPEG) — 기기 간 동기화. 자르기는 값(zoom · x · y)만 → Storage CORS 없이 다시 편집, 위젯은 같은 값으로 그림
+- 다리: `PackInBagNative.saveWidgetStyles({ json })`("__probe__"로 있는지 확인) → App Group `pib.widgetStyles` + 사진을 내려받아 `WidgetPhotos/`(900px) → 위젯 다시 그림. 로그아웃이면 지움. "직접" 색은 기존 `pickColor`(iOS 색 고르기 창)
+- Swift(새 파일 없음): `Shared/PIBShared.swift`(PIBWidgetStyle · PIBStyleStore · PIBBookmarkText · PIBBag.lastPackedAt), `PackInBagWidget/AppIntent.swift`(WidgetStyleEntity · BookmarkConfigIntent), `PackInBagWidget.swift`(PackInBagBookmarkWidget, systemSmall), `PackInBagWidgetBundle.swift`, `App/AppDelegate.swift`(saveWidgetStyles)
+- 명세: `docs/spec/native-ios.md` NAT-BMK, `docs/spec/settings.md` SET-WID, `docs/spec/security-rules.md` RULE-STO-WID. QA `BW-01~15`
+- 출시: 웹 1.7.0 + Storage 규칙 배포 + Xcode App · 위젯 두 타깃 Version 1.7. 웹만 먼저 배포해도 1.6 앱에서는 메뉴가 안 보임

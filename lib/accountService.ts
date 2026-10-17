@@ -10,6 +10,7 @@ import { getLibraryPacksOnce, deleteLibraryPackRemote } from "@/lib/packsService
 import { bagFileUrls, deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
 import type { Bag } from "@/lib/types";
 import { getApiUrl } from "@/lib/apiBase";
+import { deleteAllWidgetPhotos } from "@/lib/v2/widgetStyles";
 
 // 함께 쓰는 가방을 넘겨받을 사람: 가장 먼저 들어온 다른 멤버
 function nextOwner(bag: Bag, uid: string): string | null {
@@ -87,6 +88,9 @@ export async function deleteAllUserData(uid: string) {
 
   await deleteUnusedFiles(packs.flatMap(packFileUrls), keep);
   await Promise.all(packs.map((p) => deleteLibraryPackRemote(uid, p.id)));
+
+  // 북마크 위젯 배경 사진(2026-10-18)
+  await deleteAllWidgetPhotos(uid);
 
   await deleteDoc(doc(db, "users", uid));
 }

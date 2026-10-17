@@ -145,5 +145,17 @@ service firebase.storage {
       // 본인은 프리미엄이 끝난 뒤에도 자기 첨부를 지울 수 있다(팩 영구삭제·회원 탈퇴 정리)
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // 북마크 위젯 배경 사진(2026-10-18, 1.7): 본인 전용. 사진 배경은 프리미엄(무료는 기본 바탕만).
+    // 앱이 긴 변 1024px JPEG로 줄여 올린다. 기기(위젯)는 내려받기 주소(토큰)로 받는다. 읽기는 목록(탈퇴 정리) 포함
+    match /users/{userId}/widgetPhotos/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null &&
+        request.auth.uid == userId &&
+        isPremium() &&
+        request.resource.contentType == 'image/jpeg' &&
+        request.resource.size < 3 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

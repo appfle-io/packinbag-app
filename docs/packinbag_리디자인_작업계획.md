@@ -178,6 +178,10 @@ git tag v1.0.x-offline-portable && git push origin v1.0.x-offline-portable
 - 가방 메모 검색이 앞 2,000자까지만 되는 한계(10/8 결정)
 - 목업에 "올리기 대기" 배지·합치기 시트 추가
 
+## 1.7 가방 바로가기 위젯 · 위젯 꾸미기 (2026-10-18) — 코드 완료, 기기 확인 · 제출 전
+- iOS 홈 화면 작은 위젯(가방 정보만 · 누르면 그 가방) + 설정 > 위젯 꾸미기(가방 더보기에도). 자세히는 `docs/packinbag_ios_native_plan.md` 11절, 명세 NAT-BMK · SET-WID · RULE-STO-WID, QA BW-
+- 코드 주의: `UserProfile.widgetStyles`는 AuthProvider 매핑에 있음. 꾸미기 모양은 `lib/types.ts` WidgetStyle ↔ `PIBShared.swift` PIBWidgetStyle, 문구는 `lib/v2/widgetStyles.ts` ↔ `PIBBookmarkText`, 미리 보기 `WidgetPreview.tsx` ↔ `BookmarkWidgetView`가 같아야 한다(하나를 바꾸면 같이)
+
 ## 이후 로드맵 (확정 순서)
 v2 출시 + 푸시 · 위젯 · 실시간 현황 · 단축어(iOS 1.5, 10/12 출시) → 개인 잠금 Face ID · Spotlight · 유니버설 링크(1.6) → 결제 도입(사업자 가능해지면) → Android. 캘린더 · 미리알림은 하지 않음(10/17 결정, 지금 기능을 탄탄하게)
 - iOS 설계 원칙: 그룹원 활동 푸시는 자동저장마다 보내지 않게, D-Day 알림은 로컬 알림, 위젯은 App Group에 저장한 요약을 읽는 방식. 가방 메모 본문은 notes에 있으니 위젯·푸시는 미리보기(`editorPreviewText`)만

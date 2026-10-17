@@ -164,6 +164,7 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "pickColor", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "biometricInfo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "authenticateBiometric", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveWidgetStyles", returnType: CAPPluginReturnPromise),
     ]
 
     // 색 고르기 창이 닫힐 때 돌려줄 호출(10/11)
@@ -284,6 +285,29 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             result["packId"] = current.packId
         }
         call.resolve(result)
+    }
+
+    // ---- 북마크 위젯 꾸미기(1.7, 2026-10-18) ----
+    // 웹 lib/v2/nativeBridge pushWidgetStyles. { json: '{"v":1,"styles":[...]}' } → App Group에 저장 → 사진 내려받기 → 위젯 다시 그리기.
+    // "__probe__"는 웹이 이 메서드가 있는지 보려고 부르는 것(아무것도 안 함)
+    @objc func saveWidgetStyles(_ call: CAPPluginCall) {
+        guard let json = call.getString("json") else {
+            call.reject("json이 필요해요")
+            return
+        }
+        if json == "__probe__" {
+            call.resolve()
+            return
+        }
+        guard PIBStyleStore.save(json: json) else {
+            call.reject("꾸미기 형식이 올바르지 않아요")
+            return
+        }
+        PIBWidgets.reload()
+        call.resolve()
+        Task {
+            if await PIBStyleStore.syncPhotos() { PIBWidgets.reload() }
+        }
     }
 
     // iOS 기본 색 고르기 창(격자 · 스펙트럼 · 슬라이더 + 불투명도, 10/11). 잠금화면에 띄우기 "직접" 배경색

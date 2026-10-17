@@ -1,15 +1,17 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconLockOpen, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
+import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconLockOpen, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile, IconLayoutGrid } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { useAuth } from "@/contexts/AuthProvider";
 import { isLocalNotificationsAvailable, reminderSummary } from "@/lib/v2/bagReminders";
-import { isNativeBridgeAvailable } from "@/lib/v2/nativeBridge";
+import { isNativeBridgeAvailable, supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
 import { bagPushSummary, bagPushView, showsBagPush } from "@/lib/v2/serverPush";
+import SlideScreen from "@/components/SlideScreen";
+import { WidgetStylesScreen } from "@/components/v2/settings/WidgetStylesScreen";
 import { ReminderSheet } from "./ReminderSheet";
 import { LiveActivitySheet } from "./LiveActivitySheet";
 
@@ -67,6 +69,18 @@ export function MoreSheet({
   // 잠금화면 실시간 현황은 네이티브 다리가 든 iOS 앱(1.5 이상)에서만
   const [liveAvailable] = useState(isNativeBridgeAvailable);
   const [liveOpen, setLiveOpen] = useState(false);
+  // 홈 화면 위젯 꾸미기(1.7 iOS 앱 · 계정 모드, 2026-10-18). 설정 > 위젯 꾸미기와 같은 화면, 미리 보기는 이 가방
+  const [widgetAvailable, setWidgetAvailable] = useState(false);
+  const [widgetOpen, setWidgetOpen] = useState(false);
+  useEffect(() => {
+    if (isOfflineMode) return;
+    let alive = true;
+    void supportsBookmarkWidget().then((ok) => alive && setWidgetAvailable(ok));
+    return () => {
+      alive = false;
+    };
+  }, [isOfflineMode]);
+  const showWidget = widgetAvailable && !isOfflineMode;
   // 오른쪽 글 = 소식(함께 쓰는 가방) + D-Day · 반복 알림. 둘 다 꺼져야 "꺼짐"(10/11 - 예전에는 알림만 봐서 소식을 받는데도 꺼짐)
   const pushText = showsBagPush(bag, isOfflineMode) ? bagPushSummary(bagPushView(profile, bag, user?.uid)) : null;
   const reminderText =
@@ -154,7 +168,7 @@ export function MoreSheet({
           )}
         </section>
 
-        {(keepScreenOn || notificationsAvailable || liveAvailable) && (
+        {(keepScreenOn || notificationsAvailable || liveAvailable || showWidget) && (
           <section className="flex flex-col">
             <SectionHeader>챙길 때</SectionHeader>
             {notificationsAvailable && (
@@ -169,6 +183,16 @@ export function MoreSheet({
               <button type="button" className={row} onClick={() => (close(), window.setTimeout(() => setLiveOpen(true), 300))}>
                 <IconDeviceMobile size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
                 <span className="min-w-0 flex-1">잠금화면에 띄우기</span>
+                <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            )}
+            {showWidget && (
+              <button type="button" className={row} onClick={() => (close(), window.setTimeout(() => setWidgetOpen(true), 300))}>
+                <IconLayoutGrid size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+                <span className="flex min-w-0 flex-1 flex-col py-2">
+                  <span>홈 화면 위젯 꾸미기</span>
+                  <span className="text-micro text-sub">‘가방 바로가기’ 위젯에 쓸 사진 · 색</span>
+                </span>
                 <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
               </button>
             )}
@@ -251,6 +275,11 @@ export function MoreSheet({
     </Sheet>
     {notificationsAvailable && <ReminderSheet open={reminderOpen} onClose={() => setReminderOpen(false)} bag={bag} />}
     {liveAvailable && <LiveActivitySheet open={liveOpen} onClose={() => setLiveOpen(false)} bag={bag} />}
+    {showWidget && (
+      <SlideScreen active={widgetOpen} onBackdropClick={() => setWidgetOpen(false)} swipeBack>
+        <WidgetStylesScreen onBack={() => setWidgetOpen(false)} bags={[bag]} />
+      </SlideScreen>
+    )}
     </>
   );
 }

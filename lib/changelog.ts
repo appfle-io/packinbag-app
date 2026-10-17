@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.7.0",
+    date: "2026-10-18",
+    items: [
+      "홈 화면 ‘가방 바로가기’ 위젯: 누르면 그 가방이 바로 열려요",
+      "설정 > 위젯 꾸미기에서 내 사진 · 색 · 글자 위치 · 보여 줄 정보를 골라요",
+    ],
+  },
+  {
     version: "1.6.4",
     date: "2026-10-17",
     items: ["인증 메일이 팩인백 디자인으로 와요", "다시 로그인할 때 프로필을 더 안정적으로 불러와요"],

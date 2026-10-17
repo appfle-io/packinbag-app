@@ -400,3 +400,222 @@ struct PackInBagLockWidget: Widget {
 } timeline: {
     PackEntry(date: .now, configuration: ConfigurationAppIntent(), bag: Sample.bag, pack: Sample.pack, signedIn: true)
 }
+
+// ---- 북마크 위젯(가방 바로가기, 1.7 · 2026-10-18) ------------------------------------------------
+// 작게 하나. 가방 정보만(이름 · D-Day · 챙긴 개수 · 남은 개수 · 진행 막대 · 다 싼 날 중 고른 것), 누르면 그 가방(packinbag://bag/{id}).
+// 모양은 웹 components/v2/settings/WidgetPreview.tsx와 같다: 글자 9칸(가로 위치 = 정렬), 사진은 zoom · x · y(위젯 폭에 대한 %)로 자른다
+struct BookmarkEntry: TimelineEntry {
+    let date: Date
+    let bag: PIBBag?
+    let style: PIBWidgetStyle?
+    let photo: UIImage?
+    let signedIn: Bool
+}
+
+struct BookmarkProvider: AppIntentTimelineProvider {
+    static let sampleBag = PIBBag(id: "sample", name: "제주 3박 4일", travelDate: nil, packs: [Sample.pack])
+
+    func placeholder(in context: Context) -> BookmarkEntry {
+        BookmarkEntry(date: Date(), bag: Self.sampleBag, style: nil, photo: nil, signedIn: true)
+    }
+
+    func snapshot(for configuration: BookmarkConfigIntent, in context: Context) async -> BookmarkEntry {
+        let entry = makeEntry(configuration)
+        if context.isPreview && entry.bag == nil {
+            return BookmarkEntry(date: Date(), bag: Self.sampleBag, style: entry.style, photo: entry.photo, signedIn: true)
+        }
+        return entry
+    }
+
+    func timeline(for configuration: BookmarkConfigIntent, in context: Context) async -> Timeline<BookmarkEntry> {
+        if PIBStore.token != nil && PIBStore.summaryAge > PIB.staleAfter {
+            try? await PIBAPI.refreshSummary()
+        }
+        // 사진을 아직 못 받았으면 여기서 받는다(앱이 내려받다 꺼진 경우)
+        if let id = configuration.style?.id, let s = PIBStyleStore.style(id), s.photoFileName != nil, PIBStyleStore.image(for: s) == nil {
+            await PIBStyleStore.syncPhotos()
+        }
+        let midnight = Calendar.current.nextDate(after: Date(), matching: DateComponents(hour: 0, minute: 0, second: 5), matchingPolicy: .nextTime)
+            ?? Date().addingTimeInterval(24 * 3600)
+        let next = min(midnight, Date().addingTimeInterval(PIB.staleAfter))
+        return Timeline(entries: [makeEntry(configuration)], policy: .after(next))
+    }
+
+    private func makeEntry(_ configuration: BookmarkConfigIntent) -> BookmarkEntry {
+        let bags = PIBStore.summary()?.bags ?? []
+        let bag = configuration.bag.flatMap { b in bags.first { $0.id == b.id } } ?? (configuration.bag == nil ? bags.first : nil)
+        let style = configuration.style.flatMap { $0.id == WidgetStyleEntity.plainId ? nil : PIBStyleStore.style($0.id) }
+        return BookmarkEntry(
+            date: Date(), bag: bag, style: style, photo: style.flatMap { PIBStyleStore.image(for: $0) },
+            signedIn: PIBStore.token != nil
+        )
+    }
+}
+
+struct BookmarkWidgetView: View {
+    @Environment(\.colorScheme) private var scheme
+    let entry: BookmarkEntry
+
+    private var palette: PIBPalette { PIBPalette.of(scheme) }
+    private var bg: String {
+        guard let s = entry.style else { return "plain" }
+        // 사진을 아직 못 받았으면 어두운 바탕 위에 그린다(글자는 사진 기준 색)
+        return s.bg
+    }
+
+    // 글자색(웹 widgetInkColor와 같음). nil이면 기본 바탕 색
+    private var inkHex: String? {
+        guard let s = entry.style, bg != "plain" else { return nil }
+        switch s.ink {
+        case "white": return "#FFFFFF"
+        case "black": return "#17171A"
+        case "custom" where pibRGB(s.inkColor) != nil: return s.inkColor
+        default:
+            if bg == "photo" { return "#FFFFFF" }
+            return pibLuminance(s.color) > 0.62 ? "#17171A" : "#FFFFFF"
+        }
+    }
+
+    private var ink: Color { pibHexColor(inkHex) ?? palette.ink }
+    private var inkIsLight: Bool { inkHex.map { pibLuminance($0) > 0.5 } ?? (scheme == .dark) }
+
+    var body: some View {
+        content
+            .containerBackground(for: .widget) { background }
+            .widgetURL(entry.bag.flatMap { pibBagURL($0.id) })
+    }
+
+    @ViewBuilder
+    private var background: some View {
+        if let s = entry.style, bg == "solid" {
+            pibHexColor(s.color) ?? palette.background
+        } else if let s = entry.style, bg == "photo" {
+            GeometryReader { geo in
+                ZStack {
+                    Color(red: 0.2, green: 0.2, blue: 0.2)
+                    if let photo = entry.photo {
+                        Image(uiImage: photo)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .scaleEffect(s.zoom ?? 1)
+                            .offset(x: (s.x ?? 0) / 100 * geo.size.width, y: (s.y ?? 0) / 100 * geo.size.height)
+                    }
+                    dim(s)
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
+            }
+        } else {
+            palette.background
+        }
+    }
+
+    // 글자 쪽 어둡게(웹과 같은 식: 가운데 줄이면 전체에 ×0.7, 아니면 글자 쪽에서 75%까지 옅어짐)
+    @ViewBuilder
+    private func dim(_ s: PIBWidgetStyle) -> some View {
+        let a = (s.dim ?? 40) / 100
+        let shade: Color = inkIsLight ? .black : .white
+        switch s.pos.first ?? "b" {
+        case "m":
+            shade.opacity(a * 0.7)
+        case "t":
+            LinearGradient(stops: [.init(color: shade.opacity(a), location: 0), .init(color: shade.opacity(0), location: 0.75)], startPoint: .top, endPoint: .bottom)
+        default:
+            LinearGradient(stops: [.init(color: shade.opacity(a), location: 0), .init(color: shade.opacity(0), location: 0.75)], startPoint: .bottom, endPoint: .top)
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if !entry.signedIn {
+            message("팩인백 앱에서 로그인하면 가방이 보여요")
+        } else if let bag = entry.bag {
+            info(bag)
+        } else {
+            message("길게 눌러 \"위젯 편집\"에서 가방을 골라 주세요")
+        }
+    }
+
+    private func info(_ bag: PIBBag) -> some View {
+        let s = entry.style
+        let show = s?.show ?? PIBWidgetStyleShow()
+        let pos = s?.pos ?? "bl"
+        let row = pos.first ?? "b"
+        let col = pos.last ?? "l"
+        let h: HorizontalAlignment = col == "c" ? .center : col == "r" ? .trailing : .leading
+        let v: VerticalAlignment = row == "m" ? .center : row == "t" ? .top : .bottom
+        let text: TextAlignment = col == "c" ? .center : col == "r" ? .trailing : .leading
+        let meta = PIBBookmarkText.meta(bag, show: show)
+        let dday = show.dday ? PIBBookmarkText.dday(bag) : nil
+        let (done, total) = PIBBookmarkText.counts(bag)
+        let ratio = total > 0 ? Double(done) / Double(total) : 0
+        let many = meta.contains(" · ") || (dday != nil && show.bar)
+        let plain = bg == "plain"
+        let sub = plain ? palette.sub : ink.opacity(0.9)
+        let accent = plain ? palette.brand : ink
+        return VStack(alignment: h, spacing: 4) {
+            if let dday {
+                Text(dday)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(accent)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(plain ? palette.brand.opacity(0.12) : Color.clear))
+                    .overlay(Capsule().stroke(plain ? Color.clear : accent, lineWidth: 1))
+            }
+            if show.name {
+                Text(bag.name)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(ink)
+                    .lineLimit(many ? 1 : 2)
+                    .multilineTextAlignment(text)
+            }
+            if !meta.isEmpty {
+                Text(meta)
+                    .font(.system(size: 12))
+                    .foregroundStyle(sub)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            if show.bar {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(plain ? palette.line : (inkIsLight ? Color.white.opacity(0.3) : Color.black.opacity(0.12)))
+                        Capsule().fill(accent).frame(width: geo.size.width * ratio)
+                    }
+                }
+                .frame(height: 4)
+                .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(horizontal: h, vertical: v))
+    }
+
+    private func message(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13))
+            .foregroundStyle(palette.sub)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct PackInBagBookmarkWidget: Widget {
+    let kind: String = "PackInBagBookmarkWidget"
+
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(kind: kind, intent: BookmarkConfigIntent.self, provider: BookmarkProvider()) { entry in
+            BookmarkWidgetView(entry: entry)
+        }
+        .configurationDisplayName("가방 바로가기")
+        .description("누르면 그 가방이 바로 열려요. 앱 설정 > 위젯 꾸미기에서 사진 · 색을 골라 꾸며요.")
+        .supportedFamilies([.systemSmall])
+    }
+}
+
+#Preview(as: .systemSmall) {
+    PackInBagBookmarkWidget()
+} timeline: {
+    BookmarkEntry(date: .now, bag: BookmarkProvider.sampleBag, style: nil, photo: nil, signedIn: true)
+}

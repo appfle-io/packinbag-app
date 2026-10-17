@@ -4,6 +4,8 @@
 // 요약 모양은 웹의 lib/nativeSummary.ts와 같다.
 import Foundation
 import WidgetKit
+import UIKit
+import SwiftUI
 
 enum PIB {
     static let appGroup = "group.com.appfle.packinbag"
@@ -40,6 +42,8 @@ struct PIBBag: Codable, Hashable {
     var packs: [PIBPack]
     // 내가 고정한 가방(10/11). 위젯 편집 · 단축어 가방 목록에서 "고정한 가방" 묶음
     var pinned: Bool? = nil
+    // 마지막으로 다 싼 때(ISO, 1.7 · 2026-10-18). 북마크 위젯 "다 싼 날"
+    var lastPackedAt: String? = nil
 
     // D-Day까지 남은 날(오늘 0, 지났으면 음수). 날짜가 없으면 nil
     var daysLeft: Int? {
@@ -203,6 +207,192 @@ enum PIBStore {
 
     static func clearSession() {
         [tokenKey, uidKey, summaryKey, savedAtKey, pendingKey, PIBUndo.key].forEach { PIB.defaults.removeObject(forKey: $0) }
+        // 북마크 위젯 꾸미기 · 사진도(다른 계정 · 로그아웃 뒤 예전 사진이 보이지 않게, 1.7)
+        PIBStyleStore.clear()
+    }
+}
+
+// ---- 북마크 위젯(가방 바로가기) 꾸미기(1.7, 2026-10-18) -------------------------------------------
+// 웹 설정 > 위젯 꾸미기에서 저장한 것(users/{uid}.widgetStyles)을 웹이 넘긴다(lib/v2/nativeBridge pushWidgetStyles).
+// 모양은 lib/types.ts WidgetStyle과 같다. 사진은 내려받기 주소로 받아 App Group 폴더에 줄여 둔다(자르기는 값으로 그릴 때)
+struct PIBWidgetStyleShow: Codable, Hashable {
+    var name: Bool = true
+    var dday: Bool = true
+    var progress: Bool = true
+    var left: Bool = false
+    var bar: Bool = true
+    var packed: Bool = false
+}
+
+struct PIBWidgetStyle: Codable, Hashable {
+    let id: String
+    var name: String
+    // plain | photo | solid
+    var bg: String
+    var color: String?
+    var photoUrl: String?
+    var photoPath: String?
+    var zoom: Double?
+    var x: Double?
+    var y: Double?
+    var dim: Double?
+    // auto | white | black | custom
+    var ink: String
+    var inkColor: String?
+    // tl tc tr ml mc mr bl bc br
+    var pos: String
+    var show: PIBWidgetStyleShow
+
+    // 사진 파일 이름: Storage 경로의 마지막(사진을 바꾸면 경로가 바뀌어 새로 받는다)
+    var photoFileName: String? {
+        guard bg == "photo", let path = photoPath, photoUrl != nil else { return nil }
+        let name = (path as NSString).lastPathComponent
+        return name.isEmpty ? nil : name
+    }
+}
+
+private struct PIBWidgetStyleList: Codable {
+    var v: Int
+    var styles: [PIBWidgetStyle]
+}
+
+enum PIBStyleStore {
+    private static let key = "pib.widgetStyles"
+    // 위젯에서 쓸 사진의 긴 변(작은 위젯에는 충분, 위젯 메모리 한도 안)
+    private static let photoMaxSide: CGFloat = 900
+
+    static func all() -> [PIBWidgetStyle] {
+        guard let data = PIB.defaults.data(forKey: key),
+              let list = try? JSONDecoder().decode(PIBWidgetStyleList.self, from: data) else { return [] }
+        return list.styles
+    }
+
+    static func style(_ id: String) -> PIBWidgetStyle? {
+        all().first { $0.id == id }
+    }
+
+    @discardableResult
+    static func save(json: String) -> Bool {
+        guard let data = json.data(using: .utf8),
+              (try? JSONDecoder().decode(PIBWidgetStyleList.self, from: data)) != nil else { return false }
+        PIB.defaults.set(data, forKey: key)
+        return true
+    }
+
+    static func clear() {
+        PIB.defaults.removeObject(forKey: key)
+        if let dir = photoDir { try? FileManager.default.removeItem(at: dir) }
+    }
+
+    private static var photoDir: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PIB.appGroup)?
+            .appendingPathComponent("WidgetPhotos", isDirectory: true)
+    }
+
+    private static func fileURL(_ name: String) -> URL? {
+        photoDir?.appendingPathComponent(name)
+    }
+
+    static func image(for style: PIBWidgetStyle) -> UIImage? {
+        guard let name = style.photoFileName, let url = fileURL(name) else { return nil }
+        return UIImage(contentsOfFile: url.path)
+    }
+
+    // 없는 사진은 내려받고, 안 쓰는 파일은 지운다. 무언가 바뀌었으면 true(위젯을 다시 그릴 것)
+    @discardableResult
+    static func syncPhotos() async -> Bool {
+        guard let dir = photoDir else { return false }
+        let fm = FileManager.default
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let styles = all()
+        var wanted: [String: String] = [:]
+        for s in styles {
+            if let name = s.photoFileName, let url = s.photoUrl { wanted[name] = url }
+        }
+        var changed = false
+        for name in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] where wanted[name] == nil {
+            try? fm.removeItem(at: dir.appendingPathComponent(name))
+            changed = true
+        }
+        for (name, link) in wanted {
+            let target = dir.appendingPathComponent(name)
+            if fm.fileExists(atPath: target.path) { continue }
+            guard let url = URL(string: link),
+                  let result = try? await URLSession.shared.data(from: url),
+                  ((result.1 as? HTTPURLResponse)?.statusCode ?? 0) == 200,
+                  let image = UIImage(data: result.0),
+                  let jpeg = downsized(image).jpegData(compressionQuality: 0.85) else { continue }
+            if (try? jpeg.write(to: target, options: .atomic)) != nil { changed = true }
+        }
+        return changed
+    }
+
+    private static func downsized(_ image: UIImage) -> UIImage {
+        let side = max(image.size.width, image.size.height)
+        guard side > photoMaxSide else { return image }
+        let scale = photoMaxSide / side
+        let size = CGSize(width: floor(image.size.width * scale), height: floor(image.size.height * scale))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+    }
+}
+
+// "#RRGGBB" → 색 · 밝기(웹 lib/v2/widgetStyles hexLuminance와 같은 식)
+func pibRGB(_ hex: String?) -> (r: Double, g: Double, b: Double)? {
+    guard let hex, hex.count == 7, hex.hasPrefix("#"), let v = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+    return (Double((v >> 16) & 0xFF) / 255, Double((v >> 8) & 0xFF) / 255, Double(v & 0xFF) / 255)
+}
+
+func pibHexColor(_ hex: String?) -> Color? {
+    guard let c = pibRGB(hex) else { return nil }
+    return Color(red: c.r, green: c.g, blue: c.b)
+}
+
+func pibLuminance(_ hex: String?) -> Double {
+    guard let c = pibRGB(hex) else { return 1 }
+    return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+}
+
+// 북마크 위젯 문구(웹 widgetStyles.ts ddayText · packedText · widgetMetaLine과 같음)
+enum PIBBookmarkText {
+    static func dday(_ bag: PIBBag) -> String? {
+        guard let d = bag.daysLeft else { return nil }
+        if d == 0 { return "D-Day" }
+        return d > 0 ? "D-\(d)" : "D+\(-d)"
+    }
+
+    static func packed(_ iso: String?, now: Date = Date()) -> String? {
+        guard let iso, let date = parse(iso) else { return nil }
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: now)).day ?? 0
+        if days == 0 { return "오늘 다 쌌어요" }
+        if days == 1 { return "어제 다 쌌어요" }
+        let c = cal.dateComponents([.month, .day], from: date)
+        return "\(c.month ?? 0)/\(c.day ?? 0) 다 쌌어요"
+    }
+
+    private static func parse(_ iso: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: iso) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: iso)
+    }
+
+    static func counts(_ bag: PIBBag) -> (done: Int, total: Int) {
+        let items = bag.packs.flatMap { $0.items }
+        return (items.filter { $0.checked }.count, items.count)
+    }
+
+    static func meta(_ bag: PIBBag, show: PIBWidgetStyleShow, now: Date = Date()) -> String {
+        let (done, total) = counts(bag)
+        let left = total - done
+        var parts: [String] = []
+        if show.progress { parts.append("\(done)/\(total) 챙김") }
+        if show.left { parts.append(total > 0 && left == 0 ? "다 챙겼어요" : "남은 \(left)개") }
+        if show.packed, let p = packed(bag.lastPackedAt, now: now) { parts.append(p) }
+        return parts.joined(separator: " · ")
     }
 }
 

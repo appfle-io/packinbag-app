@@ -4,6 +4,17 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/18 북마크 위젯(가방 바로가기) · 위젯 꾸미기 (v1.7.0 · iOS 1.7)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **가방 바로가기 위젯** | 🆕 | iOS 홈 화면 작게 하나. 가방 정보만, 누르면 그 가방(`packinbag://bag/{id}`). 위젯 편집: 가방 + 꾸미기(저장한 것 + "기본"). `ios/App/PackInBagWidget/PackInBagWidget.swift` PackInBagBookmarkWidget · `AppIntent.swift` BookmarkConfigIntent (NAT-BMK) |
+| **위젯 꾸미기** | 🆕 | 설정 > 화면 > 위젯 꾸미기(1.7 앱에서만 보임). 배경 기본/사진(끌어서 위치 · 크기 100~300% · 글자 쪽 어둡게)/단색(샘플 7 + 직접), 글자색 자동 · 흰 · 검정 · 직접, 글자 위치 9칸(가로 = 정렬), 보여 줄 정보 6개. `components/v2/settings/WidgetStylesScreen.tsx` · `WidgetStyleEditor.tsx` · `WidgetPreview.tsx`, `lib/v2/widgetStyles.ts` (SET-WID) |
+| **저장** | 🆕 | 모양은 `users/{uid}.widgetStyles`(이미 구독 중 → 읽기 추가 없음, 저장 · 지우기 때 쓰기 1). 사진은 Storage `users/{uid}/widgetPhotos/`(긴 변 1024px JPEG), 자르기는 값(zoom · x · y)만. 기기는 내려받기 주소로 한 번 받아 App Group에. 탈퇴 · 지우기 · 사진 바꾸기 때 Storage도 지움 |
+| **무료 범위** | 🆕 | 꾸미기 1개 · 기본 바탕만(사진 · 단색은 프리미엄, Storage 규칙도 프리미엄). 글자 위치 · 보여 줄 정보는 무료도. 초과분은 잠김(안 지움). 지금은 FREE_LAUNCH |
+| **위젯 요약** | 🔧 변경 | 가방에 `lastPackedAt`("다 싼 날"). 예전 앱은 모르는 키를 무시 — `lib/nativeSummary.ts` · `PIBShared.swift` |
+| **네이티브 다리** | 🆕 | `saveWidgetStyles`("__probe__"로 1.7 앱인지 확인), 계정이 바뀌면 다시 넘김, 로그아웃이면 꾸미기 · 사진 삭제 — `lib/v2/nativeBridge.ts` · `AppDelegate.swift` |
+
 ## 10/17 있는 계정에 "닉네임 정하기"가 뜨던 문제 (v1.6.4)
 
 | 기능 | 상태 | 비고 |

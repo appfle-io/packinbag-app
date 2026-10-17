@@ -30,6 +30,8 @@ interface NativeSummaryBag {
   travelDate?: string;
   // 내가 고정한 가방(10/11). 위젯 편집 · 단축어 가방 목록에서 "고정한 가방" 묶음
   pinned?: true;
+  // 마지막으로 다 싼 때(ISO, 2026-10-18). 북마크 위젯 "다 싼 날". 없으면 키를 넣지 않는다(예전 앱은 모르는 키를 무시)
+  lastPackedAt?: string;
   packs: NativeSummaryPack[];
 }
 
@@ -112,6 +114,7 @@ export function buildNativeSummary(
       name: clip(bag.name) || "가방",
       ...(bag.travelDate ? { travelDate: bag.travelDate } : {}),
       ...(pinned.has(bag.id) ? { pinned: true as const } : {}),
+      ...(typeof bag.lastPackedAt === "string" && bag.lastPackedAt ? { lastPackedAt: bag.lastPackedAt } : {}),
       packs: (Array.isArray(bag.packs) ? bag.packs : [])
         .filter((p) => p && p.kind !== "editor" && p.type !== "folder")
         .filter((p) => !lockedPacks.has(`${bag.id}/${p.id}`) && !(p.linkedLibraryPackId && lockedLibrary.has(p.linkedLibraryPackId)))

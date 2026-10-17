@@ -408,6 +408,24 @@
 
 ---
 
+## SET-WID 위젯 꾸미기 (1.7 · 10/18)
+
+- 진입: 설정 > 화면 > 위젯 꾸미기, 또는 가방 더보기 > 챙길 때 > 홈 화면 위젯 꾸미기(같은 화면, 미리 보기는 그 가방). **iOS 1.7 앱 + 계정 모드에서만** 줄이 보인다(`supportsBookmarkWidget`, NAT-BMK-08). 설정 줄 오른쪽에 저장한 개수
+- 화면: `components/v2/settings/WidgetStylesScreen.tsx`(목록) · `WidgetStyleEditor.tsx`(편집) · `WidgetPreview.tsx`(미리 보기), 로직 `lib/v2/widgetStyles.ts`, 저장 `AuthProvider.updateWidgetStyles`
+
+| ID | 요소 | 동작 · 문구 |
+|---|---|---|
+| SET-WID-01 | 목록 | 안내 "저장해 두고 위젯마다 골라 써요 …" + 2열(넓으면 3열) 칸: "기본"(지울 수 없음, 눌러지지 않음) → 저장한 꾸미기(위젯 모양 미리 보기 + 이름 + 사진 · 단색 · 기본 바탕) → "새로 만들기". 미리 보기 가방은 휴지통이 아닌 맨 앞 가방(없으면 예시 "제주 3박 4일") |
+| SET-WID-02 | 개수 | 프리미엄 20개, 무료 1개. 넘으면 "꾸미기는 20개까지 …" / "무료는 꾸미기 1개까지예요 …" |
+| SET-WID-03 | 무료 | 안내 칸 "무료는 꾸미기 1개 · 기본 바탕만 …". 첫 꾸미기는 기본 바탕으로 보이고("기본 바탕(무료)"), 2번째부터 자물쇠 · "프리미엄 · 잠김"(눌러지지 않음, 지우지 않음). 편집에서 사진 · 단색을 누르면 "사진 · 단색 배경은 프리미엄이에요". 글자 위치 · 정보는 무료도. 지금은 FREE_LAUNCH라 모두 프리미엄 |
+| SET-WID-04 | 편집 · 미리 보기 | 맨 위 위젯 미리 보기(고르는 즉시) + 미리 볼 가방 칩(최근 최대 4개). 이름 20자(비우면 "내 꾸미기") |
+| SET-WID-05 | 배경 | 기본 · 사진 · 단색. 사진: "사진 고르기"(이미지만) → 크기 100~300%(5% 단위) · 끌어서 위치(크게 했을 때만, 가장자리에 빈 곳 없게) · "처음 위치로" · 글자 쪽 어둡게 0~70%. 단색: 샘플 7개(딥그린 · 먹색 · 바다 · 노을 · 흰색 · 모래 · 분홍) 한 줄(좁으면 같이 작아짐) + 맨 오른쪽 "직접"(iOS 색 고르기 창) |
+| SET-WID-06 | 글자 | 글자색(기본 바탕이 아닐 때만) 자동 · 흰색 · 검정 · 직접(iOS 색 고르기 창, 고른 색 줄 "#XXXXXX · 바꾸기"). 글자 위치 3×3 칸(이름 표시 "왼쪽 아래" 등, 기본 왼쪽 아래) |
+| SET-WID-07 | 보여 줄 정보 | 가방 이름 · D-Day · 챙긴 개수 · 진행 막대(기본 켬) / 남은 개수 · 다 싼 날(기본 꺼짐). 모두 끄면 배경만 |
+| SET-WID-08 | 저장 | 인터넷 필요(`guard`). 사진 배경인데 사진이 없으면 "사진을 골라 주세요". 새 사진은 긴 변 1024px JPEG로 올리고 → 값 정리 → 계정에 저장 → 예전 사진은 Storage에서 지움. "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요" / "꾸미기를 저장했어요". 실패하면 올린 사진을 지우고 "저장하지 못했어요 …" |
+| SET-WID-09 | 지우기 | 편집 맨 아래 "이 꾸미기 지우기" → 확인 시트 → 사진도 삭제, "… 이걸 쓰던 위젯은 기본 모양이 돼요" |
+| SET-WID-10 | 데이터 | `users/{uid}.widgetStyles`(배열 통째로), 사진 Storage `users/{uid}/widgetPhotos/{id}-{시각}.jpg`(RULE-STO-WID). 탈퇴 때 사진 모두 삭제 |
+
 ## 확인 필요
 
 | # | 내용 | 위치 |
@@ -429,6 +447,7 @@
 
 | 대상 | ID |
 |---|---|
+| `normalizeWidgetStyle`(무료면 plain · 사진 없는 photo→plain · 색 대문자 · 모르는 pos→bl · zoom 1~3 · x · y 범위 · 이름 20자 · 빈 이름 "내 꾸미기") · `effectiveWidgetStyles`(무료 1개 · plain) · `widgetInkColor` · `ddayText` · `packedText` · `widgetMetaLine` · `widgetBagStats`(메모 · 폴더 · 글 아이템 빼기) | SET-WID-03 · 04 · 06 |
 | `planDataReset`(그룹장 + 멤버 2명 → blocked · 휴지통 포함 / 혼자 → 삭제 / 남이 그룹장 → 나가기 / 혼자 남은 멤버 → 삭제 / 대기 → pending / 같은 id 두 번 → 한 번) · `blockedBagLabel`(1 · 2 · 3개 · 이름 없음) | SET-ACC-05 · 08 · 09 |
 | `buildRestoreProgress`(새 id 배정 · 지난 기록의 id 유지) · `restoredLibraryPack`(parentId 따라가기 · 백업에 없는 폴더 → 맨 위 · 빠른팩 → "빠른팩 (백업)" · 토큰 · 잠김 · 휴지통 빼기) · `restoredBagPacks`(linkedLibraryPackId) · `libraryRestoreOrder`(폴더 먼저 · 바깥부터 · 순환 방어) · `restoreProgressKey` | SET-BAK-09 · 10 |
 | `parseBackupText`(JSON 아님 · 객체 아님 · appName 다름 · libraryPacks 없음 · id 없는 항목 빼기) | SET-BAK-03 |

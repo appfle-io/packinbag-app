@@ -486,6 +486,45 @@ export interface UserProfile {
   bagPushOff?: Record<string, BagPushKind[]>;
   // 개인 잠금(2026-10-12, lib/v2/privateLock.ts). 나만 잠그는 PIN 잠금이라 가방 문서가 아니라 계정에 둔다
   privateLock?: PrivateLock;
+  // 북마크 위젯 꾸미기(2026-10-18, 1.7). 설정 > 위젯 꾸미기에서 저장해 두고 iOS 위젯 편집에서 고른다(lib/v2/widgetStyles.ts)
+  widgetStyles?: WidgetStyle[];
+}
+
+// 북마크 위젯(가방 바로가기) 꾸미기 하나(2026-10-18). iOS PIBShared.swift PIBWidgetStyle과 같은 모양
+// - 사진은 Storage users/{uid}/widgetPhotos/에 원본(긴 변 1024px JPEG)을 두고, 자르기는 값(zoom · x · y)으로만 둔다
+//   (웹 미리 보기는 CSS transform, 위젯은 같은 값으로 SwiftUI scaleEffect · offset)
+export type WidgetStyleBg = "plain" | "photo" | "solid";
+export type WidgetStyleInk = "auto" | "white" | "black" | "custom";
+// 세로(t 위 · m 가운데 · b 아래) + 가로(l 왼쪽 · c 가운데 · r 오른쪽). 가로 위치가 글자 정렬도 정한다
+export type WidgetStylePos = "tl" | "tc" | "tr" | "ml" | "mc" | "mr" | "bl" | "bc" | "br";
+export interface WidgetStyleShow {
+  name: boolean;
+  dday: boolean;
+  progress: boolean;
+  left: boolean;
+  bar: boolean;
+  packed: boolean;
+}
+export interface WidgetStyle {
+  id: string;
+  name: string;
+  bg: WidgetStyleBg;
+  // 단색 "#RRGGBB"
+  color?: string;
+  // 사진: 내려받기 주소 · Storage 경로(지울 때). 사진을 바꾸면 새 경로(기기는 주소가 바뀌면 다시 받는다)
+  photoUrl?: string;
+  photoPath?: string;
+  // 크기 1~3, 위치는 위젯 폭 · 높이에 대한 % (±(zoom-1)/2*100 안)
+  zoom?: number;
+  x?: number;
+  y?: number;
+  // 글자 쪽 어둡게 0~70(%)
+  dim?: number;
+  ink: WidgetStyleInk;
+  inkColor?: string;
+  pos: WidgetStylePos;
+  show: WidgetStyleShow;
+  updatedAt: string;
 }
 
 // 개인 잠금 설정. PIN은 PBKDF2-SHA256 해시(base64)만 저장한다

@@ -45,6 +45,8 @@ import { FREE_LAUNCH } from "@/lib/freeLaunch";
 import { LockSettingsScreen } from "./LockSettingsScreen";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 import { lockedCount } from "@/lib/v2/privateLock";
+import { supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
+import { WidgetStylesScreen } from "./WidgetStylesScreen";
 
 // AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -69,7 +71,7 @@ export interface SettingsScreenProps {
   embedded?: boolean;
 }
 
-type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock";
+type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock" | "widgets";
 
 const MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "시스템" },
@@ -122,6 +124,17 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const { guard } = useOnlineGuard();
   // 개인 잠금(2026-10-12). 오프라인 모드 · 게스트는 본인 확인을 할 수 없어 숨긴다
   const privacy = usePrivateLock();
+  // 북마크 위젯 꾸미기(1.7 iOS 앱부터, 2026-10-18). 계정 모드에서만
+  const [widgetAvailable, setWidgetAvailable] = useState(false);
+  useEffect(() => {
+    if (isOfflineMode) return;
+    let alive = true;
+    void supportsBookmarkWidget().then((ok) => alive && setWidgetAvailable(ok));
+    return () => {
+      alive = false;
+    };
+  }, [isOfflineMode]);
+  const showWidgetRow = widgetAvailable && !isOfflineMode;
 
   const [view, setView] = useState<SubView | null>(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
@@ -394,12 +407,22 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <SegmentedControl label="글자 크기" options={FONT_OPTIONS} value={fontScale} onChange={setFontScale} />
           </div>
           <ListRow
-            divider={false}
+            divider={showWidgetRow}
             title="글꼴"
             trailing={APP_FONTS.find((f) => f.id === fontFamily)?.label}
             onClick={() => setShowFont(true)}
             chevron
           />
+          {showWidgetRow && (
+            <ListRow
+              divider={false}
+              title="위젯 꾸미기"
+              subtitle="홈 화면 ‘가방 바로가기’ 위젯"
+              trailing={(profile?.widgetStyles?.length ?? 0) > 0 ? `${profile?.widgetStyles?.length}개` : undefined}
+              onClick={() => setView("widgets")}
+              chevron
+            />
+          )}
         </section>
 
         {/* 가방: 구 UI 팩 설정의 "완료된 항목 맨 아래로"(같은 필드, 없으면 켜짐). 계정에 저장돼 기기 간 동일.
@@ -608,6 +631,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       {privacy.available && (
         <SlideScreen active={view === "lock"} onBackdropClick={close} swipeBack>
           <LockSettingsScreen onBack={close} />
+        </SlideScreen>
+      )}
+      {showWidgetRow && (
+        <SlideScreen active={view === "widgets"} onBackdropClick={close} swipeBack>
+          <WidgetStylesScreen onBack={close} bags={bags ?? []} />
         </SlideScreen>
       )}
 

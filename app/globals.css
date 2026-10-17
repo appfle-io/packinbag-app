@@ -869,6 +869,8 @@ aside {
   --radius-control: 6px;
   --radius-field: 8px;
   --radius-card: 14px;
+  /* 홈 화면 위젯 미리 보기(북마크 위젯 꾸미기, 2026-10-18). 아이폰 작은 위젯 모서리 */
+  --radius-widget: 22px;
 
   /* 그림자는 바텀시트 1종만 */
   --shadow-sheet: 0 -8px 32px rgb(23 23 26 / 0.12);
