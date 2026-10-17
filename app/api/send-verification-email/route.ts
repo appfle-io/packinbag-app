@@ -66,11 +66,9 @@ async function claimSendSlot(uid: string): Promise<SendGate> {
 
 export async function POST(req: NextRequest) {
   let uid: string;
-  let email: string | null;
   try {
     const verified = await verifyRequestUser(req);
     uid = verified.uid;
-    email = verified.email;
   } catch (err) {
     if (err instanceof ServerAuthError) {
       return NextResponse.json({ sent: false, error: err.message }, { status: 401 });
@@ -79,6 +77,18 @@ export async function POST(req: NextRequest) {
       { sent: false, error: "로그인 정보를 확인할 수 없어요" },
       { status: 401 }
     );
+  }
+
+  // 이메일은 Auth에서 직접 읽는다(2026-10-17). verifyRequestUser는 10/9부터 "인증된 이메일"만 넘기는데(마스터 판정용),
+  // 인증 메일은 아직 인증 안 한 사람에게 보내는 것이라 그 값이 늘 비어 400이 났고, 항상 Firebase 기본 메일로 대신됐다.
+  // 토큰은 위에서 검증했으므로 uid의 계정 이메일로만 보낸다(남의 주소로 보낼 수 없음)
+  let email: string | undefined;
+  try {
+    const user = await adminAuth().getUser(uid);
+    email = user.email;
+  } catch (err) {
+    console.error("[팩인백] 인증 메일 - 계정 이메일 조회 실패(클라이언트가 Firebase로 대신):", err);
+    return NextResponse.json({ sent: false, error: "계정 정보를 확인하지 못했어요" }, { status: 200 });
   }
 
   if (!email) {
