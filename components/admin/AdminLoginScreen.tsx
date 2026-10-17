@@ -28,7 +28,7 @@ export default function AdminLoginScreen() {
   };
 
   return (
-    <div className="pib-v2 pib-v2-legacy flex min-h-dvh items-center justify-center bg-canvas p-6">
+    <div className="pib-v2 flex min-h-dvh items-center justify-center bg-canvas p-6">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <BackpackLogo size={48} />

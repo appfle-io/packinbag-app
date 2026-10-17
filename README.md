@@ -203,7 +203,7 @@ iOS 앱은 운영 웹(server.url)을 불러오는 구조라, 웹 배포가 곧 �
 
 ## 관련 문서
 
-* [작업 계획 · 진행 기록](docs/packinbag_리디자인_작업계획.md) · [UI/UX 방향](docs/packinbag_UIUX_리디자인_방향.md) · [남은 작업](docs/packinbag_남은작업_2026-10-13.md)
+* [작업 계획 · 진행 기록](docs/packinbag_리디자인_작업계획.md) · [UI/UX 방향](docs/packinbag_UIUX_리디자인_방향.md) · [기능명세서](docs/spec/README.md)
 * [기능 명세](docs/packinbag_settings_spec_v1.md) · [QA 체크리스트](docs/qa_checklist.md)
 * [iOS 네이티브 기획](docs/packinbag_ios_native_plan.md) · [출시 진행판](docs/packinbag_iap_release_guide.md)
 * [사용설명서](docs/packinbag_user_guide.md) · [마케팅 소재](docs/packinbag_marketing_materials.md)

@@ -76,9 +76,9 @@ export interface PlannedNotification {
 
 // 가방 목록 + 내 알림 설정 → 예약할 알림 목록(가까운 순, 최대 MAX_SCHEDULED개)
 // lockedBagIds: 개인 잠금한 가방(lib/v2/privateLock nativeLockFilter). 제목을 "잠근 가방"으로 가린다(2026-10-16, native-ios.md 확인 필요 1)
-export const LOCKED_BAG_TITLE = "잠근 가방";
+const LOCKED_BAG_TITLE = "잠근 가방";
 
-export function planBagNotifications(
+function planBagNotifications(
   bags: Bag[],
   reminders: Record<string, BagReminder> | undefined,
   now: Date = new Date(),

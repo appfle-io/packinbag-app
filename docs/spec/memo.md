@@ -255,7 +255,7 @@
 |---|---|
 | `checkEditorDocSizeForSave` · `checkBagSizeForSave` · `checkEditorDocDepthForSave` · `getEditorDocByteSize` | MEMO-LIM-01 ~ 03, MEMO-SAVE-02 |
 | `extractPlainTextPreview`(120자 · "…") · `getEditorDocFullText`(문단 구분 공백) | MEMO-LIM-04, MEMO-NOTE-01 |
-| `splitBagForSave`(바뀐 것만 · 지우기 · known=null) · `hydrateBag` · `noteSummary` · `splitPacksPlain`(문자열 본문) | MEMO-NOTE-01 · 02 · 05 |
+| `splitBagForSave`(바뀐 것만 · 지우기 · known=null) · `hydrateBag` · `noteSummary` · `splitPacksPlain`(문자열 본문) — ✅ 10/17 `lib/bagNotesCore.test.ts` | MEMO-NOTE-01 · 02 · 05 |
 | `mergeEditorDocs`(서로 다른 문단 둘 다 살림 · 같은 문단 충돌) | MEMO-SYNC-03 |
 | `migratePackImagesToDoc` · `extractDocAttachmentUrls` | MEMO-ATT-07 · 08 |
 | `noteEditorMarkdownPaste` 변환(표 · 제목 · 체크) | MEMO-PASTE-02 |

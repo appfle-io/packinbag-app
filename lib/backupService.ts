@@ -74,7 +74,7 @@ export async function parseBackupFile(file: File): Promise<BackupFileContent> {
   return parseBackupText(await file.text());
 }
 
-export function parseBackupText(text: string): BackupFileContent {
+function parseBackupText(text: string): BackupFileContent {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

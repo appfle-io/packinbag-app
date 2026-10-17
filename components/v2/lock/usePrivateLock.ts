@@ -99,5 +99,3 @@ export function usePrivateLock() {
     disable,
   };
 }
-
-export type PrivateLockApi = ReturnType<typeof usePrivateLock>;

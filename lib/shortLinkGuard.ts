@@ -7,7 +7,7 @@
 //   짧은 URL 도메인: NEXT_PUBLIC_SHORT_URL_BASE_URL → (서버만) SHORT_URL_BASE_URL → 기본 short.seeuson.com
 //   앱 도메인: NEXT_PUBLIC_APP_URL · packinbag.seeuson.com
 
-export const DEFAULT_SHORT_URL_BASE_URL = "https://short.seeuson.com";
+const DEFAULT_SHORT_URL_BASE_URL = "https://short.seeuson.com";
 const DEFAULT_APP_URL = "https://packinbag.seeuson.com";
 
 const SHORT_PATH = /^\/(s|c)\/([^/\s]+)\/?$/;

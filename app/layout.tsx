@@ -5,7 +5,7 @@ import "./globals.css";
 import { INITIAL_FONT_SCRIPT } from "@/lib/v2/appFonts";
 
 // 기본 폰트. 폐쇄망/Electron 오프라인에서도 동작해야 해서 CDN 대신 앱에 포함한다.
-// (Pretendard Variable, SIL OFL 1.1) 화면은 .pib-v2 / .pib-v2-legacy 클래스로 var(--font-ui)를 쓴다.
+// (Pretendard Variable, SIL OFL 1.1) 화면은 body(globals.css)와 .pib-v2 클래스가 var(--font-ui)를 쓴다.
 const pretendard = localFont({
   src: "./fonts/PretendardVariable.woff2",
   variable: "--font-pretendard",
@@ -85,9 +85,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // 브라우저 위 줄 · PWA 색. v2 화면 바탕(--v2-canvas)과 같게(2026-10-17, 예전 #ffffff / #1c1c1e)
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#1c1c1e" },
+    { media: "(prefers-color-scheme: light)", color: "#fafaf8" },
+    { media: "(prefers-color-scheme: dark)", color: "#161618" },
   ],
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
@@ -160,8 +161,8 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: registerServiceWorker }}
         />
       </head>
-      {/* 재사용 중인 구 컴포넌트(메모 편집기 등)·게스트 보기의 색·폰트를 v2 토큰으로 (globals.css .pib-v2-legacy) */}
-      <body className="min-h-full flex flex-col pib-v2-legacy" suppressHydrationWarning>
+      {/* 색 · 글꼴은 globals.css의 body · :root(예전 토큰 이름도 v2 값)가 맡는다. .pib-v2-legacy는 10/17에 지웠다 */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
       </body>
     </html>

@@ -1,6 +1,6 @@
 {
   "name": "packinbag",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "prepare:standalone": "node scripts/prepare-standalone.js",
     "dist:win:portable": "electron-builder --win zip --publish never",
     "dist:mac:portable": "electron-builder --mac zip dmg --publish never",
@@ -64,7 +65,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "4.1.11"
   },
   "overrides": {
     "jwks-rsa": "3.2.2"

@@ -9,7 +9,7 @@ import type { Pack } from "@/lib/types";
 
 const MAX_FILES_PER_IMPORT = 40;
 
-export function parseStorageUrl(url: string): { bucket: string; path: string } | null {
+function parseStorageUrl(url: string): { bucket: string; path: string } | null {
   const m = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)\/o\/([^?#]+)/.exec(url);
   if (!m) return null;
   try {
@@ -37,7 +37,7 @@ function replaceDocUrls(node: DocNode | undefined, map: Map<string, string>): Do
 }
 
 /** 이 팩에 들어 있는 저장소 파일 주소(사진 · 메모 첨부) */
-export function packStorageUrls(pack: Pack): string[] {
+function packStorageUrls(pack: Pack): string[] {
   const out = new Set<string>();
   (pack.images ?? []).forEach((u) => parseStorageUrl(u) && out.add(u));
   collectDocUrls(pack.editorDoc as DocNode | undefined, out);

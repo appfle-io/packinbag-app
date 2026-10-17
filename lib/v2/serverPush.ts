@@ -29,7 +29,7 @@ const BAG_PUSH_TEXT: Record<PushKind, { label: string; description: string }> = 
   member: { label: "새 멤버 참여", description: "내가 만든 가방에 누가 들어오면" },
 };
 
-export interface BagPushKindView {
+interface BagPushKindView {
   kind: PushKind;
   label: string;
   description: string;

@@ -51,6 +51,3 @@ export async function uploadPackImage(
   await uploadBytes(storageRef, toUpload, UPLOAD_METADATA);
   return getDownloadURL(storageRef);
 }
-
-// 삭제는 URL만 있으면 경로 상관없이 동일하게 동작하므로 deleteBagImage를 그대로 재사용한다.
-export const deletePackImage = deleteBagImage;

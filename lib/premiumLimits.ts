@@ -106,11 +106,6 @@ export const FREE_MAX_USER_BAG_IMAGES = 1;
 // 가방당 전체 사진 첨부 최대 장수 - 무료/유료 공통 상한 (멤버 혼재 정책 충돌 방지용)
 export const MAX_BAG_IMAGES = 5;
 
-// 메모(에디터) 팩 첨부 상한(예전 구 UI 값, 2026-10-15 주석 정리). 지금 메모 첨부 규칙은 무료 사진 1장(FREE_MAX_USER_BAG_IMAGES) ·
-// 프리미엄 사진 · PDF · 파일(개수 제한 없음, 파일 10MB)이고 이 값은 쓰지 않는다(components/screens/PackNoteEditorScreen.tsx).
-// 다른 곳에서 가져다 쓰지 않으면 지워도 된다(knip으로 확인)
-export const MAX_PACK_IMAGES = 3;
-
 // 휴지통(설정 > 휴지통)에 넣은 가방/팩을 며칠간 보관할지. 이 기간이 지나면 클라이언트가
 // 다음에 열릴 때(로그인한 앱 세션에서) 자동으로 영구삭제한다 - 별도 서버 배치/크론 없이,
 // 삭제 권한을 가진 그 계정의 클라이언트가 다음에 접속했을 때 조용히 정리하는 방식이다.

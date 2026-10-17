@@ -18,7 +18,7 @@ import { collection, doc, getDocs, deleteDoc, onSnapshot, type Unsubscribe } fro
 import { db } from "@/lib/firebase";
 import { parseNoteData, type BagNote } from "@/lib/bagNotesCore";
 
-export function notesCol(bagId: string) {
+function notesCol(bagId: string) {
   return collection(db, "bags", bagId, "notes");
 }
 export function noteRef(bagId: string, packId: string) {

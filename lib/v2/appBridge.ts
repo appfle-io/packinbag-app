@@ -10,7 +10,7 @@
 export const APP_STORE_ID = "6793290752";
 export const APP_STORE_URL = `https://apps.apple.com/kr/app/id${APP_STORE_ID}`;
 
-export type InAppBrowser = "kakao" | "other" | null;
+type InAppBrowser = "kakao" | "other" | null;
 
 export interface BridgeEnv {
   ios: boolean;
@@ -38,7 +38,7 @@ export function isSafeAppPath(path: string | null | undefined): path is string {
   return typeof path === "string" && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && path.length < 500;
 }
 
-export function appSchemeUrl(path: string): string {
+function appSchemeUrl(path: string): string {
   return `packinbag://open?to=${encodeURIComponent(path)}`;
 }
 

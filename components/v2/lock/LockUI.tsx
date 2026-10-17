@@ -22,7 +22,7 @@ const LOCK_Z = 200;
 
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"] as const;
 
-export function PinPad({
+function PinPad({
   length,
   value,
   onChange,

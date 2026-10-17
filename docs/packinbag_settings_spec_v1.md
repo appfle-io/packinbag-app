@@ -4,6 +4,17 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/17 정리 · 단위테스트 시작 (v1.6.3)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **`.pib-v2-legacy` 제거** | 🧹 정리 | body · 관리자 루트의 클래스를 지우고, 예전 토큰(`--surface` · `--accent` …)을 globals.css `:root`에서 v2 토큰의 별칭으로. 예전 파랑 계열 값 · 다크 팔레트 삭제. body 글꼴은 `--font-ui`. 화면은 그대로(같은 값). 메모 코드 글꼴 선택자는 같은 명시도(`:root`)로 |
+| **브라우저 위 줄 색** | 🔧 변경 | `themeColor` #ffffff / #1c1c1e → v2 바탕 #fafaf8 / #161618(웹 · PWA) |
+| **단위테스트** | 🆕 | vitest 4.1.11, `npm test`(`-t 명세ID`로 묶음만). `vitest.config.ts`(lib · hooks의 `*.test.ts`). 첫 테스트: `lib/unlockCodeCheck.test.ts`(PREM-JUDGE-03) · `lib/bagNotesCore.test.ts`(MEMO-NOTE · MEMO-SYNC) · `lib/v2/privateLock.test.ts`(SET-LOCK · SET-PIN · SET-LIM-07) · `lib/backupPlan.test.ts`(SET-BAK-09 · 10) 41개 |
+| **안 쓰는 export 정리(knip)** | 🧹 정리 | 19개 중 테스트가 쓰게 된 6개는 그대로, 나머지는 `export`만 떼거나(파일 안에서 씀) 삭제: `MAX_PACK_IMAGES`(premiumLimits) · `deletePackImage`(storageService) · `PrivateLockApi`(usePrivateLock). export를 없앨 것: aiQuotaServer · shortLinkGuard · nativeDeviceServer · bagNotesService · serverPush · LockUI · appBridge · nativeSummary · backupService · storageCopyServer · bagReminders |
+| **firebase-functions 7** | 🔧 변경 | `functions/package.json` ^6 → ^7.4.0(v6 경고). v1 Auth 삭제 트리거(onUserDeleted) 그대로 지원 |
+| **문서** | 🧹 정리 | 삭제한 `남은작업_2026-10-13.md` 참조 → HANDOFF · 기능명세서(README · 작업계획), "Yjs 협업" 메모 삭제(실제 문서에 그 표현은 없었음). 로드맵에서 캘린더 · 미리알림 빠짐 |
+
 ## 10/17 기능명세서 확인 필요 정리 (v1.6.1 수정)
 
 | 기능 | 상태 | 비고 |

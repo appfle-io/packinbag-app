@@ -5,7 +5,7 @@
 // - 크기를 작게: 가방 최근 30개, 팩당 아이템 80개, 글자 80자
 import type { Bag, Pack } from "@/lib/types";
 
-export const NATIVE_SUMMARY_VERSION = 1;
+const NATIVE_SUMMARY_VERSION = 1;
 const MAX_BAGS = 30;
 const MAX_ITEMS = 80;
 const MAX_TEXT = 80;
@@ -16,7 +16,7 @@ export interface NativeSummaryItem {
   checked: boolean;
 }
 
-export interface NativeSummaryPack {
+interface NativeSummaryPack {
   id: string;
   name: string;
   items: NativeSummaryItem[];
@@ -24,7 +24,7 @@ export interface NativeSummaryPack {
   inbox?: true;
 }
 
-export interface NativeSummaryBag {
+interface NativeSummaryBag {
   id: string;
   name: string;
   travelDate?: string;

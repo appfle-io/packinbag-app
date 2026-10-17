@@ -45,7 +45,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
   // 잘려 보이는 문제 방지. 모든 admin 화면(children)이 이 main을 공유하므로 여기 한 곳만
   // 고치면 대시보드/유저조회/활동로그/공지사항 관리 등에 전부 동일하게 적용된다.
   return (
-    <div className="pib-v2 pib-v2-legacy flex min-h-dvh bg-canvas">
+    <div className="pib-v2 flex min-h-dvh bg-canvas">
       <AdminSidebar email={user.email} nickname={profile?.nickname ?? null} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <AdminMobileHeader email={user.email} nickname={profile?.nickname ?? null} />

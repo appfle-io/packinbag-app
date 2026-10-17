@@ -14,7 +14,7 @@ iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 �
 - **결제 없이 전원 무료 출시**(10/9): 직장인이라 사업자등록 불가 → 유료 앱 계약 불가. `lib/freeLaunch.ts` FREE_LAUNCH = true + storage.rules freeLaunch(). AI만 하루 3회. 결제 코드는 남겨 둠
 - 웹 v1.0.32(10/11): FAQ · 업데이트 노트 · 개인정보처리방침(푸시·기기 토큰), /privacy · /support 스크롤 수정. 포터블 태그 v1.0.32-offline-portable
 - **앱은 v2만 있다.** 10/5에 구 UI 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 모두 지웠다(v1.0.20). 웹 운영(Vercel)·iOS 앱(server.url)·포터블 모두 v2
-- 0~5단계 + 4단계-19(iOS 1.6)까지 코드 완료. 남은 것은 1.6 기기 확인 · 제출, 실기기 QA, 세로 스크롤 막힘. 보안 점검은 10/9 2차로 대부분 끝(남은 확인은 남은작업 문서 3절)
+- 0~5단계 + 4단계-19(iOS 1.6)까지 코드 완료. 지금 상태 · 남은 일은 `_secrets/claude/HANDOFF.md`(10/17~)
 - **가방 메모 본문은 가방 문서가 아니라 `bags/{bagId}/notes/{packId}`에 있다**(10/8, v1.0.28). 기존 31개 가방 메모 40개 이전 완료
 - 앱스토어 스크린샷: 아이폰 10장(6.3″ 칸 1206×2622 - 6.9″ 칸이 없어 줄여 올림, 원본 1320×2868도 보관) · 아이패드 13″ 8장, 새 아이콘(딥그린) 1.5 빌드에 포함. 파일은 `_secrets/iphone 상세페이지`(git 밖)
 
@@ -51,7 +51,7 @@ iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 �
 - 새 가방·팩 생성은 서버 API 전용(rules create false). 계정 모드에서 끊겼을 때는 `lib/v2/pendingCreates`(만들기 대기)로 가고, 목록에 "올리기 대기" 배지
 - Firestore가 내부 검사 실패(INTERNAL ASSERTION FAILED ca9/b815, 절전 복귀 후)로 멈추면 `lib/v2/firestoreRecovery`가 감지해 "다시 연결하고 있어요" → 자동 새로고침(2분 안 재발이면 버튼만). 전역 error·unhandledrejection + `firebaseErrorCode()`에서 감지. 새 catch에서 Firestore 오류를 다루면 `firebaseErrorCode`나 `reportFirestoreError`를 거친다
 - `.pib-v2`·`.pib-v2-overlay`는 층(layer) 밖 CSS라 같은 요소의 Tailwind `bg-*`를 이긴다. 겹 화면 루트에 어두운 바탕이 필요하면 안쪽 `absolute inset-0` 자식에 칠한다(PhotoViewer·BusyOverlay)
-- `.pib-v2-legacy`(메모 편집기·관리자)·`.pib-v2-guest`(게스트 보기)는 아직 쓰는 곳이 있어 항상 붙어 있다
+- `.pib-v2-legacy`는 10/17에 지웠다. 예전 토큰 이름(`bg-surface` · `text-text-secondary` · `var(--accent)` 등)은 globals.css `:root`에서 v2 토큰의 별칭 → 새 코드는 v2 이름만. `.pib-v2-guest`(게스트 보기)는 아직 씀
 - **가방 메모 본문(10/8)**: 순수 함수 `lib/bagNotesCore.ts`, Firestore `lib/bagNotesService.ts`. 열린 가방(`useBagDocument`)만 notes를 구독해 채운다(hydrateBag). 저장이 본문을 떼어 바뀐 것만 notes에 쓴다
   - 가방 문서의 `packs`를 직접 쓰는 새 코드는 반드시 본문을 떼고(`splitBagForSave`/`splitPacksPlain`) `packsRev`를 1 올린다. 안 그러면 규칙(`notesV: 2` 가방)에 막힌다
   - `notesReady` false(본문 도착 전)에는 메모 편집기·메모 휴지통·보관함 저장·자동 동기화를 하지 않는다(빈 본문 덮어쓰기 방지)
@@ -144,15 +144,8 @@ iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 �
   - 확인할 것: 어느 화면 / 직전 동작 / 탭 이동·새로고침으로 풀리는지 / 휠인지 터치인지
 - **Firestore 멈춤**: 자동 복구로 덮었지만 근본 원인(SDK)은 남아 있음. 12.19에서도 자주 나오면 persistentLocalCache 설정 재검토
 
-## 다음 할 일 (권장 순서)
-1. **1.6 배포 · 제출**: 웹 v1.0.34 push → `npx cap sync ios` → Xcode App · 위젯 두 타깃 1.6/6 → 실기기 확인(QA `X-01~X-12`) → Archive → 심사(출시가이드 A-5). 빌드 오류가 나면 메시지 원문을 Claude에게(특히 iOS 18 검색 API)
-2. **실기기 QA(사용자)**: 저장소 `docs/qa_checklist.md` X- · W- 절, 아래 회귀 점검표
-3. **세로 스크롤 막힘 원인 확정·수정**
-4. **보안 남은 확인**(남은작업 문서 3절): 짧은 URL 수정 · 삭제의 본인 확인 등 10/9 기록에 없는 것만
-5. **스토어 자료 다듬기(선택)**: 잠금화면 스크린샷을 충전기 뺀 상태로 다시(날짜 보이게), 홈 위젯 스크린샷의 빈 "할일" 위젯 교체
-6. **외부 설정**: Resend 도메인·API 키(`claude_packinbag_이메일인증_resend_구현.md`)
-7. **정리**: `.pib-v2-legacy` 제거, help_slide_generator.py 프로젝트 파일에서 내리기, Resend 메일 템플릿 색(주황 → 딥그린), knip 다시
-8. **나중에**: 캘린더 · 미리알림, 결제 도입(사업자 가능해지면, 출시가이드 B - Capacitor 8 + purchases-capacitor 13.x 먼저), `firebase-functions` v6 업그레이드 경고
+## 다음 할 일
+지금 기준 목록은 `_secrets/claude/HANDOFF.md` "다음 할 일"(10/17부터 여기서는 관리하지 않음).
 
 포터블에 반영되는 변경이 있으면 같은 순서:
 ```
@@ -186,12 +179,8 @@ git tag v1.0.x-offline-portable && git push origin v1.0.x-offline-portable
 - 목업에 "올리기 대기" 배지·합치기 시트 추가
 
 ## 이후 로드맵 (확정 순서)
-v2 출시 + 푸시 · 위젯 · 실시간 현황 · 단축어(iOS 1.5, 10/12 출시) → 개인 잠금 Face ID · Spotlight · 유니버설 링크(1.6) → 캘린더 · 미리알림 → 결제 도입(사업자 가능해지면) → Android
+v2 출시 + 푸시 · 위젯 · 실시간 현황 · 단축어(iOS 1.5, 10/12 출시) → 개인 잠금 Face ID · Spotlight · 유니버설 링크(1.6) → 결제 도입(사업자 가능해지면) → Android. 캘린더 · 미리알림은 하지 않음(10/17 결정, 지금 기능을 탄탄하게)
 - iOS 설계 원칙: 그룹원 활동 푸시는 자동저장마다 보내지 않게, D-Day 알림은 로컬 알림, 위젯은 App Group에 저장한 요약을 읽는 방식. 가방 메모 본문은 notes에 있으니 위젯·푸시는 미리보기(`editorPreviewText`)만
-
-## 확인이 필요한 작은 것
-- package.json에 `yjs`, `y-webrtc`, `@tiptap/extension-collaboration(-cursor)`는 없음. 문서의 "Yjs 협업" 표현은 정리 대상
-- Vercel 환경변수 `NEXT_PUBLIC_UI_V2`가 남아 있다면 지워도 됨(코드에서 안 읽음)
 
 ## 회귀 점검표 (각 단계 끝에 실행)
 - 가방: 생성, 이름 변경, 체크/해제, 전체 해제, 아이템 추가(미분류·팩에 바로)·수정·삭제·이동(여러 개 포함), 팩 불러오기, 보관·복구, 휴지통, 사진 크게 보기
@@ -223,8 +212,8 @@ v2 출시 + 푸시 · 위젯 · 실시간 현황 · 단축어(iOS 1.5, 10/12 출
 ## 다른 PC(맥·회사 윈도우)에서 이어가기
 - git pull 후 npm install
 - .env.local은 git에 없음: 안전한 경로로 옮겨서 사용(`NEXT_PUBLIC_UI_V2`는 더 필요 없음)
-- 새 채팅은 같은 "팩인백" 프로젝트에서 시작하고, 이 문서 · UIUX_리디자인_방향.md · 남은작업 문서를 먼저 읽게 한다. iOS는 저장소 `docs/packinbag_ios_native_plan.md`
-- 프로젝트 파일(Claude)에는 이 문서 · UIUX · 남은작업 · Resend 문서를 올려 둔다. 문서를 고친 뒤에는 `docs/`에서 다시 올린다(예전 판은 내린다)
+- 새 채팅은 같은 "팩인백" 프로젝트에서 시작하고, `_secrets/claude/CLAUDE.md` → `HANDOFF.md` → `project-memory.md`를 먼저 읽게 한다(filesystem MCP). iOS는 저장소 `docs/packinbag_ios_native_plan.md`
+- 문서 원본은 저장소 `docs/`. Claude 프로젝트 파일에 사본을 올리지 않는다(10/17부터 폴더를 직접 읽음)
 - 다른 맥에서는 `_secrets/`가 없다(git 밖) → 비밀번호 관리자에서 키 · `.env.local`을 되살린다
 - 새 채팅 첫 대화: Claude가 git pull 상태를 먼저 묻고, 전체 목업 링크를 먼저 보여준다(프로젝트 메모리에 저장됨)
 - 상세 변경 이력은 docs/packinbag_settings_spec_v1.md 맨 위 표, 검증 항목은 docs/qa_checklist.md

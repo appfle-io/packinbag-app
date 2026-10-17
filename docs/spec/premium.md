@@ -110,7 +110,7 @@
 | 대상 | ID |
 |---|---|
 | `isPremiumUser`(FREE_LAUNCH 주입 · 마스터 · 구매 · 이용권 만료 · 무효화) — FREE_LAUNCH를 인자로 받게 하면 쉬움 | PREM-JUDGE-01 · 02 |
-| `isUnlockCodeValidFor`(claimed 아님 · 남의 uid · 만료 · 만료 없음) | PREM-JUDGE-03 |
+| `isUnlockCodeValidFor`(claimed 아님 · 남의 uid · 만료 · 만료 없음) — ✅ 10/17 `lib/unlockCodeCheck.test.ts` | PREM-JUDGE-03 |
 | `computeLockedBagIds`(내 것 최신 3개 · 참여 최신 3개 · 휴지통 제외 · createdAt 없음은 뒤) · `computeLockedPackIds`(빠른팩 id 제외 · 최신 10개) | PREM-LOCK-01 · 03 |
 | `bagLockSync` 계산부(쓸 것만 고르기)를 순수 함수로 빼서 화면 계산과 같은 결과인지 | PREM-LOCK-02 |
 | `getViewablePacks` · `bagMemberLimit` · `isTrashExpired` · `daysUntilPurge` | PREM-LIM-09 · 03 · 10 |

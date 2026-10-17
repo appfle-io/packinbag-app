@@ -9,7 +9,7 @@ import { createHash, randomBytes } from "crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebaseAdmin";
 
-export const DEVICE_TOKENS = "deviceTokens";
+const DEVICE_TOKENS = "deviceTokens";
 // 위젯 새로고침(대략 15~30분마다) + 체크 + 단축어를 넉넉히 덮는 값
 const DAILY_LIMIT = 800;
 // 한 계정이 가질 수 있는 기기 토큰 수(넘으면 오래된 것부터 지운다)

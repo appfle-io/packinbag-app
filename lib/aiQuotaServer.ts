@@ -24,7 +24,7 @@ import { isUnlockCodeValidFor } from "@/lib/unlockCodeCheck";
 
 export class AiAuthError extends Error {}
 
-export const AI_PREMIUM_DAILY_CAP = 50;
+const AI_PREMIUM_DAILY_CAP = 50;
 export const AI_PREMIUM_CAP_MESSAGE = `AI 기능은 하루 ${AI_PREMIUM_DAILY_CAP}회까지 쓸 수 있어요. 내일 다시 시도해주세요`;
 const AI_GUEST_MESSAGE = "AI 기능은 로그인하면 쓸 수 있어요. 설정에서 계정을 만들어 주세요";
 

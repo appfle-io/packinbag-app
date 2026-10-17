@@ -9,7 +9,7 @@ import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily 
 // 저장: 이 기기(localStorage, 첫 화면 깜빡임 방지) + 계정(UserProfile.themeMode · fontScale · fontFamily, 기기 간 동기화).
 //
 // 2026-10-15: 구 UI 꾸밈 설정(강조색 · 가방/팩 카드 색 · 투명도 · 카드 크기 · 카드 글자 크기)을 지웠다. v2 화면은 쓰지 않았고,
-// 남은 구 컴포넌트도 body의 .pib-v2-legacy가 같은 변수를 v2 값으로 덮어써서 화면에 드러나지 않았다.
+// 남은 구 컴포넌트도 같은 변수를 v2 값으로 덮어써서(지금은 globals.css :root가 예전 토큰을 v2 별칭으로, 10/17) 화면에 드러나지 않았다.
 // 계정의 해당 프로필 필드(accentId 등)는 대전제대로 그대로 둔다(읽지도 쓰지도 않음). 이 기기의 옛 키는 한 번 지운다.
 
 export type ThemeMode = "system" | "light" | "dark";
