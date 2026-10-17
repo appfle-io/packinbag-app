@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.6.4",
+    date: "2026-10-17",
+    items: ["인증 메일이 팩인백 디자인으로 와요", "다시 로그인할 때 프로필을 더 안정적으로 불러와요"],
+  },
+  {
     version: "1.6.1",
     date: "2026-10-16",
     items: [

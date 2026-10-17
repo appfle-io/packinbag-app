@@ -30,7 +30,7 @@
 |---|---|---|---|
 | AUTH-LIM-01 | 비밀번호 | 6자 이상(입력칸 minLength, Firebase weak-password) | `AuthScreenV2` · `AccountLinkSheet` |
 | AUTH-LIM-02 | 닉네임 | 12자 | `NICK_MAX` |
-| AUTH-LIM-03 | 프로필 문서 기다림 | 2.5초(그 뒤 캐시 값으로라도 연다) | `AuthProvider` users onSnapshot `safetyTimer` |
+| AUTH-LIM-03 | 프로필 문서 기다림 | 2.5초 뒤 서버에 직접 물어봄(최대 8초 더). 그래도 없으면 "다시 시도"(AUTH-BOOT-07, 10/17) | `AuthProvider` users onSnapshot `safetyTimer` |
 | AUTH-LIM-04 | 소셜 탈퇴 재인증 생략 | 마지막 로그인 4분 안 | `reauthenticateForDelete` |
 | AUTH-LIM-05 | 스플래시 최소 | 0.9초 | AppShell `splashMinTimeDone` |
 
@@ -42,10 +42,11 @@
 |---|---|
 | AUTH-BOOT-01 | 주소에 `?offline=true`가 있거나 이 기기에 `pib_offline_mode`가 있으면 곧바로 오프라인 모드(offline.md OFF-MODE) |
 | AUTH-BOOT-02 | 로그인 세션이 있으면(onAuthStateChanged) 오프라인 표시를 지우고 **언제나 계정 모드**. 프로필 문서가 올 때까지 로딩 유지(이전 계정의 빈 프로필로 "닉네임 정하기"가 스치지 않게). RevenueCat 초기화 |
-| AUTH-BOOT-03 | 프로필 문서: 닉네임이 없고 캐시 · 내 쓰기에서 온 스냅샷이면 서버 답을 기다림(소셜 재로그인 때 ensureUserDoc 스냅샷 때문에 기존 계정이 첫 프로필 화면으로 튀던 문제). 2.5초 안에 서버 답이 없으면 그 값으로 연다 |
+| AUTH-BOOT-03 | 프로필 문서: 닉네임이 없고 캐시 · 내 쓰기에서 온 스냅샷이면 서버 답을 기다림(소셜 재로그인 때 ensureUserDoc 스냅샷 때문에 기존 계정이 첫 프로필 화면으로 튀던 문제). 2.5초 안에 서버 답이 없으면 `getDocFromServer`로 직접 물어봄(최대 8초, 스플래시 유지). 10/17 수정 - 예전에는 2.5초에 닉네임 없는 값으로 열어 로그아웃 · 재설치 뒤 느린 망에서 있는 계정에 "닉네임 정하기"가 떠다 |
 | AUTH-BOOT-04 | 세션이 없으면: **앱을 켤 때만** 연결을 확인(1.5초) → 끊김 · 폐쇄망이면 바로 오프라인 모드, 아니면 로그인 화면. 로그아웃 · 탈퇴 뒤에는 늘 로그인 화면(끊겨 있으면 그 화면이 오프라인 시작을 보여 줌) |
 | AUTH-BOOT-05 | 마스터 판정: 서버 `/api/auth/master-status` · 토큰 claims(role=master 또는 admin) · `masters/{uid}` 문서 · `users.role == "master"` 중 하나면 마스터. 오프라인 모드에서는 모두 지우고 `isMaster`도 항상 false(10/15, 가짜 프로필의 role: master는 보지 않음) |
 | AUTH-BOOT-06 | 화면 분기 순서: authBusy(가입 · 인증 다시 받기처럼 잠깐 로그인했다 바로 나가는 중) → 로그인 화면을 그대로 유지(다시 그려지면서 가입 완료 시트가 사라지지 않게) / loading → 스플래시 / user 없음 → 로그인 화면 / 닉네임 · 캐릭터 없음 → 첫 프로필 / 그 밖 → 앱 |
+| AUTH-BOOT-07 | 프로필을 서버에서 끝내 못 받으면(`profileUnconfirmed`) 첫 프로필 자리에 "계정 정보를 불러오지 못했어요 · 인터넷 연결을 확인하고 다시 시도해 주세요" + "다시 시도"(구독을 다시 시작) · "다른 계정으로 로그인". 나중에 서버 값이 오면 저절로 앱으로. 첫 프로필 "시작하기"는 쓰기 전에 서버 문서를 보고 닉네임이 있으면 덮어쓰지 않고 "이미 만든 프로필을 불러왔어요"(10/17) |
 
 ---
 

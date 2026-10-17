@@ -34,6 +34,7 @@ import { ensurePurchasesConfigured } from "@/lib/purchaseService";
 import {
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   serverTimestamp,
   setDoc,
@@ -41,6 +42,7 @@ import {
   deleteField,
   runTransaction,
   clearIndexedDbPersistence,
+  type DocumentData,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendVerificationEmailWithFallback } from "@/lib/emailVerification";
@@ -72,6 +74,9 @@ interface AuthContextValue {
   // (넘어갔다가 마지막에 signOut하면서 다시 로그인 화면으로 튕기는 부자연스러운
   // 깜빡임이 생기기 때문 - AppShell에서 이 값을 user와 함께 확인해서 막는다).
   authBusy: boolean;
+  // 로그인했는데 프로필 문서를 서버에서 끝내 못 받은 상태(닉네임을 모름). 첫 프로필 화면 대신 "다시 시도"를 보여 준다(2026-10-17)
+  profileUnconfirmed: boolean;
+  retryProfileLoad: () => void;
   isMaster: boolean;
   startOfflineMode: () => void;
   exitOfflineMode: () => void;
@@ -302,6 +307,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // signUpWithEmail/resendVerificationByCredential처럼 잠깐 로그인했다가 곧바로
   // signOut하는 흐름 동안 true. AppShell이 이 값을 user와 함께 확인해서 그 사이엔
   const [authBusy, setAuthBusy] = useState(false);
+  const [profileUnconfirmed, setProfileUnconfirmed] = useState(false);
+  // 바뀌면 users 문서 구독을 다시 시작한다("다시 시도")
+  const [profileLoadKey, setProfileLoadKey] = useState(0);
+  const retryProfileLoad = () => {
+    setProfileUnconfirmed(false);
+    setLoading(true);
+    setProfileLoadKey((k) => k + 1);
+  };
   const [isMasterDoc, setIsMasterDoc] = useState(false);
   const [isMasterToken, setIsMasterToken] = useState(false);
   const [isMasterApi, setIsMasterApi] = useState(false);
@@ -489,23 +502,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 오프라인 모드(가짜 user)는 Firestore를 구독하지 않는다. 구독하면 폐쇄망에서 "문서 없음" 캐시 스냅샷이
   // 로컬 프로필(닉네임·프리미엄)을 덮어써 닉네임 정하기 화면으로 튕긴다. 오프라인 프로필은 localStorage가 원본
   useEffect(() => {
-    if (!user || isOfflineMode) return;
+    if (!user || isOfflineMode) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 로그아웃 · 오프라인 모드면 "다시 시도" 상태를 비운다
+      setProfileUnconfirmed(false);
+      return;
+    }
     const ref = doc(db, "users", user.uid);
-    // 오프라인 상태이거나 네트워크 지연 시 스플래시 화면이 무한정 멈추지 않도록 안전 타이머 설정
-    // 닉네임이 없는 캐시·내 쓰기 스냅샷은 서버 답을 기다린다(아래). 끊겨서 서버 답이 안 오면 안전 타이머가 그것을 쓴다
+    let cancelled = false;
+    // 믿을 수 있는 값(닉네임이 있거나 서버가 확인한 값)으로 화면을 열었는지
+    let done = false;
+    // 닉네임이 없는 캐시 · 내 쓰기 스냅샷(서버 답을 기다리는 동안 들고 있는 값)
     let deferred: UserProfile | null = null;
-    const safetyTimer = setTimeout(() => {
-      if (deferred) setRawProfile(deferred);
-      setLoading(false);
-    }, 2500);
 
-    const unsubDoc = onSnapshot(
-      ref,
-      // 캐시 → 서버 확인처럼 내용은 같고 출처만 바뀌는 스냅샷도 받는다(읽기 비용 없음)
-      { includeMetadataChanges: true },
-      (snap) => {
-        const data = snap.data();
-        const next: UserProfile = {
+    const build = (data: DocumentData | undefined): UserProfile => ({
           uid: user.uid,
           email: user.email,
           displayName: user.displayName,
@@ -576,30 +585,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           bagPushOff: data?.bagPushOff as UserProfile["bagPushOff"],
           // 개인 잠금(2026-10-12)
           privateLock: data?.privateLock as UserProfile["privateLock"],
-        };
+    });
+
+    function open(p: UserProfile) {
+      done = true;
+      clearTimeout(safetyTimer);
+      deferred = null;
+      setProfileUnconfirmed(false);
+      setRawProfile(p);
+      setLoading(false);
+    }
+
+    // 2.5초 안에 믿을 수 있는 값이 안 오면 서버에 직접 물어본다(최대 8초, 그동안 스플래시).
+    // 예전에는 닉네임 없는 캐시 값으로 그냥 열어서, 로그아웃 · 앱 재설치 뒤 느린 망에서 있는 계정인데
+    // 첫 프로필(닉네임 정하기)이 떴다(2026-10-17, auth.md AUTH-BOOT-03). 끝내 못 받으면 "다시 시도" 화면(profileUnconfirmed)
+    const safetyTimer = setTimeout(() => {
+      if (done) return;
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+      Promise.race([getDocFromServer(ref).catch(() => null), timeout]).then((snap) => {
+        if (cancelled || done) return;
+        if (snap) {
+          open(build(snap.data()));
+          return;
+        }
+        setRawProfile(deferred ?? build(undefined));
+        setProfileUnconfirmed(true);
+        setLoading(false);
+      });
+    }, 2500);
+
+    const unsubDoc = onSnapshot(
+      ref,
+      // 캐시 → 서버 확인처럼 내용은 같고 출처만 바뀌는 스냅샷도 받는다(읽기 비용 없음)
+      { includeMetadataChanges: true },
+      (snap) => {
+        const next = build(snap.data());
         // 구글·애플 로그인 직후: 로그아웃 때 캐시를 지워서, ensureUserDoc(이메일·이름만 merge)의 내 쓰기만 담긴
-        // 스냅샷(닉네임 없음)이 먼저 온다. 이걸 믿으면 기존 계정인데 "닉네임 정하기"가 잠깐 뜨니,
+        // 스냅샷(닉네임 없음)이 먼저 온다. 이걸 믿으면 기존 계정인데 "닉네임 정하기"가 뜨니,
         // 닉네임이 없고 서버에서 확인된 값이 아니면 로딩을 유지한다(2026-10-11)
         if (!next.nickname && (snap.metadata.fromCache || snap.metadata.hasPendingWrites)) {
           deferred = next;
           return;
         }
-        clearTimeout(safetyTimer);
-        deferred = null;
-        setRawProfile(next);
-        setLoading(false);
+        open(next);
       },
       (err) => {
-        clearTimeout(safetyTimer);
+        // 구독이 실패해도 안전 타이머가 서버에 직접 물어보고, 안 되면 "다시 시도"를 보여 준다
         console.warn("[AuthProvider] user doc onSnapshot error/offline:", err);
-        setLoading(false);
       }
     );
     return () => {
+      cancelled = true;
       clearTimeout(safetyTimer);
       unsubDoc();
     };
-  }, [user, isOfflineMode]);
+  }, [user, isOfflineMode, profileLoadKey]);
 
   // unlockCodes/{code} 문서를 실시간 구독해서, 관리자가 "무효화" 버튼을 누르는 순간
   // (또는 만료 시각이 지나는 순간) 화면에 바로 반영되게 한다. 코드가 없으면 구독하지 않고
@@ -1614,6 +1654,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         exitOfflineMode,
         switchToOnlineMode,
         authBusy,
+        profileUnconfirmed,
+        retryProfileLoad,
         // 마스터 이메일 목록은 서버 전용(MASTER_EMAILS)이라 화면에서는 보지 않는다(2026-10-09). 서버 판정(master-status)·토큰·role·masters 문서로 충분하다
         // 오프라인 모드는 가짜 프로필이 role: master라 빼고 본다(2026-10-15, auth.md 확인 필요 6)
         isMaster:

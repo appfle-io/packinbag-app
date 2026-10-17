@@ -4,6 +4,13 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/17 있는 계정에 "닉네임 정하기"가 뜨던 문제 (v1.6.4)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **프로필 기다림** | 🐛 수정 | 로그아웃(캐시 지움) · 앱 재설치 뒤 느린 망에서 2.5초 안전 타이머가 닉네임 없는 캐시 값으로 화면을 열어 첫 프로필이 떴다. 이제 2.5초 뒤 `getDocFromServer`로 직접 확인(최대 8초), 끝내 못 받으면 "다시 시도" 화면(AUTH-BOOT-03 · 07, AUTH-LIM-03). `contexts/AuthProvider.tsx` `profileUnconfirmed` · `retryProfileLoad` |
+| **첫 프로필 덮어쓰기 방지** | 🐛 수정 | "시작하기" 전에 서버 문서를 보고 닉네임이 있으면 쓰지 않고 "이미 만든 프로필을 불러왔어요" — `components/v2/auth/ProfileSetupV2.tsx` |
+
 ## 10/17 정리 · 단위테스트 시작 (v1.6.3)
 
 | 기능 | 상태 | 비고 |
@@ -12,6 +19,7 @@
 | **브라우저 위 줄 색** | 🔧 변경 | `themeColor` #ffffff / #1c1c1e → v2 바탕 #fafaf8 / #161618(웹 · PWA) |
 | **단위테스트** | 🆕 | vitest 4.1.11, `npm test`(`-t 명세ID`로 묶음만). `vitest.config.ts`(lib · hooks의 `*.test.ts`). 첫 테스트: `lib/unlockCodeCheck.test.ts`(PREM-JUDGE-03) · `lib/bagNotesCore.test.ts`(MEMO-NOTE · MEMO-SYNC) · `lib/v2/privateLock.test.ts`(SET-LOCK · SET-PIN · SET-LIM-07) · `lib/backupPlan.test.ts`(SET-BAK-09 · 10) 41개 |
 | **안 쓰는 export 정리(knip)** | 🧹 정리 | 19개 중 테스트가 쓰게 된 6개는 그대로, 나머지는 `export`만 떼거나(파일 안에서 씀) 삭제: `MAX_PACK_IMAGES`(premiumLimits) · `deletePackImage`(storageService) · `PrivateLockApi`(usePrivateLock). export를 없앨 것: aiQuotaServer · shortLinkGuard · nativeDeviceServer · bagNotesService · serverPush · LockUI · appBridge · nativeSummary · backupService · storageCopyServer · bagReminders |
+| **인증 메일이 Resend로 안 가던 문제** | 🐛 수정 | `app/api/send-verification-email`이 늘 400("이메일 정보가 없어요")이었다. 10/9부터 `verifyRequestUser`가 인증된 이메일만 넘기는데, 인증 메일 받는 사람은 아직 미인증이라 빈 값 → 늘 Firebase 기본 메일(폴백)로 갔다. 이제 uid로 Auth에서 계정 이메일을 직접 읽음(남의 주소로는 못 보냄) |
 | **firebase-functions 7** | 🔧 변경 | `functions/package.json` ^6 → ^7.4.0(v6 경고). v1 Auth 삭제 트리거(onUserDeleted) 그대로 지원 |
 | **문서** | 🧹 정리 | 삭제한 `남은작업_2026-10-13.md` 참조 → HANDOFF · 기능명세서(README · 작업계획), "Yjs 협업" 메모 삭제(실제 문서에 그 표현은 없었음). 로드맵에서 캘린더 · 미리알림 빠짐 |
 
