@@ -30,10 +30,8 @@ function isoDaysFromNow(days: number): string {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-export async function seedSampleDataForNewUser(
-  user: User,
-  ownerProfile: { nickname: string; avatarId: string }
-) {
+// 샘플 가방 · 팩을 만들기만 한다(저장 없음). 새 가입자(seedSampleDataForNewUser)와 체험 모드(lib/demoSeed.ts)가 같이 쓴다(2026-10-18)
+export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags: Bag[] } {
   const now = new Date().toISOString();
 
   // -------------------------------------------------------------------------
@@ -49,7 +47,6 @@ export async function seedSampleDataForNewUser(
     createdAt: now,
     updatedAt: now,
   };
-  await saveLibraryPackRemote(user, folderTravel, true);
 
   // 1-2. 폴더 내부 팩 1: "전자기기 & 충전"
   const libraryElecPack: Pack = {
@@ -68,7 +65,6 @@ export async function seedSampleDataForNewUser(
       checkItem("애플워치 / 스마트워치 충전 독"),
     ],
   };
-  await saveLibraryPackRemote(user, libraryElecPack, true);
 
   // 1-3. 폴더 내부 팩 2: "의류 & 위생용품"
   const libraryClothesPack: Pack = {
@@ -87,7 +83,6 @@ export async function seedSampleDataForNewUser(
       checkItem("선크림 / 립밤 / 핸드크림"),
     ],
   };
-  await saveLibraryPackRemote(user, libraryClothesPack, true);
 
   // 1-4. 루트 팩: "바베큐 & 먹거리"
   const libraryFoodPack: Pack = {
@@ -105,7 +100,6 @@ export async function seedSampleDataForNewUser(
       checkItem("허브솔트 / 참기름 / 호일"),
     ],
   };
-  await saveLibraryPackRemote(user, libraryFoodPack, true);
 
   // 1-5. 루트 메모팩: "여행 일정 & 맛집 메모" (가방 1과 실시간 동기화 연동)
   const memoDocContent = {
@@ -495,7 +489,6 @@ export async function seedSampleDataForNewUser(
     createdAt: now,
     updatedAt: now,
   };
-  await saveLibraryPackRemote(user, libraryMemoPack, true);
 
   // -------------------------------------------------------------------------
   // 2) 가방 1: "도쿄 3박 4일 자유여행" (팩 4개)
@@ -554,8 +547,8 @@ export async function seedSampleDataForNewUser(
         autoSyncEnabled: true,
       },
     ],
-    memberIds: [user.uid],
-    ownerId: user.uid,
+    memberIds: [ownerUid],
+    ownerId: ownerUid,
     inviteCode: "",
     createdAt: now,
     updatedAt: now,
@@ -764,14 +757,29 @@ export async function seedSampleDataForNewUser(
         editorPreviewText: campingMemoPreviewText,
       },
     ],
-    memberIds: [user.uid],
-    ownerId: user.uid,
+    memberIds: [ownerUid],
+    ownerId: ownerUid,
     inviteCode: "",
     createdAt: now,
     updatedAt: now,
   };
 
-  // createBagRemote를 통해 서버 API(/api/create-bag)로 가방 2개 생성
-  await createBagRemote(user, travelBag, ownerProfile);
-  await createBagRemote(user, campingBag, ownerProfile);
+  return {
+    libraryPacks: [folderTravel, libraryElecPack, libraryClothesPack, libraryFoodPack, libraryMemoPack],
+    bags: [travelBag, campingBag],
+  };
+}
+
+export async function seedSampleDataForNewUser(
+  user: User,
+  ownerProfile: { nickname: string; avatarId: string }
+) {
+  const { libraryPacks, bags } = buildSampleData(user.uid);
+  // 보관함을 먼저(폴더 → 팩 → 메모) 저장한 뒤 가방을 서버 API(/api/create-bag)로 만든다
+  for (const pack of libraryPacks) {
+    await saveLibraryPackRemote(user, pack, true);
+  }
+  for (const bag of bags) {
+    await createBagRemote(user, bag, ownerProfile);
+  }
 }

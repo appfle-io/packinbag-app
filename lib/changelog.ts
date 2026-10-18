@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.7.1",
+    date: "2026-10-18",
+    items: [
+      "소개 페이지(packinbag.seeuson.com/about)에서 로그인 없이 바로 써 볼 수 있어요",
+      "위젯 꾸미기를 지울 때 확인 창이 안 보이던 문제를 고쳤어요",
+    ],
+  },
+  {
     version: "1.7.0",
     date: "2026-10-18",
     items: [

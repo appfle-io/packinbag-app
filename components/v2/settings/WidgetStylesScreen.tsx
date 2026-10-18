@@ -181,17 +181,18 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
             onDelete={() => setConfirmDelete(true)}
           />
         )}
+        {/* 지우기 확인은 편집 화면(SlideScreen) 안에 둔다. 밖에 두면 이 화면 층 + SHEET_OFFSET(10)이라
+            편집 화면 층(+20)보다 낮아 뒤에 숨었다(사용자 제보 2026-10-18, lib/overlayLayer) */}
+        <ConfirmSheet
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          title="이 꾸미기를 지울까요?"
+          message="이걸 쓰던 위젯은 기본 모양으로 바뀌어요."
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => void doDelete()}
+        />
       </SlideScreen>
-
-      <ConfirmSheet
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        title="이 꾸미기를 지울까요?"
-        message="이걸 쓰던 위젯은 기본 모양으로 바뀌어요."
-        confirmLabel="지우기"
-        danger
-        onConfirm={() => void doDelete()}
-      />
     </SubScreen>
   );
 }

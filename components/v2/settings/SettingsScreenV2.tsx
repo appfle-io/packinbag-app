@@ -9,6 +9,7 @@ import { useToast } from "@/components/Toast";
 import type { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
 import { isPremiumUser } from "@/lib/premiumLimits";
+import { isDemoMode, openRealApp } from "@/lib/demoMode";
 import { APP_VERSION } from "@/lib/changelog";
 import { AI_FREE_DAILY_LIMIT, currentAiUsageCount, isUnlimitedAiUser } from "@/lib/aiUsageService";
 import { RestorePartialError, exportBackupData, parseBackupFile, restoreBackupData, withBagNoteBodies } from "@/lib/backupService";
@@ -382,7 +383,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
               title={
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-semibold">{nickname}</span>
-                  {isOfflineMode && <Badge>오프라인</Badge>}
+                  {isOfflineMode && <Badge>{isDemoMode() ? "체험" : "오프라인"}</Badge>}
                   {!isOfflineMode && isGuest && <Badge tone="brand">게스트</Badge>}
                 </span>
               }
@@ -511,10 +512,10 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           />
           {/* 계정 모드는 끊겨도 그대로 이어지므로 "오프라인 보관함 보기"(계정 → 오프라인 모드 전환)는 없앴다(연결 흐름 E).
               오프라인 모드에서 만든 데이터는 로그인할 때 합치기 시트로, 또는 아래 "오프라인 데이터 가져오기"로 옮긴다 */}
-          {isOfflineMode && (
+          {isOfflineMode && !isDemoMode() && (
             <ListRow title={<span className="font-semibold text-brand">온라인 계정으로 전환</span>} subtitle="로그인하면 이 기기 가방을 계정에 합쳐요" onClick={switchToOnlineMode} chevron />
           )}
-          {hasOfflineData && (
+          {hasOfflineData && !isDemoMode() && (
             <ListRow
               title="오프라인 데이터 가져오기"
               subtitle="오프라인에서 만든 가방과 팩을 내 계정으로 복사해요"
@@ -527,6 +528,9 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
               onClick={() => setShowOfflineImport(true)}
             />
           )}
+          {/* 체험 모드는 백업 내보내기 · 불러오기를 숨긴다(OFF-DEMO-07) */}
+          {!isDemoMode() && (
+          <>
           <ListRow
             title="백업 파일 내보내기"
             subtitle="가방과 팩을 .json 파일로 저장해요"
@@ -544,6 +548,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <IconUpload size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
             <input type="file" accept=".json,application/json" className="hidden" onChange={handleImportBackup} />
           </label>
+          </>
+          )}
         </section>
 
         {/* 지원 */}
@@ -589,6 +595,13 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
 
         {/* 계정 */}
         <section className="flex flex-col items-center gap-3 pt-2">
+          {isDemoMode() ? (
+            // 체험 모드: 종료 · 초기화 대신 진짜 팩인백 시작하기(새 탭, OFF-DEMO-07)
+            <Button block onClick={openRealApp}>
+              팩인백 시작하기
+            </Button>
+          ) : (
+          <>
           {isOfflineMode ? (
             <Button variant="secondary" block onClick={exitOfflineMode}>
               오프라인 모드 종료
@@ -601,6 +614,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           <Button variant="danger" size="sm" disabled={resetting} onClick={askReset}>
             {resetting ? "초기화 중" : "데이터 초기화"}
           </Button>
+          </>
+          )}
         </section>
       </ScreenBody>
 

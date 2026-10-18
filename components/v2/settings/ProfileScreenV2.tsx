@@ -13,6 +13,7 @@ import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { AccountLinkSheet } from "@/components/v2/sheets/AccountLinkSheet";
 import { SubScreen } from "./SubScreen";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { isDemoMode } from "@/lib/demoMode";
 
 const NICK_MAX = 12;
 const FIELD = "h-12 w-full rounded-field border border-line bg-card px-4 text-body outline-none placeholder:text-faint focus:border-ink";
@@ -229,8 +230,8 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
         <LegacyAvatar avatarId={avatarId} size={72} />
         {isOfflineMode ? (
           <span className="flex items-center gap-2">
-            <Badge>오프라인</Badge>
-            <span className="text-caption text-sub">이 기기에만 저장돼요</span>
+            <Badge>{isDemoMode() ? "체험" : "오프라인"}</Badge>
+            <span className="text-caption text-sub">{isDemoMode() ? "이 창에만 저장돼요" : "이 기기에만 저장돼요"}</span>
           </span>
         ) : isGuest ? (
           <span className="flex items-center gap-2">
@@ -289,6 +290,8 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
         </div>
       </section>
 
+      {/* 체험 모드는 계정 묶음을 보여 주지 않는다(오프라인 모드 종료 없음, OFF-DEMO-07) */}
+      {!isDemoMode() && (
       <section className="flex flex-col">
         <SectionHeader>계정</SectionHeader>
         {isPasswordAccount && (
@@ -312,6 +315,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
           </button>
         )}
       </section>
+      )}
 
       <PasswordSheet open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <DeleteAccountSheet open={deleteOpen} nickname={profile?.nickname ?? ""} needsPassword={isPasswordAccount} onClose={() => setDeleteOpen(false)} />

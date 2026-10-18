@@ -21,6 +21,7 @@ import { Bag, Pack, UserProfile } from "@/lib/types";
 import { OFFLINE_USER_UID } from "@/lib/localBagsService";
 import { auth } from "@/lib/firebase";
 import { FREE_LAUNCH } from "@/lib/freeLaunch";
+import { isDemoMode } from "@/lib/demoMode";
 
 // 서버(API route)가 무료 제한(팩/가방 개수)에 걸려 403으로 막았을 때 던지는 에러.
 // 일반 에러와 구분해서 catch하면, 실패 토스트 대신 PremiumLimitModal을 띄울 수 있다.
@@ -28,6 +29,9 @@ export class PremiumLimitError extends Error {}
 
 export function isOfflineEnvironment(): boolean {
   if (typeof window === "undefined") return false;
+
+  // 0. 체험 모드는 로그인 세션이 있어도 항상 이 탭 저장(서버 쓰기 없음, OFF-DEMO-03 · 2026-10-18)
+  if (isDemoMode()) return true;
 
   // 1. 실제 Firebase 온라인 계정으로 로그인되어 있는 경우 어떤 플랫폼이든 무조건 원격 Firestore 파이프라인 사용
   if (auth.currentUser && auth.currentUser.uid !== OFFLINE_USER_UID) {

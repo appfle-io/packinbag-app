@@ -4,6 +4,16 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/18 소개 페이지 · 체험 모드 (v1.7.1 · 웹만)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **체험 모드** | 🆕 | `?demo=1`. 로그인 없이 샘플 가방으로 시작, 로그인 세션이 있어도 무시, 이 탭(sessionStorage)에만 저장 · 서버 쓰기 없음, AI · 공유 · 사진/파일 첨부 막음. `lib/demoMode.ts` · `lib/demoSeed.ts` (offline.md OFF-DEMO, auth.md AUTH-BOOT-00) |
+| **소개 페이지 /about** | 🆕 | 써 보기(진짜 앱 iframe + 6단계 안내) · 소개 영상 · 쓰는 법 · 기능 · 요금. `app/about/` (about.md) |
+| **다른 사이트 안 띄우기 막기** | 🆕 | 모든 경로 `Content-Security-Policy: frame-ancestors 'self'` (next.config.ts, OFF-DEMO-08) |
+| **샘플 데이터** | 변경 | `buildSampleData`로 만들기만 따로 떼어 새 가입자 · 체험이 같이 씀(내용 · 저장 순서 같음) |
+| **위젯 꾸미기 지우기** | 수정 | 지우기 확인 시트가 편집 화면 뒤에 뜨던 문제(층 계산). 시트를 편집 SlideScreen 안으로 |
+
 ## 10/18 북마크 위젯(가방 바로가기) · 위젯 꾸미기 (v1.7.0 · iOS 1.7)
 
 | 기능 | 상태 | 비고 |

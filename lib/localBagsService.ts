@@ -1,4 +1,5 @@
 import { Bag, Pack, UserProfile } from "./types";
+import { isDemoMode } from "./demoMode";
 
 const LOCAL_BAGS_KEY = "pib_offline_bags";
 const LOCAL_LIBRARY_PACKS_KEY = "pib_offline_library_packs";
@@ -26,10 +27,19 @@ const DEFAULT_OFFLINE_PROFILE: UserProfile = {
   createdAt: new Date().toISOString(),
 };
 
+// 체험 모드(OFF-DEMO)면 진짜 오프라인 데이터와 섞이지 않게 탭 저장소(sessionStorage) + "pib_demo_" 키에 따로 저장한다(2026-10-18)
+function store(): Storage {
+  return isDemoMode() ? sessionStorage : localStorage;
+}
+
+function storeKey(key: string): string {
+  return isDemoMode() ? key.replace("pib_offline_", "pib_demo_") : key;
+}
+
 function safeGetItem<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(key);
+    const raw = store().getItem(storeKey(key));
     if (!raw) return fallback;
     return JSON.parse(raw) as T;
   } catch {
@@ -40,7 +50,7 @@ function safeGetItem<T>(key: string, fallback: T): T {
 function safeSetItem(key: string, value: unknown) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    store().setItem(storeKey(key), JSON.stringify(value));
     window.dispatchEvent(new CustomEvent(LOCAL_CHANGE_EVENT, { detail: { key } }));
   } catch (err) {
     console.error(`[LocalBagsService] 로컬 스토리지 저장 실패 (${key}):`, err);
@@ -62,8 +72,8 @@ export function saveLocalProfile(profile: Partial<UserProfile>) {
 
 // ----------------- Bags -----------------
 export function getLocalBags(): Bag[] {
-  // 이전 버전의 LOCAL_TRASHED_BAGS_KEY가 남아있다면 통합 마이그레이션
-  if (typeof window !== "undefined") {
+  // 이전 버전의 LOCAL_TRASHED_BAGS_KEY가 남아있다면 통합 마이그레이션(체험 모드는 해당 없음)
+  if (typeof window !== "undefined" && !isDemoMode()) {
     try {
       const oldTrashed = localStorage.getItem(LOCAL_TRASHED_BAGS_KEY);
       if (oldTrashed) {
@@ -208,8 +218,8 @@ export function permanentDeleteLocalBag(bagId: string) {
 
 // ----------------- Library Packs -----------------
 export function getLocalLibraryPacks(): Pack[] {
-  // 이전 버전의 LOCAL_TRASHED_PACKS_KEY가 남아있다면 통합 마이그레이션
-  if (typeof window !== "undefined") {
+  // 이전 버전의 LOCAL_TRASHED_PACKS_KEY가 남아있다면 통합 마이그레이션(체험 모드는 해당 없음)
+  if (typeof window !== "undefined" && !isDemoMode()) {
     try {
       const oldTrashed = localStorage.getItem(LOCAL_TRASHED_PACKS_KEY);
       if (oldTrashed) {
@@ -315,9 +325,8 @@ export function subscribeLocalData(callback: () => void): () => void {
 
 export function resetLocalAllData() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(LOCAL_BAGS_KEY);
-  localStorage.removeItem(LOCAL_LIBRARY_PACKS_KEY);
-  localStorage.removeItem(LOCAL_TRASHED_BAGS_KEY);
-  localStorage.removeItem(LOCAL_TRASHED_PACKS_KEY);
+  for (const key of [LOCAL_BAGS_KEY, LOCAL_LIBRARY_PACKS_KEY, LOCAL_TRASHED_BAGS_KEY, LOCAL_TRASHED_PACKS_KEY]) {
+    store().removeItem(storeKey(key));
+  }
   window.dispatchEvent(new CustomEvent(LOCAL_CHANGE_EVENT, { detail: { key: "all" } }));
 }

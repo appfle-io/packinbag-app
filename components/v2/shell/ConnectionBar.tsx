@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconChevronDown, IconCloudOff, IconWifi, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconCloudOff, IconSparkles, IconWifi, IconX } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { RECONNECTED_EVENT, useConnectivity } from "@/lib/v2/connectivity";
+import { isDemoMode, openRealApp } from "@/lib/demoMode";
 import { cx } from "@/components/v2/ui";
 
 const BAR = "flex w-full shrink-0 select-none items-start gap-2 border-b border-line pl-4 font-ui text-caption text-ink";
@@ -43,6 +44,30 @@ export function ConnectionBar() {
   }, [isOfflineMode, user, show]);
 
   if (!user) return null;
+
+  // 체험 모드(OFF-DEMO-06): 연결 상태 대신 "체험 중" 안내 + 시작하기(새 탭으로 팩인백 첫 화면)
+  if (isDemoMode()) {
+    if (dismissedLogin) return null;
+    return (
+      <aside role="status" aria-live="polite" className={cx(BAR, "bg-brand-soft")}>
+        <span className="flex h-11 shrink-0 items-center" aria-hidden="true">
+          <IconSparkles size={16} stroke={1.9} className="text-brand" />
+        </span>
+        <Summary
+          title="체험 중이에요 · 창을 닫으면 사라져요"
+          detail="여기서 만든 가방과 팩은 이 창에만 있어요. AI · 사진 첨부 · 가족과 공유는 로그인하면 쓸 수 있어요."
+          open={open}
+          onToggle={() => setOpen((v) => !v)}
+        />
+        <button type="button" onClick={openRealApp} className="h-11 shrink-0 bg-transparent px-2 font-semibold text-brand active:opacity-60">
+          시작하기
+        </button>
+        <button type="button" onClick={() => setDismissedLogin(true)} aria-label="닫기" className={CLOSE}>
+          <IconX size={18} stroke={1.9} />
+        </button>
+      </aside>
+    );
+  }
 
   if (!isOfflineMode && connectivity === "offline") {
     return (

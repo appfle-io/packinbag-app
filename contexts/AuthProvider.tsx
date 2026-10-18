@@ -63,6 +63,8 @@ import {
   getLocalProfile,
   saveLocalProfile,
 } from "@/lib/localBagsService";
+import { isDemoMode } from "@/lib/demoMode";
+import { seedDemoDataOnce } from "@/lib/demoSeed";
 
 interface AuthContextValue {
   user: User | null;
@@ -275,6 +277,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 여부)는 여기 없다 - 아래 unlockLiveStatus가 따로 담당한다 (그 이유는 바로 아래 주석 참고).
   const isInitialOffline = () => {
     if (typeof window !== "undefined") {
+      // 체험 모드(?demo=1)는 여기서 보지 않는다. useState 초기값이 서버 화면과 달라져 하이드레이션 오류가 나서,
+      // 첫 화면을 그린 뒤 아래 시작 effect에서 startOfflineMode()로 들어간다(2026-10-18)
       const urlParams = new URLSearchParams(window.location.search);
       if (
         urlParams.get("offline") === "true" ||
@@ -323,9 +327,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isMasterApi, setIsMasterApi] = useState(false);
 
   const startOfflineMode = () => {
-    if (typeof window !== "undefined") {
+    // 체험 모드는 진짜 오프라인 모드 표시를 남기지 않는다(다음에 팩인백을 열면 평소대로)
+    if (typeof window !== "undefined" && !isDemoMode()) {
       localStorage.setItem("pib_offline_mode", "true");
     }
+    if (isDemoMode()) seedDemoDataOnce();
     setIsOfflineMode(true);
     setUser({
       uid: OFFLINE_USER_UID,
@@ -380,6 +386,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
     const isExplicitOffline =
+      isDemoMode() ||
       localStorage.getItem("pib_offline_mode") === "true" ||
       urlParams.get("offline") === "true";
 
@@ -451,6 +458,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       const isStartup = !authResolvedOnceRef.current;
       authResolvedOnceRef.current = true;
+      // 체험 모드면 이 브라우저의 로그인 세션을 무시한다(실제 계정이 체험 화면에 뜨거나 저장되지 않게, OFF-DEMO-02)
+      if (isDemoMode()) return;
       // 1. 유효한 로그인 계정 세션이 감지된 경우:
       // 기존 오프라인 플래그(pib_offline_mode)에 가로막히지 않고 세션을 최우선 적용.
       // 케이스 1-2(오프라인 캐시 이어쓰기), 3-1(로그인 후 계정 진입), 3-2(자동 동기화) 완벽 보장.

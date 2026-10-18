@@ -13,6 +13,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // 팩인백 화면은 같은 주소(예: /about의 체험 화면)에서만 다른 페이지 안에 띄울 수 있다.
+        // 다른 사이트가 가져다 띄워 누르기를 속이는 것(클릭재킹)을 막는다(2026-10-18, offline.md OFF-DEMO-08)
+        source: "/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self'",
+          },
+        ],
+      },
+      {
         source: "/sw.js",
         headers: [
           {

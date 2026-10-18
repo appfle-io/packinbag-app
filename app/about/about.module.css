@@ -1,0 +1,112 @@
+/* /about 소개 페이지(2026-10-18). 앱 화면(v2 토큰)과 따로, 늘 밝은 화면으로 보인다 */
+.page {
+  height: 100dvh;
+  overflow-y: auto;
+  background: #fafaf8;
+  color: #17171a;
+  font-family: var(--font-pretendard), "Apple SD Gothic Neo", sans-serif;
+  color-scheme: light;
+}
+.page a { color: inherit; text-decoration: none; }
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* 위 줄 */
+.header { position: sticky; top: 0; z-index: 10; background: rgba(250, 250, 248, 0.92); backdrop-filter: blur(12px); border-bottom: 1px solid #eaeae6; }
+.headerRow { min-height: 60px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; }
+.brand img { border-radius: 8px; }
+.nav { display: flex; flex-wrap: wrap; gap: 2px; }
+.nav a { padding: 10px 12px; font-size: 14px; color: #5f5f66; border-radius: 8px; }
+.nav a:hover { color: #17171a; background: #f1f1ee; }
+
+/* 버튼 */
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 15px; font-weight: 700; cursor: pointer; border: 0; font-family: inherit; }
+.btnDark { background: #17171a; color: #fff !important; }
+.btnDark:hover { background: #2c2c30; }
+.btnLine { background: #fff; color: #17171a; border: 1px solid #e2e2dd; }
+.btnLine:hover { background: #f4f4f1; }
+.btnSmall { min-height: 36px; padding: 0 16px; font-size: 13px; }
+
+/* 써 보기 */
+.hero { padding: 56px 0 72px; display: flex; flex-direction: column; gap: 32px; }
+.heroTop { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; justify-content: space-between; }
+.h1 { margin: 0; font-size: 44px; line-height: 1.18; letter-spacing: -0.03em; font-weight: 800; }
+.lead { margin: 16px 0 0; font-size: 17px; line-height: 1.6; color: #5f5f66; }
+.ctaRow { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.tryRow { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.steps { list-style: none; margin: 0; padding: 0; flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: 8px; }
+.step { width: 100%; text-align: left; border: 1px solid #eaeae6; background: transparent; border-radius: 14px; padding: 14px 16px; font: inherit; color: #17171a; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; }
+.step:hover { background: #fff; }
+.stepOn { background: #fff; border-color: #2e5e4e; }
+.stepNum { width: 24px; height: 24px; border-radius: 999px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; background: #f1f1ee; color: #5f5f66; }
+.stepOn .stepNum, .stepPast .stepNum { background: #2e5e4e; color: #fff; }
+.stepTitle { display: block; font-size: 15px; font-weight: 800; line-height: 22px; }
+.stepBody { display: block; font-size: 13px; line-height: 20px; color: #5f5f66; margin-top: 2px; }
+.tip { margin-top: 8px; border-radius: 10px; background: #e6eeea; color: #234a3d; font-size: 13px; line-height: 20px; padding: 10px 12px; }
+
+.stage { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.stageBar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: #f1f1ee; }
+.segBtn { border: 0; background: transparent; padding: 8px 14px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 700; color: #5f5f66; cursor: pointer; }
+.segOn { background: #fff; color: #17171a; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.reset { border: 0; background: transparent; font: inherit; font-size: 13px; color: #5f5f66; cursor: pointer; padding: 8px 4px; text-decoration: underline; text-underline-offset: 3px; }
+
+.frameWrap { display: flex; justify-content: center; border-radius: 20px; background: #eef2ef; padding: 20px; }
+.framePc { width: 100%; height: 720px; border: 1px solid #e2e2dd; border-radius: 14px; background: #fafaf8; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08); }
+.framePhone { width: 390px; max-width: 100%; height: 780px; border: 10px solid #17171a; border-radius: 48px; background: #fafaf8; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.14); }
+.stageNote { margin: 0; font-size: 13px; color: #76767d; }
+
+/* 좁은 화면(휴대폰)은 페이지 안에 넣지 않고 전체 화면 체험으로 */
+.mobileTry { display: none; }
+@media (max-width: 760px) {
+  .h1 { font-size: 34px; }
+  .tryRow { display: none; }
+  .mobileTry { display: flex; flex-direction: column; gap: 12px; border-radius: 20px; background: #fff; border: 1px solid #eaeae6; padding: 20px; }
+  .mobileTry p { margin: 0; font-size: 15px; line-height: 1.6; color: #5f5f66; }
+}
+
+/* 섹션 공통 */
+.section { padding: 72px 0; border-top: 1px solid #eaeae6; }
+.h2 { margin: 0; font-size: 32px; line-height: 1.25; letter-spacing: -0.02em; font-weight: 800; }
+.sub { margin: 12px 0 0; font-size: 16px; line-height: 1.6; color: #5f5f66; max-width: 640px; }
+
+/* 소개 영상(가운데, 직접 만든 컨트롤 - AboutVideo) */
+.videoHead { text-align: center; }
+.videoHead .sub { margin-left: auto; margin-right: auto; }
+.videoBox { position: relative; width: 100%; max-width: 960px; margin: 28px auto 0; border-radius: 18px; overflow: hidden; background: #17171a; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12); }
+.video { display: block; width: 100%; aspect-ratio: 16 / 9; cursor: pointer; }
+.videoPlay { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border: 0; border-radius: 999px; background: rgba(23, 23, 26, 0.82); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding-left: 4px; }
+.videoPlay:hover { background: #2e5e4e; }
+.videoFull { position: absolute; right: 12px; top: 12px; width: 40px; height: 40px; border: 0; border-radius: 999px; background: rgba(23, 23, 26, 0.55); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 160ms; }
+.videoBox:hover .videoFull, .videoFull:focus-visible { opacity: 1; }
+.videoBar { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255, 255, 255, 0.25); cursor: pointer; }
+.videoBar i { display: block; height: 100%; background: #6fb39a; transform-origin: 0 50%; }
+
+.how { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: #fff; border: 1px solid #eaeae6; border-radius: 18px; padding: 24px; }
+.cardNum { width: 28px; height: 28px; border-radius: 999px; background: #2e5e4e; color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.cardTitle { margin: 16px 0 0; font-size: 18px; font-weight: 800; }
+.cardBody { margin: 8px 0 0; font-size: 15px; line-height: 1.6; color: #5f5f66; }
+
+.features { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 40px; }
+.feature { padding: 20px 0; border-top: 1px solid #eaeae6; }
+.featureTitle { margin: 0; font-size: 17px; font-weight: 800; }
+.featureBody { margin: 6px 0 0; font-size: 15px; line-height: 1.6; color: #5f5f66; }
+.chips { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 8px 14px; border-radius: 999px; background: #fff; border: 1px solid #e2e2dd; font-size: 14px; font-weight: 600; }
+
+.platforms { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.note { margin: 20px 0 0; font-size: 14px; color: #76767d; }
+
+.priceRow { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; justify-content: space-between; }
+.priceHead { flex: 1 1 320px; max-width: 460px; }
+.priceTable { flex: 1 1 420px; max-width: 560px; background: #fff; border: 1px solid #eaeae6; border-radius: 18px; padding: 8px 24px; }
+.priceLine { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; font-size: 15px; }
+.priceLine + .priceLine { border-top: 1px solid #eaeae6; }
+.priceLine span:last-child { font-weight: 700; text-align: right; }
+
+.end { padding: 80px 0; border-top: 1px solid #eaeae6; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.footer { padding: 32px 0 48px; border-top: 1px solid #eaeae6; font-size: 13px; color: #76767d; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.footer a:hover { color: #17171a; }
