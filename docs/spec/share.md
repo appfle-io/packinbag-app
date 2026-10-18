@@ -15,7 +15,7 @@
 | 대상 | 필드 | 쓰임 |
 |---|---|---|
 | bags/{id} | `ownerId`(그룹장) · `memberIds[]` · `memberProfiles{uid: {nickname, avatarId, joinedAt}}` · `inviteCode` · `publicShareToken` · `publicShareEnabled` | 함께 쓰기의 단위는 가방 |
-| inviteCodes/{code} | `bagId` | 코드 → 가방. 읽기는 코드를 알 때 get만(목록 금지), 쓰기는 서버만 |
+| inviteCodes/{code} | `bagId` | 코드 → 가방. 클라이언트는 읽지도 쓰지도 못함(10/16), 서버만 |
 | sharedPacks/{token} | `ownerUid` · `type`(pack \| folder) · `title` · `pack` · `packs[]` · `sourceBagId` · `sourcePackId` · `createdAt` · `updatedAt` | 팩 · 폴더 · 메모 공개 스냅샷. 토큰을 알면 누구나 get, 쓰기는 서버만 |
 | 팩(가방 속 · 보관함) | `publicShareToken` | 다시 공유할 때 같은 주소 |
 | 이 기기(sessionStorage) | `pib_pending_invite` · `pib_pending_open_bag` · `pib_pending_import_pack` | 로그인 · 가입을 거쳐도 링크 동작을 잃지 않게 |
@@ -53,6 +53,7 @@
 | SHARE-JOIN-03 | 서버 검사 순서: 코드 문서 있음 → 가방 있음 → **가방의 지금 코드와 같음**(재발급된 옛 코드 · 위조 문서 거절) → 휴지통 아님 → (이미 멤버면 검사 없이 프로필만 갱신) → 인원 10명 미만 → 2명 이상이면 그룹장 프리미엄 확인 → 참여하는 사람 무료면 참여 가방 3개 미만 → 트랜잭션으로 한 번 더 확인하고 `memberIds`에 추가 + 프로필 스냅샷 |
 | SHARE-JOIN-04 | 실패 문구: 코드 없음 · 옛 코드 "해당 초대코드의 가방을 찾을 수 없어요" / 가방 없음 · 휴지통 "가방이 삭제되었거나 존재하지 않아요" / 10명 "가방 인원이 가득 찼어요 (최대 10명)" / 그룹장 무료 "이 가방은 2명까지만 함께 쓸 수 있어요. 가방을 만든 사람이 프리미엄이면 10명까지 함께할 수 있어요." / 참여 한도(→ 프리미엄 시트) "무료로는 초대받은 가방을 최대 3개까지만 참여할 수 있어요. 더 참여하려면 프리미엄이 필요해요." |
 | SHARE-JOIN-05 | 코드로 참여 시트는 실패하면 시트 안에 빨간 글로 이유를 보이고 닫히지 않음. 참여 한도는 프리미엄 시트로 |
+| SHARE-JOIN-09 | 틀린 코드(없음 · 옛 코드 · 가방 없음 · 휴지통 · 형식 틀림)는 계정마다 KST 하루 20번까지 → 넘으면 "코드를 너무 많이 틀렸어요. 내일 다시 시도해주세요"(10/16, api.md API-BAG-J-10). 앱은 `inviteCodes`를 직접 읽지 않는다(규칙으로 막힘) |
 | SHARE-JOIN-06 | 그룹장이 탈퇴 등으로 계정이 없으면 무료로 판정(2명 한도) |
 | SHARE-JOIN-07 | 게스트(익명)도 참여할 수 있음 |
 | SHARE-JOIN-08 | 새 멤버가 들어오면 그룹장에게 서버 푸시(설정 "새 멤버 참여", native-ios.md) |
