@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.7.2",
+    date: "2026-10-19",
+    items: ["설정 > 버전 정보에서 최신 버전인지 확인하고 바로 업데이트해요", "안정성을 높였어요"],
+  },
+  {
     version: "1.7.1",
     date: "2026-10-18",
     items: [
