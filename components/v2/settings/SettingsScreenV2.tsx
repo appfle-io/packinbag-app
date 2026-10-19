@@ -43,6 +43,9 @@ import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isNativePlatform } from "@/lib/purchaseService";
 import { askNotificationPermission, getNotificationPermission, isServerPushAvailable, sendTestPush, type PushKind } from "@/lib/v2/serverPush";
 import { PushSettingsScreen, pushKindsSummary } from "./PushSettingsScreen";
+import { EventsScreen } from "@/components/v2/events/EventScreens";
+import { useEvents } from "@/lib/eventsService";
+import { hasUnseenEvent, readSeenEventIds, splitEvents } from "@/lib/events";
 import { FREE_LAUNCH } from "@/lib/freeLaunch";
 import { LockSettingsScreen } from "./LockSettingsScreen";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
@@ -73,7 +76,7 @@ export interface SettingsScreenProps {
   embedded?: boolean;
 }
 
-type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock" | "widgets" | "push";
+type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock" | "widgets" | "push" | "events";
 
 const MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "시스템" },
@@ -216,6 +219,9 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const hasUnreadAnnouncement = activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id));
   const hasOfflineData = !isOfflineMode && (offlineSummary.bags.length > 0 || offlineSummary.packs.length > 0);
+  // 이벤트(EVT-LIST): 진행 중인데 이 기기에서 안 본 것이 있으면 빨간 점. 본 기록은 화면이 바뀔 때마다 다시 읽는다(가벼움)
+  const activeEvents = splitEvents(useEvents(!isOfflineMode)).active;
+  const hasNewEvent = view !== "events" && hasUnseenEvent(activeEvents, readSeenEventIds());
 
   const close = () => setView(null);
 
@@ -557,6 +563,18 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           <section className="flex flex-col">
             <SectionHeader>지원</SectionHeader>
             <ListRow
+              title="이벤트"
+              trailing={
+                hasNewEvent ? (
+                  <span aria-label="새 이벤트" className="size-2 rounded-full bg-alert" />
+                ) : activeEvents.length > 0 ? (
+                  `진행 중 ${activeEvents.length}`
+                ) : undefined
+              }
+              onClick={() => guard(() => setView("events"))}
+              chevron
+            />
+            <ListRow
               title="공지사항"
               trailing={hasUnreadAnnouncement ? <span aria-label="새 공지" className="size-2 rounded-full bg-alert" /> : undefined}
               onClick={() => guard(() => setShowAnnouncements(true))}
@@ -646,6 +664,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       {privacy.available && (
         <SlideScreen active={view === "lock"} onBackdropClick={close} swipeBack>
           <LockSettingsScreen onBack={close} />
+        </SlideScreen>
+      )}
+      {!isOfflineMode && (
+        <SlideScreen active={view === "events"} onBackdropClick={close} swipeBack>
+          <EventsScreen active={view === "events"} onBack={close} />
         </SlideScreen>
       )}
       {pushAvailable && (

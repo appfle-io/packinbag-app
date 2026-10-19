@@ -9,6 +9,7 @@ import {
   IconMessageQuestion,
   IconKey,
   IconSpeakerphone,
+  IconGift,
   IconHistory,
   IconLogout,
   IconLayoutSidebarLeftCollapse,
@@ -26,6 +27,7 @@ const MENU = [
   { href: "/admin/inquiries", label: "문의 관리", icon: IconMessageQuestion },
   { href: "/admin/unlock-codes", label: "이용권 코드", icon: IconKey },
   { href: "/admin/announcements", label: "공지사항", icon: IconSpeakerphone },
+  { href: "/admin/events", label: "이벤트", icon: IconGift },
   { href: "/admin/audit-log", label: "활동 로그", icon: IconHistory },
 ];
 

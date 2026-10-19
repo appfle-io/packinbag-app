@@ -4,6 +4,16 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/19 이벤트 (웹 + 규칙, 1.7.2와 같이 또는 1.7.3)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **설정 > 이벤트** | 🆕 | 지원 맨 위. 진행 중 · 지난 이벤트 목록, 안 본 것이 있으면 빨간 점. 본문은 HTML(스크립트를 막은 iframe) 또는 긴 이미지 + 아래 버튼. `components/v2/events/EventScreens.tsx`, `lib/events.ts`(+test) · `lib/eventsService.ts` (events.md) |
+| **홈 캐러셀 이벤트** | 🆕 | 게시 기간 안의 이벤트를 가방 카드 뒤에 최대 3장("전체" 칩에서만) (events.md EVT-HOME, home.md HOME-LIM-02) |
+| **관리자 > 이벤트** | 🆕 | 등록 · 고치기 · 숨기기 · 지우기, 커버 · 본문 올리기, 휴대폰/PC · 라이트/다크 미리 보기. `app/admin/events/page.tsx` (admin.md ADM-EVT) |
+| **규칙** | 🆕 | firestore `events`(게시한 것 공개 읽기 · 마스터 쓰기), storage `events/**`(공개 읽기 · 마스터 이미지/HTML 10MB) (security-rules.md RULE-EVT) |
+| **관리자 푸시 발송** | 취소 | 분석만 하고 하지 않기로(사용자). 대신 이벤트 |
+
 ## 10/19 새 버전 확인 · 소개 페이지 휴대폰 정렬 · 알림 묶기 · 위젯 색 · 관리자 상태 줄 (v1.7.2 · 웹만)
 
 | 기능 | 상태 | 비고 |
