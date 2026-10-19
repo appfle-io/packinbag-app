@@ -24,6 +24,10 @@ describe("eventStatus", () => {
   it("게시하지 않으면 날짜와 상관없이 숨김", () => {
     expect(eventStatus(ev("a", "2026-11-01", "2026-11-30", { published: false }), "2026-11-10")).toBe("hidden");
   });
+  it("끝나는 날이 없으면 시작 뒤로 계속 진행 중(EVT-DATA-04)", () => {
+    expect(eventStatus(ev("a", "2026-10-20", ""), "2030-01-01")).toBe("active");
+    expect(eventStatus(ev("a", "2026-10-20", ""), "2026-10-19")).toBe("upcoming");
+  });
 });
 
 describe("splitEvents", () => {
@@ -50,6 +54,11 @@ describe("labels", () => {
   it("홈 카드 작은 줄", () => {
     expect(eventEyebrow(ev("a", "2026-10-01", "2026-10-31"), "2026-10-19")).toBe("이벤트 · 10월 31일까지");
     expect(eventEyebrow(ev("a", "2026-10-01", "2026-10-19"), "2026-10-19")).toBe("이벤트 · 오늘까지");
+  });
+  it("끝나는 날이 없을 때 표기", () => {
+    expect(eventPeriodLabel(ev("a", "2026-10-20", ""), "2026-10-20")).toBe("10월 20일(화)부터");
+    expect(eventPeriodLabel(ev("a", "2026-10-20", ""), "2027-02-01")).toBe("2026년 10월 20일(화)부터");
+    expect(eventEyebrow(ev("a", "2026-10-20", ""), "2026-10-20")).toBe("이벤트 · 진행 중");
   });
   it("localDateKey는 기기 날짜", () => {
     expect(localDateKey(new Date(2026, 0, 5))).toBe("2026-01-05");

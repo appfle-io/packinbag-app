@@ -1,6 +1,7 @@
 // 이벤트(2026-10-19). 순수 함수만 — Firestore · Storage는 lib/eventsService.ts, 화면은 components/v2/events.
 // 명세 docs/spec/events.md(EVT-), 만드는 법 _secrets/claude/event-guide.md
 // 기간은 "YYYY-MM-DD"(기기 날짜 기준, 시작일 · 끝나는 날 모두 포함) — 공지(announcements)와 같은 모양
+// 끝나는 날이 빈 문자열이면 "끝나는 날 없음"(관리자가 닫을 때까지 진행 중, 2026-10-20). 닫을 때는 끝나는 날을 넣거나 게시를 끈다
 
 export type EventBodyType = "html" | "image";
 
@@ -9,6 +10,7 @@ export interface AppEvent {
   title: string;
   summary: string;
   startDate: string;
+  // "" = 끝나는 날 없음(EVT-DATA-04)
   endDate: string;
   // 정사각 커버(홈 카드 · 목록 썸네일)
   coverUrl?: string;
@@ -47,7 +49,7 @@ export function localDateKey(d: Date = new Date()): string {
 export function eventStatus(e: Pick<AppEvent, "published" | "startDate" | "endDate">, today = localDateKey()): EventStatus {
   if (!e.published) return "hidden";
   if (today < e.startDate) return "upcoming";
-  if (today > e.endDate) return "ended";
+  if (e.endDate && today > e.endDate) return "ended";
   return "active";
 }
 
@@ -71,15 +73,17 @@ function dayLabel(key: string, withYear: boolean): string {
   return `${withYear ? `${y}년 ` : ""}${m}월 ${d}일(${w})`;
 }
 
-// "11월 1일(토) ~ 11월 30일(일)". 올해가 아니면 연도를 붙인다
+// "11월 1일(토) ~ 11월 30일(일)". 올해가 아니면 연도를 붙인다. 끝나는 날이 없으면 "11월 1일(토)부터"
 export function eventPeriodLabel(e: Pick<AppEvent, "startDate" | "endDate">, today = localDateKey()): string {
   const year = today.slice(0, 4);
+  if (!e.endDate) return `${dayLabel(e.startDate, e.startDate.slice(0, 4) !== year)}부터`;
   const withYear = e.startDate.slice(0, 4) !== year || e.endDate.slice(0, 4) !== year;
   return `${dayLabel(e.startDate, withYear)} ~ ${dayLabel(e.endDate, withYear)}`;
 }
 
-// 홈 카드 작은 줄: "이벤트 · 11월 30일까지" / 오늘 끝나면 "이벤트 · 오늘까지"
+// 홈 카드 작은 줄: "이벤트 · 11월 30일까지" / 오늘 끝나면 "이벤트 · 오늘까지" / 끝나는 날이 없으면 "이벤트 · 진행 중"
 export function eventEyebrow(e: Pick<AppEvent, "endDate">, today = localDateKey()): string {
+  if (!e.endDate) return "이벤트 · 진행 중";
   if (e.endDate === today) return "이벤트 · 오늘까지";
   const [, m, d] = e.endDate.split("-").map(Number);
   return `이벤트 · ${m}월 ${d}일까지`;

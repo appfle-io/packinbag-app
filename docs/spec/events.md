@@ -10,7 +10,7 @@
 
 | 대상 | 필드 | 쓰임 |
 |---|---|---|
-| events/{id} | `title`(30자) · `summary`(40자) · `startDate` · `endDate`("YYYY-MM-DD", 둘 다 포함) | 카드 · 목록 |
+| events/{id} | `title`(30자) · `summary`(40자) · `startDate` · `endDate`("YYYY-MM-DD", 둘 다 포함. `endDate` ""는 끝나는 날 없음) | 카드 · 목록 |
 | | `coverUrl` · `coverPath` | 정사각 커버(Storage `events/{id}/cover-…`) |
 | | `bodyType`(html \| image) · `bodyUrl` · `bodyPath` | 본문(Storage `events/{id}/body-…`) |
 | | `buttonLabel`(12자) · `buttonUrl` | 아래 고정 버튼(선택) |
@@ -22,6 +22,7 @@
 | EVT-DATA-01 | 상태(`eventStatus`): 게시 안 함 = 숨김 / 오늘 < 시작 = 예정 / 오늘 > 끝 = 끝남 / 그 밖 = 진행 중. **오늘은 기기 날짜** |
 | EVT-DATA-02 | 사용자 화면은 게시한 것만 한 번 읽는다(`where published == true`, 앱 실행당 1회 캐시 + 설정 > 이벤트를 열 때 다시). 실시간 구독 없음. 오프라인 모드 · 체험은 읽지 않음 |
 | EVT-DATA-03 | 진행 중 정렬: 시작일 늦은 것 먼저 / 지난 이벤트: 끝난 날 늦은 것 먼저. 예정 · 숨김은 사용자에게 안 보임 |
+| EVT-DATA-04 | (2026-10-20) 끝나는 날 없음(`endDate` "" 또는 없음): 시작일부터 계속 진행 중(끝남이 되지 않음). 기간 표기 "10월 20일(화)부터", 홈 카드 작은 줄 "이벤트 · 진행 중". 닫을 때는 관리자가 끝나는 날을 넣거나(지난 이벤트로) 게시를 끈다(숨김). 선착순 · 재고 소진처럼 끝을 미리 모르는 이벤트용 |
 
 ## 1. EVT-HOME 홈 캐러셀
 
@@ -61,5 +62,5 @@
 
 | 대상 | ID |
 |---|---|
-| `eventStatus`(시작 · 끝 포함, 숨김) · `splitEvents`(정렬 · 예정/숨김 제외) — `lib/events.test.ts` | EVT-DATA-01 · 03 |
+| `eventStatus`(시작 · 끝 포함, 숨김, 끝나는 날 없음) · `splitEvents`(정렬 · 예정/숨김 제외) — `lib/events.test.ts` | EVT-DATA-01 · 03 · 04 |
 | `eventPeriodLabel` · `eventEyebrow` · `isSafeEventLink` · `hasUnseenEvent` | EVT-LIST-03, EVT-HOME-03, EVT-VIEW-04 · 05 |

@@ -100,8 +100,9 @@ const isHtmlFile = (f: File) => f.type === "text/html" || /\.html?$/i.test(f.nam
 // 저장하기 전 검사(ADM-EVT-04). 문제가 있으면 그 문구, 없으면 null
 function problemOf(d: Draft): string | null {
   if (!d.title.trim()) return "제목을 적어 주세요";
-  if (!d.startDate || !d.endDate) return "기간을 정해 주세요";
-  if (d.startDate > d.endDate) return "끝나는 날이 시작하는 날보다 빨라요";
+  if (!d.startDate) return "시작하는 날을 정해 주세요";
+  // 끝나는 날 ""는 "끝나는 날 없음"(EVT-DATA-04)
+  if (d.endDate && d.startDate > d.endDate) return "끝나는 날이 시작하는 날보다 빨라요";
   if (!d.coverFile && !d.existing?.coverUrl) return "커버 이미지를 골라 주세요";
   if (d.coverFile && !d.coverFile.type.startsWith("image/")) return "커버는 이미지 파일이어야 해요";
   if (d.coverFile && d.coverFile.size > EVENT_COVER_MAX_BYTES) return "커버 이미지는 2MB 이하로 올려 주세요";
@@ -380,11 +381,24 @@ export default function AdminEventsPage() {
                 <span className="text-caption text-sub">시작하는 날</span>
                 <input type="date" value={d.startDate} onChange={(e) => patch({ startDate: e.target.value })} className={ADMIN_FIELD} />
               </label>
-              <label className="flex flex-col gap-2">
-                <span className="text-caption text-sub">끝나는 날(포함)</span>
-                <input type="date" value={d.endDate} onChange={(e) => patch({ endDate: e.target.value })} className={ADMIN_FIELD} />
-              </label>
+              {d.endDate ? (
+                <label className="flex flex-col gap-2">
+                  <span className="text-caption text-sub">끝나는 날(포함)</span>
+                  <input type="date" value={d.endDate} onChange={(e) => patch({ endDate: e.target.value })} className={ADMIN_FIELD} />
+                </label>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <span className="text-caption text-sub">끝나는 날</span>
+                  <span className="flex h-11 items-center text-body text-sub">없음(직접 닫을 때까지)</span>
+                </div>
+              )}
             </div>
+            <Toggle
+              checked={!d.endDate}
+              onChange={(open) => patch({ endDate: open ? "" : plusDays(14) })}
+              label="끝나는 날 없음"
+              description="닫을 때까지 진행 중. 닫으려면 이걸 끄고 끝나는 날을 어제로(지난 이벤트로) 또는 게시를 끄기(숨김)"
+            />
 
             <FilePick
               label="커버 이미지(정사각, 글자 없이)"
