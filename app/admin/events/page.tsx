@@ -29,6 +29,7 @@ import {
   type EventStatus,
 } from "@/lib/events";
 import { deleteEventFile, deleteEventRemote, newEventId, saveEventRemote, subscribeToAllEvents, uploadEventFile } from "@/lib/eventsService";
+import { adminApiFetch } from "@/lib/adminApiClient";
 import { Badge, Button, IconButton, SegmentedControl, Sheet, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { ADMIN_FIELD, AdminCard, AdminEmpty, AdminError, AdminPage } from "@/components/admin/AdminPage";
@@ -76,6 +77,16 @@ const SCHEME_OPTIONS: { value: PreviewScheme; label: string }[] = [
 const plusDays = (n: number) => localDateKey(new Date(Date.now() + n * 24 * 60 * 60 * 1000));
 // 공개 주소에 보여 줄 도메인(ADM-EVT-11)
 const SITE_HOST = "packinbag.seeuson.com";
+
+// 공개 페이지 캐시 바로 비우기(EVT-WEB-07). 실패해도 1분(/about은 5분) 뒤에는 바뀐다
+function refreshPublicPages(...events: (AppEvent | undefined)[]) {
+  const keys = [...new Set(events.flatMap((e) => (e ? [e.id, ...(e.slug ? [e.slug] : [])] : [])))];
+  void adminApiFetch("/api/admin/revalidate-events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keys }),
+  }).catch((err) => console.error("[팩인백] 공개 페이지 새로 고침 실패:", err));
+}
 
 function blankDraft(): Draft {
   return {
@@ -306,6 +317,7 @@ export default function AdminEventsPage() {
         createdBy: prev?.createdBy ?? user?.uid,
       };
       await saveEventRemote(event);
+      refreshPublicPages(event, prev);
       if (cover && prev?.coverPath) void deleteEventFile(prev.coverPath);
       if (body && prev?.bodyPath) void deleteEventFile(prev.bodyPath);
       show(prev ? "이벤트를 고쳤어요" : event.published ? "이벤트를 올렸어요" : "이벤트를 숨김으로 저장했어요");
@@ -559,7 +571,10 @@ export default function AdminEventsPage() {
           const target = deleteTarget;
           if (!target) return;
           deleteEventRemote(target)
-            .then(() => show("이벤트를 지웠어요"))
+            .then(() => {
+              refreshPublicPages(target);
+              show("이벤트를 지웠어요");
+            })
             .catch(() => show("이벤트를 지우지 못했어요"));
         }}
       />
