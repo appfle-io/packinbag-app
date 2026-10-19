@@ -28,7 +28,6 @@ const BG_OPTIONS: { value: WidgetStyleBg; label: string }[] = [
   { value: "plain", label: "기본" },
   { value: "photo", label: "사진" },
   { value: "solid", label: "단색" },
-  { value: "none", label: "배경 제거" },
 ];
 
 const INK_OPTIONS: { value: WidgetStyleInk; label: string }[] = [
@@ -78,7 +77,7 @@ export function WidgetStyleEditor({
 
   const patch = (p: Partial<WidgetStyle>) => setDraft((d) => ({ ...d, ...p }));
 
-  const lockedToast = () => show("사진 · 단색 · 배경 제거는 프리미엄이에요");
+  const lockedToast = () => show("사진 · 단색 배경은 프리미엄이에요");
 
   const pickBg = (bg: WidgetStyleBg) => {
     if (bg !== "plain" && !premium) {
@@ -191,13 +190,8 @@ export function WidgetStyleEditor({
       <section className="flex flex-col gap-3">
         <SectionHeader>배경</SectionHeader>
         <SegmentedControl label="배경" options={BG_OPTIONS} value={premium ? draft.bg : "plain"} onChange={pickBg} />
-        {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 · 배경 제거는 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
+        {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 배경은 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
         {premium && draft.bg === "plain" && <p className="m-0 text-caption text-sub">앱과 같은 바탕이에요(다크 모드면 어둡게).</p>}
-        {premium && draft.bg === "none" && (
-          <p className="m-0 text-caption text-sub">
-            바탕 없이 투명하게 두어요. 홈 화면 배경화면에 따라 글자가 잘 보이도록 글자색을 골라 주세요.
-          </p>
-        )}
 
         {premium && draft.bg === "photo" && (
           <div className="flex flex-col gap-4">

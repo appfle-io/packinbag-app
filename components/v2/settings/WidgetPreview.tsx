@@ -37,20 +37,9 @@ export function WidgetPreview({
 
   return (
     <div
-      className={cx(
-        "relative aspect-square shrink-0 overflow-hidden rounded-widget shadow-dock",
-        bg === "plain" && "bg-card text-ink",
-        bg === "none" && "bg-checker",
-        className,
-      )}
-      // 배경색 · 글자색은 사용자가 고른 값(런타임). 배경 제거는 체크무늬(투명 표시)
-      style={
-        bg === "plain"
-          ? undefined
-          : bg === "none"
-            ? { color: ink ?? undefined }
-            : { background: bg === "solid" ? style?.color : "#333333", color: ink ?? undefined }
-      }
+      className={cx("relative aspect-square shrink-0 overflow-hidden rounded-widget shadow-dock", bg === "plain" && "bg-card text-ink", className)}
+      // 배경색 · 글자색은 사용자가 고른 값(런타임)
+      style={bg === "plain" ? undefined : { background: bg === "solid" ? style?.color : "#333333", color: ink ?? undefined }}
       aria-label="위젯 미리 보기"
     >
       {photo && (

@@ -128,13 +128,13 @@ export function hexLuminance(hex: string): number {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 }
 
-// 글자색: 기본 바탕은 null(테마 글자색), 사진 · 배경 제거는 자동이면 흰색(배경화면 위), 단색은 밝기로
+// 글자색: 기본 바탕은 null(테마 글자색), 사진은 자동이면 흰색, 단색은 밝기로
 export function widgetInkColor(s: Pick<WidgetStyle, "bg" | "color" | "ink" | "inkColor">): string | null {
   if (s.bg === "plain") return null;
   if (s.ink === "white") return "#FFFFFF";
   if (s.ink === "black") return "#17171A";
   if (s.ink === "custom" && s.inkColor) return s.inkColor;
-  if (s.bg === "photo" || s.bg === "none") return "#FFFFFF";
+  if (s.bg === "photo") return "#FFFFFF";
   return hexLuminance(s.color ?? "#2E5E4E") > 0.62 ? "#17171A" : "#FFFFFF";
 }
 
