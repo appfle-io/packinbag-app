@@ -19,6 +19,7 @@
 .nav { display: flex; flex-wrap: wrap; gap: 2px; }
 .nav a { padding: 10px 12px; font-size: 14px; color: #5f5f66; border-radius: 8px; }
 .nav a:hover { color: #17171a; background: #f1f1ee; }
+.nav a { white-space: nowrap; }
 
 /* 버튼 */
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 15px; font-weight: 700; cursor: pointer; border: 0; font-family: inherit; }
@@ -29,7 +30,8 @@
 .btnSmall { min-height: 36px; padding: 0 16px; font-size: 13px; }
 
 /* 써 보기 */
-.hero { padding: 56px 0 72px; display: flex; flex-direction: column; gap: 32px; }
+/* .wrap과 같은 요소라 좌우 여백(.wrap)은 남기고 위아래만(10/19: padding 단축형이 좌우를 0으로 지워 휴대폰에서 글이 화면 끝에 붙던 문제) */
+.hero { padding-block: 56px 72px; display: flex; flex-direction: column; gap: 32px; }
 .heroTop { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; justify-content: space-between; }
 .h1 { margin: 0; font-size: 44px; line-height: 1.18; letter-spacing: -0.03em; font-weight: 800; }
 .lead { margin: 16px 0 0; font-size: 17px; line-height: 1.6; color: #5f5f66; }
@@ -61,6 +63,11 @@
 /* 좁은 화면(휴대폰)은 페이지 안에 넣지 않고 전체 화면 체험으로 */
 .mobileTry { display: none; }
 @media (max-width: 760px) {
+  /* 위 줄: 로고 · 앱 열기 한 줄, 그 아래 메뉴 한 줄(넘치면 옆으로 밀기). 메뉴 글자 시작을 로고와 맞추려고 링크 안쪽 여백만큼 당김 */
+  .headerRow { row-gap: 0; padding-block: 8px 4px; }
+  .nav { order: 3; flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; margin: 0 -12px; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .hero { padding-block: 40px 56px; }
   .h1 { font-size: 34px; }
   .tryRow { display: none; }
   .mobileTry { display: flex; flex-direction: column; gap: 12px; border-radius: 20px; background: #fff; border: 1px solid #eaeae6; padding: 20px; }
@@ -107,6 +114,6 @@
 .priceLine + .priceLine { border-top: 1px solid #eaeae6; }
 .priceLine span:last-child { font-weight: 700; text-align: right; }
 
-.end { padding: 80px 0; border-top: 1px solid #eaeae6; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
-.footer { padding: 32px 0 48px; border-top: 1px solid #eaeae6; font-size: 13px; color: #76767d; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.end { padding-block: 80px; border-top: 1px solid #eaeae6; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.footer { padding-block: 32px 48px; border-top: 1px solid #eaeae6; font-size: 13px; color: #76767d; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
 .footer a:hover { color: #17171a; }

@@ -493,7 +493,8 @@ export interface UserProfile {
 // 북마크 위젯(가방 바로가기) 꾸미기 하나(2026-10-18). iOS PIBShared.swift PIBWidgetStyle과 같은 모양
 // - 사진은 Storage users/{uid}/widgetPhotos/에 원본(긴 변 1024px JPEG)을 두고, 자르기는 값(zoom · x · y)으로만 둔다
 //   (웹 미리 보기는 CSS transform, 위젯은 같은 값으로 SwiftUI scaleEffect · offset)
-export type WidgetStyleBg = "plain" | "photo" | "solid";
+// none = 배경 제거(10/19): 위젯은 투명 PNG를 바탕으로 깔다(포토위젯 방식, 실기기 확인 전)
+export type WidgetStyleBg = "plain" | "photo" | "solid" | "none";
 export type WidgetStyleInk = "auto" | "white" | "black" | "custom";
 // 세로(t 위 · m 가운데 · b 아래) + 가로(l 왼쪽 · c 가운데 · r 오른쪽). 가로 위치가 글자 정렬도 정한다
 export type WidgetStylePos = "tl" | "tc" | "tr" | "ml" | "mc" | "mr" | "bl" | "bc" | "br";
