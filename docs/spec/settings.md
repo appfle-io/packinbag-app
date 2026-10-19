@@ -277,6 +277,10 @@
 | SET-VER-01 | 위 상자 "지금 버전" + "v1.6.1". iOS 앱이면 아래 작게 "앱 {스토어 버전} (빌드 {번호})"(문의 대응용). 웹 · 포터블은 없음 |
 | SET-VER-02 | "업데이트 노트": `lib/changelog.ts` CHANGELOG 순서대로 "v버전 · 날짜" + 항목 목록 |
 | SET-VER-03 | 1.0.x가 처음 나오는 자리 위에 한 줄 "여기부터는 예전 번호(1.0.x)예요. 1.6.1부터 앱스토어 버전과 번호를 맞추었어요." |
+| SET-VER-04 | 새 버전 확인(10/19): **이 화면을 열 때만** 한 번 `/api/build-info`를 부른다. 주기 확인 · 알림 종 점 · 알림 시트 "새 버전" 줄은 없다(예전 10분 폴링 `useNewVersionAvailable` 삭제). 위 상자 아래 한 줄: 확인 중 "새 버전을 확인하고 있어요" / 최신 ✓ "최신 버전이에요"(브랜드색) / 새 버전 "새 버전이 있어요" + [업데이트] / 실패 "새 버전을 확인하지 못했어요" + [다시 확인] |
+| SET-VER-05 | [업데이트]가 하는 일(`lib/appUpdate.decideUpdate`, 사용자에게는 구분해 보여 주지 않음): ① iOS 앱이고 App Store 버전 > 설치된 앱 버전 → App Store 페이지 열기(`openExternalLink`) ② 아니고 서버 빌드(배포 커밋) ≠ 로딩된 빌드 → 다시 불러오기(`location.reload`, iOS 앱도 server.url이라 같음) ③ 둘 다 아니면 최신. 앱 버전이 스토어보다 높거나(심사 전 빌드) 스토어 버전을 모르면 ②만 본다 |
+| SET-VER-06 | App Store 버전은 서버가 Apple 조회 API(`itunes.apple.com/lookup?id=6793290752&country=kr`, 3초 제한)에서 받아 서버 인스턴스에 1시간 캐시(실패는 5분). 출시 직후에는 Apple 쪽 반영이 몇 시간 늦을 수 있다. 로컬 개발은 빌드가 둘 다 "dev"라 항상 최신 |
+| SET-VER-07 | 포터블(Electron): 로컬 서버라 비교하지 않고 "새 버전은 다운로드 페이지에서 받아요" + [다운로드 페이지](GitHub Releases latest) |
 
 ---
 
@@ -442,11 +446,13 @@
 | ~~10~~ | ~~테스트 알림 안내 토스트가 바로 덮임~~ → 10/15 결과 토스트 하나로(SET-PUSH-06) | |
 | ~~11~~ | ~~문의 글자 수 표시 없음~~ → 10/15 칸 아래 글자 수(SET-INQ-06) | |
 | ~~12~~ | ~~ThemeProvider에 구 UI 꾸밈 설정이 남음~~ → 10/15 제거(SET-DISP-04) | |
+| 13 | 포터블 다운로드 링크 `github.com/appfle-io/packinbag-app/releases/latest`가 로그인 없이 열리는지(저장소 공개 여부) 확인 필요(10/19) | `InfoScreens` `PORTABLE_DOWNLOAD_URL` |
 
 ## 테스트 후보 (단위, Firebase 없이)
 
 | 대상 | ID |
 |---|---|
+| `compareVersions` · `decideUpdate` — `lib/appUpdate.test.ts`(10/19 추가) | SET-VER-05 |
 | `normalizeWidgetStyle`(무료면 plain · 사진 없는 photo→plain · 색 대문자 · 모르는 pos→bl · zoom 1~3 · x · y 범위 · 이름 20자 · 빈 이름 "내 꾸미기") · `effectiveWidgetStyles`(무료 1개 · plain) · `widgetInkColor` · `ddayText` · `packedText` · `widgetMetaLine` · `widgetBagStats`(메모 · 폴더 · 글 아이템 빼기) | SET-WID-03 · 04 · 06 |
 | `planDataReset`(그룹장 + 멤버 2명 → blocked · 휴지통 포함 / 혼자 → 삭제 / 남이 그룹장 → 나가기 / 혼자 남은 멤버 → 삭제 / 대기 → pending / 같은 id 두 번 → 한 번) · `blockedBagLabel`(1 · 2 · 3개 · 이름 없음) | SET-ACC-05 · 08 · 09 |
 | `buildRestoreProgress`(새 id 배정 · 지난 기록의 id 유지) · `restoredLibraryPack`(parentId 따라가기 · 백업에 없는 폴더 → 맨 위 · 빠른팩 → "빠른팩 (백업)" · 토큰 · 잠김 · 휴지통 빼기) · `restoredBagPacks`(linkedLibraryPackId) · `libraryRestoreOrder`(폴더 먼저 · 바깥부터 · 순환 방어) · `restoreProgressKey` | SET-BAK-09 · 10 |

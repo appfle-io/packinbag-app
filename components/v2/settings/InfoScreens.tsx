@@ -1,14 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { IconExternalLink } from "@tabler/icons-react";
+import { useCallback, useEffect, useState } from "react";
+import { IconCircleCheck, IconExternalLink } from "@tabler/icons-react";
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
+import { BUILD_ID } from "@/lib/buildInfo";
+import { decideUpdate, type UpdateKind } from "@/lib/appUpdate";
 import { OSS_LICENSES } from "@/lib/licenses";
 import { openExternalLink } from "@/lib/openExternalLink";
-import { SectionHeader, cx } from "@/components/v2/ui";
+import { Button, SectionHeader, cx } from "@/components/v2/ui";
 import { SubScreen } from "./SubScreen";
+
+const APP_STORE_URL = "https://apps.apple.com/kr/app/id6793290752";
+const PORTABLE_DOWNLOAD_URL = "https://github.com/appfle-io/packinbag-app/releases/latest";
+
+// 포터블(Electron)은 로컬 서버로 돌아서 웹 배포와 비교할 수 없다 → 다운로드 페이지 안내만
+function isPortable(): boolean {
+  return typeof window !== "undefined" && !!(window as { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron;
+}
+
+type CheckState = { kind: "checking" } | { kind: UpdateKind } | { kind: "error" } | { kind: "portable" };
+
+// 새 버전 확인(SET-VER-04~07). 화면을 열 때 한 번 + "다시 확인". 주기적으로 확인하지 않는다
+function useUpdateCheck(): { state: CheckState; recheck: () => void } {
+  // 이 화면은 눌러서 여는 하위 화면이라 서버 렌더가 없다(초깃값에 window를 봐도 됨)
+  const [state, setState] = useState<CheckState>(() => (isPortable() ? { kind: "portable" } : { kind: "checking" }));
+  const [round, setRound] = useState(0);
+  const recheck = useCallback(() => {
+    setState({ kind: "checking" });
+    setRound((r) => r + 1);
+  }, []);
+  useEffect(() => {
+    if (isPortable()) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const native = Capacitor.isNativePlatform() ? (await App.getInfo().catch(() => null))?.version ?? null : null;
+        const res = await fetch("/api/build-info", { cache: "no-store" });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { buildId?: string; storeVersion?: string | null };
+        const kind = decideUpdate({ clientBuild: BUILD_ID, serverBuild: data.buildId, nativeVersion: native, storeVersion: data.storeVersion });
+        if (!cancelled) setState({ kind });
+      } catch {
+        if (!cancelled) setState({ kind: "error" });
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [round]);
+  return { state, recheck };
+}
+
+// 사용자에게는 "새 버전이 있어요 · 업데이트" 하나. App Store로 갈지 다시 불러올지는 여기서 고른다
+function UpdateRow({ state, recheck }: { state: CheckState; recheck: () => void }) {
+  if (state.kind === "checking") return <span className="text-caption text-sub">새 버전을 확인하고 있어요</span>;
+  if (state.kind === "latest")
+    return (
+      <span className="flex items-center gap-1 text-caption font-semibold text-brand">
+        <IconCircleCheck size={16} stroke={2} aria-hidden="true" />
+        최신 버전이에요
+      </span>
+    );
+  if (state.kind === "store" || state.kind === "web")
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-caption font-semibold text-ink">새 버전이 있어요</span>
+        <Button
+          size="sm"
+          onClick={() => (state.kind === "store" ? openExternalLink(APP_STORE_URL) : window.location.reload())}
+        >
+          업데이트
+        </Button>
+      </div>
+    );
+  if (state.kind === "portable")
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <span className="text-caption text-sub">새 버전은 다운로드 페이지에서 받아요</span>
+        <Button size="sm" variant="secondary" onClick={() => openExternalLink(PORTABLE_DOWNLOAD_URL)}>
+          다운로드 페이지
+        </Button>
+      </div>
+    );
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <span className="text-caption text-sub">새 버전을 확인하지 못했어요</span>
+      <Button size="sm" variant="secondary" onClick={recheck}>
+        다시 확인
+      </Button>
+    </div>
+  );
+}
 
 // 1.0.x는 웹 번호를 따로 센 예전 번호다(lib/changelog.ts 번호 규칙). 그 앞에 한 줄 안내를 둔다
 const isLegacyVersion = (v: string) => v.startsWith("1.0.");
@@ -32,6 +117,7 @@ function useNativeAppInfo(): { version: string; build: string } | null {
 // 설정 > 버전 정보. 구 VersionInfoScreen 대체(같은 CHANGELOG)
 export function VersionScreenV2({ onBack }: { onBack: () => void }) {
   const native = useNativeAppInfo();
+  const update = useUpdateCheck();
   return (
     <SubScreen title="버전 정보" onBack={onBack} bodyClassName="gap-8">
       <section className="flex flex-col items-center gap-1 rounded-card bg-fill py-6">
@@ -42,6 +128,9 @@ export function VersionScreenV2({ onBack }: { onBack: () => void }) {
             앱 {native.version} (빌드 {native.build})
           </span>
         )}
+        <div className="mt-3" aria-live="polite">
+          <UpdateRow state={update.state} recheck={update.recheck} />
+        </div>
       </section>
 
       <section className="flex flex-col">

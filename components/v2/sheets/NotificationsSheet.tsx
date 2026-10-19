@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useState, useSyncExternalStore } from "react";
-import { IconBell, IconRefresh } from "@tabler/icons-react";
+import { IconBell } from "@tabler/icons-react";
 import type { AppNotification } from "@/lib/types";
 import { markAllNotificationsRead, markNotificationRead, subscribeToNotifications } from "@/lib/notificationsService";
-import { useNewVersionAvailable } from "@/lib/useNewVersionAvailable";
 import { Button, Sheet, cx } from "@/components/v2/ui";
 
 // 알림 구독을 앱 전체가 한 벌만 쓴다(2026-10-07). 좁은 화면에서는 홈·설정 탭이 함께 마운트돼 종이 두 개인데,
@@ -52,15 +51,15 @@ function formatDate(iso: string) {
 }
 
 // 리디자인 v2 알림 종 + 알림 시트. 구 NotificationBell(v2 prop)이 이걸 그대로 그린다.
-// - 종: 헤더의 다른 IconButton과 같은 44px · 22px. 새 배포는 브랜드색 점, 안 읽은 알림은 빨간 점
-// - 시트: 새 배포 안내(누르면 새로고침) → 알림 목록(안 읽은 것은 굵게 + 점). 누르면 읽음
+// - 종: 헤더의 다른 IconButton과 같은 44px · 22px. 안 읽은 알림은 빨간 점
+// - 시트: 알림 목록(안 읽은 것은 굵게 + 점). 누르면 읽음
+// - 새 버전 안내는 10/19부터 여기서 빼고 설정 > 버전 정보에서만 확인한다(주기 확인 없음, SET-VER-04)
 export function NotificationBellV2({ uid }: { uid: string }) {
   const notifications = useSharedNotifications(uid);
   const [open, setOpen] = useState(false);
-  const hasNewVersion = useNewVersionAvailable();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const label = hasNewVersion ? "알림 · 새 버전이 있어요" : unreadCount > 0 ? `알림 · 안 읽은 알림 ${unreadCount}개` : "알림";
+  const label = unreadCount > 0 ? `알림 · 안 읽은 알림 ${unreadCount}개` : "알림";
 
   return (
     <>
@@ -72,11 +71,8 @@ export function NotificationBellV2({ uid }: { uid: string }) {
         className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-field text-ink active:bg-fill"
       >
         <IconBell size={22} stroke={1.75} />
-        {(hasNewVersion || unreadCount > 0) && (
-          <span
-            aria-hidden="true"
-            className={cx("absolute top-2 right-2 size-2 rounded-full ring-2 ring-canvas", hasNewVersion ? "bg-brand" : "bg-alert")}
-          />
+        {unreadCount > 0 && (
+          <span aria-hidden="true" className="absolute top-2 right-2 size-2 rounded-full bg-alert ring-2 ring-canvas" />
         )}
       </button>
 
@@ -93,24 +89,8 @@ export function NotificationBellV2({ uid }: { uid: string }) {
         }
       >
         <div className="flex flex-col gap-3">
-          {hasNewVersion && (
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="flex min-h-15 w-full items-center gap-3 rounded-card bg-brand-soft px-4 py-3 text-left active:opacity-80"
-            >
-              <span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand">
-                <IconRefresh size={18} stroke={2} />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="text-body font-semibold text-ink">새 버전이 있어요</span>
-                <span className="text-caption text-sub">눌러서 새로고침하면 바로 쓸 수 있어요</span>
-              </span>
-            </button>
-          )}
-
           {notifications.length === 0
-            ? !hasNewVersion && <p className="m-0 py-16 text-center text-body text-sub">알림이 없어요</p>
+            ? <p className="m-0 py-16 text-center text-body text-sub">알림이 없어요</p>
             : (
                 <ul className="m-0 flex list-none flex-col p-0">
                   {notifications.map((n, i) => (
