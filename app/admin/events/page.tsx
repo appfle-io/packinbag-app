@@ -12,14 +12,17 @@ import {
   EVENT_COVER_MAX_BYTES,
   EVENT_LINK_LABEL_MAX,
   EVENT_LINKS_MAX,
+  EVENT_SLUG_RE,
   EVENT_SUMMARY_MAX,
   EVENT_TITLE_MAX,
   eventLinks,
   eventPeriodLabel,
+  eventShortPath,
   eventStatus,
   isAppPath,
   isSafeEventLink,
   localDateKey,
+  normalizeSlug,
   type AppEvent,
   type EventBodyType,
   type EventLink,
@@ -40,6 +43,8 @@ type Draft = {
   buttonLabel: string;
   // 버튼을 눌렀을 때 고를 곳(ADM-EVT-10). 빈 줄은 저장할 때 뺀다
   links: EventLink[];
+  // 공개 페이지 주소 끝(ADM-EVT-11). 비우면 문서 id
+  slug: string;
   published: boolean;
   coverFile: File | null;
   bodyFile: File | null;
@@ -69,6 +74,8 @@ const SCHEME_OPTIONS: { value: PreviewScheme; label: string }[] = [
 ];
 
 const plusDays = (n: number) => localDateKey(new Date(Date.now() + n * 24 * 60 * 60 * 1000));
+// 공개 주소에 보여 줄 도메인(ADM-EVT-11)
+const SITE_HOST = "packinbag.seeuson.com";
 
 function blankDraft(): Draft {
   return {
@@ -79,6 +86,7 @@ function blankDraft(): Draft {
     bodyType: "html",
     buttonLabel: "",
     links: [],
+    slug: "",
     published: false,
     coverFile: null,
     bodyFile: null,
@@ -95,6 +103,7 @@ function draftOf(e: AppEvent): Draft {
     bodyType: e.bodyType,
     buttonLabel: e.buttonLabel ?? "",
     links: eventLinks(e),
+    slug: e.slug ?? "",
     published: e.published,
     coverFile: null,
     bodyFile: null,
@@ -107,9 +116,12 @@ const isHtmlFile = (f: File) => f.type === "text/html" || /\.html?$/i.test(f.nam
 const filledLinks = (d: Draft) =>
   d.links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })).filter((l) => l.label || l.url);
 
-// 저장하기 전 검사(ADM-EVT-04). 문제가 있으면 그 문구, 없으면 null
-function problemOf(d: Draft): string | null {
+// 저장하기 전 검사(ADM-EVT-04). 문제가 있으면 그 문구, 없으면 null. taken = 다른 이벤트가 쓰는 주소(slug · id)
+function problemOf(d: Draft, taken: string[]): string | null {
   if (!d.title.trim()) return "제목을 적어 주세요";
+  const slug = normalizeSlug(d.slug);
+  if (slug && !EVENT_SLUG_RE.test(slug)) return "공개 주소는 영문 소문자 · 숫자 · -(하이픈) 3~40자만 돼요";
+  if (slug && taken.includes(slug)) return "다른 이벤트가 쓰는 공개 주소예요";
   if (!d.startDate) return "시작하는 날을 정해 주세요";
   // 끝나는 날 ""는 "끝나는 날 없음"(EVT-DATA-04)
   if (d.endDate && d.startDate > d.endDate) return "끝나는 날이 시작하는 날보다 빨라요";
@@ -250,14 +262,16 @@ export default function AdminEventsPage() {
 
   if (draft && draft !== cached) setCached(draft);
   const d = draft ?? cached;
-  const problem = d ? problemOf(d) : null;
+  // 다른 이벤트가 쓰는 공개 주소(slug와 문서 id 모두 주소로 쓰여서 둘 다)
+  const taken = (items ?? []).filter((e) => e.id !== d?.existing?.id).flatMap((e) => (e.slug ? [e.slug, e.id] : [e.id]));
+  const problem = d ? problemOf(d, taken) : null;
   const patch = (p: Partial<Draft>) => {
     if (d) setDraft({ ...d, ...p });
   };
 
   // 저장(ADM-EVT-06): 새 파일만 올림 → 문서 저장 → 바뀐 예전 파일 삭제. 문서 저장이 실패하면 방금 올린 파일을 지운다
   const save = async () => {
-    if (!draft || saving || problemOf(draft)) return;
+    if (!draft || saving || problemOf(draft, taken)) return;
     setSaving(true);
     const id = draft.existing?.id ?? newEventId();
     const uploaded: string[] = [];
@@ -285,6 +299,7 @@ export default function AdminEventsPage() {
         // 예전 화면이 읽던 값은 첫 링크와 같게
         buttonUrl: links[0]?.url,
         links: links.length > 0 ? links : undefined,
+        slug: normalizeSlug(draft.slug) || undefined,
         published: draft.published,
         createdAt: prev?.createdAt ?? now,
         updatedAt: now,
@@ -342,6 +357,7 @@ export default function AdminEventsPage() {
                       {eventPeriodLabel(e)} · {e.bodyType === "html" ? "HTML" : "이미지"}
                       {e.buttonLabel ? ` · 버튼 ‘${e.buttonLabel}’ · 링크 ${eventLinks(e).length}개` : ""}
                     </span>
+                    {e.published && <span className="truncate text-caption text-sub">{`${SITE_HOST}${eventShortPath(e)}`}</span>}
                     {e.summary && <span className="truncate text-caption text-faint">{e.summary}</span>}
                   </div>
                   <IconButton label="고치기" onClick={() => setDraft(draftOf(e))}>
@@ -437,7 +453,7 @@ export default function AdminEventsPage() {
             <Preview draft={d} />
 
             <label className="flex flex-col gap-2">
-              <span className="text-caption text-sub">버튼 문구(선택)</span>
+              <span className="text-caption text-sub">버튼 글자(선택) — 화면 맨 아래 검은 버튼에 보여요</span>
               <input value={d.buttonLabel} maxLength={EVENT_BUTTON_MAX} onChange={(e) => patch({ buttonLabel: e.target.value })} placeholder="예: 책 사러 가기" className={ADMIN_FIELD} />
             </label>
             <div className="flex flex-col gap-2">
@@ -478,6 +494,47 @@ export default function AdminEventsPage() {
                 <Button size="sm" variant="secondary" className="self-start" leading={<IconPlus size={16} stroke={2} />} onClick={() => patch({ links: [...d.links, { label: "", url: "" }] })}>
                   링크 추가
                 </Button>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-caption text-sub">공개 주소(선택) — 앱 없이 링크로 보는 페이지</span>
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-caption text-sub">{SITE_HOST}/e/</span>
+                <div className="min-w-0 flex-1">
+                  <input
+                    value={d.slug}
+                    maxLength={40}
+                    onChange={(e) => patch({ slug: e.target.value })}
+                    onBlur={() => patch({ slug: normalizeSlug(d.slug) })}
+                    placeholder={d.existing ? d.existing.id : "예: kang-book"}
+                    aria-label="공개 주소"
+                    autoCapitalize="none"
+                    className={ADMIN_FIELD}
+                  />
+                </div>
+              </div>
+              {d.existing && (
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-caption text-faint">
+                    {`${SITE_HOST}/e/${normalizeSlug(d.slug) || d.existing.id}`}
+                    {d.published ? "" : " · 게시해야 열려요"}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      const url = `https://${SITE_HOST}/e/${normalizeSlug(d.slug) || d.existing?.id}`;
+                      if (!navigator.clipboard) return show("복사하지 못했어요");
+                      navigator.clipboard
+                        .writeText(url)
+                        .then(() => show("공개 주소를 복사했어요"))
+                        .catch(() => show("복사하지 못했어요"));
+                    }}
+                  >
+                    복사
+                  </Button>
+                </div>
               )}
             </div>
 

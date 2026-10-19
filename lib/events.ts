@@ -30,6 +30,8 @@ export interface AppEvent {
   buttonUrl?: string;
   // 버튼을 눌렀을 때 고를 곳(10/20, EVT-VIEW-07). 1개면 확인 창, 2개 이상이면 고르는 시트
   links?: EventLink[];
+  // 공개 페이지 주소 끝(10/20, EVT-WEB-01). /about/events/{slug} · 짧게 /e/{slug}. 없으면 문서 id
+  slug?: string;
   published: boolean;
   createdAt: string;
   updatedAt: string;
@@ -47,6 +49,19 @@ export const EVENT_COVER_MAX_BYTES = 2 * 1024 * 1024;
 export const EVENT_BODY_MAX_BYTES = 8 * 1024 * 1024;
 // 홈 캐러셀에 넣는 이벤트 수(가방 5장 뒤에)
 export const EVENT_CAROUSEL_MAX = 3;
+
+// 공개 페이지 주소(EVT-WEB). 영문 소문자 · 숫자 · 하이픈 3~40자, 하이픈으로 시작 · 끝 안 됨
+export const EVENT_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]$/;
+export const normalizeSlug = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, "-");
+export const eventKey = (e: Pick<AppEvent, "id" | "slug">) => e.slug || e.id;
+// 보여 주고 나눠 줄 짧은 주소, 실제 페이지 주소
+export const eventShortPath = (e: Pick<AppEvent, "id" | "slug">) => `/e/${eventKey(e)}`;
+export const eventPagePath = (e: Pick<AppEvent, "id" | "slug">) => `/about/events/${eventKey(e)}`;
+
+// 한국 날짜(서버는 UTC라 기기 날짜 대신 이것을 쓴다)
+export function kstDateKey(now = Date.now()): string {
+  return new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 // 기기 날짜 "YYYY-MM-DD"(sv-SE 형식이 ISO와 같다)
 export function localDateKey(d: Date = new Date()): string {

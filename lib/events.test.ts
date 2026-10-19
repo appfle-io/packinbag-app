@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventEyebrow, eventLinks, eventPeriodLabel, eventStatus, hasUnseenEvent, isSafeEventLink, linkHost, localDateKey, splitEvents, type AppEvent } from "./events";
+import { EVENT_SLUG_RE, eventEyebrow, eventLinks, eventPagePath, eventPeriodLabel, eventShortPath, eventStatus, hasUnseenEvent, isSafeEventLink, kstDateKey, linkHost, localDateKey, normalizeSlug, splitEvents, type AppEvent } from "./events";
 
 const ev = (id: string, startDate: string, endDate: string, extra: Partial<AppEvent> = {}): AppEvent => ({
   id,
@@ -97,6 +97,24 @@ describe("eventLinks", () => {
   it("linkHost", () => {
     expect(linkHost("https://www.yes24.com/a")).toBe("yes24.com");
     expect(linkHost("/?new=bag")).toBe("");
+  });
+});
+
+describe("공개 주소(EVT-WEB)", () => {
+  it("slug 규칙 · 정리", () => {
+    expect(EVENT_SLUG_RE.test("kang-book")).toBe(true);
+    expect(EVENT_SLUG_RE.test("ab")).toBe(false);
+    expect(EVENT_SLUG_RE.test("-kang")).toBe(false);
+    expect(EVENT_SLUG_RE.test("Kang")).toBe(false);
+    expect(normalizeSlug(" Kang Book_2 ")).toBe("kang-book-2");
+  });
+  it("slug가 없으면 문서 id", () => {
+    expect(eventShortPath({ id: "123-abc", slug: "kang-book" })).toBe("/e/kang-book");
+    expect(eventPagePath({ id: "123-abc" })).toBe("/about/events/123-abc");
+  });
+  it("kstDateKey는 한국 날짜", () => {
+    expect(kstDateKey(Date.UTC(2026, 9, 19, 16, 0))).toBe("2026-10-20");
+    expect(kstDateKey(Date.UTC(2026, 9, 19, 14, 59))).toBe("2026-10-19");
   });
 });
 

@@ -15,6 +15,7 @@
 | | `bodyType`(html \| image) · `bodyUrl` · `bodyPath` | 본문(Storage `events/{id}/body-…`) |
 | | `buttonLabel`(12자) · `links`(이름 20자 + 주소, 최대 5개, 10/20) · `buttonUrl`(예전 하나짜리, 지금은 첫 링크와 같은 값) | 아래 고정 버튼(선택) |
 | | `published` · `createdAt` · `updatedAt` · `createdBy` | 게시 여부 · 기록 |
+| | `slug`(10/20, 영문 소문자 · 숫자 · - 3~40자) | 공개 페이지 주소 끝(EVT-WEB). 없으면 문서 id |
 | 이 기기 | `pib_seen_events_v1`(본 이벤트 id, 최근 50개) | 설정 줄 빨간 점 |
 
 | ID | 규칙 |
@@ -51,6 +52,19 @@
 | EVT-VIEW-05 | 열면 이 기기에 본 것으로 기록(`markEventSeen`) → 설정 줄 빨간 점이 꺼짐 |
 | EVT-VIEW-06 | 본문 주소가 없으면 "내용을 불러오지 못했어요" |
 | EVT-VIEW-07 | (10/20) 버튼 누르기(`eventLinks` — `links`, 없으면 예전 `buttonUrl` 하나, 이름이 없으면 도메인, `/…` · https 아닌 주소는 뺀다): **1개 + 앱 경로** → 확인 없이 그 주소로 / **1개 + 바깥** → 확인 시트 "외부로 이동합니다" + "이름 · 도메인"(같으면 하나) + [취소] [이동] / **2개 이상** → 시트 "외부로 이동합니다" · "어디로 갈까요?" + 줄(이름 굵게 · 도메인 · ›), 줄을 누르면 바로 열림. 바깥은 `openExternalLink`(iOS 앱은 사파리). 시트는 이벤트 보기 화면 안에 둔다(층) |
+
+## 4. EVT-WEB 공개 페이지 (10/20)
+
+- 화면 `app/about/events/[key]/page.tsx` · `EventLinksButton.tsx` · `events.module.css`, 짧은 주소 `app/e/[key]/page.tsx`, 서버 읽기 `lib/eventsServer.ts`(Admin SDK)
+
+| ID | 규칙 |
+|---|---|
+| EVT-WEB-01 | 주소 `/about/events/{key}`. key = `slug`(먼저) 또는 문서 id. 게시한 것만, 아니면 "없거나 내려간 이벤트예요" + [팩인백 둘러보기]. 1분 캐시(`revalidate 60`), 로그인 없음. 상태는 **한국 날짜**(`kstDateKey`) 기준. 예정이면 "곧 열리는 이벤트예요 · 기간" |
+| EVT-WEB-02 | 메타: 제목 "{제목} · 팩인백 이벤트", 설명 = 한 줄 설명, OG 이미지 = 커버(800²) → 카톡 · 문자 미리보기 카드. canonical은 `https://packinbag.seeuson.com/about/events/{key}` |
+| EVT-WEB-03 | 화면: 위 줄(로고 "팩인백 이벤트" → /about, [팩인백 써 보기] → /about) + 본문(앱과 같은 `sandbox=""` iframe, 남은 높이를 채움, 늘 라이트) + 아래 버튼(EVT-VIEW-07과 같은 규칙: 1개 바깥은 "외부로 이동합니다" 확인, 2개 이상은 "어디로 갈까요?", Esc · 바깥으로 닫기). 끝난 이벤트는 "끝난 이벤트예요 · 기간" |
+| EVT-WEB-04 | 짧은 주소 `/e/{key}` → `/about/events/{key}`로 옮김(307). 나눌 때는 이 주소(관리자 [복사], ADM-EVT-11) |
+| EVT-WEB-05 | 소개 페이지(/about) 맨 위 줄: 오늘 진행 중인 이벤트가 있으면 연두 띠 "[이벤트] 제목 · 한 줄 설명 (외 N개) ›" → 첫 이벤트 공개 페이지. 없으면 안 보임. /about은 5분 캐시(`revalidate 300`) |
+| EVT-WEB-06 | 읽기 비용: 페이지 캐시 주기마다 한 번(공개 페이지 1~2회, /about은 게시한 이벤트 수만큼). 못 읽으면 없는 것으로 보고 소개 페이지는 그대로 |
 
 ## 확인 필요
 

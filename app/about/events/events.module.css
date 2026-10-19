@@ -1,0 +1,67 @@
+/* 이벤트 공개 페이지(2026-10-20, events.md EVT-WEB). 소개 페이지처럼 늘 밝은 화면 */
+.page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #fafaf8;
+  color: #17171a;
+  font-family: var(--font-pretendard), "Apple SD Gothic Neo", sans-serif;
+  color-scheme: light;
+}
+.page a { color: inherit; text-decoration: none; }
+
+.header {
+  flex: none;
+  border-bottom: 1px solid #eaeae6;
+  background: rgba(250, 250, 248, 0.92);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.headerRow { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; }
+.brand img { border-radius: 8px; }
+.brandSub { font-weight: 600; color: #76767d; }
+.tryLink { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; background: #17171a; color: #fff !important; font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+.body { position: relative; flex: 1 1 auto; min-height: 0; }
+.frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fafaf8; color-scheme: light; }
+.imageScroll { position: absolute; inset: 0; overflow-y: auto; }
+.imageWrap { max-width: 672px; margin: 0 auto; padding: 8px 20px 32px; }
+.imageWrap img { display: block; width: 100%; height: auto; border-radius: 14px; }
+
+.bar { flex: none; border-top: 1px solid #eaeae6; background: #fafaf8; padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px)); }
+.barInner { max-width: 672px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.cta { width: 100%; min-height: 48px; border: 0; border-radius: 14px; background: #17171a; color: #fff; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+.cta:hover { background: #2c2c30; }
+.ended { margin: 0; text-align: center; font-size: 13px; color: #5f5f66; }
+
+/* 없는 이벤트 */
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px 20px; text-align: center; }
+.empty h1 { margin: 0; font-size: 22px; font-weight: 800; }
+.empty p { margin: 0; font-size: 15px; color: #5f5f66; }
+
+/* 외부로 이동 창 */
+.scrim { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.4); display: flex; align-items: flex-end; justify-content: center; }
+@media (min-width: 1024px) { .scrim { align-items: center; } }
+.sheet { width: 100%; max-width: 480px; background: #fafaf8; border-radius: 20px 20px 0 0; padding: 20px 20px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 1024px) { .sheet { border-radius: 20px; } }
+.sheetTitle { margin: 0; font-size: 20px; font-weight: 800; }
+.sheetSub { margin: 0; font-size: 15px; color: #5f5f66; }
+.list { list-style: none; margin: 0; padding: 0; }
+.row { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; border: 0; border-bottom: 1px solid #eaeae6; background: transparent; font: inherit; text-align: left; cursor: pointer; padding: 8px 0; color: #17171a; }
+.list li:last-child .row { border-bottom: 0; }
+.rowText { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rowLabel { font-size: 15px; font-weight: 700; }
+.rowHost { font-size: 13px; color: #5f5f66; }
+.rowArrow { color: #a3a3aa; font-size: 20px; }
+.actions { display: flex; gap: 8px; }
+.btnLine, .btnDark { flex: 1; min-height: 48px; border-radius: 14px; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+.btnLine { background: #fff; color: #17171a; border: 1px solid #e2e2dd; }
+.btnDark { background: #17171a; color: #fff; border: 0; }
+
+/* 소개 페이지 위 이벤트 줄(EVT-WEB-05) */
+.strip { display: block; background: #e6eeea; color: #234a3d !important; }
+.stripRow { max-width: 1200px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.stripBadge { flex: none; padding: 2px 10px; border-radius: 999px; background: #2e5e4e; color: #fff; font-size: 12px; font-weight: 800; }
+.stripText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stripText strong { font-weight: 800; }
+.stripArrow { flex: none; font-weight: 800; }

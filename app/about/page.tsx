@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import AboutTry from "./AboutTry";
 import AboutVideo from "./AboutVideo";
 import styles from "./about.module.css";
+import eventStyles from "./events/events.module.css";
+import { getActiveEventsServer } from "@/lib/eventsServer";
+import { eventPagePath } from "@/lib/events";
+
+// 진행 중 이벤트 줄(events.md EVT-WEB-05) 때문에 5분마다 다시 만든다(그때만 Firestore 읽기 한 번)
+export const revalidate = 300;
 
 // 팩인백 소개 페이지(2026-10-18). 목업: https://claude.ai/artifact/FezZTjcKsDRsoee1n7vQNW
 // "써 보기"는 진짜 앱을 체험 모드로 띄운다(AboutTry, offline.md OFF-DEMO).
@@ -57,9 +63,26 @@ const PRICE = [
   ["AI 기능", "하루 3번"],
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const events = await getActiveEventsServer();
+  const top = events[0];
   return (
     <div className={styles.page}>
+      {top && (
+        <a href={eventPagePath(top)} className={eventStyles.strip}>
+          <span className={eventStyles.stripRow}>
+            <span className={eventStyles.stripBadge}>이벤트</span>
+            <span className={eventStyles.stripText}>
+              <strong>{top.title}</strong>
+              {top.summary ? ` · ${top.summary}` : ""}
+              {events.length > 1 ? ` 외 ${events.length - 1}개` : ""}
+            </span>
+            <span aria-hidden="true" className={eventStyles.stripArrow}>
+              ›
+            </span>
+          </span>
+        </a>
+      )}
       <header className={styles.header}>
         <div className={`${styles.wrap} ${styles.headerRow}`}>
           <a href="#try" className={styles.brand}>
