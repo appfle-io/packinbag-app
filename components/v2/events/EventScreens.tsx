@@ -4,15 +4,28 @@
 // 본문 HTML은 스크립트를 막은 iframe(sandbox="")에 내려받기 주소로 띄운다 — 링크 · 스크립트 · 폼은 동작하지 않는다.
 // 앱 화면 모드(라이트 · 다크)는 iframe의 color-scheme으로 넘긴다(본문은 prefers-color-scheme으로 색을 바꿈, 이벤트 가이드 2절)
 import { useEffect, useState } from "react";
-import { IconChevronLeft, IconGift } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronRight, IconGift } from "@tabler/icons-react";
 import { useTheme } from "@/components/ThemeProvider";
 import SlideScreen from "@/components/SlideScreen";
-import { Badge, Button, IconButton, ScreenHeader, SectionHeader, cx } from "@/components/v2/ui";
+import { Badge, Button, IconButton, ScreenHeader, SectionHeader, Sheet, cx } from "@/components/v2/ui";
+import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { SubScreen } from "@/components/v2/settings/SubScreen";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { openExternalLink } from "@/lib/openExternalLink";
 import { loadEvents } from "@/lib/eventsService";
-import { eventEyebrow, eventPeriodLabel, eventStatus, isSafeEventLink, markEventSeen, splitEvents, type AppEvent } from "@/lib/events";
+import {
+  eventEyebrow,
+  eventLinks,
+  eventPeriodLabel,
+  eventStatus,
+  isAppPath,
+  isSafeEventLink,
+  linkHost,
+  markEventSeen,
+  splitEvents,
+  type AppEvent,
+  type EventLink,
+} from "@/lib/events";
 
 function Cover({ event, className }: { event: AppEvent; className: string }) {
   if (!event.coverUrl) {
@@ -46,21 +59,40 @@ export function EventSlideCard({ event, onOpen }: { event: AppEvent; onOpen: () 
   );
 }
 
-// 버튼 열기: 앱 경로는 그 주소로 이동, https는 바깥(iOS 앱은 사파리)
+// 열기: 앱 경로는 그 주소로 이동, https는 바깥(iOS 앱은 사파리)
 function openEventLink(url: string) {
   if (!isSafeEventLink(url)) return;
-  if (url.startsWith("/")) window.location.assign(url);
+  if (isAppPath(url)) window.location.assign(url);
   else openExternalLink(url);
 }
+
+const linkLine = (l: EventLink) => {
+  const host = linkHost(l.url);
+  return host && host !== l.label ? `${l.label} · ${host}` : l.label;
+};
 
 // 이벤트 보기(EVT-VIEW). 머리 + 본문(칸 안에서 세로 스크롤) + 아래 버튼
 export function EventDetailScreen({ event, onBack }: { event: AppEvent; onBack: () => void }) {
   const swipeRef = useSwipeBack<HTMLDivElement>(onBack);
   const { mode } = useTheme();
   const ended = eventStatus(event) === "ended";
-  const showButton = !ended && !!event.buttonLabel && isSafeEventLink(event.buttonUrl);
+  const links = eventLinks(event);
+  const showButton = !ended && !!event.buttonLabel && links.length > 0;
+  // 바깥 링크 확인(1개) · 고르기(2개 이상) 시트. 시트는 이 화면 안에 두어 같은 층 위에 뜨게 한다
+  const [confirmLink, setConfirmLink] = useState<EventLink | null>(null);
+  const [pickOpen, setPickOpen] = useState(false);
   // 시스템 모드면 iframe이 기기 설정을 그대로 따른다(지정하지 않음)
   const scheme = mode === "dark" ? "dark" : mode === "light" ? "light" : undefined;
+
+  const onButton = () => {
+    if (links.length === 1) {
+      // 앱 안 화면은 바로, 바깥은 확인 후
+      if (isAppPath(links[0].url)) openEventLink(links[0].url);
+      else setConfirmLink(links[0]);
+    } else if (links.length > 1) {
+      setPickOpen(true);
+    }
+  };
 
   useEffect(() => {
     markEventSeen(event.id);
@@ -104,13 +136,47 @@ export function EventDetailScreen({ event, onBack }: { event: AppEvent; onBack: 
             {ended ? (
               <p className="m-0 text-center text-caption text-sub">끝난 이벤트예요 · {eventPeriodLabel(event)}</p>
             ) : (
-              <Button block onClick={() => event.buttonUrl && openEventLink(event.buttonUrl)}>
+              <Button block onClick={onButton}>
                 {event.buttonLabel}
               </Button>
             )}
           </div>
         </div>
       )}
+
+      <ConfirmSheet
+        open={!!confirmLink}
+        onClose={() => setConfirmLink(null)}
+        title="외부로 이동합니다"
+        message={confirmLink ? linkLine(confirmLink) : undefined}
+        confirmLabel="이동"
+        onConfirm={() => confirmLink && openEventLink(confirmLink.url)}
+      />
+      <Sheet open={pickOpen} onClose={() => setPickOpen(false)} title="외부로 이동합니다">
+        <p className="m-0 pb-3 text-body text-sub">어디로 갈까요?</p>
+        <ul className="m-0 flex list-none flex-col p-0">
+          {links.map((l, i) => (
+            <li key={`${l.url}-${i}`} className={cx(i < links.length - 1 && "border-b border-line")}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPickOpen(false);
+                  openEventLink(l.url);
+                }}
+                className="flex min-h-14 w-full items-center gap-3 bg-transparent text-left transition-colors duration-160 ease-snappy active:bg-fill"
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-body font-semibold text-ink">{l.label}</span>
+                  {linkHost(l.url) && linkHost(l.url) !== l.label && (
+                    <span className="truncate text-caption text-sub">{linkHost(l.url)}</span>
+                  )}
+                </span>
+                <IconChevronRight size={20} stroke={1.75} className="shrink-0 text-faint" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
     </div>
   );
 }

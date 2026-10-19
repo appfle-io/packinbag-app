@@ -5,6 +5,11 @@
 
 export type EventBodyType = "html" | "image";
 
+export interface EventLink {
+  label: string;
+  url: string;
+}
+
 export interface AppEvent {
   id: string;
   title: string;
@@ -21,7 +26,10 @@ export interface AppEvent {
   bodyPath?: string;
   // 아래 고정 버튼(선택). url은 "/"로 시작하는 앱 경로 또는 https:// 주소만
   buttonLabel?: string;
+  // 예전 하나짜리 열 곳(10/19). 10/20부터는 links를 쓰고, 이 값은 links[0].url과 같게 남긴다
   buttonUrl?: string;
+  // 버튼을 눌렀을 때 고를 곳(10/20, EVT-VIEW-07). 1개면 확인 창, 2개 이상이면 고르는 시트
+  links?: EventLink[];
   published: boolean;
   createdAt: string;
   updatedAt: string;
@@ -33,6 +41,8 @@ export type EventStatus = "hidden" | "upcoming" | "active" | "ended";
 export const EVENT_TITLE_MAX = 30;
 export const EVENT_SUMMARY_MAX = 40;
 export const EVENT_BUTTON_MAX = 12;
+export const EVENT_LINKS_MAX = 5;
+export const EVENT_LINK_LABEL_MAX = 20;
 export const EVENT_COVER_MAX_BYTES = 2 * 1024 * 1024;
 export const EVENT_BODY_MAX_BYTES = 8 * 1024 * 1024;
 // 홈 캐러셀에 넣는 이벤트 수(가방 5장 뒤에)
@@ -88,6 +98,27 @@ export function eventEyebrow(e: Pick<AppEvent, "endDate">, today = localDateKey(
   const [, m, d] = e.endDate.split("-").map(Number);
   return `이벤트 · ${m}월 ${d}일까지`;
 }
+
+// 버튼이 열 곳 목록(EVT-VIEW-07). links가 있으면 그것, 없으면 예전 buttonUrl 하나(이름 = 주소 도메인). 안전하지 않은 주소는 뺀다
+export function eventLinks(e: Pick<AppEvent, "links" | "buttonUrl">): EventLink[] {
+  const raw = e.links && e.links.length > 0 ? e.links : e.buttonUrl ? [{ label: "", url: e.buttonUrl }] : [];
+  return raw
+    .map((l) => ({ label: (l.label ?? "").trim(), url: (l.url ?? "").trim() }))
+    .filter((l) => isSafeEventLink(l.url))
+    .map((l) => ({ label: l.label || linkHost(l.url) || l.url, url: l.url }));
+}
+
+// 표시용 도메인("www." 뺀). 앱 경로나 잘못된 주소는 ""
+export function linkHost(url: string): string {
+  if (url.startsWith("/")) return "";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+export const isAppPath = (url: string) => url.startsWith("/") && !url.startsWith("//");
 
 // 버튼 열 곳: 앱 경로("/"로 시작, "//" 아님) 또는 https 주소만
 export function isSafeEventLink(url: string | undefined): boolean {

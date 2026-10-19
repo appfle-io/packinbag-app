@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventEyebrow, eventPeriodLabel, eventStatus, hasUnseenEvent, isSafeEventLink, localDateKey, splitEvents, type AppEvent } from "./events";
+import { eventEyebrow, eventLinks, eventPeriodLabel, eventStatus, hasUnseenEvent, isSafeEventLink, linkHost, localDateKey, splitEvents, type AppEvent } from "./events";
 
 const ev = (id: string, startDate: string, endDate: string, extra: Partial<AppEvent> = {}): AppEvent => ({
   id,
@@ -73,6 +73,30 @@ describe("isSafeEventLink", () => {
     expect(isSafeEventLink("http://a.com")).toBe(false);
     expect(isSafeEventLink("javascript:alert(1)")).toBe(false);
     expect(isSafeEventLink(undefined)).toBe(false);
+  });
+});
+
+describe("eventLinks", () => {
+  it("links가 있으면 그것, 안전하지 않은 주소는 뺀다(EVT-VIEW-07)", () => {
+    const e = ev("a", "2026-10-20", "", {
+      links: [
+        { label: "예스24", url: "https://www.yes24.com/x" },
+        { label: "나쁜 곳", url: "javascript:alert(1)" },
+        { label: "", url: "https://product.kyobobook.co.kr/y" },
+      ],
+    });
+    expect(eventLinks(e)).toEqual([
+      { label: "예스24", url: "https://www.yes24.com/x" },
+      { label: "product.kyobobook.co.kr", url: "https://product.kyobobook.co.kr/y" },
+    ]);
+  });
+  it("예전 buttonUrl 하나는 링크 1개(이름 = 도메인)", () => {
+    expect(eventLinks(ev("a", "2026-10-20", "", { buttonUrl: "https://www.yes24.com/x" }))).toEqual([{ label: "yes24.com", url: "https://www.yes24.com/x" }]);
+    expect(eventLinks(ev("a", "2026-10-20", ""))).toEqual([]);
+  });
+  it("linkHost", () => {
+    expect(linkHost("https://www.yes24.com/a")).toBe("yes24.com");
+    expect(linkHost("/?new=bag")).toBe("");
   });
 });
 

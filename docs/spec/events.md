@@ -13,7 +13,7 @@
 | events/{id} | `title`(30자) · `summary`(40자) · `startDate` · `endDate`("YYYY-MM-DD", 둘 다 포함. `endDate` ""는 끝나는 날 없음) | 카드 · 목록 |
 | | `coverUrl` · `coverPath` | 정사각 커버(Storage `events/{id}/cover-…`) |
 | | `bodyType`(html \| image) · `bodyUrl` · `bodyPath` | 본문(Storage `events/{id}/body-…`) |
-| | `buttonLabel`(12자) · `buttonUrl` | 아래 고정 버튼(선택) |
+| | `buttonLabel`(12자) · `links`(이름 20자 + 주소, 최대 5개, 10/20) · `buttonUrl`(예전 하나짜리, 지금은 첫 링크와 같은 값) | 아래 고정 버튼(선택) |
 | | `published` · `createdAt` · `updatedAt` · `createdBy` | 게시 여부 · 기록 |
 | 이 기기 | `pib_seen_events_v1`(본 이벤트 id, 최근 50개) | 설정 줄 빨간 점 |
 
@@ -47,9 +47,10 @@
 | EVT-VIEW-01 | 머리 "이벤트" + 뒤로 ‹(오른쪽 밀기로도 닫힘 — 본문 칸 위에서는 칸이 손가락을 먹어 머리에서만) |
 | EVT-VIEW-02 | HTML 본문: Storage 주소를 **`sandbox=""` iframe**으로 화면 남은 높이를 채워 띄움(칸 안에서 세로 스크롤). 스크립트 · 링크 · 폼 · 팝업 모두 동작 안 함. 앱 화면 모드가 라이트 · 다크로 정해져 있으면 iframe `color-scheme`으로 넘김(본문은 `prefers-color-scheme`로 색을 바꿈), 시스템이면 지정 안 함 |
 | EVT-VIEW-03 | 이미지 본문: 가로 꽉 찬 긴 이미지 한 장(최대 폭 2xl, 모서리 14), 세로 스크롤 |
-| EVT-VIEW-04 | 아래 고정: 진행 중 + 버튼이 있으면 [버튼 문구] — 앱 경로(`/…`)는 그 주소로 이동, https는 바깥 브라우저(`openExternalLink`). 끝난 이벤트는 버튼 대신 "끝난 이벤트예요 · 기간" |
+| EVT-VIEW-04 | 아래 고정: 진행 중 + 버튼 문구 + 링크가 1개 이상이면 [버튼 문구] — 누르면 EVT-VIEW-07. 끝난 이벤트는 버튼 대신 "끝난 이벤트예요 · 기간" |
 | EVT-VIEW-05 | 열면 이 기기에 본 것으로 기록(`markEventSeen`) → 설정 줄 빨간 점이 꺼짐 |
 | EVT-VIEW-06 | 본문 주소가 없으면 "내용을 불러오지 못했어요" |
+| EVT-VIEW-07 | (10/20) 버튼 누르기(`eventLinks` — `links`, 없으면 예전 `buttonUrl` 하나, 이름이 없으면 도메인, `/…` · https 아닌 주소는 뺀다): **1개 + 앱 경로** → 확인 없이 그 주소로 / **1개 + 바깥** → 확인 시트 "외부로 이동합니다" + "이름 · 도메인"(같으면 하나) + [취소] [이동] / **2개 이상** → 시트 "외부로 이동합니다" · "어디로 갈까요?" + 줄(이름 굵게 · 도메인 · ›), 줄을 누르면 바로 열림. 바깥은 `openExternalLink`(iOS 앱은 사파리). 시트는 이벤트 보기 화면 안에 둔다(층) |
 
 ## 확인 필요
 
@@ -64,3 +65,4 @@
 |---|---|
 | `eventStatus`(시작 · 끝 포함, 숨김, 끝나는 날 없음) · `splitEvents`(정렬 · 예정/숨김 제외) — `lib/events.test.ts` | EVT-DATA-01 · 03 · 04 |
 | `eventPeriodLabel` · `eventEyebrow` · `isSafeEventLink` · `hasUnseenEvent` | EVT-LIST-03, EVT-HOME-03, EVT-VIEW-04 · 05 |
+| `eventLinks` · `linkHost`(예전 buttonUrl 읽기 · 안전하지 않은 주소 빼기 · 이름 없으면 도메인) | EVT-VIEW-07 |

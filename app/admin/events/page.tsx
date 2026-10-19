@@ -3,21 +3,26 @@
 // 관리자 > 이벤트(2026-10-19, admin.md ADM-EVT). 등록 · 고치기 · 숨기기 · 지우기 + 휴대폰 · PC 폭 미리 보기.
 // 파일은 Claude가 이벤트 가이드(_secrets/claude/event-guide.md)대로 만든 cover · body를 그대로 올린다
 import { useEffect, useMemo, useState } from "react";
-import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import {
   EVENT_BODY_MAX_BYTES,
   EVENT_BUTTON_MAX,
   EVENT_COVER_MAX_BYTES,
+  EVENT_LINK_LABEL_MAX,
+  EVENT_LINKS_MAX,
   EVENT_SUMMARY_MAX,
   EVENT_TITLE_MAX,
+  eventLinks,
   eventPeriodLabel,
   eventStatus,
+  isAppPath,
   isSafeEventLink,
   localDateKey,
   type AppEvent,
   type EventBodyType,
+  type EventLink,
   type EventStatus,
 } from "@/lib/events";
 import { deleteEventFile, deleteEventRemote, newEventId, saveEventRemote, subscribeToAllEvents, uploadEventFile } from "@/lib/eventsService";
@@ -33,7 +38,8 @@ type Draft = {
   endDate: string;
   bodyType: EventBodyType;
   buttonLabel: string;
-  buttonUrl: string;
+  // 버튼을 눌렀을 때 고를 곳(ADM-EVT-10). 빈 줄은 저장할 때 뺀다
+  links: EventLink[];
   published: boolean;
   coverFile: File | null;
   bodyFile: File | null;
@@ -72,7 +78,7 @@ function blankDraft(): Draft {
     endDate: plusDays(14),
     bodyType: "html",
     buttonLabel: "",
-    buttonUrl: "",
+    links: [],
     published: false,
     coverFile: null,
     bodyFile: null,
@@ -88,7 +94,7 @@ function draftOf(e: AppEvent): Draft {
     endDate: e.endDate,
     bodyType: e.bodyType,
     buttonLabel: e.buttonLabel ?? "",
-    buttonUrl: e.buttonUrl ?? "",
+    links: eventLinks(e),
     published: e.published,
     coverFile: null,
     bodyFile: null,
@@ -96,6 +102,10 @@ function draftOf(e: AppEvent): Draft {
 }
 
 const isHtmlFile = (f: File) => f.type === "text/html" || /\.html?$/i.test(f.name);
+
+// 빈 줄(이름 · 주소 둘 다 빈 것)을 뺀 링크
+const filledLinks = (d: Draft) =>
+  d.links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })).filter((l) => l.label || l.url);
 
 // 저장하기 전 검사(ADM-EVT-04). 문제가 있으면 그 문구, 없으면 null
 function problemOf(d: Draft): string | null {
@@ -112,9 +122,11 @@ function problemOf(d: Draft): string | null {
   if (d.bodyFile && d.bodyType === "image" && !d.bodyFile.type.startsWith("image/")) return "본문은 이미지 파일이어야 해요";
   if (d.bodyFile && d.bodyFile.size > EVENT_BODY_MAX_BYTES) return "본문 파일은 8MB 이하로 올려 주세요";
   const label = d.buttonLabel.trim();
-  const url = d.buttonUrl.trim();
-  if (!!label !== !!url) return "버튼은 문구와 열 곳을 둘 다 적거나 둘 다 비워 주세요";
-  if (url && !isSafeEventLink(url)) return "열 곳은 /로 시작하는 앱 경로나 https:// 주소만 돼요";
+  const links = filledLinks(d);
+  if (!!label !== links.length > 0) return "버튼은 문구와 링크를 둘 다 적거나 둘 다 비워 주세요";
+  if (links.some((l) => !l.label || !l.url)) return "링크는 이름과 주소를 둘 다 적어 주세요";
+  if (links.some((l) => !isSafeEventLink(l.url))) return "주소는 /로 시작하는 앱 경로나 https:// 주소만 돼요";
+  if (links.length > 1 && links.some((l) => isAppPath(l.url))) return "앱 안 화면(/…)은 링크가 하나일 때만 돼요";
   return null;
 }
 
@@ -257,6 +269,7 @@ export default function AdminEventsPage() {
       const now = new Date().toISOString();
       const prev = draft.existing;
       const label = draft.buttonLabel.trim();
+      const links = label ? filledLinks(draft) : [];
       const event: AppEvent = {
         id,
         title: draft.title.trim(),
@@ -269,7 +282,9 @@ export default function AdminEventsPage() {
         bodyUrl: body?.url ?? prev?.bodyUrl,
         bodyPath: body?.path ?? prev?.bodyPath,
         buttonLabel: label || undefined,
-        buttonUrl: label ? draft.buttonUrl.trim() : undefined,
+        // 예전 화면이 읽던 값은 첫 링크와 같게
+        buttonUrl: links[0]?.url,
+        links: links.length > 0 ? links : undefined,
         published: draft.published,
         createdAt: prev?.createdAt ?? now,
         updatedAt: now,
@@ -325,7 +340,7 @@ export default function AdminEventsPage() {
                     </span>
                     <span className="text-caption text-sub">
                       {eventPeriodLabel(e)} · {e.bodyType === "html" ? "HTML" : "이미지"}
-                      {e.buttonLabel ? ` · 버튼 ‘${e.buttonLabel}’` : ""}
+                      {e.buttonLabel ? ` · 버튼 ‘${e.buttonLabel}’ · 링크 ${eventLinks(e).length}개` : ""}
                     </span>
                     {e.summary && <span className="truncate text-caption text-faint">{e.summary}</span>}
                   </div>
@@ -421,15 +436,49 @@ export default function AdminEventsPage() {
             />
             <Preview draft={d} />
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-2">
-                <span className="text-caption text-sub">버튼 문구(선택)</span>
-                <input value={d.buttonLabel} maxLength={EVENT_BUTTON_MAX} onChange={(e) => patch({ buttonLabel: e.target.value })} placeholder="예: 참여하기" className={ADMIN_FIELD} />
-              </label>
-              <label className="flex flex-col gap-2">
-                <span className="text-caption text-sub">열 곳</span>
-                <input value={d.buttonUrl} onChange={(e) => patch({ buttonUrl: e.target.value })} placeholder="/경로 또는 https://" className={ADMIN_FIELD} />
-              </label>
+            <label className="flex flex-col gap-2">
+              <span className="text-caption text-sub">버튼 문구(선택)</span>
+              <input value={d.buttonLabel} maxLength={EVENT_BUTTON_MAX} onChange={(e) => patch({ buttonLabel: e.target.value })} placeholder="예: 책 사러 가기" className={ADMIN_FIELD} />
+            </label>
+            <div className="flex flex-col gap-2">
+              <span className="flex justify-between text-caption text-sub">
+                <span>링크(버튼을 누르면 고를 곳)</span>
+                <span>
+                  {d.links.length}/{EVENT_LINKS_MAX}
+                </span>
+              </span>
+              <p className="m-0 text-caption text-faint">1개면 &ldquo;외부로 이동합니다&rdquo; 확인 창, 2개 이상이면 고르는 창이 떠요. 앱 안 화면(/…)은 1개일 때만, 확인 없이 바로 이동</p>
+              {d.links.map((l, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-32 shrink-0">
+                    <input
+                      value={l.label}
+                      maxLength={EVENT_LINK_LABEL_MAX}
+                      onChange={(e) => patch({ links: d.links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })}
+                      placeholder="이름(예: 예스24)"
+                      aria-label={`링크 ${i + 1} 이름`}
+                      className={ADMIN_FIELD}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input
+                      value={l.url}
+                      onChange={(e) => patch({ links: d.links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)) })}
+                      placeholder="https:// 또는 /경로"
+                      aria-label={`링크 ${i + 1} 주소`}
+                      className={ADMIN_FIELD}
+                    />
+                  </div>
+                  <IconButton label="링크 빼기" onClick={() => patch({ links: d.links.filter((_, j) => j !== i) })}>
+                    <IconX size={18} stroke={1.9} />
+                  </IconButton>
+                </div>
+              ))}
+              {d.links.length < EVENT_LINKS_MAX && (
+                <Button size="sm" variant="secondary" className="self-start" leading={<IconPlus size={16} stroke={2} />} onClick={() => patch({ links: [...d.links, { label: "", url: "" }] })}>
+                  링크 추가
+                </Button>
+              )}
             </div>
 
             <Toggle
