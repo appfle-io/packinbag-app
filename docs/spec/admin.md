@@ -2,7 +2,7 @@
 
 기준 코드: v1.6.1 (2026-10-16). 라우트(`/api/admin/*`)의 검사는 `api.md` API-ADM, 규칙(문의 · 공지 · 이용권을 마스터가 쓰는 것)은 `security-rules.md`, 앱 안 공지 시트 · 문의 쓰기는 `settings.md`에서 다룬다.
 
-- 주소: `/admin`(웹 브라우저 전용 — 앱 화면 목록에 없고 앱에서 들어갈 길이 없다)
+- 주소: `/admin`(웹 브라우저 · iOS 앱 모두. 앱에서는 마스터 계정의 설정 > 관리자 사이트로 이동, SET-ADMIN-01 — 10/19 정정: 예전 "앱에서 들어갈 길이 없다"는 틀린 기록)
 - 틀: `app/admin/layout.tsx`(AuthProvider · ThemeProvider · ToastProvider) → `components/admin/AdminGate.tsx` · `AdminSidebar.tsx` · `AdminPage.tsx` · `AdminLoginScreen.tsx`
 - 화면: `app/admin/page.tsx`(대시보드) · `users/` · `inquiries/` · `unlock-codes/` · `announcements/` · `audit-log/`, `components/admin/UserListModal.tsx`
 - 서버 호출: `lib/adminApiClient.ts` `adminApiFetch`(지금 로그인한 계정 idToken을 붙임, 실패면 서버 문구 또는 "요청에 실패했어요"). 집계 `lib/adminStats.ts`. 마스터 판정 `lib/adminApiAuth.ts`
@@ -31,6 +31,7 @@
 | ADM-NAV-04 | 좁은 화면 | md 미만 | 위 줄(☰ + 지금 화면 이름) → ☰를 누르면 같은 메뉴가 아래에서 올라오는 창으로. 메뉴를 누르거나 바깥 · ✕로 닫힘 |
 | ADM-NAV-05 | 화면 틀(`AdminPage`) | | 제목 · 설명 · 오른쪽 버튼, 폭 4xl(`wide`면 6xl), 아래 여백 24칸(마지막 카드가 잘리지 않게). 공통 문구: 불러오는 중 "불러오고 있어요", 오류는 빨간 글 |
 | ADM-NAV-06 | 모양 | | 앱과 같은 v2 토큰. 루트에 `.pib-v2-legacy`가 아직 붙어 있다. 편집은 앱과 같은 `Sheet`, 확인은 `ConfirmSheet` |
+| ADM-NAV-07 | 상태 줄 피하기(10/19) | | 좁은 화면 위 줄 · 넓은 화면 사이드바에 `pt-safe`(상태 줄 높이만큼 위 여백). iOS 앱은 웹뷰가 시계 · 배터리 줄 뒤까지 그려서(contentInset never) 예전에는 ☰가 그 줄에 걸려 눌리지 않았다. 웹 브라우저는 0. 앱에서는 설정 > 관리자 사이트로 이동으로 들어온다(SET-ADMIN-01) |
 
 ---
 

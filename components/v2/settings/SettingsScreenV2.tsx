@@ -41,7 +41,8 @@ import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isNativePlatform } from "@/lib/purchaseService";
-import { PUSH_KINDS, askNotificationPermission, getNotificationPermission, isServerPushAvailable, sendTestPush } from "@/lib/v2/serverPush";
+import { askNotificationPermission, getNotificationPermission, isServerPushAvailable, sendTestPush, type PushKind } from "@/lib/v2/serverPush";
+import { PushSettingsScreen, pushKindsSummary } from "./PushSettingsScreen";
 import { FREE_LAUNCH } from "@/lib/freeLaunch";
 import { LockSettingsScreen } from "./LockSettingsScreen";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
@@ -72,7 +73,7 @@ export interface SettingsScreenProps {
   embedded?: boolean;
 }
 
-type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock" | "widgets";
+type SubView = "profile" | "version" | "licenses" | "trash" | "inquiries" | "lock" | "widgets" | "push";
 
 const MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "시스템" },
@@ -169,7 +170,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     setPushPermission(await getNotificationPermission());
     show(ok ? "알림을 받을 수 있어요" : "아이폰 설정 > 팩인백 > 알림에서 허용해 주세요");
   };
-  const togglePush = (kind: (typeof PUSH_KINDS)[number]["kind"], label: string, on: boolean) => {
+  const togglePush = (kind: PushKind, label: string, on: boolean) => {
     updatePushPref(kind, on)
       .then(() => show(on ? `${label} 알림을 켰어요` : `${label} 알림을 껐어요. 여기서 언제든 다시 켜실 수 있어요`))
       .catch(() => show("설정을 저장하지 못했어요"));
@@ -460,15 +461,14 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             {(pushPermission === "prompt" || pushPermission === "prompt-with-rationale") && (
               <ListRow title={<span className="font-semibold text-brand">알림 허용하기</span>} subtitle="함께 쓰는 가방 소식을 받아요" onClick={allowPush} chevron />
             )}
-            {PUSH_KINDS.map(({ kind, label, description }) => (
-              <Toggle
-                key={kind}
-                checked={profile?.pushPrefs?.[kind] !== false}
-                onChange={(on) => togglePush(kind, label, on)}
-                label={label}
-                description={description}
-              />
-            ))}
+            {/* 종류별 3개(가방 소식 · 맡긴 아이템 · 새 멤버)는 하위 화면 하나로(2026-10-19, SET-PUSH-08) */}
+            <ListRow
+              title="함께 쓰는 가방 알림"
+              subtitle="가방 소식 · 나에게 맡긴 아이템 · 새 멤버"
+              trailing={pushKindsSummary(profile?.pushPrefs)}
+              onClick={() => setView("push")}
+              chevron
+            />
             <ListRow
               divider={false}
               title="테스트 알림 보내기"
@@ -646,6 +646,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       {privacy.available && (
         <SlideScreen active={view === "lock"} onBackdropClick={close} swipeBack>
           <LockSettingsScreen onBack={close} />
+        </SlideScreen>
+      )}
+      {pushAvailable && (
+        <SlideScreen active={view === "push"} onBackdropClick={close} swipeBack>
+          <PushSettingsScreen prefs={profile?.pushPrefs} onToggle={togglePush} onBack={close} />
         </SlideScreen>
       )}
       {showWidgetRow && (

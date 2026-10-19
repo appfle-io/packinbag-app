@@ -3,7 +3,7 @@
 기준 코드: v1.6.1 + 10/15 수정(백업 · 초기화 · FAQ · 문의 글자 수 · 테스트 알림 · ThemeProvider 정리). 로그인 · 가입 · 탈퇴 안쪽 처리(`AuthProvider.deleteAccount` 등)는 `auth.md`, 오프라인 데이터 가져오기 · 합치기 계산은 `offline.md`, 프리미엄 시트 · 이용권 · 한도는 `premium.md`, 가방 쪽 잠그기(가방 더보기 · 팩 길게 누르기)와 잠금 화면이 덮는 자리는 `bag.md` · `packs.md`, 알림 종 · 넓은 화면 상세 칸은 `shell.md`, 메모 편집기의 링크 만들기는 `memo.md`에서 다룬다.
 
 - 탭 화면: `components/v2/settings/SettingsScreenV2.tsx`
-- 하위 화면(SubScreen 틀): `ProfileScreenV2.tsx`(+ PasswordSheet · DeleteAccountSheet) · `TrashScreenV2.tsx` · `InquiryScreenV2.tsx`(+ ComposeSheet) · `InfoScreens.tsx`(VersionScreenV2 · LicensesScreenV2) · `LockSettingsScreen.tsx` · 틀 `SubScreen.tsx`
+- 하위 화면(SubScreen 틀): `ProfileScreenV2.tsx`(+ PasswordSheet · DeleteAccountSheet) · `TrashScreenV2.tsx` · `InquiryScreenV2.tsx`(+ ComposeSheet) · `InfoScreens.tsx`(VersionScreenV2 · LicensesScreenV2) · `LockSettingsScreen.tsx` · `PushSettingsScreen.tsx` · 틀 `SubScreen.tsx`
 - 시트: `FontSheet.tsx` · `HelpSheets.tsx`(AnnouncementsListSheet · FaqSheet) · `MyLinksSheet.tsx`(+ EditLinkSheet) · `OfflineImportSheet.tsx`, `components/v2/sheets/PremiumSheet` · `AccountLinkSheet`, `components/v2/bag/sheets/ConfirmSheet`
 - 잠금: `lib/v2/privateLock.ts`(순수 함수 · 이 기기 기록) · `components/v2/lock/usePrivateLock.ts` · `LockUI.tsx`(PinPad · LockScreen · PinSetupSheet · ForgotPinSheet · useLockGuard)
 - 화면 설정 저장: `components/ThemeProvider.tsx`, 글꼴 목록 `lib/v2/appFonts.ts`
@@ -125,11 +125,12 @@
 |---|---|---|---|
 | SET-PUSH-01 | 꺼짐 안내 | 권한 거절됨 | 회색 상자 "알림이 꺼져 있어요. 아이폰 설정 > 팩인백 > 알림에서 허용해 주세요." |
 | SET-PUSH-02 | 알림 허용하기 | 권한 아직 안 물음 | 브랜드색 "알림 허용하기" / "함께 쓰는 가방 소식을 받아요" → iOS 허용 창 → 토스트 "알림을 받을 수 있어요" / "아이폰 설정 > 팩인백 > 알림에서 허용해 주세요" |
-| SET-PUSH-03 | 종류 토글 3개 | 항상 | "함께 쓰는 가방 소식"(다른 사람이 추가하거나 챙기면 10분마다 모아서) · "나에게 맡긴 아이템"(다른 사람이 아이템을 맡기면 바로) · "새 멤버 참여"(내가 만든 가방에 누가 들어오면). 기본 켜짐(서비스 알림, iOS 허용 창이 옵트인) |
+| SET-PUSH-03 | 종류 토글 3개 | 하위 화면(SET-PUSH-08) | "함께 쓰는 가방 소식"(다른 사람이 추가하거나 챙기면 10분마다 모아서) · "나에게 맡긴 아이템"(다른 사람이 아이템을 맡기면 바로) · "새 멤버 참여"(내가 만든 가방에 누가 들어오면). 기본 켜짐(서비스 알림, iOS 허용 창이 옵트인). 10/19 전에는 설정 탭에 바로 나열 |
 | SET-PUSH-04 | 토글 저장 | | `updatePushPref(종류, on)` → 토스트 "{이름} 알림을 켰어요" / "{이름} 알림을 껐어요. 여기서 언제든 다시 켜실 수 있어요" / 실패 "설정을 저장하지 못했어요" |
 | SET-PUSH-05 | 가방별과의 관계 | | 여기서 끈 종류는 가방 더보기 > 알림에서 켤 수 없음(잠긴 줄로 보임, `bagPushView.locked`). 가방별 설정은 bag.md |
 | SET-PUSH-06 | 테스트 알림 보내기 | 항상 | 아랫줄 "누른 뒤 홈 화면으로 나가면 알림이 와요"(보내는 중 "5초 안에 홈 화면으로 나가 주세요"). `guard` → **누르는 즉시** 토스트 "5초 뒤에 알림이 와요 · 지금 홈 화면으로 나가 주세요"(권한이 있을 때만) → 서버 `sendTestPush`(5초 뒤 보내고 그다음에 응답). 결과: 보냈는데 그동안 앱을 한 번도 떠나지 않았으면 "앱을 보고 있어서 배너가 뜨지 않았어요. 누른 뒤 바로 홈 화면으로 나가 주세요" / 떠났다 왔으면 토스트 없음 / "이 기기가 아직 등록되지 않았어요. 앱을 껐다 켠 뒤 다시 해 주세요" / "알림 권한이 아직 서버에 반영되지 않았어요. 잠시 뒤 다시 해 주세요" / "알림을 보내지 못했어요 (사유)" / 권한 없음 "아이폰 설정 > 팩인백 > 알림에서 알림을 허용해 주세요" / 예외 "테스트 알림을 보내지 못했어요". 보내는 동안 다시 눌러도 무시. 10/17 수정: 10/15에 결과 토스트 하나로 합치면서 "홈으로 나가세요"가 알림이 이미 온 뒤에 떠, 앱 안에서 도착한 알림이 배너 없이 사라졌다(presentationOptions: [], 알림 센터에도 안 남음) |
 | SET-PUSH-07 | 아래 안내 | | "가방마다 끄려면 가방 더보기 > 알림에서 바꿔요. 광고·이벤트 알림은 보내지 않아요." |
+| SET-PUSH-08 | 함께 쓰는 가방 알림 줄(10/19) | 항상 | "함께 쓰는 가방 알림" / "가방 소식 · 나에게 맡긴 아이템 · 새 멤버" + 오른쪽 "모두 켜짐" / "N개 켜짐" / "모두 꺼짐"(`pushKindsSummary`) + › → 하위 화면 "함께 쓰는 가방 알림"(`PushSettingsScreen`, SubScreen): SET-PUSH-03 토글 3개(저장 · 토스트는 SET-PUSH-04 그대로) + 아래 안내 "여기서 끈 알림은 모든 가방에서 오지 않아요. 가방마다 끄려면 가방 더보기 > 알림에서 바꿔요." 설정 탭 알림 묶음 순서: 꺼짐 안내 / 알림 허용하기 → 이 줄 → 테스트 알림 → 아래 안내 |
 
 ---
 
@@ -404,7 +405,7 @@
 
 | ID | 규칙 |
 |---|---|
-| SET-SUB-01 | 화면(SubScreen): 프로필 · 버전 정보 · 오픈소스 라이선스 · 휴지통 · 문의하기 · 잠금. 탭 화면과 같은 머리 · 본문 여백 + 왼쪽 뒤로 ‹. 아래 고정 칸(footer)은 프로필 저장만 |
+| SET-SUB-01 | 화면(SubScreen): 프로필 · 버전 정보 · 오픈소스 라이선스 · 휴지통 · 문의하기 · 잠금 · 함께 쓰는 가방 알림 · 위젯 꾸미기. 탭 화면과 같은 머리 · 본문 여백 + 왼쪽 뒤로 ‹. 아래 고정 칸(footer)은 프로필 저장만 |
 | SET-SUB-02 | 시트: 글꼴 · 공지사항 · 자주 묻는 질문 · 내가 만든 URL · 오프라인 데이터 가져오기 · 계정 연동 · 프리미엄 · 비밀번호 · 회원 탈퇴 · PIN · 확인 시트들 |
 | SET-SUB-03 | 좁은 화면: 오른쪽에서 밀려 들어오고 뒤는 어둡게. 화면 어디서나 오른쪽으로 밀면 손가락을 따라 닫힘(입력칸에서는 왼쪽 끝에서만), 바깥(어두운 곳) 누르기로도 닫힘 |
 | SET-SUB-04 | 넓은 화면(900px 이상): 하위 화면은 상세 칸에 열림(SlideScreen이 `DetailPaneContext`로 옮김, 뒤를 어둡게 하지 않음). 시트는 1024px 이상이면 가운데 창 |
@@ -423,8 +424,8 @@
 | SET-WID-02 | 개수 | 프리미엄 20개, 무료 1개. 넘으면 "꾸미기는 20개까지 …" / "무료는 꾸미기 1개까지예요 …" |
 | SET-WID-03 | 무료 | 안내 칸 "무료는 꾸미기 1개 · 기본 바탕만 …". 첫 꾸미기는 기본 바탕으로 보이고("기본 바탕(무료)"), 2번째부터 자물쇠 · "프리미엄 · 잠김"(눌러지지 않음, 지우지 않음). 편집에서 사진 · 단색을 누르면 "사진 · 단색 배경은 프리미엄이에요". 글자 위치 · 정보는 무료도. 지금은 FREE_LAUNCH라 모두 프리미엄 |
 | SET-WID-04 | 편집 · 미리 보기 | 맨 위 위젯 미리 보기(고르는 즉시) + 미리 볼 가방 칩(최근 최대 4개). 이름 20자(비우면 "내 꾸미기") |
-| SET-WID-05 | 배경 | 기본 · 사진 · 단색. 사진: "사진 고르기"(이미지만) → 크기 100~300%(5% 단위) · 끌어서 위치(크게 했을 때만, 가장자리에 빈 곳 없게) · "처음 위치로" · 글자 쪽 어둡게 0~70%. 단색: 샘플 7개(딥그린 · 먹색 · 바다 · 노을 · 흰색 · 모래 · 분홍) 한 줄(좁으면 같이 작아짐) + 맨 오른쪽 "직접"(iOS 색 고르기 창) |
-| SET-WID-06 | 글자 | 글자색(기본 바탕이 아닐 때만) 자동 · 흰색 · 검정 · 직접(iOS 색 고르기 창, 고른 색 줄 "#XXXXXX · 바꾸기"). 글자 위치 3×3 칸(이름 표시 "왼쪽 아래" 등, 기본 왼쪽 아래) |
+| SET-WID-05 | 배경 | 기본 · 사진 · 단색. 사진: "사진 고르기"(이미지만) → 크기 100~300%(5% 단위) · 끌어서 위치(크게 했을 때만, 가장자리에 빈 곳 없게) · "처음 위치로" · 글자 쪽 어둡게 0~70%. 단색: 샘플 7개(딥그린 · 먹색 · 바다 · 노을 · 흰색 · 모래 · 분홍) 한 줄(좁으면 같이 작아짐) + 맨 오른쪽 "직접" — 웹 색 고르기(`<input type="color">`, iOS 앱은 iOS 색 고르기 창). **고르는 동안 미리 보기에 바로 들어가고, 창을 어떻게 닫든(X · 끌어내리기) 고른 색이 남는다**(10/19 — 예전 네이티브 `pickColor`는 X로 닫아야만 적용됨). 색은 대문자 `#RRGGBB`로 |
+| SET-WID-06 | 글자 | 글자색(기본 바탕이 아닐 때만) 자동 · 흰색 · 검정 · 직접. "직접"을 누르면 곧바로 색 고르기 창(처음이면 흰색에서 시작) + 아래 줄 "#XXXXXX · 바꾸기"(눌러 다시 고름, 창이 안 뜨는 브라우저도 이 줄로). 적용은 SET-WID-05와 같음. 글자 위치 3×3 칸(이름 표시 "왼쪽 아래" 등, 기본 왼쪽 아래) |
 | SET-WID-07 | 보여 줄 정보 | 가방 이름 · D-Day · 챙긴 개수 · 진행 막대(기본 켬) / 남은 개수 · 다 싼 날(기본 꺼짐). 모두 끄면 배경만 |
 | SET-WID-08 | 저장 | 인터넷 필요(`guard`). 사진 배경인데 사진이 없으면 "사진을 골라 주세요". 새 사진은 긴 변 1024px JPEG로 올리고 → 값 정리 → 계정에 저장 → 예전 사진은 Storage에서 지움. "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요" / "꾸미기를 저장했어요". 실패하면 올린 사진을 지우고 "저장하지 못했어요 …" |
 | SET-WID-09 | 지우기 | 편집 맨 아래 "이 꾸미기 지우기" → 확인 시트 → 사진도 삭제, "… 이걸 쓰던 위젯은 기본 모양이 돼요" |
@@ -447,6 +448,7 @@
 | ~~11~~ | ~~문의 글자 수 표시 없음~~ → 10/15 칸 아래 글자 수(SET-INQ-06) | |
 | ~~12~~ | ~~ThemeProvider에 구 UI 꾸밈 설정이 남음~~ → 10/15 제거(SET-DISP-04) | |
 | 13 | 포터블 다운로드 링크 `github.com/appfle-io/packinbag-app/releases/latest`가 로그인 없이 열리는지(저장소 공개 여부) 확인 필요(10/19) | `InfoScreens` `PORTABLE_DOWNLOAD_URL` |
+| 14 | 잠금화면에 띄우기 "직접" 배경색은 아직 네이티브 `pickColor`(불투명도 포함) — 창을 끌어내려 닫으면 적용이 안 될 수 있다(10/19 위젯에서 찾음). 웹 색 고르기로 바꿀지(불투명도는 슬라이더로) · 다음 빌드에서 네이티브를 고칠지 확인 필요 | `pickNativeColor` · `AppDelegate.pickColor` |
 
 ## 테스트 후보 (단위, Firebase 없이)
 
@@ -464,6 +466,7 @@
 | `recordPinFailure` 대기 시간(4번 0 · 5번 30초 · 6번 60초 · 상한 30분) · `lockoutRemainingMs` · `clearPinFailures` — 가짜 localStorage | SET-LIM-07, SET-LOCKSCR-03 |
 | `currentAiUsageCount`(오늘 · 어제 날짜) · `isUnlimitedAiUser`(마스터 · 구매자 · 이용권 만료 · 무효화) | SET-PREM-05 |
 | `bagPushView`(설정에서 끈 종류는 locked · 남의 가방엔 member 없음) · `bagPushSummary` | SET-PUSH-05 |
+| `pushKindsSummary`(모두 켜짐 · 1~2개 켜짐 · 모두 꺼짐 · 값 없음 = 켜짐) | SET-PUSH-08 |
 | `FAQ_ITEMS`(FREE_LAUNCH면 구매 복원 숨김 · 답 바뀜) | SET-FAQ-03 |
 | `isAppFontFamily` · `INITIAL_FONT_SCRIPT`(기본은 속성 없음) | SET-FONT-05, SET-DISP-06 |
 | `daysUntilPurge` · `isTrashExpired`(30일 경계) | SET-TRASH-02 · 08 |

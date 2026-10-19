@@ -7,7 +7,6 @@ import { IconPhoto } from "@tabler/icons-react";
 import type { Bag, WidgetStyle, WidgetStyleBg, WidgetStyleInk } from "@/lib/types";
 import { Button, Chip, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
 import { useToast } from "@/components/Toast";
-import { pickNativeColor } from "@/lib/v2/nativeBridge";
 import {
   SAMPLE_WIDGET_BAG,
   WIDGET_DIM_MAX,
@@ -131,12 +130,11 @@ export function WidgetStyleEditor({
     patch({ zoom: z, x: clampOffset(draft.x ?? 0, z), y: clampOffset(draft.y ?? 0, z) });
   };
 
-  // "직접": iOS 색 고르기 창(실시간 현황과 같은 창). 불투명도는 쓰지 않는다
-  const pickColor = async (current: string | undefined, apply: (hex: string) => void) => {
-    const res = await pickNativeColor(current ?? "#2E5E4E", 1);
-    if (res) apply(res.color.toUpperCase());
-    else show("앱을 최신 버전으로 업데이트하면 색을 직접 고를 수 있어요");
-  };
+  // "직접": 웹 색 고르기(<input type="color">, 2026-10-19). iOS 앱에서는 WebKit이 같은 iOS 색 고르기 창을 띄우고,
+  // 고르는 동안 값이 바뀜 때마다 미리 보기에 바로 들어간다(닫으면 그대로 적용).
+  // 예전 네이티브 pickColor는 창을 X로 닫아야만 값을 돌려주고, 끌어내려 닫으면 아무것도 안 바뀌었다(SET-WID-05 · 06)
+  const inkInputRef = useRef<HTMLInputElement>(null);
+  const hexOf = (value: string) => value.toUpperCase();
 
   const swatchSelected = (hex: string) => draft.color?.toUpperCase() === hex;
   const customColor = draft.color && !WIDGET_SWATCHES.some((s) => s.hex === draft.color?.toUpperCase()) ? draft.color : null;
@@ -286,25 +284,28 @@ export function WidgetStyleEditor({
                 style={{ background: s.hex }}
               />
             ))}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!!customColor}
+            {/* 누르면 색 고르기 창. 입력칸을 동그라미 위에 투명하게 깔아 직접 누르게 한다(숨긴 칸을 스크립트로 열면 안 뜨는 브라우저가 있어서) */}
+            <label
               aria-label="직접 고르기"
-              onClick={() => void pickColor(draft.color, (hex) => patch({ color: hex }))}
               className={cx(
-                "relative aspect-square min-w-6 max-w-9 flex-1 rounded-full bg-rainbow",
+                "relative aspect-square min-w-6 max-w-9 flex-1 cursor-pointer overflow-hidden rounded-full bg-rainbow",
                 customColor && "ring-2 ring-brand ring-offset-2 ring-offset-card",
               )}
             >
               {customColor && (
                 <span
-                  className="absolute inset-2 rounded-full border-2 border-card"
+                  className="pointer-events-none absolute inset-2 rounded-full border-2 border-card"
                   // 직접 고른 색(런타임)
                   style={{ background: customColor }}
                 />
               )}
-            </button>
+              <input
+                type="color"
+                value={draft.color ?? "#2E5E4E"}
+                onChange={(e) => patch({ color: hexOf(e.target.value) })}
+                className="absolute inset-0 size-full cursor-pointer opacity-0"
+              />
+            </label>
           </div>
         )}
       </section>
@@ -320,24 +321,35 @@ export function WidgetStyleEditor({
               options={INK_OPTIONS}
               value={draft.ink}
               onChange={(ink) => {
-                if (ink === "custom") void pickColor(draft.inkColor, (hex) => patch({ ink: "custom", inkColor: hex }));
-                else patch({ ink });
+                if (ink === "custom") {
+                  // 고르자마자 색 고르기 창을 연다(안 뜨는 브라우저는 아래 "바꾸기" 줄로)
+                  patch({ ink: "custom", inkColor: draft.inkColor ?? "#FFFFFF" });
+                  inkInputRef.current?.click();
+                } else patch({ ink });
               }}
             />
-            {draft.ink === "custom" && draft.inkColor && (
-              <button
-                type="button"
-                onClick={() => void pickColor(draft.inkColor, (hex) => patch({ inkColor: hex }))}
-                className="flex items-center gap-2 self-start text-caption text-sub"
-              >
+            {/* 글자색 직접 고르기 칸은 늘 그려 둔다("직접"을 누른 그 자리에서 열 수 있게). 직접이 아니면 화면에서만 숨김 */}
+            <label
+              className={cx(
+                "relative flex cursor-pointer items-center gap-2 self-start text-caption text-sub",
+                draft.ink !== "custom" && "sr-only",
+              )}
+            >
                 <span
                   className="size-5 rounded-full border border-line"
                   // 직접 고른 글자색(런타임)
-                  style={{ background: draft.inkColor }}
+                  style={{ background: draft.inkColor ?? "#FFFFFF" }}
                 />
-                {draft.inkColor} · 바꾸기
-              </button>
-            )}
+                {draft.inkColor ?? "#FFFFFF"} · 바꾸기
+                <input
+                  ref={inkInputRef}
+                  type="color"
+                  aria-label="글자색 직접 고르기"
+                  value={draft.inkColor ?? "#FFFFFF"}
+                  onChange={(e) => patch({ ink: "custom", inkColor: hexOf(e.target.value) })}
+                  className="absolute inset-0 size-full cursor-pointer opacity-0"
+                />
+              </label>
           </div>
         )}
         <div className="flex items-center gap-4">

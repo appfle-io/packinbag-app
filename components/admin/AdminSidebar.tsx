@@ -114,7 +114,7 @@ export default function AdminSidebar({ email, nickname }: AdminIdentity) {
 
   return (
     <aside
-      className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-canvas transition-[width] duration-200 md:flex ${
+      className={`pt-safe sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-canvas transition-[width] duration-200 md:flex ${
         collapsed ? "w-18" : "w-60"
       }`}
     >
@@ -157,16 +157,19 @@ export function AdminMobileHeader({ email, nickname }: AdminIdentity) {
 
   return (
     <>
-      <div className="sticky top-0 z-[60] flex h-14 shrink-0 items-center gap-2 border-b border-line bg-canvas px-2 md:hidden">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="메뉴 열기"
-          className="inline-flex size-11 items-center justify-center rounded-field bg-transparent text-ink active:bg-fill"
-        >
-          <IconMenu2 size={22} stroke={1.75} />
-        </button>
-        <span className="truncate text-body-lg font-bold text-ink">{current?.label ?? "관리자"}</span>
+      {/* iOS 앱(웹뷰가 상태 줄 뒤까지 그림)에서 시계 · 배터리 줄을 피한다(pt-safe, 2026-10-19 ADM-NAV-07). 웹은 0 */}
+      <div className="pt-safe sticky top-0 z-[60] shrink-0 border-b border-line bg-canvas md:hidden">
+        <div className="flex h-14 items-center gap-2 px-2">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="메뉴 열기"
+            className="inline-flex size-11 items-center justify-center rounded-field bg-transparent text-ink active:bg-fill"
+          >
+            <IconMenu2 size={22} stroke={1.75} />
+          </button>
+          <span className="truncate text-body-lg font-bold text-ink">{current?.label ?? "관리자"}</span>
+        </div>
       </div>
 
       {open && (
