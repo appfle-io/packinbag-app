@@ -157,5 +157,15 @@ service firebase.storage {
         request.resource.size < 3 * 1024 * 1024;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // 이벤트 커버 · 본문(2026-10-19, lib/eventsService): 마스터만 올리고 지운다. 읽기는 공개(앱은 내려받기 주소로 띄움).
+    // 이미지 또는 HTML, 10MB 미만(앱은 커버 2MB · 본문 8MB로 더 좁게 막음)
+    match /events/{eventId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isMaster() &&
+        request.resource.size < 10 * 1024 * 1024 &&
+        (isImage(request.resource.contentType) || request.resource.contentType.matches('text/html.*'));
+      allow delete: if isMaster();
+    }
   }
 }

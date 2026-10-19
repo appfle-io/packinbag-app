@@ -52,6 +52,10 @@ import { useShellCommands } from "@/lib/v2/shell";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { getPendingBags } from "@/lib/v2/pendingCreates";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
+import SlideScreen from "@/components/SlideScreen";
+import { EventDetailScreen } from "@/components/v2/events/EventScreens";
+import { useEvents } from "@/lib/eventsService";
+import { EVENT_CAROUSEL_MAX, splitEvents, type AppEvent } from "@/lib/events";
 
 // AppShell이 넘기는 props. (onOpenQuickPack / onSelectModeChange는 쓰지 않는다: 빠른팩·다중선택은 다른 곳에서)
 export interface HomeScreenProps {
@@ -288,6 +292,13 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   const hasAnyBag = bags.length > 0;
   const listEmpty = highlights.length === 0 && sections.pinned.length === 0 && sections.list.length === 0;
 
+  // 이벤트(2026-10-19, EVT-HOME): 게시 기간 안의 것만 캐러셀 뒤에. "전체"에서만(폴더를 고르면 그 폴더 가방만). 오프라인 모드 · 체험은 읽지 않음
+  const allEvents = useEvents(!isOfflineMode);
+  const carouselEvents = activeFolderId ? [] : splitEvents(allEvents).active.slice(0, EVENT_CAROUSEL_MAX);
+  const [openEvent, setOpenEvent] = useState<AppEvent | null>(null);
+  const [shownEvent, setShownEvent] = useState<AppEvent | null>(null);
+  if (openEvent && openEvent !== shownEvent) setShownEvent(openEvent);
+
   // --- 화면 -------------------------------------------------------------------------------
   // 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(팩 탭과 똑같이). 여기서 따로 패딩을 주지 않는다.
   const showChips = !searching && personal && (hasAnyBag || folders.length > 0);
@@ -397,8 +408,10 @@ export default function HomeScreenV2(props: HomeScreenProps) {
             <BagCarousel
               highlights={highlights}
               lockedIds={lockedBagIds}
+              events={carouselEvents}
               onOpen={(s) => onOpenBag(s.bag)}
               onMenu={(s) => setActionBagId(s.bag.id)}
+              onOpenEvent={setOpenEvent}
             />
 
             {sections.pinned.length > 0 && (
@@ -485,6 +498,11 @@ export default function HomeScreenV2(props: HomeScreenProps) {
         onBack={() => setView("home")}
         swipeEnabled={!searching}
       />
+
+      {/* 홈 캐러셀에서 연 이벤트(EVT-HOME) */}
+      <SlideScreen active={!!openEvent} onBackdropClick={() => setOpenEvent(null)} swipeBack>
+        {shownEvent && <EventDetailScreen event={shownEvent} onBack={() => setOpenEvent(null)} />}
+      </SlideScreen>
 
       {/* 가방 목록 정렬 */}
       <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="정렬">

@@ -372,6 +372,17 @@ service cloud.firestore {
       // 규칙을 지워 클라이언트는 더 읽거나 쓸 수 없다(2026-10-08). 남겨 두면 멤버가 아무 데이터나 쌓을 수 있었다.
     }
 
+    // 이벤트(2026-10-19, lib/eventsService): 게시한 것만 누구나 읽기(로그인 없이도 - 홍보 내용), 목록은 where published == true 조건이 있어야 한다.
+    // 마스터는 숨긴 것까지 읽고 쓴다
+    match /events/{eventId} {
+      allow read: if resource.data.get('published', false) == true || isMaster();
+      allow create, update: if isMaster() &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 30 &&
+        request.resource.data.startDate is string && request.resource.data.endDate is string &&
+        request.resource.data.published is bool;
+      allow delete: if isMaster();
+    }
+
     // 팩/폴더 웹 공개 공유 스냅샷 (app/api/share-pack Admin SDK에서 작성)
     // 토큰을 아는 문서 하나만 읽을 수 있다. 예전에는 read(= get + list)라 링크를 받지 않은 사람도
     // 공유된 팩 전체 목록을 긁을 수 있었다(2026-10-08). 공유 페이지(/p)는 서버가 읽는다.

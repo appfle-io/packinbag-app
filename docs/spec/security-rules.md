@@ -147,3 +147,10 @@
 | ID | 규칙 |
 |---|---|
 | RULE-STO-WID-01 | `users/{userId}/widgetPhotos/{fileName}`: 읽기(목록 포함) · 지우기는 본인. 올리기는 본인 + `isPremium()` + `image/jpeg` + 3MB 미만. 위젯(기기)은 내려받기 주소(토큰)로 받아 규칙을 거치지 않는다(STOR-NOTE-01과 같은 성질, 본인 계정 문서에만 주소가 있음). 프리미엄이 끝나도 이미 올린 사진은 남고, 앱이 기본 바탕으로 그린다(SET-WID-03) |
+
+## RULE-EVT 이벤트 (10/19)
+
+| ID | 규칙 |
+|---|---|
+| RULE-EVT-01 | `events/{id}`: 읽기 = `published == true`(로그인 없이도) 또는 마스터. 목록은 `where published == true`가 있어야 통과(앱 `useEvents`). 만들기 · 고치기 = 마스터 + `title` 문자열 30자 이하 + `startDate` · `endDate` 문자열 + `published` bool. 지우기 = 마스터 |
+| RULE-EVT-02 | Storage `events/{eventId}/{fileName}`: 읽기 공개. 올리기 = 마스터 + 10MB 미만 + 이미지 또는 `text/html…`. 지우기 = 마스터. 본문 HTML은 Google Storage 주소에서 열려 팩인백 주소와 섞이지 않고, 앱은 `sandbox=""` iframe으로 띄워 스크립트도 막는다(events.md EVT-VIEW-02) |

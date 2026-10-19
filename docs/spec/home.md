@@ -25,7 +25,7 @@
 | ID | 규칙 | 값 | 코드 |
 |---|---|---|---|
 | HOME-LIM-01 | 고정 | 최대 5 | `lib/listSort.ts` `V2_MAX_PINNED_BAGS` |
-| HOME-LIM-02 | 캐러셀 카드 | 최대 5장 | `homeModel` `HIGHLIGHT_MAX` |
+| HOME-LIM-02 | 캐러셀 카드 | 가방 최대 5장 + 이벤트 최대 3장(가방 뒤, "전체" 칩에서만 — events.md EVT-HOME, 10/19) | `homeModel` `HIGHLIGHT_MAX` · `lib/events` `EVENT_CAROUSEL_MAX` |
 | HOME-LIM-03 | "곧 출발" | 출발일까지 0~7일 | `SOON_DAYS` |
 | HOME-LIM-04 | 보관 제안 | 출발일이 7일 이상 지남 | `ARCHIVE_SUGGEST_DAYS_PAST` |
 | HOME-LIM-05 | 가방 목록 한 장 | 5개 | `BagListPager` `BAG_PAGE_SIZE` |

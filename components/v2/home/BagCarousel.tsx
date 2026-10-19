@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconPlayerPause, IconPlayerPlay } from "@tabler/icons-react";
 import { IconButton, cx } from "@/components/v2/ui";
+import { EventSlideCard } from "@/components/v2/events/EventScreens";
+import type { AppEvent } from "@/lib/events";
 import { FeaturedBagCard } from "./BagRows";
 import { STATE_LABEL, type BagSummary, type Highlight } from "./homeModel";
 
@@ -35,19 +37,28 @@ function eyebrowOf(h: Highlight): string {
 // - 5초마다 자동으로 다음 장(마지막 다음은 처음). 손으로 만지면 그 자리에서 멈추고, ▶로 다시 돈다
 // - 1장뿐이면 점·버튼·자동 넘김 없이 카드만
 // 라이브러리 없이 CSS scroll-snap. 서버 호출 없음.
+// 이벤트(2026-10-19, EVT-HOME): 게시 기간 안의 이벤트를 가방 뒤에 이어 붙인다(부르는 쪽이 골라 넘김). 가방이 없어도 이벤트만으로 보인다
 export function BagCarousel({
   highlights,
   lockedIds,
+  events = [],
   onOpen,
   onMenu,
+  onOpenEvent,
 }: {
   highlights: Highlight[];
   lockedIds?: Set<string>;
+  events?: AppEvent[];
   onOpen: (s: BagSummary) => void;
   onMenu: (s: BagSummary) => void;
+  onOpenEvent?: (e: AppEvent) => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const count = highlights.length;
+  const slides: ({ key: string; bag: Highlight } | { key: string; event: AppEvent })[] = [
+    ...highlights.map((h) => ({ key: `b:${h.summary.bag.id}`, bag: h })),
+    ...events.map((e) => ({ key: `e:${e.id}`, event: e })),
+  ];
+  const count = slides.length;
   const [active, setActive] = useState(0);
   const index = Math.min(active, Math.max(0, count - 1));
   const [playing, setPlaying] = useState(initialPlaying);
@@ -120,7 +131,7 @@ export function BagCarousel({
   if (count === 0) return null;
 
   return (
-    <section aria-roledescription="carousel" aria-label="눈여겨볼 가방" className="flex flex-col gap-1">
+    <section aria-roledescription="carousel" aria-label="눈여겨볼 가방 · 이벤트" className="flex flex-col gap-1">
       <div
         ref={scrollerRef}
         onScroll={onScroll}
@@ -128,20 +139,24 @@ export function BagCarousel({
         onWheel={hold}
         className="pib-v2-no-scrollbar relative -mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5"
       >
-        {highlights.map((h, i) => (
+        {slides.map((s, i) => (
           <div
-            key={h.summary.bag.id}
+            key={s.key}
             aria-roledescription="slide"
             aria-label={`${i + 1} / ${count}`}
             className="w-full shrink-0 snap-start"
           >
-            <FeaturedBagCard
-              summary={h.summary}
-              eyebrow={eyebrowOf(h)}
-              locked={lockedIds?.has(h.summary.bag.id)}
-              onOpen={() => onOpen(h.summary)}
-              onMenu={() => onMenu(h.summary)}
-            />
+            {"bag" in s ? (
+              <FeaturedBagCard
+                summary={s.bag.summary}
+                eyebrow={eyebrowOf(s.bag)}
+                locked={lockedIds?.has(s.bag.summary.bag.id)}
+                onOpen={() => onOpen(s.bag.summary)}
+                onMenu={() => onMenu(s.bag.summary)}
+              />
+            ) : (
+              <EventSlideCard event={s.event} onOpen={() => onOpenEvent?.(s.event)} />
+            )}
           </div>
         ))}
       </div>
@@ -153,11 +168,11 @@ export function BagCarousel({
           </IconButton>
 
           <div className="flex items-center">
-            {highlights.map((h, i) => (
+            {slides.map((s, i) => (
               <button
-                key={h.summary.bag.id}
+                key={s.key}
                 type="button"
-                aria-label={`${i + 1}번째 가방 보기`}
+                aria-label={`${i + 1}번째 ${"bag" in s ? "가방" : "이벤트"} 보기`}
                 aria-current={i === index ? "true" : undefined}
                 onClick={() => {
                   hold();
