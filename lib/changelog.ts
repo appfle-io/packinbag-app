@@ -19,6 +19,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    // 10/20 이벤트 기능은 실제로 1.7.3 하나로 배포됨(1.7.4는 소개 페이지만 바뀜, 앱 알림 없음)
+    version: "1.7.3",
+    date: "2026-10-20",
+    items: [
+      "이벤트 버튼을 누르면 갈 곳을 골라 이동해요",
+      "이벤트를 앱 없이 링크로도 볼 수 있어요",
+    ],
+  },
+  {
     version: "1.7.2",
     date: "2026-10-19",
     items: [
