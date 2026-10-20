@@ -25,6 +25,7 @@ export interface PackPrivacyRow {
 export function PackSheet({
   pack,
   onClose,
+  nameLocked = false,
   onRename,
   onSetAllChecked,
   onToggleAutoSync,
@@ -35,6 +36,8 @@ export function PackSheet({
 }: {
   pack: Pack | null;
   onClose: () => void;
+  // AI 추천 팩(날씨 추천 · 가볼 곳)은 이름을 바꿀 수 없다(2026-10-20)
+  nameLocked?: boolean;
   onRename: (name: string) => void;
   onSetAllChecked: (checked: boolean) => void;
   onToggleAutoSync: () => void;
@@ -58,6 +61,7 @@ export function PackSheet({
         <PackSheetBody
           key={pack.id}
           pack={pack}
+          nameLocked={nameLocked}
           commitRef={commitRef}
           onClose={onClose}
           onRename={onRename}
@@ -75,6 +79,7 @@ export function PackSheet({
 
 function PackSheetBody({
   pack,
+  nameLocked,
   commitRef,
   onClose,
   onRename,
@@ -86,6 +91,7 @@ function PackSheetBody({
   privacyLock,
 }: {
   pack: Pack;
+  nameLocked: boolean;
   commitRef: React.RefObject<(() => void) | null>;
   onClose: () => void;
   onRename: (name: string) => void;
@@ -104,7 +110,7 @@ function PackSheetBody({
   const deletingRef = useRef(false);
   const commitName = () => {
     const trimmed = name.trim();
-    if (deletingRef.current || !trimmed || trimmed === savedNameRef.current) return;
+    if (nameLocked || deletingRef.current || !trimmed || trimmed === savedNameRef.current) return;
     savedNameRef.current = trimmed;
     onRename(trimmed);
   };
@@ -128,9 +134,15 @@ function PackSheetBody({
         <span className="text-caption font-semibold text-sub">{isMemo ? "메모 이름" : "팩 이름"}</span>
         <input
           value={name}
+          readOnly={nameLocked}
+          aria-readonly={nameLocked || undefined}
           onChange={(e) => setName(e.target.value)}
-          className="h-12 rounded-field border border-line bg-card px-4 text-body-lg font-semibold outline-none focus:border-ink"
+          className={cx(
+            "h-12 rounded-field border border-line px-4 text-body-lg font-semibold outline-none",
+            nameLocked ? "bg-fill text-sub" : "bg-card focus:border-ink",
+          )}
         />
+        {nameLocked && <span className="text-caption text-faint">AI 추천으로 만든 팩이라 이름을 바꿀 수 없어요</span>}
       </label>
       <div className="flex flex-col rounded-card border border-line bg-card px-4">
         {!isMemo && (

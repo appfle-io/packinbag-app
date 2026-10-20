@@ -99,6 +99,22 @@ export function bagMemberLimit(ownerPremium: boolean): number {
   return ownerPremium ? MAX_BAG_MEMBERS : FREE_MAX_BAG_MEMBERS;
 }
 
+// 가방 하나에 넣을 수 있는 팩 개수(체크 팩 + 메모 + 미분류 + AI 추천 팩 모두). 2026-10-20 전에는 모두 10개.
+// 기준은 "지금 팩을 넣는 사람"의 프리미엄 여부(가방 화면 · 단축어). 이미 더 많이 든 가방은 그대로 두고 새로 만드는 것만 막는다
+export const FREE_MAX_PACKS_PER_BAG = 5;
+export const MAX_PACKS_PER_BAG = 30;
+
+export function bagPackLimit(premium: boolean): number {
+  return premium ? MAX_PACKS_PER_BAG : FREE_MAX_PACKS_PER_BAG;
+}
+
+/** 가방 팩이 가득 찼을 때 안내(무료면 프리미엄 개수도) */
+export function bagPackLimitMessage(premium: boolean): string {
+  return premium
+    ? `가방 하나에는 팩을 최대 ${MAX_PACKS_PER_BAG}개까지 넣을 수 있어요`
+    : `무료는 가방 하나에 팩을 ${FREE_MAX_PACKS_PER_BAG}개까지 넣을 수 있어요. 프리미엄은 ${MAX_PACKS_PER_BAG}개까지예요`;
+}
+
 // 무료 사용자가 팩 보관함에 보관할 수 있는 팩 & 폴더 총합 최대 개수 (프리미엄은 무제한)
 // (하단 "+" 빠른입력 시스템 팩은 이 카운트에서 제외되어 항상 무료 생성/저장 허용)
 export const FREE_MAX_LIBRARY_PACKS = 10;
@@ -183,6 +199,7 @@ export function computeLockedPackIds(libraryPacks: Pack[]): Set<string> {
 // 회원에게는 항상 보인다). 가방/팩 화면(BagEditorScreen, BagCard, DesktopSidebar 등)에서 bag.packs를
 // 그릴 때는 항상 이 함수를 거친 결과를 써야 한다 - 저장/수정 로직(updatePacks 등)은 원본 bag.packs를
 // 그대로 써야 하므로 이 함수와 섞으면 안 된다(이건 순수하게 "화면에 보여줄 목록"만 계산한다).
+// 날씨 · 명소 추천(2026-10-20)의 "날씨 추천" · "가볼 곳" 팩도 이 플래그로 같이 숨는다(aiRecommendKind로 구분)
 export function getViewablePacks<T extends Pack>(packs: T[], premium: boolean): T[] {
   return premium ? packs : packs.filter((p) => !p.aiRecommendSource);
 }

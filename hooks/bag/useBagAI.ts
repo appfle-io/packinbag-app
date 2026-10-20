@@ -7,7 +7,7 @@ import { getApiUrl } from "@/lib/apiBase";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
 import { newId } from "./ids";
-import { MAX_PACKS_PER_BAG } from "./useBagItems";
+import type { PackLimit } from "./useBagItems";
 import { findInbox } from "./bagStats";
 
 export interface BagAIOptions {
@@ -16,6 +16,7 @@ export interface BagAIOptions {
   premium: boolean;
   offline: boolean;
   onPremiumRequired: (message: string) => void;
+  packLimit: PackLimit;
 }
 
 interface OrganizeResponse {
@@ -24,9 +25,9 @@ interface OrganizeResponse {
 }
 
 // "팩으로 나눠 담기": 미분류 팩의 아이템만 AI(app/api/organize-bag)로 분류해서
-// 이름이 같은 기존 팩에 이어 담고, 없으면 새 팩을 만든다(팩 10개 제한). 분류되지 않은 건 미분류에 남는다.
+// 이름이 같은 기존 팩에 이어 담고, 없으면 새 팩을 만든다(팩 한도까지). 분류되지 않은 건 미분류에 남는다.
 // 과금 기준은 현행 유지: 구 화면의 "AI 정리"와 같이 프리미엄 전용(서버는 무료 하루 한도도 따로 검사).
-export function useBagAI({ doc, user, premium, offline, onPremiumRequired }: BagAIOptions) {
+export function useBagAI({ doc, user, premium, offline, onPremiumRequired, packLimit }: BagAIOptions) {
   const { bag, update, guard } = doc;
   const { show } = useToast();
   const [organizing, setOrganizing] = useState(false);
@@ -77,7 +78,7 @@ export function useBagAI({ doc, user, premium, offline, onPremiumRequired }: Bag
           const idx = packs.findIndex((p) => !p.isInbox && p.kind !== "editor" && p.name.trim() === g.name.trim());
           if (idx >= 0) {
             packs = packs.map((p, i) => (i === idx ? { ...p, items: [...p.items, ...items] } : p));
-          } else if (packs.length < MAX_PACKS_PER_BAG) {
+          } else if (packs.length < packLimit.max) {
             // 미분류 바로 아래에 새 팩을 만든다
             const at = packs.findIndex((p) => p.id === inbox.id) + 1;
             packs.splice(at, 0, { id: newId(), name: g.name.trim() || "기타", items });
@@ -101,7 +102,7 @@ export function useBagAI({ doc, user, premium, offline, onPremiumRequired }: Bag
     } finally {
       setOrganizing(false);
     }
-  }, [guard, offline, user, premium, onPremiumRequired, bag, update, show]);
+  }, [guard, offline, user, premium, onPremiumRequired, bag, update, show, packLimit.max]);
 
   return { organizing, organizeInbox, aiAvailable: !offline && !!user };
 }

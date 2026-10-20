@@ -1,14 +1,61 @@
+// 날씨 · 명소 추천(가방 더보기 > 날씨 · 명소 추천)에 쓰는 날씨 조회와 기본 추천. 서버 비용 없음(Open-Meteo는 무료 · 키 없음).
+// 2026-10-20: 하루치(날씨 코드 · 기온)만 보던 것을 "조회한 날부터 3일"(오늘 · 내일 · 모레)로 바꾸고,
+// 강수 확률 · 자외선 · 바람 · 체감 기온까지 받아 기본 추천을 이유와 함께 만든다. AI 추천은 app/api/ai-weather-recommend.
+
+export interface WeatherDay {
+  date: string; // YYYY-MM-DD(그 장소 시간대)
+  label: string; // 오늘 · 내일 · 모레
+  weatherText: string;
+  tempMin: number;
+  tempMax: number;
+  feelsMin: number;
+  feelsMax: number;
+  // 0~100. 모르면 null
+  rainProb: number | null;
+  uvMax: number | null;
+  // m/s
+  windMax: number | null;
+  hasRain: boolean;
+  hasSnow: boolean;
+}
+
+export interface WeatherRecommendation {
+  text: string;
+  icon: string;
+  // 왜 챙기면 좋은지 한 줄(2026-10-20, 예전 캐시에는 없음)
+  reason?: string;
+}
+
 export interface WeatherInfo {
   city: string;
+  // 아래 넷은 첫날(오늘) 기준. 빠진 것 확인 등 예전 코드가 그대로 읽는다
   weatherText: string;
   tempMin: number;
   tempMax: number;
   hasRain: boolean;
   isCold: boolean;
   isHot: boolean;
-  recommendations: { text: string; icon: string }[];
-  // 예보 날짜(YYYY-MM-DD). 없으면 오늘 날씨(구 데이터 포함)
+  recommendations: WeatherRecommendation[];
+  // 받은 날짜(첫날, YYYY-MM-DD). 예전 캐시는 출발일 예보일이거나 없음
   forDate?: string;
+  // 3일 예보(2026-10-20). 예전 캐시에는 없다
+  days?: WeatherDay[];
+}
+
+// AI 추천 결과(app/api/ai-weather-recommend). 가방 캐시(aiRecommendCache.ai)에 그대로 둔다
+export interface WeatherAiItem {
+  text: string;
+  reason: string;
+}
+export interface WeatherAiPlace {
+  name: string;
+  desc: string;
+}
+export interface WeatherAiResult {
+  summary: string;
+  items: WeatherAiItem[];
+  places: WeatherAiPlace[];
+  at: string; // ISO
 }
 
 // 라틴 알파벳만으로 이루어진 단어인지 확인. app/api/geocode/route.ts와 동일한 기준 -
@@ -26,11 +73,13 @@ const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
  * 지오코딩 서비스 - 서버 전용 /api/geocode(Google Geocoding & Nominatim)를 호출하여
  * 사용자가 입력한 전 세계 어떤 한글/영문 지명이든 자동으로 위도/경도를 찾아낸다.
  * 사전 맵이나 하드코딩된 지명 목록은 존재하지 않는다.
+ * whole: 직접 입력한 장소처럼 글 전체를 먼저 한 번 찾아본다(2026-10-20, "서귀포 중문" 같은 두 단어)
  */
 export async function resolveCityInfo(
   text: string,
   // /api/geocode는 로그인한 사람만 부를 수 있다(유료 API 보호, 2026-10-06). 없으면 서버가 401로 돌려보낸다
-  idToken?: string
+  idToken?: string,
+  whole = false,
 ): Promise<{ lat: number; lon: number; name: string } | null> {
   if (!text) return null;
   const clean = text.trim();
@@ -49,8 +98,9 @@ export async function resolveCityInfo(
     .filter((w) => (isPureAsciiWord(w) ? w.length >= 4 : w.length >= 2))
     .sort((a, b) => b.length - a.length)
     .slice(0, MAX_CANDIDATE_WORDS);
+  const candidates = whole && words.length > 1 ? [clean.slice(0, 40), ...words.slice(0, 3)] : words;
 
-  for (const word of words) {
+  for (const word of candidates) {
     try {
       const res = await fetch(`/api/geocode?query=${encodeURIComponent(word)}`, {
         headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
@@ -73,62 +123,127 @@ export async function resolveCityInfo(
   return null;
 }
 
-// date(YYYY-MM-DD)를 주면 그날 예보를, 없으면 오늘 날씨를 본다. Open-Meteo 예보는 오늘부터 16일까지만 되므로
-// 그 밖의 날짜는 호출하는 쪽에서 넘기지 않는다(forecastDateFor 참고). Open-Meteo는 무료·키 없음.
+const DAY_LABELS = ["오늘", "내일", "모레"];
+
+function weatherTextOf(code: number): string {
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "비 소식";
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return "눈 소식";
+  if (code >= 95) return "뇌우";
+  if (code === 45 || code === 48) return "안개";
+  if (code === 3) return "흐림";
+  if (code >= 1 && code <= 2) return "구름 조금";
+  return "맑음";
+}
+
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** 3일 예보로 기본 추천(이유 한 줄과 함께). 순수 함수 */
+export function baseRecommendations(days: WeatherDay[]): WeatherRecommendation[] {
+  const out: WeatherRecommendation[] = [];
+  const add = (text: string, reason: string) => {
+    if (!out.some((r) => r.text === text)) out.push({ text, icon: "", reason });
+  };
+  const rainDay = days.find((d) => d.hasRain || (d.rainProb ?? 0) >= 60);
+  const maybeRain = days.find((d) => (d.rainProb ?? 0) >= 30);
+  const windiest = days.reduce<WeatherDay | null>((m, d) => ((d.windMax ?? 0) > (m?.windMax ?? 0) ? d : m), null);
+  const strongWind = windiest && (windiest.windMax ?? 0) >= 9 ? windiest : null;
+  const coldest = days.reduce<WeatherDay | null>((m, d) => (d.feelsMin < (m?.feelsMin ?? 99) ? d : m), null);
+  const hottest = days.reduce<WeatherDay | null>((m, d) => (d.tempMax > (m?.tempMax ?? -99) ? d : m), null);
+  const uvDay = days.reduce<WeatherDay | null>((m, d) => ((d.uvMax ?? 0) > (m?.uvMax ?? 0) ? d : m), null);
+  const gapDay = days.find((d) => d.tempMax - d.tempMin >= 10);
+
+  if (rainDay) {
+    const p = rainDay.rainProb != null ? ` · 강수 확률 ${rainDay.rainProb}%` : "";
+    if (strongWind) add("우비", `${rainDay.label} 비${p}, 바람도 강해 우산보다 편해요`);
+    add("접이식 우산", `${rainDay.label} 비 소식${p}`);
+    add("여벌 양말", "신발이 젖으면 갈아 신어요");
+  } else if (maybeRain) {
+    add("작은 우산", `${maybeRain.label} 강수 확률 ${maybeRain.rainProb}% — 혹시 몰라요`);
+  }
+  if (days.some((d) => d.hasSnow)) add("미끄럼 방지 신발", "눈 소식이 있어요");
+  if (strongWind) add("바람막이", `${strongWind.label} 바람이 초속 ${Math.round(strongWind.windMax ?? 0)}m까지 불어요`);
+  if (coldest && coldest.feelsMin <= 3) {
+    add("두꺼운 겉옷", `${coldest.label} 체감 ${coldest.feelsMin}°까지 내려가요`);
+    add("핫팩", "손과 주머니를 따뜻하게");
+  } else if (coldest && coldest.feelsMin <= 12) {
+    add("가벼운 겉옷", `${coldest.label} 아침저녁 체감 ${coldest.feelsMin}°`);
+  }
+  if (gapDay) add("걸칠 옷", `${gapDay.label} 일교차가 ${gapDay.tempMax - gapDay.tempMin}°예요`);
+  if (hottest && hottest.tempMax >= 28) {
+    add("물병", `${hottest.label} 최고 ${hottest.tempMax}°로 더워요`);
+    add("손풍기", "더운 낮에 쓰기 좋아요");
+  }
+  if (uvDay && (uvDay.uvMax ?? 0) >= 6) {
+    add("선크림", `${uvDay.label} 자외선 지수 ${Math.round(uvDay.uvMax ?? 0)}(높음)`);
+    add("모자 · 선글라스", "햇빛이 강해요");
+  } else if (uvDay && (uvDay.uvMax ?? 0) >= 3) {
+    add("선크림", `${uvDay.label} 자외선 지수 ${Math.round(uvDay.uvMax ?? 0)}(보통)`);
+  }
+  if (out.length === 0) {
+    add("편한 신발", "날씨가 좋아 많이 걷기 좋아요");
+    add("보조배터리", "사진을 많이 찍게 돼요");
+  }
+  return out;
+}
+
+// 조회한 날부터 3일(오늘 · 내일 · 모레)을 받는다. Open-Meteo는 무료 · 키 없음.
+// date(YYYY-MM-DD)를 주면 예전처럼 그 하루만(다른 코드 호환)
 export async function fetchWeatherForCity(lat: number, lon: number, cityName: string, date?: string): Promise<WeatherInfo | null> {
   try {
-    const range = date ? `&start_date=${date}&end_date=${date}` : "";
+    const range = date ? `&start_date=${date}&end_date=${date}` : "&forecast_days=3";
+    const daily = [
+      "weathercode",
+      "temperature_2m_max",
+      "temperature_2m_min",
+      "apparent_temperature_max",
+      "apparent_temperature_min",
+      "precipitation_probability_max",
+      "uv_index_max",
+      "wind_speed_10m_max",
+    ].join(",");
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto${range}`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=${daily}&wind_speed_unit=ms&timezone=auto${range}`
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const daily = data?.daily;
-    if (!daily || !daily.weathercode) return null;
+    const d = data?.daily;
+    if (!d || !Array.isArray(d.weathercode) || d.weathercode.length === 0) return null;
 
-    const weatherCode = daily.weathercode[0] ?? 0;
-    const tempMax = Math.round(daily.temperature_2m_max[0] ?? 20);
-    const tempMin = Math.round(daily.temperature_2m_min[0] ?? 10);
-
-    const hasRain = (weatherCode >= 51 && weatherCode <= 67) || (weatherCode >= 80 && weatherCode <= 82);
-    const hasSnow = (weatherCode >= 71 && weatherCode <= 77) || (weatherCode >= 85 && weatherCode <= 86);
-    const isCold = tempMin <= 8;
-    const isHot = tempMax >= 28;
-
-    let weatherText = "맑음";
-    if (hasRain) weatherText = "비 소식";
-    else if (hasSnow) weatherText = "눈 소식";
-    else if (weatherCode >= 1 && weatherCode <= 3) weatherText = "구름 약간";
-    else if (weatherCode >= 45) weatherText = "안개/흐림";
-
-    const recommendations: { text: string; icon: string }[] = [];
-    if (hasRain) {
-      recommendations.push({ text: "우산 / 방수팩", icon: "" });
-    }
-    if (hasSnow || isCold) {
-      recommendations.push({ text: "경량패딩 / 핫팩", icon: "" });
-      recommendations.push({ text: "따뜻한 보온병", icon: "" });
-    }
-    if (isHot) {
-      recommendations.push({ text: "선글라스 / 모자", icon: "" });
-      recommendations.push({ text: "자외선 차단제 (선크림)", icon: "" });
-      recommendations.push({ text: "손풍기 / 부채", icon: "" });
-    }
-    if (recommendations.length === 0) {
-      recommendations.push({ text: "편안한 산책화", icon: "" });
-      recommendations.push({ text: "보조배터리", icon: "" });
-    }
+    const days: WeatherDay[] = (d.time as string[]).slice(0, 3).map((day, i) => {
+      const code = num(d.weathercode[i]) ?? 0;
+      const tempMax = Math.round(num(d.temperature_2m_max?.[i]) ?? 20);
+      const tempMin = Math.round(num(d.temperature_2m_min?.[i]) ?? 10);
+      const prob = num(d.precipitation_probability_max?.[i]);
+      const uv = num(d.uv_index_max?.[i]);
+      const wind = num(d.wind_speed_10m_max?.[i]);
+      return {
+        date: day,
+        label: date ? "그날" : DAY_LABELS[i] ?? day,
+        weatherText: weatherTextOf(code),
+        tempMin,
+        tempMax,
+        feelsMin: Math.round(num(d.apparent_temperature_min?.[i]) ?? tempMin),
+        feelsMax: Math.round(num(d.apparent_temperature_max?.[i]) ?? tempMax),
+        rainProb: prob == null ? null : Math.round(prob),
+        uvMax: uv == null ? null : Math.round(uv * 10) / 10,
+        windMax: wind == null ? null : Math.round(wind * 10) / 10,
+        hasRain: (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95,
+        hasSnow: (code >= 71 && code <= 77) || (code >= 85 && code <= 86),
+      };
+    });
+    const first = days[0];
 
     return {
       city: cityName,
-      weatherText,
-      tempMin,
-      tempMax,
-      hasRain,
-      isCold,
-      isHot,
-      recommendations,
-      forDate: date,
+      weatherText: first.weatherText,
+      tempMin: first.tempMin,
+      tempMax: first.tempMax,
+      hasRain: first.hasRain,
+      isCold: first.tempMin <= 8,
+      isHot: first.tempMax >= 28,
+      recommendations: baseRecommendations(days),
+      forDate: first.date,
+      days,
     };
   } catch (err) {
     console.error("[팩인백] 날씨 조회 실패:", err);
@@ -136,7 +251,7 @@ export async function fetchWeatherForCity(lat: number, lon: number, cityName: st
   }
 }
 
-// 출발일이 오늘~15일 뒤면 그날(예보 가능), 아니면 undefined(오늘 날씨로 대신)
+// 출발일이 오늘~15일 뒤면 그날(예보 가능), 아니면 undefined. 날씨 · 명소 추천은 10/20부터 출발일과 상관없이 오늘부터 3일을 본다
 export function forecastDateFor(travelDate: string | undefined): string | undefined {
   if (!travelDate || !/^\d{4}-\d{2}-\d{2}$/.test(travelDate)) return undefined;
   const today = new Date();
@@ -147,7 +262,7 @@ export function forecastDateFor(travelDate: string | undefined): string | undefi
 }
 
 // 명소·맛집 추천(app/api/ai-travel-places)을 부르던 fetchAiTravelPlaces는 v2에서 쓰는 곳이 없어 라우트와 함께 지웠다(2026-10-06).
-// 아래 타입은 예전 가방 문서의 aiRecommendCache.places 때문에 남겨 둔다.
+// 아래 타입은 예전 가방 문서의 aiRecommendCache.places 때문에 남겨 둔다. 10/20 명소 추천은 aiRecommendCache.ai.places
 type TravelRecommendationCategory = "attraction" | "food" | "specialty";
 
 export interface TravelRecommendation {
@@ -156,4 +271,3 @@ export interface TravelRecommendation {
   desc: string;
   icon: string;
 }
-

@@ -9,7 +9,7 @@ import { splitBagForSave } from "@/lib/bagNotesCore";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
 import { newId } from "./ids";
-import { MAX_PACKS_PER_BAG } from "./useBagItems";
+import type { PackLimit } from "./useBagItems";
 
 // 보관함 팩을 가방에 넣을 사본으로 만든다. 구 PackImportModal의 cloneAsNewPack과 같은 규칙:
 // 보관함 원본과 연결(linkedLibraryPackId)해 두고, 아이템 마감일은 떼어낸다.
@@ -33,42 +33,44 @@ export interface PackOpsOptions {
   libraryPacks: Pack[];
   currentUid: string;
   onTrashPackFromBag: (pack: Pack, sourceBagId: string, sourceBagName: string) => void;
+  packLimit: PackLimit;
 }
 
 // 팩 단위 조작: 보관함에서 불러오기, 새 팩/메모 만들기, 이름 변경, 삭제(휴지통), 메모팩 저장,
 // 메모팩 보관함 자동 동기화. 구 BagEditorScreen의 handleImport / handleAddPack / handleRenamePack /
 // executeDeletePack / handleSaveNotePack / handleToggleAutoSync + 자동 동기화 effect와 같은 규칙이다.
-export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag }: PackOpsOptions) {
+export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, packLimit }: PackOpsOptions) {
   const { bag, update, guard } = doc;
   const { show } = useToast();
+  const maxPacks = packLimit.max;
 
-  // 불러오기: 가방 맨 위에 넣는다. 구 화면은 10개를 넘으면 오래된 팩을 잘라냈지만,
+  // 불러오기: 가방 맨 위에 넣는다. 구 화면은 한도를 넘으면 오래된 팩을 잘라냈지만,
   // v2는 기존 팩을 잃지 않도록 남은 자리만큼만 넣고 알려준다.
   const importPacks = useCallback(
     (libraryEntries: Pack[]): number => {
       if (guard()) return 0;
-      const room = Math.max(0, MAX_PACKS_PER_BAG - bag.packs.length);
+      const room = Math.max(0, maxPacks - bag.packs.length);
       const picked = libraryEntries.filter((p) => p.type !== "folder").slice(0, room).map(cloneLibraryPackForBag);
       if (picked.length === 0) {
-        show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+        show(packLimit.message);
         return 0;
       }
       update((prev) => ({ ...prev, packs: [...picked, ...prev.packs] }));
       if (picked.length < libraryEntries.length) {
-        show(`자리가 모자라 ${picked.length}개만 추가했어요 (가방당 최대 10개)`);
+        show(`자리가 모자라 ${picked.length}개만 추가했어요 (가방당 최대 ${maxPacks}개)`);
       } else {
         show(picked.length > 1 ? `팩 ${picked.length}개를 가방에 추가했어요` : "팩을 가방에 추가했어요");
       }
       return picked.length;
     },
-    [guard, bag.packs.length, update, show],
+    [guard, bag.packs.length, update, show, maxPacks, packLimit.message],
   );
 
   const addPack = useCallback(
     (kind: "checklist" | "editor", name?: string): string | null => {
       if (guard()) return null;
-      if (bag.packs.length >= MAX_PACKS_PER_BAG) {
-        show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+      if (bag.packs.length >= maxPacks) {
+        show(packLimit.message);
         return null;
       }
       const id = newId();
@@ -79,15 +81,19 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag }
       update((prev) => ({ ...prev, packs: [pack, ...prev.packs] }));
       return id;
     },
-    [guard, bag.packs.length, update, show],
+    [guard, bag.packs.length, update, show, maxPacks, packLimit.message],
   );
 
+  // AI 추천 팩(날씨 추천 · 가볼 곳)은 이름을 바꿀 수 없다(2026-10-20, 다음 추천을 담을 곳을 이름으로 알아보게)
   const renamePack = useCallback(
     (packId: string, name: string) => {
       if (guard()) return;
       const n = name.trim();
       if (!n) return;
-      update((prev) => ({ ...prev, packs: prev.packs.map((p) => (p.id === packId ? { ...p, name: n, isInbox: false } : p)) }));
+      update((prev) => ({
+        ...prev,
+        packs: prev.packs.map((p) => (p.id === packId && !p.aiRecommendSource ? { ...p, name: n, isInbox: false } : p)),
+      }));
     },
     [guard, update],
   );

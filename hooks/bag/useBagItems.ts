@@ -8,7 +8,12 @@ import type { BagDocument } from "./useBagDocument";
 import { newId } from "./ids";
 import { isAllPacked } from "./bagStats";
 
-export const MAX_PACKS_PER_BAG = 10;
+// 가방당 팩 한도(무료 5 · 프리미엄 30, lib/premiumLimits bagPackLimit). 화면이 프리미엄 여부로 만들어 훅마다 넘긴다
+export interface PackLimit {
+  max: number;
+  // 가득 찼을 때 토스트
+  message: string;
+}
 const INBOX_PACK_NAME = "미분류";
 
 export interface ItemPatch {
@@ -27,9 +32,10 @@ export interface ItemPatch {
 // - 칸반 "완료 항목 자동 이동"은 v2에서 제거된 기능이라 적용하지 않는다(체크만 토글).
 // - 체크 결과 모든 체크 아이템이 체크되면 lastPackedAt/lastPackedBy를 기록한다.
 // - 하단 입력창으로 추가하는 아이템은 "미분류"(isInbox) 팩에 모은다.
-export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: string) {
+export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: string, packLimit: PackLimit) {
   const { update, guard, bag } = doc;
   const { show } = useToast();
+  const maxPacks = packLimit.max;
 
   const synced = useCallback(
     (p: Pack): Pack => ({ ...p, savedAsLibraryPack: isInSyncWithLibrary(p, libraryPacks) }),
@@ -91,7 +97,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     });
   }, [guard, update, bag.packs, show]);
 
-  // AI 가져오기(클립보드·메모) 결과 병합: 같은 이름의 체크리스트 팩이 있으면 이어 담고, 없으면 새 팩(10개 제한).
+  // AI 가져오기(클립보드·메모) 결과 병합: 같은 이름의 체크리스트 팩이 있으면 이어 담고, 없으면 새 팩(팩 한도까지).
   // 구 BagEditorScreen.handleApplyClipboardAdd와 같은 규칙. 추가된 개수와 제한에 걸렸는지를 돌려준다.
   const applyGroupedItems = useCallback(
     (groups: { name: string; items: { text: string; checked?: boolean }[] }[]): { added: number; cappedOut: boolean } => {
@@ -105,7 +111,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
         const idx = packs.findIndex((p) => p.kind !== "editor" && !p.isInbox && p.name.trim() === g.name.trim());
         if (idx >= 0) {
           packs = packs.map((p, i) => (i === idx ? { ...p, items: [...p.items, ...items] } : p));
-        } else if (packs.length < MAX_PACKS_PER_BAG) {
+        } else if (packs.length < maxPacks) {
           packs = [{ id: newId(), name: g.name.trim() || "기타", items }, ...packs];
         } else {
           cappedOut = true;
@@ -116,17 +122,17 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
       if (added > 0) update((prev) => ({ ...prev, packs }));
       return { added, cappedOut };
     },
-    [guard, bag.packs, update],
+    [guard, bag.packs, update, maxPacks],
   );
 
   // AI 빠진 것 확인 결과를 이름으로 팩을 찾아 담는다(없으면 새 팩). 구 handleAddItemFromAudit와 같은 규칙.
-  // 담았으면 true. 그 이름 팩이 없고 팩이 이미 10개면 담지 않고 false(2026-10-14 - 예전에는 못 담아도 "담았어요")
+  // 담았으면 true. 그 이름 팩이 없고 팩이 이미 한도면 담지 않고 false(2026-10-14 - 예전에는 못 담아도 "담았어요")
   const addToNamedPack = useCallback(
     (packName: string, text: string): boolean => {
       if (guard()) return false;
       const isTarget = (p: Pack) => p.name === packName && p.kind !== "editor" && p.type !== "folder";
-      if (!bag.packs.some(isTarget) && bag.packs.length >= MAX_PACKS_PER_BAG) {
-        show(`팩이 10개라 '${packName}' 팩을 만들 수 없어요. 다른 팩에 직접 넣어 주세요`);
+      if (!bag.packs.some(isTarget) && bag.packs.length >= maxPacks) {
+        show(`팩이 ${maxPacks}개라 '${packName}' 팩을 만들 수 없어요. 다른 팩에 직접 넣어 주세요`);
         return false;
       }
       const item: Item = { id: newId(), type: "check", text, checked: false };
@@ -135,13 +141,13 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
         if (existing) {
           return { ...prev, packs: prev.packs.map((p) => (p.id === existing.id ? { ...p, items: [...p.items, item] } : p)) };
         }
-        if (prev.packs.length >= MAX_PACKS_PER_BAG) return prev;
+        if (prev.packs.length >= maxPacks) return prev;
         return { ...prev, packs: [...prev.packs, { id: newId(), name: packName, items: [item] }] };
       });
       show(`'${packName}' 팩에 '${text}'을(를) 담았어요`);
       return true;
     },
-    [guard, bag.packs, update, show],
+    [guard, bag.packs, update, show, maxPacks],
   );
 
   const setPackChecked = useCallback(
@@ -174,15 +180,15 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     [guard, update, synced],
   );
 
-  // 하단 입력창: "미분류" 팩(없으면 맨 위에 새로 만든다)에 추가. 팩 10개 제한에 걸리면 false.
+  // 하단 입력창: "미분류" 팩(없으면 맨 위에 새로 만든다)에 추가. 팩 한도에 걸리면 false.
   const addToInbox = useCallback(
     (text: string): boolean => {
       if (guard()) return false;
       const t = text.trim();
       if (!t) return false;
       const hasInbox = bag.packs.some((p) => p.isInbox && p.kind !== "editor");
-      if (!hasInbox && bag.packs.length >= MAX_PACKS_PER_BAG) {
-        show("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요");
+      if (!hasInbox && bag.packs.length >= maxPacks) {
+        show(packLimit.message);
         return false;
       }
       const item: Item = { id: newId(), type: "check", text: t, checked: false };
@@ -199,7 +205,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
       });
       return true;
     },
-    [guard, update, bag.packs, show],
+    [guard, update, bag.packs, show, maxPacks, packLimit.message],
   );
 
   // 이름/담당자/종류 수정 + 다른 팩으로 이동. 같은 팩이면 제자리, 다른 팩이면 대상 팩 맨 끝으로.

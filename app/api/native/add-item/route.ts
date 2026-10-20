@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { verifyDeviceRequest, DeviceAuthError } from "@/lib/nativeDeviceServer";
 import { isSafeDocId } from "@/lib/firestoreSanitize";
+import { isPremiumServer } from "@/lib/premiumServer";
+import { FREE_MAX_PACKS_PER_BAG, bagPackLimit, bagPackLimitMessage } from "@/lib/premiumLimits";
 import type { Item, Pack } from "@/lib/types";
 
 // 단축어 "가방에 추가"(2026-10-11): 앱을 열지 않고 가방의 팩에 아이템을 넣는다(기기 토큰).
-// - packId가 없으면 "미분류"(isInbox) 팩에. 없으면 맨 앞에 새로 만든다(가방 화면 하단 입력창과 같은 규칙, 팩 10개 제한)
+// - packId가 없으면 "미분류"(isInbox) 팩에. 없으면 맨 앞에 새로 만든다(가방 화면 하단 입력창과 같은 규칙,
+//   팩 한도 무료 5 · 프리미엄 30 — 2026-10-20 전에는 모두 10)
 // - 여러 줄이면 줄마다 하나(최대 20개)
 // - 앱 자동저장과 같은 규칙: 멤버만, 잠긴 가방의 그룹장은 못 고침, 메모 본문을 나눈 가방(notesV 2)은 packsRev + 1, editedBy = 나
 export const runtime = "nodejs";
 
 const MAX_LINES = 20;
 const MAX_TEXT = 200;
-const MAX_PACKS = 10;
 const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 class BadRequest extends Error {
@@ -68,7 +70,11 @@ export async function POST(req: NextRequest) {
         if (inbox) {
           packs = packs.map((p) => (p === inbox ? { ...p, items: [...(Array.isArray(p.items) ? p.items : []), ...items] } : p));
         } else {
-          if (packs.length >= MAX_PACKS) throw new BadRequest("가방 하나에는 팩을 최대 10개까지 넣을 수 있어요. 팩을 골라 주세요");
+          // 무료 한도를 넘을 때만 프리미엄을 확인한다(읽기를 아끼려고)
+          if (packs.length >= FREE_MAX_PACKS_PER_BAG) {
+            const premium = await isPremiumServer(uid, null);
+            if (packs.length >= bagPackLimit(premium)) throw new BadRequest(`${bagPackLimitMessage(premium)}. 팩을 골라 주세요`);
+          }
           packs = [{ id: newId(), name: "미분류", items, isInbox: true }, ...packs];
         }
       }

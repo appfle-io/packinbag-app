@@ -1,7 +1,7 @@
 // 팩인백 데이터 모델
 // 가방(Bag) = 체크리스트, 팩(Pack) = 카테고리 묶음, 아이템(Item) = 개별 항목
 
-import type { WeatherInfo, TravelRecommendation } from "./weatherService";
+import type { WeatherInfo, TravelRecommendation, WeatherAiResult } from "./weatherService";
 
 type ItemType = "check" | "text";
 
@@ -95,6 +95,9 @@ export interface Pack {
   // 반드시 이 플래그로만 판별하고 pack.name("AI추천")으로 판별하지 않는다 - 사용자가 직접
   // "AI추천"이라는 이름의 팩을 만들어도 이 플래그가 없으므로 정상적으로 계속 보인다(구분 목적).
   aiRecommendSource?: boolean;
+  // 날씨 · 명소 추천(2026-10-20)이 만든 팩의 종류. aiRecommendSource와 같이 쓴다.
+  // "places" = "가볼 곳" 팩(명소를 체크 아이템으로), 없으면 "날씨 추천" 팩(준비물). 두 팩 모두 이름을 바꿀 수 없다
+  aiRecommendKind?: "places";
   // 이용권이 없거나 만료/무효화된 사람이 보관함 개수 제한(FREE_MAX_LIBRARY_PACKS)을
   // 넘겨서 갖고 있던 팩 중 "최신 N개"에 들지 못한 것에 true로 표시된다. 서버(app/api/sync-lock-status)만
   // 이 필드를 쓸 수 있고(firestore.rules에서 클라이언트 수정/삭제를 막음), 잠긴 팩은 보기만
@@ -214,7 +217,13 @@ export interface Bag {
     cachedAt: string; // ISO
     // 리디자인 v2: 이 캐시를 만들 때의 가방 이름(장소는 가방 이름에서 찾는다). 이름이 바뀌면 캐시를 쓰지 않는다
     bagName?: string;
+    // 날씨 · 명소 추천(2026-10-20): 장소를 찾은 글자(weatherPlace 또는 가방 이름). 바뀌면 캐시를 쓰지 않는다
+    placeQuery?: string;
+    // AI 추천 결과(버튼을 눌렀을 때만). 같은 가방 멤버가 다시 횟수를 쓰지 않게 같이 둔다
+    ai?: WeatherAiResult;
   };
+  // 날씨 · 명소 추천에서 직접 입력한 장소(2026-10-20). 있으면 가방 이름 대신 이걸로 찾는다
+  weatherPlace?: string;
   // 소유자(ownerId)가 이 가방을 휴지통으로 보낸 시각(ISO). 있으면 소유자 본인의 홈 목록에서만
   // 숨겨지고 설정 > 휴지통에 나타난다 - 다른 그룹원들은 이 필드와 무관하게 가방을 계속
   // 그대로 볼 수 있다(소유자 화면에서만 휴지통 처리되는 정책). 30일(TRASH_RETENTION_DAYS)이

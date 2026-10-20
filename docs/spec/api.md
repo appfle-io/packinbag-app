@@ -198,7 +198,7 @@
 | `POST /api/organize-bag` | 아이템 번호를 팩으로 다시 묶기(문구는 안 바꿈) | **프리미엄 전용** | 아이템 200개 · 60자, 기존 팩 이름 10개 · 30자 |
 | `POST /api/clipboard-organize` | 붙여넣은 글에서 가방에 없는 것만 | **프리미엄 전용** | 글 6,000자, 기존 아이템 2,000개 · 60자(프롬프트에는 200개) |
 | `POST /api/ai-audit-bag` | 빠진 것 2~6개 + 한 줄 조언 | 하루 3회 | 팩 30개 · 팩마다 아이템 100개 · 60자, 날씨 300자 |
-| `POST /api/ai-weather-recommend` | 날씨로 아이템 4개 + 이모지 | 하루 3회 | 가방 이름 60자, 날씨 40자, 기온 -60~60 |
+| `POST /api/ai-weather-recommend` | 3일 날씨로 준비물 5~10개(이유) + 가볼 곳 최대 5개(설명) + 요약(10/20, 예전 아이템 4개 + 이모지) | 하루 3회 | 가방 이름 60자, 장소 40자, 날짜 3개(날씨 10자 · 기온 -60~60 · 강수 0~100 · 자외선 0~20 · 바람 0~80), 이미 있는 아이템 150개 · 30자 |
 
 | ID | 규칙 |
 |---|---|
@@ -209,12 +209,12 @@
 | API-AI-05 | 프리미엄 50회 초과 → 429 "AI 기능은 하루 50회까지 쓸 수 있어요. 내일 다시 시도해주세요" |
 | API-AI-06 | 무료 3회 초과 → 403 `limitReached`(다섯 곳 모두, weather도 10/16부터). import-note · audit · weather "오늘 무료 AI 사용 한도(3회)를 다 썼어요. 내일 다시 시도하거나, 프리미엄으로 더 많이 쓸 수 있어요" / organize · clipboard "…내일 다시 시도해주세요" |
 | API-AI-07 | organize · clipboard는 FREE_LAUNCH가 아니고 무료면 403 `premiumRequired` "AI로 정리하기는 / AI 클립보드는 프리미엄 전용 기능이에요" |
-| API-AI-08 | Gemini 503 · 429는 0.9초 · 1.8초 쉬고 2번 다시(import · organize · clipboard), weather는 0.5초 간격 2번, audit는 다시 안 함. 끝내 실패 → 502 "지금 AI 요청이 많이 몰려서…" / "AI 사용량이 순간적으로 몰렸어요…" / "AI 분석 중 문제가 발생했어요" |
+| API-AI-08 | Gemini 503 · 429는 0.9초 · 1.8초 쉬고 2번 다시(import · organize · clipboard), weather는 0.5초 쉬고 1번 다시(10/20, 예전 2번), audit는 다시 안 함. 끝내 실패 → 502 "지금 AI 요청이 많이 몰려서…" / "AI 사용량이 순간적으로 몰렸어요…" / "AI 분석 중 문제가 발생했어요" |
 | API-AI-09 | 응답 JSON을 못 읽으면 502 "AI 응답을 해석하지 못했어요. 다시 시도해주세요" |
 | API-AI-10 | 결과 다듬기: 팩 최대 8개 · 이름 20자, 아이템 60자 · 팩마다 60개(import · clipboard), 빈 팩 제거. organize는 AI가 빠뜨린 번호를 "미분류" 팩에 모음, 중복 번호는 처음 팩에만. clipboard는 공백 · 대소문자를 무시하고 기존 아이템과 같은 것을 서버가 한 번 더 뺌(`skippedDuplicateCount`) |
-| API-AI-11 | weather는 결과가 비면 횟수를 쓰지 않고 기본 아이템 4개("{가방 이름} 아이템" 등)를 돌려줌 |
+| API-AI-11 | weather는 결과가 비면(준비물 · 가볼 곳 둘 다 0개) 502 "AI 추천을 받지 못했어요. 잠시 뒤 다시 해 주세요"(횟수 되돌림). 결과 다듬기: 준비물 이름 20자 · 이유 70자 · 10개, 가볼 곳 이름 24자 · 설명 90자 · 5개, 요약 120자, 이름 중복 제거(`parseResult`). 응답 `{ summary, items[{text, reason}], places[{name, desc}], at }`. 10/20 전에는 비면 "{가방 이름} 아이템" 같은 기본 4개를 돌려줬다 |
 | API-AI-12 | 응답에 `quota: { unlimited, usedCount, limit }`(weather 제외) |
-| API-AI-13 | 키 `GEMINI_API_KEY`(결제 안 건 GCP 프로젝트), 주소는 모두 `getGeminiEndpoint()`(`lib/geminiConfig.ts`). 모델 `GEMINI_MODEL`(기본 gemini-3.7-flash), weather만 `GEMINI_LITE_MODEL`(기본 gemini-2.5-flash-lite, 10/16 전에는 주소를 직접 적음). 키는 헤더(`x-goog-api-key`)로 |
+| API-AI-13 | 키 `GEMINI_API_KEY`(결제 안 건 GCP 프로젝트), 주소는 모두 `getGeminiEndpoint()`(`lib/geminiConfig.ts`). 모델 `GEMINI_MODEL`(기본 gemini-3.7-flash) — weather도 10/20부터 이 모델(`maxDuration` 30초, 10/16~10/19는 `GEMINI_LITE_MODEL` gemini-2.5-flash-lite, 지금은 쓰는 곳 없음). 키는 헤더(`x-goog-api-key`)로 |
 | API-AI-14 | Admin SDK 키가 없으면(로컬) 로그인 없이 무제한 통과(`dev-user`) |
 
 ---
@@ -253,7 +253,7 @@
 | API-NAT-02 | `POST · DELETE /api/native/device-token` | POST(Firebase 토큰) 새 토큰 발급 / DELETE(기기 토큰) 그 토큰 삭제(로그아웃 · 계정 전환) |
 | API-NAT-03 | `GET /api/native/summary` | 내가 멤버인 가방 전체 + 내 users 문서 → `buildNativeSummary`(보관함 가방 빼고 고정 먼저, PIN이 있을 때만 개인 잠금한 가방 · 팩 · 보관함 뺌). 캐시 안 함 |
 | API-NAT-04 | `POST /api/native/toggle-item` | `{ bagId, packId, itemId, checked }`. 트랜잭션: 멤버만 · 잠긴 가방의 그룹장 막음 · **내가 휴지통에 넣은 가방이면 403 "휴지통에 있는 가방이에요"**(10/16, 다른 멤버는 그대로) · 메모 팩이면 404 · 이미 그 상태면 그대로 → `packs` · `lastCheckedAt` · `updatedAt` · `editedBy: 나`, notesV 2면 `packsRev + 1`. 체크로 다 챙기면 `lastPackedAt` · `lastPackedBy` |
-| API-NAT-05 | `POST /api/native/add-item` | `{ bagId, packId?, text }` 줄마다 하나(최대 20줄 · 200자). packId 없으면 "미분류" 팩 끝(없으면 맨 앞에 새로 — 팩 10개면 400 "가방 하나에는 팩을 최대 10개까지…"). 같은 권한 검사(휴지통 포함) · packsRev |
+| API-NAT-05 | `POST /api/native/add-item` | `{ bagId, packId?, text }` 줄마다 하나(최대 20줄 · 200자). packId 없으면 "미분류" 팩 끝(없으면 맨 앞에 새로 — 팩이 무료 한도 5개 이상이면 그때만 `isPremiumServer`를 보고 한도(5 / 30, 10/20 전 모두 10) 이상이면 400 "{한도 문구}. 팩을 골라 주세요"). 같은 권한 검사(휴지통 포함) · packsRev |
 | API-NAT-06 | `POST /api/native/quick-add` | `{ text, type? }` 줄마다(최대 20 · 200자) 빠른팩 끝에. `users/{uid}`가 없으면(탈퇴) 401. 빠른팩 문서가 없으면 만듦(한도 무관) |
 | API-NAT-07 | `POST · DELETE /api/native/push-token` | APNs 토큰(hex 64~200) · env(sandbox · production) · alerts를 내 기기 토큰 문서 `apns`에. 같은 APNs 토큰이 다른 문서에 있으면 거기서 뗌 |
 | API-NAT-08 | `POST · DELETE /api/native/live-token` | 잠금화면 실시간 현황 토큰 · bagId · packId · env를 `apnsLive`에. **그 가방 멤버만**(403 "이 가방을 볼 수 없어요") |
@@ -312,7 +312,7 @@
 | URL 검사(`isHttpUrl` · 2048자 · 커스텀 코드 정규식 · 예약어) — 라우트마다 복사본 → `lib`로 하나 | API-LINK-01 · 02 · 05 |
 | `isOwnShortLink` · `parseOwnShortLink`(우리 도메인 `/s/` · `/c/`만 참, 다른 사이트 `/s/abc` 거짓, 경로 끝 `/` 허용, 호스트 대소문자, parse는 `?` · `#` 거짓 · 한글 코드 풀기) — `lib/shortLinkGuard.ts`는 호스트 목록을 인자로 받아 바로 테스트 가능 | API-LINK-01 · 10 |
 | 하루 카운터(`lib/dailyCounter.ts` 예약 · 되돌리기 · 한도 경계) — Firestore를 가짜로 넣으면 | API-BAG-J-10 · API-SHARE-S-07 · API-MISC-01 |
-| AI 결과 다듬기 `sanitizeResult`(import · organize · clipboard · audit) · `dedupeAgainstExisting` · `extractJsonItems` | API-AI-10 · 11 |
+| AI 결과 다듬기 `sanitizeResult`(import · organize · clipboard · audit) · `dedupeAgainstExisting` · weather `parseResult` · `readDays` | API-AI-10 · 11 |
 | AI 예약 · 되돌리기(`withAiQuotaSettlement`) — Firestore를 가짜로 넣으면 | API-AI-03 |
 | 웹훅 TRANSFER id 거르기 | API-PAY-03 |
 | `parseDevicePush` · `parseDeviceLive`(형식) | API-NAT-07 · 08 |

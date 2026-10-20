@@ -50,7 +50,7 @@ export function MoreSheet({
   onImportClipboard: () => void;
   onAudit: () => void;
   onDeleteOrLeave: () => void;
-  // 날씨로 준비물 추천(온라인일 때만). locked면 자물쇠 표시(눌러도 프리미엄 안내가 뜨도록 onOpen은 그대로 부른다)
+  // 날씨 · 명소 추천(온라인일 때만). locked면 자물쇠 표시(눌러도 프리미엄 안내가 뜨도록 onOpen은 그대로 부른다)
   weather?: { locked: boolean; onOpen: () => void } | null;
   // 사용 가이드(코치마크 투어) 다시 보기
   onGuide?: () => void;
@@ -238,7 +238,10 @@ export function MoreSheet({
             <SectionHeader>추천</SectionHeader>
             <button type="button" className={row} onClick={() => (weather.onOpen(), onClose())}>
               <IconCloudRain size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
-              <span className="min-w-0 flex-1">날씨로 준비물 추천</span>
+              <span className="flex min-w-0 flex-1 flex-col py-2">
+                <span>날씨 · 명소 추천</span>
+                <span className="text-micro text-sub">오늘부터 3일 날씨에 맞춘 준비물 · 가볼 곳</span>
+              </span>
               {weather.locked && <IconLock size={16} stroke={1.9} className="text-faint" aria-label="프리미엄" />}
             </button>
           </section>

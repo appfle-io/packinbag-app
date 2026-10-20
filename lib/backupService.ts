@@ -14,8 +14,14 @@ import {
   type RestoreProgress,
 } from "./backupPlan";
 import type { User } from "firebase/auth";
+import { stripAllMediaForBackup } from "./offlineMediaStrip";
 
 export type { BackupFileContent } from "./backupPlan";
+
+/** 포터블(Electron) 앱인지. 백업 내보내기는 포터블 · 오프라인 모드에서만 보인다(2026-10-20, settings.md SET-DATA-04) */
+export function isPortableApp(): boolean {
+  return typeof window !== "undefined" && !!(window as { electronAPI?: { isElectron?: boolean } }).electronAPI?.isElectron;
+}
 
 /**
  * 계정 모드 백업용: 목록 가방에는 메모 본문이 없다(10/8부터 bags/{id}/notes에 따로) → 메모가 있는 가방만 본문을 읽어 채운다.
@@ -33,22 +39,24 @@ export async function withBagNoteBodies(bags: Bag[]): Promise<Bag[]> {
 
 /**
  * 가방과 팩 보관함 데이터를 하나의 .json 파일로 다운로드합니다.
+ * 사진 · 파일은 담지 않는다(2026-10-20). 뺀 개수를 돌려준다
  */
-export function exportBackupData(bags: Bag[], libraryPacks: Pack[]) {
+export function exportBackupData(bags: Bag[], libraryPacks: Pack[]): { removedMedia: number } {
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const fileName = `packinbag_backup_${dateStr}.json`;
+  const stripped = stripAllMediaForBackup(bags, libraryPacks);
 
   const backupContent: BackupFileContent = {
     version: "1.0",
     appName: "PackInBag",
     exportedAt: now.toISOString(),
-    bags: bags.map((b) => ({
+    bags: stripped.bags.map((b) => ({
       ...b,
       // 백업 시 불필요한 원격 전용 내부 상태 정리
       locked: false,
     })),
-    libraryPacks: libraryPacks.map((p) => ({
+    libraryPacks: stripped.packs.map((p) => ({
       ...p,
       locked: false,
     })),
@@ -65,6 +73,7 @@ export function exportBackupData(bags: Bag[], libraryPacks: Pack[]) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  return { removedMedia: stripped.removed };
 }
 
 /**
@@ -102,11 +111,6 @@ function parseBackupText(text: string): BackupFileContent {
   };
 }
 
-function isRemoteUrl(url?: string | null): boolean {
-  if (!url) return false;
-  return url.startsWith("http://") || url.startsWith("https://");
-}
-
 // ---- 이어서 하기 기록(이 기기) ----
 function readProgress(key: string): RestoreProgress | null {
   try {
@@ -142,7 +146,8 @@ export class RestorePartialError extends Error {
 export interface RestoreResult {
   restoredBagsCount: number;
   restoredPacksCount: number;
-  hasExcludedRemoteMedia: boolean;
+  // 빼고 가져온 사진 · 파일 수(예전 백업에는 들어 있을 수 있다, 2026-10-20)
+  removedMedia: number;
   // 지난번에 멈춘 곳부터 이어서 했는지
   resumed: boolean;
 }
@@ -150,15 +155,21 @@ export interface RestoreResult {
 /**
  * 백업 파일의 데이터를 현재 환경(로컬 모드 또는 온라인 클라우드 계정)으로 복원합니다.
  * 덮어쓰지 않고 새 id로 새로 만든다(lib/backupPlan). onProgress(끝낸 개수, 전체)
+ * 사진 · 파일은 가져오지 않는다(2026-10-20). 예전 백업의 오프라인 사진(data URL)을 계정에 올리면 문서가 커져 실패하고,
+ * 온라인 주소는 원본이 지워지면 열리지 않는다
  */
 export async function restoreBackupData(
-  data: BackupFileContent,
+  input: BackupFileContent,
   mode: "local" | "cloud",
   user?: User | null,
   ownerProfile?: { nickname: string; avatarId: string } | null,
   onProgress?: (done: number, total: number) => void,
 ): Promise<RestoreResult> {
   if (mode === "cloud" && !user) throw new Error("로그인 상태가 아니에요.");
+
+  // 이어서 하기 키는 원래 파일 기준(exportedAt · 개수)이라 빼기 전후가 같다
+  const stripped = stripAllMediaForBackup(input.bags, input.libraryPacks);
+  const data: BackupFileContent = { ...input, bags: stripped.bags, libraryPacks: stripped.packs };
 
   const key = restoreProgressKey(mode === "cloud" ? user!.uid : "local", data);
   const prev = readProgress(key);
@@ -183,12 +194,6 @@ export async function restoreBackupData(
   };
   onProgress?.(done.size, total);
 
-  let hasExcludedRemoteMedia = false;
-  if (mode === "local") {
-    // 에디터 본문 등에 온라인 주소가 들어 있으면 안내한다(오프라인 모드에서는 열리지 않는다)
-    if (JSON.stringify(data).includes("http://") || JSON.stringify(data).includes("https://")) hasExcludedRemoteMedia = true;
-  }
-
   const profile = ownerProfile ?? {
     nickname: user?.displayName || "나",
     avatarId: "avatar-1",
@@ -202,9 +207,7 @@ export async function restoreBackupData(
       const now = new Date().toISOString();
       const next = restoredLibraryPack(pack, progress, now);
       if (mode === "local") {
-        const images = (next.images ?? []).filter((img) => !isRemoteUrl(img));
-        if (images.length < (next.images ?? []).length) hasExcludedRemoteMedia = true;
-        saveLocalLibraryPack({ ...next, images });
+        saveLocalLibraryPack(next);
       } else {
         // Admin SDK 서버 API(/api/create-library-pack)를 통해 생성
         await saveLibraryPackRemote(user!, next, true);
@@ -222,14 +225,7 @@ export async function restoreBackupData(
       delete base.trashedByOwnerAt;
       delete base.publicShareToken;
       if (mode === "local") {
-        // 오프라인 전용 소유자, 온라인 원격 이미지는 제외
-        const images = (bag.images ?? []).filter((img) => !isRemoteUrl(img));
-        if (images.length < (bag.images ?? []).length) hasExcludedRemoteMedia = true;
-        const localPacks = packs.map((p) => {
-          const packImages = (p.images ?? []).filter((img) => !isRemoteUrl(img));
-          if (packImages.length < (p.images ?? []).length) hasExcludedRemoteMedia = true;
-          return { ...p, images: packImages };
-        });
+        // 오프라인 전용 소유자(사진 · 파일은 위에서 이미 뺐다)
         saveLocalBag({
           ...base,
           ownerId: "local-offline-user",
@@ -237,8 +233,6 @@ export async function restoreBackupData(
           memberProfiles: {
             "local-offline-user": { nickname: "오프라인 사용자", avatarId: "avatar-1", joinedAt: now },
           },
-          images,
-          packs: localPacks,
           inviteCode: "OFFLINE",
         });
       } else {
@@ -266,7 +260,7 @@ export async function restoreBackupData(
   return {
     restoredBagsCount: data.bags.length,
     restoredPacksCount: data.libraryPacks.length,
-    hasExcludedRemoteMedia,
+    removedMedia: stripped.removed,
     resumed,
   };
 }

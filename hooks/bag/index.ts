@@ -2,7 +2,7 @@
 export { useBagDocument } from "./useBagDocument";
 ;
 export { useBagItems,   } from "./useBagItems";
-export type { ItemPatch } from "./useBagItems";
+export type { ItemPatch, PackLimit } from "./useBagItems";
 export { usePackOps,  } from "./usePackOps";
 export { useBagMembers } from "./useBagMembers";
 export type { BagMember } from "./useBagMembers";
@@ -11,6 +11,6 @@ export { useBagAttachments } from "./useBagAttachments";
 export { useBagAI } from "./useBagAI";
 export { useBagLibrary } from "./useBagLibrary";
 export type { LibraryStatus } from "./useBagLibrary";
-export { useBagWeather,  } from "./useBagWeather";
+export { useBagWeather, WEATHER_PACK_NAME, PLACES_PACK_NAME } from "./useBagWeather";
 export type { WeatherStatus } from "./useBagWeather";
 export * from "./bagStats";

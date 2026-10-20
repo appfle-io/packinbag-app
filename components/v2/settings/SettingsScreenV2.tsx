@@ -12,7 +12,7 @@ import { isPremiumUser } from "@/lib/premiumLimits";
 import { isDemoMode, openRealApp } from "@/lib/demoMode";
 import { APP_VERSION } from "@/lib/changelog";
 import { AI_FREE_DAILY_LIMIT, currentAiUsageCount, isUnlimitedAiUser } from "@/lib/aiUsageService";
-import { RestorePartialError, exportBackupData, parseBackupFile, restoreBackupData, withBagNoteBodies } from "@/lib/backupService";
+import { RestorePartialError, exportBackupData, isPortableApp, parseBackupFile, restoreBackupData, withBagNoteBodies } from "@/lib/backupService";
 import { getLocalBags, getLocalLibraryPacks, resetLocalAllData } from "@/lib/localBagsService";
 import { deleteBagWithInviteCodeRemote, leaveBagRemote } from "@/lib/bagsService";
 import { deleteLibraryPackRemote } from "@/lib/packsService";
@@ -219,6 +219,10 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const hasUnreadAnnouncement = activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id));
   const hasOfflineData = !isOfflineMode && (offlineSummary.bags.length > 0 || offlineSummary.packs.length > 0);
+  // 백업(2026-10-20, SET-DATA-04 · 05): 내보내기는 포터블 · 오프라인 모드에서만. 웹 · iOS 계정 모드는 데이터가 이미 계정에 있어 불러오기만
+  // (포터블 · 오프라인에서 만든 백업을 계정으로 가져오는 길). 두 화면 모두 사진 · 파일은 담지 않는다
+  const [portable] = useState(isPortableApp);
+  const canExportBackup = portable || isOfflineMode;
   // 이벤트(EVT-LIST): 진행 중인데 이 기기에서 안 본 것이 있으면 빨간 점. 본 기록은 화면이 바뀔 때마다 다시 읽는다(가벼움)
   const activeEvents = splitEvents(useEvents(!isOfflineMode)).active;
   const hasNewEvent = view !== "events" && hasUnseenEvent(activeEvents, readSeenEventIds());
@@ -253,8 +257,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         setBusy(null);
       }
     }
-    exportBackupData(full, currentPacks);
-    show("백업 파일을 다운로드했어요");
+    const { removedMedia } = exportBackupData(full, currentPacks);
+    show(removedMedia > 0 ? `백업 파일을 다운로드했어요 (사진 · 파일 ${removedMedia}개는 빼고)` : "백업 파일을 다운로드했어요");
   };
 
   // 덮어쓰지 않고 새로 만든다. 하나씩 만들며 진행 막대, 중간에 멈추면 같은 파일을 다시 고를 때 이어서(lib/backupPlan)
@@ -277,7 +281,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         (completed, total) => setBusy({ message, progress: { total, completed } }),
       );
       const counts = `가방 ${result.restoredBagsCount}개, 팩 ${result.restoredPacksCount}개를 ${result.resumed ? "이어서 " : ""}복원했어요`;
-      show(isOfflineMode && result.hasExcludedRemoteMedia ? `${counts} (온라인 이미지·파일은 제외)` : counts);
+      show(result.removedMedia > 0 ? `${counts} (사진 · 파일 ${result.removedMedia}개는 가져오지 않았어요)` : counts);
     } catch (err) {
       console.error("[팩인백] 백업 복원 실패:", err);
       if (err instanceof RestorePartialError) {
@@ -537,23 +541,36 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           {/* 체험 모드는 백업 내보내기 · 불러오기를 숨긴다(OFF-DEMO-07) */}
           {!isDemoMode() && (
           <>
-          <ListRow
-            title="백업 파일 내보내기"
-            subtitle="가방과 팩을 .json 파일로 저장해요"
-            trailing={<IconDownload size={18} stroke={1.75} className="text-faint" aria-hidden="true" />}
-            onClick={() => void handleExportBackup()}
-          />
-          {/* 파일 선택은 label + 숨긴 input (ListRow와 같은 모양) */}
-          <label className="flex min-h-13 w-full cursor-pointer items-center gap-3 py-2 transition-colors duration-160 ease-snappy active:bg-fill">
+          {canExportBackup && (
+            <ListRow
+              title="백업 파일 내보내기"
+              subtitle="가방과 팩을 .json 파일로 저장해요"
+              trailing={<IconDownload size={18} stroke={1.75} className="text-faint" aria-hidden="true" />}
+              onClick={() => void handleExportBackup()}
+            />
+          )}
+          {/* 파일 선택은 label + 숨긴 input (ListRow와 같은 모양). 계정 모드는 서버에 만들어서 끊겨 있으면 고르기 전에 알린다 */}
+          <label
+            className="flex min-h-13 w-full cursor-pointer items-center gap-3 py-2 transition-colors duration-160 ease-snappy active:bg-fill"
+            onClick={(e) => {
+              if (isOfflineMode) return;
+              let blocked = true;
+              guard(() => {
+                blocked = false;
+              });
+              if (blocked) e.preventDefault();
+            }}
+          >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-body text-ink">백업 파일 불러오기</span>
               <span className="truncate text-caption text-sub">
-                {isOfflineMode ? ".json 파일에서 복원해요 (온라인 이미지·파일 제외)" : ".json 파일에서 가방과 팩을 복원해요"}
+                {isOfflineMode ? ".json 파일에서 이 기기로 복원해요" : "포터블 · 오프라인에서 만든 .json을 내 계정으로 가져와요"}
               </span>
             </span>
             <IconUpload size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
             <input type="file" accept=".json,application/json" className="hidden" onChange={handleImportBackup} />
           </label>
+          <p className="m-0 pt-2 text-micro text-faint">백업 파일에는 사진 · 파일이 들어가지 않아요. 가방 · 팩 · 아이템과 메모 글만 담겨요.</p>
           </>
           )}
         </section>

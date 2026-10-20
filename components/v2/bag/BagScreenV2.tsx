@@ -5,7 +5,7 @@ import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, Ico
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { bagMemberLimit, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
+import { bagMemberLimit, bagPackLimit, bagPackLimitMessage, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import SlideScreen from "@/components/SlideScreen";
@@ -27,6 +27,8 @@ import {
   useBagAI,
   useBagLibrary,
   useBagWeather,
+  WEATHER_PACK_NAME,
+  PLACES_PACK_NAME,
   statsOf,
   packingStateOf,
   findInbox,
@@ -119,8 +121,10 @@ export default function BagScreenV2(props: BagScreenProps) {
 
   const doc = useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnlock, onSave });
   const { bag } = doc;
-  const items = useBagItems(doc, libraryPacks, currentUid);
-  const packOps = usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag });
+  // 가방당 팩 한도: 무료 5 · 프리미엄 30(2026-10-20, 넣는 사람 기준)
+  const packLimit = useMemo(() => ({ max: bagPackLimit(premium), message: bagPackLimitMessage(premium) }), [premium]);
+  const items = useBagItems(doc, libraryPacks, currentUid, packLimit);
+  const packOps = usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, packLimit });
   const members = useBagMembers({
     doc,
     currentUid,
@@ -133,9 +137,9 @@ export default function BagScreenV2(props: BagScreenProps) {
   });
   const [premiumMessage, setPremiumMessage] = useState<string | null>(null);
   const attachments = useBagAttachments({ doc, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage });
-  const ai = useBagAI({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage });
-  const library = useBagLibrary({ doc, libraryPacks, bags, currentUid, onSaveToLibrary: onSaveAsLibraryPack });
-  const weather = useBagWeather({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage });
+  const ai = useBagAI({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage, packLimit });
+  const library = useBagLibrary({ doc, libraryPacks, bags, currentUid, onSaveToLibrary: onSaveAsLibraryPack, packLimit });
+  const weather = useBagWeather({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage, packLimit });
 
   // 메모 편집기 (닫힘 애니메이션 동안 내용 유지용 캐시 포함)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -880,6 +884,7 @@ export default function BagScreenV2(props: BagScreenProps) {
       <PackSheet
         pack={packTarget}
         onClose={() => setPackTargetId(null)}
+        nameLocked={!!packTarget?.aiRecommendSource}
         onRename={(name) => packTargetId && packOps.renamePack(packTargetId, name)}
         onSetAllChecked={(checked) => packTargetId && items.setPackChecked(packTargetId, checked)}
         onToggleAutoSync={() => packTargetId && packOps.toggleAutoSync(packTargetId)}
@@ -926,18 +931,25 @@ export default function BagScreenV2(props: BagScreenProps) {
         onClose={() => setWeatherOpen(false)}
         status={weather.status}
         info={weather.info}
-        forecastDate={weather.forecastDate}
-        hasTravelDate={!!bag.travelDate}
-        aiItems={weather.aiItems}
+        ai={weather.ai}
         aiLoading={weather.aiLoading}
         aiError={weather.aiError}
         existingTexts={existingTexts}
+        manualPlace={weather.manualPlace}
         onLoad={weather.load}
+        onSetPlace={(t) => void weather.setPlace(t)}
         onAskAi={weather.askAi}
-        onAdd={(texts) => {
-          const added = weather.addItems(texts);
-          if (added === -1) show("팩이 10개라 날씨 추천 팩을 만들 수 없어요");
-          else if (added > 0) show(`'날씨 추천' 팩에 ${added}개 담았어요`);
+        onAdd={(itemTexts, placeNames) => {
+          const added = weather.addItems(itemTexts, placeNames);
+          if (added === "full") {
+            show("팩 자리가 모자라 추천 팩을 만들 수 없어요. 팩을 하나 지운 뒤 다시 해 주세요");
+            return;
+          }
+          const parts = [
+            added.items > 0 ? `'${WEATHER_PACK_NAME}'에 ${added.items}개` : null,
+            added.places > 0 ? `'${PLACES_PACK_NAME}'에 ${added.places}곳` : null,
+          ].filter(Boolean);
+          if (parts.length > 0) show(`${parts.join(", ")} 담았어요`);
         }}
       />
       <MoreSheet
@@ -966,7 +978,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                   guard(() =>
                     premium
                       ? setWeatherOpen(true)
-                      : setPremiumMessage("날씨로 준비물 추천은 프리미엄 기능이에요."),
+                      : setPremiumMessage("날씨 · 명소 추천은 프리미엄 기능이에요."),
                   ),
               }
             : null

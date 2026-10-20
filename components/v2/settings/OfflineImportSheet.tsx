@@ -6,8 +6,6 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { getImportedOfflineIds, getOfflineDataSummary, importOfflineDataToOnline } from "@/lib/offlineImportService";
 import { countOfflineMedia } from "@/lib/offlineMediaStrip";
-import { exportBackupData } from "@/lib/backupService";
-import { getLocalBags, getLocalLibraryPacks } from "@/lib/localBagsService";
 import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_LIBRARY_PACKS, isPremiumUser } from "@/lib/premiumLimits";
 import { Badge, Button, CheckMark, SectionHeader, Sheet, cx } from "@/components/v2/ui";
 
@@ -141,13 +139,6 @@ export function OfflineImportSheet({
     if (n > 0) setMediaAsk(n);
     else void run();
   };
-  const saveBackup = () => {
-    exportBackupData(
-      getLocalBags().filter((b) => !b.trashedByOwnerAt),
-      getLocalLibraryPacks().filter((p) => !p.trashedAt),
-    );
-    show("백업 파일을 저장했어요");
-  };
 
   const bagRows: Row[] = (summary?.bags ?? []).map((b) => ({
     id: b.id,
@@ -235,11 +226,8 @@ export function OfflineImportSheet({
       title="사진 · 파일은 옮기지 않아요"
       footer={
         <div className="flex flex-col gap-2">
-          <Button block variant="secondary" onClick={saveBackup}>
-            백업 파일 저장
-          </Button>
           <Button block onClick={() => void run()}>
-            따로 저장했어요 · 사진 빼고 {verb}
+            사진 · 파일 빼고 {verb}
           </Button>
           <Button block variant="text" onClick={() => setMediaAsk(null)}>
             취소
@@ -252,7 +240,7 @@ export function OfflineImportSheet({
           {`고른 가방 · 팩에 이 기기에만 저장된 사진 · 파일이 ${mediaAsk ?? 0}개 있어요. 계정으로는 내용만 옮기고, 사진 · 파일은 이 기기의 오프라인 데이터에 그대로 남겨 두어요.`}
         </p>
         <p className="m-0 text-caption text-faint">
-          따로 보관하려면 먼저 백업 파일로 저장해 두세요. 계정에서 필요하면 옮긴 뒤 가방 · 메모에 다시 첨부할 수 있어요.
+          백업 파일에도 사진 · 파일은 들어가지 않아요. 계정에서 필요하면 옮긴 뒤 가방 · 메모에 다시 첨부할 수 있어요.
         </p>
       </div>
     </Sheet>

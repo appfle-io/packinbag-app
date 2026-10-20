@@ -4,6 +4,17 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/20 날씨 · 명소 추천 · 가방당 팩 한도 · 백업 정리 (웹 · 포터블 1.7.5, 규칙 변경 없음)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **날씨 · 명소 추천** | 변경 | 예전 "날씨로 준비물 추천"(출발일 하루 · 기본 1~3개 · AI 4개). 조회한 날부터 3일(오늘 · 내일 · 모레) 강수 확률 · 자외선 · 바람 · 체감 기온으로 기본 추천(이유 한 줄), 버튼을 눌러야 AI(기본 모델): 준비물 5~10개 + 가볼 곳 3~5개 + 3일 요약, 결과는 가방 캐시(6시간). 장소 직접 입력(`Bag.weatherPlace`). 가볼 곳은 "가볼 곳" 팩(체크 아이템, `aiRecommendKind: "places"`). `lib/weatherService.ts` · `hooks/bag/useBagWeather.ts` · `WeatherSheet.tsx` · `app/api/ai-weather-recommend` (bag.md BAG-WX, api.md API-AI) |
+| **AI 추천 팩 이름 잠금** | 변경 | "날씨 추천" · "가볼 곳" 팩은 팩 시트에서 이름을 못 바꿈(사용자 요청). `PackSheet` `nameLocked` · `renamePack` (BAG-PSHEET-01) |
+| **가방당 팩 한도** | 변경 | 모두 10개 → **무료 5 · 프리미엄 30**(넣는 사람 기준, 이미 더 든 가방은 그대로). 새 팩 · 메모 · 불러오기 · 미분류 · AI 가져오기 · 나눠 담기 · 빠진 것 · 날씨 · 다른 가방으로 옮기기 · 단축어 "가방에 추가". 지금은 FREE_LAUNCH라 모두 30. `lib/premiumLimits.ts` `bagPackLimit` · 훅 `PackLimit` · `movePackBetweenBagsRemote(maxPacks)` · `app/api/native/add-item` (BAG-LIM-01, premium.md PREM-LIM-11) |
+| **백업 내보내기는 포터블 · 오프라인만** | 변경 | 웹 · iOS 계정 · 게스트 모드는 불러오기만(포터블 · 오프라인 백업을 계정으로, 끊기면 미리 안내). `SettingsScreenV2` · `isPortableApp` (settings.md SET-DATA-04 · 05 · 06) |
+| **백업에서 사진 · 파일 빼기** | 변경 | 내보낼 때 · 불러올 때 모두 뺌(data URL · 온라인 주소 · 메모 첨부), 토스트에 뺀 개수. 예전 백업의 오프라인 사진 때문에 계정 복원이 문서 크기로 실패하던 것도 막힘. 오프라인 옮기기 시트의 "백업 파일 저장" 버튼은 뺌. `lib/offlineMediaStrip.ts` `stripAllMediaForBackup` · `lib/backupService.ts` · `OfflineImportSheet` (SET-BAK-11, offline.md OFF-MERGE-11 · 12) |
+| **FAQ** | 추가 · 수정 | "날씨 · 명소 추천은 어떻게 쓰나요?" · "가방 하나에 팩은 몇 개까지?" 추가, 백업 답 고침 |
+
 ## 10/20 이벤트 "끝나는 날 없음" · 링크 여러 개 · 공개 페이지 (웹만, 규칙 변경 없음)
 
 > 버전: 커밋 메시지는 v1.7.3 · v1.7.4 · v1.7.5였지만 실제 배포는 이 표의 "수정(1.7.4)" 줄을 빼고 모두 **1.7.3** 하나로 나갔고, /about 여러 줄이 **1.7.4**(사용자, 10/20)

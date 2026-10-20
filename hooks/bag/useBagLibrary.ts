@@ -8,7 +8,7 @@ import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import type { BagDocument } from "./useBagDocument";
 import { newId } from "./ids";
-import { MAX_PACKS_PER_BAG } from "./useBagItems";
+import type { PackLimit } from "./useBagItems";
 
 // 가방 속 팩 ↔ 팩 보관함, 그리고 다른 가방으로 옮기기 (리디자인 v2).
 // 보관함 저장 규칙(v41~ 구 화면과 같음):
@@ -38,6 +38,7 @@ export function useBagLibrary({
   bags,
   currentUid,
   onSaveToLibrary,
+  packLimit,
 }: {
   doc: BagDocument;
   libraryPacks: Pack[];
@@ -45,6 +46,8 @@ export function useBagLibrary({
   currentUid: string;
   // AppShell.handleSaveAsLibraryPack: 새 팩이면 무료 개수 제한을 서버가 검사한다(넘으면 프리미엄 안내)
   onSaveToLibrary: (pack: Pack) => void;
+  // 옮길 가방의 팩 한도(옮기는 사람 기준)
+  packLimit: PackLimit;
 }) {
   const { show } = useToast();
   const { bag, update, applyServerChange, guard } = doc;
@@ -156,7 +159,7 @@ export function useBagLibrary({
       b.memberIds.includes(currentUid) &&
       !b.locked &&
       !(b.ownerId === currentUid && b.trashedByOwnerAt) &&
-      b.packs.length < MAX_PACKS_PER_BAG,
+      b.packs.length < packLimit.max,
   );
 
   // 두 가방을 한 트랜잭션으로 고친다(movePackBetweenBagsRemote). 서버가 이미 반영했으니 이 화면에서는
@@ -167,7 +170,7 @@ export function useBagLibrary({
     const target = moveTargets.find((b) => b.id === targetBagId);
     if (!pack || !target) return;
     try {
-      const result = await movePackBetweenBagsRemote(bag.id, targetBagId, packId);
+      const result = await movePackBetweenBagsRemote(bag.id, targetBagId, packId, packLimit.max);
       if (!result.ok) {
         show(result.reason === "target-full" ? `'${target.name}'은(는) 팩이 가득 찼어요` : "팩을 옮기지 못했어요");
         return;

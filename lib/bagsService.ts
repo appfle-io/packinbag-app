@@ -158,6 +158,7 @@ const BAG_OPTIONAL_KEYS = [
   "reminderOffsets",
   "ddayCountTodayAsDayOne",
   "aiRecommendCache",
+  "weatherPlace",
   "publicShareEnabled",
   "autoMoveDoneItems",
   "lastPackedAt",
@@ -280,11 +281,12 @@ export async function removePacksFromBagRemote(bagId: string, packIds: string[])
 // 가방 속 팩을 다른 가방으로 통채 이동(모바일 "다른 가방으로 이동" 버튼 전용 -
 // 데스크톱은 DesktopSidebar.tsx의 드래그앤드롭으로 이미 동일한 일을 한다). 두 가방 문서를
 // 한 번에 읽고 쓰는 runTransaction으로 처리해서, 그 사이에 다른 멤버가 어느 쪽이든 가방을
-// 동시 편집해도 안전하다. 대상 가방이 이미 10개를 다 채우면 이동을 거부한다.
+// 동시 편집해도 안전하다. 대상 가방이 이미 팩 한도(maxPacks, 옮기는 사람의 무료 5 · 프리미엄 30)를 채우면 이동을 거부한다.
 export async function movePackBetweenBagsRemote(
   fromBagId: string,
   toBagId: string,
-  packId: string
+  packId: string,
+  maxPacks: number
 ): Promise<{ ok: true } | { ok: false; reason: "not-found" | "target-full" }> {
   if (isOfflineEnvironment()) {
     const list = getLocalBags();
@@ -293,7 +295,7 @@ export async function movePackBetweenBagsRemote(
     if (!fromBag || !toBag) return { ok: false, reason: "not-found" as const };
     const movingPack = fromBag.packs.find((p) => p.id === packId);
     if (!movingPack) return { ok: false, reason: "not-found" as const };
-    if (toBag.packs.length >= 10) return { ok: false, reason: "target-full" as const };
+    if (toBag.packs.length >= maxPacks) return { ok: false, reason: "target-full" as const };
     fromBag.packs = fromBag.packs.filter((p) => p.id !== packId);
     toBag.packs = [...toBag.packs, movingPack];
     saveLocalBag(fromBag);
@@ -315,7 +317,7 @@ export async function movePackBetweenBagsRemote(
     if (!movingPack) {
       return { ok: false, reason: "not-found" as const };
     }
-    if (toData.packs.length >= 10) {
+    if (toData.packs.length >= maxPacks) {
       return { ok: false, reason: "target-full" as const };
     }
     const now = new Date().toISOString();
