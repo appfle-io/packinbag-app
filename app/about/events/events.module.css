@@ -58,10 +58,14 @@
 .btnLine { background: #fff; color: #17171a; border: 1px solid #e2e2dd; }
 .btnDark { background: #17171a; color: #fff; border: 0; }
 
-/* 소개 페이지 위 이벤트 줄(EVT-WEB-05) */
-.strip { display: block; background: #e6eeea; color: #234a3d !important; }
+/* 소개 페이지 위 이벤트 줄(EVT-WEB-05). 여러 개면 줄마다 따로 누른다(10/20) */
+.strip { display: block; background: #e6eeea; color: #234a3d; }
+.stripLink { display: block; color: #234a3d !important; text-decoration: none; }
+.stripLink + .stripLink .stripRow { border-top: 1px solid rgba(46, 94, 78, 0.14); }
+.stripLink:hover .stripText strong { text-decoration: underline; text-underline-offset: 3px; }
 .stripRow { max-width: 1200px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; gap: 12px; font-size: 14px; }
 .stripBadge { flex: none; padding: 2px 10px; border-radius: 999px; background: #2e5e4e; color: #fff; font-size: 12px; font-weight: 800; }
+.stripBadge[data-ghost] { visibility: hidden; }
 .stripText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stripText strong { font-weight: 800; }
 .stripArrow { flex: none; font-weight: 800; }

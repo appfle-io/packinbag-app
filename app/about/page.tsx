@@ -20,6 +20,8 @@ export const metadata: Metadata = {
 
 const APP_STORE_URL = "https://apps.apple.com/kr/app/id6793290752";
 const APP_URL = "/?demo=0";
+// 맨 위 이벤트 띠에 보여 줄 최대 줄 수(앱 홈 캐러셀 EVENT_CAROUSEL_MAX와 같은 3)
+const ABOUT_EVENT_MAX = 3;
 
 const HOW = [
   ["자주 챙기는 건 팩으로", "세면도구, 충전기, 기저귀처럼 늘 같이 챙기는 것들을 팩 하나로 묶어 두세요."],
@@ -64,24 +66,30 @@ const PRICE = [
 ];
 
 export default async function AboutPage() {
-  const events = await getActiveEventsServer();
-  const top = events[0];
+  // 여러 개면 한 줄에 하나씩, 각자 그 이벤트로(EVT-WEB-05, 10/20). 최대 3줄
+  const events = (await getActiveEventsServer()).slice(0, ABOUT_EVENT_MAX);
   return (
     <div className={styles.page}>
-      {top && (
-        <a href={eventPagePath(top)} className={eventStyles.strip}>
-          <span className={eventStyles.stripRow}>
-            <span className={eventStyles.stripBadge}>이벤트</span>
-            <span className={eventStyles.stripText}>
-              <strong>{top.title}</strong>
-              {top.summary ? ` · ${top.summary}` : ""}
-              {events.length > 1 ? ` 외 ${events.length - 1}개` : ""}
-            </span>
-            <span aria-hidden="true" className={eventStyles.stripArrow}>
-              ›
-            </span>
-          </span>
-        </a>
+      {events.length > 0 && (
+        <nav aria-label="진행 중인 이벤트" className={eventStyles.strip}>
+          {events.map((ev, i) => (
+            <a key={ev.id} href={eventPagePath(ev)} className={eventStyles.stripLink}>
+              <span className={eventStyles.stripRow}>
+                {/* 배지는 첫 줄에만, 나머지 줄은 같은 폭을 비워 제목 시작을 맞춤 */}
+                <span className={eventStyles.stripBadge} aria-hidden={i > 0} data-ghost={i > 0 ? "" : undefined}>
+                  이벤트
+                </span>
+                <span className={eventStyles.stripText}>
+                  <strong>{ev.title}</strong>
+                  {ev.summary ? ` · ${ev.summary}` : ""}
+                </span>
+                <span aria-hidden="true" className={eventStyles.stripArrow}>
+                  ›
+                </span>
+              </span>
+            </a>
+          ))}
+        </nav>
       )}
       <header className={styles.header}>
         <div className={`${styles.wrap} ${styles.headerRow}`}>
