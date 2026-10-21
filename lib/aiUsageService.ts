@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase";
 import { UserProfile } from "@/lib/types";
 import {
   AI_FREE_DAILY_LIMIT,
+  AI_FREE_WEEKLY_LIMIT,
   UNLOCK_CODE_LENGTH,
   todayKstKey,
   generateRandomCode,
@@ -25,6 +26,7 @@ import {
 
 export {
   AI_FREE_DAILY_LIMIT,
+  AI_FREE_WEEKLY_LIMIT,
   UNLOCK_CODE_LENGTH,
   
   UNLOCK_DURATION_LABELS,

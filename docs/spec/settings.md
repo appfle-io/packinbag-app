@@ -2,6 +2,8 @@
 
 기준 코드: v1.6.1 + 10/15 수정(백업 · 초기화 · FAQ · 문의 글자 수 · 테스트 알림 · ThemeProvider 정리). 로그인 · 가입 · 탈퇴 안쪽 처리(`AuthProvider.deleteAccount` 등)는 `auth.md`, 오프라인 데이터 가져오기 · 합치기 계산은 `offline.md`, 프리미엄 시트 · 이용권 · 한도는 `premium.md`, 가방 쪽 잠그기(가방 더보기 · 팩 길게 누르기)와 잠금 화면이 덮는 자리는 `bag.md` · `packs.md`, 알림 종 · 넓은 화면 상세 칸은 `shell.md`, 메모 편집기의 링크 만들기는 `memo.md`에서 다룬다.
 
+> **10/21 무료 제한(premium.md PREM-LIM-08 · 12 · 14 · 15)**: 글꼴 시트는 무료면 기본 외 글꼴에 자물쇠(누르면 프리미엄 시트), 화면은 기본 글꼴. "AI 기능" 줄은 무료 "주 3회 · 월요일에 새로" / 프리미엄 "하루 50회"(예전 "오늘 N/3회"). 계정 모드 "백업 파일 불러오기" · "오프라인 데이터 가져오기"는 무료면 프리미엄 시트. 프리미엄 시트 기본 문구도 새 혜택으로
+
 - 탭 화면: `components/v2/settings/SettingsScreenV2.tsx`
 - 하위 화면(SubScreen 틀): `ProfileScreenV2.tsx`(+ PasswordSheet · DeleteAccountSheet) · `TrashScreenV2.tsx` · `InquiryScreenV2.tsx`(+ ComposeSheet) · `InfoScreens.tsx`(VersionScreenV2 · LicensesScreenV2) · `LockSettingsScreen.tsx` · `PushSettingsScreen.tsx` · 틀 `SubScreen.tsx`
 - 시트: `FontSheet.tsx` · `HelpSheets.tsx`(AnnouncementsListSheet · FaqSheet) · `MyLinksSheet.tsx`(+ EditLinkSheet) · `OfflineImportSheet.tsx`, `components/v2/sheets/PremiumSheet` · `AccountLinkSheet`, `components/v2/bag/sheets/ConfirmSheet`

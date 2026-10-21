@@ -60,9 +60,7 @@ import {
   getEditorDocByteSize,
 } from "@/lib/editorDocLimits";
 import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
-import { isPremiumUser, FREE_MAX_USER_BAG_IMAGES } from "@/lib/premiumLimits";
-// 무료 회원 메모 사진 수(가방 사진과 같은 값, 2026-10-14)
-const FREE_MAX_MEMO_IMAGES = FREE_MAX_USER_BAG_IMAGES;
+import { isPremiumUser, ATTACH_PREMIUM_MESSAGE, MEDIA_SAVE_PREMIUM_MESSAGE } from "@/lib/premiumLimits";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { uploadPackImage } from "@/lib/storageService";
 import { useToast } from "@/components/Toast";
@@ -298,23 +296,12 @@ function PackNoteEditorScreenInner({
       if (effectiveReadOnly || !uploadTargetId) return;
       if (!files || files.length === 0) return;
 
-      // 무료 회원은 메모 하나에 사진 1장까지(가방 사진과 같은 기준, 2026-10-14). PDF · 파일은 프리미엄
-      let fileArray = Array.from(files);
+      // 무료 회원은 메모 첨부 없음(2026-10-21, 예전 사진 1장). 붙여넣기 · 끌어 놓기도 같음
+      const fileArray = Array.from(files);
       if (!isEffectivePremium) {
-        const hasNonImage = fileArray.some((f) => !f.type.startsWith("image/"));
-        const images = fileArray.filter((f) => f.type.startsWith("image/"));
-        const existing = extractDocAttachmentUrls(editorRef.current?.getJSON()).filter((u) => getFileKind(u) === "image").length;
-        const room = Math.max(0, FREE_MAX_MEMO_IMAGES - existing);
-        if (hasNonImage || images.length > room) {
-          setPremiumAttachMessage(
-            hasNonImage
-              ? "메모에 PDF · 파일을 첨부하는 건 프리미엄 기능이에요. 무료 회원은 사진 1장까지 넣을 수 있어요."
-              : "무료 회원은 메모에 사진을 1장까지 첨부할 수 있어요. 더 넣으려면 프리미엄이 필요해요.",
-          );
-          setShowPdfPremiumModal(true);
-        }
-        fileArray = images.slice(0, room);
-        if (fileArray.length === 0) return;
+        setPremiumAttachMessage(ATTACH_PREMIUM_MESSAGE);
+        setShowPdfPremiumModal(true);
+        return;
       }
 
       const isNonImageFile = (f: File) => !f.type.startsWith("image/");
@@ -415,6 +402,9 @@ function PackNoteEditorScreenInner({
 
   const handleUploadRef = useRef(handleUploadAndInsertFiles);
   handleUploadRef.current = handleUploadAndInsertFiles;
+  // 에디터 handleClick은 처음 만들 때의 클로저라 프리미엄 여부는 ref로 본다
+  const isEffectivePremiumRef = useRef(isEffectivePremium);
+  isEffectivePremiumRef.current = isEffectivePremium;
 
   const editor = useEditor(
     {
@@ -464,6 +454,12 @@ function PackNoteEditorScreenInner({
             const fileName = fileCard.getAttribute("data-file-name");
             if (src) {
               event.preventDefault();
+              // 무료는 파일 열기 · 저장 없음(사진은 보기만, 2026-10-21 MEMO-ATT-06)
+              if (!isEffectivePremiumRef.current) {
+                setPremiumAttachMessage(MEDIA_SAVE_PREMIUM_MESSAGE);
+                setShowPdfPremiumModal(true);
+                return true;
+              }
               // 오프라인 첨부(data URL)는 첨부 당시 종류를 못 알아 "file"로 들어간 PDF가 있다 → 주소로도 한 번 더 본다
               if (kind === "pdf" || getFileKind(src) === "pdf") {
                 setPdfPreviewName(fileName);
@@ -1081,7 +1077,7 @@ function PackNoteEditorScreenInner({
             type="file"
             multiple
             hidden
-            accept={isEffectivePremium ? undefined : "image/*"}
+            accept={undefined}
             onChange={(e) => {
               handleUploadAndInsertFiles(e.target.files);
               if (e.target) e.target.value = "";
@@ -1093,11 +1089,16 @@ function PackNoteEditorScreenInner({
           <NoteToolbar
             editor={editor}
             canAttach={canAttach}
-            attachLocked={false}
+            attachLocked={!isEffectivePremium}
             uploading={uploadingImages}
             onLink={openInsertLink}
             onAttach={() => {
-              // 무료도 사진 1장은 된다(고른 뒤 handleUploadAndInsertFiles가 걸러낸다)
+              // 무료는 파일 고르기 대신 프리미엄 안내(2026-10-21)
+              if (!isEffectivePremium) {
+                setPremiumAttachMessage(ATTACH_PREMIUM_MESSAGE);
+                setShowPdfPremiumModal(true);
+                return;
+              }
               guardOnline(() => fileInputRef.current?.click(), { localOk: true });
             }}
             onTableMenu={() => setTableSheetOpen(true)}
@@ -1243,7 +1244,7 @@ function PackNoteEditorScreenInner({
         />
         <PremiumSheet
           open={showPdfPremiumModal}
-          message={premiumAttachMessage || "무료 회원은 메모에 사진을 1장까지 첨부할 수 있어요. 더 넣거나 PDF · 파일을 올리려면 프리미엄이 필요해요."}
+          message={premiumAttachMessage || ATTACH_PREMIUM_MESSAGE}
           onClose={() => setShowPdfPremiumModal(false)}
           onUnlocked={() => {
             setShowPdfPremiumModal(false);
@@ -1258,6 +1259,7 @@ function PackNoteEditorScreenInner({
             index={lightboxIndex}
             onClose={() => setLightboxIndex(null)}
             onNavigate={setLightboxIndex}
+            canSave={isEffectivePremium}
           />
         )}
         {pdfPreviewUrl && <PdfViewer url={pdfPreviewUrl} fileName={pdfPreviewName} onClose={() => setPdfPreviewUrl(null)} />}

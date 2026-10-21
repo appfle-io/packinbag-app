@@ -4,6 +4,22 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/21 /about 써 보기 PC 화면 · 무료 제한 강화 (웹 · 포터블 1.7.6, **storage.rules 변경**)
+
+> 아래 무료 제한 중 **AI 주 3회만 배포 즉시 전원 적용**(AI 횟수는 FREE_LAUNCH를 안 봄). 나머지는 FREE_LAUNCH를 끄는 날부터(지금은 전원 프리미엄이라 안 보임). 사용자 결정(10/21)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **무료 AI 주 3회** | 변경 | 하루 3회 → 주 3회(한국 시간 월요일 0시에 새로). 무료 횟수 문서 `aiUsage/{uid}_W{월요일}`, 프리미엄은 그대로 하루 50회. 다섯 라우트 한도 문구 하나로(`aiFreeLimitMessage`). 설정 AI 줄 "주 3회 · 월요일에 새로". `lib/aiUsageConfig.ts`(+test) · `lib/aiQuotaServer.ts` · api 5곳 (premium.md PREM-LIM-08, api.md API-AI-02 · 06) |
+| **날씨 · 명소 추천 서버 프리미엄 확인** | 수정 | 화면만 막고 서버는 무료도 통과하던 구멍. FREE_LAUNCH 동안은 그대로 (PREM-LIM-16) |
+| **무료 첨부 없음** | 변경 | 가방 · 메모 사진 · 파일 첨부는 프리미엄(예전 무료 1장). 더보기 · 메모 툴바 자물쇠, storage.rules `canUpload`(사진도 프리미엄). 남이 올린 사진은 보기만(사진 보기 저장 버튼 · 길게 눌러 저장 없음), 파일 · PDF는 열지 않고 프리미엄 안내 (PREM-LIM-05 · 06 · 06b, MEMO-ATT-02 · 06) |
+| **무료 글꼴 기본만** | 변경 | 글꼴 시트 자물쇠, 화면은 기본(고른 값은 남김). `ThemeProvider` · `FontSheet` (PREM-LIM-12) |
+| **포터블 무료 계정 막기** | 추가 | 로그인하면 앱 대신 안내(이용권 코드 · 로그아웃하고 오프라인 모드 · 로그아웃). 계정 없는 오프라인 모드는 그대로, 게스트는 안 막음. `components/v2/shell/PortableAccountGate.tsx` · `app/page.tsx` (PREM-LIM-13) |
+| **무료 가져오기 막기** | 변경 | 오프라인 데이터 옮기기(로그인 직후 · 설정) · 계정 모드 백업 불러오기는 프리미엄 안내만, 데이터는 그대로. `OfflineImportSheet` · `SettingsScreenV2` (PREM-LIM-14 · 15) |
+| **프리미엄 안내 · FAQ · /about 요금** | 수정 | 새 혜택 문구, FAQ(가방 사진 · AI · 무료인가요), /about 요금 "일주일에 3번" · 칩 "날씨 · 명소 추천" |
+| **버전 정보 1.7.4** | 추가 | changelog에 빠져 있던 1.7.4(소개 페이지 이벤트 줄) 한 줄 |
+| **써 보기 "PC 화면"이 진짜 PC 모양으로** | 수정 | 칸 폭(약 750px) 그대로 iframe을 띄워 앱이 900 미만(휴대폰 1단)으로 그리던 문제. iframe을 1200×800(3단 [레일 \| 목록 \| 상세]이 되는 폭)으로 띄우고 칸 폭에 맞춰 줄임(ResizeObserver · transform). 화면 크기를 바꿔도 같은 iframe이라 체험이 이어짐. `app/about/AboutTry.tsx` · `about.module.css` (about.md ABOUT-05) |
+
 ## 10/20 날씨 · 명소 추천 · 가방당 팩 한도 · 백업 정리 (웹 · 포터블 1.7.5, 규칙 변경 없음)
 
 | 기능 | 상태 | 비고 |

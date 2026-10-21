@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE, aiFreeLimitMessage } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
+import { FREE_LAUNCH } from "@/lib/freeLaunch";
 
 // 날씨 · 명소 추천 AI(가방 더보기 > 날씨 · 명소 추천 > "AI로 추천받기", 2026-10-20).
 // 오늘부터 3일 날씨 + 가방 이름 + 이미 있는 아이템을 보고, 챙길 것 5~10개(이유 한 줄)와 가볼 곳 3~5개(설명 · 날씨 맞춤)를 돌려준다.
@@ -99,13 +100,18 @@ async function handlePOST(req: NextRequest) {
     if (!quotaCheck.allowed) {
       return NextResponse.json(
         {
-          error: `오늘 무료 AI 사용 한도(${quotaCheck.limit}회)를 다 썼어요. 내일 다시 시도하거나, 프리미엄으로 더 많이 쓸 수 있어요`,
+          error: aiFreeLimitMessage(quotaCheck.limit),
           limitReached: true,
           usedCount: quotaCheck.usedCount,
           limit: quotaCheck.limit,
         },
         { status: 403 }
       );
+    }
+    // 날씨 · 명소 추천은 프리미엄 전용(화면 useBagWeather와 같은 기준, 2026-10-21). 예전에는 화면만 막아
+    // 무료도 이 라우트를 직접 부르면 됐다. unlimited = 마스터 · 구매 · 이용권. 예약한 횟수는 확정하지 않아 되돌아간다
+    if (!FREE_LAUNCH && !quotaCheck.unlimited) {
+      return NextResponse.json({ error: "날씨 · 명소 추천은 프리미엄 기능이에요", premiumRequired: true }, { status: 403 });
     }
   } catch (err) {
     if (err instanceof AiAuthError) {

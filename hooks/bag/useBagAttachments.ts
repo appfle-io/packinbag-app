@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { uploadBagImage } from "@/lib/storageService";
 import { deleteBagAttachmentIfUnused } from "@/lib/storageCleanup";
-import { FREE_MAX_USER_BAG_IMAGES, MAX_BAG_IMAGES } from "@/lib/premiumLimits";
+import { ATTACH_PREMIUM_MESSAGE, MAX_BAG_IMAGES } from "@/lib/premiumLimits";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
 
@@ -17,8 +17,7 @@ export interface BagAttachmentsOptions {
   onPremiumRequired: (message: string) => void;
 }
 
-// 가방 사진·파일 첨부. 구 BagEditorScreen의 handleAddImages / removeImage와 같은 규칙:
-// 무료는 1장, 프리미엄 5장, PDF 등 이미지가 아닌 파일은 프리미엄 전용 + 10MB 이하.
+// 가방 사진·파일 첨부. 무료는 첨부 없음(2026-10-21), 프리미엄 5장, 이미지가 아닌 파일은 10MB 이하.
 // 오프라인(포터블)에서는 data URL로 가방 문서에 바로 넣는다.
 export function useBagAttachments({ doc, premium, offline, onPremiumRequired }: BagAttachmentsOptions) {
   const { bag, update, guard } = doc;
@@ -31,20 +30,14 @@ export function useBagAttachments({ doc, premium, offline, onPremiumRequired }: 
       const list = files ? Array.from(files) : [];
       if (list.length === 0) return;
 
-      if (!premium && bag.images.length >= FREE_MAX_USER_BAG_IMAGES) {
-        onPremiumRequired(
-          `무료 회원은 가방 사진을 최대 ${FREE_MAX_USER_BAG_IMAGES}장까지 첨부할 수 있어요. 사진을 더 추가하려면 이용권 코드를 등록해주세요.`,
-        );
+      // 무료는 첨부 없음(2026-10-21, 예전 1장). 오프라인 모드는 premium이 true
+      if (!premium) {
+        onPremiumRequired(ATTACH_PREMIUM_MESSAGE);
         return;
       }
-      const maxAllowed = premium ? MAX_BAG_IMAGES : FREE_MAX_USER_BAG_IMAGES;
-      const selected = list.slice(0, Math.max(0, maxAllowed - bag.images.length));
+      const selected = list.slice(0, Math.max(0, MAX_BAG_IMAGES - bag.images.length));
       const isNonImage = (f: File) => !f.type.startsWith("image/");
-      const nonImages = selected.filter(isNonImage);
-      const toUpload = premium ? selected : selected.filter((f) => !isNonImage(f));
-      if (nonImages.length > 0 && !premium) {
-        onPremiumRequired("이미지가 아닌 파일(PDF 포함) 첨부/열기는 프리미엄 전용 기능이에요. 이용권 코드를 등록하면 바로 쓸 수 있어요.");
-      }
+      const toUpload = selected;
       if (toUpload.length === 0) return;
       if (toUpload.some((f) => isNonImage(f) && f.size > MAX_NON_IMAGE_BYTES)) {
         show("이미지가 아닌 파일은 10MB 이하만 첨부할 수 있어요");

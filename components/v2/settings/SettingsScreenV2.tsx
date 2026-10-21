@@ -8,10 +8,10 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import type { Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
-import { isPremiumUser } from "@/lib/premiumLimits";
+import { BACKUP_IMPORT_PREMIUM_MESSAGE, isPremiumUser } from "@/lib/premiumLimits";
 import { isDemoMode, openRealApp } from "@/lib/demoMode";
 import { APP_VERSION } from "@/lib/changelog";
-import { AI_FREE_DAILY_LIMIT, currentAiUsageCount, isUnlimitedAiUser } from "@/lib/aiUsageService";
+import { AI_FREE_WEEKLY_LIMIT, isUnlimitedAiUser } from "@/lib/aiUsageService";
 import { RestorePartialError, exportBackupData, isPortableApp, parseBackupFile, restoreBackupData, withBagNoteBodies } from "@/lib/backupService";
 import { getLocalBags, getLocalLibraryPacks, resetLocalAllData } from "@/lib/localBagsService";
 import { deleteBagWithInviteCodeRemote, leaveBagRemote } from "@/lib/bagsService";
@@ -91,7 +91,7 @@ const FONT_OPTIONS: { value: FontScale; label: string }[] = [
 ];
 
 const PREMIUM_MESSAGE =
-  "가족 모두와 무제한으로. 내가 만든 가방·참여 가방·팩 보관함 개수 제한이 없어지고, 가방 사진 5장, 메모팩 PDF·파일 첨부, 짧은 URL·커스텀 URL을 쓸 수 있어요.";
+  "가족 모두와 무제한으로. 가방 · 참여 가방 · 팩 보관함 개수 제한이 없어지고, 사진 · 파일 첨부, AI 하루 50회, 글꼴 고르기, PC 포터블 계정 사용, 오프라인 · 백업 데이터 가져오기, 커스텀 URL을 쓸 수 있어요.";
 
 // 누를 수 없는 정보 줄(ListRow와 같은 높이·구분선)
 function InfoRow({ title, trailing, divider = true }: { title: React.ReactNode; trailing?: React.ReactNode; divider?: boolean }) {
@@ -214,7 +214,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
 
   const premium = isPremiumUser(profile?.email, profile);
   const aiUnlimited = isUnlimitedAiUser(profile?.email, profile);
-  const aiUsedCount = currentAiUsageCount(profile);
+  // 프리미엄 안내 문구(한도에서 연 것이면 그 이유, 없으면 기본)
+  const [premiumReason, setPremiumReason] = useState<string | null>(null);
   const trashCount = trashedBags.length + trashedPacks.length;
   const activeAnnouncements = announcements.filter((a) => isAnnouncementActive(a));
   const hasUnreadAnnouncement = activeAnnouncements.some((a) => !dismissedAnnouncementIds.includes(a.id));
@@ -229,12 +230,13 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
 
   const close = () => setView(null);
 
-  const openPremium = () => {
+  const openPremium = (reason?: string) => {
     if (isGuest) {
       show("회원가입 후 프리미엄을 이용할 수 있어요");
       setShowAccountLink(true);
       return;
     }
+    setPremiumReason(reason ?? null);
     setShowPremium(true);
   };
 
@@ -501,12 +503,13 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
               <ListRow
                 title={<span className="font-semibold">프리미엄</span>}
                 subtitle={isNativePlatform() ? "가족 모두와 무제한으로 · 한 번 결제" : "가족 모두와 무제한으로 · 이용권 코드 입력"}
-                onClick={() => guard(openPremium)}
+                onClick={() => guard(() => openPremium())}
                 chevron
               />
             )}
-            {/* 프리미엄도 하루 50회 상한이 있다(lib/aiQuotaServer.ts AI_PREMIUM_DAILY_CAP, 2026-10-09) */}
-            <InfoRow title="AI 기능" trailing={aiUnlimited ? "하루 50회" : `오늘 ${aiUsedCount}/${AI_FREE_DAILY_LIMIT}회`} />
+            {/* 무료는 주 3회(월요일 0시 새로, 2026-10-21), 프리미엄은 하루 50회 상한(lib/aiQuotaServer.ts AI_PREMIUM_DAILY_CAP).
+                횟수는 서버(aiUsage)가 세고, 여기는 한도만 보여 준다 */}
+            <InfoRow title="AI 기능" trailing={aiUnlimited ? "하루 50회" : `주 ${AI_FREE_WEEKLY_LIMIT}회 · 월요일에 새로`} />
             <ListRow divider={false} title="내가 만든 URL" onClick={() => guard(() => setShowMyShortLinks(true))} chevron />
           </section>
         )}
@@ -554,6 +557,12 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             className="flex min-h-13 w-full cursor-pointer items-center gap-3 py-2 transition-colors duration-160 ease-snappy active:bg-fill"
             onClick={(e) => {
               if (isOfflineMode) return;
+              // 무료는 계정으로 백업 불러오기 없음(2026-10-21 SET-DATA-05): 파일 고르기 대신 프리미엄 안내
+              if (!premium) {
+                e.preventDefault();
+                guard(() => openPremium(BACKUP_IMPORT_PREMIUM_MESSAGE));
+                return;
+              }
               let blocked = true;
               guard(() => {
                 blocked = false;
@@ -710,7 +719,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       <FaqSheet open={showFaq} onClose={() => setShowFaq(false)} />
       <PremiumSheet
         open={showPremium}
-        message={PREMIUM_MESSAGE}
+        message={premiumReason ?? PREMIUM_MESSAGE}
         onClose={() => setShowPremium(false)}
         onUnlocked={(expiresAt) => {
           setShowPremium(false);
@@ -723,8 +732,18 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         }}
       />
       <MyLinksSheet open={showMyShortLinks && !!user} user={user ?? null} onClose={() => setShowMyShortLinks(false)} />
-      <OfflineImportSheet open={showOfflineImport} onClose={() => setShowOfflineImport(false)} />
-      <FontSheet open={showFont} onClose={() => setShowFont(false)} value={fontFamily} onChange={setFontFamily} />
+      <OfflineImportSheet open={showOfflineImport} onClose={() => setShowOfflineImport(false)} onLimit={(msg) => guard(() => openPremium(msg))} />
+      <FontSheet
+        open={showFont}
+        onClose={() => setShowFont(false)}
+        value={fontFamily}
+        onChange={setFontFamily}
+        locked={!premium}
+        onLocked={() => {
+          setShowFont(false);
+          guard(() => openPremium("글꼴 고르기는 프리미엄 기능이에요. 무료는 기본 글꼴로 보여요."));
+        }}
+      />
       <AccountLinkSheet open={showAccountLink} onClose={() => setShowAccountLink(false)} />
 
       <ConfirmSheet

@@ -2,6 +2,8 @@
 
 기준 코드: v1.6.1 (2026-10-17 수정) + 10/20 팩 한도 · 날씨 · 명소 추천. 메모 편집기 내부는 `memo.md`, 잠금화면 띄우기(LiveActivitySheet)는 `native-ios.md`, 개인 잠금 PIN 화면 자체는 `settings.md`에서 다룬다.
 
+> **10/21 무료 첨부 변경(premium.md PREM-LIM-05 · 06b)**: 무료는 가방 사진 · 파일 첨부 없음(더보기 "사진 · 파일 첨부"에 자물쇠 → 프리미엄 시트). 첨부 줄에서 사진은 보기만(사진 보기에 저장 버튼 없음), PDF · 파일을 누르면 열지 않고 프리미엄 시트. 아래 BAG-ATT의 "무료 1장"은 이 날로 바뀜
+
 - 화면: `components/v2/bag/BagScreenV2.tsx`
 - 섹션: `PackSection.tsx`(체크 팩 · 잠긴 팩) · `MemoSection.tsx` · `PhotoViewer.tsx` · `PdfViewer.tsx` · `format.ts`
 - 시트: `components/v2/bag/sheets/*`, `components/v2/sheets/AiPasteSheets.tsx`(ClipboardImportSheet), `PremiumSheet`

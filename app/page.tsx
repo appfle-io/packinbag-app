@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AppShell from "@/components/AppShell";
+import { PortableAccountGate } from "@/components/v2/shell/PortableAccountGate";
 import { InviteLinkBridge } from "@/components/AppBridge";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/Toast";
@@ -16,7 +17,10 @@ export default function Home() {
     <AuthProvider>
       <ThemeProvider>
         <ToastProvider>
-          <AppShell />
+          {/* PC 포터블 무료 계정은 앱 대신 프리미엄 안내(2026-10-21). FREE_LAUNCH면 보이지 않는다 */}
+          <PortableAccountGate>
+            <AppShell />
+          </PortableAccountGate>
           {/* 초대 링크(/?invite=)를 카톡 · 사파리에서 열면 팩인백 앱으로(lib/v2/appBridge) */}
           <InviteLinkBridge />
         </ToastProvider>

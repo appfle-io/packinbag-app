@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import type { AppFontFamily } from "@/lib/types";
 import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily } from "@/lib/v2/appFonts";
+import { isPremiumUser } from "@/lib/premiumLimits";
 
 // 설정 > 화면: 화면 모드 · 글자 크기 · 글꼴(docs/spec/settings.md SET-DISP).
 // 저장: 이 기기(localStorage, 첫 화면 깜빡임 방지) + 계정(UserProfile.themeMode · fontScale · fontFamily, 기기 간 동기화).
@@ -129,10 +130,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyFontScale(fontScale);
   }, [fontScale]);
 
-  // 앱 글꼴. 첫 화면은 app/layout.tsx head 스크립트가 이미 적용했고, 여기서는 바뀐 값을 따라간다
+  // 앱 글꼴. 첫 화면은 app/layout.tsx head 스크립트가 이미 적용했고, 여기서는 바뀐 값을 따라간다.
+  // 무료(FREE_LAUNCH를 끈 뒤)는 기본 글꼴만(2026-10-21, SET-DISP). 저장된 값은 두고 화면만 기본으로 → 프리미엄이 되면 다시 그 글꼴.
+  // 프로필이 오기 전에는 이 기기 값 그대로(깜빡임 방지). 오프라인 모드는 isPremiumUser가 true
+  const fontAllowed = !profile || isPremiumUser(profile.email, profile);
+  const shownFamily: AppFontFamily = fontAllowed ? fontFamily : DEFAULT_FONT_FAMILY;
   useEffect(() => {
-    applyFontFamily(fontFamily);
-  }, [fontFamily]);
+    applyFontFamily(shownFamily);
+  }, [shownFamily]);
 
   // 계정에 저장된 값이 있으면 따라간다(처음 로드 + 다른 기기에서 바꾼 것). 계정에 값이 없으면 이 기기 값을 그대로 둔다.
   // 이미 구독 중인 프로필을 쓰므로 추가 읽기는 없다. 이 기기에서 바꾼 값은 되돌아와도 같은 값이라 아무 일도 없다
@@ -173,6 +178,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setFontFamily = (family: AppFontFamily) => {
+    // 무료는 기본 글꼴만(시트가 먼저 막지만 한 번 더)
+    if (!fontAllowed && family !== DEFAULT_FONT_FAMILY) return;
     setFontFamilyState(family);
     writeLocal(FONT_FAMILY_KEY, family);
     applyFontFamily(family);
@@ -180,7 +187,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ mode, setMode, fontScale, setFontScale, fontFamily, setFontFamily }}>
+    <ThemeContext.Provider value={{ mode, setMode, fontScale, setFontScale, fontFamily: shownFamily, setFontFamily }}>
       {children}
     </ThemeContext.Provider>
   );

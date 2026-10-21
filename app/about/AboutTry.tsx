@@ -2,10 +2,16 @@
 
 // /about "써 보기": 진짜 팩인백을 체험 모드(?demo=1, offline.md OFF-DEMO)로 페이지 안에 띄운다.
 // 왼쪽 단계는 앱을 대신 조작하지 않고, 지금 해 볼 것을 알려 준다(앱은 방문자가 직접 누른다)
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./about.module.css";
 
 const DEMO_URL = "/?demo=1";
+
+// "PC 화면"은 iframe을 진짜 PC 폭으로 띄우고 칸에 맞게 줄여 보여 준다(10/21, ABOUT-05).
+// 칸은 약 750px라 그대로 띄우면 앱이 폭 900 미만으로 보고 휴대폰 화면을 그렸다.
+// 1200 = 앱의 [레일 | 목록 | 상세] 3단이 되는 가장 작은 폭(WideShell). iframe 안 앱은 줄이기 전 폭을 자기 화면 폭으로 본다
+const PC_W = 1200;
+const PC_H = 800;
 
 const STEPS: { title: string; body: string; tip: string }[] = [
   {
@@ -44,6 +50,20 @@ export default function AboutTry() {
   const [step, setStep] = useState(0);
   const [view, setView] = useState<"pc" | "phone">("pc");
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.6);
+
+  // 칸 폭이 바뀔 때마다 줄이는 비율을 다시 잰다(넓으면 1배까지만)
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      if (w > 0) setScale(Math.min(1, w / PC_W));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // 처음부터 다시: 체험 저장(이 창의 pib_demo_*)을 지우고 다시 연다. 같은 주소라 iframe 안 저장소에 손이 닿는다
   const resetDemo = () => {
@@ -101,13 +121,20 @@ export default function AboutTry() {
               처음부터 다시
             </button>
           </div>
-          <div className={styles.frameWrap}>
-            <iframe
-              ref={frameRef}
-              src={DEMO_URL}
-              title="팩인백 체험"
-              className={view === "pc" ? styles.framePc : styles.framePhone}
-            />
+          <div ref={wrapRef} className={styles.frameWrap}>
+            {/* 화면 크기를 바꿔도 체험이 이어지도록 iframe은 같은 자리(같은 요소)에 둔다 */}
+            <div
+              className={view === "pc" ? styles.pcBox : styles.phoneBox}
+              style={view === "pc" ? { height: Math.round(PC_H * scale) } : undefined}
+            >
+              <iframe
+                ref={frameRef}
+                src={DEMO_URL}
+                title="팩인백 체험"
+                className={view === "pc" ? styles.framePc : styles.framePhone}
+                style={view === "pc" ? { width: PC_W, height: PC_H, transform: `scale(${scale})` } : undefined}
+              />
+            </div>
           </div>
           <p className={styles.stageNote}>체험에서 만든 건 이 창에만 있고, 창을 닫으면 사라져요. AI · 사진 첨부 · 가족 초대는 로그인하면 쓸 수 있어요.</p>
         </div>

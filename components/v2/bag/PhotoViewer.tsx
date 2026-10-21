@@ -20,11 +20,14 @@ export function PhotoViewer({
   index,
   onClose,
   onNavigate,
+  canSave = true,
 }: {
   images: string[];
   index: number;
   onClose: () => void;
   onNavigate: (nextIndex: number) => void;
+  // false면 저장 버튼을 숨기고 길게 눌러 저장 · 오른쪽 클릭도 막는다(무료는 보기만, 2026-10-21 BAG-ATT-07)
+  canSave?: boolean;
 }) {
   const many = images.length > 1;
   const { scale, tx, ty, interacting, reset, bind } = useZoomPan();
@@ -50,7 +53,7 @@ export function PhotoViewer({
   }, [many, index, images.length, onNavigate]);
 
   const save = async () => {
-    if (saving) return;
+    if (saving || !canSave) return;
     setSaving(true);
     await downloadFileFromUrl(images[index]);
     setSaving(false);
@@ -70,10 +73,12 @@ export function PhotoViewer({
             src={images[index]}
             alt={`사진 ${index + 1}`}
             draggable={false}
+            onContextMenu={canSave ? undefined : (e) => e.preventDefault()}
             className={cx("max-h-full max-w-full select-none rounded-field object-contain", zoomed ? "cursor-grab" : "cursor-zoom-in")}
             style={{
               transform: `translate(${tx}px, ${ty}px) scale(${scale})`,
               transition: interacting ? "none" : "transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+              WebkitTouchCallout: canSave ? undefined : "none",
             }}
           />
         </div>
@@ -89,9 +94,13 @@ export function PhotoViewer({
                 {index + 1} / {images.length}
               </span>
             )}
-            <button type="button" onClick={save} disabled={saving} aria-label="사진 저장" className={GLASS}>
-              {saving ? <IconLoader2 size={20} stroke={1.9} className="animate-spin" /> : <IconDownload size={20} stroke={1.9} />}
-            </button>
+            {canSave ? (
+              <button type="button" onClick={save} disabled={saving} aria-label="사진 저장" className={GLASS}>
+                {saving ? <IconLoader2 size={20} stroke={1.9} className="animate-spin" /> : <IconDownload size={20} stroke={1.9} />}
+              </button>
+            ) : (
+              <span aria-hidden="true" className="size-11" />
+            )}
           </div>
         </div>
 

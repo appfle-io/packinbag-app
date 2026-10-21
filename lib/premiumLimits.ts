@@ -120,8 +120,17 @@ export function bagPackLimitMessage(premium: boolean): string {
 export const FREE_MAX_LIBRARY_PACKS = 10;
 
 // 무료 사용자가 가방 1개에 직접 업로드할 수 있는 대표 사진 최대 장수
-// (친구가 올린 사진은 제외하고 본인 업로드 기준 1장)
-export const FREE_MAX_USER_BAG_IMAGES = 1;
+// 2026-10-21: 무료는 가방 · 메모 사진 · 파일 첨부를 못 한다(예전 1장, 10/14). 남이 올린 것은 보기만 되고 저장 · 파일 열기는 안 된다
+// (화면에서만 막는다 — Storage 내려받기 주소는 규칙을 거치지 않아서. 업로드는 storage.rules가 다시 막는다)
+export const FREE_MAX_USER_BAG_IMAGES = 0;
+
+export const ATTACH_PREMIUM_MESSAGE = "사진 · 파일 첨부는 프리미엄 기능이에요.";
+export const MEDIA_SAVE_PREMIUM_MESSAGE = "사진 저장 · 파일 열기는 프리미엄 기능이에요. 사진은 여기서 볼 수 있어요.";
+export const OFFLINE_IMPORT_PREMIUM_MESSAGE =
+  "이 기기에 있는 가방 · 팩을 계정으로 옮기는 건 프리미엄 기능이에요. 데이터는 이 기기에 그대로 있어요.";
+export const BACKUP_IMPORT_PREMIUM_MESSAGE = "백업 파일을 계정으로 불러오는 건 프리미엄 기능이에요.";
+export const PORTABLE_ACCOUNT_PREMIUM_MESSAGE =
+  "PC 포터블에서 계정으로 쓰는 건 프리미엄 기능이에요. 이용권 코드를 넣거나, 로그아웃하고 오프라인 모드로 쓸 수 있어요.";
 
 // 가방당 전체 사진 첨부 최대 장수 - 무료/유료 공통 상한 (멤버 혼재 정책 충돌 방지용)
 export const MAX_BAG_IMAGES = 5;

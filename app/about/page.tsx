@@ -41,7 +41,7 @@ const FEATURES = [
 const MORE = [
   "D-Day 알림",
   "Siri · 단축어",
-  "날씨로 준비물 추천",
+  "날씨 · 명소 추천",
   "빠진 것 확인",
   "담당자 지정",
   "짧은 링크로 공유",
@@ -62,7 +62,7 @@ const PRICE = [
   ["가방, 팩", "개수 제한 없음"],
   ["같이 쓰는 인원", "가방마다 10명까지"],
   ["사진, PDF 첨부", "가능"],
-  ["AI 기능", "하루 3번"],
+  ["AI 기능", "일주일에 3번"],
 ];
 
 export default async function AboutPage() {

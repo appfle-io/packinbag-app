@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE } from "@/lib/aiQuotaServer";
+import { verifyAndCheckAiQuota, consumeAiQuota, AiAuthError, withAiQuotaSettlement, AI_PREMIUM_CAP_MESSAGE, aiFreeLimitMessage } from "@/lib/aiQuotaServer";
 import { getGeminiEndpoint } from "@/lib/geminiConfig";
 
 export const runtime = "nodejs";
@@ -75,7 +75,7 @@ async function handlePOST(req: NextRequest) {
   if (!quota.allowed) {
     return NextResponse.json(
       {
-        error: `오늘 무료 AI 사용 한도(${quota.limit}회)를 다 썼어요. 내일 다시 시도하거나, 프리미엄으로 더 많이 쓸 수 있어요`,
+        error: aiFreeLimitMessage(quota.limit),
         limitReached: true,
         usedCount: quota.usedCount,
         limit: quota.limit,

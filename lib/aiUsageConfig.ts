@@ -3,14 +3,25 @@
 // 안전하게 가져다 쓸 수 있다. 숫자/날짜 기준이 클라이언트 표시용과 서버 검증용에서
 // 어긋나지 않도록 이 파일 하나로 통일한다.
 
-// 무료 회원의 AI 기능(메모 가방 변환, 티켓 OCR, 아이템 자동정리 등) 일일 무료 사용 한도.
-// 한국시간(KST) 자정마다 리셋되며, 서버(aiQuotaServer.ts)와 클라이언트 모두 이 값을 참조한다.
-export const AI_FREE_DAILY_LIMIT = 3;
+// 무료 회원의 AI 기능 사용 한도. 2026-10-21부터 **주 3회**(한국 시간 월요일 0시에 새로, 예전 하루 3회).
+// 서버(aiQuotaServer.ts)와 클라이언트 모두 이 값을 참조한다. 프리미엄은 하루 50회 상한(aiQuotaServer)
+export const AI_FREE_WEEKLY_LIMIT = 3;
+/** @deprecated 주 단위로 바뀜(AI_FREE_WEEKLY_LIMIT). 예전 import가 깨지지 않게 같은 값 */
+export const AI_FREE_DAILY_LIMIT = AI_FREE_WEEKLY_LIMIT;
 export const UNLOCK_CODE_LENGTH = 10;
 
 // 하루 구분은 한국 시간(KST) 자정 기준.
 export function todayKstKey(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+}
+
+// 한 주 구분: 한국 시간 월요일 날짜를 앞에 W를 붙여 쓴다(예: "W2026-10-19"). 무료 AI 횟수 문서 id에 쓴다
+export function thisWeekKstKey(now: Date = new Date()): string {
+  const [y, m, d] = now.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }).split("-").map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d));
+  const sinceMonday = (day.getUTCDay() + 6) % 7;
+  day.setUTCDate(day.getUTCDate() - sinceMonday);
+  return `W${day.toISOString().slice(0, 10)}`;
 }
 
 const CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

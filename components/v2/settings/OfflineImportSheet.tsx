@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { getImportedOfflineIds, getOfflineDataSummary, importOfflineDataToOnline } from "@/lib/offlineImportService";
 import { countOfflineMedia } from "@/lib/offlineMediaStrip";
-import { FREE_MAX_ACTIVE_BAGS, FREE_MAX_LIBRARY_PACKS, isPremiumUser } from "@/lib/premiumLimits";
+import { OFFLINE_IMPORT_PREMIUM_MESSAGE, isPremiumUser } from "@/lib/premiumLimits";
 import { Badge, Button, CheckMark, SectionHeader, Sheet, cx } from "@/components/v2/ui";
 
 type Summary = ReturnType<typeof getOfflineDataSummary>;
@@ -129,8 +129,16 @@ export function OfflineImportSheet({
     }
   };
 
-  // 버튼: 옮기지 못하는 사진 · 파일이 있으면 먼저 묻는다
+  // 버튼: 무료는 옮기지 않고 프리미엄 안내만(데이터는 이 기기에 그대로, 2026-10-21 OFF-MERGE-13).
+  // 프리미엄이면 옮기지 못하는 사진 · 파일이 있을 때 먼저 묻는다
   const start = () => {
+    if (!premium) {
+      onClose();
+      // 부른 쪽이 프리미엄 시트를 못 띄우면(onLimit 없음) 토스트로라도 알린다
+      if (onLimit) onLimit(OFFLINE_IMPORT_PREMIUM_MESSAGE);
+      else show(OFFLINE_IMPORT_PREMIUM_MESSAGE);
+      return;
+    }
     if (!summary || count === 0) return;
     const n = countOfflineMedia(
       summary.bags.filter((b) => bagIds.has(b.id)),
@@ -179,8 +187,16 @@ export function OfflineImportSheet({
       showClose={!busy}
       footer={
         <div className="flex flex-col gap-2">
-          <Button block disabled={busy || count === 0} onClick={start}>
-            {busy ? (merge ? "옮기는 중" : "가져오는 중") : count > 0 ? `${count}개 내 계정으로 ${verb}` : "고르면 계정으로 옮길 수 있어요"}
+          <Button block disabled={busy || (premium && count === 0)} onClick={start}>
+            {!premium
+              ? "프리미엄으로 계정에 옮기기"
+              : busy
+                ? merge
+                  ? "옮기는 중"
+                  : "가져오는 중"
+                : count > 0
+                  ? `${count}개 내 계정으로 ${verb}`
+                  : "고르면 계정으로 옮길 수 있어요"}
           </Button>
           {merge && !busy && (
             <Button block variant="text" onClick={onClose}>
@@ -195,7 +211,7 @@ export function OfflineImportSheet({
           <p className="m-0 text-caption text-sub">{leadText}</p>
           {!premium && (
             <p className="m-0 text-caption text-sub">
-              {`무료는 내가 만든 가방 ${FREE_MAX_ACTIVE_BAGS}개 · 팩 ${FREE_MAX_LIBRARY_PACKS}개까지예요. 넘는 것은 이 기기에 남겨 두고, 프리미엄을 안내해 드려요.`}
+              무료는 이 기기의 가방 · 팩을 계정으로 옮길 수 없어요. 프리미엄이면 옮길 수 있고, 지금 데이터는 이 기기에 그대로 있어요.
             </p>
           )}
           {merge && <p className="m-0 text-caption text-faint">나중에 하려면 설정 &gt; 데이터 &gt; 오프라인 데이터 가져오기에서 언제든 할 수 있어요.</p>}

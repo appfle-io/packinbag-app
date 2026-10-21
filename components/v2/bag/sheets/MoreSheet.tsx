@@ -35,6 +35,7 @@ export function MoreSheet({
   onGuide,
   keepScreenOn,
   privacyLock,
+  attachLocked,
 }: {
   open: boolean;
   onClose: () => void;
@@ -58,6 +59,8 @@ export function MoreSheet({
   keepScreenOn?: { on: boolean; onChange: (on: boolean) => void };
   // 개인 잠금(2026-10-12). 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
   privacyLock?: { locked: boolean; onToggle: () => void };
+  // 무료는 첨부 없음(2026-10-21): 자물쇠 + 누르면 파일 고르기 대신 onLocked(프리미엄 안내)
+  attachLocked?: { onLocked: () => void } | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   // 사진·파일 올리기는 인터넷이 필요하다(오프라인 모드는 이 기기에 저장하므로 그대로 된다)
@@ -216,9 +219,15 @@ export function MoreSheet({
           <button type="button" className={row} onClick={() => (onAddMemo(), onClose())}>
             <IconNotes size={20} stroke={1.75} className="text-sub" aria-hidden="true" />새 메모
           </button>
-          <button type="button" className={row} disabled={uploading} onClick={() => guard(() => fileRef.current?.click(), { localOk: true })}>
+          <button
+            type="button"
+            className={row}
+            disabled={uploading}
+            onClick={() => (attachLocked ? (onClose(), attachLocked.onLocked()) : guard(() => fileRef.current?.click(), { localOk: true }))}
+          >
             <IconPhoto size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
-            {uploading ? "올리는 중…" : "사진 · 파일 첨부"}
+            <span className="min-w-0 flex-1">{uploading ? "올리는 중…" : "사진 · 파일 첨부"}</span>
+            {attachLocked && <IconLock size={16} stroke={1.9} className="text-faint" aria-label="프리미엄" />}
           </button>
           <input
             ref={fileRef}

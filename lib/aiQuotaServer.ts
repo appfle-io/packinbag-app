@@ -19,12 +19,18 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 import { checkIsMaster } from "@/lib/adminApiAuth";
-import { AI_FREE_DAILY_LIMIT, todayKstKey } from "@/lib/aiUsageConfig";
+import { AI_FREE_WEEKLY_LIMIT, thisWeekKstKey, todayKstKey } from "@/lib/aiUsageConfig";
 import { isUnlockCodeValidFor } from "@/lib/unlockCodeCheck";
 
 export class AiAuthError extends Error {}
 
 const AI_PREMIUM_DAILY_CAP = 50;
+// 2026-10-21: 무료는 주 3회. 무료 횟수(count)는 `{uid}_W{그 주 월요일}` 문서에, 프리미엄 횟수(premiumCount)는 예전처럼 `{uid}_{오늘}` 문서에 센다
+const AI_FREE_DAILY_LIMIT = AI_FREE_WEEKLY_LIMIT;
+/** 무료 한도를 다 썼을 때 라우트들이 같이 쓰는 문구 */
+export function aiFreeLimitMessage(limit: number): string {
+  return `이번 주 무료 AI 사용 한도(${limit}회)를 다 썼어요. 월요일에 다시 쓸 수 있고, 프리미엄은 하루 ${AI_PREMIUM_DAILY_CAP}회까지 쓸 수 있어요`;
+}
 export const AI_PREMIUM_CAP_MESSAGE = `AI 기능은 하루 ${AI_PREMIUM_DAILY_CAP}회까지 쓸 수 있어요. 내일 다시 시도해주세요`;
 const AI_GUEST_MESSAGE = "AI 기능은 로그인하면 쓸 수 있어요. 설정에서 계정을 만들어 주세요";
 
@@ -189,14 +195,15 @@ export async function verifyAndCheckAiQuota(req: Request): Promise<AiQuotaCheckR
     }
 
     // 감싸지 않은 라우트: 읽기만(예전 동작)
+    const weekKey = thisWeekKstKey();
     if (!pending) {
-      const usageSnap = await db.collection("aiUsage").doc(usageDocId(uid, dateKey)).get();
+      const usageSnap = await db.collection("aiUsage").doc(usageDocId(uid, weekKey)).get();
       const usedCount = (usageSnap.data()?.count as number | undefined) ?? 0;
       return { allowed: usedCount < AI_FREE_DAILY_LIMIT, unlimited: false, usedCount, limit: AI_FREE_DAILY_LIMIT, uid };
     }
 
-    // 감싼 라우트: 한도 안이면 1회 예약
-    const { count, reserved } = await reserve(uid, dateKey, "count", AI_FREE_DAILY_LIMIT, pending);
+    // 감싼 라우트: 한도 안이면 1회 예약(이번 주 문서)
+    const { count, reserved } = await reserve(uid, weekKey, "count", AI_FREE_DAILY_LIMIT, pending);
 
     // usedCount는 이번 요청 전 횟수(라우트가 성공 후 +1 해서 응답에 싣는다)
     return { allowed: reserved, unlimited: false, usedCount: count, limit: AI_FREE_DAILY_LIMIT, uid };
@@ -220,7 +227,7 @@ export async function consumeAiQuota(uid: string): Promise<void> {
     const db = adminDb();
     if (!db || uid === "dev-user") return;
 
-    const dateKey = todayKstKey();
+    const dateKey = thisWeekKstKey();
     await db
       .collection("aiUsage")
       .doc(usageDocId(uid, dateKey))

@@ -5,7 +5,7 @@ import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, Ico
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { bagMemberLimit, bagPackLimit, bagPackLimitMessage, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
+import { ATTACH_PREMIUM_MESSAGE, MEDIA_SAVE_PREMIUM_MESSAGE, bagMemberLimit, bagPackLimit, bagPackLimitMessage, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import SlideScreen from "@/components/SlideScreen";
@@ -553,6 +553,8 @@ export default function BagScreenV2(props: BagScreenProps) {
                         aria-label={label}
                         onClick={() => {
                           if (kind === "image") setLightbox(i);
+                          // 무료는 사진 보기만, 파일 열기 · 저장은 안 됨(2026-10-21 BAG-ATT-08)
+                          else if (!premium) setPremiumMessage(MEDIA_SAVE_PREMIUM_MESSAGE);
                           else if (kind === "pdf") setPdfUrl(url);
                           else
                             void downloadFileFromUrl(url).then((r) => {
@@ -990,6 +992,7 @@ export default function BagScreenV2(props: BagScreenProps) {
             ? { locked: privacy.bagLocked(bag.id), onToggle: () => privacy.toggleLock("bag", bag.id, !privacy.bagLocked(bag.id), { name: bag.name }) }
             : undefined
         }
+        attachLocked={premium ? null : { onLocked: () => setPremiumMessage(ATTACH_PREMIUM_MESSAGE) }}
       />
       <ConfirmSheet
         open={confirmDelete}
@@ -1083,6 +1086,7 @@ export default function BagScreenV2(props: BagScreenProps) {
             const imgs = bag.images.filter((u) => getFileKind(u) === "image");
             setLightbox(bag.images.indexOf(imgs[next]));
           }}
+          canSave={premium}
         />
       )}
       {pdfUrl && <PdfViewer url={pdfUrl} onClose={() => setPdfUrl(null)} />}
