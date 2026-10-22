@@ -83,6 +83,7 @@ import TextStyle from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
+import { isBlockedAppInternalUrl } from "./linkSafety";
 import { FontSize } from "./fontSizeExtension";
 import { ToggleBlock, ToggleSummary, ToggleContent } from "./toggleBlockExtension";
 import { IndentExtension } from "./indentExtension";
@@ -168,6 +169,8 @@ export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOp
       openOnClick: false,
       autolink: false,
       linkOnPaste: true,
+      // 앱 내부 경로 링크는 붙이지도 그리지도 않는다(memo.md MEMO-LINK-12)
+      isAllowedUri: (url, { defaultValidate }) => defaultValidate(url) && !isBlockedAppInternalUrl(url),
       HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
     }),
     ...(opts.placeholder ? [Placeholder.configure({ placeholder: opts.placeholder })] : []),

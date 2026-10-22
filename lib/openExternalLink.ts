@@ -1,6 +1,7 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
+import { isBlockedAppInternalUrl } from "@/lib/linkSafety";
 
 // 아이템/메모/에디터팩 안의 링크를 눌렀을 때 여는 공용 함수. 웹에서는 새 탭으로 열고,
 // Capacitor(iOS 등) 네이티브 앱에서도 그대로 window.open을 쓴다 - Capacitor WebView는
@@ -12,6 +13,11 @@ import { Capacitor } from "@capacitor/core";
 // 바꾸면 된다(그 전까지는 새 네이티브 의존성/캡 sync 없이 이 방식으로 충분하다).
 export function openExternalLink(url: string) {
   if (!url) return;
+  // 앱 내부 경로 링크는 열지 않는다(Capacitor CVE-2026-103922 임시 방어, memo.md MEMO-LINK-12)
+  if (isBlockedAppInternalUrl(url)) {
+    console.warn("[팩인백] 열 수 없는 링크라 막았어요:", url);
+    return;
+  }
   try {
     let targetUrl = url.trim();
     if (

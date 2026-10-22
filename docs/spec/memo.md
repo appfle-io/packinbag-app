@@ -174,6 +174,7 @@
 | MEMO-LINK-09 | 화면 표시: 짧은 · 커스텀 링크는 **본문 글자는 그대로 두고** 화면에서만 표시 이름으로 바꿔 보여 줌(글자가 주소 그대로이거나 전에 바꿔 둔 자리만, 직접 다른 글로 적은 링크는 안 건드림). 이름은 캐시(`linkLabelCache`)에 두고 처음 볼 때 서버에서 받음 |
 | MEMO-LINK-10 | 링크 해제 → 토스트 "링크를 해제했어요" |
 | MEMO-LINK-11 | 짧은 URL 기능 사용 가능 = 계정 모드 + `isShortUrlFeatureEnabled`(계정 설정). 아니면 일반 링크는 누르면 바로 열림 |
+| MEMO-LINK-12 | 앱 내부 경로 링크 차단(10/22): 주소에 `_capacitor_`가 있으면(대소문자 · % 인코딩 무시) 붙여넣기 · 링크 넣기에서 링크가 안 걸리고(TipTap `isAllowedUri`), 이미 저장된 것은 href 없이 그려지며, 누르면 안 열림(`openExternalLink`, 콘솔 경고만). Capacitor 6.2.1 CVE-2026-103922 임시 방어, `lib/linkSafety.ts` |
 
 ---
 
@@ -260,3 +261,4 @@
 | `migratePackImagesToDoc` · `extractDocAttachmentUrls` | MEMO-ATT-07 · 08 |
 | `noteEditorMarkdownPaste` 변환(표 · 제목 · 체크) | MEMO-PASTE-02 |
 | `validateCustomCode` · `validateLinkLabel` | MEMO-LIM-09, MEMO-LINK-06 |
+| `isBlockedAppInternalUrl` — ✅ 10/22 `lib/linkSafety.test.ts` | MEMO-LINK-12 |

@@ -4,6 +4,14 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/22 보안 업데이트 (웹 · 포터블 1.7.7, 규칙 변경 없음)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **Next.js 16.2.10 → 16.4.2** | 보안 | 10/14 긴급 공지(이미지 최적화 SVG RCE · use cache RCE · Server Actions DoS) 외 audit 17건. sharp 0.35.5 · postcss도 함께. `eslint-config-next` 같이 (`docs/packinbag_security_review.md` SEC-DEP-01) |
+| **`npm audit fix`(범위 안)** | 보안 | prosemirror-view 1.42.7(메모 붙여넣기 XSS) · busboy · fast-xml-parser · brace-expansion · markdown-it 등. 55건 → 39건, 남은 높음 4는 firebase → grpc-js (SEC-DEP-03 · 05) |
+| **앱 내부 경로 링크 차단** | 추가 | Capacitor 6.2.1 CVE-2026-103922 임시 방어. `lib/linkSafety.ts`(+test) · `openExternalLink` · `noteEditorExtensions` `isAllowedUri` (memo.md MEMO-LINK-12) |
+
 ## 10/21 /about 써 보기 PC 화면 · 무료 제한 강화 (웹 · 포터블 1.7.6, **storage.rules 변경**)
 
 > 아래 무료 제한 중 **AI 주 3회만 배포 즉시 전원 적용**(AI 횟수는 FREE_LAUNCH를 안 봄). 나머지는 FREE_LAUNCH를 끄는 날부터(지금은 전원 프리미엄이라 안 보임). 사용자 결정(10/21)
