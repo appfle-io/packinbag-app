@@ -29,6 +29,7 @@
 | NAT-SESSION-02 | 로그인 상태 + 계정 모드: 네이티브에 같은 uid 토큰이 이미 있으면 그대로. 없거나 다르면 `POST /api/native/device-token`(Firebase 토큰)으로 새 기기 토큰을 받아 `setSession({ uid, token, apiBase: 지금 주소 })` → App Group에 저장, 위젯 · 단축어가 이 토큰으로 서버를 부른다 |
 | NAT-SESSION-03 | 로그아웃 · 오프라인 모드: `clearSession()` → 네이티브가 서버에서 그 토큰도 지운다. 위젯은 로그인 안내로 |
 | NAT-SESSION-04 | 여러 번 불려도 앞의 것이 끝난 뒤 차례로(겹쳐 토큰을 두 번 받지 않게). 실패는 콘솔 "[팩인백] 위젯 연결 실패"만 |
+| NAT-SESSION-06 | 서버가 401(토큰 모름 · 90일 만료)을 주면 네이티브는 **저장된 토큰만** 지운다(`PIBStore.clearToken`, 요약 · 꾸미기는 둠). 앱을 열면 NAT-SESSION-02대로 새 토큰을 받아 이어진다(1.8부터, 10/22). 예전 토큰을 지우러 보낸 요청의 401은 무시 |
 | NAT-SESSION-05 | 탈퇴: `delete-account-data`가 `deviceTokens`를 지우고, Auth 계정 삭제 트리거 `onUserDeleted`도 그 uid 기기 토큰을 모두 지운다(api.md API-AUTH-05) |
 
 ## 2. NAT-SUM 가방 요약 (`lib/nativeSummary.ts`)

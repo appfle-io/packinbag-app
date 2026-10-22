@@ -1,5 +1,24 @@
 import type { NextConfig } from "next";
 
+// 보고 전용 CSP 초안(2026-10-22). 인라인 스크립트(테마 · 글꼴 · Next)는 아직 허용, 외부는 Firebase · Google · Apple 로그인 · 날씨만.
+// 사진 · 첨부는 Storage 내려받기 주소, 이벤트 본문은 Storage HTML을 iframe으로 띄운다
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://appleid.cdn-apple.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "media-src 'self' data: blob: https://firebasestorage.googleapis.com",
+  "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://api.open-meteo.com",
+  "frame-src 'self' blob: https://*.firebaseapp.com https://firebasestorage.googleapis.com https://accounts.google.com https://appleid.apple.com",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  "report-uri /api/csp-report",
+].join("; ");
+
 const nextConfig: NextConfig = {
   /* config options here */
   output: process.env.NEXT_STANDALONE === "true" ? "standalone" : undefined,
@@ -27,6 +46,10 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+          // CSP는 막지 않고 보고만(2026-10-22, SEC-WEB-02). /api/csp-report가 Vercel 로그에 남긴다 → 몇 주 보고 진짜 CSP로
+          ...(process.env.NODE_ENV === "production"
+            ? [{ key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY }]
+            : []),
         ],
       },
       {

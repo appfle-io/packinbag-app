@@ -4,6 +4,15 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/22 보안 점검 2회차 · iOS 1.8 (웹 · 포터블 1.8.0 + iOS 1.8(8), 규칙 변경 없음)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **Capacitor 6.2.2** | 보안 | CVE-2026-103922(앱 안 링크로 내부 프록시 경로 열림) 수정판. core · ios · cli 6.2.2, `npx cap sync ios`로 pod 6.2.2. Xcode App · 위젯 1.8(8) (security_review SEC-DEP-02) |
+| **기기 토큰 90일 만료** | 보안 | 90일 안 쓴 위젯 · 단축어 토큰은 서버가 지우고 401. 1.8 네이티브는 401이면 토큰만 지우고, 앱을 열면 새로 받음. `lib/nativeDeviceServer.ts` · `ios/App/Shared/PIBShared.swift` (api.md API-NAT-01, native-ios.md NAT-SESSION-06) |
+| **CSP 보고 전용** | 추가 | 운영 빌드에 `Content-Security-Policy-Report-Only` + `/api/csp-report`(Vercel 로그 한 줄, 저장 없음). 막지 않음 (SEC-WEB-02) |
+| **포터블 동일 출처 정책 켬** | 보안 | `webSecurity: false` 대신 운영 API · Storage 응답에만 CORS 헤더(`electron/cors.js`) (offline.md OFF-PORT-05, SEC-APP-03) |
+
 ## 10/22 보안 점검 1회차 수정 (웹 · 포터블 1.7.8, **storage.rules 변경**)
 
 | 기능 | 상태 | 비고 |

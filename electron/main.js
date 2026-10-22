@@ -1,4 +1,5 @@
-const { app, BrowserWindow, shell, Menu, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, Menu, ipcMain, session } = require("electron");
+const { allowRemoteCors } = require("./cors");
 const path = require("path");
 const http = require("http");
 const https = require("https");
@@ -133,6 +134,7 @@ async function startServerAndGetUrl() {
 }
 
 function createWindow(url) {
+  allowRemoteCors(session.defaultSession, new URL(url).origin);
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 820,
@@ -147,7 +149,7 @@ function createWindow(url) {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
+      webSecurity: true,
     },
   });
 

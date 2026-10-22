@@ -128,6 +128,7 @@
 | OFF-PORT-01 | 연결 판단은 메인 프로세스 IPC(OFF-NET-01) |
 | OFF-PORT-02 | Google · Apple 로그인 · 연동 버튼 없음(이메일 · 게스트만, AUTH-FORM-11) |
 | OFF-PORT-03 | 웹과 같은 오프라인 모드 · 만들기 대기 · 합치기. 폐쇄망에서 세션 없이 켜면 바로 오프라인 모드 |
+| OFF-PORT-05 | 보안(10/22): 동일 출처 정책 켬(`webSecurity: true`). 운영 API(`packinbag.seeuson.com`) · Storage 응답에만 이 앱 출처의 CORS 헤더를 붙인다(`electron/cors.js`). 새 창은 PDF 미리보기(blob:)만, 바깥 http(s)는 기본 브라우저, 앱 창은 로컬 주소 밖으로 이동 안 함 |
 | OFF-PORT-04 | iOS 앱은 서버 주소(server.url) 구조라 폐쇄망에서 **처음 실행**은 안 됨(쓰던 중 끊김은 위 흐름대로) — 알려진 한계 |
 
 ### OFF-DEMO 체험 모드 (2026-10-18)

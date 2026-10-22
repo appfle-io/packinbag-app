@@ -12,11 +12,11 @@ PODS:
     - PromisesObjC (~> 2.4)
     - PromisesSwift (~> 2.4)
     - RecaptchaInterop (~> 101.0)
-  - Capacitor (6.2.1):
+  - Capacitor (6.2.2):
     - CapacitorCordova
   - CapacitorApp (6.0.3):
     - Capacitor
-  - CapacitorCordova (6.2.1)
+  - CapacitorCordova (6.2.2)
   - CapacitorHaptics (6.0.3):
     - Capacitor
   - CapacitorLocalNotifications (6.1.3):
@@ -116,9 +116,9 @@ SPEC CHECKSUMS:
   Alamofire: 7193b3b92c74a07f85569e1a6c4f4237291e7496
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
   AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
-  Capacitor: c95400d761e376be9da6be5a05f226c0e865cebf
+  Capacitor: 6591a78b923b7e6dde28506ffeea820356e68013
   CapacitorApp: a19ccb4f5f32d2534be5c6f524d5a9b614a1e8a7
-  CapacitorCordova: 8d93e14982f440181be7304aa9559ca631d77fff
+  CapacitorCordova: c2c76283b5c00cf6073bab0b1311e3b10bd17254
   CapacitorHaptics: 40f83026feeee9cfe36e89e9c98a3baaaf20c450
   CapacitorLocalNotifications: 801867e687c42dd2b33c1e22e08f48e6738d2f72
   CapacitorPushNotifications: 35abece14371c57172e8321c9ccc8b6fa35fabfe

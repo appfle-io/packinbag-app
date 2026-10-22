@@ -14,6 +14,15 @@ const DEVICE_TOKENS = "deviceTokens";
 const DAILY_LIMIT = 800;
 // 한 계정이 가질 수 있는 기기 토큰 수(넘으면 오래된 것부터 지운다)
 const MAX_TOKENS_PER_USER = 10;
+// 이 기간 동안 한 번도 안 쓴 토큰은 만료(2026-10-22, security_review SEC-AUTH-04). 위젯이 1시간마다 새로 고치므로
+// 쓰는 기기는 늘 새로 갱신되고, 잃어버린 기기 · 지운 앱의 토큰만 걸린다. 걸리면 앱을 열 때 새 토큰을 받는다
+export const DEVICE_TOKEN_IDLE_DAYS = 90;
+
+export function isDeviceTokenExpired(lastUsedAt: string | undefined, now = new Date()): boolean {
+  const t = lastUsedAt ? Date.parse(lastUsedAt) : NaN;
+  if (Number.isNaN(t)) return false;
+  return now.getTime() - t > DEVICE_TOKEN_IDLE_DAYS * 24 * 3600 * 1000;
+}
 
 export class DeviceAuthError extends Error {
   constructor(message: string, public status = 401) {
@@ -139,13 +148,20 @@ export async function verifyDeviceRequest(req: Request): Promise<string> {
   const db = adminDb();
   const ref = db.collection(DEVICE_TOKENS).doc(hashToken(token));
   const today = kstDay();
-  return db.runTransaction(async (tx) => {
+  const uid = await db.runTransaction(async (tx): Promise<string | null> => {
     const snap = await tx.get(ref);
     if (!snap.exists) throw new DeviceAuthError("다시 로그인해 주세요");
-    const data = snap.data() as { uid: string; day?: string; count?: number };
+    const data = snap.data() as { uid: string; day?: string; count?: number; lastUsedAt?: string };
+    // 거래 안에서 throw하면 지우기까지 취소되므로 null로 돌려주고 밖에서 거절한다
+    if (isDeviceTokenExpired(data.lastUsedAt)) {
+      tx.delete(ref);
+      return null;
+    }
     const count = data.day === today ? data.count ?? 0 : 0;
     if (count >= DAILY_LIMIT) throw new DeviceAuthError("오늘은 너무 많이 요청했어요. 내일 다시 해 주세요", 429);
     tx.update(ref, { day: today, count: count + 1, lastUsedAt: new Date().toISOString() });
     return data.uid;
   });
+  if (!uid) throw new DeviceAuthError("다시 로그인해 주세요");
+  return uid;
 }

@@ -61,11 +61,11 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 ### A. 의존성 · 플랫폼
 - [x] SEC-DEP-01 · 03 · 05: next 16.4.2 · sharp 0.35.5 · prosemirror-view 1.42.7, `npm audit fix` 55 → 39건 — **배포됨 1.7.7**(`9b685f4`)
 - [x] SEC-DEP-02 임시 방어: 메모 링크 `_capacitor_` 경로 차단(memo.md MEMO-LINK-12) — 1.7.7
-- [ ] SEC-DEP-02 Capacitor 6.2.2 + iOS 1.8 — 순서 3번째
+- [x] SEC-DEP-02 Capacitor 6.2.2(core · ios · cli, pod 6.2.2) + Xcode 1.8(8) — 10/22 준비, **Xcode 보관 · 제출은 사용자**
 - [x] Dependabot alerts 켬(10/22 👤). 처음 목록은 1.7.7 이전 lock 기준(handlebars · markdown-it 등 이미 고쳐진 것 포함) — 다시 스캔된 뒤 다시 보기
 - [x] 👤 Dependabot **Malware alerts** 켬(10/22)
 - [x] 👤 서버 런타임: Vercel Node.js Version **24.x**(10/22 사용자 확인) — 큰 버전만 고르고 패치는 Vercel이 올림, 10/21 이후 배포(1.7.7)부터 반영. Cloud Functions(Node 22)는 Google 관리 런타임, 다음 functions 배포 때 다시 확인
-- [ ] 👤 로컬 Node 26.4.0 → 26.12.1 이상: Homebrew 설치라 `brew update && brew upgrade node` → `node -v`
+- [x] 👤 로컬 Node → 26.12.1(10/22 사용자, worker `node -v` 확인)
 - [ ] SEC-DEP-04 TipTap 3.x 이전(메이저) · SEC-DEP-08 Electron 34 → 지원 버전 — 따로 계획
 
 ### B. 비밀값 · 키
@@ -79,26 +79,26 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 - [x] SEC-AUTH-01 API 라우트 46개 전수(10/22): 모두 인증 함수가 있음(`verifyRequestUser` · `verifyAndCheckAiQuota` · `verifyDeviceRequest` · `requireMasterUser` · CRON_SECRET · RevenueCat 헤더). 공개는 `build-info`(빌드 SHA · 버전만)와 `send-password-reset`(쿨다운 429) 둘뿐, 의도된 것
 - [x] SEC-AUTH-02 10/16 이후 규칙 변경(이벤트 · 위젯 사진 · 무료 첨부 `canUpload`) 다시 읽음: 이벤트 쓰기 마스터만 · 공개 글만 읽기, 위젯 사진 본인만 · jpeg 3MB. `users`의 `role` · `premiumPurchase` · `unlockCode`는 클라이언트가 못 씀 → `isMaster()`의 `users.role` 경로 안전
 - [x] SEC-AUTH-03 link-meta는 외부 주소를 가져오지 않음(SSRF 없음), geocode는 로그인 필요 + 40자
-- [ ] SEC-AUTH-04 네이티브 기기 토큰 만료 · 폐기, 관리자 판정(`MASTER_EMAILS` + 이메일 인증) 다시 읽기 — 다음 회차
+- [x] SEC-AUTH-04 기기 토큰(2회차 10/22): sha256만 저장 · 하루 800 · 계정당 10개 · 로그아웃 · 탈퇴 때 지움 · 실시간 현황은 멤버 확인 → 좋음. **빠진 것 = 만료 없음** → 90일 안 쓰면 만료(`lib/nativeDeviceServer.ts`), 1.8 네이티브는 401에 토큰만 지우고 앱을 열 때 새로 받음(`PIBShared.swift clearToken`). 웹에서 30일마다 바꿔 끼우는 안은 실시간 현황 등록(`apnsLive`)이 옛 토큰과 함께 사라져 버림. 관리자 판정 다시 읽기는 남음
 
 ### D. 클라이언트 · 웹
 - [x] SEC-WEB-01 보안 헤더: 운영은 `frame-ancestors 'self'` + HSTS(Vercel)뿐 → `X-Content-Type-Options: nosniff` · `Referrer-Policy` · `Permissions-Policy`(카메라 · 마이크 · 위치 · 결제 · USB 끔) 추가(`next.config.ts`) — **1.7.8 배포 대기**
-- [ ] SEC-WEB-02 CSP 본문(script-src 등): TipTap · Firebase · 인라인 테마 스크립트 때문에 바로 걸면 깨짐 → `Content-Security-Policy-Report-Only`로 먼저 모으기(다음 회차)
+- [x] SEC-WEB-02 CSP **보고 전용** 걸음(2회차 10/22, 운영 빌드만): `next.config.ts` `CSP_REPORT_ONLY` → `/api/csp-report`가 Vercel 로그에 `[CSP] 지시어 blocked=… page=…` 한 줄(쿼리 뺌, 저장 안 함). **2~4주 뒤** Vercel → 프로젝트 → Logs에서 `[CSP]` 검색 → 정책 다듬고 진짜 CSP로(인라인 스크립트 nonce는 그때)
 - [x] SEC-WEB-03 메모 링크: TipTap 기본 `isAllowedUri`가 `javascript:` 등을 막고, `openExternalLink`는 http(s) · mailto · tel 외에는 https:// 를 붙임. React 19도 `javascript:` href를 막음. `_capacitor_` 차단 추가(1.7.7)
 - [x] SEC-WEB-04 `dangerouslySetInnerHTML` 3곳 모두 고정 스크립트. 이벤트 본문 HTML은 `sandbox=""` iframe(스크립트 · 폼 · 링크 안 됨)
-- [x] SEC-WEB-05 업로드 형식: HTML · SVG · XML 첨부 금지(10/22 사용자 "막아줘"). 화면 `lib/uploadSafety.ts`(형식 + 확장자, 가방 · 메모 · 오프라인), storage.rules `isBlockedType`(형식) — 1.7.8, **규칙 배포 필요**
+- [x] SEC-WEB-05 업로드 형식: HTML · SVG · XML 첨부 금지(10/22 사용자 "막아줘"). 화면 `lib/uploadSafety.ts`(형식 + 확장자, 가방 · 메모 · 오프라인), storage.rules `isBlockedType`(형식) — 1.7.8(`bef20b2`), storage 규칙 배포됨(10/22 사용자)
 
 ### E. 앱(iOS · 포터블)
 - [x] SEC-APP-01 iOS: `cleartext: false`, ATS 예외 없음, `server.url` = 운영 주소. Capacitor 앱 주소가 운영 주소라 내부 프록시 경로도 그 주소 위 → 1.7.7 링크 차단이 의미 있음
 - [x] SEC-APP-02 포터블 새 창 · 이동 제한: 새 창은 PDF 미리보기(`blob:`)만, 그 밖(file: · data: · javascript:)은 막음, 메인 창은 로컬 앱 주소 밖으로 안 감(바깥 http(s)는 기본 브라우저) — `electron/main.js`, **1.7.8 배포 대기 · 포터블 확인 필요**
-- [ ] SEC-APP-03 **Electron `webSecurity: false`**: 9/21 커밋 `254ad96`이 포터블(`127.0.0.1`)에서 운영 API를 부를 때 CORS에 막혀 끈 것. 고치는 법 = 서버 API에 포터블 출처용 CORS 헤더를 주거나, Electron `session.webRequest.onHeadersReceived`로 `packinbag.seeuson.com/api/*` 응답에만 CORS 헤더를 붙인 뒤 `webSecurity`를 켬. 포터블 실기 확인이 필요해 따로(확인 필요 7)
-- [ ] SEC-APP-04 Capacitor 6.2.2 · iOS 1.8(SEC-DEP-02와 같이)
+- [x] SEC-APP-03 **Electron `webSecurity` 켬**(2회차 10/22): `electron/cors.js`가 운영 주소 · `firebasestorage.googleapis.com` 응답에만 이 앱 출처 CORS(서버가 준 CORS 헤더는 두고 없는 것만 채움, OPTIONS는 204). worker가 Electron으로 확인: 127.0.0.1 페이지에서 API GET 200 · 인증 헤더 POST 401 · Storage 업로드 헤더 400(=CORS 통과), 다른 사이트는 막힘. **로그인 상태 실기 확인은 QA SEC-14**
+- [x] SEC-APP-04 Capacitor 6.2.2 · iOS 1.8 준비(SEC-DEP-02)
 
 ### F. 운영 (👤 콘솔)
-- [ ] SEC-OPS-01 Firestore 백업 주기 · 복구 연습(`node scripts/backup-firestore.mjs`)
-- [ ] SEC-OPS-02 Vercel · Firebase(Google) · GitHub · Apple · Namecheap · Resend 계정 **2단계 인증**
-- [ ] SEC-OPS-03 GCP 예산 알림(결제 → 예산 및 알림), Vercel 사용량 알림
-- [ ] SEC-OPS-04 GitHub 저장소 Settings → Code security → **Secret scanning · Push protection** 켜기(비공개 저장소에서 쓸 수 있으면)
+- [x] SEC-OPS-01 Firestore 백업 1회(10/22 사용자). 주기 · 복구 연습은 나중에
+- [x] SEC-OPS-02 Vercel · Firebase(Google) · GitHub · Apple · Namecheap · Resend 계정 **2단계 인증**(10/22 사용자)
+- [x] SEC-OPS-03 GCP 예산 알림(10/22 사용자)
+- [x] SEC-OPS-04 GitHub Secret scanning · Push protection(10/22 사용자)
 
 ---
 
@@ -107,8 +107,8 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 순서는 **1 → 3 → 2 → 4**(10/22 사용자): iOS 수정을 한 빌드에 모아 심사를 한 번만 받으려고
 
 1. **웹 P0** — 끝, 1.7.7 배포(`9b685f4`, 포터블 태그 `v1.7.7-offline-portable`)
-2. **A~F 점검** — 1회차 끝(위 체크). 바로 고칠 수 있는 것(SEC-WEB-01 · SEC-APP-02)은 고쳐 1.7.8 대기. 👤 표시는 사용자 콘솔 작업. 남은 것(CSP Report-Only · webSecurity · 업로드 형식 · 기기 토큰)은 2회차
-3. **Capacitor 6.2.2 + iOS 새 빌드 1.8**(웹 1.8.0) 제출
+2. **A~F 점검** — 1회차 · 2회차 끝(10/22, 1.8.0). 바로 고칠 수 있는 것(SEC-WEB-01 · SEC-APP-02)은 고쳐 1.7.8 대기. 👤 표시는 사용자 콘솔 작업. 남은 것(CSP Report-Only · webSecurity · 업로드 형식 · 기기 토큰)은 2회차
+3. **Capacitor 6.2.2 + iOS 새 빌드 1.8**(웹 1.8.0) — 준비 끝, 사용자 Xcode 보관 · 제출
 4. 이후: 월 1회 `npm audit --omit=dev` + Dependabot, 큰 공지(Next · Node · Capacitor · Firebase)가 뜨면 1절에 추가
 
 ---
@@ -121,7 +121,7 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 4. ~~Electron `webSecurity: false` 이유~~ → 포터블에서 운영 API CORS(10/22, `254ad96`) → SEC-APP-03
 5. Capacitor 이슈가 `server.url` 구조에서도 같은지 — 앱 주소가 운영 주소라 같은 위험으로 봄. 어쨌든 올린다
 6. ~~프리미엄 첨부 HTML · SVG~~ → 막음(10/22 사용자)
-7. webSecurity 켜기(SEC-APP-03)를 2회차에 할지 — 포터블 실기 확인 필요
+7. ~~webSecurity 켜기~~ → 2회차에 함(10/22, QA SEC-14)
 
 ## 진행 기록
 
@@ -131,3 +131,5 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 | 2026-10-22 | worker | 순서 1 → 3 → 2 → 4로(사용자). 1번: next · eslint-config-next 16.4.2, `npm audit fix`, `lib/linkSafety.ts` 링크 차단. 남은 audit 39건(높음 4 = firebase 클라이언트 → @grpc/grpc-js 1.9.16, 브라우저는 grpc를 안 써 실제 영향 낮음 · audit이 권하는 firebase 9.14 다운그레이드는 안 함). 사용자 요청으로 worker가 커밋 · 푸시 · 태그(`9b685f4`, v1.7.7) |
 | 2026-10-22 | worker | 2번 1회차: A~F 점검(위 결과). 고침: 보안 헤더(`next.config.ts`), 포터블 새 창 · 이동 제한(`electron/main.js`) — 1.7.8 대기 |
 | 2026-10-22 | worker | 사용자 답 반영: Malware alerts 켬 · Vercel 24.x · API 키는 그대로 · 첨부 HTML · SVG 막기 구현. 1.7.8 커밋 · 푸시 |
+| 2026-10-22 | worker | 사용자 완료: storage 규칙 배포 · 2단계 인증 · GCP 예산 · GitHub Secret scanning. 남은 것: 로컬 Node(👤), 백업(SEC-OPS-01), 2회차(SEC-WEB-02 · SEC-APP-03 · SEC-AUTH-04), Capacitor · iOS 1.8 |
+| 2026-10-22 | worker | 2회차 + 1.8: 기기 토큰 90일 만료 · 네이티브 401 토큰만 지우기, CSP 보고 전용 + `/api/csp-report`, 포터블 webSecurity 켬(`electron/cors.js`, Electron 확인), Capacitor 6.2.2 · cap sync · Xcode 1.8(8). 사용자: 로컬 Node 26.12.1 · Firestore 백업 |

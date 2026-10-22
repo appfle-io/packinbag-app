@@ -249,7 +249,7 @@
 
 | ID | 라우트 | 규칙 |
 |---|---|---|
-| API-NAT-01 | 기기 토큰 | 32바이트 base64url, Firestore에는 sha256만(`deviceTokens/{hash}` = uid · platform · day · count · lastUsedAt). 계정마다 10개 넘으면 오래 안 쓴 것부터 지움. 확인할 때마다 하루 횟수 +1(KST, 800 넘으면 429 "오늘은 너무 많이 요청했어요…"), 없거나 길이가 틀리면 401 "다시 로그인해 주세요" |
+| API-NAT-01 | 기기 토큰 | 32바이트 base64url, Firestore에는 sha256만(`deviceTokens/{hash}` = uid · platform · day · count · lastUsedAt). 계정마다 10개 넘으면 오래 안 쓴 것부터 지움. 확인할 때마다 하루 횟수 +1(KST, 800 넘으면 429 "오늘은 너무 많이 요청했어요…"), 없거나 길이가 틀리면 401 "다시 로그인해 주세요". **90일 동안 안 쓴 토큰은 만료**(지우고 401, 10/22 `isDeviceTokenExpired`) |
 | API-NAT-02 | `POST · DELETE /api/native/device-token` | POST(Firebase 토큰) 새 토큰 발급 / DELETE(기기 토큰) 그 토큰 삭제(로그아웃 · 계정 전환) |
 | API-NAT-03 | `GET /api/native/summary` | 내가 멤버인 가방 전체 + 내 users 문서 → `buildNativeSummary`(보관함 가방 빼고 고정 먼저, PIN이 있을 때만 개인 잠금한 가방 · 팩 · 보관함 뺌). 캐시 안 함 |
 | API-NAT-04 | `POST /api/native/toggle-item` | `{ bagId, packId, itemId, checked }`. 트랜잭션: 멤버만 · 잠긴 가방의 그룹장 막음 · **내가 휴지통에 넣은 가방이면 403 "휴지통에 있는 가방이에요"**(10/16, 다른 멤버는 그대로) · 메모 팩이면 404 · 이미 그 상태면 그대로 → `packs` · `lastCheckedAt` · `updatedAt` · `editedBy: 나`, notesV 2면 `packsRev + 1`. 체크로 다 챙기면 `lastPackedAt` · `lastPackedBy` |

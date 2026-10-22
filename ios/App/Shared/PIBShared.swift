@@ -205,6 +205,11 @@ enum PIBStore {
         PIB.defaults.set(apiBase, forKey: apiKey)
     }
 
+    // 서버가 토큰을 거절했을 때(401): 토큰만 지운다. 같은 계정이라 요약 · 꾸미기는 두고, 앱을 열면 웹이 새 토큰을 넣는다(2026-10-22)
+    static func clearToken() {
+        PIB.defaults.removeObject(forKey: tokenKey)
+    }
+
     static func clearSession() {
         [tokenKey, uidKey, summaryKey, savedAtKey, pendingKey, PIBUndo.key].forEach { PIB.defaults.removeObject(forKey: $0) }
         // 북마크 위젯 꾸미기 · 사진도(다른 계정 · 로그아웃 뒤 예전 사진이 보이지 않게, 1.7)
@@ -479,6 +484,9 @@ enum PIBAPI {
         let (data, response) = try await URLSession.shared.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 {
+            // 서버가 토큰을 모르면(만료 · 로그아웃 · 계정 삭제) 지금 저장된 토큰을 지운다 → 앱을 열면 새 토큰을 받는다
+            // (2026-10-22, 서버는 90일 안 쓴 토큰을 만료 — security_review SEC-AUTH-04). 예전 토큰을 지우러 보낸 요청이면 그대로 둔다
+            if token == PIBStore.token { PIBStore.clearToken() }
             throw PIBError.notSignedIn
         }
         guard (200..<300).contains(status) else {
