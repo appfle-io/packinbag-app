@@ -14,15 +14,15 @@
 | 내가 만든 가방 · 참여 가방 | 무제한 | 각 3개 |
 | 가방 공유 인원 | 10명 | 2명 |
 | 팩 보관함 | 무제한 | 10개 |
-| 가방 사진 | 5장 | 1장 |
+| 가방 사진 | 5장 | 없음(10/21, 예전 1장) |
 | 메모 PDF · 파일 첨부 | 가능 | 불가 |
 | 커스텀 URL | 가능 | 불가 |
-| AI | **하루 3회**(AI로 정리하기 · AI 클립보드 포함) | 하루 3회(정리·클립보드는 프리미엄 전용) |
+| AI | **주 3회**(10/21부터, 예전 하루 3회. AI로 정리하기 · AI 클립보드 포함) | 주 3회(정리·클립보드는 프리미엄 전용) |
 
 - 서버: `lib/premiumServer.ts` isPremiumServer → 항상 true (가방·팩·참여·인원·커스텀 URL·잠금 해제)
 - 화면: `lib/premiumLimits.ts` isPremiumUser → 항상 true
 - 규칙: `storage.rules` freeLaunch() → 사진·PDF 첨부
-- AI: `organize-bag` · `clipboard-organize`의 프리미엄 전용 막기만 풀림. 하루 3회는 그대로(`lib/aiQuotaServer.ts`)
+- AI: `organize-bag` · `clipboard-organize`의 프리미엄 전용 막기만 풀림. 주 3회는 그대로 — FREE_LAUNCH를 안 봄(`lib/aiQuotaServer.ts`, premium.md PREM-LIM-08)
 - 설정: "모든 기능 무료 · 출시 기념" / FAQ: `lib/faqs.ts`가 결제 관련 답을 바꿔 보여주고 구매 복원 항목은 숨김
 
 ---
@@ -146,7 +146,7 @@ App Store Connect → 앱 → 왼쪽 **iOS 앱 옆 +** → 새 버전 **1.5** (�
 - ⬜ **빌드** 선택. **인앱 구입은 선택하지 않는다**
 - ⬜ **App 심사 정보**: 데모 계정(이메일 인증 완료 · 샘플 가방) / 연락처 / 메모:
   ```
-  팩인백은 가족·친구와 함께 쓰는 짐 체크리스트입니다. 인앱 구입은 없으며 모든 기능을 무료로 제공합니다(AI 기능만 하루 3회).
+  팩인백은 가족·친구와 함께 쓰는 짐 체크리스트입니다. 인앱 구입은 없으며 모든 기능을 무료로 제공합니다(AI 기능만 주 3회).
   계정 삭제: 설정 > 프로필 수정 하단 "회원 탈퇴".
   로그인: 이메일, Sign in with Apple, Google을 지원하며 게스트로도 시작할 수 있습니다.
   네이티브 기능: Sign in with Apple, 햅틱 피드백, 화면 켜두기, 카메라·사진 첨부.

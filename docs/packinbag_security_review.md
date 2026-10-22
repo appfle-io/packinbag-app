@@ -111,6 +111,12 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 3. **Capacitor 6.2.2 + iOS 새 빌드 1.8**(웹 1.8.0) — 준비 끝, 사용자 Xcode 보관 · 제출
 4. 이후: 월 1회 `npm audit --omit=dev` + Dependabot, 큰 공지(Next · Node · Capacitor · Firebase)가 뜨면 1절에 추가
 
+### 월 1회 점검 기록
+
+| 날짜 | 루트 audit(운영) | functions | Dependabot(열림) | 설치 버전 | 판단 · 다음 |
+|---|---|---|---|---|---|
+| 2026-10-22 | 39(높음 4 · 보통 35, 치명 0) — 오전과 같음 | 보통 8 | 높음 25 · 보통 29 · 낮음 7 | next 16.4.2 · firebase 12.19.0 · @capacitor/core 6.2.2 · @tiptap/core 2.27.3 | 새로 생긴 것 없음. 높음 4 = firebase → @grpc/grpc-js(SEC-DEP-06, 브라우저 미사용 · 9.14 다운그레이드 안 함). 보통 = TipTap 2.x(고친 판 3.32 — 메이저, TipTap 3 업그레이드 계획). Dependabot 높음은 electron · electron-builder(tar · extract-zip · app-builder-lib)와 @capacitor/assets의 옛 sharp(개발용) → Electron 업그레이드(SEC-DEP-08) 때 같이. 이번에 고칠 것 없음. **다음: 2026-11-22 전후** |
+
 ---
 
 ## 확인 필요
@@ -133,3 +139,4 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 | 2026-10-22 | worker | 사용자 답 반영: Malware alerts 켬 · Vercel 24.x · API 키는 그대로 · 첨부 HTML · SVG 막기 구현. 1.7.8 커밋 · 푸시 |
 | 2026-10-22 | worker | 사용자 완료: storage 규칙 배포 · 2단계 인증 · GCP 예산 · GitHub Secret scanning. 남은 것: 로컬 Node(👤), 백업(SEC-OPS-01), 2회차(SEC-WEB-02 · SEC-APP-03 · SEC-AUTH-04), Capacitor · iOS 1.8 |
 | 2026-10-22 | worker | 2회차 + 1.8: 기기 토큰 90일 만료 · 네이티브 401 토큰만 지우기, CSP 보고 전용 + `/api/csp-report`, 포터블 webSecurity 켬(`electron/cors.js`, Electron 확인), Capacitor 6.2.2 · cap sync · Xcode 1.8(8). 사용자: 로컬 Node 26.12.1 · Firestore 백업 |
+| 2026-10-22 | worker | 월 1회 점검 기록 표 + 첫 기록(변화 없음, 고칠 것 없음) |

@@ -11,7 +11,7 @@ iOS 네이티브 상세: 저장소 `docs/packinbag_ios_native_plan.md`, 출시 �
 - **iOS 1.5 (Build 5) 10/12 승인 · 출시**(알림 · 위젯 · 잠금화면 실시간 현황 · 단축어)
 - **iOS 1.6 (Build 6) 코드 완료**(10/12): 개인 잠금 Face ID · 잠금화면 글자색 · 위젯 열 수(중간 · 크게 1/2열, "외 N개" 줄 삭제) · Siri · Spotlight 검색(가방 · 팩 · 보관함 팩) · 유니버설 링크. 웹 v1.0.34와 한번에 배포 → 기기 확인 → 제출(아래 "다음 할 일" 1)
 - 웹 10/12: 개인 잠금(설정 > 잠금, PIN 4/6자리, 나만 잠김) · 공유 링크 앱/기본 브라우저 브리지(`lib/v2/appBridge.ts`) · 잠금화면 띄우기 미리 보기 · 글자색 · 배경 불투명도 0%까지 · AASA(`app/.well-known/apple-app-site-association`)
-- **결제 없이 전원 무료 출시**(10/9): 직장인이라 사업자등록 불가 → 유료 앱 계약 불가. `lib/freeLaunch.ts` FREE_LAUNCH = true + storage.rules freeLaunch(). AI만 하루 3회. 결제 코드는 남겨 둠
+- **결제 없이 전원 무료 출시**(10/9): 직장인이라 사업자등록 불가 → 유료 앱 계약 불가. `lib/freeLaunch.ts` FREE_LAUNCH = true + storage.rules freeLaunch(). AI만 하루 3회(10/21부터 주 3회, premium.md PREM-LIM-08). 결제 코드는 남겨 둠
 - 웹 v1.0.32(10/11): FAQ · 업데이트 노트 · 개인정보처리방침(푸시·기기 토큰), /privacy · /support 스크롤 수정. 포터블 태그 v1.0.32-offline-portable
 - **앱은 v2만 있다.** 10/5에 구 UI 소스와 `NEXT_PUBLIC_UI_V2` 플래그를 모두 지웠다(v1.0.20). 웹 운영(Vercel)·iOS 앱(server.url)·포터블 모두 v2
 - 0~5단계 + 4단계-19(iOS 1.6)까지 코드 완료. 지금 상태 · 남은 일은 `_secrets/claude/HANDOFF.md`(10/17~)
