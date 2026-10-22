@@ -52,6 +52,7 @@ import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 import { lockedCount } from "@/lib/v2/privateLock";
 import { supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
 import { WidgetStylesScreen } from "./WidgetStylesScreen";
+import { notificationSettingsPath } from "@/lib/v2/platform";
 
 // AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -171,7 +172,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const allowPush = async () => {
     const ok = await askNotificationPermission();
     setPushPermission(await getNotificationPermission());
-    show(ok ? "알림을 받을 수 있어요" : "아이폰 설정 > 팩인백 > 알림에서 허용해 주세요");
+    show(ok ? "알림을 받을 수 있어요" : `${notificationSettingsPath()}에서 허용해 주세요`);
   };
   const togglePush = (kind: PushKind, label: string, on: boolean) => {
     updatePushPref(kind, on)
@@ -467,7 +468,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <SectionHeader>알림</SectionHeader>
             {pushPermission === "denied" && (
               <p className="m-0 mb-2 rounded-card bg-fill px-4 py-3 text-caption text-sub">
-                알림이 꺼져 있어요. 아이폰 설정 &gt; 팩인백 &gt; 알림에서 허용해 주세요.
+                알림이 꺼져 있어요. {notificationSettingsPath()}에서 허용해 주세요.
               </p>
             )}
             {(pushPermission === "prompt" || pushPermission === "prompt-with-rationale") && (

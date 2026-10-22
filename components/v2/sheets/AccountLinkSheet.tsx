@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
 import { isElectronApp } from "@/lib/networkUtils";
+import { isAppleLoginAvailable } from "@/lib/nativeAuth";
 import { Button, Sheet } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 
@@ -33,6 +34,8 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
   const [confirmLogout, setConfirmLogout] = useState(false);
   // 포터블은 팝업 로그인(Google·Apple)이 안 된다 → 이메일만
   const [socialLogin] = useState(() => !isElectronApp());
+  // Android 앱은 Apple 로그인 없음(lib/nativeAuth isAppleLoginAvailable)
+  const [appleLogin] = useState(isAppleLoginAvailable);
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -136,9 +139,11 @@ export function AccountLinkSheet({ open, onClose }: { open: boolean; onClose: ()
                     <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithGoogle, "Google 계정으로 연결했어요")}>
                       Google로 계속하기
                     </Button>
-                    <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithApple, "Apple 계정으로 연결했어요")}>
-                      Apple로 계속하기
-                    </Button>
+                    {appleLogin && (
+                      <Button variant="secondary" block disabled={busy} onClick={() => runSocial(linkAccountWithApple, "Apple 계정으로 연결했어요")}>
+                        Apple로 계속하기
+                      </Button>
+                    )}
                   </>
                 )}
                 <Button

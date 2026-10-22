@@ -1,6 +1,6 @@
 # 팩인백 Android 앱 기획 — 2026-10-21 작성(worker, 코드 분석)
 
-> **상태(10/21)**: 기획만. 코드 · `android/` 폴더 없음. 로드맵상 결제 도입 다음(프로젝트 메모리 "로드맵"). 시작 전에 아래 9절 "정할 것"을 사용자에게 먼저 묻는다
+> **상태(10/22)**: `android/` 폴더 없음. **폰 없이 할 수 있는 웹 코드 4개는 끝**(AND-BASE-06 · AND-SRV-03 · Apple 숨김 · AND-WEB-04 일부, 명세 `docs/spec/native-android.md`). 다음은 iOS 1.8 심사 뒤 Capacitor 업그레이드 + `cap add android`. 9절 "정할 것"은 **10/22 사용자 답으로 확정** — 1차는 A단계만, 결제가 보류면 Android 먼저
 
 함께 볼 문서: `docs/spec/native-ios.md`(지금 iOS 네이티브 동작 · ID), `docs/packinbag_ios_native_plan.md`(iOS를 만들 때의 기획 · 진행 기록), `docs/packinbag_iap_release_guide.md`(결제 B단계 — Capacitor 8 업그레이드가 겹침), `docs/spec/api.md` API-NAT(네이티브 서버 라우트)
 
@@ -23,7 +23,7 @@
 | AND-BASE-03 | `includePlugins` | iOS 기준 목록 | Android도 이 목록을 따른다(`npx cap sync android`). Android 전용 플러그인을 넣으면 여기에도 |
 | AND-BASE-04 | 아이콘 · 시작 화면 | iOS만(`cap:assets --ios`) | `npx capacitor-assets generate --android`(적응형 아이콘: 딥그린 #2E5E4E 바탕 + 백팩 로고, 어깨끈 2개 백팩 모양 유지). 시작 화면 0.8초 흰 바탕(NAT-ETC-03과 같게) |
 | AND-BASE-05 | 서명 | 없음 | 업로드 키(keystore)를 만들어 `_secrets/`에 보관(목록은 `_secrets/README.md`), Play 앱 서명 사용. keystore 비밀번호는 비밀번호 관리자에 |
-| AND-BASE-06 | 하드웨어 뒤로 가기 | `backButton` 처리 코드 없음(10/21 grep) | `App.addListener('backButton')` 한 곳에서: 열린 시트 닫기 → 화면 뒤로(`useSwipeBack`과 같은 흐름) → 첫 화면이면 앱 종료(또는 "한 번 더 누르면 종료"). **안 하면 뒤로 가기에 앱이 바로 꺼진다** |
+| AND-BASE-06 | 하드웨어 뒤로 가기 | ✅ 10/22 웹 코드 끝(shell.md SHELL-BACK). 실기기 확인만 남음 | `App.addListener('backButton')` 한 곳에서: 열린 시트 닫기 → 화면 뒤로(`useSwipeBack`과 같은 흐름) → 첫 화면이면 앱 종료(또는 "한 번 더 누르면 종료"). **안 하면 뒤로 가기에 앱이 바로 꺼진다** |
 | AND-BASE-07 | 안전 영역 · edge-to-edge | iOS `env(safe-area-inset-*)` 기준 | Android 15(target 35+)는 edge-to-edge 강제 → 상태바 · 내비게이션 바 밑으로 화면이 들어간다. WebView에서 `env(safe-area-inset)`이 0으로 오는 경우가 있어 플러그인(또는 StatusBar overlay 설정)으로 값을 CSS 변수에 넣는다. `--pib-dock` · `ScreenBody` 계산이 맞는지 확인. 숫자로 박지 않는다 |
 | AND-BASE-08 | 키보드 | iOS 기준 | 키보드가 입력창을 가리지 않는지(`adjustResize`), 메모 편집기(TipTap) · 시트 입력창 |
 | AND-BASE-09 | 외부 링크 · 다운로드 | `lib/openExternalLink.ts`는 `window.open`, `lib/downloadFile.ts`는 iOS 공유 시트 분기 | Android WebView에서 `window.open` · `<a download>` · Web Share 동작 확인. 안 되면 `@capacitor/browser` · Filesystem + Share |
@@ -58,7 +58,7 @@ iOS는 `ios/App/App/AppDelegate.swift`의 `PackInBagNativePlugin`("PackInBagNati
 |---|---|---|
 | AND-SRV-01 | `functions/src/apns.ts`로만 발송, 비밀 `APNS_KEY_P8` | FCM 발송 추가(Admin SDK `messaging().sendEach`, 별도 키 필요 없음 — 기본 서비스 계정). `sendToDevices`가 기기마다 `apns` / `fcm`을 보고 나눠 보냄. 죽은 토큰(`registration-token-not-registered`)은 `fcm` 지움(NAT-PUSH-01과 같게) |
 | AND-SRV-02 | `deviceTokens/{hash}.apns`만 | `fcm: { token, alerts, updatedAt }` 필드 추가. `lib/nativeDeviceServer.ts`(`setPushToken` 등) · `app/api/native/push-token`에 종류 받기. 중복 토큰 정리도 `fcm.token` 기준으로 |
-| AND-SRV-03 | `syncNativeSession`이 `platform: "ios"` 고정(`lib/v2/nativeBridge.ts:83`) | `Capacitor.getPlatform()`을 넘긴다. 기기 토큰 하루 800회 제한(API-NAT-01)은 그대로 |
+| AND-SRV-03 | ✅ 10/22 `Capacitor.getPlatform()`으로 바꿈 | `Capacitor.getPlatform()`을 넘긴다. 기기 토큰 하루 800회 제한(API-NAT-01)은 그대로 |
 | AND-SRV-04 | 조용한 푸시 · 활동 묶음(Cloud Tasks) | 흐름은 그대로, 받는 기기만 FCM도. **비용: 읽기 · 쓰기 늘지 않게** 지금 조회를 재사용 |
 | AND-SRV-05 | 실시간 현황 `apnsLive` · `liveOn` | 실시간 현황 대체를 하면 FCM data로 진행 알림 갱신(`fcmLive`). 안 하면 손대지 않음 |
 | AND-SRV-06 | Firebase 프로젝트 | Firebase 콘솔에 Android 앱 추가 → `google-services.json`(android/app, **gitignore 여부 결정** — iOS `GoogleService-Info.plist` 처리와 같게), SHA-1 · SHA-256 지문 등록(구글 로그인 · App Links) |
@@ -72,7 +72,7 @@ iOS는 `ios/App/App/AppDelegate.swift`의 `PackInBagNativePlugin`("PackInBagNati
 | AND-WEB-01 | `lib/v2/appBridge.ts` `APP_STORE_URL` · `components/v2/settings/InfoScreens.tsx` · `app/about/page.tsx` | Play 스토어 링크 추가, 기기에 맞는 링크(또는 둘 다) |
 | AND-WEB-02 | `lib/v2/appBridge.ts` NAT-BRIDGE-03 | 지금은 Android 앱 안 브라우저(카톡 등)를 기본 브라우저로 보냄 → 앱이 있으면 App Links로 앱이 열리게, 없으면 Play 스토어 |
 | AND-WEB-03 | `lib/appUpdate.ts` · `app/api/build-info` | 지금은 App Store 버전만 비교(Apple 조회 API). Android는 Play 버전을 못 받으면 웹만 비교(또는 서버에 Android 최신 버전 상수) |
-| AND-WEB-04 | 안내 문구 전체 | "아이폰 설정 > 팩인백 > 알림" 같은 문구를 플랫폼별로(grep: `아이폰` · `iOS` · `Face ID`). `lib/faqs.ts` · 사용설명서 · 마케팅 자료 |
+| AND-WEB-04 | 안내 문구 전체(10/22 알림 설정 경로는 끝 — `notificationSettingsPath`, 남은 것은 native-android.md 확인 필요 2) | "아이폰 설정 > 팩인백 > 알림" 같은 문구를 플랫폼별로(grep: `아이폰` · `iOS` · `Face ID`). `lib/faqs.ts` · 사용설명서 · 마케팅 자료 |
 | AND-WEB-05 | 설정 화면 · 시트의 iOS 전용 줄 | 위젯 꾸미기 · 잠금화면에 띄우기 등은 플러그인 메서드 유무로 숨겨지는지 확인(probe) |
 | AND-WEB-06 | `lib/installPromptUtils.ts` | iOS 홈 화면 추가 안내 — Android 앱이 생기면 Android 브라우저에서 앱 설치 안내로 |
 | AND-WEB-07 | `app/privacy/page.tsx` | Android(FCM · Play) 내용 추가, Play 데이터 보안 양식과 맞추기 |
@@ -84,7 +84,7 @@ iOS는 `ios/App/App/AppDelegate.swift`의 `PackInBagNativePlugin`("PackInBagNati
 | ID | 내용 |
 |---|---|
 | AND-AUTH-01 | `lib/nativeAuth.ts`(`@capgo/capacitor-social-login`)는 Android 지원. Google: Google Cloud 콘솔에 **Android OAuth 클라이언트**(패키지 이름 + SHA-1, 디버그 · 업로드 · Play 앱 서명 키 3개) 등록, `webClientId`는 지금 값 재사용 |
-| AND-AUTH-02 | Apple 로그인: Android에는 네이티브가 없어 웹 방식(Service ID `com.appfle.packinbag.signin` + 리디렉션 URL). Apple Developer에서 Service ID 리턴 URL 설정 · 실제 동작 테스트 필요. 어려우면 Android에서는 Apple 버튼을 숨김(Play는 Apple 로그인을 요구하지 않음) |
+| AND-AUTH-02 | ✅ 10/22 **숨김으로 결정 · 웹 코드 끝**(`isAppleLoginAvailable`). 아래는 예전 검토: Apple 로그인: Android에는 네이티브가 없어 웹 방식(Service ID `com.appfle.packinbag.signin` + 리디렉션 URL). Apple Developer에서 Service ID 리턴 URL 설정 · 실제 동작 테스트 필요. 어려우면 Android에서는 Apple 버튼을 숨김(Play는 Apple 로그인을 요구하지 않음) |
 | AND-AUTH-03 | 이메일 로그인 · 인증 메일(Resend)은 그대로 |
 
 ## 6. 결제 (결제 도입 때)
@@ -102,6 +102,7 @@ iOS는 `ios/App/App/AppDelegate.swift`의 `PackInBagNativePlugin`("PackInBagNati
 5. 프로덕션 출시 신청 → 심사
 - 버전 번호: 지침 5절(앞 두 자리 = 스토어 앱 버전). Android 첫 버전을 iOS와 같은 번호로 맞출지 9절에서 결정. `versionCode`는 빌드마다 +1
 - 이 Mac은 구형이라 Android 에뮬레이터도 과열 위험 → **실기기**(USB 디버깅) · Chrome `chrome://inspect`로 WebView 디버깅
+- 개발 환경 용량(10/22 확인, M1 · RAM 8GB · 남은 공간 66GB): Android Studio ≈ 3GB + SDK(platform · build-tools · platform-tools) ≈ 1GB + `~/.gradle` 캐시 2~5GB + `android/` 빌드 산출물 ≈ 1GB → **약 8~12GB**. Studio 없이 JDK 21 + cmdline-tools로만 하면 약 4~6GB. 에뮬레이터(시스템 이미지 + AVD 5~10GB, RAM 2GB+)는 쓰지 않는다
 
 ---
 
@@ -117,15 +118,17 @@ iOS는 `ios/App/App/AppDelegate.swift`의 `PackInBagNativePlugin`("PackInBagNati
 - Capacitor 업그레이드(AND-BASE-02)는 iOS에도 영향 → iOS 새 빌드(스토어 버전 +1)와 같이 계획
 - 각 단계 코드를 고치면 지침 4절대로 docs 갱신(spec은 `docs/spec/native-android.md`를 새로 만들지, `native-ios.md`를 `native.md`로 합칠지 9절)
 
-## 9. 정할 것 (사용자에게 묻기)
+## 9. 정할 것 — 10/22 확정(사용자 답)
 
-1. 1차 출시 범위: A만 / A+B / C(위젯)까지
-2. 잠금화면 실시간 현황 대체: 진행 중 알림으로 만들기 / 이번엔 빼기
-3. Capacitor 업그레이드를 결제 도입(B단계)과 같이 할지, Android 먼저 할지
-4. Apple 로그인을 Android에서도 둘지(웹 방식) / 숨길지
-5. Android 버전 번호를 iOS와 같은 앞 두 자리로 맞출지
-6. 기능명세서: `native-android.md` 새로 / `native-ios.md`를 공용으로
-7. 로드맵 순서: 지금은 결제 도입 → Android. 결제가 계속 보류면 Android 먼저 할지
+| # | 질문 | 답 |
+|---|---|---|
+| 1 | 1차 출시 범위 | **A만**(웹 기능 전부 + 뒤로 가기 · 로그인 · 로컬 알림 · App Links). B(FCM) · C(위젯)는 다음 |
+| 2 | 잠금화면 실시간 현황 대체 | **이번엔 빼기**. AND-NAT-07 메서드를 만들지 않아 메뉴가 숨겨지게, AND-SRV-05 손대지 않음 |
+| 3 | Capacitor 업그레이드 시점 | **Android 시작 때**(결제 기다리지 않음). iOS도 다음 스토어 버전으로 같이 회귀 확인 · 제출 |
+| 4 | Android에서 Apple 로그인 | **숨김**(Google · 이메일만). AND-AUTH-02 하지 않음 |
+| 5 | 버전 번호 | **iOS와 같은 앞 두 자리**(지침 5절 그대로). versionCode는 빌드마다 +1 |
+| 6 | 기능명세서 | **`docs/spec/native-android.md` 새로**. iOS와 같은 기능은 `native-ios.md` ID를 가리킴 |
+| 7 | 로드맵 순서 | **결제가 보류인 동안 Android 먼저** |
 
 ## 10. 확인 필요 (코드 · 정책)
 
@@ -141,4 +144,5 @@ iOS는 `ios/App/App/AppDelegate.swift`의 `PackInBagNativePlugin`("PackInBagNati
 
 | 날짜 | 누가 | 무엇을 |
 |---|---|---|
+| 2026-10-22 | worker | 7절에 개발 환경 용량, 9절 정할 것 확정(사용자 답), 폰 없이 한 웹 코드 4개 표시 |
 | 2026-10-21 | worker | 처음 작성(코드 분석: capacitor.config · AppDelegate 플러그인 메서드 · nativeBridge · functions apns · appBridge · nativeAuth) |

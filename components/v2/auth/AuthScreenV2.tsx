@@ -8,6 +8,7 @@ import { randomAvatarId } from "@/lib/avatars";
 import { randomNickname } from "@/lib/nickname";
 import { friendlyAuthError } from "@/lib/authErrorMessage";
 import { isElectronApp } from "@/lib/networkUtils";
+import { isAppleLoginAvailable } from "@/lib/nativeAuth";
 import { recheckConnectivity, useConnectivity } from "@/lib/v2/connectivity";
 import BackpackLogo from "@/components/BackpackLogo";
 import { Button, SegmentedControl, Sheet, cx } from "@/components/v2/ui";
@@ -68,6 +69,8 @@ export default function AuthScreenV2() {
   const online = connectivity === "unknown" ? null : connectivity === "online" || forceForm;
   // 포터블은 팝업 로그인(Google·Apple)이 안 된다 → 이메일·게스트만
   const [socialLogin] = useState(() => !isElectronApp());
+  // Android 앱은 Apple 로그인 없음(lib/nativeAuth isAppleLoginAvailable)
+  const [appleLogin] = useState(isAppleLoginAvailable);
   const [checking, setChecking] = useState(false);
 
 
@@ -277,9 +280,11 @@ export default function AuthScreenV2() {
               <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithGoogle)}>
                 Google로 계속하기
               </Button>
-              <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithApple)}>
-                Apple로 계속하기
-              </Button>
+              {appleLogin && (
+                <Button variant="secondary" block disabled={busy} onClick={() => run(signInWithApple)}>
+                  Apple로 계속하기
+                </Button>
+              )}
             </>
           )}
           <Button variant="text" size="sm" className="self-center text-sub" disabled={busy} onClick={() => run(signInAsGuest)}>

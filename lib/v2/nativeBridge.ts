@@ -80,7 +80,7 @@ export function syncNativeSession(user: User | null, offlineMode: boolean): Prom
     const res = await fetch(getApiUrl("/api/native/device-token"), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-      body: JSON.stringify({ platform: "ios" }),
+      body: JSON.stringify({ platform: Capacitor.getPlatform() }),
     });
     const data = (await res.json().catch(() => ({}))) as { token?: string };
     if (!res.ok || !data.token) throw new Error(`device-token ${res.status}`);

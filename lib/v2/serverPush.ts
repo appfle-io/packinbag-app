@@ -11,6 +11,7 @@ import { firebaseApp } from "@/lib/firebase";
 import type { Bag, BagPushKind, UserProfile } from "@/lib/types";
 import { isNativeBridgeAvailable } from "@/lib/v2/nativeBridge";
 import { ensureNotificationPermission, getNotificationPermission } from "@/lib/v2/bagReminders";
+import { notificationSettingsPath } from "@/lib/v2/platform";
 
 export type PushKind = BagPushKind;
 
@@ -103,7 +104,7 @@ export async function promptForSharedBag(): Promise<string | null> {
     }
     if (state === "denied" && !localStorage.getItem(DENIED_TOLD_KEY)) {
       localStorage.setItem(DENIED_TOLD_KEY, "1");
-      return "알림이 꺼져 있어 함께 쓰는 사람 소식을 받지 않아요. 아이폰 설정 > 팩인백 > 알림에서 켤 수 있어요";
+      return `알림이 꺼져 있어 함께 쓰는 사람 소식을 받지 않아요. ${notificationSettingsPath()}에서 켤 수 있어요`;
     }
   } catch {
     // localStorage를 못 쓰면 묻지 않는다
@@ -117,7 +118,7 @@ export async function promptForSharedBag(): Promise<string | null> {
 export async function sendTestPush(): Promise<{ sent: boolean; message: string }> {
   const state = await getNotificationPermission();
   if (state !== "granted" && !(await askNotificationPermission())) {
-    return { sent: false, message: "아이폰 설정 > 팩인백 > 알림에서 알림을 허용해 주세요" };
+    return { sent: false, message: `${notificationSettingsPath()}에서 알림을 허용해 주세요` };
   }
   const call = httpsCallable<unknown, { devices: number; sent: number; reason?: string; reasons?: string[] }>(
     getFunctions(firebaseApp, "asia-northeast3"),

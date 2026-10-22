@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
+import { useHardwareBack } from "@/lib/useEscapeToClose";
 import { cx } from "./cx";
 
 // 탭 화면 안에서 한 단계씩 들어가는 화면 묶음(팩 폴더, 가방 → 보관함).
@@ -73,6 +74,12 @@ export function PageStack({
   // 스와이프로 닫을 때 손을 뗀 위치·속도(다음 pop 애니메이션이 이어받는다)
   const swipeOut = useRef<{ dx: number; ms: number } | null>(null);
   const topRef = useRef(top);
+  // Android 뒤로 가기(SHELL-BACK-02). 좁은 화면은 세 탭을 다 그려 두므로 화면에 보이는 탭의 묶음만 닫는다
+  useHardwareBack(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.right <= 0 || rect.left >= window.innerWidth) return false;
+    onBack();
+  }, stack.length > 1);
   useEffect(() => {
     topRef.current = top;
   }, [top]);

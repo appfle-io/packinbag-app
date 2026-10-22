@@ -36,7 +36,9 @@
 | A-2 | Xcode 기능 추가(푸시 · 위젯) → **1.5 (Build 5)** 빌드 · 업로드 | ✅ 10/11 (로컬 알림 · 위젯 · 실시간 현황 · 단축어 · 서버 푸시, `docs/packinbag_ios_native_plan.md`) |
 | A-3 | TestFlight 확인 | ✅ 10/11 |
 | A-4 | 심사 제출(1.5) | ✅ 10/11 23:04 제출 → 10/12 승인 · 출시(제출 ID 406ecb16-1b77-4577-83c2-b91ee3ca7500) |
-| A-5 | 1.6 (Build 6): Face ID · 잠금화면 글자색 · 위젯 열 수 · Siri · Spotlight · 유니버설 링크 · 되돌리기 · 완료 숨기기(10/13) | 🔄 코드 완료(10/13), 기기 확인 · 제출 전 |
+| A-5 | 1.6 (Build 6): Face ID · 잠금화면 글자색 · 위젯 열 수 · Siri · Spotlight · 유니버설 링크 · 되돌리기 · 완료 숨기기(10/13) | ✅ 10/13 제출 · 승인 |
+| A-6 | 1.7: 가방 바로가기 위젯 · 위젯 꾸미기 | ✅ 승인(배포 준비됨) |
+| A-7 | **1.8 (Build 8)**: 보안 업데이트(Capacitor 6.2.2 · 기기 토큰 401 처리). 설명 첫 줄 "매번 챙기는 준비물" · AI 줄 · 심사 메모(주 3회 · 1.8 · 탈퇴 경로 "설정 > 프로필") 함께 고침. EU DSA 비거래자 신고(사용자) | 🔄 10/22 제출, 심사 대기 |
 
 ## A-0. 새 버전 내는 순서 (매번 같음)
 1. 웹: `cd ~/Desktop/packinbag.nosync` → 빌드 확인(`rm -rf .next && npx tsc --noEmit && npx eslint components/v2 lib app/admin components/admin contexts components/AppShell.tsx && npm run build`) → `npm version 1.0.x --no-git-tag-version` → commit · push(Vercel 자동 배포). Functions · 규칙을 바꾸었으면 그것도 배포

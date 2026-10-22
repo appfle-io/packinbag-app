@@ -88,6 +88,7 @@ import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import { WideShell } from "@/components/v2/shell/WideShell";
 import { WIDE_QUERY, useMediaQuery, type TabKey } from "@/lib/v2/shell";
+import { useAndroidBackButton } from "@/lib/v2/androidBack";
 import { RECONNECTED_EVENT, getConnectivity, reportNetworkFailure } from "@/lib/v2/connectivity";
 import { stopPackShares } from "@/lib/shareCleanup";
 import {
@@ -824,6 +825,27 @@ export default function AppShell() {
       }
     } catch {}
   }, [isOfflineMode, user]);
+
+  // Android 뒤로 가기: 시트 · 화면이 다 닫힌 뒤에 넓은 화면 상세 칸 닫기 → 홈 탭으로 → 홈이면 앱을 내림(AND-BASE-06)
+  useAndroidBackButton(() => {
+    if (editingPack) {
+      setEditingPack(null);
+      setPackFocusItemId(null);
+      setPackFocusSearchQuery(null);
+      return true;
+    }
+    if (editingBag) {
+      setEditingBag(null);
+      setIsNewBag(false);
+      setBagFocus(null);
+      return true;
+    }
+    if (tab !== "home") {
+      setTab("home");
+      return true;
+    }
+    return false;
+  });
 
   // authBusy(회원가입/로그인-미인증체크/이메일재발송처럼 잠깐 로그인했다가 눈 깜짝할
   // 사이 signOut하는 흐름) 체크를 loading보다 먼저 한다 - 원래는 loading을 먼저 체크했는데,
@@ -1994,4 +2016,4 @@ export default function AppShell() {
       />
     </>
   );
-}
+}

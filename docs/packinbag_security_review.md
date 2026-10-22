@@ -61,7 +61,7 @@ ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) ·
 ### A. 의존성 · 플랫폼
 - [x] SEC-DEP-01 · 03 · 05: next 16.4.2 · sharp 0.35.5 · prosemirror-view 1.42.7, `npm audit fix` 55 → 39건 — **배포됨 1.7.7**(`9b685f4`)
 - [x] SEC-DEP-02 임시 방어: 메모 링크 `_capacitor_` 경로 차단(memo.md MEMO-LINK-12) — 1.7.7
-- [x] SEC-DEP-02 Capacitor 6.2.2(core · ios · cli, pod 6.2.2) + Xcode 1.8(8) — 10/22 준비, **Xcode 보관 · 제출은 사용자**
+- [x] SEC-DEP-02 Capacitor 6.2.2(core · ios · cli, pod 6.2.2) + Xcode 1.8(8) — **10/22 사용자 제출**, 심사 대기. 승인 · 출시 후 이 줄에 날짜
 - [x] Dependabot alerts 켬(10/22 👤). 처음 목록은 1.7.7 이전 lock 기준(handlebars · markdown-it 등 이미 고쳐진 것 포함) — 다시 스캔된 뒤 다시 보기
 - [x] 👤 Dependabot **Malware alerts** 켬(10/22)
 - [x] 👤 서버 런타임: Vercel Node.js Version **24.x**(10/22 사용자 확인) — 큰 버전만 고르고 패치는 Vercel이 올림, 10/21 이후 배포(1.7.7)부터 반영. Cloud Functions(Node 22)는 Google 관리 런타임, 다음 functions 배포 때 다시 확인

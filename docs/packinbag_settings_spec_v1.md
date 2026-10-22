@@ -4,6 +4,16 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/22 Android 준비 — 폰 없이 할 수 있는 것 (웹 코드만, 배포 대기, 웹 · iOS 동작 변화 없음)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **Android 뒤로 가기** | 추가 | Android 앱에서만. 열린 시트 · 화면 → 상세 칸 → 가방 탭 → 앱 내림. Esc 스택(`useEscapeToClose`)에 `useHardwareBack` 칸 추가, `SlideScreen` swipeBack 연결, `lib/v2/androidBack.ts` (shell.md SHELL-BACK, AND-BASE-06) |
+| **Android에서 Apple 로그인 숨김** | 변경 | `isAppleLoginAvailable`(lib/nativeAuth). 로그인 화면 · 계정 연결 시트 (auth.md AUTH-FORM-11 · AUTH-LINK-02) |
+| **기기 토큰 platform** | 변경 | `syncNativeSession`이 `"ios"` 고정 대신 `Capacitor.getPlatform()` (AND-SRV-03) |
+| **알림 설정 안내 문구** | 변경 | "아이폰 설정 > 팩인백 > 알림" → `notificationSettingsPath()`(Android는 "휴대폰 설정 > 애플리케이션 > 팩인백 > 알림"). 알림 시트 "아이폰·아이패드에서 받아요" → "휴대폰 · 태블릿 앱에서 받아요" (`lib/v2/platform.ts`, AND-WEB-04) |
+| **Android 명세서** | 추가 | `docs/spec/native-android.md` |
+
 ## 10/22 보안 점검 2회차 · iOS 1.8 (웹 · 포터블 1.8.0 + iOS 1.8(8), 규칙 변경 없음)
 
 | 기능 | 상태 | 비고 |

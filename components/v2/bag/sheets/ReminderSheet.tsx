@@ -17,6 +17,7 @@ import {
   ensureNotificationPermission,
   isReminderEmpty,
 } from "@/lib/v2/bagReminders";
+import { notificationSettingsPath } from "@/lib/v2/platform";
 
 // 가방 더보기 > 알림. D-Day 알림(D-7·D-3·D-1·당일 + 직접 입력)과 요일 반복 알림.
 // 내 계정에만 저장되고(다른 멤버에게는 영향 없음) 이 아이폰·아이패드가 예약한다(AppShell → syncBagNotifications).
@@ -133,7 +134,7 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
       <div className="flex flex-col gap-6">
         {denied && (
           <p className="m-0 rounded-card bg-fill px-4 py-3 text-caption text-sub">
-            알림이 꺼져 있어요. 아이폰 설정 &gt; 팩인백 &gt; 알림에서 허용해 주세요.
+            알림이 꺼져 있어요. {notificationSettingsPath()}에서 허용해 주세요.
           </p>
         )}
 
@@ -255,7 +256,7 @@ export function ReminderSheet({ open, onClose, bag }: { open: boolean; onClose: 
         </section>
 
         <p className="m-0 text-micro text-faint">
-          내 계정에만 저장돼요. 함께 쓰는 멤버의 알림은 바뀌지 않아요. 같은 계정으로 로그인한 아이폰·아이패드에서 받아요.
+          내 계정에만 저장돼요. 함께 쓰는 멤버의 알림은 바뀌지 않아요. 같은 계정으로 로그인한 휴대폰 · 태블릿 앱에서 받아요.
         </p>
       </div>
     </Sheet>

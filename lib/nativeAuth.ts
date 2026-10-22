@@ -22,6 +22,12 @@ export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+// Android 앱에는 Apple 네이티브 로그인이 없어 Apple 버튼을 숨긴다(2026-10-22 결정, Play는 Apple 로그인을 요구하지 않음).
+// 웹(Android 브라우저 포함) · iOS 앱은 그대로
+export function isAppleLoginAvailable(): boolean {
+  return Capacitor.getPlatform() !== "android";
+}
+
 let initialized = false;
 
 // 앱 전체에서 한 번만 초기화하면 되므로, 첫 로그인 시도 시점에 lazy하게 한 번만 호출한다.

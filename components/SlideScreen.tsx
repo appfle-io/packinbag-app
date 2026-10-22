@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Portal from "@/components/Portal";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlayLayer";
-import { useEscapeToClose } from "@/lib/useEscapeToClose";
+import { useEscapeToClose, useHardwareBack } from "@/lib/useEscapeToClose";
 import { SwipeBackRegistryContext, type SwipeBackRegistry } from "@/lib/swipeBackRegistry";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
 import { DetailPaneContext } from "@/lib/v2/openDetail";
@@ -130,6 +130,8 @@ export default function SlideScreen({
     const list = backHandlersRef.current;
     return list[list.length - 1] ?? onSwipeBack ?? onBackdropClick;
   };
+  // Android 하드웨어 뒤로 가기도 스와이프와 같은 닫기 함수를 부른다(AND-BASE-06)
+  useHardwareBack(() => resolveBack()?.(), swipeBack && active);
 
   const restore = (panel: HTMLElement) => {
     panel.style.transition = PANEL_TRANSITION;

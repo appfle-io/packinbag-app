@@ -141,7 +141,16 @@
 | SHELL-KEY-07 | ⌘F | 건드리지 않음(브라우저 찾기) | |
 
 - 셸 → 탭 화면 명령: `sendShellCommand(tab, "new" | "search")` → 각 화면이 `useShellCommands`로 자기 탭 명령만 받는다
-- Esc 닫기 순서(`useEscapeToClose`): 열려 있는 닫기 함수를 스택으로 쌓고 맨 위(가장 나중에 열린 것)만 부른다. capture 단계 리스너 하나라 메모 편집기 안에서도 동작
+- Esc 닫기 순서(`useEscapeToClose`): 열려 있는 닫기 함수를 스택으로 쌓고 맨 위(가장 나중에 열린 것)만 부른다. capture 단계 리스너 하나라 메모 편집기 안에서도 동작. 스택에는 Esc로는 닫지 않는 칸(`useHardwareBack`, swipeBack 겹 화면)도 함께 쌓이고, Esc는 그 칸을 건너뛴다(예전과 같은 동작)
+
+### SHELL-BACK Android 하드웨어 뒤로 가기 (2026-10-22, `lib/v2/androidBack.ts`, Android 앱만)
+
+| ID | 규칙 |
+|---|---|
+| SHELL-BACK-01 | Android 앱(`isAndroidApp`)에서만 `App.addListener("backButton")` 하나를 단다(AppShell). 웹 · iOS · 포터블은 아무것도 안 함 |
+| SHELL-BACK-02 | 순서: ① 닫기 스택 맨 위(시트 · 창 · 잠금 취소 · 사진/PDF 보기 · swipeBack 겹 화면 — 스와이프와 같은 닫기 함수 · 화면에 보이는 탭의 `PageStack` 한 단계(팩 폴더 · 보관함 · 설정 일부, 안 보이는 탭은 건너뜀)) ② 넓은 화면 상세 칸(팩 · 메모 먼저, 그다음 가방) ③ 가방 탭이 아니면 가방 탭으로 ④ 가방 탭이면 앱을 내림(`minimizeApp`, 종료 아님) |
+| SHELL-BACK-03 | 키보드가 떠 있으면 시스템이 키보드부터 내린다(이벤트가 오지 않음) |
+| SHELL-BACK-04 | 한계: 닫기 함수를 스택에 올리지 않는 화면(Esc · swipeBack 둘 다 없는 SlideScreen), 홈 · 팩 탭 여러 개 선택 모드는 ②~④로 넘어간다 → 실기기에서 확인(native-android.md 확인 필요) |
 
 ---
 
