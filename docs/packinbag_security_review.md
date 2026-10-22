@@ -47,50 +47,58 @@
 |---|---|---|
 | Server Actions(`"use server"`) | 안 씀 | Server Actions DoS는 조건상 비해당. 그래도 올린다 |
 | `use cache` · Cache Components | 안 씀 | 비해당 |
-| 이미지 최적화(`next/image`) | **씀**(Avatar · 위젯 미리보기 · 이벤트) | 원격 이미지 허용 목록(`images.remotePatterns`) 없음 → 외부 주소 최적화는 막혀 있을 것. 확인 필요 1 |
-| `next/og` ImageResponse | **씀**(`app/icon-192/route.tsx`) | 입력이 고정이면 위험 낮음. 확인 필요 2 |
+| 이미지 최적화(`next/image`) | **안 씀**(10/22 확인: 모두 `<img>`, 처음 grep은 주석에 걸림) | `remotePatterns`도 없어 외부 주소 최적화 불가 |
+| `next/og` ImageResponse | 씀(`app/icon-192/route.tsx`) | `force-static` · 입력 없음 → 위험 없음(10/22) |
 | middleware / proxy | 없음 | 미들웨어 우회 공지 비해당 |
 | `dangerouslySetInnerHTML` | `app/layout.tsx` 3곳 | 모두 고정 스크립트(테마 · 글꼴 · SW 등록). 사용자 입력 없음 → OK |
 
 ---
 
-## 4. 전체 점검 항목 (앞으로 순서대로)
+## 4. 전체 점검 항목 — 10/22 1회차 결과
 
-### A. 의존성 · 플랫폼 (이번 주)
-- [x] SEC-DEP-01 · 03 · 05 올림(10/22, 웹 1.7.7): next 16.4.2 · sharp 0.35.5 · prosemirror-view 1.42.7, `npm audit fix` 55건 → 39건. **배포 대기**
-- [x] SEC-DEP-02 임시 방어(10/22): 메모 링크에서 `_capacitor_` 경로 차단(memo.md MEMO-LINK-12)
-- [ ] SEC-DEP-02 Capacitor 6.2.2 + iOS 새 빌드(1.8, 웹 1.8.0) — 진행 순서 3번째
-- [ ] 서버 런타임: Vercel 프로젝트 Node 버전 · 마지막 배포 시각 확인, Cloud Functions 다시 배포(런타임 패치 반영)
-- [ ] 로컬 Node 26.4.0 → 26.12.1 이상(또는 LTS 24.22.1)
-- [ ] 의존성 자동 감시: GitHub Dependabot 알림 켜기(저장소 Settings → Code security)
+ID: SEC-DEP(의존성) · SEC-SECRET(비밀값) · SEC-AUTH(인증 · 권한) · SEC-WEB(웹) · SEC-APP(iOS · 포터블) · SEC-OPS(운영). 👤 = 사용자 콘솔 작업
 
-### B. 비밀값 · 키 (이번 주)
-- [ ] 저장소 이력에 키가 들어간 적 없는지(gitleaks 같은 도구로 git 이력 검사 — 사용자 승인 후)
-- [ ] `NEXT_PUBLIC_*` 환경변수에 비밀값이 없는지(이름만 확인)
-- [ ] Firebase 웹 API 키 · Gemini 키에 **HTTP 리퍼러 · API 제한**이 걸렸는지(GCP 콘솔)
-- [ ] APNs .p8 · 서비스 계정 키 · Resend 키 보관 위치와 교체 주기(`_secrets/README.md`)
+### A. 의존성 · 플랫폼
+- [x] SEC-DEP-01 · 03 · 05: next 16.4.2 · sharp 0.35.5 · prosemirror-view 1.42.7, `npm audit fix` 55 → 39건 — **배포됨 1.7.7**(`9b685f4`)
+- [x] SEC-DEP-02 임시 방어: 메모 링크 `_capacitor_` 경로 차단(memo.md MEMO-LINK-12) — 1.7.7
+- [ ] SEC-DEP-02 Capacitor 6.2.2 + iOS 1.8 — 순서 3번째
+- [x] Dependabot alerts 켬(10/22 👤). 처음 목록은 1.7.7 이전 lock 기준(handlebars · markdown-it 등 이미 고쳐진 것 포함) — 다시 스캔된 뒤 다시 보기
+- [x] 👤 Dependabot **Malware alerts** 켬(10/22)
+- [x] 👤 서버 런타임: Vercel Node.js Version **24.x**(10/22 사용자 확인) — 큰 버전만 고르고 패치는 Vercel이 올림, 10/21 이후 배포(1.7.7)부터 반영. Cloud Functions(Node 22)는 Google 관리 런타임, 다음 functions 배포 때 다시 확인
+- [ ] 👤 로컬 Node 26.4.0 → 26.12.1 이상: Homebrew 설치라 `brew update && brew upgrade node` → `node -v`
+- [ ] SEC-DEP-04 TipTap 3.x 이전(메이저) · SEC-DEP-08 Electron 34 → 지원 버전 — 따로 계획
 
-### C. 인증 · 권한 (예전 1~3차 점검의 다시 보기)
-- [ ] API 라우트 전수: 인증 함수(`verifyRequestUser` · `verifyAndCheckAiQuota` · `verifyDeviceRequest` · `requireMasterUser`) 누락 여부 — 10/22 1차 grep으로는 누락 못 찾음. `build-info`는 공개(내용 확인)
-- [ ] firestore.rules · storage.rules 다시 읽기(10/16 이후 이벤트 · 무료 제한 변경분)
-- [ ] 공개 라우트 남용: send-password-reset(쿨다운 있음) · shorten-url · geocode · link-meta(외부를 가져오지 않음 → SSRF 없음 확인)
-- [ ] 네이티브 기기 토큰(`nativeDeviceServer`) 만료 · 폐기
-- [ ] 관리자(`requireMasterUser`) 판정 기준
+### B. 비밀값 · 키
+- [x] SEC-SECRET-01 git 전체 이력 검사(값은 가리고 종류만): README · SETUP의 키 자리는 **빈 예시**, 실제로 들어간 것은 Firebase **웹** API 키뿐(`lib/firebase.ts` 기본값 · CI 워크플로 · `GoogleService-Info.plist`) — 원래 공개되는 값. 서비스 계정 · Gemini · Resend · RevenueCat 비밀 키는 이력에 없음
+- [x] SEC-SECRET-02 `NEXT_PUBLIC_*` 이름 확인: Firebase 웹 설정 · 앱 주소 · 짧은 URL · RevenueCat 공개 키 · **Google Maps 키** · 커밋 SHA. 비밀값 없음
+- [x] SEC-SECRET-03 GCP 사용자 인증 정보(10/22 사용자 스크린샷): Firebase가 만든 Browser key · iOS key 둘 다 **API 제한(25개)** 걸림, 애플리케이션 제한(HTTP 리퍼러 · iOS 앱)은 없음. **그대로 두기로 판단**: Firebase 웹 키는 원래 공개되는 값이고 데이터는 규칙이 막음. 리퍼러를 걸면 포터블(`127.0.0.1:임의 포트`) · Firebase 로그인 화면(`*.firebaseapp.com`) · 로컬 개발이 깨질 위험이 이득보다 큼. Maps 키는 `app/api/geocode`(서버)에서만 읽어 브라우저로 안 나감(`NEXT_PUBLIC_` 이름은 옛 대체값) → 해당 없음. Gemini 키는 별도 GCP 프로젝트(서버 전용)
+- [ ] SEC-SECRET-04 Firebase **App Check** 없음 — 웹 키로 아무나 Auth 가입 · Firestore 요청은 가능(규칙이 막음). 남용이 보이면 도입(Capacitor · 포터블 고려 필요, 보류)
+- [ ] 👤 APNs .p8 · 서비스 계정 키 · Resend 키 보관 · 교체 주기(`_secrets/README.md`)
 
-### D. 클라이언트 · 웹 (다음 주)
-- [ ] 보안 헤더: 지금은 `frame-ancestors 'self'`만. CSP 본문 · `X-Content-Type-Options` · `Referrer-Policy` · `Permissions-Policy` · HSTS 추가 검토(CSP는 TipTap · Firebase 때문에 신중히)
-- [ ] 메모(TipTap) 링크: `javascript:` 등 위험한 주소 차단, 공유 가방에서 남이 쓴 링크 열 때(Capacitor 이슈와 연결)
-- [ ] 업로드 파일: 형식 · 크기 · SVG 업로드 차단 여부(storage.rules)
+### C. 인증 · 권한
+- [x] SEC-AUTH-01 API 라우트 46개 전수(10/22): 모두 인증 함수가 있음(`verifyRequestUser` · `verifyAndCheckAiQuota` · `verifyDeviceRequest` · `requireMasterUser` · CRON_SECRET · RevenueCat 헤더). 공개는 `build-info`(빌드 SHA · 버전만)와 `send-password-reset`(쿨다운 429) 둘뿐, 의도된 것
+- [x] SEC-AUTH-02 10/16 이후 규칙 변경(이벤트 · 위젯 사진 · 무료 첨부 `canUpload`) 다시 읽음: 이벤트 쓰기 마스터만 · 공개 글만 읽기, 위젯 사진 본인만 · jpeg 3MB. `users`의 `role` · `premiumPurchase` · `unlockCode`는 클라이언트가 못 씀 → `isMaster()`의 `users.role` 경로 안전
+- [x] SEC-AUTH-03 link-meta는 외부 주소를 가져오지 않음(SSRF 없음), geocode는 로그인 필요 + 40자
+- [ ] SEC-AUTH-04 네이티브 기기 토큰 만료 · 폐기, 관리자 판정(`MASTER_EMAILS` + 이메일 인증) 다시 읽기 — 다음 회차
+
+### D. 클라이언트 · 웹
+- [x] SEC-WEB-01 보안 헤더: 운영은 `frame-ancestors 'self'` + HSTS(Vercel)뿐 → `X-Content-Type-Options: nosniff` · `Referrer-Policy` · `Permissions-Policy`(카메라 · 마이크 · 위치 · 결제 · USB 끔) 추가(`next.config.ts`) — **1.7.8 배포 대기**
+- [ ] SEC-WEB-02 CSP 본문(script-src 등): TipTap · Firebase · 인라인 테마 스크립트 때문에 바로 걸면 깨짐 → `Content-Security-Policy-Report-Only`로 먼저 모으기(다음 회차)
+- [x] SEC-WEB-03 메모 링크: TipTap 기본 `isAllowedUri`가 `javascript:` 등을 막고, `openExternalLink`는 http(s) · mailto · tel 외에는 https:// 를 붙임. React 19도 `javascript:` href를 막음. `_capacitor_` 차단 추가(1.7.7)
+- [x] SEC-WEB-04 `dangerouslySetInnerHTML` 3곳 모두 고정 스크립트. 이벤트 본문 HTML은 `sandbox=""` iframe(스크립트 · 폼 · 링크 안 됨)
+- [x] SEC-WEB-05 업로드 형식: HTML · SVG · XML 첨부 금지(10/22 사용자 "막아줘"). 화면 `lib/uploadSafety.ts`(형식 + 확장자, 가방 · 메모 · 오프라인), storage.rules `isBlockedType`(형식) — 1.7.8, **규칙 배포 필요**
 
 ### E. 앱(iOS · 포터블)
-- [ ] Capacitor 6.2.2(SEC-DEP-02), 장기적으로 7/8(Android 기획과 같이)
-- [ ] **Electron `webSecurity: false`**(`electron/main.js:150`) — 동일 출처 정책을 끈 상태. 왜 껐는지 확인 후 켜는 방법 찾기. `setWindowOpenHandler`가 http(s)가 아닌 주소는 `allow`라 새 창을 띄움 → `deny`로
-- [ ] Electron 지원 버전으로(SEC-DEP-08)
+- [x] SEC-APP-01 iOS: `cleartext: false`, ATS 예외 없음, `server.url` = 운영 주소. Capacitor 앱 주소가 운영 주소라 내부 프록시 경로도 그 주소 위 → 1.7.7 링크 차단이 의미 있음
+- [x] SEC-APP-02 포터블 새 창 · 이동 제한: 새 창은 PDF 미리보기(`blob:`)만, 그 밖(file: · data: · javascript:)은 막음, 메인 창은 로컬 앱 주소 밖으로 안 감(바깥 http(s)는 기본 브라우저) — `electron/main.js`, **1.7.8 배포 대기 · 포터블 확인 필요**
+- [ ] SEC-APP-03 **Electron `webSecurity: false`**: 9/21 커밋 `254ad96`이 포터블(`127.0.0.1`)에서 운영 API를 부를 때 CORS에 막혀 끈 것. 고치는 법 = 서버 API에 포터블 출처용 CORS 헤더를 주거나, Electron `session.webRequest.onHeadersReceived`로 `packinbag.seeuson.com/api/*` 응답에만 CORS 헤더를 붙인 뒤 `webSecurity`를 켬. 포터블 실기 확인이 필요해 따로(확인 필요 7)
+- [ ] SEC-APP-04 Capacitor 6.2.2 · iOS 1.8(SEC-DEP-02와 같이)
 
-### F. 운영
-- [ ] Firestore 백업 주기 · 복구 연습(`scripts/backup-firestore.mjs`)
-- [ ] Vercel · Firebase · Google · GitHub · Apple 계정 2단계 인증
-- [ ] 이상 징후 알림(Firebase 예산 알림, Vercel 사용량)
+### F. 운영 (👤 콘솔)
+- [ ] SEC-OPS-01 Firestore 백업 주기 · 복구 연습(`node scripts/backup-firestore.mjs`)
+- [ ] SEC-OPS-02 Vercel · Firebase(Google) · GitHub · Apple · Namecheap · Resend 계정 **2단계 인증**
+- [ ] SEC-OPS-03 GCP 예산 알림(결제 → 예산 및 알림), Vercel 사용량 알림
+- [ ] SEC-OPS-04 GitHub 저장소 Settings → Code security → **Secret scanning · Push protection** 켜기(비공개 저장소에서 쓸 수 있으면)
 
 ---
 
@@ -98,24 +106,28 @@
 
 순서는 **1 → 3 → 2 → 4**(10/22 사용자): iOS 수정을 한 빌드에 모아 심사를 한 번만 받으려고
 
-1. **웹 P0**(10/22 끝, 배포 대기): next 16.4.2 · prosemirror-view 등 + Capacitor 임시 방어 → 웹 1.7.7. 웹이라 iOS 앱도 바로 받는다(server.url)
-2. **A~F 점검**: 이 문서 체크박스로 하나씩. 항목마다 결과 · 날짜 · 커밋을 적는다. E(iOS · 포터블)에서 나온 앱 수정은 3번 빌드에 모은다
+1. **웹 P0** — 끝, 1.7.7 배포(`9b685f4`, 포터블 태그 `v1.7.7-offline-portable`)
+2. **A~F 점검** — 1회차 끝(위 체크). 바로 고칠 수 있는 것(SEC-WEB-01 · SEC-APP-02)은 고쳐 1.7.8 대기. 👤 표시는 사용자 콘솔 작업. 남은 것(CSP Report-Only · webSecurity · 업로드 형식 · 기기 토큰)은 2회차
 3. **Capacitor 6.2.2 + iOS 새 빌드 1.8**(웹 1.8.0) 제출
-4. 이후: 월 1회 `npm audit --omit=dev`, 큰 공지(Next · Node · Capacitor · Firebase)가 뜨면 1절에 추가. Dependabot 알림은 지금 켜 둔다(사용자, 1분)
+4. 이후: 월 1회 `npm audit --omit=dev` + Dependabot, 큰 공지(Next · Node · Capacitor · Firebase)가 뜨면 1절에 추가
 
 ---
 
 ## 확인 필요
 
-1. `next/image`에 외부 이미지가 들어가는지(Avatar에 구글 프로필 사진 주소 등) — `remotePatterns`가 없으니 `unoptimized`로 쓰는지 코드 확인
-2. `app/icon-192/route.tsx` ImageResponse 입력이 고정인지
-3. Vercel 프로젝트 Node 버전(Settings → Build and Deployment → Node.js Version)과 패치 적용 시점
-4. Electron `webSecurity: false`를 넣은 이유(포터블 오프라인 · 로컬 서버 때문인지)
-5. Capacitor 이슈가 `server.url`(원격 주소를 여는) 구조에서도 같은지 — 공지에 언급 없음. 어쨌든 올린다
+1. ~~`next/image` 외부 이미지~~ → 안 씀(10/22)
+2. ~~icon-192 ImageResponse 입력~~ → 고정(10/22)
+3. Vercel 프로젝트 Node 버전(👤 위 A)
+4. ~~Electron `webSecurity: false` 이유~~ → 포터블에서 운영 API CORS(10/22, `254ad96`) → SEC-APP-03
+5. Capacitor 이슈가 `server.url` 구조에서도 같은지 — 앱 주소가 운영 주소라 같은 위험으로 봄. 어쨌든 올린다
+6. ~~프리미엄 첨부 HTML · SVG~~ → 막음(10/22 사용자)
+7. webSecurity 켜기(SEC-APP-03)를 2회차에 할지 — 포터블 실기 확인 필요
 
 ## 진행 기록
 
 | 날짜 | 누가 | 한 일 |
 |---|---|---|
 | 2026-10-22 | worker | 처음 작성: 오늘 이슈 대조, npm audit(루트 · functions), 위험 기능 · API 인증 · Electron 1차 점검. 코드 수정 없음 |
-| 2026-10-22 | worker | 순서 1 → 3 → 2 → 4로(사용자). 1번: next · eslint-config-next 16.4.2, `npm audit fix`, `lib/linkSafety.ts` 링크 차단. 남은 audit 39건(높음 4 = firebase 클라이언트 → @grpc/grpc-js 1.9.16, 브라우저는 grpc를 안 써 실제 영향 낮음 · audit이 권하는 firebase 9.14 다운그레이드는 안 함) |
+| 2026-10-22 | worker | 순서 1 → 3 → 2 → 4로(사용자). 1번: next · eslint-config-next 16.4.2, `npm audit fix`, `lib/linkSafety.ts` 링크 차단. 남은 audit 39건(높음 4 = firebase 클라이언트 → @grpc/grpc-js 1.9.16, 브라우저는 grpc를 안 써 실제 영향 낮음 · audit이 권하는 firebase 9.14 다운그레이드는 안 함). 사용자 요청으로 worker가 커밋 · 푸시 · 태그(`9b685f4`, v1.7.7) |
+| 2026-10-22 | worker | 2번 1회차: A~F 점검(위 결과). 고침: 보안 헤더(`next.config.ts`), 포터블 새 창 · 이동 제한(`electron/main.js`) — 1.7.8 대기 |
+| 2026-10-22 | worker | 사용자 답 반영: Malware alerts 켬 · Vercel 24.x · API 키는 그대로 · 첨부 HTML · SVG 막기 구현. 1.7.8 커밋 · 푸시 |

@@ -61,6 +61,7 @@ import {
 } from "@/lib/editorDocLimits";
 import { extractDocAttachmentUrls, migratePackImagesToDoc } from "@/lib/editorDocAttachmentUtils";
 import { isPremiumUser, ATTACH_PREMIUM_MESSAGE, MEDIA_SAVE_PREMIUM_MESSAGE } from "@/lib/premiumLimits";
+import { BLOCKED_UPLOAD_MESSAGE, isBlockedUploadFile } from "@/lib/uploadSafety";
 import { getFileKind, getFileExtensionLabel } from "@/lib/fileUrlUtils";
 import { uploadPackImage } from "@/lib/storageService";
 import { useToast } from "@/components/Toast";
@@ -301,6 +302,12 @@ function PackNoteEditorScreenInner({
       if (!isEffectivePremium) {
         setPremiumAttachMessage(ATTACH_PREMIUM_MESSAGE);
         setShowPdfPremiumModal(true);
+        return;
+      }
+
+      // HTML · SVG 같은 웹 페이지 파일은 막는다(2026-10-22, memo.md MEMO-ATT-11)
+      if (fileArray.some(isBlockedUploadFile)) {
+        show(BLOCKED_UPLOAD_MESSAGE);
         return;
       }
 

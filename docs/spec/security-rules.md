@@ -94,7 +94,7 @@
 |---|---|
 | STOR-COM-01 | `isMemberOf(bagId)`: Firestore `bags/{bagId}.memberIds`에 내 uid. `isOwnerLockedOf`: 내가 그룹장이고 가방 `locked` |
 | STOR-COM-02 | `isPremium()`: `freeLaunch()`(지금 **true**, `lib/freeLaunch.ts`와 같이 바꿈 — 규칙은 그 값을 못 읽음) · 마스터 · `premiumPurchase.purchased` · 내 이용권(`claimed` · `claimedBy.uid == 나` · 만료 전). 서버 `isPremiumServer`와 같은 기준 |
-| STOR-COM-03 | 이미지 = `contentType`이 `image/*`. 그 밖은 모두 "파일"(PDF 포함, 형식 제한 없음) |
+| STOR-COM-03 | 이미지 = `contentType`이 `image/*`. 그 밖은 모두 "파일"(PDF 포함). **단 `isBlockedType`**(text/html · application/xhtml+xml · image/svg+xml · text/xml · application/xml, 대소문자 무시)은 `canUpload`에서 거절(10/22, 이벤트 경로 제외) |
 
 ### 경로별
 | ID | 경로 | 읽기 | 올리기(create · update) | 지우기 |

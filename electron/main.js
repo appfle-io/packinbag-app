@@ -153,13 +153,27 @@ function createWindow(url) {
 
   mainWindow.loadURL(url);
 
-  // 외부 링크는 기본 브라우저로 열기
+  // 외부 링크는 기본 브라우저로 열기. 앱 안 새 창은 PDF 미리보기(blob:)만 허용하고
+  // file: · data: · javascript: 같은 나머지는 막는다(2026-10-22, security_review SEC-APP-02)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
       shell.openExternal(url);
       return { action: "deny" };
     }
-    return { action: "allow" };
+    if (url.startsWith("blob:")) return { action: "allow" };
+    return { action: "deny" };
+  });
+
+  // 메인 창은 로컬 앱 주소 밖으로 이동하지 않는다. 바깥 http(s)는 기본 브라우저로
+  const appOrigin = new URL(url).origin;
+  mainWindow.webContents.on("will-navigate", (event, target) => {
+    try {
+      if (new URL(target).origin === appOrigin) return;
+    } catch {
+      // 주소를 못 읽으면 막는다
+    }
+    event.preventDefault();
+    if (target.startsWith("http://") || target.startsWith("https://")) shell.openExternal(target);
   });
 
   mainWindow.on("closed", () => {

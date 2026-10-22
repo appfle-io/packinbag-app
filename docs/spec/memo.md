@@ -153,6 +153,7 @@
 | MEMO-ATT-05 | 오프라인 모드는 data URL로 본문 안에 저장 |
 | MEMO-ATT-06 | 사진 카드 누르기 → 사진 보기(본문의 모든 사진을 순서대로 넘김, **무료는 저장 버튼 · 길게 눌러 저장 없음** 10/21). 파일 카드 → **무료는 프리미엄 시트 "사진 저장 · 파일 열기는 프리미엄 기능이에요…"**(10/21), 프리미엄은 PDF면 PDF 보기(오프라인 첨부도 주소로 한 번 더 판단), 그 밖은 원래 이름으로 저장(실패 "파일을 저장하지 못했어요") |
 | MEMO-ATT-07 | 예전 메모의 `images[]`(본문 밖 사진)는 열 때 본문 맨 위로 옮기고 `images`를 비워 바로 저장(한 번) |
+| MEMO-ATT-11 | **HTML · SVG · XML 첨부 금지**(10/22): 형식(text/html · image/svg+xml · xhtml · xml) 또는 확장자(html · htm · xhtml · svg · xml · mht 등)면 "HTML · SVG 같은 웹 페이지 파일은 첨부할 수 없어요"로 전부 안 올림. 오프라인 모드도 같음. storage.rules `isBlockedType` 함께(`lib/uploadSafety.ts`) |
 | MEMO-ATT-08 | 정리: 편집기를 닫을 때, 이번에 열어 둔 동안 본문에 있다가 사라진 첨부를 Storage에서 지움. 다른 가방 · 보관함 팩이 같은 파일을 쓰면 남김, **함께 쓰는 가방 메모 첨부는 지우지 않음**. 읽기 전용 · 오프라인 모드는 안 함(`sweepRemovedAttachments`). 닫은 뒤라 실행 취소로 되살릴 수 없음 |
 
 ---
@@ -262,3 +263,4 @@
 | `noteEditorMarkdownPaste` 변환(표 · 제목 · 체크) | MEMO-PASTE-02 |
 | `validateCustomCode` · `validateLinkLabel` | MEMO-LIM-09, MEMO-LINK-06 |
 | `isBlockedAppInternalUrl` — ✅ 10/22 `lib/linkSafety.test.ts` | MEMO-LINK-12 |
+| `isBlockedUploadFile` — ✅ 10/22 `lib/uploadSafety.test.ts` | MEMO-ATT-11, BAG-ATT-11 |

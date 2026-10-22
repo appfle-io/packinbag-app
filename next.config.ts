@@ -21,6 +21,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: "frame-ancestors 'self'",
           },
+          // 보안 헤더(2026-10-22, docs/packinbag_security_review.md SEC-WEB-01). 파일 형식 추측 금지,
+          // 다른 사이트로 갈 때는 주소의 도메인만 넘김, 쓰지 않는 기기 권한(카메라 · 마이크 · 위치 · 결제)은 끔.
+          // 사진 첨부는 파일 선택 창이라 camera 권한과 무관하고, 클립보드는 막지 않는다
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
         ],
       },
       {

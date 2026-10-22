@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { uploadBagImage } from "@/lib/storageService";
 import { deleteBagAttachmentIfUnused } from "@/lib/storageCleanup";
 import { ATTACH_PREMIUM_MESSAGE, MAX_BAG_IMAGES } from "@/lib/premiumLimits";
+import { BLOCKED_UPLOAD_MESSAGE, isBlockedUploadFile } from "@/lib/uploadSafety";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
 
@@ -39,6 +40,10 @@ export function useBagAttachments({ doc, premium, offline, onPremiumRequired }: 
       const isNonImage = (f: File) => !f.type.startsWith("image/");
       const toUpload = selected;
       if (toUpload.length === 0) return;
+      if (toUpload.some(isBlockedUploadFile)) {
+        show(BLOCKED_UPLOAD_MESSAGE);
+        return;
+      }
       if (toUpload.some((f) => isNonImage(f) && f.size > MAX_NON_IMAGE_BYTES)) {
         show("이미지가 아닌 파일은 10MB 이하만 첨부할 수 있어요");
         return;

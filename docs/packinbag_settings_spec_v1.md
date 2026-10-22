@@ -4,6 +4,14 @@
 
 > 10/14부터 "지금 어떻게 동작하나"는 화면별 기능명세서 `docs/spec/`(README · bag.md …)에 쓴다. 이 문서는 변경 이력으로 이어 간다.
 
+## 10/22 보안 점검 1회차 수정 (웹 · 포터블 1.7.8, **storage.rules 변경**)
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| **보안 헤더** | 추가 | 모든 주소에 `X-Content-Type-Options: nosniff` · `Referrer-Policy: strict-origin-when-cross-origin` · `Permissions-Policy`(카메라 · 마이크 · 위치 · 결제 · USB 끔). `next.config.ts` (security_review SEC-WEB-01) |
+| **HTML · SVG 첨부 금지** | 보안 | 가방 · 메모 첨부에서 HTML · SVG · XML(형식 또는 확장자)은 "HTML · SVG 같은 웹 페이지 파일은 첨부할 수 없어요". storage.rules `canUpload`에 `isBlockedType`. `lib/uploadSafety.ts`(+test) · `useBagAttachments` · `PackNoteEditorScreen` (memo.md MEMO-ATT-11, bag.md BAG-ATT-11, security-rules STOR-COM-03) |
+| **포터블 새 창 · 이동 제한** | 보안 | 새 창은 PDF 미리보기(blob:)만, 나머지 비 http(s)는 막음. 메인 창은 로컬 앱 주소 밖으로 이동 안 함(바깥 http(s)는 기본 브라우저). `electron/main.js` (SEC-APP-02) |
+
 ## 10/22 보안 업데이트 (웹 · 포터블 1.7.7, 규칙 변경 없음)
 
 | 기능 | 상태 | 비고 |

@@ -1,5 +1,14 @@
 # 팩인백 QA 체크리스트
 
+## SEC- 보안 점검 1회차 수정 — 2026-10-22 (v1.7.8 · 웹 · 포터블 · storage.rules)
+
+먼저 규칙 배포(`npx firebase-tools deploy --only storage`)
+
+- [SEC-08] 배포 후 `curl -sI https://packinbag.seeuson.com/ | grep -iE "nosniff|referrer-policy|permissions-policy"` 세 줄 나옴 (SEC-WEB-01)
+- [SEC-09] 아이폰 앱 · 사파리 · 크롬: 사진 첨부(카메라로 찍기 포함) · 복사 버튼 · 공유 시트 · /about 체험 iframe 그대로 됨(Permissions-Policy 영향 없음)
+- [SEC-11] 규칙 배포 후, 프리미엄 계정으로 가방 첨부 · 메모 첨부에 `.html` · `.svg` 파일 → "HTML · SVG 같은 웹 페이지 파일은 첨부할 수 없어요", PDF · 사진 · 엑셀은 그대로 올라감 (MEMO-ATT-11, BAG-ATT-11)
+- [SEC-10] 포터블: 메모 PDF 미리보기 열림, 메모 · 아이템의 바깥 링크는 기본 브라우저로, 앱 창은 그대로 (SEC-APP-02)
+
 ## SEC- 보안 업데이트 — 2026-10-22 (v1.7.7 · 웹 · 포터블)
 
 Next.js 16.4.2로 올라가서 화면 전체가 다시 빌드됨 → 자주 쓰는 흐름을 한 바퀴

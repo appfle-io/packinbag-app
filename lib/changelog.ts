@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.7.8",
+    date: "2026-10-22",
+    items: ["보안을 더 강화했어요"],
+  },
+  {
     version: "1.7.7",
     date: "2026-10-22",
     items: ["보안 업데이트를 적용했어요"],

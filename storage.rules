@@ -83,9 +83,15 @@ service firebase.storage {
       return contentType.matches('image/.*');
     }
 
+    // 2026-10-22: HTML · SVG · XML은 내려받기 주소를 열면 웹 페이지로 그려져(스크립트 실행) 피싱에 쓰일 수 있어 첨부 금지.
+    // 화면 기준은 lib/uploadSafety.ts(확장자도 봄). 이벤트 본문 HTML(마스터 전용)은 아래 events 경로라 해당 없음
+    function isBlockedType(contentType) {
+      return contentType.lower().matches('(text/html|application/xhtml\\+xml|image/svg\\+xml|text/xml|application/xml).*');
+    }
+
     // 2026-10-21: 사진도 프리미엄만 올린다(무료는 가방 · 메모 첨부 없음). 읽기는 그대로(무료 멤버도 남이 올린 사진은 보기)
     function canUpload(contentType, size) {
-      return isPremium() && (
+      return isPremium() && !isBlockedType(contentType) && (
         (isImage(contentType) && size < 5 * 1024 * 1024) ||
         (!isImage(contentType) && size < 10 * 1024 * 1024)
       );
