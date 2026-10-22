@@ -73,6 +73,13 @@ export default function PrivacyPage() {
           이용자는 앱의 설정 &gt; 프로필에서 정보를 고치거나 회원 탈퇴로 데이터를 삭제할 수 있습니다. 알림은 설정 &gt; 알림 또는 iPhone
           설정 &gt; 팩인백 &gt; 알림에서 끌 수 있습니다.
         </p>
+        <p className="mt-2">
+          탈퇴 방법, 로그인할 수 없을 때의 삭제 요청, 삭제되는 데이터는{" "}
+          <a href="/delete-account" className="underline">
+            계정 삭제 안내
+          </a>
+          에서 볼 수 있습니다.
+        </p>
       </section>
 
       <section className="mb-6">

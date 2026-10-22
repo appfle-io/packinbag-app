@@ -1,5 +1,11 @@
 # 팩인백 QA 체크리스트
 
+## DEL- 계정 삭제 안내 — 2026-10-22 (웹)
+
+- [DEL-01] 로그아웃 상태 · 휴대폰 브라우저에서 https://packinbag.seeuson.com/delete-account 열림, 끝까지 스크롤됨, 이메일 링크 누르면 메일 앱 (AUTH-DEL-06)
+- [DEL-02] /privacy 5절 "계정 삭제 안내" 링크 → /delete-account
+- [DEL-03] 안내대로 설정 → 프로필 → 회원 탈퇴 경로가 실제 화면과 같음(폰 · PC)
+
 ## AND- Android 준비(웹 코드) — 2026-10-22 (웹 배포 후, Android 폰 없어도 되는 것)
 
 - [AND-01] 웹 · 아이폰 앱: Esc(PC) · 스와이프 뒤로 · 시트 닫기 그대로. 넓은 화면에서 가방 연 채 시트를 띄우고 Esc → 시트만 닫힘 (SHELL-KEY-05)
