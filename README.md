@@ -138,7 +138,6 @@ packinbag/
 ├── lib/                  # 서비스·유틸(bagsService, packsService, localBagsService, packSync 등)
 │   └── v2/               # 연결 판단, 만들기 대기, 글꼴, 셸 유틸
 ├── electron/             # 데스크톱 포터블 메인 프로세스
-├── docs/                 # 기능 명세, QA 체크리스트, 작업 계획, 출시 진행판, 사용설명서
 ├── functions/            # Cloud Functions(서버 푸시 · 실시간 현황 원격 갱신)
 ├── ios/App/              # iOS 앱 · 위젯 확장(PackInBagWidget) · 공용 Swift(Shared)
 ├── firestore.rules · storage.rules
@@ -155,7 +154,7 @@ npm install
 ```
 
 ### 2. 환경 변수
-`.env.local.example`을 `.env.local`로 복사해 값을 채웁니다. 주요 항목:
+`.env.local`을 만들어 값을 채웁니다(사본은 저장소 밖 `_secrets/`). 주요 항목:
 
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=
@@ -197,15 +196,10 @@ git tag v1.0.x-offline-portable && git push origin v1.0.x-offline-portable
 npm run cap:sync
 npm run cap:open:ios
 ```
-iOS 앱은 운영 웹(server.url)을 불러오는 구조라, 웹 배포가 곧 앱 반영입니다. 네이티브(위젯 · 알림 · 단축어 등)를 바꿨을 때만 Xcode 빌드 · 심사가 필요합니다(`docs/packinbag_iap_release_guide.md` A-0).
+iOS 앱은 운영 웹(server.url)을 불러오는 구조라, 웹 배포가 곧 앱 반영입니다. 네이티브(위젯 · 알림 · 단축어 등)를 바꿨을 때만 Xcode 빌드 · 심사가 필요합니다(출시 진행판 A-0).
 
 ---
 
 ## 관련 문서
 
-* [작업 계획 · 진행 기록](docs/packinbag_리디자인_작업계획.md) · [UI/UX 방향](docs/packinbag_UIUX_리디자인_방향.md) · [기능명세서](docs/spec/README.md)
-* [기능 명세](docs/packinbag_settings_spec_v1.md) · [QA 체크리스트](docs/qa_checklist.md)
-* [iOS 네이티브 기획](docs/packinbag_ios_native_plan.md) · [출시 진행판](docs/packinbag_iap_release_guide.md)
-* [사용설명서](docs/packinbag_user_guide.md) · [마케팅 소재](docs/packinbag_marketing_materials.md)
-* [인증 메일(Resend)](docs/claude_packinbag_이메일인증_resend_구현.md)
-* [릴리즈 노트](CHANGELOG.md)
+기능 명세 · QA 체크리스트 · 작업 계획 · 출시 진행판 · 사용설명서 등 문서와 운영 스크립트는 저장소에 두지 않고 `_secrets/`(git 밖)에서 따로 관리합니다.
