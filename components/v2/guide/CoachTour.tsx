@@ -27,6 +27,24 @@ function findTarget(id: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-guide="${id}"]`);
 }
 
+// 대상을 화면 안으로. /about 체험(iframe) 안에서는 scrollIntoView가 바깥 페이지까지 굴려서(2026-10-23)
+// 가장 가까운 스크롤 칸만 직접 굴린다. 스크롤 칸이 없으면(아래 고정 입력칸 등) 그대로 둔다
+function bringIntoView(el: HTMLElement, block: "start" | "center") {
+  if (window.self === window.top) {
+    el.scrollIntoView({ block, behavior: "smooth" });
+    return;
+  }
+  let box = el.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) {
+    box = box.parentElement;
+  }
+  if (!box) return;
+  const br = box.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const top = block === "start" ? r.top - br.top : r.top + r.height / 2 - (br.top + br.height / 2);
+  box.scrollBy({ top, behavior: "smooth" });
+}
+
 function isShown(el: HTMLElement | null): el is HTMLElement {
   if (!el) return false;
   const r = el.getBoundingClientRect();
@@ -108,13 +126,13 @@ export function CoachTour({ open, steps, onClose }: { open: boolean; steps: Tour
       const r = el.getBoundingClientRect();
       const vh = window.innerHeight;
       if (r.top < EDGE || r.bottom > vh - EDGE) {
-        el.scrollIntoView({ block: r.height > vh * MAX_HOLE_RATIO ? "start" : "center", behavior: "smooth" });
+        bringIntoView(el, r.height > vh * MAX_HOLE_RATIO ? "start" : "center");
       }
     }
     const raf = requestAnimationFrame(measure);
     // 부드러운 스크롤이 끝난 뒤 한 번 더
     const t = window.setTimeout(measure, 400);
-    nextRef.current?.focus();
+    nextRef.current?.focus({ preventScroll: true });
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(t);

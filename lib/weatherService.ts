@@ -73,7 +73,8 @@ const isNumericOnly = (s: string) => /^[0-9]+$/.test(s);
  * 지오코딩 서비스 - 서버 전용 /api/geocode(Google Geocoding & Nominatim)를 호출하여
  * 사용자가 입력한 전 세계 어떤 한글/영문 지명이든 자동으로 위도/경도를 찾아낸다.
  * 사전 맵이나 하드코딩된 지명 목록은 존재하지 않는다.
- * whole: 직접 입력한 장소처럼 글 전체를 먼저 한 번 찾아본다(2026-10-20, "서귀포 중문" 같은 두 단어)
+ * whole: 직접 입력한 장소처럼 글 전체를 먼저 한 번 찾아본다(2026-10-20, "서귀포 중문" 같은 두 단어).
+ *        서버에도 manual=1로 알려 기준을 낮추고 시 · 군 · 구를 붙여 다시 찾게 한다(2026-10-23)
  */
 export async function resolveCityInfo(
   text: string,
@@ -102,7 +103,7 @@ export async function resolveCityInfo(
 
   for (const word of candidates) {
     try {
-      const res = await fetch(`/api/geocode?query=${encodeURIComponent(word)}`, {
+      const res = await fetch(`/api/geocode?query=${encodeURIComponent(word)}${whole ? "&manual=1" : ""}`, {
         headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
       });
       if (res.status === 401) return null;

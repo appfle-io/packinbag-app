@@ -373,8 +373,11 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   };
 
   const nickname = profile?.nickname ?? (isOfflineMode ? "오프라인 사용자" : "닉네임 설정하기");
+  // 체험은 탭(sessionStorage)에만 남아 창을 닫으면 사라진다(프로필 화면 문구와 맞춤, 2026-10-23)
   const profileSubtitle = isOfflineMode
-    ? "데이터가 이 기기에만 저장돼요"
+    ? isDemoMode()
+      ? "데이터가 이 창에만 저장돼요"
+      : "데이터가 이 기기에만 저장돼요"
     : isGuest
       ? "기기에만 저장됨 · 계정 연동하기"
       : profile?.email;

@@ -52,6 +52,18 @@ export default function AboutTry() {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.6);
+  // 넓은 화면(써 보기 칸이 보일 때)에서만 iframe을 불러온다. 760px 이하는 칸이 숨겨지는데도 앱 전체를 받고 있었다(2026-10-23).
+  // 한 번 불러오면 창을 줄여도 그대로 둔다(체험이 이어지게)
+  const [frameOn, setFrameOn] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 761px)");
+    const sync = () => {
+      if (mq.matches) setFrameOn(true);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   // 칸 폭이 바뀔 때마다 줄이는 비율을 다시 잰다(넓으면 1배까지만)
   useEffect(() => {
@@ -129,7 +141,7 @@ export default function AboutTry() {
             >
               <iframe
                 ref={frameRef}
-                src={DEMO_URL}
+                src={frameOn ? DEMO_URL : undefined}
                 title="팩인백 체험"
                 className={view === "pc" ? styles.framePc : styles.framePhone}
                 style={view === "pc" ? { width: PC_W, height: PC_H, transform: `scale(${scale})` } : undefined}

@@ -25,16 +25,17 @@ type GoogleGeocodeResult = {
 };
 type NominatimItem = { class?: string; importance?: number | string; lat: string; lon: string };
 
-function cacheDocId(query: string): string {
+function cacheDocId(query: string, manual = false): string {
   // 문서 id에는 / 를 못 쓴다. 대소문자·앞뒤 공백만 맞추고 인코딩(길이는 요청에서 자른다)
-  return encodeURIComponent(query.trim().toLowerCase());
+  // 직접 입력(manual)은 기준이 느슨해서 가방 이름 자동 찾기와 캐시를 나눈다(2026-10-23) — "중문" 같은 결과가 가방 이름 찾기로 새지 않게
+  return (manual ? "m:" : "") + encodeURIComponent(query.trim().toLowerCase());
 }
 
-async function readCache(query: string): Promise<{ hit: boolean; result: GeoResult }> {
+async function readCache(query: string, manual: boolean): Promise<{ hit: boolean; result: GeoResult }> {
   try {
     const db = adminDb();
     if (!db) return { hit: false, result: null };
-    const snap = await db.collection("geocodeCache").doc(cacheDocId(query)).get();
+    const snap = await db.collection("geocodeCache").doc(cacheDocId(query, manual)).get();
     if (!snap.exists) return { hit: false, result: null };
     const data = snap.data() ?? {};
     const cachedAtMs = (data.cachedAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
@@ -47,14 +48,14 @@ async function readCache(query: string): Promise<{ hit: boolean; result: GeoResu
   }
 }
 
-async function writeCache(query: string, result: GeoResult) {
+async function writeCache(query: string, result: GeoResult, manual: boolean) {
   try {
     const db = adminDb();
     if (!db) return;
     await db
       .collection("geocodeCache")
-      .doc(cacheDocId(query))
-      .set({ query, result: result ? { lat: result.lat, lon: result.lon } : null, cachedAt: new Date() });
+      .doc(cacheDocId(query, manual))
+      .set({ query, manual, result: result ? { lat: result.lat, lon: result.lon } : null, cachedAt: new Date() });
   } catch (err) {
     console.warn("[팩인백] 지오코딩 캐시 저장 실패:", err);
   }
@@ -99,6 +100,12 @@ const NOMINATIM_PLACE_CLASSES = new Set(["place", "boundary", "natural"]);
 // Nominatim importance는 검색 결과의 "유명도" 점수(0~1) - 너무 낮으면 사실상 무관한 매칭일
 // 가능성이 높아 걸러낸다. (기존 0.25 -> 0.42로 상향: "웬만큼 알려진 지명"만 통과하도록)
 const NOMINATIM_MIN_IMPORTANCE = 0.42;
+// 직접 입력한 장소(manual=1)는 사용자가 장소라고 적은 글이라 오탐 걱정이 적다 → 기준을 낮추고(설악산 0.36 · 중문 0.25),
+// 그래도 없으면 한글 지명에 시 · 군 · 구를 붙여 다시 찾는다(서귀포 → 서귀포시, 강릉 → 강릉시, 2026-10-23 QA).
+// Google 키가 운영에 없어 Nominatim만 쓰는데, Nominatim은 "서귀포"를 학교 · 경찰서로만 돌려준다. "가방"(마을 0.15)은 여전히 안 걸림
+const NOMINATIM_MANUAL_MIN_IMPORTANCE = 0.25;
+const KOREAN_ADMIN_SUFFIXES = ["시", "군", "구"];
+const isHangulWord = (s: string) => /^[가-힣]+$/.test(s);
 
 // 영문(라틴 알파벳)만으로 이루어진 단어는 실제 지명이라기엔 너무 짧은 경우
 // 이니셜/약어/상태라벨(DO, ING, AI, DB 등)일 확률이 매우 높다. 실존하는 짧은 영문 지명
@@ -121,6 +128,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const query = (searchParams.get("query")?.trim() ?? "").slice(0, 40);
+  const manual = searchParams.get("manual") === "1";
 
   if (isNumericOnly(query)) {
     return NextResponse.json({ result: null });
@@ -131,7 +139,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ result: null });
   }
 
-  const cached = await readCache(query);
+  const cached = await readCache(query, manual);
   if (cached.hit) {
     return NextResponse.json({ result: cached.result });
   }
@@ -141,14 +149,26 @@ export async function GET(req: NextRequest) {
   }
 
   // 못 찾은 결과는 지명 서비스가 제대로 답했을 때만 남긴다(일시 장애를 30일간 "없음"으로 굳히지 않게)
-  const { result, definitive } = await geocode(query);
-  if (result || definitive) await writeCache(query, result);
+  let { result, definitive } = await geocode(query, manual);
+  // 직접 입력한 한글 지명은 행정구역 이름을 붙여 한 번 더(이미 시 · 군 · 구 · 도로 끝나면 안 붙임)
+  if (!result && manual && isHangulWord(query) && !/[시군구도]$/.test(query)) {
+    for (const suffix of KOREAN_ADMIN_SUFFIXES) {
+      const next = await geocode(query + suffix, true);
+      if (next.result) {
+        result = { ...next.result, name: query };
+        definitive = true;
+        break;
+      }
+      definitive = definitive && next.definitive;
+    }
+  }
+  if (result || definitive) await writeCache(query, result, manual);
   // 지명 서비스가 둘 다 답하지 못했으면 횟수를 되돌린다
   else await refundDailyQuota(GEOCODE_COLLECTION, uid);
   return NextResponse.json({ result });
 }
 
-async function geocode(query: string): Promise<{ result: GeoResult; definitive: boolean }> {
+async function geocode(query: string, manual = false): Promise<{ result: GeoResult; definitive: boolean }> {
   const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   // 1. Google Geocoding API (API 키가 있는 경우)
@@ -199,7 +219,7 @@ async function geocode(query: string): Promise<{ result: GeoResult; definitive: 
         const placeItem = nData.find(
           (item: NominatimItem) =>
             NOMINATIM_PLACE_CLASSES.has(item.class ?? "") &&
-            Number(item.importance ?? 0) >= NOMINATIM_MIN_IMPORTANCE
+            Number(item.importance ?? 0) >= (manual ? NOMINATIM_MANUAL_MIN_IMPORTANCE : NOMINATIM_MIN_IMPORTANCE)
         );
         if (placeItem) {
           return { result: { lat: parseFloat(placeItem.lat), lon: parseFloat(placeItem.lon), name: query }, definitive: true };

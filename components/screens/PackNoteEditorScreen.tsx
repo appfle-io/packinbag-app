@@ -772,7 +772,9 @@ function PackNoteEditorScreenInner({
   }, [editor, applyLinkLabels]);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const skipFirstRef = useRef(true);
+  // 연 직후 내용이 그대로인 update만 건너뛴다. 예전엔 "첫 update는 무조건 건너뛰기"였는데 setContent는 모두 emitUpdate=false라
+  // 첫 update가 늘 사용자의 첫 수정이었다 → 열고 한 번만 고치면(체크 하나 · 붙여넣기 하나 · 한 번에 입력) 저장되지 않았다(2026-10-23 QA)
+  const skipUnchangedRef = useRef(true);
   // 마지막으로 공유 스냅샷을 올린 뒤 내용이 바뀌었는지(v2 자동 갱신용)
   const editedSinceShareRef = useRef(false);
 
@@ -841,9 +843,9 @@ function PackNoteEditorScreenInner({
     if (!editor) return;
     const handler = () => {
       if (effectiveReadOnly) return;
-      if (skipFirstRef.current) {
-        skipFirstRef.current = false;
-        return;
+      if (skipUnchangedRef.current) {
+        skipUnchangedRef.current = false;
+        if (JSON.stringify(editor.getJSON()) === JSON.stringify(lastSyncedDocRef.current ?? null)) return;
       }
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = setTimeout(() => {
