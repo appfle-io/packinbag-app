@@ -4,7 +4,7 @@ import { useState } from "react";
 import { IconBackpack, IconPackage, IconPlus, IconSettings, IconWifiOff } from "@tabler/icons-react";
 import BackpackLogo from "@/components/BackpackLogo";
 import { RAIL_QUERY, sendShellCommand, shortcutLabel, useAppShortcuts, useMediaQuery, type TabKey } from "@/lib/v2/shell";
-import { DetailPaneContext } from "@/lib/v2/openDetail";
+import { DetailPaneContext, DetailSlotContext } from "@/lib/v2/openDetail";
 import { Button, cx } from "@/components/v2/ui";
 import { TabBarV2 } from "./TabBarV2";
 
@@ -125,7 +125,9 @@ export function WideShell({
 
       <main aria-label="상세" className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <div ref={setPaneSlot} />
-        {detail ?? (
+        {detail ? (
+          <DetailSlotContext.Provider value={paneSlot}>{detail}</DetailSlotContext.Provider>
+        ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
             <BackpackLogo size={48} />
             <div className="flex flex-col gap-1">

@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.8.4",
+    date: "2026-10-25",
+    items: ["PC에서 가방 속 메모가 화면을 덮지 않고 오른쪽 칸 안에서 열려요", "메모를 고치자마자 다른 화면으로 옮기거나 앱을 내리면 마지막 글자가 저장되지 않던 문제를 고쳤어요"],
+  },
+  {
     version: "1.8.3",
     date: "2026-10-23",
     items: ["메모를 열고 한 번만 고친 내용이 저장되지 않던 문제를 고쳤어요", "날씨 · 명소 추천에서 '서귀포' · '설악산'처럼 직접 적은 장소를 더 잘 찾아요"],

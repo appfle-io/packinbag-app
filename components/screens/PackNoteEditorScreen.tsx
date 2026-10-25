@@ -902,7 +902,9 @@ function PackNoteEditorScreenInner({
         clearTimeout(autosaveTimerRef.current);
         autosaveTimerRef.current = null;
         if (!effectiveReadOnlyRef.current) {
-          commitSave();
+          // 최신 commitSave로 부른다. 이 effect는 처음 한 번만 달려서 commitSave를 바로 부르면 첫 렌더의 editor(null)를 봐
+          // 아무것도 저장하지 않았다(백그라운드 전환 · 화면이 없어질 때 모두, 2026-10-25)
+          commitSaveRef.current?.();
         }
       }
     };

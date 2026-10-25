@@ -111,9 +111,12 @@ export function CoachTour({ open, steps, onClose }: { open: boolean; steps: Tour
     let press: Hole["press"];
     if (step.gesture === "press") {
       const first = el.querySelector<HTMLElement>("[data-item-id]") ?? el;
-      const fr = first.getBoundingClientRect();
-      const py = fr.top + Math.min(fr.height, 48) / 2;
-      if (py > y && py < bottom) press = { x: fr.left + 28, y: py };
+      // 체크 동그라미(줄 버튼의 첫 칸) 한가운데. 예전엔 줄 왼쪽 + 28px로 박아 2열(dense) · PC에서 동그라미를 비껴갔다(2026-10-23)
+      const mark = first.querySelector<HTMLElement>("button > :first-child");
+      const mr = (isShown(mark) ? mark : first).getBoundingClientRect();
+      const px = mark ? mr.left + mr.width / 2 : mr.left + 28;
+      const py = mark ? mr.top + mr.height / 2 : mr.top + Math.min(mr.height, 48) / 2;
+      if (py > y && py < bottom) press = { x: px, y: py };
     }
     setHole({ x, y, w: Math.max(0, right - x), h: Math.max(0, bottom - y), press });
   }, [step]);

@@ -238,7 +238,27 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBag은 처음 값만 쓴다
   }, [listBag, notes]);
 
-  const update = useCallback((updater: (b: Bag) => Bag) => setBag(updater), []);
+  // 화면이 사라진 뒤에 들어온 변경은 setBag이 버려지므로 바로 저장한다.
+  // 넓은 화면에서 메모를 연 채 목록에서 다른 가방을 고르면, 메모 편집기의 마지막 저장(정리 함수)이 이 화면 정리 뒤에 온다(2026-10-25)
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const update = useCallback(
+    (updater: (b: Bag) => Bag) => {
+      if (mountedRef.current) {
+        setBag(updater);
+        return;
+      }
+      const next = updater(bagRef.current);
+      bagRef.current = next;
+      void persist(next, true);
+    },
+    [persist],
+  );
 
   const applyServerChange = useCallback((updater: (b: Bag) => Bag) => {
     isApplyingRemoteRef.current = true;

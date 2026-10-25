@@ -38,6 +38,7 @@ import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, Sheet, cx } from 
 import { PackSection, LockedPackSection } from "./PackSection";
 import { LockScreen, useLockGuard } from "@/components/v2/lock/LockUI";
 import { packLockKey } from "@/lib/v2/privateLock";
+import { useDetailSlot } from "@/lib/v2/openDetail";
 import { MemoSection } from "./MemoSection";
 import { PackImportSheet } from "./sheets/PackImportSheet";
 import { MembersSheet } from "./sheets/MembersSheet";
@@ -141,7 +142,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   const library = useBagLibrary({ doc, libraryPacks, bags, currentUid, onSaveToLibrary: onSaveAsLibraryPack, packLimit });
   const weather = useBagWeather({ doc, user, premium, offline: isOfflineMode, onPremiumRequired: setPremiumMessage, packLimit });
 
-  // 메모 편집기 (닫힘 애니메이션 동안 내용 유지용 캐시 포함)
+  // 메모 편집기 (닫힘 애니메이션 동안 내용 유지용 캐시 포함). 넓은 화면은 상세 칸 안에 연다(SHELL-DETAIL-08)
+  const detailSlot = useDetailSlot();
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [shownNoteId, setShownNoteId] = useState<string | null>(null);
   const [noteQuery, setNoteQuery] = useState<string | null>(null);
@@ -1050,7 +1052,9 @@ export default function BagScreenV2(props: BagScreenProps) {
           setNoteQuery(null);
         }}
         desktopTransition="fade"
-        innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl bg-background pib-safe-top overflow-hidden"
+        inDetailPane
+        // 넓은 화면은 상세 칸을 꽉 채운다(팩 탭 메모와 같은 모양, 목차 칸 포함). 좁은 화면은 가운데 3xl
+        innerClassName={cx("flex h-full w-full flex-col overflow-hidden bg-background", !detailSlot && "mx-auto max-w-3xl pib-safe-top")}
       >
         {noteForEditor && !doc.notesReady && (
           // 메모 본문을 아직 못 받았다(lib/bagNotesService). 빈 문서로 열어 덮어쓰지 않게 받을 때까지 기다린다
@@ -1121,4 +1125,4 @@ export default function BagScreenV2(props: BagScreenProps) {
       {privacy.element}
     </div>
   );
-}
+}

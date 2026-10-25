@@ -37,6 +37,8 @@ function ensureListenerInstalled() {
       for (let i = stack.length - 1; i >= 0; i--) {
         if (!stack[i].escape) continue;
         stack[i].run();
+        // 닫았다고 표시해 넓은 화면 Esc 단축키(useAppShortcuts, defaultPrevented면 무시)가 상세 칸까지 한 번에 닫지 않게 한다(2026-10-25)
+        e.preventDefault();
         return;
       }
     },

@@ -8,7 +8,7 @@ import { OverlayLayerProvider, useOverlayLayer, LAYER_STEP } from "@/lib/overlay
 import { useEscapeToClose, useHardwareBack } from "@/lib/useEscapeToClose";
 import { SwipeBackRegistryContext, type SwipeBackRegistry } from "@/lib/swipeBackRegistry";
 import { EASE_OUT, settleDuration, shouldCommit, useHorizontalSwipe } from "@/lib/useHorizontalSwipe";
-import { DetailPaneContext } from "@/lib/v2/openDetail";
+import { DetailPaneContext, useDetailSlot } from "@/lib/v2/openDetail";
 
 // 스택으로 쌓이는 풀스크린 화면(가방 편집기, 팩 트리, 설정 하위화면 등)을 오른쪽에서
 // 슬라이드-인/아웃 시키는 공용 래퍼. 기존엔 부모가 `if (editingBag) return <..>` 식으로
@@ -42,6 +42,7 @@ export default function SlideScreen({
   desktopTransition = "slide",
   swipeBack = false,
   onSwipeBack,
+  inDetailPane = false,
 }: {
   active: boolean;
   children: React.ReactNode;
@@ -65,10 +66,13 @@ export default function SlideScreen({
   swipeBack?: boolean;
   // 안쪽 화면이 useSwipeBack을 쓰지 않을 때 스와이프로 부를 닫기 함수
   onSwipeBack?: () => void;
+  // 상세 칸 쪽 화면(가방)이 여는 겹 화면을 넓은 화면에서 그 칸 안에 띄운다(가방 안 메모, 2026-10-25). 좁은 화면은 그대로
+  inDetailPane?: boolean;
 }) {
   const isDesktop = useIsDesktop();
-  // 넓은 화면에서 상세 칸 안에 띄울 때(설정 하위 화면): 화면 전체가 아니라 그 칸을 덮는다
-  const paneTarget = useContext(DetailPaneContext);
+  // 넓은 화면에서 상세 칸 안에 띄울 때(설정 하위 화면 · 가방 안 메모): 화면 전체가 아니라 그 칸을 덮는다
+  const detailSlot = useDetailSlot();
+  const paneTarget = useContext(DetailPaneContext) ?? (inDetailPane ? detailSlot : null);
   const useFade = desktopTransition === "fade" && isDesktop;
   const ambientLayer = useOverlayLayer();
   const resolvedZIndex = zIndex ?? ambientLayer + LAYER_STEP;
