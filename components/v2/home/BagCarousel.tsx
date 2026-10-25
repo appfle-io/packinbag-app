@@ -131,7 +131,7 @@ export function BagCarousel({
   if (count === 0) return null;
 
   return (
-    <section aria-roledescription="carousel" aria-label="눈여겨볼 가방 · 이벤트" className="flex flex-col gap-1">
+    <section aria-roledescription="carousel" aria-label="눈여겨볼 가방 · 이벤트" data-guide="home-carousel" className="flex flex-col gap-1">
       <div
         ref={scrollerRef}
         onScroll={onScroll}

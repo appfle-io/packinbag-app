@@ -1688,6 +1688,7 @@ export default function AppShell() {
       onMoveEntries={handleMoveLibraryEntries}
       onBulkDeletePacks={handleBulkDeletePacks}
       onSelectModeChange={setPacksSelectMode}
+      guideActive={tab === "packs" && (wide || (!editingBag && !editingPack))}
     />
   );
   const homeScreenEl = (
@@ -1707,6 +1708,7 @@ export default function AppShell() {
       onOpenQuickPack={() => quickPack && setEditingPack(quickPack)}
       onBulkDeleteBags={handleBulkDeleteBags}
       onSelectModeChange={setHomeSelectMode}
+      guideActive={tab === "home" && (wide || (!editingBag && !editingPack))}
     />
   );
   const settingsScreenEl = (

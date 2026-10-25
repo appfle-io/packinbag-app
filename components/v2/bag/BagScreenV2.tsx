@@ -53,7 +53,7 @@ import { ConfirmSheet } from "./sheets/ConfirmSheet";
 import { formatRelativeDay, formatShortDate } from "./format";
 import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
-import { BAG_GUIDE_STEPS, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
+import { BAG_GUIDE_STEPS, canStartTour, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
 import { keepScreenOnSupported, readKeepScreenOnPref, useKeepScreenOn, writeKeepScreenOnPref } from "@/lib/v2/keepAwake";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { promptForSharedBag } from "@/lib/v2/serverPush";
@@ -321,7 +321,10 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [tourOpen, setTourOpen] = useState(false);
   useEffect(() => {
     if (isNew || readOnly || focusTarget || hasSeenBagGuide() || bagGate) return;
-    const t = window.setTimeout(() => setTourOpen(true), 700);
+    // 가방 탭 · 팩 탭 투어가 떠 있으면 이번엔 건너뛴다(넓은 화면, 2026-10-25)
+    const t = window.setTimeout(() => {
+      if (canStartTour()) setTourOpen(true);
+    }, 700);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 열 때만
   }, []);

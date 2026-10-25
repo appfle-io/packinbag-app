@@ -8,6 +8,8 @@ import { useToast } from "@/components/Toast";
 import { isPremiumUser, getViewablePacks } from "@/lib/premiumLimits";
 import { searchBags, type BagSearchResult } from "@/lib/librarySearch";
 import NotificationBell from "@/components/NotificationBell";
+import { CoachTour } from "@/components/v2/guide/CoachTour";
+import { HOME_GUIDE_KEY, HOME_GUIDE_STEPS, canStartTour, hasSeenGuide, markGuideSeen } from "@/lib/v2/guide";
 import { JoinBagSheet } from "@/components/v2/sheets/JoinBagSheet";
 import { NoteImportSheet } from "@/components/v2/sheets/AiPasteSheets";
 import type { ImportedBagResult } from "@/lib/types";
@@ -74,6 +76,8 @@ export interface HomeScreenProps {
   onOpenQuickPack: () => void;
   onBulkDeleteBags: (bagIds: string[]) => void;
   onSelectModeChange?: (active: boolean) => void;
+  // 이 탭이 지금 화면에 보이는지(좁은 화면은 세 탭이 옆으로 늘어서 늘 그려져 있다). 가방 탭 사용 가이드를 띄울 때만 본다
+  guideActive?: boolean;
 }
 
 // 마지막으로 본 폴더 칩(이 기기에만 기억). 구 홈의 키와 겹치지 않게 따로 둔다.
@@ -106,6 +110,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
     onImportNote,
     onJoinBag,
     onBulkDeleteBags,
+    guideActive = true,
   } = props;
 
   const {
@@ -303,6 +308,23 @@ export default function HomeScreenV2(props: HomeScreenProps) {
   // 헤더·본문 여백은 ScreenHeader/ScreenBody가 정한다(팩 탭과 똑같이). 여기서 따로 패딩을 주지 않는다.
   const showChips = !searching && personal && (hasAnyBag || folders.length > 0);
 
+  // --- 사용 가이드(가방 탭, 2026-10-25) ------------------------------------------------------
+  // 이 기기에서 처음 가방 탭을 볼 때 한 번. 가방이 없으면(빈 화면 안내가 있음) · 보관함 · 검색 중 · 탭이 안 보이면 기다린다.
+  // 다른 투어나 시트가 떠 있으면 이번엔 건너뛴다(본 것으로 치지 않음). 설정 > 사용 가이드 다시 보기로 다시
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourReady = guideActive && hasAnyBag && view === "home" && !searchOpen;
+  useEffect(() => {
+    if (!tourReady || hasSeenGuide(HOME_GUIDE_KEY)) return;
+    const t = window.setTimeout(() => {
+      if (canStartTour()) setTourOpen(true);
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [tourReady]);
+  const closeTour = () => {
+    setTourOpen(false);
+    markGuideSeen(HOME_GUIDE_KEY);
+  };
+
   const renderArchive = () => (
     <>
       <ScreenHeader
@@ -337,12 +359,12 @@ export default function HomeScreenV2(props: HomeScreenProps) {
         actions={
           <>
             {hasAnyBag && (
-              <IconButton label="검색" onClick={() => setSearchOpen(true)}>
+              <IconButton label="검색" data-guide="home-search" onClick={() => setSearchOpen(true)}>
                 <IconSearch size={22} stroke={1.75} />
               </IconButton>
             )}
             {!isOfflineMode && <NotificationBell uid={uid} v2 />}
-            <IconButton label="새 가방" variant="solid" onClick={() => setNewBagOpen(true)}>
+            <IconButton label="새 가방" variant="solid" data-guide="home-new" onClick={() => setNewBagOpen(true)}>
               <IconPlus size={20} stroke={2} />
             </IconButton>
           </>
@@ -350,6 +372,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
         title="가방"
       >
         {showChips && (
+          <div data-guide="home-folders">
           <HeaderScroller label="가방 폴더">
             <Chip label="전체" selected={!activeFolderId} onClick={() => pickFolder(undefined)} />
             {folders.map((f) => (
@@ -371,6 +394,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
               <IconPlus size={16} stroke={2} />
             </button>
           </HeaderScroller>
+          </div>
         )}
       </ScreenHeader>
 
@@ -423,7 +447,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
                   </span>
                 </SectionHeader>
                 {sections.pinned.map((s, i) => (
-                  <BagRow key={s.bag.id} summary={s} last={i === sections.pinned.length - 1} {...rowHandlers(s)} />
+                  <BagRow key={s.bag.id} summary={s} last={i === sections.pinned.length - 1} guide={i === 0 ? "home-row" : undefined} {...rowHandlers(s)} />
                 ))}
               </section>
             )}
@@ -452,7 +476,15 @@ export default function HomeScreenV2(props: HomeScreenProps) {
                 <BagListPager
                   key={`${activeFolderId ?? "all"}:${sort}`}
                   items={sections.list}
-                  renderRow={(s, last) => <BagRow key={s.bag.id} summary={s} last={last} {...rowHandlers(s)} />}
+                  renderRow={(s, last) => (
+                    <BagRow
+                      key={s.bag.id}
+                      summary={s}
+                      last={last}
+                      guide={sections.pinned.length === 0 && s.bag.id === sections.list[0]?.bag.id ? "home-row" : undefined}
+                      {...rowHandlers(s)}
+                    />
+                  )}
                 />
               </section>
             )}
@@ -470,6 +502,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
               <button
                 type="button"
                 onClick={() => setView("archive")}
+                data-guide="home-archive"
                 className="flex min-h-13 w-full items-center justify-between bg-transparent text-left active:bg-fill"
               >
                 <span className="flex items-center gap-3 text-body font-semibold">
@@ -498,6 +531,8 @@ export default function HomeScreenV2(props: HomeScreenProps) {
         onBack={() => setView("home")}
         swipeEnabled={!searching}
       />
+
+      <CoachTour open={tourOpen} steps={HOME_GUIDE_STEPS} onClose={closeTour} />
 
       {/* 홈 캐러셀에서 연 이벤트(EVT-HOME) */}
       <SlideScreen active={!!openEvent} onBackdropClick={() => setOpenEvent(null)} swipeBack>

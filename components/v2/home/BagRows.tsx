@@ -16,6 +16,8 @@ interface RowProps {
   last?: boolean;
   // 보관함 목록에서는 진행 상태 대신 "마지막 사용"만 보여준다
   archived?: boolean;
+  // 사용 가이드 대상(data-guide). 가방 탭 투어가 첫 줄에만 단다
+  guide?: string;
   onOpen: () => void;
   onMenu: () => void;
 }
@@ -33,7 +35,7 @@ function PendingBadge({ summary }: { summary: BagSummary }) {
 
 // 가방 한 줄: 진행률 링 · 이름(+D-day) · 상태 한 줄 · 챙긴 개수. 길게 누르기/우클릭으로 가방 메뉴.
 // 넓은 화면에서 상세 칸에 열려 있는 가방은 줄 바탕을 칠해 표시한다
-export function BagRow({ summary, locked, privateLocked, last, archived, onOpen, onMenu }: RowProps) {
+export function BagRow({ summary, locked, privateLocked, last, archived, guide, onOpen, onMenu }: RowProps) {
   const press = useLongPress(onMenu, onOpen);
   const { bag } = summary;
   const open = useOpenDetail().bagId === bag.id;
@@ -41,6 +43,7 @@ export function BagRow({ summary, locked, privateLocked, last, archived, onOpen,
     <button
       type="button"
       {...press}
+      data-guide={guide}
       aria-current={open ? "true" : undefined}
       className={cx(
         "flex min-h-16 select-none items-center gap-4 py-2 text-left",

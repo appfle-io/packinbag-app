@@ -620,10 +620,10 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           <SectionHeader>정보</SectionHeader>
           <ListRow
             title="사용 가이드 다시 보기"
-            subtitle="가방을 열면 화면 위에서 다시 안내해요"
+            subtitle="가방 탭 · 팩 탭 · 가방 화면에서 다시 안내해요"
             onClick={() => {
               resetBagGuide();
-              show("가방을 열면 사용 가이드가 나와요");
+              show("가방 탭 · 팩 탭 · 가방을 열면 사용 가이드가 나와요");
             }}
           />
           <ListRow title="버전 정보" trailing={`v${APP_VERSION}`} onClick={() => setView("version")} chevron />

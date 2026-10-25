@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   IconBolt,
   IconCheck,
@@ -36,6 +36,8 @@ import { useShellCommands } from "@/lib/v2/shell";
 import { useOpenDetail } from "@/lib/v2/openDetail";
 import { getPendingPacks } from "@/lib/v2/pendingCreates";
 import { useLockGuard } from "@/components/v2/lock/LockUI";
+import { CoachTour } from "@/components/v2/guide/CoachTour";
+import { PACKS_GUIDE_KEY, PACKS_GUIDE_STEPS, canStartTour, hasSeenGuide, markGuideSeen } from "@/lib/v2/guide";
 
 // AppShell이 넘기는 props.
 // (onBack / onSelectModeChange는 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음, 다중선택 제거)
@@ -55,6 +57,8 @@ export interface PacksScreenProps {
   onBack?: () => void;
   onBulkDeletePacks: (packIds: string[], alsoDeleteFromBags?: boolean) => void;
   onSelectModeChange?: (active: boolean) => void;
+  // 이 탭이 지금 화면에 보이는지(좁은 화면은 세 탭이 늘 그려져 있다). 팩 탭 사용 가이드를 띄울 때만 본다
+  guideActive?: boolean;
 }
 
 // 마지막으로 보던 폴더(이 기기에만 기억)
@@ -78,6 +82,7 @@ function EntryRow({
   privateLocked,
   readOnly,
   last,
+  guide,
   onOpen,
   onMenu,
 }: {
@@ -90,6 +95,8 @@ function EntryRow({
   // 무료 한도를 넘어 읽기 전용(가방 목록과 같은 눈 아이콘)
   readOnly?: boolean;
   last: boolean;
+  // 사용 가이드 대상(data-guide). 팩 탭 투어가 맨 위 화면 첫 줄에만 단다
+  guide?: string;
   onOpen: () => void;
   onMenu: () => void;
 }) {
@@ -102,6 +109,7 @@ function EntryRow({
     <button
       type="button"
       {...press}
+      data-guide={guide}
       aria-current={open ? "true" : undefined}
       className={cx(
         "flex min-h-15 select-none items-center gap-3 py-2 text-left",
@@ -135,7 +143,7 @@ function EntryRow({
 // - 길게 누르기(PC 우클릭)로 이름 바꾸기 · 고정 · 옮기기 · 폴더 공유 · 삭제
 // - 빠른팩은 맨 위 화면 하단에 고정(엄지로 누르기 쉬운 자리)
 export default function PacksScreenV2(props: PacksScreenProps) {
-  const { packs, bags, quickPack, lockedPackIds, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks } = props;
+  const { packs, bags, quickPack, lockedPackIds, onOpenPack, onNewPack, onNewFolder, onRenameEntry, onMoveEntries, onBulkDeletePacks, guideActive = true } = props;
   const { profile, isOfflineMode, togglePackPinned, updatePackOrderByParent, updatePackSortBy } = useAuth();
   const { show } = useToast();
   // 개인 잠금(2026-10-12): 잠근 팩은 "잠긴 팩"으로 보이고, 검색에서는 이름만 찾힌다. 여는 화면이 PIN을 묻는다(PackEditorV2 · 메모 편집기)
@@ -197,6 +205,24 @@ export default function PacksScreenV2(props: PacksScreenProps) {
     setSearchOpen(false);
     setQuery("");
   };
+  // --- 사용 가이드(팩 탭, 2026-10-25) -------------------------------------------------------
+  // 이 기기에서 처음 팩 탭(맨 위 화면)을 볼 때 한 번. 팩이 없으면(빈 화면 안내) · 폴더 안 · 검색 중 · 탭이 안 보이면 기다린다.
+  // 다른 투어나 시트가 떠 있으면 이번엔 건너뛴다. 설정 > 사용 가이드 다시 보기로 다시
+  const [tourOpen, setTourOpen] = useState(false);
+  const hasEntries = treePacks.length > 0 || (quickPack?.items.length ?? 0) > 0;
+  const tourReady = guideActive && hasEntries && chain.length === 0 && !searchOpen;
+  useEffect(() => {
+    if (!tourReady || hasSeenGuide(PACKS_GUIDE_KEY)) return;
+    const t = window.setTimeout(() => {
+      if (canStartTour()) setTourOpen(true);
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [tourReady]);
+  const closeTour = () => {
+    setTourOpen(false);
+    markGuideSeen(PACKS_GUIDE_KEY);
+  };
+
   // 넓은 화면 단축키(⌘K 검색 · ⌘N 새로 만들기)
   useShellCommands("packs", {
     search: () => setSearchOpen(true),
@@ -349,13 +375,13 @@ export default function PacksScreenV2(props: PacksScreenProps) {
           }
           actions={
             <>
-              <IconButton label="검색" onClick={() => setSearchOpen(true)}>
+              <IconButton label="검색" data-guide={pageId ? undefined : "packs-search"} onClick={() => setSearchOpen(true)}>
                 <IconSearch size={22} stroke={1.75} />
               </IconButton>
-              <IconButton label="새 폴더" onClick={newFolder}>
+              <IconButton label="새 폴더" data-guide={pageId ? undefined : "packs-folder"} onClick={newFolder}>
                 <IconFolderPlus size={22} stroke={1.75} />
               </IconButton>
-              <IconButton label="새로 만들기" variant="solid" onClick={() => setAddOpen(true)}>
+              <IconButton label="새로 만들기" variant="solid" data-guide={pageId ? undefined : "packs-new"} onClick={() => setAddOpen(true)}>
                 <IconPlus size={20} stroke={2} />
               </IconButton>
             </>
@@ -448,6 +474,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
                     privateLocked={entry.type !== "folder" && privacy.libraryLocked(entry.id)}
                     readOnly={entry.type !== "folder" && !!lockedPackIds?.has(entry.id)}
                     last={i === entries.length - 1}
+                    guide={!pageId && i === 0 ? "packs-row" : undefined}
                     onOpen={() => openEntry(entry)}
                     onMenu={() => setEntryId(entry.id)}
                   />
@@ -468,6 +495,7 @@ export default function PacksScreenV2(props: PacksScreenProps) {
             <button
               type="button"
               onClick={() => onOpenPack(quickPack)}
+              data-guide="packs-quick"
               className="mx-auto flex min-h-13 w-full max-w-2xl items-center gap-3 rounded-card bg-fill px-4 py-2 text-left active:bg-line"
             >
               <IconBolt size={22} stroke={1.6} className="shrink-0 text-sub" aria-hidden="true" />
@@ -486,6 +514,8 @@ export default function PacksScreenV2(props: PacksScreenProps) {
   return (
     <div className="pib-v2 relative flex h-full min-h-0 w-full flex-1 flex-col bg-canvas">
       <PageStack stack={stack} renderPage={renderPage} onBack={() => goTo(current?.parentId)} swipeEnabled={!searching} />
+
+      <CoachTour open={tourOpen} steps={PACKS_GUIDE_STEPS} onClose={closeTour} />
 
       {/* 정렬(가방 홈과 같은 모양, 2026-10-14) */}
       <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="정렬">

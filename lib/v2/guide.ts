@@ -14,31 +14,49 @@ export interface TourStep {
 }
 
 const BAG_GUIDE_KEY = "packinbag:v2GuideBagSeen";
+// 가방 탭 · 팩 탭(목록 화면) 투어(2026-10-25)
+export const HOME_GUIDE_KEY = "packinbag:v2GuideHomeSeen";
+export const PACKS_GUIDE_KEY = "packinbag:v2GuidePacksSeen";
 
-export function hasSeenBagGuide(): boolean {
+export function hasSeenGuide(key: string): boolean {
   if (typeof window === "undefined") return true;
   try {
-    return window.localStorage.getItem(BAG_GUIDE_KEY) === "1";
+    return window.localStorage.getItem(key) === "1";
   } catch {
     // 저장소를 못 쓰면(사파리 사생활 보호 등) 매번 띄우지 않도록 본 것으로 친다
     return true;
   }
 }
 
-export function markBagGuideSeen() {
+export function markGuideSeen(key: string) {
   try {
-    window.localStorage.setItem(BAG_GUIDE_KEY, "1");
+    window.localStorage.setItem(key, "1");
   } catch {
     // 무시
   }
 }
 
+export function hasSeenBagGuide(): boolean {
+  return hasSeenGuide(BAG_GUIDE_KEY);
+}
+
+export function markBagGuideSeen() {
+  markGuideSeen(BAG_GUIDE_KEY);
+}
+
+// 설정 > 사용 가이드 다시 보기: 가방 · 가방 탭 · 팩 탭 투어를 모두 다시
 export function resetBagGuide() {
   try {
-    window.localStorage.removeItem(BAG_GUIDE_KEY);
+    [BAG_GUIDE_KEY, HOME_GUIDE_KEY, PACKS_GUIDE_KEY].forEach((k) => window.localStorage.removeItem(k));
   } catch {
     // 무시
   }
+}
+
+// 투어는 한 번에 하나만. 넓은 화면에서 가방 탭 투어와 가방 투어가 겹쳐 뜨지 않게, 열기 직전에
+// 다른 투어나 시트 · 창(aria-modal)이 떠 있으면 띄우지 않는다(본 것으로 치지 않으니 다음에 다시 나온다)
+export function canStartTour(): boolean {
+  return !document.querySelector('[aria-modal="true"]');
 }
 
 // 가방 화면 투어. 화면 문구는 가방 / 팩 / 아이템만 쓴다.
@@ -73,5 +91,70 @@ export const BAG_GUIDE_STEPS: TourStep[] = [
     target: "bag-more",
     title: "더보기",
     body: "출발 날짜, 설명 한 줄, 사진, 새 팩·메모는 여기 있어요. 이 안내도 여기서 다시 볼 수 있어요.",
+  },
+];
+
+// 가방 탭(가방 목록) 투어. 화면에 없는 대상(보관함 줄 · 큰 카드 · 폴더 칩)은 CoachTour가 건너뛴다
+export const HOME_GUIDE_STEPS: TourStep[] = [
+  {
+    target: "home-new",
+    title: "새 가방",
+    body: "여행, 어린이집, 출장처럼 챙길 일마다 가방을 하나씩 만들어요.",
+  },
+  {
+    target: "home-folders",
+    title: "폴더로 나누기",
+    body: "+로 폴더를 만들어 가방을 나눠요. 폴더를 길게 누르면 이름 · 순서 · 삭제예요.",
+  },
+  {
+    target: "home-carousel",
+    title: "지금 챙길 가방",
+    body: "곧 출발하거나 싸는 중인 가방이 여기 크게 보여요. 옆으로 넘겨 볼 수 있어요.",
+  },
+  {
+    target: "home-row",
+    title: "열기와 메뉴",
+    body: "누르면 열려요. 길게 누르면(PC는 오른쪽 클릭) 고정 · 폴더로 옮기기 · 보관함 · 삭제예요.",
+    gesture: "press",
+  },
+  {
+    target: "home-search",
+    title: "한 번에 찾기",
+    body: "가방, 팩, 아이템, 메모 속 글자까지 한 번에 찾아요.",
+  },
+  {
+    target: "home-archive",
+    title: "보관함",
+    body: "다녀온 가방은 보관함에 모여요. 다시 꺼내 쓸 수 있어요.",
+  },
+];
+
+// 팩 탭(팩 보관함) 투어
+export const PACKS_GUIDE_STEPS: TourStep[] = [
+  {
+    target: "packs-new",
+    title: "팩 만들기",
+    body: "자주 챙기는 것을 팩(체크리스트)이나 메모로 만들어 두면, 가방에서 통째로 불러올 수 있어요.",
+  },
+  {
+    target: "packs-folder",
+    title: "폴더로 정리",
+    body: "폴더로 정리해요. 폴더 안에 폴더도 만들 수 있어요.",
+  },
+  {
+    target: "packs-row",
+    title: "열기와 메뉴",
+    body: "누르면 열려요. 길게 누르면(PC는 오른쪽 클릭) 이름 · 고정 · 옮기기 · 공유 · 삭제예요.",
+    gesture: "press",
+  },
+  {
+    target: "packs-quick",
+    title: "빠른팩",
+    body: "생각날 때 바로 적어 두는 곳이에요. 나중에 가방으로 옮겨요.",
+  },
+  {
+    target: "packs-search",
+    title: "검색",
+    body: "모든 폴더의 팩 이름, 아이템, 메모를 찾아요.",
   },
 ];
