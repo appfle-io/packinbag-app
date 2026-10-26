@@ -560,7 +560,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
             </button>
           ))}
         </div>
-        <p className="m-0 pt-3 text-caption text-faint">최근순은 D-Day 7일 안의 가방이 먼저, 나머지는 최근에 체크한 순서예요. 위 카드는 정렬과 상관없이 곧 출발 → 싸는 중 순서, 고정한 가방은 항상 맨 위에 있어요.</p>
+        <p className="m-0 pt-3 text-caption text-faint">최근순은 D-Day 7일 안의 가방이 먼저, 나머지는 최근에 체크한 순서예요. 위 카드는 정렬과 상관없이 곧 D-Day → 싸는 중 순서, 고정한 가방은 항상 맨 위에 있어요.</p>
         {personal && sections.list.length > 1 && (
           <Button
             variant="secondary"

@@ -699,7 +699,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                   pack={p}
                   editors={presence.noteEditorsOf(p.id).map((e) => e.nickname)}
                   onOpen={() => openNoteChecked(p)}
-                  onMenu={() => setPackTargetId(p.id)}
+                  onMenu={() => (readOnly ? onRequestUnlock() : setPackTargetId(p.id))}
                 />
               ) : (
                 <PackSection

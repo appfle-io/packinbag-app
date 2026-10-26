@@ -5,6 +5,7 @@ import { IconBell } from "@tabler/icons-react";
 import type { AppNotification } from "@/lib/types";
 import { markAllNotificationsRead, markNotificationRead, subscribeToNotifications } from "@/lib/notificationsService";
 import { Button, Sheet, cx } from "@/components/v2/ui";
+import { requestOpenInquiry } from "@/lib/v2/shell";
 
 // 알림 구독을 앱 전체가 한 벌만 쓴다(2026-10-07). 좁은 화면에서는 홈·설정 탭이 함께 마운트돼 종이 두 개인데,
 // 예전에는 종마다 onSnapshot을 따로 열어 읽기가 2배로 나갔다.
@@ -52,7 +53,7 @@ function formatDate(iso: string) {
 
 // 리디자인 v2 알림 종 + 알림 시트. 구 NotificationBell(v2 prop)이 이걸 그대로 그린다.
 // - 종: 헤더의 다른 IconButton과 같은 44px · 22px. 안 읽은 알림은 빨간 점
-// - 시트: 알림 목록(안 읽은 것은 굵게 + 점). 누르면 읽음
+// - 시트: 알림 목록(안 읽은 것은 굵게 + 점). 누르면 읽음, 문의 답변은 그 문의로
 // - 새 버전 안내는 10/19부터 여기서 빼고 설정 > 버전 정보에서만 확인한다(주기 확인 없음, SET-VER-04)
 export function NotificationBellV2({ uid }: { uid: string }) {
   const notifications = useSharedNotifications(uid);
@@ -97,7 +98,14 @@ export function NotificationBellV2({ uid }: { uid: string }) {
                     <li key={n.id}>
                       <button
                         type="button"
-                        onClick={() => !n.read && markNotificationRead(uid, n.id)}
+                        onClick={() => {
+                          if (!n.read) void markNotificationRead(uid, n.id).catch(() => {});
+                          // 문의 답변이면 설정 > 문의하기의 그 문의로(2026-10-27, SHELL-NOTI-03)
+                          if (n.type === "inquiry_answered") {
+                            setOpen(false);
+                            requestOpenInquiry(n.relatedId ?? null);
+                          }
+                        }}
                         className={cx(
                           "flex w-full items-start gap-3 bg-transparent py-3 text-left active:bg-fill",
                           i < notifications.length - 1 && "border-b border-line",

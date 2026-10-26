@@ -1,6 +1,6 @@
 // AI 기능(메모/샘플 가져오기, 해시태그 생성, 가방 속 AI 정리) 관련 클라이언트 측 유틸.
 //
-// 중요: 여기 있는 isUnlimitedAiUser/currentAiUsageCount는 "표시(UI)용"이다.
+// 중요: 여기 있는 isUnlimitedAiUser는 "표시(UI)용"이다.
 // 실제 하루 10회 제한 검증은 이제 서버(Admin SDK)가 한다 - lib/aiQuotaServer.ts 참고.
 // 클라이언트가 이 파일의 함수 결과를 마음대로 조작해도(devtools) 서버가 다시 검증하기
 // 때문에 실제 우회는 안 된다. 이 파일은 오직 "지금 몇 번 썼는지 화면에 보여주기"와
@@ -17,7 +17,6 @@ import {
   AI_FREE_DAILY_LIMIT,
   AI_FREE_WEEKLY_LIMIT,
   UNLOCK_CODE_LENGTH,
-  todayKstKey,
   generateRandomCode,
   UnlockDurationType,
   UNLOCK_DURATION_LABELS,
@@ -57,12 +56,6 @@ export function isUnlimitedAiUser(
   return new Date(profile.unlockCodeExpiresAt).getTime() > Date.now();
 }
 
-// 오늘 이미 몇 번 썼는지 표시용 (서버가 증가시킨 값이 onSnapshot으로 실시간 반영됨)
-export function currentAiUsageCount(profile: UserProfile | null): number {
-  const usage = profile?.aiUsage;
-  if (!usage || usage.date !== todayKstKey()) return 0;
-  return usage.count ?? 0;
-}
 
 // ---- 이용권 코드 ----
 

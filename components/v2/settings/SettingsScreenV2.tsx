@@ -53,6 +53,7 @@ import { lockedCount } from "@/lib/v2/privateLock";
 import { supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
 import { WidgetStylesScreen } from "./WidgetStylesScreen";
 import { notificationSettingsPath } from "@/lib/v2/platform";
+import { useOpenInquiryRequests } from "@/lib/v2/shell";
 
 // AppShell이 넘기는 props.
 // (onBack은 v2에서 쓰지 않는다: 탭 화면이라 뒤로가기 없음. embedded는 데스크톱 모달용이라 무시)
@@ -143,6 +144,12 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const showWidgetRow = widgetAvailable && !isOfflineMode;
 
   const [view, setView] = useState<SubView | null>(null);
+  // 알림 시트에서 문의 답변을 누르면 문의하기를 그 문의로 연다(SHELL-NOTI-03). n은 같은 문의를 다시 눌러도 다시 열리게
+  const [inquiryFocus, setInquiryFocus] = useState<{ id: string | null; n: number }>({ id: null, n: 0 });
+  useOpenInquiryRequests((id) => {
+    setInquiryFocus((f) => ({ id, n: f.n + 1 }));
+    setView("inquiries");
+  });
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
@@ -689,7 +696,13 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         />
       </SlideScreen>
       <SlideScreen active={view === "inquiries"} onBackdropClick={close} swipeBack>
-        <InquiryScreenV2 uid={uid} nickname={profile?.nickname ?? ""} onBack={close} />
+        <InquiryScreenV2
+          key={inquiryFocus.n}
+          uid={uid}
+          nickname={profile?.nickname ?? ""}
+          initialSelectedId={inquiryFocus.id}
+          onBack={close}
+        />
       </SlideScreen>
       {privacy.available && (
         <SlideScreen active={view === "lock"} onBackdropClick={close} swipeBack>

@@ -39,7 +39,11 @@ export function useBagAttachments({ doc, premium, offline, onPremiumRequired }: 
       const selected = list.slice(0, Math.max(0, MAX_BAG_IMAGES - bag.images.length));
       const isNonImage = (f: File) => !f.type.startsWith("image/");
       const toUpload = selected;
-      if (toUpload.length === 0) return;
+      // 이미 꽉 찼으면 조용히 끝나지 않고 알린다(2026-10-27)
+      if (toUpload.length === 0) {
+        show(`가방 첨부는 ${MAX_BAG_IMAGES}개까지예요. 하나를 지운 뒤 다시 해 주세요`);
+        return;
+      }
       if (toUpload.some(isBlockedUploadFile)) {
         show(BLOCKED_UPLOAD_MESSAGE);
         return;
@@ -91,4 +95,4 @@ export function useBagAttachments({ doc, premium, offline, onPremiumRequired }: 
   );
 
   return { uploading, addFiles, removeImage };
-}
+}

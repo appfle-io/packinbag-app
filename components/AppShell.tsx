@@ -87,7 +87,7 @@ import { AnnouncementSheet } from "@/components/v2/sheets/AnnouncementSheet";
 import { TabBarV2 } from "@/components/v2/shell/TabBarV2";
 import { BusyOverlay } from "@/components/v2/shell/BusyOverlay";
 import { WideShell } from "@/components/v2/shell/WideShell";
-import { WIDE_QUERY, useMediaQuery, type TabKey } from "@/lib/v2/shell";
+import { WIDE_QUERY, useMediaQuery, useOpenInquiryListener, type TabKey } from "@/lib/v2/shell";
 import { useAndroidBackButton } from "@/lib/v2/androidBack";
 import { RECONNECTED_EVENT, getConnectivity, reportNetworkFailure } from "@/lib/v2/connectivity";
 import { stopPackShares } from "@/lib/shareCleanup";
@@ -143,6 +143,8 @@ export default function AppShell() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const [tab, setTab] = useState<TabKey>("home");
+  // 알림 시트의 문의 답변 알림을 누르면 설정 탭으로(설정 화면이 그 문의를 연다, SHELL-NOTI-03)
+  useOpenInquiryListener(() => setTab("settings"));
   const [editingBag, setEditingBag] = useState<Bag | null>(null);
   const [isNewBag, setIsNewBag] = useState(false);
   const [editingPack, setEditingPack] = useState<Pack | null>(null);

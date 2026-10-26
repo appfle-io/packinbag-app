@@ -77,7 +77,7 @@ export function AuditSheet({
       if (!res.ok) {
         if (res.status === 403 && data?.limitReached) {
           onClose();
-          onLimit(data.error ?? "오늘 AI 사용 횟수를 다 썼어요");
+          onLimit(data.error ?? "이번 주 무료 AI 사용 한도를 다 썼어요");
           return;
         }
         throw new Error(data?.error ?? "AI 분석에 실패했어요");

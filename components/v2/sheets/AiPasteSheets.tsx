@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { IconClipboard, IconLoader2 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import type { Bag, ImportedBagResult } from "@/lib/types";
-import { AI_FREE_DAILY_LIMIT, currentAiUsageCount, isUnlimitedAiUser } from "@/lib/aiUsageService";
+import { AI_FREE_WEEKLY_LIMIT, isUnlimitedAiUser } from "@/lib/aiUsageService";
 import { Button, Sheet } from "@/components/v2/ui";
 
 const STEP_MS = 1400;
@@ -138,7 +138,8 @@ function AiPasteSheet({
                 {clipboardFailed && !text
                   ? "클립보드를 읽지 못했어요. 길게 눌러 직접 붙여넣어 주세요"
                   : !unlimited
-                    ? `오늘 AI ${currentAiUsageCount(profile)} / ${AI_FREE_DAILY_LIMIT}회 사용`
+                    ? // 횟수는 서버(aiUsage 컬렉션)만 알아서 한도만 보여 준다(설정 > AI 기능과 같은 문구, 2026-10-27)
+                      `무료 AI 주 ${AI_FREE_WEEKLY_LIMIT}회 · 월요일에 새로`
                     : ""}
               </span>
               <Button variant="text" size="sm" className="px-2" leading={<IconClipboard size={18} stroke={1.75} />} onClick={paste}>

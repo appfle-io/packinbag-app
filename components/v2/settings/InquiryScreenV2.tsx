@@ -111,12 +111,23 @@ function ComposeSheet({
 }
 
 // 설정 > 문의하기. 구 InquiryScreen 대체(같은 서비스). 목록(미답변만 칩) → 상세(답변) · + 로 쓰기
-export function InquiryScreenV2({ uid, nickname, onBack }: { uid: string; nickname: string; onBack: () => void }) {
+export function InquiryScreenV2({
+  uid,
+  nickname,
+  initialSelectedId = null,
+  onBack,
+}: {
+  uid: string;
+  nickname: string;
+  // 알림에서 들어오면 그 문의 상세로 바로(SHELL-NOTI-03). 목록에 없으면(지운 문의) 목록 그대로
+  initialSelectedId?: string | null;
+  onBack: () => void;
+}) {
   const { show } = useToast();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
 
   useEffect(() => subscribeToMyInquiries(uid, setInquiries), [uid]);
 

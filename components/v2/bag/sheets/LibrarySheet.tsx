@@ -99,7 +99,7 @@ function LibraryBody({
           />
         </label>
         {taken && <p className="m-0 text-caption text-alert">보관함에 같은 이름의 팩이 있어요. 다른 이름으로 저장해 주세요.</p>}
-        <p className="m-0 text-caption text-faint">체크 표시와 담당자는 빼고, 아이템 목록만 저장해요.</p>
+        <p className="m-0 text-caption text-faint">체크 표시 · 담당자 · 마감일은 빼고, 아이템 목록만 저장해요.</p>
         <div className="flex gap-2">
           {status.kind !== "unsaved" && (
             <Button variant="secondary" className="flex-1" onClick={() => setStep("choose")}>

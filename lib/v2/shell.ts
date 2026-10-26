@@ -30,6 +30,48 @@ export function useShellCommands(tab: TabKey, handlers: Partial<Record<ShellComm
   }, [tab]);
 }
 
+// 알림 시트의 문의 답변 알림 → 설정 > 문의하기 그 문의(2026-10-27, shell.md SHELL-NOTI-03).
+// AppShell이 설정 탭으로 바꾸고, 설정 화면이 받아서 연다. 설정 화면이 아직 안 그려졌으면 그려질 때 남은 요청을 가져간다
+const OPEN_INQUIRY_EVENT = "pib:open-inquiry";
+let pendingInquiry: { id: string | null } | null = null;
+
+export function requestOpenInquiry(inquiryId: string | null) {
+  pendingInquiry = { id: inquiryId };
+  window.dispatchEvent(new CustomEvent(OPEN_INQUIRY_EVENT));
+}
+
+// 요청이 왔다는 것만 듣는다(탭 바꾸기용, 요청은 남겨 둔다)
+export function useOpenInquiryListener(onRequest: () => void) {
+  const ref = useRef(onRequest);
+  useEffect(() => {
+    ref.current = onRequest;
+  });
+  useEffect(() => {
+    const on = () => ref.current();
+    window.addEventListener(OPEN_INQUIRY_EVENT, on);
+    return () => window.removeEventListener(OPEN_INQUIRY_EVENT, on);
+  }, []);
+}
+
+// 요청을 받아 처리한다(그려질 때 남은 요청 + 그 뒤에 오는 요청)
+export function useOpenInquiryRequests(onOpen: (inquiryId: string | null) => void) {
+  const ref = useRef(onOpen);
+  useEffect(() => {
+    ref.current = onOpen;
+  });
+  useEffect(() => {
+    const take = () => {
+      if (!pendingInquiry) return;
+      const { id } = pendingInquiry;
+      pendingInquiry = null;
+      ref.current(id);
+    };
+    take();
+    window.addEventListener(OPEN_INQUIRY_EVENT, take);
+    return () => window.removeEventListener(OPEN_INQUIRY_EVENT, take);
+  }, []);
+}
+
 // 미디어 쿼리 구독(서버 렌더 때는 false). useSyncExternalStore라 첫 화면 깜빡임이 없다
 export function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
