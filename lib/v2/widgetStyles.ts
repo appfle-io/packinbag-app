@@ -40,7 +40,7 @@ export const WIDGET_POSITIONS: { key: WidgetStylePos; label: string }[] = [
 
 export const WIDGET_SHOW_FIELDS: { key: keyof WidgetStyleShow; label: string; hint?: string }[] = [
   { key: "name", label: "가방 이름" },
-  { key: "dday", label: "D-Day", hint: "출발일이 있을 때만" },
+  { key: "dday", label: "D-Day", hint: "D-Day가 있을 때만" },
   { key: "progress", label: "챙긴 개수" },
   { key: "left", label: "남은 개수" },
   { key: "bar", label: "진행 막대" },

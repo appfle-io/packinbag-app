@@ -24,6 +24,7 @@ export function MoreSheet({
   aiAvailable,
   uploading,
   onSetTravelDate,
+  onSetCountDayOne,
   onSetNotice,
   onAddChecklist,
   onAddMemo,
@@ -45,6 +46,8 @@ export function MoreSheet({
   aiAvailable: boolean;
   uploading: boolean;
   onSetTravelDate: (date: string | undefined) => void;
+  // D-Day 당일을 1일로 세기(Bag.ddayCountTodayAsDayOne, 2026-10-26 화면에 다시 꺼냄)
+  onSetCountDayOne: (on: boolean) => void;
   onSetNotice: (notice: string) => void;
   onAddChecklist: () => void;
   onAddMemo: () => void;
@@ -143,8 +146,22 @@ export function MoreSheet({
               )}
             </span>
           </div>
+          {bag.travelDate && (
+            <div className="border-b border-line">
+              <Toggle
+                checked={!!bag.ddayCountTodayAsDayOne}
+                onChange={onSetCountDayOne}
+                label="D-Day 당일을 1일로 세기"
+                description={
+                  bag.ddayCountTodayAsDayOne
+                    ? "D-Day 당일이 D+1, 다음 날이 D+2예요"
+                    : "지금은 D-Day 다음 날이 D+1이에요. 태어난 날 · 기념일처럼 셀 때 켜요"
+                }
+              />
+            </div>
+          )}
           <label className="flex flex-col gap-2 pt-2">
-            <span className="text-caption text-sub">설명 한 줄 (예: 공항 6시 출발)</span>
+            <span className="text-caption text-sub">설명 한 줄 (예: 8시까지 챙기기)</span>
             <input
               value={notice}
               maxLength={80}

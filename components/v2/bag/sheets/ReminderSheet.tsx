@@ -37,7 +37,7 @@ import { notificationSettingsPath } from "@/lib/v2/platform";
 
 // 가방 더보기 > 알림 · 팩 길게 누르기 > 알림(initialPackId) — 2026-10-26 C안(요약 목록 → 눌러서 설정).
 // 첫 화면: 가방 전체 · 팩마다 · 아이템 마감일 · 함께 쓰는 사람 소식(함께 쓰는 가방만) 네 줄, 줄마다 지금 켜진 것 요약.
-// 세부 화면: 가방 · 팩은 "출발 전 알림" · "매주 반복 알림" 두 상자(시간도 상자마다), 마감은 전날 · 당일 + 마감일 있는 아이템 목록.
+// 세부 화면: 가방 · 팩은 "D-Day 알림" · "매주 반복 알림" 두 상자(시간도 상자마다), 마감은 전날 · 당일 + 마감일 있는 아이템 목록.
 // 가방 · 팩 · 마감 화면 아래 "이렇게 와요"는 지금 설정으로 실제 예약될 첫 알림(lib/v2/reminderPlan).
 // 내 계정에만 저장되고(다른 멤버에게는 영향 없음) 이 기기가 예약한다(AppShell → syncBagNotifications).
 // 시트를 닫을 때 한 번만 저장한다(소식 토글은 누를 때 바로). 알림 권한은 처음 켤 때 묻는다.
@@ -100,7 +100,7 @@ export function ReminderSheet({
     const before = saved ? normalizeReminder(saved, ids) : null;
     if (JSON.stringify(next) !== JSON.stringify(before) || (!next && saved)) {
       updateBagReminder(bag.id, next)
-        .then(() => show(next ? "알림을 맞춰 두었어요" : "출발 전 · 반복 알림을 껐어요"))
+        .then(() => show(next ? "알림을 맞춰 두었어요" : "D-Day · 반복 알림을 껐어요"))
         .catch((err) => {
           console.error("[팩인백] 알림 설정 저장 실패:", err);
           show("알림 설정을 저장하지 못했어요");
@@ -450,7 +450,7 @@ function TimeRow({ label, value, onChange }: { label: string; value: string; onC
   );
 }
 
-// 출발 전 알림 · 매주 반복 알림 두 상자(가방과 팩이 같이 쓴다). 받을 시간은 상자마다, 하나라도 골랐을 때만
+// D-Day 알림 · 매주 반복 알림 두 상자(가방과 팩이 같이 쓴다). 받을 시간은 상자마다, 하나라도 골랐을 때만
 function TimesEditor({
   value,
   onChange,
@@ -494,8 +494,8 @@ function TimesEditor({
     <>
       <Box
         icon={<IconPlaneDeparture size={20} stroke={1.75} />}
-        title="출발 전 알림"
-        sub={travelDate && tm && td ? `${tm}월 ${td}일 출발 기준 · 한 번씩` : undefined}
+        title="D-Day 알림"
+        sub={travelDate && tm && td ? `${tm}월 ${td}일 D-Day 기준 · 한 번씩` : undefined}
       >
         {travelDate ? (
           <>
@@ -528,17 +528,17 @@ function TimesEditor({
               </div>
             )}
             {offsets.length > 0 ? (
-              <TimeRow label={`${target} 출발 전 알림 시간`} value={value.ddayTime ?? DEFAULT_DDAY_TIME} onChange={(ddayTime) => pick({ ddayTime })} />
+              <TimeRow label={`${target} D-Day 알림 시간`} value={value.ddayTime ?? DEFAULT_DDAY_TIME} onChange={(ddayTime) => pick({ ddayTime })} />
             ) : (
               <p className="m-0 text-caption text-faint">고르면 받을 시간이 나와요</p>
             )}
           </>
         ) : (
-          <p className="m-0 text-caption text-faint">출발일이 없어요 · 가방 정보에서 출발일을 정하면 쓸 수 있어요</p>
+          <p className="m-0 text-caption text-faint">D-Day가 없어요 · 가방 더보기에서 D-Day를 정하면 쓸 수 있어요</p>
         )}
       </Box>
 
-      <Box icon={<IconRepeat size={20} stroke={1.75} />} title="매주 반복 알림" sub="출발일과 상관없이 매주">
+      <Box icon={<IconRepeat size={20} stroke={1.75} />} title="매주 반복 알림" sub="D-Day와 상관없이 매주">
         {/* 요일 7개는 폰 폭에서도 한 줄에 들어가게 칸을 나눠 채운다(칩 기본 여백으로는 일요일이 다음 줄로 넘어감) */}
         <div className="grid grid-cols-7 gap-1">
           {WEEKDAYS.map((w) => {

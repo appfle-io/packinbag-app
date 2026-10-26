@@ -57,7 +57,8 @@ function parseDate(ymd: string | undefined): [number, number, number] | null {
   return [y, m, d];
 }
 
-// 출발 전 알림 칩 · 요약(2026-10-26 C안: "D-3" 대신 "3일 전" — 아이템 마감과 헷갈리지 않게)
+// D-Day 알림 칩 · 요약(2026-10-26 C안: "D-3" 대신 "3일 전" — 아이템 마감과 헷갈리지 않게).
+// 가방은 여행만이 아니다(어린이집 · 출근 · 기념일 · 태어난 날) → "출발" 같은 여행 말 쓰지 않기(사용자, 10/26)
 export function ddayLabel(offset: number): string {
   return offset === 0 ? "당일" : offset === 1 ? "전날" : `${offset}일 전`;
 }
@@ -70,12 +71,12 @@ function daysLabel(days: number[]): string {
   return WEEKDAYS.filter((w) => set.has(w.day)).map((w) => w.label).join("");
 }
 
-// 시간 묶음 하나의 짧은 요약("출발 3일 전·전날 09:00 · 평일 07:30"). 꺼져 있으면 null
+// 시간 묶음 하나의 짧은 요약("D-Day 3일 전·전날 09:00 · 평일 07:30"). 꺼져 있으면 null
 export function timesSummary(r: ReminderTimes | undefined | null, hasTravelDate: boolean): string | null {
   if (isTimesEmpty(r)) return null;
   const parts: string[] = [];
   const offsets = [...(r?.ddayOffsets ?? [])].sort((a, b) => b - a);
-  if (hasTravelDate && offsets.length > 0) parts.push(`출발 ${offsets.map(ddayLabel).join("·")} ${r?.ddayTime ?? DEFAULT_DDAY_TIME}`);
+  if (hasTravelDate && offsets.length > 0) parts.push(`D-Day ${offsets.map(ddayLabel).join("·")} ${r?.ddayTime ?? DEFAULT_DDAY_TIME}`);
   const days = r?.repeatDays ?? [];
   if (days.length > 0) parts.push(`${daysLabel(days)} ${r?.repeatTime ?? DEFAULT_REPEAT_TIME}`);
   return parts.length > 0 ? parts.join(" · ") : null;
@@ -145,12 +146,12 @@ function bagBody(lead: string, packs: Pack[], me: string | undefined, hide: bool
       ? "오늘이 D-Day예요. 빠진 것 없는지 확인해 보세요"
       : kind === "dday"
         ? `${lead} · 챙길 것을 미리 확인해 보세요`
-        : "챙길 시간이에요. 체크하고 출발하세요";
+        : "챙길 시간이에요. 빠진 것 없는지 체크해 보세요";
   if (total === 0) return fallback;
   const left = lists.map((p) => ({ p, open: openChecks(p) })).filter((x) => x.open.length > 0);
   const leftCount = left.reduce((n, x) => n + x.open.length, 0);
   const head = headOf(kind, lead);
-  if (leftCount === 0) return kind === "repeat" ? fallback : kind === "dday0" ? "오늘 출발 · 다 챙겼어요. 그대로 출발하세요" : `${lead} · 다 챙겼어요`;
+  if (leftCount === 0) return kind === "repeat" ? fallback : kind === "dday0" ? "오늘이 D-Day예요 · 다 챙겼어요" : `${lead} · 다 챙겼어요`;
   let body = `${head} · ${leftCount}개 남았어요`;
   if (!hide) {
     const byPack = left.slice(0, 3).map((x) => `${x.p.name || "팩"} ${x.open.length}`);
@@ -166,7 +167,7 @@ function packBody(lead: string, pack: Pack, hide: boolean, kind: "dday0" | "dday
   if (!isChecklist(pack)) return kind === "repeat" ? `${pack.name || "메모"} 확인할 시간이에요` : `${head} · 메모를 확인해 보세요`;
   const open = openChecks(pack);
   if (countChecks(pack) === 0) return `${head} · 챙길 것을 확인해 보세요`;
-  if (open.length === 0) return kind === "repeat" ? "챙길 시간이에요. 체크하고 출발하세요" : `${head} · 다 챙겼어요`;
+  if (open.length === 0) return kind === "repeat" ? "챙길 시간이에요. 빠진 것 없는지 체크해 보세요" : `${head} · 다 챙겼어요`;
   return hide ? `${head} · ${open.length}개 남았어요` : `${head} · ${open.length}개 남았어요: ${names(open)}`;
 }
 

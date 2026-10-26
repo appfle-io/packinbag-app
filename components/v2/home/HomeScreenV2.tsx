@@ -413,7 +413,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
           <>
             {suggestions.length > 0 && (
               <div className="flex flex-col gap-3 rounded-card bg-fill p-4">
-                <p className="m-0 text-body">지난 여행 {suggestions.length}개를 보관함으로 옮길까요?</p>
+                <p className="m-0 text-body">D-Day가 지난 가방 {suggestions.length}개를 보관함으로 옮길까요?</p>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => archiveBags(suggestions.map((b) => b.id)).catch(fail("보관하지 못했어요"))}>
                     보관하기
@@ -560,7 +560,7 @@ export default function HomeScreenV2(props: HomeScreenProps) {
             </button>
           ))}
         </div>
-        <p className="m-0 pt-3 text-caption text-faint">최근순은 출발 7일 안의 가방이 먼저, 나머지는 최근에 체크한 순서예요. 위 카드는 정렬과 상관없이 곧 출발 → 싸는 중 순서, 고정한 가방은 항상 맨 위에 있어요.</p>
+        <p className="m-0 pt-3 text-caption text-faint">최근순은 D-Day 7일 안의 가방이 먼저, 나머지는 최근에 체크한 순서예요. 위 카드는 정렬과 상관없이 곧 출발 → 싸는 중 순서, 고정한 가방은 항상 맨 위에 있어요.</p>
         {personal && sections.list.length > 1 && (
           <Button
             variant="secondary"

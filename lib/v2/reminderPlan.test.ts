@@ -25,7 +25,7 @@ describe("NAT-NOTI 가방 알림 문구", () => {
   it("다 챙기면 다 챙겼어요 · 당일 문구", () => {
     const done = bag([pack("p1", "옷", [item("i1", "티셔츠", { checked: true })])]);
     const plan = planBagNotifications([done], { b1: { ddayOffsets: [3, 0] } }, NOW);
-    expect(plan.map((p) => p.body)).toEqual(["D-3 · 다 챙겼어요", "오늘 출발 · 다 챙겼어요. 그대로 출발하세요"]);
+    expect(plan.map((p) => p.body)).toEqual(["D-3 · 다 챙겼어요", "오늘이 D-Day예요 · 다 챙겼어요"]);
   });
 
   it("잠근 가방은 제목 · 이름을 가린다", () => {
@@ -107,6 +107,6 @@ describe("NAT-NOTI 저장 정리", () => {
   it("비었는지 · 요약", () => {
     expect(isReminderEmpty({ packs: { p1: { ddayOffsets: [1] } } })).toBe(false);
     const b = bag([pack("p1", "옷", [item("i1", "x", { dueDate: "2026-11-18" })])]);
-    expect(reminderSummary({ ddayOffsets: [1], packs: { p1: { repeatDays: [1, 2, 3, 4, 5] } } }, true, b)).toBe("출발 전날 09:00 · 팩 1개 · 마감");
+    expect(reminderSummary({ ddayOffsets: [1], packs: { p1: { repeatDays: [1, 2, 3, 4, 5] } } }, true, b)).toBe("D-Day 전날 09:00 · 팩 1개 · 마감");
   });
 });

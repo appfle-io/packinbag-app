@@ -1014,6 +1014,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         aiAvailable={ai.aiAvailable}
         uploading={attachments.uploading}
         onSetTravelDate={(travelDate) => !doc.guard() && doc.update((prev) => ({ ...prev, travelDate }))}
+        onSetCountDayOne={(on) => !doc.guard() && doc.update((prev) => ({ ...prev, ddayCountTodayAsDayOne: on || undefined }))}
         onSetNotice={(notice) => !doc.guard() && doc.update((prev) => ({ ...prev, notice: notice || undefined }))}
         onAddChecklist={() => packOps.addPack("checklist")}
         onFocusItem={(packId, itemId) => window.setTimeout(() => setInnerFocus({ packId, itemId }), 300)}

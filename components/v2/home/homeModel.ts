@@ -25,9 +25,9 @@ export interface BagSummary {
   activityAt: string;
   // "10분 전 체크" / "3일 전 수정"
   activityLabel: string;
-  // 출발일까지 남은 일수(지났으면 음수), 날짜 없으면 null
+  // D-Day까지 남은 일수(지났으면 음수), 날짜 없으면 null
   dday: number | null;
-  // 다가오는 출발일만 "D-3" / "D-DAY"
+  // 다가오는 D-Day만 "D-3" / "D-DAY". 당일을 1일로 세는 가방은 지난 뒤에도 "D+N"
   ddayLabel: string | null;
   soon: boolean;
   // "싸는 중 · 10월 12일 · 어제 체크 · 2명"
@@ -45,7 +45,9 @@ export function summarizeBag(bag: Bag, premium: boolean, pending = false): BagSu
   const activityLabel = ago ? `${ago} ${bag.lastCheckedAt ? "체크" : "수정"}` : "";
   const dday = bag.travelDate ? daysUntil(bag.travelDate) : null;
   const upcoming = dday !== null && dday >= 0;
-  const ddayLabel = upcoming ? formatDDayLabel(bag.travelDate, !!bag.ddayCountTodayAsDayOne) : null;
+  // 당일을 1일로 세는 가방(태어난 날 · 기념일)은 지난 뒤에도 D+N을 보인다(2026-10-26)
+  const countingUp = dday !== null && !!bag.ddayCountTodayAsDayOne;
+  const ddayLabel = upcoming || countingUp ? formatDDayLabel(bag.travelDate, !!bag.ddayCountTodayAsDayOne) : null;
   const status = [
     STATE_LABEL[state],
     formatShortDate(bag.travelDate),
@@ -155,10 +157,12 @@ export function buildSections(list: BagSummary[], pinnedIds: string[], sort: Hom
   return { highlights, pinned, list: sortHomeList(list.filter((s) => !pinnedSet.has(s.bag.id)), sort, order) };
 }
 
-// 여행일이 한참 지났는데 보관하지도, 제안을 닫지도 않은 가방
+// D-Day가 한참 지났는데 보관하지도, 제안을 닫지도 않은 가방. 당일을 1일로 세는 가방(계속 세는 용도)은 빼요
 export function archiveSuggestionsOf(list: BagSummary[], dismissedIds: string[]): Bag[] {
   const dismissed = new Set(dismissedIds);
   return list
-    .filter((s) => s.dday !== null && s.dday <= -ARCHIVE_SUGGEST_DAYS_PAST && !dismissed.has(s.bag.id))
+    .filter(
+      (s) => s.dday !== null && s.dday <= -ARCHIVE_SUGGEST_DAYS_PAST && !s.bag.ddayCountTodayAsDayOne && !dismissed.has(s.bag.id),
+    )
     .map((s) => s.bag);
 }

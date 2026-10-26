@@ -27,7 +27,7 @@ function eyebrowOf(h: Highlight): string {
   const s = h.summary;
   // "pinned"는 지금 나오지 않는다(고정한 가방은 캐러셀에서 빠짐 - homeModel.buildSections). 예전 값이 오면 그대로 표시만 한다
   if (h.reason === "pinned") return `고정 · ${STATE_LABEL[s.state]}`;
-  if (h.reason === "soon") return `곧 출발 · ${STATE_LABEL[s.state]}`;
+  if (h.reason === "soon") return `곧 D-Day · ${STATE_LABEL[s.state]}`;
   return `지금 싸는 중${s.activityLabel ? ` · ${s.activityLabel}` : ""}`;
 }
 

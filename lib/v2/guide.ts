@@ -90,7 +90,7 @@ export const BAG_GUIDE_STEPS: TourStep[] = [
   {
     target: "bag-more",
     title: "더보기",
-    body: "출발 날짜, 설명 한 줄, 사진, 새 팩·메모는 여기 있어요. 이 안내도 여기서 다시 볼 수 있어요.",
+    body: "D-Day, 설명 한 줄, 사진, 새 팩·메모는 여기 있어요. 이 안내도 여기서 다시 볼 수 있어요.",
   },
 ];
 
@@ -109,7 +109,7 @@ export const HOME_GUIDE_STEPS: TourStep[] = [
   {
     target: "home-carousel",
     title: "지금 챙길 가방",
-    body: "곧 출발하거나 싸는 중인 가방이 여기 크게 보여요. 옆으로 넘겨 볼 수 있어요.",
+    body: "D-Day가 가깝거나 싸는 중인 가방이 여기 크게 보여요. 옆으로 넘겨 볼 수 있어요.",
   },
   {
     target: "home-row",
