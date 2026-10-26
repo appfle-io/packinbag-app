@@ -65,6 +65,7 @@ import {
 } from "@/lib/localBagsService";
 import { isDemoMode } from "@/lib/demoMode";
 import { seedDemoDataOnce } from "@/lib/demoSeed";
+import { isReminderEmpty } from "@/lib/v2/reminderPlan";
 
 interface AuthContextValue {
   user: User | null;
@@ -795,7 +796,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 가방 알림 설정은 그 가방 키만 고친다(다른 가방 설정을 덮어쓰지 않게 점 경로). 비었으면 키를 지운다
   const updateBagReminder = async (bagId: string, reminder: BagReminder | null) => {
-    const empty = !reminder || ((reminder.ddayOffsets?.length ?? 0) === 0 && (reminder.repeatDays?.length ?? 0) === 0);
+    const empty = isReminderEmpty(reminder);
     await writeUser({ [`bagReminders.${bagId}`]: empty ? REMOVE_FIELD : stripUndefined(reminder) }, true);
   };
 

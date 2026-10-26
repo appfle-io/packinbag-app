@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowRight, IconCloudCheck, IconCloudUpload, IconLock, IconLockOpen, IconRefreshAlert } from "@tabler/icons-react";
+import { IconArrowRight, IconBell, IconCloudCheck, IconCloudUpload, IconLock, IconLockOpen, IconRefreshAlert } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Button, Sheet, Toggle, cx } from "@/components/v2/ui";
 
@@ -20,7 +20,13 @@ export interface PackPrivacyRow {
   onToggle: () => void;
 }
 
-// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · (메모) 보관함 자동 동기화 · 팩 보관함 · 다른 가방으로 옮기기 · 삭제
+// 팩 알림 줄(2026-10-26). summary = "D-2 · 평일 07:30"(꺼져 있으면 null)
+export interface PackReminderRow {
+  summary: string | null;
+  onClick: () => void;
+}
+
+// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · 알림(iOS 앱) · (메모) 보관함 자동 동기화 · 팩 보관함 · 다른 가방으로 옮기기 · 삭제
 // 이름 칸을 고쳤으면 시트를 어떻게 닫든(완료 · 다른 줄 · 바깥 · 끌어내리기 · Esc) 이름을 같이 저장한다. 삭제만 예외(2026-10-14)
 export function PackSheet({
   pack,
@@ -33,6 +39,7 @@ export function PackSheet({
   library,
   onMoveToBag,
   privacyLock,
+  reminder,
 }: {
   pack: Pack | null;
   onClose: () => void;
@@ -48,6 +55,8 @@ export function PackSheet({
   onMoveToBag?: () => void;
   // 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
   privacyLock?: PackPrivacyRow;
+  // 이 팩 알림(iOS 앱만, 2026-10-26). 없으면 줄을 숨긴다
+  reminder?: PackReminderRow;
 }) {
   // 본문이 지금 이름 칸 값을 저장하는 함수를 여기 걸어 둔다(바깥 · 끌어내리기로 닫을 때도 저장하려고)
   const commitRef = useRef<(() => void) | null>(null);
@@ -71,6 +80,7 @@ export function PackSheet({
           library={library}
           onMoveToBag={onMoveToBag}
           privacyLock={privacyLock}
+          reminder={reminder}
         />
       )}
     </Sheet>
@@ -89,6 +99,7 @@ function PackSheetBody({
   library,
   onMoveToBag,
   privacyLock,
+  reminder,
 }: {
   pack: Pack;
   nameLocked: boolean;
@@ -101,6 +112,7 @@ function PackSheetBody({
   library?: PackLibraryRow | null;
   onMoveToBag?: () => void;
   privacyLock?: PackPrivacyRow;
+  reminder?: PackReminderRow;
 }) {
   const [name, setName] = useState(pack.name);
   const isMemo = pack.kind === "editor";
@@ -201,6 +213,21 @@ function PackSheetBody({
               className={cx(library.tone === "changed" ? "text-brand" : "text-sub")}
             />
             <span className={cx("min-w-0 flex-1 truncate", library.tone === "same" && "text-sub")}>{library.label}</span>
+          </button>
+        )}
+        {reminder && (
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => {
+              commitName();
+              onClose();
+              reminder.onClick();
+            }}
+          >
+            <IconBell size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+            <span className="min-w-0 flex-1">알림</span>
+            <span className="truncate text-caption text-sub">{reminder.summary ?? "꺼짐"}</span>
           </button>
         )}
         {onMoveToBag && (

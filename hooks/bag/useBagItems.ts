@@ -20,6 +20,8 @@ export interface ItemPatch {
   text?: string;
   // null이면 담당자 해제
   assigneeUid?: string | null;
+  // 마감일 YYYY-MM-DD(2026-10-26, 아이템 마감 알림). null이면 지움
+  dueDate?: string | null;
   // 다른 팩으로 옮길 때
   targetPackId?: string;
   // 체크 항목 ↔ 글(2026-10-17, 팩 탭 아이템 시트와 같게). 글 → 체크는 체크 해제 상태로, 체크 → 글은 체크 값을 뜬다
@@ -222,6 +224,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
           ...original,
           ...(patch.text !== undefined ? { text: patch.text.trim() || original.text } : {}),
           ...(patch.assigneeUid !== undefined ? { assigneeUid: patch.assigneeUid ?? undefined } : {}),
+          ...(patch.dueDate !== undefined ? { dueDate: patch.dueDate ?? undefined } : {}),
         };
         if (patch.type && patch.type !== original.type) {
           nextItem.type = patch.type;
@@ -370,4 +373,4 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     applyGroupedItems,
     addToNamedPack,
   };
-}
+}

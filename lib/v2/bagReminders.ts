@@ -4,130 +4,29 @@
 //   같은 계정의 다른 아이폰·아이패드도 각자 이 값을 보고 예약한다. 가방 문서의 옛 Bag.reminderOffsets는 쓰지 않는다.
 // - 서버 없이 기기가 예약한다. 다른 멤버가 D-Day를 바꾸면 이 기기에서 앱을 다음에 열 때 다시 맞춰진다.
 // - iOS는 앱당 예약 알림이 64개까지라, 가까운 것부터 MAX_SCHEDULED개만 예약한다(반복 알림은 요일마다 1개).
+// - 2026-10-26: 가방 · 팩 · 아이템 마감 세 갈래. 무엇을 언제 무슨 문구로 울릴지는 순수 함수 lib/v2/reminderPlan.ts
 // - 웹·PC·플러그인이 없는 옛 앱(스토어 1.3)에서는 아무것도 하지 않는다(isLocalNotificationsAvailable).
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import type { Bag, BagReminder } from "@/lib/types";
+import { planBagNotifications, type ReminderLock } from "@/lib/v2/reminderPlan";
 import { isSafeAppPath } from "@/lib/v2/appBridge";
 
-export const DDAY_PRESETS = [7, 3, 1, 0] as const;
-export const MAX_CUSTOM_OFFSET = 30;
-export const DEFAULT_DDAY_TIME = "09:00";
-export const DEFAULT_REPEAT_TIME = "07:30";
-// 화면 표시 순서(월~일). 값은 JS Date.getDay()와 같다(0 = 일요일)
-export const WEEKDAYS: { day: number; label: string }[] = [
-  { day: 1, label: "월" },
-  { day: 2, label: "화" },
-  { day: 3, label: "수" },
-  { day: 4, label: "목" },
-  { day: 5, label: "금" },
-  { day: 6, label: "토" },
-  { day: 0, label: "일" },
-];
-const MAX_SCHEDULED = 60;
-
-// ---- 순수 함수 ---------------------------------------------------------------
-
-export function isReminderEmpty(r: BagReminder | undefined | null): boolean {
-  return !r || ((r.ddayOffsets?.length ?? 0) === 0 && (r.repeatDays?.length ?? 0) === 0);
-}
-
-function parseTime(time: string | undefined, fallback: string): { h: number; m: number } {
-  const [h, m] = (time && /^\d{2}:\d{2}$/.test(time) ? time : fallback).split(":").map(Number);
-  return { h, m };
-}
-
-export function ddayLabel(offset: number): string {
-  return offset === 0 ? "당일" : `D-${offset}`;
-}
-
-// 더보기 줄 오른쪽에 붙는 짧은 요약. 꺼져 있으면 null
-export function reminderSummary(r: BagReminder | undefined | null, hasTravelDate: boolean): string | null {
-  if (isReminderEmpty(r)) return null;
-  const parts: string[] = [];
-  const offsets = [...(r?.ddayOffsets ?? [])].sort((a, b) => b - a);
-  if (hasTravelDate && offsets.length > 0) parts.push(offsets.map(ddayLabel).join("·"));
-  const days = r?.repeatDays ?? [];
-  if (days.length > 0) {
-    const set = new Set(days);
-    const label =
-      set.size === 7
-        ? "매일"
-        : set.size === 5 && [1, 2, 3, 4, 5].every((d) => set.has(d))
-          ? "평일"
-          : set.size === 2 && set.has(0) && set.has(6)
-            ? "주말"
-            : WEEKDAYS.filter((w) => set.has(w.day)).map((w) => w.label).join("");
-    parts.push(`${label} ${r?.repeatTime ?? DEFAULT_REPEAT_TIME}`);
-  }
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
-
-export interface PlannedNotification {
-  bagId: string;
-  title: string;
-  body: string;
-  // 한 번만: at / 매주 반복: weekday(0=일)·hour·minute
-  at?: Date;
-  weekly?: { weekday: number; hour: number; minute: number };
-  // 예산(64개) 안에서 가까운 것부터 고르기 위한 다음 울림 시각
-  nextFire: number;
-}
-
-// 가방 목록 + 내 알림 설정 → 예약할 알림 목록(가까운 순, 최대 MAX_SCHEDULED개)
-// lockedBagIds: 개인 잠금한 가방(lib/v2/privateLock nativeLockFilter). 제목을 "잠근 가방"으로 가린다(2026-10-16, native-ios.md 확인 필요 1)
-const LOCKED_BAG_TITLE = "잠근 가방";
-
-function planBagNotifications(
-  bags: Bag[],
-  reminders: Record<string, BagReminder> | undefined,
-  now: Date = new Date(),
-  lockedBagIds: string[] = [],
-): PlannedNotification[] {
-  if (!reminders) return [];
-  const locked = new Set(lockedBagIds);
-  const out: PlannedNotification[] = [];
-  for (const bag of bags) {
-    const r = reminders[bag.id];
-    if (isReminderEmpty(r)) continue;
-    const title = locked.has(bag.id) ? LOCKED_BAG_TITLE : bag.name || "가방";
-
-    if (bag.travelDate && /^\d{4}-\d{2}-\d{2}$/.test(bag.travelDate)) {
-      const [y, mo, d] = bag.travelDate.split("-").map(Number);
-      const { h, m } = parseTime(r!.ddayTime, DEFAULT_DDAY_TIME);
-      for (const offset of new Set(r!.ddayOffsets ?? [])) {
-        if (!Number.isInteger(offset) || offset < 0 || offset > MAX_CUSTOM_OFFSET) continue;
-        const at = new Date(y, mo - 1, d - offset, h, m, 0, 0);
-        if (at.getTime() <= now.getTime()) continue;
-        out.push({
-          bagId: bag.id,
-          title,
-          body: offset === 0 ? "오늘이 D-Day예요. 빠진 것 없는지 확인해 보세요" : `D-${offset} · 챙길 것을 미리 확인해 보세요`,
-          at,
-          nextFire: at.getTime(),
-        });
-      }
-    }
-
-    const { h, m } = parseTime(r!.repeatTime, DEFAULT_REPEAT_TIME);
-    for (const weekday of new Set(r!.repeatDays ?? [])) {
-      if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) continue;
-      const next = new Date(now);
-      next.setHours(h, m, 0, 0);
-      let add = (weekday - now.getDay() + 7) % 7;
-      if (add === 0 && next.getTime() <= now.getTime()) add = 7;
-      next.setDate(next.getDate() + add);
-      out.push({
-        bagId: bag.id,
-        title,
-        body: "챙길 시간이에요. 체크하고 출발하세요",
-        weekly: { weekday, hour: h, minute: m },
-        nextFire: next.getTime(),
-      });
-    }
-  }
-  return out.sort((a, b) => a.nextFire - b.nextFire).slice(0, MAX_SCHEDULED);
-}
+export {
+  DDAY_PRESETS,
+  MAX_CUSTOM_OFFSET,
+  DEFAULT_DDAY_TIME,
+  DEFAULT_REPEAT_TIME,
+  ITEM_DUE_PRESETS,
+  WEEKDAYS,
+  ddayLabel,
+  isReminderEmpty,
+  isTimesEmpty,
+  itemDueSetting,
+  reminderSummary,
+  timesSummary,
+  normalizeReminder,
+} from "@/lib/v2/reminderPlan";
 
 // ---- iOS 로컬 알림 플러그인(@capacitor/local-notifications) ----------------------
 // 패키지를 직접 import하지 않고 registerPlugin으로 부른다(lib/haptics.ts와 같은 방식, 웹 구현을 싣지 않으려고)
@@ -187,15 +86,17 @@ let syncing: Promise<void> | null = null;
 let lastSignature = "";
 
 // 팩인백이 예약한 가방 알림을 모두 지우고 지금 설정대로 다시 예약한다. 권한이 없으면 지우기만 한다
+// me: 내 uid(내가 맡은 것 · 남이 맡은 마감 아이템 빼기). lock: 개인 잠금(제목 · 이름 가리기)
 export async function syncBagNotifications(
   bags: Bag[],
   reminders: Record<string, BagReminder> | undefined,
-  lockedBagIds: string[] = [],
+  lock: ReminderLock = {},
+  me?: string,
 ) {
   if (!isLocalNotificationsAvailable()) return;
-  const plan = planBagNotifications(bags, reminders, new Date(), lockedBagIds);
+  const plan = planBagNotifications(bags, reminders, new Date(), lock, me);
   // 같은 내용이면 다시 예약하지 않는다(가방 체크할 때마다 bags가 바뀌어 불린다)
-  const signature = JSON.stringify(plan.map((p) => [p.bagId, p.title, p.body, p.at?.getTime(), p.weekly]));
+  const signature = JSON.stringify(plan.map((p) => [p.bagId, p.packId, p.itemId, p.title, p.body, p.at?.getTime(), p.weekly]));
   if (signature === lastSignature) return;
   const run = async () => {
     const pending = await LocalNotifications.getPending();
@@ -212,7 +113,7 @@ export async function syncBagNotifications(
           schedule: p.at
             ? { at: p.at, allowWhileIdle: true }
             : { on: { weekday: p.weekly!.weekday + 1, hour: p.weekly!.hour, minute: p.weekly!.minute } },
-          extra: { kind: KIND, bagId: p.bagId },
+          extra: { kind: KIND, bagId: p.bagId, ...(p.packId ? { packId: p.packId } : {}), ...(p.itemId ? { itemId: p.itemId } : {}) },
         })),
       });
     }
@@ -230,8 +131,9 @@ export async function syncBagNotifications(
 // 알림을 눌러 앱이 열렸을 때 그 가방 id를 알려 준다. 앱이 꺼져 있다가 열린 경우도 플러그인이 이벤트를 보관했다가 준다.
 // 10/11(B-6): 서버 푸시(활동 · 담당 · 새 멤버, data.bagId)와 위젯 · 잠금화면 누름(packinbag://bag/{id})도 같은 자리로 모은다
 // 1.6(10/12): Siri · Spotlight 검색 결과 - packinbag://bag/{id}?pack={packId}(가방 속 팩) · packinbag://library/{id}(보관함 팩, onLibrary)
+// 2026-10-26: 팩 알림 · 아이템 마감 알림은 extra.packId · itemId로 그 팩 · 아이템까지
 export function onBagNotificationTap(
-  cb: (bagId: string, packId?: string) => void,
+  cb: (bagId: string, packId?: string, itemId?: string) => void,
   onLibrary?: (libraryPackId: string) => void,
 ): () => void {
   if (!isLocalNotificationsAvailable()) return () => {};
@@ -246,18 +148,19 @@ export function onBagNotificationTap(
       .catch(() => {});
   // 같은 누름이 두 길로 들어오면(launch URL + appUrlOpen) 한 번만
   let last = { id: "", at: 0 };
-  const open = (bagId: string, packId?: string) => {
-    const key = `${bagId}|${packId ?? ""}`;
+  const open = (bagId: string, packId?: string, itemId?: string) => {
+    const key = `${bagId}|${packId ?? ""}|${itemId ?? ""}`;
     const now = Date.now();
     if (last.id === key && now - last.at < 1500) return;
     last = { id: key, at: now };
-    cb(bagId, packId);
+    cb(bagId, packId, itemId);
   };
+  const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
 
   keep(
     LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
       const extra = action.notification?.extra;
-      if (extra?.kind === KIND && typeof extra.bagId === "string") open(extra.bagId);
+      if (extra?.kind === KIND && typeof extra.bagId === "string") open(extra.bagId, str(extra.packId), str(extra.itemId));
     }),
   );
 

@@ -657,23 +657,26 @@ export default function AppShell() {
   // 체크할 때마다 bags가 바뀌지만 예약 내용(이름·D-Day·설정)이 같으면 syncBagNotifications가 건너뛴다(lib/v2/bagReminders.ts)
   const bagReminders = profile?.bagReminders;
   // 개인 잠금한 가방은 알림 제목을 가린다(2026-10-16, native-ios.md 확인 필요 1). 배열은 매 렌더 새로 생기므로 문자열로 비교
-  const lockedReminderBagKey = nativeLockFilter(profile?.privateLock).lockedBagIds.join(",");
+  // 2026-10-26: 팩 알림 · 아이템 마감도 잠근 팩이면 이름을 가린다(lockedPackKeys · lockedLibraryIds)
+  const reminderLock = nativeLockFilter(profile?.privateLock);
+  const lockedReminderKey = JSON.stringify([reminderLock.lockedBagIds, reminderLock.lockedPackKeys, reminderLock.lockedLibraryIds]);
   useEffect(() => {
     if (!user || !isLocalNotificationsAvailable()) return;
     const mine = bags.filter((b) => !(b.ownerId === user.uid && b.trashedByOwnerAt));
-    const locked = lockedReminderBagKey ? lockedReminderBagKey.split(",") : [];
-    const t = window.setTimeout(() => void syncBagNotifications(mine, bagReminders, locked), 1500);
+    const [bagIds, packKeys, libraryIds] = JSON.parse(lockedReminderKey) as string[][];
+    const t = window.setTimeout(() => void syncBagNotifications(mine, bagReminders, { bagIds, packKeys, libraryIds }, user.uid), 1500);
     return () => window.clearTimeout(t);
-  }, [user, bags, bagReminders, lockedReminderBagKey]);
+  }, [user, bags, bagReminders, lockedReminderKey]);
 
   // 알림을 눌러 열면 그 가방을 연다. 앱이 꺼져 있다 열린 경우 가방 목록이 오기 전일 수 있어 기다렸다가 연다(15초 뒤 포기)
   // 1.6(10/12): Siri · Spotlight 검색 결과도 같은 길 - 가방 속 팩이면 그 팩으로 스크롤(packId), 보관함 팩이면 그 팩을 연다
-  const [notificationTarget, setNotificationTarget] = useState<{ bagId: string; packId?: string } | null>(null);
+  // 2026-10-26: 팩 알림은 packId, 아이템 마감 알림은 packId + itemId까지
+  const [notificationTarget, setNotificationTarget] = useState<{ bagId: string; packId?: string; itemId?: string } | null>(null);
   const [notificationLibraryId, setNotificationLibraryId] = useState<string | null>(null);
   useEffect(
     () =>
       onBagNotificationTap(
-        (bagId, packId) => setNotificationTarget({ bagId, packId }),
+        (bagId, packId, itemId) => setNotificationTarget({ bagId, packId, itemId }),
         (libraryPackId) => setNotificationLibraryId(libraryPackId),
       ),
     [],
@@ -690,7 +693,7 @@ export default function AppShell() {
     setNotificationTarget(null);
     setIsNewBag(false);
     setEditingPack(null);
-    setBagFocus(notificationTarget.packId ? { packId: notificationTarget.packId } : null);
+    setBagFocus(notificationTarget.packId ? { packId: notificationTarget.packId, itemId: notificationTarget.itemId } : null);
     setEditingBag(target);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [notificationTarget, bags]);

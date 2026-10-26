@@ -5,7 +5,8 @@ import type { Item, Pack } from "@/lib/types";
 import type { BagMember, ItemPatch } from "@/hooks/bag";
 import { Button, Chip, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
 
-// 아이템 길게 누르기: 이름 · 종류 · 담당 · 다른 팩으로 옮기기 · 복제 · 삭제
+// 아이템 길게 누르기: 이름 · 종류 · 담당 · 마감일 · 다른 팩으로 옮기기 · 복제 · 삭제
+// 마감일(2026-10-26): 체크 항목만. 멤버 모두에게 보이고, 알림은 각자 가방 더보기 > 알림 "아이템 마감"대로(dueHint)
 // 종류(체크 항목 · 글)는 팩 탭 아이템 시트와 같은 모양(2026-10-17)
 // 고친 내용은 삭제를 뺀 모든 닫기(완료 · 바깥 · 끌어내리기 · Esc · 다른 줄)에서 저장한다(2026-10-14)
 export function ItemSheet({
@@ -17,6 +18,8 @@ export function ItemSheet({
   onDuplicate,
   onDelete,
   onSelectMany,
+  dueHint,
+  onDueSet,
 }: {
   target: { pack: Pack; item: Item } | null;
   onClose: () => void;
@@ -28,6 +31,10 @@ export function ItemSheet({
   onDelete: () => void;
   // 이 아이템부터 여러 개 선택 모드 시작
   onSelectMany?: () => void;
+  // 마감일 아래 안내(알림을 언제 받는지)
+  dueHint?: string;
+  // 마감일을 처음 정한 순간(누름 안에서 알림 권한을 묻는다)
+  onDueSet?: () => void;
 }) {
   const commitRef = useRef<(() => void) | null>(null);
   const closeWithSave = () => {
@@ -48,6 +55,8 @@ export function ItemSheet({
           onDuplicate={onDuplicate}
           onDelete={onDelete}
           onSelectMany={onSelectMany}
+          dueHint={dueHint}
+          onDueSet={onDueSet}
         />
       )}
     </Sheet>
@@ -64,6 +73,8 @@ function ItemSheetBody({
   onDuplicate,
   onDelete,
   onSelectMany,
+  dueHint,
+  onDueSet,
 }: {
   target: { pack: Pack; item: Item };
   commitRef: React.RefObject<(() => void) | null>;
@@ -74,11 +85,14 @@ function ItemSheetBody({
   onDuplicate: () => void;
   onDelete: () => void;
   onSelectMany?: () => void;
+  dueHint?: string;
+  onDueSet?: () => void;
 }) {
   const [text, setText] = useState(target.item.text);
   const [type, setType] = useState<Item["type"]>(target.item.type);
   const [assignee, setAssignee] = useState<string>(target.item.assigneeUid ?? "");
   const [packId, setPackId] = useState(target.pack.id);
+  const [due, setDue] = useState(target.item.dueDate ?? "");
   const shared = members.length > 1;
 
   // 한 번 저장하면 다시 쓰지 않는다. move=false면 팩 옮기기는 빼고(복제는 원래 팩에서 하므로) 이름 · 담당만
@@ -90,6 +104,7 @@ function ItemSheetBody({
     if (text.trim() && text.trim() !== target.item.text) patch.text = text;
     if (type !== target.item.type) patch.type = type;
     if ((target.item.assigneeUid ?? "") !== assignee) patch.assigneeUid = assignee || null;
+    if ((target.item.dueDate ?? "") !== due) patch.dueDate = due || null;
     if (move && packId !== target.pack.id) patch.targetPackId = packId;
     if (Object.keys(patch).length > 0) onSave(patch);
   };
@@ -156,6 +171,30 @@ function ItemSheetBody({
         </div>
       )}
 
+      {type === "check" && (
+        <div className="flex flex-col gap-2">
+          <span className="text-caption font-semibold text-sub">마감일</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              aria-label="마감일"
+              value={due}
+              onChange={(e) => {
+                if (e.target.value && !due) onDueSet?.();
+                setDue(e.target.value);
+              }}
+              className="h-11 min-w-0 flex-1 rounded-field border border-line bg-card px-3 text-body outline-none focus:border-ink"
+            />
+            {due && (
+              <Button size="sm" variant="secondary" onClick={() => setDue("")}>
+                지우기
+              </Button>
+            )}
+          </div>
+          {due && dueHint && <p className="m-0 text-micro text-faint">{dueHint}</p>}
+        </div>
+      )}
+
       {packs.length > 1 && (
         <div className="flex flex-col gap-2">
           <SectionHeader>팩</SectionHeader>
@@ -210,4 +249,4 @@ function ItemSheetBody({
       </Button>
     </form>
   );
-}
+}

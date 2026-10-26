@@ -87,7 +87,7 @@ export function MoreSheet({
   // 오른쪽 글 = 소식(함께 쓰는 가방) + D-Day · 반복 알림. 둘 다 꺼져야 "꺼짐"(10/11 - 예전에는 알림만 봐서 소식을 받는데도 꺼짐)
   const pushText = showsBagPush(bag, isOfflineMode) ? bagPushSummary(bagPushView(profile, bag, user?.uid)) : null;
   const reminderText =
-    [pushText, reminderSummary(profile?.bagReminders?.[bag.id], !!bag.travelDate)].filter(Boolean).join(" · ") || null;
+    [pushText, reminderSummary(profile?.bagReminders?.[bag.id], !!bag.travelDate, bag)].filter(Boolean).join(" · ") || null;
   const [notice, setNotice] = useState(bag.notice ?? "");
   const [editingNoticeFor, setEditingNoticeFor] = useState(bag.id);
   // 다른 가방으로 바뀌면 입력칸 초기화
@@ -294,4 +294,4 @@ export function MoreSheet({
     )}
     </>
   );
-}
+}

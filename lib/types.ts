@@ -556,7 +556,7 @@ export interface PrivateLock {
 export type BagPushKind = "activity" | "assign" | "member";
 
 // 가방 하나의 내 알림 설정. 배열이 비어 있으면 그 알림은 꺼진 것
-export interface BagReminder {
+export interface ReminderTimes {
   // D-Day 며칠 전에 알릴지(0 = 당일, 최대 30). 가방에 travelDate가 있을 때만 울린다
   ddayOffsets?: number[];
   // "HH:MM"(없으면 09:00)
@@ -565,6 +565,14 @@ export interface BagReminder {
   repeatDays?: number[];
   // "HH:MM"(없으면 07:30)
   repeatTime?: string;
+}
+
+// 가방 알림(내 계정 UserProfile.bagReminders[bagId]). 가방 자체의 D-Day · 반복 + 팩별 + 아이템 마감(2026-10-26)
+export interface BagReminder extends ReminderTimes {
+  // 팩마다 따로 울릴 때(가방 속 팩 id → 시간 묶음)
+  packs?: Record<string, ReminderTimes>;
+  // 아이템 마감일(Item.dueDate) 알림. 없으면 기본(전날 · 당일 09:00), offsets가 비면 끔. 1 = 전날, 0 = 당일
+  itemDue?: { offsets: number[]; time?: string };
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.
@@ -651,4 +659,4 @@ export interface AppNotification {
 
 // 댓글·리액션 기능은 2026-10-05에 빠졌고 타입도 2026-10-08에 정리했다. 예전 데이터는 그대로 남아 있다:
 // 댓글 bags/{bagId}/comments 서브컬렉션, 리액션 bags/{bagId}/reactions
-
+

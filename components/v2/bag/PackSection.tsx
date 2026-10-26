@@ -183,6 +183,7 @@ function ItemLine({
   const selecting = selected !== undefined;
   const press = useLongPress(onMenu, isCheck || selecting ? onToggle : onMenu);
   const done = isCheck && !!item.checked;
+  const due = isCheck && !done ? dueBadge(item.dueDate) : null;
   return (
     <li data-item-id={item.id} className={cx("min-w-0", !isCheck && "col-span-full")}>
       <button
@@ -222,8 +223,21 @@ function ItemLine({
         >
           {item.text}
         </span>
+        {due && <Badge tone={due.soon ? "brand" : "neutral"}>{due.label}</Badge>}
         {assignee && <Badge className={cx("truncate", dense ? "max-w-16" : "max-w-24")}>{assignee}</Badge>}
       </button>
     </li>
   );
-}
+}
+
+// 마감일 배지(2026-10-26): 지남 · 오늘까지 · 내일까지 · M/D까지. 오늘 · 내일 · 지남은 강조. 체크한 아이템은 안 보임
+function dueBadge(dueDate: string | undefined, now = new Date()): { label: string; soon: boolean } | null {
+  if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return null;
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diff = Math.round((new Date(y, m - 1, d).getTime() - today) / 86_400_000);
+  if (diff < 0) return { label: "마감 지남", soon: true };
+  if (diff === 0) return { label: "오늘까지", soon: true };
+  if (diff === 1) return { label: "내일까지", soon: true };
+  return { label: `${m}/${d}까지`, soon: false };
+}

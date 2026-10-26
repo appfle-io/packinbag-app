@@ -57,6 +57,14 @@ import { BAG_GUIDE_STEPS, canStartTour, hasSeenBagGuide, markBagGuideSeen } from
 import { keepScreenOnSupported, readKeepScreenOnPref, useKeepScreenOn, writeKeepScreenOnPref } from "@/lib/v2/keepAwake";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { promptForSharedBag } from "@/lib/v2/serverPush";
+import { ReminderSheet } from "./sheets/ReminderSheet";
+import {
+  ITEM_DUE_PRESETS,
+  ensureNotificationPermission,
+  isLocalNotificationsAvailable,
+  itemDueSetting,
+  timesSummary,
+} from "@/lib/v2/bagReminders";
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -223,6 +231,16 @@ export default function BagScreenV2(props: BagScreenProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 공유 가방이 됐을 때 한 번
   }, [shared]);
 
+  const [notificationsAvailable] = useState(isLocalNotificationsAvailable);
+  // 아이템 시트 마감일 아래 안내(2026-10-26). 알림은 iOS 앱에서만, 내 설정(가방 더보기 > 알림 "아이템 마감")대로
+  const dueHint = (() => {
+    const shared = "함께 쓰는 멤버에게도 보여요";
+    if (!notificationsAvailable) return shared;
+    const due = itemDueSetting(profile?.bagReminders?.[bag.id]);
+    if (due.offsets.length === 0) return `마감 알림은 꺼져 있어요 · 가방 더보기 > 알림에서 켜요 · ${shared}`;
+    const when = ITEM_DUE_PRESETS.filter((o) => due.offsets.includes(o)).map((o) => (o === 0 ? "당일" : "전날")).join(" · ");
+    return `${when} ${due.time}에 알려 드려요 · ${shared}`;
+  })();
   const memberNames = useMemo(
     () => Object.fromEntries(members.members.map((m) => [m.uid, m.isMe ? "나" : m.nickname])),
     [members.members],
@@ -272,6 +290,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [itemTarget, setItemTarget] = useState<{ packId: string; itemId: string } | null>(null);
   const [packTargetId, setPackTargetId] = useState<string | null>(null);
+  // 팩 길게 누르기 > 알림(iOS 앱만, 2026-10-26). 값 = 그 팩 id
+  const [packReminderId, setPackReminderId] = useState<string | null>(null);
   const [clipboardOpen, setClipboardOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -887,6 +907,8 @@ export default function BagScreenV2(props: BagScreenProps) {
         onDuplicate={() => itemTarget && items.duplicateItem(itemTarget.packId, itemTarget.itemId)}
         onDelete={() => itemTarget && items.deleteItem(itemTarget.packId, itemTarget.itemId)}
         onSelectMany={() => itemTarget && setSelection(new Set([itemTarget.itemId]))}
+        dueHint={dueHint}
+        onDueSet={notificationsAvailable ? () => void ensureNotificationPermission() : undefined}
       />
       <PackSheet
         pack={packTarget}
@@ -917,7 +939,21 @@ export default function BagScreenV2(props: BagScreenProps) {
               }
             : undefined
         }
+        reminder={
+          packTarget && notificationsAvailable
+            ? {
+                summary: timesSummary(profile?.bagReminders?.[bag.id]?.packs?.[packTarget.id], !!bag.travelDate),
+                onClick: () => {
+                  const id = packTarget.id;
+                  window.setTimeout(() => setPackReminderId(id), 300);
+                },
+              }
+            : undefined
+        }
       />
+      {notificationsAvailable && (
+        <ReminderSheet open={!!packReminderId} onClose={() => setPackReminderId(null)} bag={bag} initialPackId={packReminderId} />
+      )}
       <LibrarySheet
         pack={libraryTarget}
         status={libraryTarget ? library.statusOf(libraryTarget) : null}
