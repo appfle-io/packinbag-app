@@ -54,6 +54,7 @@ import { formatRelativeDay, formatShortDate } from "./format";
 import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
 import { BAG_GUIDE_STEPS, canStartTour, hasSeenBagGuide, markBagGuideSeen } from "@/lib/v2/guide";
+import { loadLeftFilter, saveLeftFilter } from "@/lib/v2/bagFilterPref";
 import { keepScreenOnSupported, readKeepScreenOnPref, useKeepScreenOn, writeKeepScreenOnPref } from "@/lib/v2/keepAwake";
 import { getDisplayOrderedItems } from "@/lib/itemDisplayOrder";
 import { promptForSharedBag } from "@/lib/v2/serverPush";
@@ -247,7 +248,14 @@ export default function BagScreenV2(props: BagScreenProps) {
   );
 
   // --- 필터 칩 / 접기 ----------------------------------------------------------
-  const [filter, setFilter] = useState<Filter>("all");
+  // "남은 것"을 고른 채로 나갔으면 이 가방은 다음에도 "남은 것"으로 연다(가방별 · 이 기기에만, BAG-FLT-11).
+  // AppShell이 가방마다 key를 바꿔 다시 그리므로 처음 한 번만 읽으면 된다
+  const [filter, setFilter] = useState<Filter>(() => (loadLeftFilter(bag.id) ? "left" : "all"));
+  // 칩을 직접 누를 때만 기억을 바꾼다(아이템을 넣어 자동으로 "전체"가 될 때는 그대로)
+  const chooseFilter = (next: Filter) => {
+    setFilter(next);
+    saveLeftFilter(bag.id, next === "left");
+  };
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({});
   const filterStillValid =
     filter === "all" || filter === "left" || (filter === "mine" && hasMine) || checklist.some((p) => p.id === filter);
@@ -649,11 +657,11 @@ export default function BagScreenV2(props: BagScreenProps) {
           {/* 필터 칩 (스크롤해도 위에 붙어 있음) */}
           {checklist.length > 0 && (
             <div className="sticky top-0 z-10 bg-canvas">
-              <div className="pib-v2-no-scrollbar flex gap-2 overflow-x-auto px-5 pt-4 pb-2">
-                <Chip label="전체" count={stats.total} selected={activeFilter === "all"} onClick={() => setFilter("all")} />
-                <Chip label="남은 것" count={stats.total - stats.done} selected={activeFilter === "left"} onClick={() => setFilter("left")} />
+              <div data-guide="bag-filter" className="pib-v2-no-scrollbar flex gap-2 overflow-x-auto px-5 pt-4 pb-2">
+                <Chip label="전체" count={stats.total} selected={activeFilter === "all"} onClick={() => chooseFilter("all")} />
+                <Chip label="남은 것" count={stats.total - stats.done} selected={activeFilter === "left"} onClick={() => chooseFilter("left")} />
                 {hasMine && (
-                  <Chip label="내 담당" count={mineLeft} selected={activeFilter === "mine"} onClick={() => setFilter(activeFilter === "mine" ? "all" : "mine")} />
+                  <Chip label="내 담당" count={mineLeft} selected={activeFilter === "mine"} onClick={() => chooseFilter(activeFilter === "mine" ? "all" : "mine")} />
                 )}
                 {checklist.map((p) => (
                   <Chip
@@ -663,7 +671,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                     selected={activeFilter === p.id}
                     onClick={() => {
                       const next = activeFilter === p.id ? "all" : p.id;
-                      setFilter(next);
+                      chooseFilter(next);
                       // 팩 하나만 보면 입력도 그 팩으로(미분류 칩이면 미분류로)
                       if (next !== "all") setAddTargetId(p.isInbox ? null : p.id);
                     }}
