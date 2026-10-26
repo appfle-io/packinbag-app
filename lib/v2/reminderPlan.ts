@@ -57,8 +57,9 @@ function parseDate(ymd: string | undefined): [number, number, number] | null {
   return [y, m, d];
 }
 
+// 출발 전 알림 칩 · 요약(2026-10-26 C안: "D-3" 대신 "3일 전" — 아이템 마감과 헷갈리지 않게)
 export function ddayLabel(offset: number): string {
-  return offset === 0 ? "당일" : `D-${offset}`;
+  return offset === 0 ? "당일" : offset === 1 ? "전날" : `${offset}일 전`;
 }
 
 function daysLabel(days: number[]): string {
@@ -69,15 +70,23 @@ function daysLabel(days: number[]): string {
   return WEEKDAYS.filter((w) => set.has(w.day)).map((w) => w.label).join("");
 }
 
-// 시간 묶음 하나의 짧은 요약("D-3·D-1 · 평일 07:30"). 꺼져 있으면 null
+// 시간 묶음 하나의 짧은 요약("출발 3일 전·전날 09:00 · 평일 07:30"). 꺼져 있으면 null
 export function timesSummary(r: ReminderTimes | undefined | null, hasTravelDate: boolean): string | null {
   if (isTimesEmpty(r)) return null;
   const parts: string[] = [];
   const offsets = [...(r?.ddayOffsets ?? [])].sort((a, b) => b - a);
-  if (hasTravelDate && offsets.length > 0) parts.push(offsets.map(ddayLabel).join("·"));
+  if (hasTravelDate && offsets.length > 0) parts.push(`출발 ${offsets.map(ddayLabel).join("·")} ${r?.ddayTime ?? DEFAULT_DDAY_TIME}`);
   const days = r?.repeatDays ?? [];
   if (days.length > 0) parts.push(`${daysLabel(days)} ${r?.repeatTime ?? DEFAULT_REPEAT_TIME}`);
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+// 아이템 마감 요약("마감 전날·당일 09:00"). 꺼져 있으면 null
+export function itemDueSummary(r: BagReminder | undefined | null): string | null {
+  const due = itemDueSetting(r);
+  if (due.offsets.length === 0) return null;
+  const labels = [...due.offsets].sort((a, b) => b - a).map((o) => (o === 0 ? "당일" : o === 1 ? "전날" : `${o}일 전`));
+  return `마감 ${labels.join("·")} ${due.time}`;
 }
 
 // 더보기 줄 오른쪽 요약. 꺼져 있으면 null. bag을 주면 팩 알림 수 · 마감 알림(마감일 있는 아이템이 있을 때)도 붙인다

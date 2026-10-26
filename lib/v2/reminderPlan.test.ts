@@ -107,6 +107,6 @@ describe("NAT-NOTI 저장 정리", () => {
   it("비었는지 · 요약", () => {
     expect(isReminderEmpty({ packs: { p1: { ddayOffsets: [1] } } })).toBe(false);
     const b = bag([pack("p1", "옷", [item("i1", "x", { dueDate: "2026-11-18" })])]);
-    expect(reminderSummary({ ddayOffsets: [1], packs: { p1: { repeatDays: [1, 2, 3, 4, 5] } } }, true, b)).toBe("D-1 · 팩 1개 · 마감");
+    expect(reminderSummary({ ddayOffsets: [1], packs: { p1: { repeatDays: [1, 2, 3, 4, 5] } } }, true, b)).toBe("출발 전날 09:00 · 팩 1개 · 마감");
   });
 });

@@ -23,6 +23,7 @@ export {
   isReminderEmpty,
   isTimesEmpty,
   itemDueSetting,
+  itemDueSummary,
   reminderSummary,
   timesSummary,
   normalizeReminder,

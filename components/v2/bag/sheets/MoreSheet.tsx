@@ -27,6 +27,7 @@ export function MoreSheet({
   onSetNotice,
   onAddChecklist,
   onAddMemo,
+  onFocusItem,
   onAddFiles,
   onImportClipboard,
   onAudit,
@@ -47,6 +48,8 @@ export function MoreSheet({
   onSetNotice: (notice: string) => void;
   onAddChecklist: () => void;
   onAddMemo: () => void;
+  // 알림 > 아이템 마감일 목록에서 아이템을 누르면 그 아이템으로(2026-10-26)
+  onFocusItem?: (packId: string, itemId: string) => void;
   onAddFiles: (files: FileList | null) => void;
   onImportClipboard: () => void;
   onAudit: () => void;
@@ -285,7 +288,7 @@ export function MoreSheet({
         </Button>
       </div>
     </Sheet>
-    {notificationsAvailable && <ReminderSheet open={reminderOpen} onClose={() => setReminderOpen(false)} bag={bag} />}
+    {notificationsAvailable && <ReminderSheet open={reminderOpen} onClose={() => setReminderOpen(false)} bag={bag} onFocusItem={onFocusItem} />}
     {liveAvailable && <LiveActivitySheet open={liveOpen} onClose={() => setLiveOpen(false)} bag={bag} />}
     {showWidget && (
       <SlideScreen active={widgetOpen} onBackdropClick={() => setWidgetOpen(false)} swipeBack>

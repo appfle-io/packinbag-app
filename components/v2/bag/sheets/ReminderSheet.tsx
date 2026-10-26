@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { IconChevronLeft, IconChevronRight, IconPlus } from "@tabler/icons-react";
+import {
+  IconBriefcase,
+  IconCalendarDue,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPackage,
+  IconPlaneDeparture,
+  IconPlus,
+  IconRepeat,
+  IconUsers,
+} from "@tabler/icons-react";
 import type { Bag, BagReminder, ReminderTimes } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { Button, Chip, SectionHeader, Sheet, Toggle, cx } from "@/components/v2/ui";
+import { Button, Chip, Sheet, Toggle, cx } from "@/components/v2/ui";
 import { bagPushView, showsBagPush, type PushKind } from "@/lib/v2/serverPush";
 import {
   DDAY_PRESETS,
@@ -17,35 +27,42 @@ import {
   ddayLabel,
   ensureNotificationPermission,
   itemDueSetting,
+  itemDueSummary,
   normalizeReminder,
   timesSummary,
 } from "@/lib/v2/bagReminders";
+import { planBagNotifications } from "@/lib/v2/reminderPlan";
+import { nativeLockFilter } from "@/lib/v2/privateLock";
 import { notificationSettingsPath } from "@/lib/v2/platform";
 
-// 가방 더보기 > 알림 · 팩 길게 누르기 > 알림(initialPackId).
-// - 가방: D-Day 알림(D-7·D-3·D-1·당일 + 직접 입력)과 요일 반복 알림
-// - 팩마다 따로(2026-10-26): 줄을 누르면 같은 D-Day · 반복 칸을 그 팩용으로
-// - 아이템 마감(2026-10-26): 마감일이 있는 아이템을 전날 · 당일 몇 시에 알릴지(없으면 기본 전날 · 당일 09:00)
-// 내 계정에만 저장되고(다른 멤버에게는 영향 없음) 이 아이폰·아이패드가 예약한다(AppShell → syncBagNotifications).
-// 시트를 닫을 때 한 번만 저장한다. 알림 권한은 처음 켤 때 묻는다.
+// 가방 더보기 > 알림 · 팩 길게 누르기 > 알림(initialPackId) — 2026-10-26 C안(요약 목록 → 눌러서 설정).
+// 첫 화면: 가방 전체 · 팩마다 · 아이템 마감일 · 함께 쓰는 사람 소식(함께 쓰는 가방만) 네 줄, 줄마다 지금 켜진 것 요약.
+// 세부 화면: 가방 · 팩은 "출발 전 알림" · "매주 반복 알림" 두 상자(시간도 상자마다), 마감은 전날 · 당일 + 마감일 있는 아이템 목록.
+// 가방 · 팩 · 마감 화면 아래 "이렇게 와요"는 지금 설정으로 실제 예약될 첫 알림(lib/v2/reminderPlan).
+// 내 계정에만 저장되고(다른 멤버에게는 영향 없음) 이 기기가 예약한다(AppShell → syncBagNotifications).
+// 시트를 닫을 때 한 번만 저장한다(소식 토글은 누를 때 바로). 알림 권한은 처음 켤 때 묻는다.
+type View = "home" | "bag" | "packs" | "due" | "push" | { pack: string };
+
 export function ReminderSheet({
   open,
   onClose,
   bag,
   initialPackId,
+  onFocusItem,
 }: {
   open: boolean;
   onClose: () => void;
   bag: Bag;
   initialPackId?: string | null;
+  // 마감일 목록에서 아이템을 누르면 시트를 닫고 그 아이템으로
+  onFocusItem?: (packId: string, itemId: string) => void;
 }) {
   const { user, profile, updateBagReminder, setBagPushMuted, setBagPushOff, isOfflineMode } = useAuth();
   const { show } = useToast();
   const saved = profile?.bagReminders?.[bag.id];
   const [draft, setDraft] = useState<BagReminder>(saved ?? {});
   const [draftFor, setDraftFor] = useState<string | null>(open ? `${bag.id}|${initialPackId ?? ""}` : null);
-  // null = 가방 알림, 값 = 그 팩 알림
-  const [view, setView] = useState<string | null>(open ? initialPackId ?? null : null);
+  const [view, setView] = useState<View>(open && initialPackId ? { pack: initialPackId } : "home");
   const [denied, setDenied] = useState(false);
   const [asked, setAsked] = useState(false);
 
@@ -55,13 +72,14 @@ export function ReminderSheet({
     setDraftFor(key);
     if (key) {
       setDraft(saved ?? {});
-      setView(initialPackId ?? null);
+      setView(initialPackId ? { pack: initialPackId } : "home");
       setAsked(false);
     }
   }
 
   const packs = bag.packs.filter((p) => p.type !== "folder");
-  const viewPack = view ? packs.find((p) => p.id === view) ?? null : null;
+  const viewPack = typeof view === "object" ? packs.find((p) => p.id === view.pack) ?? null : null;
+  const hasTravelDate = !!bag.travelDate;
 
   // 처음 켜는 순간(누름 안에서) 권한을 묻는다
   const askPermissionOnce = () => {
@@ -76,18 +94,21 @@ export function ReminderSheet({
   const setBagTimes = (t: ReminderTimes) => update({ ...draft, ...t });
   const setPackTimes = (packId: string, t: ReminderTimes) => update({ ...draft, packs: { ...(draft.packs ?? {}), [packId]: t } });
 
-  const close = () => {
+  const save = () => {
     const ids = packs.map((p) => p.id);
     const next = normalizeReminder(draft, ids);
     const before = saved ? normalizeReminder(saved, ids) : null;
     if (JSON.stringify(next) !== JSON.stringify(before) || (!next && saved)) {
       updateBagReminder(bag.id, next)
-        .then(() => show(next ? "알림을 맞춰 두었어요" : "D-Day · 반복 알림을 껐어요"))
+        .then(() => show(next ? "알림을 맞춰 두었어요" : "출발 전 · 반복 알림을 껐어요"))
         .catch((err) => {
           console.error("[팩인백] 알림 설정 저장 실패:", err);
           show("알림 설정을 저장하지 못했어요");
         });
     }
+  };
+  const close = () => {
+    save();
     onClose();
   };
 
@@ -119,130 +140,304 @@ export function ReminderSheet({
           : `${push.usable}개 중 ${push.onCount}개 받아요`;
 
   const due = itemDueSetting(draft);
-  const dueCount = packs.reduce((n, p) => n + p.items.filter((i) => i.type === "check" && i.dueDate && !i.checked).length, 0);
+  const dueItems = packs
+    .flatMap((p) => p.items.filter((i) => i.type === "check" && !i.checked && /^\d{4}-\d{2}-\d{2}$/.test(i.dueDate ?? "")).map((i) => ({ pack: p, item: i })))
+    .sort((a, b) => a.item.dueDate!.localeCompare(b.item.dueDate!));
   const toggleDue = (o: number) =>
     update({ ...draft, itemDue: { offsets: due.offsets.includes(o) ? due.offsets.filter((x) => x !== o) : [...due.offsets, o], time: due.time } });
 
-  const title = viewPack ? `${viewPack.name || "팩"} 알림` : "알림";
+  // "이렇게 와요": 이 화면 설정만 남겨 실제 계획 함수로 첫 알림을 뽑는다
+  const lock = nativeLockFilter(profile?.privateLock);
+  const preview = (only: BagReminder, pick: (p: { packId?: string; itemId?: string }) => boolean) =>
+    planBagNotifications(
+      [bag],
+      { [bag.id]: { itemDue: { offsets: [] }, ...only } },
+      new Date(),
+      { bagIds: lock.lockedBagIds, packKeys: lock.lockedPackKeys, libraryIds: lock.lockedLibraryIds },
+      user?.uid,
+    ).find(pick) ?? null;
+
+  const packOnNames = packs.filter((p) => timesSummary(draft.packs?.[p.id], hasTravelDate)).map((p) => p.name || "팩");
+  const back = (to: View, label: string) => (
+    <button
+      type="button"
+      onClick={() => setView(to)}
+      className="-mt-2 flex items-center gap-1 self-start bg-transparent text-caption font-semibold text-sub"
+    >
+      <IconChevronLeft size={16} stroke={2} aria-hidden="true" />
+      {label}
+    </button>
+  );
+
+  const title =
+    view === "home"
+      ? "알림"
+      : view === "bag"
+        ? "가방 전체 알림"
+        : view === "packs"
+          ? "팩마다 알림"
+          : view === "due"
+            ? "아이템 마감일 알림"
+            : view === "push"
+              ? "함께 쓰는 사람 소식"
+              : `${viewPack?.name || "팩"} 알림`;
 
   return (
     <Sheet open={open} onClose={close} title={title}>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         {denied && (
           <p className="m-0 rounded-card bg-fill px-4 py-3 text-caption text-sub">
             알림이 꺼져 있어요. {notificationSettingsPath()}에서 허용해 주세요.
           </p>
         )}
 
-        {viewPack ? (
+        {view === "home" && (
           <>
-            <button
-              type="button"
-              onClick={() => setView(null)}
-              className="-mt-2 flex items-center gap-1 self-start bg-transparent text-caption font-semibold text-sub"
-            >
-              <IconChevronLeft size={16} stroke={2} aria-hidden="true" />
-              가방 알림
-            </button>
+            <div className="flex flex-col rounded-card border border-line bg-card px-4">
+              <HomeRow
+                icon={<IconBriefcase size={20} stroke={1.75} />}
+                label="가방 전체"
+                value={timesSummary(draft, hasTravelDate) ?? "꺼짐"}
+                onClick={() => setView("bag")}
+              />
+              {packs.length > 0 && (
+                <HomeRow
+                  icon={<IconPackage size={20} stroke={1.75} />}
+                  label="팩마다"
+                  value={packOnNames.length > 0 ? `${packOnNames.length}개 켜짐 · ${packOnNames.join(", ")}` : "꺼짐"}
+                  onClick={() => setView("packs")}
+                />
+              )}
+              <HomeRow
+                icon={<IconCalendarDue size={20} stroke={1.75} />}
+                label="아이템 마감일"
+                value={itemDueSummary(draft) ? `${itemDueSummary(draft)} · ${dueItems.length}개` : "꺼짐"}
+                onClick={() => setView("due")}
+              />
+              {showPush && (
+                <HomeRow
+                  icon={<IconUsers size={20} stroke={1.75} />}
+                  label="함께 쓰는 사람 소식"
+                  value={push.master ? masterDescription : "꺼짐"}
+                  onClick={() => setView("push")}
+                />
+              )}
+            </div>
+            <p className="m-0 text-micro text-faint">
+              내 계정에만 저장돼요. 함께 쓰는 멤버의 알림은 바뀌지 않아요. 같은 계정으로 로그인한 휴대폰 · 태블릿 앱에서 받아요.
+            </p>
+          </>
+        )}
+
+        {view === "bag" && (
+          <>
+            {back("home", "알림")}
+            <p className="m-0 -mt-2 text-caption text-sub">가방에 남은 것 · 내가 맡은 것을 알려 드려요</p>
+            <TimesEditor value={draft} onChange={setBagTimes} travelDate={bag.travelDate} target="가방" />
+            <Preview notification={preview({ ...draftTimes(draft) }, (p) => !p.packId && !p.itemId)} empty="알림을 고르면 어떻게 오는지 보여 드려요" />
+          </>
+        )}
+
+        {view === "packs" && (
+          <>
+            {back("home", "알림")}
+            <p className="m-0 -mt-2 text-caption text-sub">팩마다 다른 때 알려 드려요. 누르면 그 팩으로 바로 가요</p>
+            <div className="flex flex-col rounded-card border border-line bg-card px-4">
+              {packs.map((p, i) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setView({ pack: p.id })}
+                  className={cx("flex min-h-13 w-full items-center gap-3 bg-transparent text-left text-body", i > 0 && "border-t border-line")}
+                >
+                  <span className="min-w-0 flex-1 truncate">{p.kind === "editor" ? `메모: ${p.name || "메모"}` : p.name || "팩"}</span>
+                  <span className="truncate text-caption text-sub">{timesSummary(draft.packs?.[p.id], hasTravelDate) ?? "꺼짐"}</span>
+                  <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+            <p className="m-0 text-micro text-faint">팩 길게 누르기 › 알림에서도 바로 열려요. 가방 전체 알림과 같은 시각이면 가방 알림에서는 그 팩을 빼요.</p>
+          </>
+        )}
+
+        {viewPack && (
+          <>
+            {back("packs", "팩마다")}
             <TimesEditor
               value={draft.packs?.[viewPack.id] ?? {}}
               onChange={(t) => setPackTimes(viewPack.id, t)}
-              hasTravelDate={!!bag.travelDate}
+              travelDate={bag.travelDate}
               target="팩"
             />
-            <p className="m-0 text-micro text-faint">
-              이 팩에 남은 것만 알려 드리고, 누르면 이 팩으로 바로 가요. 가방 알림과 같은 시각이면 가방 알림에서는 이 팩을 빼요.
-            </p>
+            <Preview
+              notification={preview({ packs: { [viewPack.id]: draft.packs?.[viewPack.id] ?? {} } }, (p) => p.packId === viewPack.id && !p.itemId)}
+              empty="알림을 고르면 어떻게 오는지 보여 드려요"
+            />
           </>
-        ) : (
+        )}
+
+        {view === "due" && (
           <>
-            {showPush && (
-              <section className="flex flex-col gap-2">
-                <SectionHeader>함께 쓰는 사람 소식</SectionHeader>
-                <div className="flex flex-col rounded-card border border-line bg-card px-4">
-                  <Toggle
-                    checked={push.master}
-                    onChange={toggleMaster}
-                    disabled={push.usable === 0}
-                    label="이 가방 소식 받기"
-                    description={masterDescription}
-                  />
-                  {push.master &&
-                    push.kinds.map((k) => (
-                      <Toggle
-                        key={k.kind}
-                        checked={k.on}
-                        onChange={(on) => toggleKind(k.kind, on)}
-                        disabled={k.locked}
-                        label={k.label}
-                        description={k.locked ? "설정 > 알림에서 꺼 두었어요" : k.description}
-                        className="border-t border-line pl-3"
-                      />
-                    ))}
-                </div>
-              </section>
-            )}
-
-            <TimesEditor value={draft} onChange={setBagTimes} hasTravelDate={!!bag.travelDate} target="가방" />
-
-            {packs.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <SectionHeader>팩마다 따로</SectionHeader>
-                <div className="flex flex-col rounded-card border border-line bg-card px-4">
-                  {packs.map((p, i) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setView(p.id)}
-                      className={cx(
-                        "flex min-h-13 w-full items-center gap-3 bg-transparent text-left text-body",
-                        i > 0 && "border-t border-line",
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{p.name || "팩"}</span>
-                      <span className="truncate text-caption text-sub">
-                        {timesSummary(draft.packs?.[p.id], !!bag.travelDate) ?? "꺼짐"}
-                      </span>
-                      <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="flex flex-col gap-3">
-              <SectionHeader>아이템 마감 알림</SectionHeader>
+            {back("home", "알림")}
+            <p className="m-0 -mt-2 text-caption text-sub">
+              아이템을 길게 눌러 마감일을 정하면 그 아이템을 알려 드려요. 다른 사람이 맡은 건 빼요
+            </p>
+            <Box icon={<IconCalendarDue size={20} stroke={1.75} />} title="언제">
               <div className="flex flex-wrap gap-2">
                 {ITEM_DUE_PRESETS.map((o) => (
-                  <Chip key={o} label={o === 0 ? "당일" : "전날"} selected={due.offsets.includes(o)} onClick={() => toggleDue(o)} />
+                  <Chip key={o} label={o === 0 ? "마감 당일" : "마감 전날"} selected={due.offsets.includes(o)} onClick={() => toggleDue(o)} />
                 ))}
               </div>
-              {due.offsets.length > 0 && (
+              {due.offsets.length > 0 ? (
                 <TimeRow
                   label="아이템 마감 알림 시간"
                   value={due.time}
                   onChange={(time) => setDraft({ ...draft, itemDue: { offsets: due.offsets, time } })}
                 />
+              ) : (
+                <p className="m-0 text-caption text-faint">꺼져 있어요 · 고르면 받을 시간이 나와요</p>
               )}
-              <p className="m-0 text-caption text-sub">
-                {dueCount > 0 ? `마감일이 있는 아이템 ${dueCount}개` : "아이템을 길게 눌러 마감일을 정할 수 있어요"}
-                {" · "}다른 사람이 맡은 아이템은 알리지 않아요
-              </p>
-            </section>
+            </Box>
+            <div className="flex flex-col gap-2">
+              <span className="text-caption font-semibold text-sub">
+                {dueItems.length > 0 ? `마감일이 있는 아이템 ${dueItems.length}개` : "마감일이 있는 아이템이 없어요"}
+              </span>
+              {dueItems.length > 0 && (
+                <div className="flex flex-col rounded-card border border-line bg-card px-4">
+                  {dueItems.map(({ pack, item }, i) => {
+                    const [, m, d] = item.dueDate!.split("-").map(Number);
+                    const row = (
+                      <>
+                        <span className="min-w-0 flex-1 truncate">{item.text || "아이템"}</span>
+                        <span className="shrink-0 text-caption text-sub">
+                          {m}/{d} · {pack.name || "팩"}
+                        </span>
+                        {onFocusItem && <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />}
+                      </>
+                    );
+                    const cls = cx("flex min-h-13 w-full items-center gap-3 bg-transparent text-left text-body", i > 0 && "border-t border-line");
+                    return onFocusItem ? (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={cls}
+                        onClick={() => {
+                          close();
+                          onFocusItem(pack.id, item.id);
+                        }}
+                      >
+                        {row}
+                      </button>
+                    ) : (
+                      <div key={item.id} className={cls}>
+                        {row}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <Preview
+              notification={due.offsets.length > 0 ? preview({ itemDue: due }, () => true) : null}
+              empty={due.offsets.length === 0 ? "꺼져 있어요" : "마감일을 정한 아이템이 생기면 보여 드려요"}
+            />
           </>
         )}
 
-        <p className="m-0 text-micro text-faint">
-          내 계정에만 저장돼요. 함께 쓰는 멤버의 알림은 바뀌지 않아요. 같은 계정으로 로그인한 휴대폰 · 태블릿 앱에서 받아요.
-        </p>
+        {view === "push" && (
+          <>
+            {back("home", "알림")}
+            <p className="m-0 -mt-2 text-caption text-sub">다른 사람이 이 가방에서 한 일을 알려 드려요</p>
+            <div className="flex flex-col rounded-card border border-line bg-card px-4">
+              <Toggle
+                checked={push.master}
+                onChange={toggleMaster}
+                disabled={push.usable === 0}
+                label="이 가방 소식 받기"
+                description={masterDescription}
+              />
+              {push.master &&
+                push.kinds.map((k) => (
+                  <Toggle
+                    key={k.kind}
+                    checked={k.on}
+                    onChange={(on) => toggleKind(k.kind, on)}
+                    disabled={k.locked}
+                    label={k.label}
+                    description={k.locked ? "설정 > 알림에서 꺼 두었어요" : k.description}
+                    className="border-t border-line pl-3"
+                  />
+                ))}
+            </div>
+          </>
+        )}
       </div>
     </Sheet>
   );
 }
 
+const draftTimes = (r: BagReminder): ReminderTimes => ({
+  ddayOffsets: r.ddayOffsets,
+  ddayTime: r.ddayTime,
+  repeatDays: r.repeatDays,
+  repeatTime: r.repeatTime,
+});
+
+function HomeRow({ icon, label, value, onClick }: { icon: React.ReactNode; label: string; value: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-15 w-full items-center gap-3 border-b border-line bg-transparent py-2 text-left last:border-b-0"
+    >
+      <span className="shrink-0 text-sub" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-body text-ink">{label}</span>
+        <span className="truncate text-caption text-sub">{value}</span>
+      </span>
+      <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
+    </button>
+  );
+}
+
+function Box({ icon, title, sub, children }: { icon: React.ReactNode; title: string; sub?: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-line bg-card p-4">
+      <div className="flex flex-col gap-1">
+        <span className="flex items-center gap-2 text-body font-semibold text-ink">
+          <span className="text-sub" aria-hidden="true">
+            {icon}
+          </span>
+          {title}
+        </span>
+        {sub && <span className="pl-7 text-micro text-faint">{sub}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Preview({ notification, empty }: { notification: { title: string; body: string } | null; empty: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-caption font-semibold text-sub">이렇게 와요</span>
+      {notification ? (
+        <div className="flex flex-col gap-1 rounded-card bg-brand-soft px-4 py-3 text-caption text-brand">
+          <span className="font-semibold">{notification.title}</span>
+          <span>{notification.body}</span>
+        </div>
+      ) : (
+        <p className="m-0 text-caption text-faint">{empty}</p>
+      )}
+    </div>
+  );
+}
+
 function TimeRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex min-h-13 items-center justify-between border-b border-line">
+    <div className="flex min-h-12 items-center justify-between border-t border-line pt-3">
       <span className="text-body">받을 시간</span>
       <input
         type="time"
@@ -255,16 +450,16 @@ function TimeRow({ label, value, onChange }: { label: string; value: string; onC
   );
 }
 
-// D-Day · 반복 칸(가방과 팩이 같이 쓴다)
+// 출발 전 알림 · 매주 반복 알림 두 상자(가방과 팩이 같이 쓴다). 받을 시간은 상자마다, 하나라도 골랐을 때만
 function TimesEditor({
   value,
   onChange,
-  hasTravelDate,
+  travelDate,
   target,
 }: {
   value: ReminderTimes;
   onChange: (next: ReminderTimes) => void;
-  hasTravelDate: boolean;
+  travelDate: string | undefined;
   target: "가방" | "팩";
 }) {
   const { show } = useToast();
@@ -293,12 +488,16 @@ function TimesEditor({
   const weekdaySet = new Set(days);
   const isWeekdays = weekdaySet.size === 5 && [1, 2, 3, 4, 5].every((d) => weekdaySet.has(d));
   const isEveryday = weekdaySet.size === 7;
+  const [, tm, td] = (travelDate ?? "").split("-").map(Number);
 
   return (
     <>
-      <section className="flex flex-col gap-3">
-        <SectionHeader>D-Day 알림</SectionHeader>
-        {hasTravelDate ? (
+      <Box
+        icon={<IconPlaneDeparture size={20} stroke={1.75} />}
+        title="출발 전 알림"
+        sub={travelDate && tm && td ? `${tm}월 ${td}일 출발 기준 · 한 번씩` : undefined}
+      >
+        {travelDate ? (
           <>
             <div className="flex flex-wrap gap-2">
               {DDAY_PRESETS.map((o) => (
@@ -311,7 +510,6 @@ function TimesEditor({
             </div>
             {customOpen && (
               <div className="flex items-center gap-2">
-                <span className="text-body">D-</span>
                 <input
                   type="number"
                   inputMode="numeric"
@@ -323,26 +521,24 @@ function TimesEditor({
                   onKeyDown={(e) => e.key === "Enter" && addCustom()}
                   className="h-10 w-20 rounded-field border border-line bg-card px-2 text-body outline-none"
                 />
+                <span className="text-body">일 전</span>
                 <Button size="sm" variant="secondary" leading={<IconPlus size={16} stroke={2} />} onClick={addCustom}>
                   추가
                 </Button>
               </div>
             )}
-            {offsets.length > 0 && (
-              <TimeRow
-                label={`${target} D-Day 알림 시간`}
-                value={value.ddayTime ?? DEFAULT_DDAY_TIME}
-                onChange={(ddayTime) => pick({ ddayTime })}
-              />
+            {offsets.length > 0 ? (
+              <TimeRow label={`${target} 출발 전 알림 시간`} value={value.ddayTime ?? DEFAULT_DDAY_TIME} onChange={(ddayTime) => pick({ ddayTime })} />
+            ) : (
+              <p className="m-0 text-caption text-faint">고르면 받을 시간이 나와요</p>
             )}
           </>
         ) : (
-          <p className="m-0 text-caption text-sub">가방 정보에서 D-Day를 정하면 알림을 받을 수 있어요.</p>
+          <p className="m-0 text-caption text-faint">출발일이 없어요 · 가방 정보에서 출발일을 정하면 쓸 수 있어요</p>
         )}
-      </section>
+      </Box>
 
-      <section className="flex flex-col gap-3">
-        <SectionHeader>반복 알림</SectionHeader>
+      <Box icon={<IconRepeat size={20} stroke={1.75} />} title="매주 반복 알림" sub="출발일과 상관없이 매주">
         {/* 요일 7개는 폰 폭에서도 한 줄에 들어가게 칸을 나눠 채운다(칩 기본 여백으로는 일요일이 다음 줄로 넘어감) */}
         <div className="grid grid-cols-7 gap-1">
           {WEEKDAYS.map((w) => {
@@ -367,14 +563,12 @@ function TimesEditor({
           <Chip label="평일" selected={isWeekdays} onClick={() => pick({ repeatDays: isWeekdays ? [] : [1, 2, 3, 4, 5] })} />
           <Chip label="매일" selected={isEveryday} onClick={() => pick({ repeatDays: isEveryday ? [] : [0, 1, 2, 3, 4, 5, 6] })} />
         </div>
-        {days.length > 0 && (
-          <TimeRow
-            label={`${target} 반복 알림 시간`}
-            value={value.repeatTime ?? DEFAULT_REPEAT_TIME}
-            onChange={(repeatTime) => pick({ repeatTime })}
-          />
+        {days.length > 0 ? (
+          <TimeRow label={`${target} 반복 알림 시간`} value={value.repeatTime ?? DEFAULT_REPEAT_TIME} onChange={(repeatTime) => pick({ repeatTime })} />
+        ) : (
+          <p className="m-0 text-caption text-faint">요일을 고르면 받을 시간이 나와요</p>
         )}
-      </section>
+      </Box>
     </>
   );
 }

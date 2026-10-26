@@ -444,14 +444,19 @@ export default function BagScreenV2(props: BagScreenProps) {
 
   // --- 검색 결과로 들어왔을 때 해당 팩/아이템으로 이동 -------------------------------
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
+  // 가방 안에서 생긴 이동 요청(알림 시트 > 마감일 목록, 2026-10-26). 바깥 요청(focusTarget)과 같은 길
+  const [innerFocus, setInnerFocus] = useState<{ packId?: string; itemId?: string } | null>(null);
+  const activeFocus = focusTarget ?? innerFocus;
+  const focusDone = () => (focusTarget ? onFocusHandled?.() : setInnerFocus(null));
   useEffect(() => {
-    if (!focusTarget) return;
-    const { packId, itemId, searchQuery } = focusTarget;
+    if (!activeFocus) return;
+    const { packId, itemId } = activeFocus;
+    const searchQuery = focusTarget?.searchQuery;
     const target = packId ? bag.packs.find((p) => p.id === packId) : undefined;
     if (target?.kind === "editor") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 외부(검색)에서 넘어온 이동 요청 처리
       openNoteChecked(target, searchQuery);
-      onFocusHandled?.();
+      focusDone();
       return;
     }
     if (packId) setOpenOverride((o) => ({ ...o, [packId]: true }));
@@ -462,11 +467,11 @@ export default function BagScreenV2(props: BagScreenProps) {
         setHighlightItemId(itemId);
         window.setTimeout(() => setHighlightItemId(null), 1800);
       }
-      onFocusHandled?.();
+      focusDone();
     }, 320);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusTarget]);
+  }, [focusTarget, innerFocus]);
 
   // --- 메타 줄 -----------------------------------------------------------------------
   const travelShort = formatShortDate(bag.travelDate);
@@ -952,7 +957,13 @@ export default function BagScreenV2(props: BagScreenProps) {
         }
       />
       {notificationsAvailable && (
-        <ReminderSheet open={!!packReminderId} onClose={() => setPackReminderId(null)} bag={bag} initialPackId={packReminderId} />
+        <ReminderSheet
+          open={!!packReminderId}
+          onClose={() => setPackReminderId(null)}
+          bag={bag}
+          initialPackId={packReminderId}
+          onFocusItem={(packId, itemId) => window.setTimeout(() => setInnerFocus({ packId, itemId }), 300)}
+        />
       )}
       <LibrarySheet
         pack={libraryTarget}
@@ -1005,6 +1016,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         onSetTravelDate={(travelDate) => !doc.guard() && doc.update((prev) => ({ ...prev, travelDate }))}
         onSetNotice={(notice) => !doc.guard() && doc.update((prev) => ({ ...prev, notice: notice || undefined }))}
         onAddChecklist={() => packOps.addPack("checklist")}
+        onFocusItem={(packId, itemId) => window.setTimeout(() => setInnerFocus({ packId, itemId }), 300)}
         onAddMemo={() => {
           const id = packOps.addPack("editor");
           if (id) openNote(id);
