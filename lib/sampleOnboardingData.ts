@@ -6,11 +6,12 @@
 // [무료 회원 제한 기준 준수]
 // - 가방(Bag): FREE_MAX_ACTIVE_BAGS(3) 중 2개 생성 (1개 여유 슬롯)
 //   - 가방 1: "도쿄 3박 4일 자유여행" (팩 4개: 체크리스트 3개 + 실시간 동기화 메모팩 1개)
-//   - 가방 2: "주말 글램핑 & 캠핑 1박 2일" (팩 3개: 체크리스트 2개 + 가방 전용 메모팩 1개)
+//   - 가방 2: "어린이집 등원 가방 (개나리반)" (팩 4개: 체크리스트 3개 + 가방 전용 메모팩 1개, 10/27 글램핑에서 바꿈 —
+//     가방이 여행 전용이 아님을 보여 주려고. 마감일 아이템 · 글 아이템 · 메모 표 · 할 일 목록 예시)
 // - 팩 보관함(Library Packs): FREE_MAX_LIBRARY_PACKS(10) 중 5개 생성 (5개 여유 슬롯)
 //   - 폴더 1개: "✈️ 여행 기본 세트" (folder)
 //   - 내부 팩 2개: "전자기기 & 충전", "의류 & 위생용품" (폴더 안)
-//   - 루트 팩 1개: "바베큐 & 먹거리"
+//   - 루트 팩 1개: "어린이집 매일 준비물" (가방 2와 연동)
 //   - 루트 메모팩 1개: "여행 일정 & 맛집 메모" (가방 1과 실시간 동기화 연동)
 
 import type { User } from "firebase/auth";
@@ -24,11 +25,42 @@ function checkItem(text: string, checked = false): Item {
   return { id: uid(), type: "check", text, checked };
 }
 
+// 이 기기 날짜 기준 YYYY-MM-DD(toISOString은 UTC라 한국 아침 9시 전엔 하루 밀렸다)
 function isoDaysFromNow(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+function textItem(text: string, bold = false): Item {
+  return { id: uid(), type: "text", text, ...(bold ? { bold: true } : {}) };
+}
+
+// 마감일이 있는 체크 아이템(BAG-ISHEET-12). days = 오늘부터 며칠 뒤
+function dueItem(text: string, days: number, checked = false): Item {
+  return { ...checkItem(text, checked), dueDate: isoDaysFromNow(days) };
+}
+
+// 메모 샘플용 TipTap 블록 도우미
+const memoText = (text: string, bold = false) => (bold ? { type: "text", marks: [{ type: "bold" }], text } : { type: "text", text });
+const memoPara = (text: string, bold = false) => ({ type: "paragraph", content: [memoText(text, bold)] });
+const memoHeading = (level: number, text: string) => ({ type: "heading", attrs: { level }, content: [memoText(text)] });
+const memoBullets = (texts: string[]) => ({
+  type: "bulletList",
+  content: texts.map((t) => ({ type: "listItem", content: [memoPara(t)] })),
+});
+const memoTasks = (tasks: [string, boolean][]) => ({
+  type: "taskList",
+  content: tasks.map(([t, checked]) => ({ type: "taskItem", attrs: { checked }, content: [memoPara(t)] })),
+});
+// 첫 줄은 머리글
+const memoTable = (rows: string[][]) => ({
+  type: "table",
+  content: rows.map((cells, r) => ({
+    type: "tableRow",
+    content: cells.map((c) => ({ type: r === 0 ? "tableHeader" : "tableCell", content: [memoPara(c, r === 0)] })),
+  })),
+});
 
 // 샘플 가방 · 팩을 만들기만 한다(저장 없음). 새 가입자(seedSampleDataForNewUser)와 체험 모드(lib/demoSeed.ts)가 같이 쓴다(2026-10-18)
 export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags: Bag[] } {
@@ -84,20 +116,22 @@ export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags:
     ],
   };
 
-  // 1-4. 루트 팩: "바베큐 & 먹거리"
-  const libraryFoodPack: Pack = {
+  // 1-4. 루트 팩: "어린이집 매일 준비물" (가방 2와 연동)
+  const libraryDaycarePack: Pack = {
     id: uid(),
-    name: "바베큐 & 먹거리",
+    name: "어린이집 매일 준비물",
     type: "pack",
     createdAt: now,
     updatedAt: now,
     items: [
-      checkItem("삼겹살 / 목살 / 수제 소시지"),
-      checkItem("모둠 쌈채소, 마늘, 청양고추, 쌈장, 김치"),
-      checkItem("봉지라면, 햇반, 구이용 마시멜로우", true),
-      checkItem("생수 2L, 탄산음료, 캔맥주, 각얼음"),
-      checkItem("종이컵, 나무젓가락, 일회용 접시, 도톰한 물티슈", true),
-      checkItem("허브솔트 / 참기름 / 호일"),
+      checkItem("기저귀 5장 (이름 쓴 지퍼백에)", true),
+      checkItem("물티슈 1팩 (뚜껑형, 월요일에 새로)", true),
+      checkItem("여벌 옷 한 벌: 상의 · 하의 · 내복 · 양말"),
+      checkItem("빨대컵 물통 (씻어서 말린 것, 이름표 확인)", true),
+      checkItem("수저통: 숟가락 · 포크 · 젓가락"),
+      checkItem("가제 손수건 2장"),
+      checkItem("알림장 확인 · 키즈노트 투약의뢰서"),
+      checkItem("실내화 (금요일에 가져와서 세탁)"),
     ],
   };
 
@@ -506,8 +540,8 @@ export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags:
         id: uid(),
         name: "여권 & 필수 서류",
         items: [
-          checkItem("👉 오른쪽으로 밀어보면 수정할 수 있어요"),
-          checkItem("👈 왼쪽으로 밀면 삭제할 수 있어요"),
+          checkItem("👉 누르면 체크, 길게 누르면(PC는 오른쪽 클릭) 이름 · 마감일 · 다른 팩으로 옮기기"),
+          checkItem("👆 팩 이름을 길게 누르면 모두 체크 · 보관함에 저장 · 삭제"),
           checkItem("여권 원본 (유효기간 6개월 이상 확인)", true),
           checkItem("항공권 e-티켓 출력본 / 모바일 캡처", true),
           checkItem("해외여행자 보험 가입 증권"),
@@ -555,206 +589,110 @@ export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags:
   };
 
   // -------------------------------------------------------------------------
-  // 3) 가방 2: "주말 글램핑 & 캠핑 1박 2일" (팩 3개)
+  // 3) 가방 2: "어린이집 등원 가방 (개나리반)" (팩 4개)
+  // 가방이 여행 전용이 아니라는 걸 보여 주는 생활 가방(2026-10-27, 예전 "주말 글램핑"을 바꿈).
+  // 매일 챙길 것(보관함 연동) · D-Day 행사(마감일 아이템 · 글 아이템) · 요일별 · 메모(표 · 할 일 목록)를 고루 담는다
   // -------------------------------------------------------------------------
-  const campingMemoDocContent = {
+  const daycareMemoDocContent = {
     type: "doc",
     content: [
-      {
-        type: "heading",
-        attrs: { level: 2 },
-        content: [{ type: "text", text: "🏕️ 가평 달빛 글램핑장 이용 안내 & 체크리스트" }],
-      },
-      {
-        type: "paragraph",
-        content: [
-          { type: "text", marks: [{ type: "bold" }], text: "⏰ 입·퇴실 및 시설 규칙" },
-        ],
-      },
-      {
-        type: "bulletList",
-        content: [
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "입실(체크인): 15:00 / 퇴실(체크아웃): 익일 11:00" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "매너타임: 밤 22:00부터 (음악 OFF, 고성방가 금지)" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "숯불 바베큐 세트: 18:00 시작 요청 완료 (그릴/숯/토치/장갑 제공)" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "불멍 장작 세트: 현장 결제 15,000원 (오로라 가루 서비스)" },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        type: "heading",
-        attrs: { level: 3 },
-        content: [{ type: "text", text: "🛒 인근 마트 & 편의시설" }],
-      },
-      {
-        type: "bulletList",
-        content: [
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "하나로마트 가평농협 자라섬점: 차량 10분 거리 (영업시간: 08:30~20:00)" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "CU 가평달빛점: 도보 3분 거리 (24시간 영업, 장작/얼음 구비)" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "글램핑장 관리실 비상 연락처: 010-8765-4321" },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        type: "heading",
-        attrs: { level: 3 },
-        content: [{ type: "text", text: "🔥 맛있는 바베큐 굽기 순서 팁" }],
-      },
-      {
-        type: "bulletList",
-        content: [
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "1. 숯불이 하얗게 달아오르면 먼저 목살/소고기부터 올리기" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "2. 삼겹살은 기름이 떨어져 불쇼가 날 수 있으니 가장자리나 호일 위에서 굽기" },
-                ],
-              },
-            ],
-          },
-          {
-            type: "listItem",
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  { type: "text", text: "3. 마무리로 남은 불씨에 호일 감싼 고구마 & 마시멜로우 굽기 🍠" },
-                ],
-              },
-            ],
-          },
-        ],
-      },
+      memoHeading(2, "🧸 햇살어린이집 개나리반 (만 2세)"),
+      memoPara("📞 연락처 · 시간", true),
+      memoBullets([
+        "담임 김하늘 선생님 · 키즈노트 메시지가 가장 빨라요",
+        "원 사무실 02-1234-5678 (평일 08:00~19:30)",
+        "등원 08:30~09:00 · 하원 16:00 (연장반은 19:30까지)",
+        "결석 · 지각은 08:30 전에 키즈노트로 알리기",
+      ]),
+      memoHeading(3, "💊 투약 · 건강"),
+      memoBullets([
+        "약은 투약의뢰서를 쓰고, 약병에 이름 · 용량 · 먹일 시간 적기",
+        "37.5도가 넘으면 등원이 어려워요 (해열제 없이 24시간 열이 없으면 등원)",
+        "복숭아 알레르기 — 원에 알림 완료, 매달 간식표에서 한 번 더 확인",
+      ]),
+      memoHeading(3, "🗓️ 이번 달 일정"),
+      memoTable([
+        ["언제", "일정", "준비"],
+        ["D-Day", "고구마 캐기 현장학습", "체육복 · 운동화 · 도시락"],
+        ["둘째 주 금요일", "이달 생일 파티", "간식은 원에서 준비"],
+        ["셋째 주", "부모 상담 주간", "키즈노트로 상담 시간 신청"],
+        ["매주 수요일", "영어 · 체육 특활", "특활 가방 · 실내 운동화"],
+      ]),
+      memoHeading(3, "✅ 선생님께 전달할 것"),
+      memoTasks([
+        ["요즘 낮잠을 늦게 자요 — 원에서 몇 시에 자는지 여쭤보기", false],
+        ["원에 여벌 바지 1벌 더 두기", true],
+        ["현장학습 날 하원을 15:00로 앞당겨도 되는지", false],
+      ]),
+      memoPara("💡 모든 물건에 이름 스티커! 같은 물통 · 실내화가 반에 여러 개예요."),
     ],
   };
 
-  const campingMemoPreviewText = [
-    "🏕️ 가평 달빛 글램핑장 이용 안내 & 체크리스트",
-    "• 체크인: 15:00 / 체크아웃: 11:00 (매너타임 22:00)",
-    "• 숯불 바베큐 18:00 예약 완료, 불멍 장작 현장 결제",
-    "• 하나로마트 가평농협점(차량 10분, 20시 마감)에서 장보기",
-    "🔥 팁: 삼겹살은 호일 위에서 굽기, 고구마/마시멜로우 챙기기",
+  const daycareMemoPreviewText = [
+    "🧸 햇살어린이집 개나리반 (만 2세)",
+    "• 담임 김하늘 선생님 · 키즈노트 · 원 사무실 02-1234-5678",
+    "• 등원 08:30~09:00 · 하원 16:00 · 결석은 08:30 전에 알리기",
+    "• 투약의뢰서 + 약병에 이름 · 용량 · 시간 / 복숭아 알레르기",
+    "🗓️ D-Day 고구마 캐기 현장학습 · 셋째 주 부모 상담",
   ].join("\n");
 
-  const campingBag: Bag = {
+  const daycareBag: Bag = {
     id: uid(),
-    name: "주말 글램핑 & 캠핑 1박 2일",
+    name: "어린이집 등원 가방 (개나리반)",
     images: [],
-    notice: "입실 15:00 / 퇴실 11:00 (매너타임 22:00부터) - 숯불 바베큐 세트 18시 예약 완료!",
-    travelDate: isoDaysFromNow(7),
+    notice: "매일 08:50까지 등원 · D-Day는 고구마 캐기 현장학습 날이에요 (체육복 · 운동화)",
+    travelDate: isoDaysFromNow(3),
     reminderOffsets: [1, 0],
     packs: [
-      // 팩 1: 캠핑 & 취침 장비
+      // 팩 1: 어린이집 매일 준비물 (팩 보관함 연동)
       {
         id: uid(),
-        name: "캠핑 & 취침 장비",
+        name: libraryDaycarePack.name,
+        items: libraryDaycarePack.items.map((it) => ({ ...it, id: uid() })),
+        savedAsLibraryPack: true,
+        linkedLibraryPackId: libraryDaycarePack.id,
+        linkedLibraryUpdatedAt: libraryDaycarePack.updatedAt,
+      },
+      // 팩 2: D-Day 행사 — 마감일 아이템 · 글 아이템 예시
+      {
+        id: uid(),
+        name: "현장학습 · 고구마 캐기 (D-Day)",
         items: [
-          checkItem("사계절 침낭 / 담요 / 개인 베개", true),
-          checkItem("충전식 LED 캠핑 랜턴 & 감성 조명", true),
-          checkItem("방한 겉옷 / 핫팩 / 모기 기피제"),
-          checkItem("블루투스 스피커 & 보드게임 (루미큐브)"),
-          checkItem("휴대용 무선 미니 선풍기", true),
-          checkItem("멀티탭 3구 (글램핑 텐트 내부용)"),
+          textItem("📌 원 안내: 도시락은 한입 크기로, 간식은 한 가지만 보내 주세요", true),
+          dueItem("현장학습 참가 동의서 서명해서 보내기", 1),
+          dueItem("참가비 5,000원 — 봉투에 이름 써서 보내기", 2),
+          checkItem("도시락: 한입 유부초밥 · 방울토마토 · 사과 (보냉 가방에)"),
+          checkItem("간식 한 가지: 떡뻥 1봉"),
+          checkItem("이름표 붙인 물통 (보리차 가득)"),
+          checkItem("모자 · 선크림 (등원 전에 발라 주기)", true),
+          checkItem("체육복 · 운동화 입혀 보내기"),
+          checkItem("고구마 담아 올 비닐봉지 2장 · 어린이 장갑"),
+          checkItem("흙 묻을 때 갈아 신을 양말 · 물티슈"),
         ],
       },
-      // 팩 2: 바베큐 & 먹거리 (팩 보관함 연동)
+      // 팩 3: 요일별 챙길 것 — 글 아이템을 소제목처럼
       {
         id: uid(),
-        name: libraryFoodPack.name,
-        items: libraryFoodPack.items.map((it) => ({ ...it, id: uid() })),
-        savedAsLibraryPack: true,
-        linkedLibraryPackId: libraryFoodPack.id,
-        linkedLibraryUpdatedAt: libraryFoodPack.updatedAt,
+        name: "요일별 챙길 것",
+        items: [
+          textItem("월요일 — 가져가기", true),
+          checkItem("세탁한 낮잠 이불 · 베개 커버"),
+          checkItem("새 칫솔 · 치약 (매달 첫 월요일)"),
+          textItem("수요일 — 영어 · 체육 특활", true),
+          checkItem("특활 가방 · 실내 운동화"),
+          textItem("금요일 — 가져오기", true),
+          checkItem("낮잠 이불 · 실내화 가져와서 세탁", true),
+          checkItem("남은 기저귀 · 물티슈 개수 확인", true),
+        ],
       },
-      // 팩 3: 캠핑장 이용 안내 & 체크인 (가방 전용 메모팩)
+      // 팩 4: 선생님 전달 사항 & 연락처 (가방 전용 메모팩 — 표 · 할 일 목록)
       {
         id: uid(),
-        name: "캠핑장 이용 안내 & 체크인",
+        name: "선생님 전달 사항 & 연락처",
         kind: "editor",
         items: [],
-        editorDoc: campingMemoDocContent,
-        editorPreviewText: campingMemoPreviewText,
+        editorDoc: daycareMemoDocContent,
+        editorPreviewText: daycareMemoPreviewText,
       },
     ],
     memberIds: [ownerUid],
@@ -765,8 +703,8 @@ export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags:
   };
 
   return {
-    libraryPacks: [folderTravel, libraryElecPack, libraryClothesPack, libraryFoodPack, libraryMemoPack],
-    bags: [travelBag, campingBag],
+    libraryPacks: [folderTravel, libraryElecPack, libraryClothesPack, libraryDaycarePack, libraryMemoPack],
+    bags: [travelBag, daycareBag],
   };
 }
 
