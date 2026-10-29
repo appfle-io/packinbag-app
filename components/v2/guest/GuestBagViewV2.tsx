@@ -9,20 +9,12 @@ import { openViaBridge } from "@/lib/v2/appBridge";
 import { Badge, CheckMark, ProgressBar, cx } from "@/components/v2/ui";
 import { GuestShell } from "./GuestShell";
 import { GuestMemoBlock } from "./GuestMemoBlock";
+import { ddayText } from "@/lib/v2/widgetStyles";
 
 // 가방 보기 링크(/v/{토큰}) v2(2026-10-15, share.md 확인 필요 9). 예전 GuestBagClientView를 대신한다.
 // - 서버(app/v/[token])가 보이는 필드만 넘긴다(초대코드 · 멤버 · 그룹장 · 가방 사진 없음)
 // - 체크는 이 브라우저에만(guest_check_{bagId}), 가방에는 쓰지 않는다
 // - 주소에 ?code= / ?join=이 있으면 "참여하기", 없으면 "앱에서 열기"
-function ddayText(travelDate?: string): string {
-  if (!travelDate) return "";
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(travelDate);
-  target.setHours(0, 0, 0, 0);
-  const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
-  return diff === 0 ? "D-Day" : diff > 0 ? `D-${diff}` : `D+${-diff}`;
-}
 
 export function GuestBagViewV2({ bag }: { bag: Bag }) {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -71,7 +63,8 @@ export function GuestBagViewV2({ bag }: { bag: Bag }) {
 
   const checkItems = packs.filter((p) => p.kind !== "editor").flatMap((p) => (p.items ?? []).filter((i) => i.type !== "text"));
   const done = checkItems.filter((i) => checks[i.id]).length;
-  const dday = ddayText(bag.travelDate);
+  // 위젯과 같은 문구 · 기기 날짜 기준(예전엔 날짜를 UTC로 읽어 하루 어긋날 수 있었음), 당일을 1일로 세기도 따른다(2026-10-29)
+  const dday = ddayText(bag.travelDate, new Date(), !!bag.ddayCountTodayAsDayOne) ?? "";
   const entryUrl = inviteCode ? `/?invite=${encodeURIComponent(inviteCode)}` : `/?openBag=${bag.id}`;
 
   return (

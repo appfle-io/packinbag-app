@@ -1,4 +1,4 @@
-// 첨부로 올리면 안 되는 파일(2026-10-22, docs/packinbag_security_review.md SEC-WEB-05).
+// 첨부로 올리면 안 되는 파일(2026-10-22, _secrets/docs/packinbag_security_review.md SEC-WEB-05).
 // HTML · SVG · XML은 내려받기 주소를 열면 브라우저가 웹 페이지로 그려 스크립트가 돈다 → 피싱 페이지를 올려 두는 데 쓰일 수 있다.
 // storage.rules `isBlockedType`과 같은 기준. 형식(type)이 비어도 확장자로 거른다
 const BLOCKED_TYPE = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml)\b/i;

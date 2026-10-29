@@ -1,6 +1,6 @@
 "use client";
 
-// 설정 > 알림 > 함께 쓰는 가방 알림(2026-10-19). 종류별 토글 3개를 하위 화면 하나로 모았다(docs/spec/settings.md SET-PUSH-03 · 08).
+// 설정 > 알림 > 함께 쓰는 가방 알림(2026-10-19). 종류별 토글 3개를 하위 화면 하나로 모았다(_secrets/docs/spec/settings.md SET-PUSH-03 · 08).
 // 저장은 부르는 쪽(SettingsScreenV2 togglePush → AuthProvider.updatePushPref)
 import type { UserProfile } from "@/lib/types";
 import { PUSH_KINDS, type PushKind } from "@/lib/v2/serverPush";

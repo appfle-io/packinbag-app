@@ -2,49 +2,10 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
-/* 예전 토큰 이름(bg-surface · text-text-secondary · var(--accent) 등)은 이제 v2 토큰의 별칭이다(2026-10-17).
-   예전에는 여기에 파랑 계열 값이 있고 body의 .pib-v2-legacy가 v2 값으로 덮어썼다 → 그 클래스를 없애고 값을 여기로 옮김.
-   다크는 --v2-* 자체가 바뀌므로 따로 쓰지 않는다. 새 코드는 v2 이름(bg-card · text-sub · var(--v2-brand))을 쓴다 */
-:root {
-  --background: var(--v2-canvas);
-  --foreground: var(--v2-ink);
-  --surface: var(--v2-card);
-  --surface-2: var(--v2-fill);
-  --text-secondary: var(--v2-sub);
-  --text-muted: var(--v2-faint);
-  --border: var(--v2-line);
-  --border-strong: var(--v2-line-strong);
-  --accent: var(--v2-brand);
-  --accent-strong: var(--v2-brand);
-  --accent-soft: var(--v2-brand-soft);
-  --danger: var(--v2-alert);
-  --danger-soft: var(--v2-fill);
-  --bag-card-bg: var(--v2-card);
-  --bag-card-bg-pct: 100%;
-  --pack-card-bg: var(--v2-card);
-  --pack-card-bg-pct: 100%;
-  --pack-library-card-bg: var(--v2-card);
-  --pack-library-card-bg-pct: 100%;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted: var(--text-muted);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-soft: var(--accent-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-}
-
+/* 예전 토큰 이름(bg-surface · text-text-secondary · var(--accent) 등)은 2026-10-29에 v2 이름으로 모두 바꾸고 별칭을 지웠다.
+   새 코드는 v2 이름(bg-card · text-sub · var(--v2-brand))만 쓴다 */
 * {
-  border-color: var(--border);
+  border-color: var(--v2-line);
 }
 
 /* 네이티브 iOS(Capacitor WKWebView)에서 capacitor.config.ts의 contentInset을 "never"로
@@ -128,12 +89,12 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: var(--v2-line-strong);
   border-radius: 999px;
   transition: background 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--v2-faint);
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -141,11 +102,11 @@ body {
   height: 5px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: var(--v2-line-strong);
   border-radius: 999px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--v2-faint);
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -241,7 +202,7 @@ aside {
   width: 100%;
   height: 4px;
   border-radius: 999px;
-  background: var(--border-strong);
+  background: var(--v2-line-strong);
   outline: none;
   margin: 0;
 }
@@ -251,8 +212,8 @@ aside {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--surface);
+  background: var(--v2-brand);
+  border: 2px solid var(--v2-card);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   cursor: pointer;
 }
@@ -260,15 +221,15 @@ aside {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--surface);
+  background: var(--v2-brand);
+  border: 2px solid var(--v2-card);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
   cursor: pointer;
 }
 .pib-slider::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: var(--border-strong);
+  background: var(--v2-line-strong);
 }
 
 /* 글자 크기 설정 (설정 > 글자크기: 작게/보통/크게)
@@ -331,7 +292,7 @@ aside {
     box-shadow: inset 0 0 0 0 transparent;
   }
   10%, 30%, 50% {
-    box-shadow: inset 0 0 0 3px var(--accent);
+    box-shadow: inset 0 0 0 3px var(--v2-brand);
   }
 }
 .pib-search-highlight {
@@ -344,8 +305,8 @@ aside {
     background-color: transparent;
   }
   15%, 45%, 75% {
-    background-color: var(--accent-soft);
-    box-shadow: 0 0 0 4px var(--accent-soft);
+    background-color: var(--v2-brand-soft);
+    box-shadow: 0 0 0 4px var(--v2-brand-soft);
   }
 }
 .pib-text-search-highlight {
@@ -384,7 +345,7 @@ aside {
   min-width: 0;
 }
 .pib-note-editor ul[data-type="taskList"] li[data-checked="true"] > div {
-  color: var(--text-muted);
+  color: var(--v2-faint);
   text-decoration: line-through;
 }
 /* 일반 글머리기호("- " 입력) / 번호매기기("1. " 입력) 목록. Tailwind preflight가 모든
@@ -426,7 +387,7 @@ aside {
   -webkit-overflow-scrolling: touch;
 }
 .pib-note-editor td, .pib-note-editor th {
-  border: 1px solid var(--border);
+  border: 1px solid var(--v2-line);
   padding: 6px 8px;
   font-size: 13px;
   vertical-align: top;
@@ -462,7 +423,7 @@ aside {
    드래그 대신 칸을 탭했을 때 뜨는 +/- 스테퍼로 너비를 바꾸는 방식도 고려해볼 만하다.) */
 .pib-note-editor .column-resize-handle {
   cursor: col-resize;
-  background-color: var(--accent);
+  background-color: var(--v2-brand);
   width: 3px;
   z-index: 20;
 }
@@ -471,17 +432,17 @@ aside {
     width: 16px;
     margin-left: -7px;
     background-color: transparent;
-    border-left: 3px solid var(--accent);
+    border-left: 3px solid var(--v2-brand);
     opacity: 0.55;
   }
 }
 .pib-note-editor th {
-  background: var(--surface-2);
+  background: var(--v2-fill);
   font-weight: 600;
   text-align: left;
 }
 .pib-note-editor a {
-  color: var(--accent);
+  color: var(--v2-brand);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -702,7 +663,7 @@ aside {
 }
 .pib-note-editor p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: var(--text-muted);
+  color: var(--v2-faint);
   float: left;
   height: 0;
   pointer-events: none;
@@ -725,7 +686,7 @@ aside {
   justify-content: center;
   font-size: 10px;
   line-height: 1;
-  color: var(--text-secondary);
+  color: var(--v2-sub);
   transform: rotate(0deg);
   transition: transform 120ms ease;
   margin-top: 2px;
@@ -747,7 +708,7 @@ aside {
 }
 .pib-toggle-inner [data-type="toggle-content"] {
   padding-left: 2px;
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--v2-line);
   margin-left: 2px;
 }
 .pib-toggle[data-open="false"] .pib-toggle-inner [data-type="toggle-content"] {
@@ -767,7 +728,7 @@ aside {
 }
 .pib-item-rich-text p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
-  color: var(--text-muted);
+  color: var(--v2-faint);
   float: left;
   height: 0;
   pointer-events: none;
@@ -1003,6 +964,10 @@ aside {
 .pib-v2 .pib-v2-no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+/* iOS 길게 눌러 사진 저장 메뉴 막기(보기만 되는 사진, 2026-10-29) */
+.pib-v2 .pib-v2-no-callout {
+  -webkit-touch-callout: none;
+}
 /* 투명도 줄이기를 켠 사용자는 탭바를 불투명하게 */
 @media (prefers-reduced-transparency: reduce) {
   .dock-glass {
@@ -1101,4 +1066,4 @@ aside {
   --color-emerald-400: var(--v2-brand);
   --color-emerald-800: var(--v2-line);
   --color-emerald-950: var(--v2-brand-soft);
-}
+}

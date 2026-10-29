@@ -19,7 +19,7 @@ import {
   withLockToggled,
 } from "@/lib/v2/privateLock";
 
-// docs/spec/settings.md SET-LOCK · SET-PIN · SET-LIM · SET-LOCKSCR: 개인 잠금(나만 잠김, 화면 가림)
+// _secrets/docs/spec/settings.md SET-LOCK · SET-PIN · SET-LIM · SET-LOCKSCR: 개인 잠금(나만 잠김, 화면 가림)
 
 const lockWith = (extra: Partial<PrivateLock> = {}) =>
   ({ v: 1, pinHash: "hash", salt: "salt", iterations: 1, length: 6, bags: [], packs: [], library: [], ...extra }) as PrivateLock;

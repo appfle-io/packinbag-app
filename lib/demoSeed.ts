@@ -12,7 +12,7 @@ import {
 
 const DEMO_SEEDED_KEY = "pib_demo_seeded";
 
-export const DEMO_NICKNAME = "체험 중";
+const DEMO_NICKNAME = "체험 중";
 
 export function seedDemoDataOnce() {
   if (typeof window === "undefined") return;

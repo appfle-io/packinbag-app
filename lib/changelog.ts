@@ -6,7 +6,7 @@
 // - 스토어에 새 빌드를 냄: Xcode 버전을 1.7로, 웹도 같이 1.7.0으로
 // 1.0.x는 그 전 번호(웹 따로 셈)라 기록 그대로 둔다. 1.0.34 다음이 1.6.1이다.
 // 사용자에게 보이는 문구(설정 > 버전 정보)라 최대한 간단히: 버전마다 눈에 띄는 것 몇 줄만, 자세한 설명 · 작은 수정은 빼고 "안정성을 높였어요"로 묶는다(2026-10-16).
-// 자세한 변경 이력은 docs/packinbag_settings_spec_v1.md
+// 자세한 변경 이력은 _secrets/docs/packinbag_settings_spec_v1.md
 import { version } from "../package.json";
 
 export const APP_VERSION: string = version;

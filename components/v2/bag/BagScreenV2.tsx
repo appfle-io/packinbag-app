@@ -1114,7 +1114,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         desktopTransition="fade"
         inDetailPane
         // 넓은 화면은 상세 칸을 꽉 채운다(팩 탭 메모와 같은 모양, 목차 칸 포함). 좁은 화면은 가운데 3xl
-        innerClassName={cx("flex h-full w-full flex-col overflow-hidden bg-background", !detailSlot && "mx-auto max-w-3xl pib-safe-top")}
+        innerClassName={cx("flex h-full w-full flex-col overflow-hidden bg-canvas", !detailSlot && "mx-auto max-w-3xl pib-safe-top")}
       >
         {noteForEditor && !doc.notesReady && (
           // 메모 본문을 아직 못 받았다(lib/bagNotesService). 빈 문서로 열어 덮어쓰지 않게 받을 때까지 기다린다

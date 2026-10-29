@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-// CSP 위반 보고 받기(2026-10-22, docs/packinbag_security_review.md SEC-WEB-02).
+// CSP 위반 보고 받기(2026-10-22, _secrets/docs/packinbag_security_review.md SEC-WEB-02).
 // next.config.ts의 Content-Security-Policy-Report-Only가 막았을 것을 브라우저가 여기로 알린다(실제로 막지는 않음).
 // 저장하지 않고 Vercel 로그에 한 줄만 남긴다(Firestore 비용 없음). 몇 주 모아 정책을 다듬은 뒤 진짜 CSP로 바꾼다.
 // 공개 라우트: 브라우저가 로그인 정보 없이 보낸다. 본문은 앞 8KB만 읽는다

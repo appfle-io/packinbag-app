@@ -248,7 +248,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     setShowPremium(true);
   };
 
-  // --- 백업 · 초기화 (docs/spec/settings.md SET-BAK · SET-ACC) ---------------------------------
+  // --- 백업 · 초기화 (_secrets/docs/spec/settings.md SET-BAK · SET-ACC) ---------------------------------
   // 계정 모드는 목록 가방에 메모 본문이 없어서(notes에 따로) 내보내기 전에 읽어 채운다. 못 읽으면 파일을 만들지 않는다
   const handleExportBackup = async () => {
     if (busy) return;

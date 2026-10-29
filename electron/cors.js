@@ -1,6 +1,6 @@
 // 포터블 화면(http://127.0.0.1:포트)이 운영 API · Storage를 부를 수 있게 그 응답에만 CORS 헤더를 붙인다(2026-10-22).
 // 예전에는 webSecurity: false로 동일 출처 정책을 통째로 껐다(9/21 254ad96) → 필요한 두 곳만 열고 webSecurity는 켠다
-// (docs/packinbag_security_review.md SEC-APP-03)
+// (_secrets/docs/packinbag_security_review.md SEC-APP-03)
 const CORS_HOST_PATTERNS = ["https://packinbag.seeuson.com/*", "https://firebasestorage.googleapis.com/*"];
 let corsInstalled = false;
 

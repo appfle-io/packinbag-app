@@ -10,5 +10,5 @@
 // - storage.rules의 freeLaunch()도 같이 true여야 한다(규칙 파일은 이 값을 못 읽음)
 //
 // 결제를 붙일 때: 이 값을 false로, storage.rules freeLaunch()를 false로 → 배포. 자세한 순서는
-// docs/packinbag_iap_release_guide.md "B. 결제 도입".
+// _secrets/docs/packinbag_iap_release_guide.md "B. 결제 도입".
 export const FREE_LAUNCH = true;

@@ -1,6 +1,6 @@
 "use client";
 
-// 이벤트 화면(2026-10-19). 설정 > 이벤트 목록 · 이벤트 보기 · 홈 캐러셀 카드. 명세 docs/spec/events.md(EVT-)
+// 이벤트 화면(2026-10-19). 설정 > 이벤트 목록 · 이벤트 보기 · 홈 캐러셀 카드. 명세 _secrets/docs/spec/events.md(EVT-)
 // 본문 HTML은 스크립트를 막은 iframe(sandbox="")에 내려받기 주소로 띄운다 — 링크 · 스크립트 · 폼은 동작하지 않는다.
 // 앱 화면 모드(라이트 · 다크)는 iframe의 color-scheme으로 넘긴다(본문은 prefers-color-scheme으로 색을 바꿈, 이벤트 가이드 2절)
 import { useEffect, useState } from "react";

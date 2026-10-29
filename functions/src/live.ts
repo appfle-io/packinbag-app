@@ -16,6 +16,9 @@ export const SILENT_BATCH_MS = 2 * 60 * 1000;
 const MAX_ITEMS = 80;
 const MAX_TEXT = 80;
 const MAX_LIVE_ITEMS = 5;
+// iOS가 실시간 현황을 띄운 지 8시간 뒤 끝낸다. 그 5분 전부터 "멈췄어요"(앱 PIBLiveActivity.staleAfter와 같게, 10/27).
+// 원격 갱신에 stale-date가 없으면 앱이 붙여 둔 멈춤 시각이 지워지므로 같이 보낸다
+const STALE_AFTER_SEC = 8 * 3600 - 5 * 60;
 
 interface RawItem {
   id?: unknown;
@@ -106,7 +109,7 @@ export async function updateLiveActivities(p8: string, bagId: string, bag: RawBa
   let sent = 0;
   let alive = 0;
   for (const doc of snap.docs) {
-    const live = doc.data().apnsLive as { token?: string; packId?: string; env?: string } | undefined;
+    const live = doc.data().apnsLive as { token?: string; packId?: string; env?: string; startedAt?: number } | undefined;
     if (!live?.token || !live.packId) continue;
     const now = Math.floor(Date.now() / 1000);
     const isMember = members.includes(String(doc.data().uid ?? ""));
@@ -120,6 +123,7 @@ export async function updateLiveActivities(p8: string, bagId: string, bag: RawBa
       : { bagName: "가방", packName: "", items: [], done: 0, total: 0, syncedAt: now };
     const aps: Record<string, unknown> = { timestamp: now, event: gone ? "end" : "update", "content-state": contentState };
     if (gone) aps["dismissal-date"] = now;
+    else if (typeof live.startedAt === "number") aps["stale-date"] = Math.floor(live.startedAt + STALE_AFTER_SEC);
     const result = await sendApns(p8, { token: live.token, env: live.env === "sandbox" ? "sandbox" : "production" }, {
       pushType: "liveactivity",
       payload: { aps },

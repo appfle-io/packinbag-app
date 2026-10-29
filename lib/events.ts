@@ -1,5 +1,5 @@
 // 이벤트(2026-10-19). 순수 함수만 — Firestore · Storage는 lib/eventsService.ts, 화면은 components/v2/events.
-// 명세 docs/spec/events.md(EVT-), 만드는 법 _secrets/claude/event-guide.md
+// 명세 _secrets/docs/spec/events.md(EVT-), 만드는 법 _secrets/claude/event-guide.md
 // 기간은 "YYYY-MM-DD"(기기 날짜 기준, 시작일 · 끝나는 날 모두 포함) — 공지(announcements)와 같은 모양
 // 끝나는 날이 빈 문자열이면 "끝나는 날 없음"(관리자가 닫을 때까지 진행 중, 2026-10-20). 닫을 때는 끝나는 날을 넣거나 게시를 끈다
 
@@ -53,7 +53,7 @@ export const EVENT_CAROUSEL_MAX = 3;
 // 공개 페이지 주소(EVT-WEB). 영문 소문자 · 숫자 · 하이픈 3~40자, 하이픈으로 시작 · 끝 안 됨
 export const EVENT_SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]$/;
 export const normalizeSlug = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, "-");
-export const eventKey = (e: Pick<AppEvent, "id" | "slug">) => e.slug || e.id;
+const eventKey = (e: Pick<AppEvent, "id" | "slug">) => e.slug || e.id;
 // 보여 주고 나눠 줄 짧은 주소, 실제 페이지 주소
 export const eventShortPath = (e: Pick<AppEvent, "id" | "slug">) => `/e/${eventKey(e)}`;
 export const eventPagePath = (e: Pick<AppEvent, "id" | "slug">) => `/about/events/${eventKey(e)}`;

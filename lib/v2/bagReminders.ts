@@ -20,8 +20,6 @@ export {
   ITEM_DUE_PRESETS,
   WEEKDAYS,
   ddayLabel,
-  isReminderEmpty,
-  isTimesEmpty,
   itemDueSetting,
   itemDueSummary,
   reminderSummary,

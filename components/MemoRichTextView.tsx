@@ -40,17 +40,17 @@ function MemoCodeBlockView({
 
   return (
     <div
-      className="my-2 rounded-xl border border-border/80 bg-surface-2/40 dark:bg-slate-900/90 text-foreground dark:text-slate-100 overflow-hidden shadow-2xs text-left select-text"
+      className="my-2 rounded-xl border border-line/80 bg-fill/40 dark:bg-slate-900/90 text-ink dark:text-slate-100 overflow-hidden shadow-2xs text-left select-text"
       style={indentStyle}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
     >
       <div
-        className={`flex items-center justify-between px-3 py-1 bg-surface-2/80 dark:bg-slate-800/80 ${
-          isCollapsed ? "" : "border-b border-border/70 dark:border-slate-700/50"
+        className={`flex items-center justify-between px-3 py-1 bg-fill/80 dark:bg-slate-800/80 ${
+          isCollapsed ? "" : "border-b border-line/70 dark:border-slate-700/50"
         } text-[11px] select-none`}
       >
-        <span className="px-1.5 py-0.5 rounded bg-surface dark:bg-slate-700/70 text-text-secondary dark:text-slate-300 font-mono text-[10px] font-bold tracking-wider border border-border/60 dark:border-transparent">
+        <span className="px-1.5 py-0.5 rounded bg-card dark:bg-slate-700/70 text-sub dark:text-slate-300 font-mono text-[10px] font-bold tracking-wider border border-line/60 dark:border-transparent">
           {getLanguageBadge(block.language)}
         </span>
 
@@ -58,7 +58,7 @@ function MemoCodeBlockView({
           <button
             type="button"
             onClick={handleToggleFold}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-sub dark:text-slate-400 hover:text-ink dark:hover:text-slate-200 hover:bg-card dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
             title={isCollapsed ? "코드 펼치기" : "코드 접기"}
             aria-label={isCollapsed ? "코드 펼치기" : "코드 접기"}
           >
@@ -78,7 +78,7 @@ function MemoCodeBlockView({
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-sub dark:text-slate-400 hover:text-ink dark:hover:text-slate-200 hover:bg-card dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[10.5px]"
             title="코드 복사"
             aria-label="코드 복사"
           >
@@ -97,7 +97,7 @@ function MemoCodeBlockView({
         </div>
       </div>
       {!isCollapsed && (
-        <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-foreground dark:text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
+        <pre className="p-2.5 font-mono text-[12px] leading-relaxed text-ink dark:text-slate-100 overflow-x-auto whitespace-pre bg-transparent m-0">
           {renderSpans(block.spans)}
         </pre>
       )}
@@ -149,7 +149,7 @@ export default function MemoRichTextView({
 
       if (span.code) {
         content = (
-          <code className="px-1 py-0.5 rounded bg-surface-2 font-mono text-[11.5px] text-accent border border-border/50">
+          <code className="px-1 py-0.5 rounded bg-fill font-mono text-[11.5px] text-brand border border-line/50">
             {content}
           </code>
         );
@@ -183,7 +183,7 @@ export default function MemoRichTextView({
                 openExternalLink(span.href!);
               }
             }}
-            className="underline underline-offset-2 text-accent hover:opacity-80 font-medium cursor-pointer"
+            className="underline underline-offset-2 text-brand hover:opacity-80 font-medium cursor-pointer"
           >
             {content}
           </a>
@@ -229,7 +229,7 @@ export default function MemoRichTextView({
             : "";
 
         if (block.type === "hr") {
-          return <hr key={bIdx} className="border-border my-2 border-dashed" />;
+          return <hr key={bIdx} className="border-line my-2 border-dashed" />;
         }
 
         if (block.type === "image") {
@@ -241,7 +241,7 @@ export default function MemoRichTextView({
                   src={block.src}
                   alt={block.alt || "첨부 이미지"}
                   loading="lazy"
-                  className="max-h-36 max-w-full rounded-lg object-contain border border-border bg-surface-2 shadow-2xs select-none"
+                  className="max-h-36 max-w-full rounded-lg object-contain border border-line bg-fill shadow-2xs select-none"
                 />
               </div>
             );
@@ -249,7 +249,7 @@ export default function MemoRichTextView({
           return (
             <div
               key={bIdx}
-              className={`inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded-md bg-surface-2/80 border border-border/60 text-[11.5px] text-text-secondary font-mono select-none ${alignClass}`}
+              className={`inline-flex items-center gap-1 my-0.5 px-2 py-0.5 rounded-md bg-fill/80 border border-line/60 text-[11.5px] text-sub font-mono select-none ${alignClass}`}
               style={indentStyle}
             >
               {renderSpans(block.spans)}
@@ -260,8 +260,8 @@ export default function MemoRichTextView({
         if (block.type === "file") {
           return (
             <div key={bIdx} className={`my-1 ${alignClass}`} style={indentStyle}>
-              <div className="inline-flex items-center gap-2 p-1.5 px-2.5 rounded-md border border-border/70 bg-surface-2/60 text-[12px] text-foreground select-none max-w-full">
-                <span className="w-5 h-5 rounded bg-accent-soft text-accent font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+              <div className="inline-flex items-center gap-2 p-1.5 px-2.5 rounded-md border border-line/70 bg-fill/60 text-[12px] text-ink select-none max-w-full">
+                <span className="w-5 h-5 rounded bg-brand-soft text-brand font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
                   {block.fileExtension || "FILE"}
                 </span>
                 <span className="truncate max-w-[200px] font-medium">{block.fileName || "첨부파일"}</span>
@@ -275,28 +275,28 @@ export default function MemoRichTextView({
             <details
               key={bIdx}
               open={block.toggleOpen}
-              className={`group my-1.5 rounded-xl border border-border/60 bg-surface-2/20 p-2.5 text-left transition-colors ${alignClass}`}
+              className={`group my-1.5 rounded-xl border border-line/60 bg-fill/20 p-2.5 text-left transition-colors ${alignClass}`}
               style={indentStyle}
               onClick={(e) => e.stopPropagation()}
             >
-              <summary className="flex items-center gap-1.5 font-semibold text-foreground cursor-pointer list-none select-none hover:text-accent transition-colors">
+              <summary className="flex items-center gap-1.5 font-semibold text-ink cursor-pointer list-none select-none hover:text-brand transition-colors">
                 <IconChevronRight
                   size={15}
                   stroke={2}
-                  className="transition-transform duration-150 group-open:rotate-90 text-text-muted shrink-0"
+                  className="transition-transform duration-150 group-open:rotate-90 text-faint shrink-0"
                 />
                 <span className="flex-1 min-w-0 truncate">
                   {renderSpans(block.toggleSummarySpans || [{ text: "접기 / 펼치기" }])}
                 </span>
               </summary>
-              <div className="mt-2 pl-4 pt-1 border-l-2 border-border/60 flex flex-col gap-1">
+              <div className="mt-2 pl-4 pt-1 border-l-2 border-line/60 flex flex-col gap-1">
                 {block.toggleChildren && block.toggleChildren.length > 0 ? (
                   <MemoRichTextView
                     blocks={block.toggleChildren}
                     onLinkClick={onLinkClick}
                   />
                 ) : (
-                  <p className="text-[12px] text-text-muted italic py-0.5">내용이 비어있어요</p>
+                  <p className="text-[12px] text-faint italic py-0.5">내용이 비어있어요</p>
                 )}
               </div>
             </details>
@@ -309,7 +309,7 @@ export default function MemoRichTextView({
             return (
               <h3
                 key={bIdx}
-                className={`text-[15px] font-bold text-foreground mt-2 mb-1 first:mt-0 whitespace-pre-wrap ${alignClass}`}
+                className={`text-[15px] font-bold text-ink mt-2 mb-1 first:mt-0 whitespace-pre-wrap ${alignClass}`}
                 style={indentStyle}
               >
                 {renderSpans(block.spans)}
@@ -320,7 +320,7 @@ export default function MemoRichTextView({
             return (
               <h4
                 key={bIdx}
-                className={`text-[14px] font-bold text-foreground mt-1.5 mb-0.5 first:mt-0 whitespace-pre-wrap ${alignClass}`}
+                className={`text-[14px] font-bold text-ink mt-1.5 mb-0.5 first:mt-0 whitespace-pre-wrap ${alignClass}`}
                 style={indentStyle}
               >
                 {renderSpans(block.spans)}
@@ -330,7 +330,7 @@ export default function MemoRichTextView({
           return (
             <h5
               key={bIdx}
-              className={`text-[13.5px] font-bold text-foreground mt-1 mb-0.5 first:mt-0 whitespace-pre-wrap ${alignClass}`}
+              className={`text-[13.5px] font-bold text-ink mt-1 mb-0.5 first:mt-0 whitespace-pre-wrap ${alignClass}`}
               style={indentStyle}
             >
               {renderSpans(block.spans)}
@@ -350,11 +350,11 @@ export default function MemoRichTextView({
                   [✓]
                 </span>
               ) : (
-                <span className="shrink-0 text-text-muted font-bold text-[12.5px] select-none font-mono">
+                <span className="shrink-0 text-faint font-bold text-[12.5px] select-none font-mono">
                   [ ]
                 </span>
               )}
-              <div className={block.checked ? "text-text-muted" : "text-text-secondary"}>
+              <div className={block.checked ? "text-faint" : "text-sub"}>
                 {renderSpans(block.spans, block.checked)}
               </div>
             </div>
@@ -368,8 +368,8 @@ export default function MemoRichTextView({
               className={`flex items-start gap-1.5 my-0.5 whitespace-pre-wrap ${alignClass}`}
               style={indentStyle}
             >
-              <span className="shrink-0 text-accent font-bold text-[13px] select-none">•</span>
-              <div className="text-text-secondary">{renderSpans(block.spans)}</div>
+              <span className="shrink-0 text-brand font-bold text-[13px] select-none">•</span>
+              <div className="text-sub">{renderSpans(block.spans)}</div>
             </div>
           );
         }
@@ -381,10 +381,10 @@ export default function MemoRichTextView({
               className={`flex items-start gap-1.5 my-0.5 whitespace-pre-wrap ${alignClass}`}
               style={indentStyle}
             >
-              <span className="shrink-0 font-bold text-foreground text-[12.5px] select-none font-mono">
+              <span className="shrink-0 font-bold text-ink text-[12.5px] select-none font-mono">
                 {block.orderNumber || 1}.
               </span>
-              <div className="text-text-secondary">{renderSpans(block.spans)}</div>
+              <div className="text-sub">{renderSpans(block.spans)}</div>
             </div>
           );
         }
@@ -393,7 +393,7 @@ export default function MemoRichTextView({
           return (
             <blockquote
               key={bIdx}
-              className={`border-l-3 border-amber-500 dark:border-amber-400 pl-2.5 my-1 text-text-secondary italic bg-amber-500/5 py-1 rounded-r-md whitespace-pre-wrap ${alignClass}`}
+              className={`border-l-3 border-amber-500 dark:border-amber-400 pl-2.5 my-1 text-sub italic bg-amber-500/5 py-1 rounded-r-md whitespace-pre-wrap ${alignClass}`}
               style={indentStyle}
             >
               {renderSpans(block.spans)}
@@ -405,17 +405,17 @@ export default function MemoRichTextView({
           return (
             <div
               key={bIdx}
-              className="overflow-x-auto my-2 rounded-lg border border-border bg-surface text-[12px] leading-tight shadow-2xs"
+              className="overflow-x-auto my-2 rounded-lg border border-line bg-card text-[12px] leading-tight shadow-2xs"
               style={indentStyle}
             >
               <table className="w-full border-collapse text-left">
                 {block.table.headers && (
                   <thead>
-                    <tr className="bg-surface-2/70 border-b border-border">
+                    <tr className="bg-fill/70 border-b border-line">
                       {block.table.headers.map((hSpans, hIdx) => (
                         <th
                           key={hIdx}
-                          className="px-2.5 py-1.5 font-semibold text-foreground border-r last:border-r-0 border-border/60 whitespace-nowrap text-[11.5px]"
+                          className="px-2.5 py-1.5 font-semibold text-ink border-r last:border-r-0 border-line/60 whitespace-nowrap text-[11.5px]"
                         >
                           {renderSpans(hSpans)}
                         </th>
@@ -427,12 +427,12 @@ export default function MemoRichTextView({
                   {block.table.rows.map((row, rIdx) => (
                     <tr
                       key={rIdx}
-                      className="border-b last:border-b-0 border-border/40 hover:bg-surface-2/40 transition-colors"
+                      className="border-b last:border-b-0 border-line/40 hover:bg-fill/40 transition-colors"
                     >
                       {row.map((cellSpans, cIdx) => (
                         <td
                           key={cIdx}
-                          className="px-2.5 py-1.5 text-text-secondary border-r last:border-r-0 border-border/40 whitespace-pre-wrap text-[11.5px]"
+                          className="px-2.5 py-1.5 text-sub border-r last:border-r-0 border-line/40 whitespace-pre-wrap text-[11.5px]"
                         >
                           {renderSpans(cellSpans)}
                         </td>
@@ -462,7 +462,7 @@ export default function MemoRichTextView({
           return (
             <p
               key={bIdx}
-              className={`min-h-[1.2em] m-0 text-text-secondary whitespace-pre-wrap ${alignClass}`}
+              className={`min-h-[1.2em] m-0 text-sub whitespace-pre-wrap ${alignClass}`}
               style={indentStyle}
             >
               &nbsp;
@@ -473,7 +473,7 @@ export default function MemoRichTextView({
         return (
           <p
             key={bIdx}
-            className={`m-0 text-text-secondary break-words whitespace-pre-wrap ${alignClass}`}
+            className={`m-0 text-sub break-words whitespace-pre-wrap ${alignClass}`}
             style={indentStyle}
           >
             {renderSpans(block.spans)}

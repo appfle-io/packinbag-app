@@ -3,7 +3,7 @@ export const metadata = {
 };
 
 // 계정 삭제 안내(2026-10-22). Google Play 데이터 보안 양식의 "계정 삭제 요청 URL" — 앱을 설치하지 않아도
-// 삭제 방법 · 요청 창구 · 지워지는 데이터를 볼 수 있어야 한다(docs/packinbag_play_store_listing.md 4절).
+// 삭제 방법 · 요청 창구 · 지워지는 데이터를 볼 수 있어야 한다(_secrets/docs/packinbag_play_store_listing.md 4절).
 // 지우는 범위는 lib/accountService.deleteAllUserData + app/api/delete-account-data(auth.md AUTH-DEL)와 맞춘다
 export default function DeleteAccountPage() {
   return (

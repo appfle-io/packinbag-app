@@ -60,11 +60,18 @@ struct ToggleItemLiveIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         // 지금 잠금화면에 보이는 값을 기준으로 뒤집는다(서버가 원격으로 고쳤을 수 있어 요약보다 최신일 수 있다, 10/11)
         let next: Bool
-        if let shown = await PIBLiveActivity.toggle(bagId: bagId, packId: packId, itemId: itemId) {
+        let shownBefore = PIBLiveActivity.shownChecked(bagId: bagId, itemId: itemId)
+        if await PIBLiveActivity.restartIfStopped(bagId: bagId) {
+            // 8시간 제한으로 멈춘 카드(10/27): 다시 띄운 뒤, 누른 사람이 보던 값의 반대로 맞춘다
+            guard let shownBefore else { return .result() }
+            next = !shownBefore
+            await PIBLiveActivity.set(bagId: bagId, packId: packId, itemId: itemId, checked: next)
+        } else if let shown = await PIBLiveActivity.toggle(bagId: bagId, packId: packId, itemId: itemId) {
             next = shown
         } else {
-            guard let current = PIBStore.item(bagId: bagId, packId: packId, itemId: itemId) else { return .result() }
-            next = !current.checked
+            // 고칠 수 있는 카드가 없다(끝났는데 다시 띄우지도 못함). 예전에는 서버만 뒤집어서 화면은 그대로인데
+            // 체크가 들어가, 안 눌린 줄 알고 또 누르면 다시 풀렸다(10/27) → 아무것도 바꾸지 않는다
+            return .result()
         }
         PIBStore.setChecked(bagId: bagId, packId: packId, itemId: itemId, checked: next)
         PIBStore.enqueue(bagId: bagId, packId: packId, itemId: itemId, checked: next)
@@ -124,6 +131,7 @@ struct UndoLiveIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
+        await PIBLiveActivity.restartIfStopped(bagId: bagId)
         guard let e = PIBUndo.undo(bagId: bagId, packId: packId) else { return .result() }
         await PIBLiveActivity.set(bagId: e.bagId, packId: e.packId, itemId: e.itemId, checked: e.prev)
         PIBWidgets.reload()
@@ -162,7 +170,8 @@ struct RefreshLiveIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         if !PIBStore.pending().isEmpty { await PIBSync.flush() }
         try? await PIBAPI.refreshSummary()
-        await PIBLiveActivity.updateAll()
+        // 8시간 제한으로 멈춘 카드면 새로 띄운다(10/27)
+        if !(await PIBLiveActivity.restartIfStopped()) { await PIBLiveActivity.updateAll() }
         PIBWidgets.reload()
         return .result()
     }

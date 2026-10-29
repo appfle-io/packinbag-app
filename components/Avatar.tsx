@@ -23,7 +23,7 @@ export default function Avatar({
         background: `linear-gradient(135deg, ${avatar.bg}, ${avatar.bg2})`,
         fontSize: size * 0.55,
         lineHeight: 1,
-        boxShadow: ring ? "0 0 0 2px var(--background)" : undefined,
+        boxShadow: ring ? "0 0 0 2px var(--v2-canvas)" : undefined,
       }}
     >
       {avatar.emoji}

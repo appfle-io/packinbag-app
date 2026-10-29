@@ -39,6 +39,9 @@ struct PackActivityAttributes: ActivityAttributes {
     var textColor: String? = nil
     // 완료된 항목 보이기(1.6, 10/13): nil = 보임(예전과 같음) | false = 챙긴 것을 화면에서 뺀다(서버는 그대로 안 챙긴 것 먼저 보낸다)
     var showDone: Bool? = nil
+    // 띄운 시각(1970년부터 초, 10/27). iOS가 8시간 뒤 끝내므로 그 직전을 멈춤 시각(staleDate)으로 둔다.
+    // 옛 빌드가 띄운 활동에는 없다(멈춤 표시 없이 예전처럼)
+    var startedAt: Double? = nil
 }
 
 @available(iOS 16.2, *)
@@ -47,6 +50,25 @@ enum PIBLiveActivity {
     static let maxItems = 5
     static let wholeBag = "*"
     private static let liveSentKey = "pib.liveSent"
+    // iOS는 띄운 때부터 8시간이 지나면 끝낸다(갱신해도 안 늘어남). 끝난 카드는 잠금화면에 남아도 고칠 수 없어서(10/27 버그:
+    // 체크해도 먹통 · 앱에서 체크해도 안 바뀜) 5분 전부터 "멈췄어요"로 보이고, 앱을 열거나 카드를 누르면 다시 띄운다.
+    // 서버(functions/src/live.ts STALE_AFTER_SEC)도 같은 값으로 stale-date를 보낸다
+    static let staleAfter: TimeInterval = 8 * 3600 - 5 * 60
+
+    static func staleDate(_ a: PackActivityAttributes) -> Date? {
+        a.startedAt.map { Date(timeIntervalSince1970: $0 + staleAfter) }
+    }
+
+    // 지금 고칠 수 있는 카드(멈춤 시각이 지났어도 iOS가 끝내기 전이면 고칠 수는 있다)
+    private static func isLive(_ activity: Activity<PackActivityAttributes>) -> Bool {
+        activity.activityState == .active || activity.activityState == .stale
+    }
+
+    // 8시간 제한으로 끝났거나 곧 끝나는 카드
+    private static func isStopped(_ activity: Activity<PackActivityAttributes>) -> Bool {
+        if activity.activityState == .ended || activity.activityState == .stale { return true }
+        return staleDate(activity.attributes).map { $0 <= Date() } ?? false
+    }
 
     static func order(_ items: [PIBItem]) -> [PIBItem] {
         items.filter { !$0.checked } + items.filter { $0.checked }
@@ -105,14 +127,15 @@ enum PIBLiveActivity {
             bagId: bagId, packId: packId, theme: theme, font: font, size: size,
             bgColor: theme == "custom" ? bgColor : nil, bgAlpha: theme == "custom" ? bgAlpha : nil,
             textTone: tone, textColor: tone == "custom" ? textColor : nil,
-            showDone: showDone == false ? false : nil
+            showDone: showDone == false ? false : nil,
+            startedAt: Date().timeIntervalSince1970
         )
         let activity: Activity<PackActivityAttributes>
         do {
             // 푸시 토큰을 받는다(서버 원격 갱신). 푸시를 못 쓰는 상태면 토큰 없이라도 띄운다
-            activity = try Activity.request(attributes: attributes, content: .init(state: state, staleDate: nil), pushType: .token)
+            activity = try Activity.request(attributes: attributes, content: .init(state: state, staleDate: staleDate(attributes)), pushType: .token)
         } catch {
-            activity = try Activity.request(attributes: attributes, content: .init(state: state, staleDate: nil), pushType: nil)
+            activity = try Activity.request(attributes: attributes, content: .init(state: state, staleDate: staleDate(attributes)), pushType: nil)
         }
         PIB.defaults.removeObject(forKey: liveSentKey)
         observe(activity)
@@ -133,7 +156,7 @@ enum PIBLiveActivity {
                 let mark = "\(hex)|\(bagId)|\(packId)"
                 if PIB.defaults.string(forKey: liveSentKey) == mark { continue }
                 do {
-                    try await PIBAPI.registerLive(token: hex, bagId: bagId, packId: packId)
+                    try await PIBAPI.registerLive(token: hex, bagId: bagId, packId: packId, startedAt: activity.attributes.startedAt)
                     PIB.defaults.set(mark, forKey: liveSentKey)
                 } catch {
                     print("[팩인백] 실시간 현황 토큰 업로드 실패:", error.localizedDescription)
@@ -146,7 +169,7 @@ enum PIBLiveActivity {
     // 서버가 더 최근에 고쳐 둔 화면(syncedAt이 더 늦음)은 예전 요약으로 되돌리지 않는다
     static func updateAll() async {
         for activity in Activity<PackActivityAttributes>.activities {
-            guard activity.activityState == .active else { continue }
+            guard isLive(activity) else { continue }
             // 다 챙긴 지 5분이 지났으면 내린다(다 챙긴 순간 바로 end하면 다시 풀 수 없어서, 10/11)
             if isExpired(activity.content.state) {
                 await end(activity, content: activity.content, after: nil)
@@ -176,9 +199,16 @@ enum PIBLiveActivity {
     // 이미 끝난(ended) 것은 고칠 수 없으니 찾지 않는다
     private static func find(bagId: String, packId: String) -> Activity<PackActivityAttributes>? {
         Activity<PackActivityAttributes>.activities.first(where: {
-            $0.activityState == .active &&
+            isLive($0) &&
             $0.attributes.bagId == bagId && ($0.attributes.packId == packId || $0.attributes.packId == wholeBag)
         })
+    }
+
+    // 잠금화면 카드에 지금 보이는 체크 값(끝난 카드도). 다시 띄우기 전에 누른 사람이 본 값을 기억하려고(10/27)
+    static func shownChecked(bagId: String, itemId: String) -> Bool? {
+        Activity<PackActivityAttributes>.activities
+            .first(where: { $0.activityState != .dismissed && $0.attributes.bagId == bagId })?
+            .content.state.items.first(where: { $0.id == itemId })?.checked
     }
 
     // 잠금화면에서 누른 체크: 지금 보이는 화면을 기준으로 바로 고친다(요약이 서버 원격 갱신보다 늦을 수 있어서).
@@ -266,8 +296,9 @@ enum PIBLiveActivity {
         } else {
             state.doneAt = nil
         }
-        guard activity.content.state != state else { return }
-        await activity.update(ActivityContent(state: state, staleDate: nil))
+        let stale = staleDate(activity.attributes)
+        guard activity.content.state != state || activity.content.staleDate != stale else { return }
+        await activity.update(ActivityContent(state: state, staleDate: stale))
     }
 
     private static func end(_ activity: Activity<PackActivityAttributes>, content: ActivityContent<PackActivityAttributes.ContentState>?, after: Date?) async {
@@ -296,6 +327,18 @@ enum PIBLiveActivity {
             print("[팩인백] 잠금화면 다시 띄우기 실패:", error.localizedDescription)
             return false
         }
+    }
+
+    // 8시간 제한으로 끝났거나 곧 끝나는 카드를 같은 설정으로 다시 띄운다(10/27). 앱을 열 때 · 잠금화면 카드를 누를 때.
+    // 살아 있는 카드가 있거나, bagId를 줬는데 다른 가방이면 그대로 둔다. 다시 띄웠으면 true.
+    // 앱이 뒤에 있을 때(조용한 푸시)는 iOS가 새로 띄우기를 막으므로 부르지 않는다
+    @discardableResult
+    static func restartIfStopped(bagId: String? = nil) async -> Bool {
+        let list = Activity<PackActivityAttributes>.activities.filter { $0.activityState != .dismissed }
+        if list.contains(where: { $0.activityState == .active && !isStopped($0) }) { return false }
+        guard let activity = list.first, isStopped(activity) else { return false }
+        if let bagId, activity.attributes.bagId != bagId { return false }
+        return await restart()
     }
 
     static func endAll() async {

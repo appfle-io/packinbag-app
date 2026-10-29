@@ -91,9 +91,9 @@ export default function MemoDocViewer({ pack, className = "" }: MemoDocViewerPro
   );
 
   return (
-    <div className={`w-full flex flex-col gap-4 text-foreground pib-note-editor ${className}`}>
+    <div className={`w-full flex flex-col gap-4 text-ink pib-note-editor ${className}`}>
       {/* TipTap 서식 본문 (pib-note-editor 스타일 적용) */}
-      <div className="w-full text-foreground leading-relaxed text-[14.5px]">
+      <div className="w-full text-ink leading-relaxed text-[14.5px]">
         <EditorContent editor={editor} />
       </div>
 

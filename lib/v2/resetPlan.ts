@@ -1,5 +1,5 @@
 // 설정 > 데이터 초기화 계획(2026-10-15) - Firebase를 부르지 않는 순수 함수. 실행은 SettingsScreenV2.
-// docs/spec/settings.md SET-ACC-04 ~ 09
+// _secrets/docs/spec/settings.md SET-ACC-04 ~ 09
 //
 // - 내가 그룹장인데 다른 멤버가 있는 가방(휴지통 포함)이 하나라도 있으면 막는다(blocked).
 //   예전에는 위임 없이 나가기만 해서 그룹장이 없는 가방이 남았고, 휴지통에 있던 함께 쓰는 가방은 모두에게서 지워졌다

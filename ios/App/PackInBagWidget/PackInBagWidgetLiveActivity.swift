@@ -15,6 +15,8 @@ struct PackLockScreenView: View {
     @Environment(\.colorScheme) private var systemScheme
     let attributes: PackActivityAttributes
     let state: PackActivityAttributes.ContentState
+    // 8시간 제한 직전 · 지남(context.isStale, 10/27). 이때 카드는 더 고칠 수 없으니 다시 띄우는 법을 알려 준다
+    var stale = false
 
     // 160pt 안에 들어가는 개수(2열 × 2줄)
     private static let maxShown = 4
@@ -34,7 +36,9 @@ struct PackLockScreenView: View {
         let shown = Array(visible.prefix(Self.maxShown))
         let hidden = max(0, (showDone ? state.total : left) - shown.count)
         let synced = state.syncedAt.map { pibSyncedLabel(Date(timeIntervalSince1970: $0)) }
-        let footer = [hidden > 0 ? "외 \(hidden)개" : nil, synced].compactMap { $0 }.joined(separator: " · ")
+        let footer = stale
+            ? "8시간이 지나 멈췄어요 · 누르거나 앱을 열면 다시 떠요"
+            : [hidden > 0 ? "외 \(hidden)개" : nil, synced].compactMap { $0 }.joined(separator: " · ")
         // ↶ 되돌리기(10/13): 기록은 App Group(PIBUndo). 서버 푸시로 다시 그려질 때도 여기서 읽어 맞춘다
         let canUndo = PIBUndo.count(bagId: attributes.bagId, packId: attributes.packId) > 0
         VStack(alignment: .leading, spacing: 8) {
@@ -124,7 +128,7 @@ struct PackLockScreenView: View {
 struct PackInBagWidgetLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PackActivityAttributes.self) { context in
-            PackLockScreenView(attributes: context.attributes, state: context.state)
+            PackLockScreenView(attributes: context.attributes, state: context.state, stale: context.isStale)
         } dynamicIsland: { context in
             // 다이내믹 아일랜드는 늘 검은 바탕이라 글자색만 다크 기준
             let style = PIBStyle(theme: "dark", font: context.attributes.font, size: context.attributes.size)

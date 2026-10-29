@@ -1,4 +1,4 @@
-// 이벤트 Firestore · Storage(2026-10-19). 순수 함수 · 타입은 lib/events.ts, 명세 docs/spec/events.md(EVT-) · admin.md(ADM-EVT)
+// 이벤트 Firestore · Storage(2026-10-19). 순수 함수 · 타입은 lib/events.ts, 명세 _secrets/docs/spec/events.md(EVT-) · admin.md(ADM-EVT)
 // - events/{id}: 마스터만 쓰기, 게시한 것은 누구나 읽기(firestore.rules)
 // - Storage events/{id}/cover-… · body-…: 마스터만 쓰기, 읽기 공개(storage.rules). 앱은 내려받기 주소(토큰)로 띄운다
 // - 사용자 화면은 앱을 켠 뒤 처음 필요할 때 한 번 읽는다(useEvents, 실시간 구독 없음). 관리자 화면만 실시간 구독

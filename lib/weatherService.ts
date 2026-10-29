@@ -2,7 +2,7 @@
 // 2026-10-20: 하루치(날씨 코드 · 기온)만 보던 것을 "조회한 날부터 3일"(오늘 · 내일 · 모레)로 바꾸고,
 // 강수 확률 · 자외선 · 바람 · 체감 기온까지 받아 기본 추천을 이유와 함께 만든다. AI 추천은 app/api/ai-weather-recommend.
 
-export interface WeatherDay {
+interface WeatherDay {
   date: string; // YYYY-MM-DD(그 장소 시간대)
   label: string; // 오늘 · 내일 · 모레
   weatherText: string;
@@ -19,7 +19,7 @@ export interface WeatherDay {
   hasSnow: boolean;
 }
 
-export interface WeatherRecommendation {
+interface WeatherRecommendation {
   text: string;
   icon: string;
   // 왜 챙기면 좋은지 한 줄(2026-10-20, 예전 캐시에는 없음)
@@ -43,11 +43,11 @@ export interface WeatherInfo {
 }
 
 // AI 추천 결과(app/api/ai-weather-recommend). 가방 캐시(aiRecommendCache.ai)에 그대로 둔다
-export interface WeatherAiItem {
+interface WeatherAiItem {
   text: string;
   reason: string;
 }
-export interface WeatherAiPlace {
+interface WeatherAiPlace {
   name: string;
   desc: string;
 }
@@ -139,7 +139,7 @@ function weatherTextOf(code: number): string {
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 /** 3일 예보로 기본 추천(이유 한 줄과 함께). 순수 함수 */
-export function baseRecommendations(days: WeatherDay[]): WeatherRecommendation[] {
+function baseRecommendations(days: WeatherDay[]): WeatherRecommendation[] {
   const out: WeatherRecommendation[] = [];
   const add = (text: string, reason: string) => {
     if (!out.some((r) => r.text === text)) out.push({ text, icon: "", reason });
@@ -250,16 +250,6 @@ export async function fetchWeatherForCity(lat: number, lon: number, cityName: st
     console.error("[팩인백] 날씨 조회 실패:", err);
     return null;
   }
-}
-
-// 출발일이 오늘~15일 뒤면 그날(예보 가능), 아니면 undefined. 날씨 · 명소 추천은 10/20부터 출발일과 상관없이 오늘부터 3일을 본다
-export function forecastDateFor(travelDate: string | undefined): string | undefined {
-  if (!travelDate || !/^\d{4}-\d{2}-\d{2}$/.test(travelDate)) return undefined;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(`${travelDate}T00:00:00`);
-  const days = Math.round((target.getTime() - today.getTime()) / 86400000);
-  return days >= 0 && days <= 15 ? travelDate : undefined;
 }
 
 // 명소·맛집 추천(app/api/ai-travel-places)을 부르던 fetchAiTravelPlaces는 v2에서 쓰는 곳이 없어 라우트와 함께 지웠다(2026-10-06).

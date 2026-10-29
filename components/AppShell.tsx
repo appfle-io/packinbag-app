@@ -1818,7 +1818,7 @@ export default function AppShell() {
     const latestSheetPack = displayedSheetPack?.id === editingPack?.id ? displayedSheetPack : editingPack;
     const detail = editingPack ? (
       editingPack.kind === "editor" ? (
-        <div className="flex h-full min-h-0 flex-col bg-background">{renderMemo(latestMemo ?? editingPack)}</div>
+        <div className="flex h-full min-h-0 flex-col bg-canvas">{renderMemo(latestMemo ?? editingPack)}</div>
       ) : (
         <div className="flex h-full min-h-0 flex-col">{renderPackEditor(latestSheetPack ?? editingPack)}</div>
       )
@@ -1929,7 +1929,7 @@ export default function AppShell() {
     <>
       <FirestoreRecoveryOverlay />
       <ConnectionBar />
-      <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-background pib-safe-top overflow-hidden">
+      <div className="relative flex flex-col flex-1 h-dvh mx-auto w-full max-w-3xl md:max-w-4xl bg-canvas pib-safe-top overflow-hidden">
         <EmailVerifyBanner />
         {/* 탭바는 탭 화면 위에 떠 있다(위치 기준 = 이 칸). 탭 넘기기 스와이프 영역(tabArea) 밖의 형제라
             탭바를 끌어도 탭이 넘어가지 않는다. 높이는 탭바가 재서 이 칸의 --pib-dock으로 적는다 */}
@@ -1948,7 +1948,7 @@ export default function AppShell() {
         active={!!editingBag}
         zIndex={65}
         swipeBack
-        innerClassName="flex flex-col h-full w-full bg-background pib-safe-top"
+        innerClassName="flex flex-col h-full w-full bg-canvas pib-safe-top"
       >
         {displayedBag && renderBag(displayedBag)}
       </SlideScreen>
@@ -1976,7 +1976,7 @@ export default function AppShell() {
           setPackFocusItemId(null);
           setPackFocusSearchQuery(null);
         }}
-        innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-background pib-safe-top"
+        innerClassName="flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-6xl bg-canvas pib-safe-top"
       >
         {displayedEditorPack && renderMemo(displayedEditorPack)}
       </SlideScreen>

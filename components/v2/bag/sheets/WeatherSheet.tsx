@@ -96,7 +96,7 @@ function CheckRows({
   );
 }
 
-// 날씨 · 명소 추천 시트(2026-10-20, docs/spec/bag.md § BAG-WX). 열릴 때만 날씨를 확인한다(useBagWeather.load - 저장된 결과가 있으면 호출 없음).
+// 날씨 · 명소 추천 시트(2026-10-20, _secrets/docs/spec/bag.md § BAG-WX). 열릴 때만 날씨를 확인한다(useBagWeather.load - 저장된 결과가 있으면 호출 없음).
 // 날씨는 조회한 날부터 3일. 기본 추천(무료 계산)이 먼저 보이고, AI는 버튼을 눌러야 부른다(하루 횟수)
 export function WeatherSheet({
   open,

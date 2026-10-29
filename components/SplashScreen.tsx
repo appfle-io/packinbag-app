@@ -7,7 +7,7 @@ export default function SplashScreen({ visible }: { visible: boolean }) {
     <div
       className="fixed inset-0 z-[200] flex flex-col items-center justify-center"
       style={{
-        background: "var(--background)",
+        background: "var(--v2-canvas)",
         opacity: visible ? 1 : 0,
         transition: "opacity 380ms ease",
         pointerEvents: visible ? "auto" : "none",

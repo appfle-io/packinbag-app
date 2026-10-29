@@ -1,4 +1,4 @@
-// 이벤트 공개 페이지(서버 전용, 2026-10-20). 명세 docs/spec/events.md EVT-WEB
+// 이벤트 공개 페이지(서버 전용, 2026-10-20). 명세 _secrets/docs/spec/events.md EVT-WEB
 // - Admin SDK로 게시한 이벤트만 읽는다. 페이지가 revalidate로 캐시하므로 읽기는 캐시 주기마다 한 번
 // - 못 읽으면(환경변수 없음 등) 없는 것으로 다룬다 — 소개 페이지가 이 때문에 깨지지 않게
 import { cache } from "react";

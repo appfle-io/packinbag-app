@@ -14,7 +14,7 @@ export const DEFAULT_DDAY_TIME = "09:00";
 export const DEFAULT_REPEAT_TIME = "07:30";
 // 아이템 마감 알림: 1 = 전날, 0 = 당일
 export const ITEM_DUE_PRESETS = [1, 0] as const;
-export const DEFAULT_ITEM_DUE: { offsets: number[]; time: string } = { offsets: [1, 0], time: "09:00" };
+const DEFAULT_ITEM_DUE: { offsets: number[]; time: string } = { offsets: [1, 0], time: "09:00" };
 // 화면 표시 순서(월~일). 값은 JS Date.getDay()와 같다(0 = 일요일)
 export const WEEKDAYS: { day: number; label: string }[] = [
   { day: 1, label: "월" },
@@ -26,11 +26,11 @@ export const WEEKDAYS: { day: number; label: string }[] = [
   { day: 0, label: "일" },
 ];
 // iOS는 앱당 예약 알림 64개까지
-export const MAX_SCHEDULED = 60;
+const MAX_SCHEDULED = 60;
 const LOCKED_BAG_TITLE = "잠근 가방";
 const NAMES_SHOWN = 2;
 
-export function isTimesEmpty(r: ReminderTimes | undefined | null): boolean {
+function isTimesEmpty(r: ReminderTimes | undefined | null): boolean {
   return !r || ((r.ddayOffsets?.length ?? 0) === 0 && (r.repeatDays?.length ?? 0) === 0);
 }
 
@@ -294,7 +294,7 @@ export function planBagNotifications(
 }
 
 // 저장 전에 정리: 빈 팩 설정 · 사라진 팩을 빼고, 정렬하고, 시간이 필요 없는 묶음은 시간을 뺀다
-export function normalizeTimes(t: ReminderTimes | undefined): ReminderTimes | undefined {
+function normalizeTimes(t: ReminderTimes | undefined): ReminderTimes | undefined {
   const offsets = t?.ddayOffsets ?? [];
   const days = t?.repeatDays ?? [];
   if (offsets.length === 0 && days.length === 0) return undefined;

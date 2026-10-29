@@ -11,7 +11,7 @@ import {
   type BagNote,
 } from "@/lib/bagNotesCore";
 
-// docs/spec/memo.md MEMO-NOTE, bag.md BAG-SAVE-07 ~ 10: 가방 안 메모 본문 분리
+// _secrets/docs/spec/memo.md MEMO-NOTE, bag.md BAG-SAVE-07 ~ 10: 가방 안 메모 본문 분리
 
 const doc = (...paragraphs: string[]) => ({
   type: "doc",

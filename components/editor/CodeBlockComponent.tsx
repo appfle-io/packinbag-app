@@ -47,12 +47,12 @@ export default function CodeBlockComponent({
   };
 
   return (
-    <NodeViewWrapper className="code-block-wrapper relative my-3 rounded-xl border border-border/80 bg-surface-2/40 dark:bg-slate-900/90 text-foreground dark:text-slate-100 overflow-hidden shadow-xs select-text">
+    <NodeViewWrapper className="code-block-wrapper relative my-3 rounded-xl border border-line/80 bg-fill/40 dark:bg-slate-900/90 text-ink dark:text-slate-100 overflow-hidden shadow-xs select-text">
       {/* 상단 툴바 헤더 (언어 선택 & 접기/펼치기 & 복사 버튼) */}
       <div
         contentEditable={false}
-        className={`flex items-center justify-between px-3 py-1.5 bg-surface-2/80 dark:bg-slate-800/80 ${
-          isCollapsed ? "" : "border-b border-border/70 dark:border-slate-700/50"
+        className={`flex items-center justify-between px-3 py-1.5 bg-fill/80 dark:bg-slate-800/80 ${
+          isCollapsed ? "" : "border-b border-line/70 dark:border-slate-700/50"
         } text-[11.5px] select-none`}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -62,23 +62,23 @@ export default function CodeBlockComponent({
               value={currentLang}
               onChange={handleLanguageChange}
               onMouseDown={(e) => e.stopPropagation()}
-              className="appearance-none bg-surface dark:bg-slate-700 text-foreground dark:text-slate-200 font-mono text-[11px] font-semibold py-0.5 pl-2 pr-6 rounded-md cursor-pointer border border-border dark:border-slate-600/60 outline-none focus:ring-1 focus:ring-accent transition-colors"
+              className="appearance-none bg-card dark:bg-slate-700 text-ink dark:text-slate-200 font-mono text-[11px] font-semibold py-0.5 pl-2 pr-6 rounded-md cursor-pointer border border-line dark:border-slate-600/60 outline-none focus:ring-1 focus:ring-brand transition-colors"
               title="코드 언어 선택"
               aria-label="코드 언어 선택"
             >
               {SUPPORTED_CODE_LANGUAGES.map((lang) => (
-                <option key={lang.id} value={lang.id} className="bg-surface dark:bg-slate-900 text-foreground dark:text-slate-100">
+                <option key={lang.id} value={lang.id} className="bg-card dark:bg-slate-900 text-ink dark:text-slate-100">
                   {lang.label} ({lang.badge})
                 </option>
               ))}
             </select>
             <IconChevronDown
               size={12}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted dark:text-slate-400 pointer-events-none"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-faint dark:text-slate-400 pointer-events-none"
             />
           </div>
         ) : (
-          <span className="px-2 py-0.5 rounded bg-surface dark:bg-slate-700/70 text-text-secondary dark:text-slate-300 font-mono text-[10.5px] font-bold tracking-wider border border-border/60 dark:border-transparent">
+          <span className="px-2 py-0.5 rounded bg-card dark:bg-slate-700/70 text-sub dark:text-slate-300 font-mono text-[10.5px] font-bold tracking-wider border border-line/60 dark:border-transparent">
             {getLanguageBadge(currentLang)}
           </span>
         )}
@@ -88,7 +88,7 @@ export default function CodeBlockComponent({
             type="button"
             onClick={handleToggleFold}
             onMouseDown={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-sub dark:text-slate-400 hover:text-ink dark:hover:text-slate-200 hover:bg-card dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
             title={isCollapsed ? "코드 펼치기" : "코드 접기"}
             aria-label={isCollapsed ? "코드 펼치기" : "코드 접기"}
           >
@@ -109,7 +109,7 @@ export default function CodeBlockComponent({
             type="button"
             onClick={handleCopy}
             onMouseDown={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-text-secondary dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-surface dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-sub dark:text-slate-400 hover:text-ink dark:hover:text-slate-200 hover:bg-card dark:hover:bg-slate-700/50 transition-colors cursor-pointer text-[11px]"
             title="코드 복사"
             aria-label="코드 복사"
           >

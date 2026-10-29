@@ -86,7 +86,7 @@ export const ImageAttachment = Node.create<ImageAttachmentOptions>({
           src,
           alt,
           class:
-            "pib-editor-image max-w-full md:max-w-lg max-h-[380px] object-contain rounded-lg border border-border bg-surface-2 shadow-xs cursor-pointer hover:opacity-95 transition-opacity select-none",
+            "pib-editor-image max-w-full md:max-w-lg max-h-[380px] object-contain rounded-lg border border-line bg-fill shadow-xs cursor-pointer hover:opacity-95 transition-opacity select-none",
           loading: "lazy",
           "data-image-src": src,
         },
@@ -170,7 +170,7 @@ export const FileAttachment = Node.create({
         "div",
         {
           class:
-            "pib-editor-file-card flex items-center justify-between gap-3 p-2.5 px-3 rounded-lg border border-border bg-surface hover:bg-surface-2 transition-colors cursor-pointer shadow-2xs group select-none",
+            "pib-editor-file-card flex items-center justify-between gap-3 p-2.5 px-3 rounded-lg border border-line bg-card hover:bg-fill transition-colors cursor-pointer shadow-2xs group select-none",
           "data-file-src": src,
           "data-file-name": fileName,
           "data-file-kind": fileKind,
@@ -182,7 +182,7 @@ export const FileAttachment = Node.create({
             "div",
             {
               class:
-                "w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center shrink-0 font-mono text-[10.5px] font-bold",
+                "w-8 h-8 rounded-md bg-brand-soft text-brand flex items-center justify-center shrink-0 font-mono text-[10.5px] font-bold",
             },
             fileExtension,
           ],
@@ -193,13 +193,13 @@ export const FileAttachment = Node.create({
               "span",
               {
                 class:
-                  "text-[13px] font-medium text-foreground truncate block group-hover:text-accent transition-colors",
+                  "text-[13px] font-medium text-ink truncate block group-hover:text-brand transition-colors",
               },
               fileName,
             ],
             [
               "span",
-              { class: "text-[10.5px] text-text-muted uppercase block mt-0.5" },
+              { class: "text-[10.5px] text-faint uppercase block mt-0.5" },
               fileKind === "pdf" ? "PDF 문서 (탭하여 미리보기)" : "첨부 파일 (탭하여 열기)",
             ],
           ],

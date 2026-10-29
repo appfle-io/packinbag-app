@@ -36,7 +36,7 @@ export default function SlideScreen({
   active,
   children,
   zIndex,
-  innerClassName = "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-background pib-safe-top",
+  innerClassName = "flex flex-col h-full w-full mx-auto max-w-3xl md:max-w-4xl bg-canvas pib-safe-top",
   from = "right",
   onBackdropClick,
   desktopTransition = "slide",

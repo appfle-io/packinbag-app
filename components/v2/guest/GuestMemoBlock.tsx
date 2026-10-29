@@ -7,11 +7,14 @@ import { collectEditorDocRichBlocks, type RichBlock } from "@/lib/editorDocPrevi
 import { extractCleanFormattedText } from "@/lib/editorDocTextExport";
 import MemoRichTextView from "@/components/MemoRichTextView";
 import { Button } from "@/components/v2/ui";
+import { PhotoViewer } from "@/components/v2/bag/PhotoViewer";
 
 // 공유 보기 안의 메모(가방 메모 · 폴더 공유 속 메모) v2(2026-10-15). 다섯 덩어리까지 보이고 "전체 보기"로 펼친다
+// 사진은 크게 보기만(저장 · 새 탭 · 길게 눌러 저장 없음, 2026-10-29 — 남이 올린 사진은 보기만과 같은 기준)
 export function GuestMemoBlock({ pack }: { pack: Pack }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
 
   const blocks = useMemo<RichBlock[]>(() => {
     if (pack.editorDoc) {
@@ -48,12 +51,22 @@ export function GuestMemoBlock({ pack }: { pack: Pack }) {
       {(pack.images?.length ?? 0) > 0 && (
         <div className="pib-v2-no-scrollbar flex gap-2 overflow-x-auto py-1">
           {pack.images!.map((url, i) => (
-            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="size-16 shrink-0 overflow-hidden rounded-field bg-fill">
+            <button
+              key={i}
+              type="button"
+              onClick={() => setViewing(i)}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-label={`사진 ${i + 1} 크게 보기`}
+              className="size-16 shrink-0 overflow-hidden rounded-field bg-fill"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element -- 공유한 사람 저장소의 사진 */}
-              <img src={url} alt="첨부 사진" className="size-full object-cover" />
-            </a>
+              <img src={url} alt="첨부 사진" draggable={false} className="pib-v2-no-callout size-full select-none object-cover" />
+            </button>
           ))}
         </div>
+      )}
+      {viewing !== null && pack.images && (
+        <PhotoViewer images={pack.images} index={viewing} onClose={() => setViewing(null)} onNavigate={setViewing} canSave={false} />
       )}
       <div className="flex items-center gap-1">
         {long && (

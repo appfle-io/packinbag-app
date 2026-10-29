@@ -102,6 +102,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task { await PIBPush.upload() }
         // 앱이 꺼져 있을 때 검색 결과로 열린 경우(1.6) - 미뤄 둔 주소를 웹에 넘긴다
         PIBOpen.flush()
+        // 잠금화면 실시간 현황이 8시간 제한으로 끝났으면 같은 설정으로 다시 띄운다(10/27 - 끝난 카드는 고칠 수 없어 먹통처럼 보였다)
+        if #available(iOS 16.2, *) { Task { await PIBLiveActivity.restartIfStopped() } }
     }
 
     private func openURL(_ context: UIOpenURLContext) {

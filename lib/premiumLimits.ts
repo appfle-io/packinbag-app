@@ -102,7 +102,7 @@ export function bagMemberLimit(ownerPremium: boolean): number {
 // 가방 하나에 넣을 수 있는 팩 개수(체크 팩 + 메모 + 미분류 + AI 추천 팩 모두). 2026-10-20 전에는 모두 10개.
 // 기준은 "지금 팩을 넣는 사람"의 프리미엄 여부(가방 화면 · 단축어). 이미 더 많이 든 가방은 그대로 두고 새로 만드는 것만 막는다
 export const FREE_MAX_PACKS_PER_BAG = 5;
-export const MAX_PACKS_PER_BAG = 30;
+const MAX_PACKS_PER_BAG = 30;
 
 export function bagPackLimit(premium: boolean): number {
   return premium ? MAX_PACKS_PER_BAG : FREE_MAX_PACKS_PER_BAG;
@@ -119,11 +119,8 @@ export function bagPackLimitMessage(premium: boolean): string {
 // (하단 "+" 빠른입력 시스템 팩은 이 카운트에서 제외되어 항상 무료 생성/저장 허용)
 export const FREE_MAX_LIBRARY_PACKS = 10;
 
-// 무료 사용자가 가방 1개에 직접 업로드할 수 있는 대표 사진 최대 장수
-// 2026-10-21: 무료는 가방 · 메모 사진 · 파일 첨부를 못 한다(예전 1장, 10/14). 남이 올린 것은 보기만 되고 저장 · 파일 열기는 안 된다
+// 첨부 제한 문구. 2026-10-21: 무료는 가방 · 메모 사진 · 파일 첨부를 못 한다(예전 1장, 10/14). 남이 올린 것은 보기만 되고 저장 · 파일 열기는 안 된다
 // (화면에서만 막는다 — Storage 내려받기 주소는 규칙을 거치지 않아서. 업로드는 storage.rules가 다시 막는다)
-export const FREE_MAX_USER_BAG_IMAGES = 0;
-
 export const ATTACH_PREMIUM_MESSAGE = "사진 · 파일 첨부는 프리미엄 기능이에요.";
 export const MEDIA_SAVE_PREMIUM_MESSAGE = "사진 저장 · 파일 열기는 프리미엄 기능이에요. 사진은 여기서 볼 수 있어요.";
 export const OFFLINE_IMPORT_PREMIUM_MESSAGE =

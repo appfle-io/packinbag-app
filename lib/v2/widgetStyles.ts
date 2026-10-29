@@ -122,7 +122,7 @@ export function clampOffset(v: number, zoom: number): number {
 }
 
 // 배경 밝기(0~1). 글자색 "자동"을 정할 때
-export function hexLuminance(hex: string): number {
+function hexLuminance(hex: string): number {
   const n = parseInt(hex.slice(1), 16);
   if (!Number.isFinite(n)) return 1;
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
@@ -148,19 +148,20 @@ export interface WidgetBagStats {
   packed: string | null;
 }
 
-// "D-3" · "D-Day" · "D+2". 날짜가 없거나 이상하면 null
-export function ddayText(travelDate: string | undefined, now: Date = new Date()): string | null {
+// "D-3" · "D-Day" · "D+2". 날짜가 없거나 이상하면 null. dayOne(당일을 1일로 세기)이면 당일부터 D+1
+export function ddayText(travelDate: string | undefined, now: Date = new Date(), dayOne = false): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(travelDate ?? "");
   if (!m) return null;
   const day = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return "D-Day";
-  return diff > 0 ? `D-${diff}` : `D+${-diff}`;
+  if (diff > 0) return `D-${diff}`;
+  if (dayOne) return `D+${-diff + 1}`;
+  return diff === 0 ? "D-Day" : `D+${-diff}`;
 }
 
 // "오늘 다 쌌어요" · "어제 다 쌌어요" · "10/17 다 쌌어요"
-export function packedText(lastPackedAt: string | undefined, now: Date = new Date()): string | null {
+function packedText(lastPackedAt: string | undefined, now: Date = new Date()): string | null {
   if (!lastPackedAt) return null;
   const d = new Date(lastPackedAt);
   if (Number.isNaN(d.getTime())) return null;
@@ -183,7 +184,7 @@ export function widgetMetaLine(stats: WidgetBagStats, show: WidgetStyleShow): st
 
 // 체크리스트 팩의 체크 아이템만 센다(네이티브 요약과 같은 기준, 폴더 · 메모 · 글 아이템 빼고)
 export function widgetBagStats(
-  bag: { name?: string; travelDate?: string; lastPackedAt?: string; packs?: { kind?: string; type?: string; items?: { type?: string; checked?: boolean }[] }[] },
+  bag: { name?: string; travelDate?: string; ddayCountTodayAsDayOne?: boolean; lastPackedAt?: string; packs?: { kind?: string; type?: string; items?: { type?: string; checked?: boolean }[] }[] },
   now: Date = new Date(),
 ): WidgetBagStats {
   let done = 0;
@@ -196,7 +197,7 @@ export function widgetBagStats(
       if (i.checked) done += 1;
     }
   }
-  return { name: bag.name || "가방", dday: ddayText(bag.travelDate, now), done, total, packed: packedText(bag.lastPackedAt, now) };
+  return { name: bag.name || "가방", dday: ddayText(bag.travelDate, now, !!bag.ddayCountTodayAsDayOne), done, total, packed: packedText(bag.lastPackedAt, now) };
 }
 
 export const SAMPLE_WIDGET_BAG: WidgetBagStats = { name: "제주 3박 4일", dday: "D-3", done: 12, total: 20, packed: "10/17 다 쌌어요" };
@@ -239,7 +240,7 @@ export async function deleteWidgetPhoto(path: string | undefined): Promise<void>
 }
 
 // 지금 쓰는 꾸미기가 안 쓰는 사진을 지운다(저장을 안 하고 나간 새 사진 등). 실패해도 괜찮다
-export async function deleteUnusedWidgetPhotos(uid: string, styles: WidgetStyle[]): Promise<void> {
+async function deleteUnusedWidgetPhotos(uid: string, styles: WidgetStyle[]): Promise<void> {
   const used = new Set(styles.map((s) => s.photoPath).filter(Boolean));
   try {
     const res = await listAll(ref(storage, `users/${uid}/widgetPhotos`));

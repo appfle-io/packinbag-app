@@ -12,7 +12,7 @@ import {
   type RestoreProgress,
 } from "@/lib/backupPlan";
 
-// docs/spec/settings.md SET-BAK-09 · 10: 백업 복원(새 id로 만들기 · 폴더 따라가기 · 이어서 하기)
+// _secrets/docs/spec/settings.md SET-BAK-09 · 10: 백업 복원(새 id로 만들기 · 폴더 따라가기 · 이어서 하기)
 
 const lib = (id: string, extra: Record<string, unknown> = {}) => ({ id, name: id, items: [], ...extra }) as unknown as Pack;
 const folder = (id: string, parentId?: string) => lib(id, { type: "folder", ...(parentId ? { parentId } : {}) });

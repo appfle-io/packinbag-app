@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isUnlockCodeValidFor } from "@/lib/unlockCodeCheck";
 
-// docs/spec/premium.md PREM-JUDGE-03: 이용권은 claimed + claimedBy.uid가 본인 + 만료 전일 때만
+// _secrets/docs/spec/premium.md PREM-JUDGE-03: 이용권은 claimed + claimedBy.uid가 본인 + 만료 전일 때만
 const ME = "uid-me";
 const at = (ms: number) => ({ toDate: () => new Date(ms) });
 const claimed = (extra: Record<string, unknown> = {}) => ({ status: "claimed", claimedBy: { uid: ME }, ...extra });

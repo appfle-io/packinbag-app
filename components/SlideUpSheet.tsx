@@ -77,7 +77,7 @@ export default function SlideUpSheet({
         />
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-background flex flex-col overflow-hidden"
+          className="relative w-full max-w-3xl md:max-w-4xl rounded-t-2xl bg-canvas flex flex-col overflow-hidden"
           style={{
             maxHeight: "85vh",
             transform: entered ? "translateY(0%)" : "translateY(100%)",

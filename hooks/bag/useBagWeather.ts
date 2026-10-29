@@ -8,7 +8,7 @@ import type { BagDocument } from "./useBagDocument";
 import { newId } from "./ids";
 import type { PackLimit } from "./useBagItems";
 
-// 날씨 · 명소 추천 (2026-10-20, 예전 "날씨로 준비물 추천"). docs/spec/bag.md § BAG-WX
+// 날씨 · 명소 추천 (2026-10-20, 예전 "날씨로 준비물 추천"). _secrets/docs/spec/bag.md § BAG-WX
 // - 프리미엄 전용. 날씨는 조회한 날부터 3일(오늘 · 내일 · 모레, 출발일과 상관없음)
 // - 장소: 직접 입력한 장소(Bag.weatherPlace)가 있으면 그것, 없으면 가방 이름에서 찾는다
 // - 결과는 가방 문서(aiRecommendCache)에 6시간 · 같은 날 · 같은 장소 동안 저장해 같은 가방을 보는 사람 모두 재사용

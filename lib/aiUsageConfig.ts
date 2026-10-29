@@ -6,8 +6,6 @@
 // 무료 회원의 AI 기능 사용 한도. 2026-10-21부터 **주 3회**(한국 시간 월요일 0시에 새로, 예전 하루 3회).
 // 서버(aiQuotaServer.ts)와 클라이언트 모두 이 값을 참조한다. 프리미엄은 하루 50회 상한(aiQuotaServer)
 export const AI_FREE_WEEKLY_LIMIT = 3;
-/** @deprecated 주 단위로 바뀜(AI_FREE_WEEKLY_LIMIT). 예전 import가 깨지지 않게 같은 값 */
-export const AI_FREE_DAILY_LIMIT = AI_FREE_WEEKLY_LIMIT;
 export const UNLOCK_CODE_LENGTH = 10;
 
 // 하루 구분은 한국 시간(KST) 자정 기준.

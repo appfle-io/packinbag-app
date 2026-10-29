@@ -44,6 +44,8 @@ struct PIBBag: Codable, Hashable {
     var pinned: Bool? = nil
     // 마지막으로 다 싼 때(ISO, 1.7 · 2026-10-18). 북마크 위젯 "다 싼 날"
     var lastPackedAt: String? = nil
+    // D-Day 당일을 1일로 세기(웹 Bag.ddayCountTodayAsDayOne, 2026-10-29). 켠 가방만 true — 당일부터 D+1
+    var ddayDayOne: Bool? = nil
 
     // D-Day까지 남은 날(오늘 0, 지났으면 음수). 날짜가 없으면 nil
     var daysLeft: Int? {
@@ -359,12 +361,18 @@ func pibLuminance(_ hex: String?) -> Double {
     return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
 }
 
+// 남은 날 → "D-3" / "D-Day" / "D+2"(웹 widgetStyles.ts ddayText와 같음). dayOne이면 당일부터 D+1
+func pibDDayLabel(_ days: Int, dayOne: Bool) -> String {
+    if days > 0 { return "D-\(days)" }
+    if dayOne { return "D+\(-days + 1)" }
+    return days == 0 ? "D-Day" : "D+\(-days)"
+}
+
 // 북마크 위젯 문구(웹 widgetStyles.ts ddayText · packedText · widgetMetaLine과 같음)
 enum PIBBookmarkText {
     static func dday(_ bag: PIBBag) -> String? {
         guard let d = bag.daysLeft else { return nil }
-        if d == 0 { return "D-Day" }
-        return d > 0 ? "D-\(d)" : "D+\(-d)"
+        return pibDDayLabel(d, dayOne: bag.ddayDayOne == true)
     }
 
     static func packed(_ iso: String?, now: Date = Date()) -> String? {
@@ -537,9 +545,11 @@ enum PIBAPI {
     }
 
     // 실시간 현황 푸시 토큰(다른 멤버 체크를 서버가 잠금화면에 바로 반영, 2026-10-11)
-    static func registerLive(token: String, bagId: String, packId: String) async throws {
-        _ = try await request("/api/native/live-token", method: "POST",
-                              body: ["token": token, "bagId": bagId, "packId": packId, "env": PIB.apnsEnvironment])
+    // startedAt(10/27): 띄운 시각 → 서버가 원격 갱신에 같은 멈춤 시각(stale-date)을 붙인다
+    static func registerLive(token: String, bagId: String, packId: String, startedAt: Double?) async throws {
+        var body: [String: Any] = ["token": token, "bagId": bagId, "packId": packId, "env": PIB.apnsEnvironment]
+        if let startedAt { body["startedAt"] = startedAt }
+        _ = try await request("/api/native/live-token", method: "POST", body: body)
     }
 
     static func clearLive() async {

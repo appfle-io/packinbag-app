@@ -187,7 +187,7 @@ struct PackWidgetView: View {
                 Text("\(done)/\(pack.items.count)").font(style.font(12, bold: true)).foregroundStyle(c.brand)
             }
             if family != .systemSmall {
-                Text([entry.wholeBag ? "가방 전체" : bag.name, pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
+                Text([entry.wholeBag ? "가방 전체" : bag.name, pibDDay(bag.travelDate, dayOne: bag.ddayDayOne == true)].compactMap { $0 }.joined(separator: " · "))
                     .font(style.font(11)).foregroundStyle(c.sub).lineLimit(1)
             }
             if pack.items.isEmpty {
@@ -362,11 +362,11 @@ struct LockWidgetView: View {
                 }
                 .gaugeStyle(.accessoryCircularCapacity)
             case .accessoryInline:
-                Text([pack.name, left == 0 ? "다 챙김" : "남은 \(left)개", pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
+                Text([pack.name, left == 0 ? "다 챙김" : "남은 \(left)개", pibDDay(bag.travelDate, dayOne: bag.ddayDayOne == true)].compactMap { $0 }.joined(separator: " · "))
             default:
                 VStack(alignment: .leading, spacing: 1) {
                     Text(pack.name).font(.headline).lineLimit(1)
-                    Text([left == 0 ? "다 챙겼어요" : "남은 \(left)개", pibDDay(bag.travelDate)].compactMap { $0 }.joined(separator: " · "))
+                    Text([left == 0 ? "다 챙겼어요" : "남은 \(left)개", pibDDay(bag.travelDate, dayOne: bag.ddayDayOne == true)].compactMap { $0 }.joined(separator: " · "))
                         .font(.caption)
                     if let next = pack.items.first(where: { !$0.checked }) {
                         Text(next.text).font(.caption).lineLimit(1).foregroundStyle(.secondary)

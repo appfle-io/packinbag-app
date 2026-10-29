@@ -152,8 +152,8 @@ struct PIBCustomColor {
     }
 }
 
-// "2026-10-14" → "D-3" / "D-Day" / "D+2"
-func pibDDay(_ travelDate: String?) -> String? {
+// "2026-10-14" → "D-3" / "D-Day" / "D+2". dayOne(당일을 1일로 세기)이면 당일부터 D+1
+func pibDDay(_ travelDate: String?, dayOne: Bool = false) -> String? {
     guard let travelDate else { return nil }
     let f = DateFormatter()
     f.calendar = Calendar(identifier: .gregorian)
@@ -162,6 +162,5 @@ func pibDDay(_ travelDate: String?) -> String? {
     guard let date = f.date(from: travelDate) else { return nil }
     let cal = Calendar.current
     let days = cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: date)).day ?? 0
-    if days == 0 { return "D-Day" }
-    return days > 0 ? "D-\(days)" : "D+\(-days)"
+    return pibDDayLabel(days, dayOne: dayOne)
 }

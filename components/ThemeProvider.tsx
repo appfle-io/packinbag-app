@@ -6,7 +6,7 @@ import type { AppFontFamily } from "@/lib/types";
 import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily } from "@/lib/v2/appFonts";
 import { isPremiumUser } from "@/lib/premiumLimits";
 
-// 설정 > 화면: 화면 모드 · 글자 크기 · 글꼴(docs/spec/settings.md SET-DISP).
+// 설정 > 화면: 화면 모드 · 글자 크기 · 글꼴(_secrets/docs/spec/settings.md SET-DISP).
 // 저장: 이 기기(localStorage, 첫 화면 깜빡임 방지) + 계정(UserProfile.themeMode · fontScale · fontFamily, 기기 간 동기화).
 //
 // 2026-10-15: 구 UI 꾸밈 설정(강조색 · 가방/팩 카드 색 · 투명도 · 카드 크기 · 카드 글자 크기)을 지웠다. v2 화면은 쓰지 않았고,

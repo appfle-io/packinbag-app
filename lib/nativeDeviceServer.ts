@@ -16,9 +16,9 @@ const DAILY_LIMIT = 800;
 const MAX_TOKENS_PER_USER = 10;
 // 이 기간 동안 한 번도 안 쓴 토큰은 만료(2026-10-22, security_review SEC-AUTH-04). 위젯이 1시간마다 새로 고치므로
 // 쓰는 기기는 늘 새로 갱신되고, 잃어버린 기기 · 지운 앱의 토큰만 걸린다. 걸리면 앱을 열 때 새 토큰을 받는다
-export const DEVICE_TOKEN_IDLE_DAYS = 90;
+const DEVICE_TOKEN_IDLE_DAYS = 90;
 
-export function isDeviceTokenExpired(lastUsedAt: string | undefined, now = new Date()): boolean {
+function isDeviceTokenExpired(lastUsedAt: string | undefined, now = new Date()): boolean {
   const t = lastUsedAt ? Date.parse(lastUsedAt) : NaN;
   if (Number.isNaN(t)) return false;
   return now.getTime() - t > DEVICE_TOKEN_IDLE_DAYS * 24 * 3600 * 1000;
@@ -115,17 +115,21 @@ export interface DeviceLive {
   bagId: string;
   packId: string;
   env: "sandbox" | "production";
+  // 띄운 시각(초, 10/27). functions/src/live.ts가 원격 갱신에 멈춤 시각(stale-date)을 붙인다
+  startedAt?: number;
 }
 
 export function parseDeviceLive(body: unknown): DeviceLive | null {
-  const b = (body ?? {}) as { token?: unknown; bagId?: unknown; packId?: unknown; env?: unknown };
+  const b = (body ?? {}) as { token?: unknown; bagId?: unknown; packId?: unknown; env?: unknown; startedAt?: unknown };
   const token = typeof b.token === "string" ? b.token.trim().toLowerCase() : "";
   if (!/^[0-9a-f]{32,400}$/.test(token)) return null;
   const bagId = typeof b.bagId === "string" ? b.bagId : "";
   const packId = typeof b.packId === "string" ? b.packId : "";
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(bagId) || !packId || packId.length > 128) return null;
   if (b.env !== "sandbox" && b.env !== "production") return null;
-  return { token, bagId, packId, env: b.env };
+  // 띄운 시각(초, 10/27 새 빌드부터). 이상한 값은 버린다(없으면 서버가 멈춤 시각을 붙이지 않음)
+  const startedAt = typeof b.startedAt === "number" && Number.isFinite(b.startedAt) && Math.abs(b.startedAt - Date.now() / 1000) < 86400 ? b.startedAt : undefined;
+  return { token, bagId, packId, env: b.env, ...(startedAt ? { startedAt } : {}) };
 }
 
 export async function attachLiveToken(req: Request, live: DeviceLive): Promise<void> {
