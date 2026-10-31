@@ -117,7 +117,8 @@ export function normalizeWidgetStyle(s: WidgetStyle, premium: boolean): WidgetSt
     zoom,
     x: wp === "fitted" ? 0 : clampOffset(Number(s.x) || 0, zoom),
     y: wp === "fitted" ? 0 : clampOffset(Number(s.y) || 0, zoom),
-    dim: clamp(Math.round(Number(s.dim ?? 40)), 0, WIDGET_DIM_MAX),
+    // 배경화면은 글자 쪽 어둡게 없음(10/31 사용자, 투명해 보여야 해서)
+    dim: wp === "fitted" ? 0 : clamp(Math.round(Number(s.dim ?? 40)), 0, WIDGET_DIM_MAX),
     ink,
     inkColor: ink === "custom" ? inkColor : undefined,
     pos: POS.has(s.pos) ? s.pos : "bl",

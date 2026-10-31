@@ -142,7 +142,7 @@ export function WidgetStyleEditor({
     const url = URL.createObjectURL(cut);
     photoSrcRef.current = url;
     setPhotoSrc(url);
-    patch({ bg: "photo", wallpaper, zoom: 1, x: 0, y: 0, ...(wp === "fitted" ? {} : { dim: 0 }) });
+    patch({ bg: "photo", wallpaper, zoom: 1, x: 0, y: 0, dim: 0 });
   };
 
   const onShot = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -354,24 +354,6 @@ export function WidgetStyleEditor({
             </ol>
             <span className="text-micro text-faint">위젯을 옮기거나 배경화면을 바꾸면 다시 골라 주세요. 저장한 뒤 홈 화면 위젯을 길게 눌러 이 꾸미기를 골라요.</span>
           </div>
-        )}
-
-        {premium && wallOn && wp === "fitted" && (
-              <label className="flex flex-col gap-2">
-                <span className="flex justify-between text-caption text-sub">
-                  <span>글자 쪽 어둡게</span>
-                  <span>{draft.dim ?? 0}%</span>
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={WIDGET_DIM_MAX}
-                  step={5}
-                  value={draft.dim ?? 0}
-                  onChange={(e) => patch({ dim: Number(e.target.value) })}
-                  className="w-full accent-brand"
-                />
-              </label>
         )}
 
         {premium && draft.bg === "photo" && !wallOn && (

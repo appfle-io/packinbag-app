@@ -62,9 +62,9 @@ describe("배경화면 바탕(2026-10-31)", () => {
   });
 
   it("맞춘 사진은 크기 · 위치를 고정", () => {
-    const s = normalizeWidgetStyle({ ...newWidgetStyle(), bg: "photo", photoUrl: "u", zoom: 2, x: 10, wallpaper: rect }, true);
+    const s = normalizeWidgetStyle({ ...newWidgetStyle(), bg: "photo", photoUrl: "u", zoom: 2, x: 10, dim: 40, wallpaper: rect }, true);
     expect(wallpaperState(s)).toBe("fitted");
-    expect([s.zoom, s.x, s.y]).toEqual([1, 0, 0]);
+    expect([s.zoom, s.x, s.y, s.dim]).toEqual([1, 0, 0, 0]);
   });
 
   it("다른 배경이나 무료면 배경화면 값을 뗀다", () => {
