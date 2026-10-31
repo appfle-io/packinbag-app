@@ -548,6 +548,8 @@ export interface WidgetWallpaper {
   h?: number;
   sw?: number;
   sh?: number;
+  // 밝기 맞추기(%, iOS 26+ 위젯 유리만큼 미리 어둡게. lib/v2/wallpaperFit unveil)
+  veil?: number;
 }
 
 // 개인 잠금 설정. PIN은 PBKDF2-SHA256 해시(base64)만 저장한다

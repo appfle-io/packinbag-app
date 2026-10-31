@@ -3,7 +3,7 @@
 // 북마크 위젯 꾸미기 편집(2026-10-18, 1.7). 설정 > 위젯 꾸미기 > 칸 누르기 / 새로 만들기.
 // 맨 위 미리 보기는 고르는 즉시 바뀐다. 사진은 저장할 때 올린다(그 전에는 이 기기 안 blob 주소로 미리 보기)
 // "배경화면"(2026-10-31): 빈 페이지 스크린샷 1장 → 기종 표로 위젯 칸을 그려 주고 누른 칸을 잘라 사진으로(lib/v2/wallpaperFit).
-// 표에 없는 기종이거나 어긋나면 분홍 표시로 직접 잰다(분홍 저장 → 그 홈 화면 스크린샷 → 빈 페이지 스크린샷)
+// 표에 없는 기종은 못 씀(분홍 표시로 직접 재는 방식 · 밝기 슬라이더는 어렵다고 해서 뺌, 사용자 10/31)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IconCheck, IconPhoto } from "@tabler/icons-react";
 import type { Bag, WidgetStyle, WidgetStyleBg, WidgetStyleInk } from "@/lib/types";
@@ -23,7 +23,14 @@ import {
   wallpaperState,
   widgetBagStats,
 } from "@/lib/v2/widgetStyles";
-import { WALLPAPER_MARK_COLOR, cropWallpaper, detectMark, widgetSlotLayouts, type SlotLayout, type WidgetSlot } from "@/lib/v2/wallpaperFit";
+import {
+  WALLPAPER_MARK_COLOR,
+  cropWallpaper,
+  defaultVeil,
+  widgetSlotLayouts,
+  type SlotLayout,
+  type WidgetSlot,
+} from "@/lib/v2/wallpaperFit";
 import { SubScreen } from "./SubScreen";
 import { WidgetPreview } from "./WidgetPreview";
 
@@ -148,7 +155,7 @@ export function WidgetStyleEditor({
       const layouts = widgetSlotLayouts(bitmap.width, bitmap.height);
       bitmap.close?.();
       if (!layouts) {
-        show("이 아이폰은 위젯 자리를 자동으로 못 찾아요. 아래 '분홍으로 직접 맞추기'로 해 주세요");
+        show("이 아이폰은 아직 배경화면 맞추기를 쓸 수 없어요");
         return;
       }
       if (shotUrlRef.current) URL.revokeObjectURL(shotUrlRef.current);
@@ -168,10 +175,12 @@ export function WidgetStyleEditor({
     if (!shot || busy) return;
     setBusy(true);
     try {
-      const cut = await cropWallpaper(shot.file, slot.wallpaper);
+      // iOS 26+는 위젯에 옅은 흰 유리가 덮여서 그만큼 미리 어둡게 깐다(defaultVeil)
+      const wallpaper = { ...slot.wallpaper, veil: defaultVeil() };
+      const cut = await cropWallpaper(shot.file, wallpaper);
       if (cut === "screen") return;
       setSlotKey(slot.key);
-      applyCut(cut, slot.wallpaper);
+      applyCut(cut, wallpaper);
     } catch {
       show("사진을 읽지 못했어요");
     } finally {
@@ -185,60 +194,6 @@ export function WidgetStyleEditor({
     if (slot) void pickSlot(slot);
   };
 
-  // 분홍으로 직접 맞추기(표에 없는 기종 · 자리가 어긋날 때)
-  const startPink = () => {
-    setShot(null);
-    setPhoto(null);
-    setPhotoSrc(null);
-    patch({ bg: "solid", color: WALLPAPER_MARK_COLOR, wallpaper: {}, photoUrl: undefined });
-  };
-  const leavePink = () => {
-    if (wallpaperState(initial) === "fitted") setDraft((d) => ({ ...d, bg: "photo", wallpaper: initial.wallpaper, photoUrl: initial.photoUrl, color: solidColor ?? d.color }));
-    else patch({ bg: "plain", wallpaper: undefined, color: solidColor ?? WIDGET_SWATCHES[0].hex });
-  };
-  // 저장된 꾸미기가 분홍 자리 표시 중이어야 홈 화면에 분홍 위젯이 보인다(그래야 자리를 잴 스크린샷을 찍을 수 있다)
-  const markSaved = !isNew && wallpaperState(initial) === "marking";
-  const measured = draft.wallpaper?.w !== undefined;
-  const onMarkShot = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || busy) return;
-    setBusy(true);
-    try {
-      const rect = await detectMark(file);
-      if (!rect) {
-        show("분홍 위젯을 찾지 못했어요. 분홍 위젯 하나가 다 보이게 찍어 주세요");
-        return;
-      }
-      // 자리를 다시 쟀으면 예전에 자른 사진은 맞지 않는다 → 빈 페이지를 다시 고르게
-      setPhoto(null);
-      setPhotoSrc(null);
-      patch({ bg: "solid", color: WALLPAPER_MARK_COLOR, wallpaper: rect, photoUrl: undefined });
-      show("위젯 자리를 찾았어요. 이제 빈 페이지 스크린샷을 골라 주세요");
-    } catch {
-      show("사진을 읽지 못했어요");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const onEmptyShot = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || busy || !draft.wallpaper) return;
-    setBusy(true);
-    try {
-      const cut = await cropWallpaper(file, draft.wallpaper);
-      if (cut === "screen") {
-        show("위젯 자리를 잰 스크린샷과 다른 화면이에요. 같은 아이폰에서 세로로 찍어 주세요");
-        return;
-      }
-      applyCut(cut, draft.wallpaper);
-    } catch {
-      show("사진을 읽지 못했어요");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -295,12 +250,8 @@ export function WidgetStyleEditor({
   const posLabel = WIDGET_POSITIONS.find((p) => p.key === draft.pos)?.label ?? "";
 
   const save = () => {
-    if (wallOn && wp !== "marking" && wp !== "fitted") {
+    if (wallOn && wp !== "fitted") {
       show(shot ? "위젯이 있는 칸을 눌러 주세요" : "빈 페이지 스크린샷을 골라 주세요");
-      return;
-    }
-    if (wp === "marking" && measured) {
-      show("빈 페이지 스크린샷을 골라 주세요");
       return;
     }
     if (draft.bg === "photo" && !hasPhoto) {
@@ -353,7 +304,7 @@ export function WidgetStyleEditor({
         {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 · 배경화면 배경은 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
         {premium && !wallOn && draft.bg === "plain" && <p className="m-0 text-caption text-sub">앱과 같은 바탕이에요(다크 모드면 어둡게).</p>}
 
-        {premium && wallOn && wp !== "marking" && (
+        {premium && wallOn && (
           <div className="flex flex-col gap-4">
             <p className="m-0 text-caption text-sub">위젯 자리만큼 배경화면을 깔아서 투명한 것처럼 보여요.</p>
             <ol className="m-0 flex list-none flex-col gap-3 p-0">
@@ -402,33 +353,6 @@ export function WidgetStyleEditor({
               )}
             </ol>
             <span className="text-micro text-faint">위젯을 옮기거나 배경화면을 바꾸면 다시 골라 주세요. 저장한 뒤 홈 화면 위젯을 길게 눌러 이 꾸미기를 골라요.</span>
-            <button type="button" onClick={startPink} className="self-start bg-transparent p-0 text-caption text-sub underline">
-              자리가 안 맞으면 분홍으로 직접 맞추기
-            </button>
-          </div>
-        )}
-
-        {premium && wp === "marking" && (
-          <div className="flex flex-col gap-4">
-            <p className="m-0 text-caption text-sub">분홍으로 위젯 자리를 표시해서 정확히 재요. 위젯을 옮기거나 배경화면을 바꾸면 다시 맞춰 주세요.</p>
-            <ol className="m-0 flex list-none flex-col gap-3 p-0">
-              <WallpaperStep n={1} done={markSaved} title="분홍으로 위젯 자리 표시">
-                {markSaved
-                  ? "홈 화면에서 위젯을 길게 눌러 위젯 편집 → 꾸미기에서 이 꾸미기를 고르면 분홍으로 보여요."
-                  : "먼저 저장해 주세요. 그다음 홈 화면 \"가방 바로가기\" 위젯을 길게 눌러 위젯 편집 → 꾸미기에서 이 꾸미기를 고르면 분홍으로 보여요."}
-              </WallpaperStep>
-              <WallpaperStep n={2} done={measured} title="분홍 위젯이 보이는 홈 화면 스크린샷">
-                분홍 위젯이 다 보이게 홈 화면을 스크린샷으로 찍고 여기서 골라요.
-                <ShotButton label={measured ? "다시 고르기" : "스크린샷 고르기"} disabled={!markSaved || busy} onChange={onMarkShot} />
-              </WallpaperStep>
-              <WallpaperStep n={3} done={false} title="빈 페이지 스크린샷">
-                홈 화면을 길게 눌러 맨 오른쪽 빈 페이지로 넘긴 뒤 스크린샷을 찍어 골라요.
-                <ShotButton label="스크린샷 고르기" disabled={!measured || busy} onChange={onEmptyShot} />
-              </WallpaperStep>
-            </ol>
-            <button type="button" onClick={leavePink} className="self-start bg-transparent p-0 text-caption text-sub underline">
-              스크린샷 1장으로 맞추기로 돌아가기
-            </button>
           </div>
         )}
 

@@ -73,13 +73,7 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
       await updateWidgetStyles(list);
       if (before?.photoPath && before.photoPath !== next.photoPath) void deleteWidgetPhoto(before.photoPath);
       setEditing(null);
-      show(
-        wallpaperState(next) === "marking"
-          ? "분홍으로 저장했어요. 홈 화면 위젯에 이 꾸미기를 고르고 스크린샷을 찍은 뒤 다시 열어 주세요"
-          : before
-            ? "꾸미기를 저장했어요"
-            : "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요",
-      );
+      show(before ? "꾸미기를 저장했어요" : "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요");
     } catch (err) {
       console.error("[팩인백] 위젯 꾸미기 저장 실패:", err);
       // 올린 사진은 쓰지 않게 됐으니 지운다

@@ -1,40 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findMarkRect, sameScreen, widgetSlotLayouts } from "./wallpaperFit";
-
-// width×height 회색 화면에 분홍 칸들을 칠한다(text: 칸 안 가운데 줄을 흰 글자로 가림)
-function screen(width: number, height: number, boxes: { x: number; y: number; w: number; h: number; text?: boolean }[]) {
-  const data = new Uint8ClampedArray(width * height * 4);
-  for (let i = 0; i < data.length; i += 4) data.set([90, 120, 140, 255], i);
-  for (const b of boxes) {
-    for (let y = b.y; y < b.y + b.h; y++) {
-      for (let x = b.x; x < b.x + b.w; x++) {
-        const textRow = b.text && y > b.y + b.h * 0.6 && y < b.y + b.h * 0.75;
-        data.set(textRow ? [255, 255, 255, 255] : [255, 0, 255, 255], (y * width + x) * 4);
-      }
-    }
-  }
-  return data;
-}
-
-describe("findMarkRect", () => {
-  it("분홍 칸을 비율로 찾는다(글자가 조금 가려도)", () => {
-    const r = findMarkRect(screen(100, 200, [{ x: 10, y: 20, w: 40, h: 40, text: true }]), 100, 200);
-    expect(r).toEqual({ x: 0.1, y: 0.1, w: 0.4, h: 0.2, sw: 100, sh: 200 });
-  });
-
-  it("분홍이 없으면 null", () => {
-    expect(findMarkRect(screen(50, 100, []), 50, 100)).toBeNull();
-  });
-
-  it("분홍 칸이 둘이면 null", () => {
-    expect(findMarkRect(screen(100, 200, [{ x: 5, y: 10, w: 30, h: 30 }, { x: 60, y: 120, w: 30, h: 30 }]), 100, 200)).toBeNull();
-  });
-
-  it("너무 작거나 정사각형이 아니면 null", () => {
-    expect(findMarkRect(screen(100, 200, [{ x: 5, y: 10, w: 5, h: 5 }]), 100, 200)).toBeNull();
-    expect(findMarkRect(screen(100, 200, [{ x: 5, y: 10, w: 80, h: 30 }]), 100, 200)).toBeNull();
-  });
-});
+import { defaultVeil, iosMajor, sameScreen, unveil, widgetSlotLayouts } from "./wallpaperFit";
 
 describe("sameScreen", () => {
   it("같은 크기만 같은 화면", () => {
@@ -57,5 +22,30 @@ describe("widgetSlotLayouts", () => {
     expect(widgetSlotLayouts(1000, 2000)).toBeNull();
     expect(widgetSlotLayouts(2622, 1206)).toBeNull();
     expect(widgetSlotLayouts(600, 2622)).toBeNull();
+  });
+});
+
+describe("iOS 26+ 배치 · 밝기 맞추기", () => {
+  it("iOS 27이면 잰 값(2622)만, 모르는 기종은 null", () => {
+    const l = widgetSlotLayouts(1206, 2622, 27);
+    expect(l?.[0].slots[1].wallpaper).toMatchObject({ x: 0.524, y: 0.103, w: 0.4221 });
+    expect(widgetSlotLayouts(1179, 2556, 26)).toBeNull();
+    expect(widgetSlotLayouts(1179, 2556, 18)).not.toBeNull();
+  });
+
+  it("UA에서 iOS 버전 · 기본 밝기", () => {
+    expect(iosMajor("Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X)")).toBe(27);
+    expect(iosMajor("Mozilla/5.0 (Macintosh)")).toBeNull();
+    expect(defaultVeil(27)).toBe(8);
+    expect(defaultVeil(18)).toBe(0);
+  });
+
+  it("unveil: 흰 유리 8%를 덮으면 원래 값", () => {
+    for (const v of [40, 78, 116, 162, 230]) {
+      const pre = unveil(v, 8);
+      expect(Math.abs(pre * 0.92 + 255 * 0.08 - v)).toBeLessThanOrEqual(1);
+    }
+    expect(unveil(10, 8)).toBe(0);
+    expect(unveil(100, 0)).toBe(100);
   });
 });

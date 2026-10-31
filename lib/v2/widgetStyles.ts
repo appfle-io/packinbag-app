@@ -84,7 +84,8 @@ function cleanWallpaper(w: WidgetWallpaper | undefined): WidgetWallpaper | undef
   if (w.w === undefined) return {};
   const px = (v: unknown) => typeof v === "number" && Number.isInteger(v) && v > 0;
   if (![w.x, w.y, w.w, w.h].every(ok) || !px(w.sw) || !px(w.sh)) return undefined;
-  return { x: w.x, y: w.y, w: w.w, h: w.h, sw: w.sw, sh: w.sh };
+  const veil = typeof w.veil === "number" && Number.isFinite(w.veil) ? Math.round(clamp(w.veil, -10, 20)) : undefined;
+  return { x: w.x, y: w.y, w: w.w, h: w.h, sw: w.sw, sh: w.sh, ...(veil ? { veil } : {}) };
 }
 
 // "배경화면"으로 보일지: marking = 분홍으로 자리 표시 중, fitted = 잘라 올린 사진
@@ -238,7 +239,8 @@ async function toJpeg(file: Blob): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d");
+  // 아이폰 사진 · 스크린샷의 P3 색을 그대로(되는 브라우저만, 배경화면 맞추기에서 색이 어긋나지 않게)
+  const ctx = canvas.getContext("2d", { colorSpace: "display-p3" });
   if (!ctx) throw new Error("사진을 읽지 못했어요");
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close?.();
