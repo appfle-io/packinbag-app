@@ -127,7 +127,81 @@ export function widgetSlotLayouts(width: number, height: number, ios26: boolean 
   return out.length > 0 ? out : null;
 }
 
+// ---- 팩 위젯 배경화면(1.11, 2026-11-01) ----
+// 기기마다 빈 페이지 스크린샷 1장 → 위젯이 놓일 수 있는 자리마다 미리 잘라 네이티브(App Group)로 넘긴다(서버에 안 올림).
+// 작은 위젯 6칸에서 중간(한 줄 전체) 3자리 · 크게(두 줄) 2자리를 만든다. 이름은 Swift PIBHomeWallpaper · PIBWallSlot과 같게
+export interface WallpaperPiece {
+  key: string;
+  wallpaper: WidgetWallpaper;
+}
+
+export function homeWallpaperPieces(layout: SlotLayout): WallpaperPiece[] {
+  const at = (k: string) => layout.slots.find((s) => s.key === k)!.wallpaper;
+  const r = (v: number) => Math.round(v * 10000) / 10000;
+  const span = (from: WidgetWallpaper, toRight: WidgetWallpaper, toBottom: WidgetWallpaper): WidgetWallpaper => {
+    const x = from.x ?? 0;
+    const y = from.y ?? 0;
+    return {
+      x,
+      y,
+      w: r((toRight.x ?? 0) + (toRight.w ?? 0) - x),
+      h: r((toBottom.y ?? 0) + (toBottom.h ?? 0) - y),
+      sw: from.sw,
+      sh: from.sh,
+    };
+  };
+  return [
+    ...layout.slots.map((s) => ({ key: `s-${s.key}`, wallpaper: s.wallpaper })),
+    ...(["t", "m", "b"] as const).map((row) => ({ key: `m-${row}`, wallpaper: span(at(`${row}l`), at(`${row}r`), at(`${row}l`)) })),
+    { key: "l-t", wallpaper: span(at("tl"), at("tr"), at("ml")) },
+    { key: "l-m", wallpaper: span(at("ml"), at("mr"), at("bl")) },
+  ];
+}
+
 // ---- 브라우저 ----
+
+// 스크린샷 하나에서 여러 조각을 한 번에(디코딩 1번). 조각마다 JPEG(base64)와 밝은 바탕인지
+export async function cropWallpaperPieces(
+  file: Blob,
+  pieces: WallpaperPiece[],
+  veil: number,
+): Promise<{ key: string; base64: string; light: boolean }[]> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const out: { key: string; base64: string; light: boolean }[] = [];
+    for (const { key, wallpaper: wp } of pieces) {
+      if (!sameScreen(wp, bitmap.width, bitmap.height)) throw new Error("screen");
+      const sx = Math.round((wp.x ?? 0) * bitmap.width);
+      const sy = Math.round((wp.y ?? 0) * bitmap.height);
+      const sw = Math.max(1, Math.round((wp.w ?? 0) * bitmap.width));
+      const sh = Math.max(1, Math.round((wp.h ?? 0) * bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext("2d", { colorSpace: "display-p3", willReadFrequently: true });
+      if (!ctx) throw new Error("사진을 읽지 못했어요");
+      ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+      const img = ctx.getImageData(0, 0, sw, sh);
+      const d = img.data;
+      let luma = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (veil !== 0) {
+          d[i] = unveil(d[i], veil);
+          d[i + 1] = unveil(d[i + 1], veil);
+          d[i + 2] = unveil(d[i + 2], veil);
+        }
+        luma += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      }
+      if (veil !== 0) ctx.putImageData(img, 0, 0);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      // 위젯 글자색: 평균 밝기가 중간보다 밝으면 진한 글자(PIBCustomColor와 같은 기준 0.6)
+      out.push({ key, base64: dataUrl.slice(dataUrl.indexOf(",") + 1), light: luma / (d.length / 4) / 255 > 0.6 });
+    }
+    return out;
+  } finally {
+    bitmap.close?.();
+  }
+}
 
 // 빈 홈 화면 스크린샷에서 위젯 자리를 잘라 JPEG로. 다른 기기 · 방향이면 "screen"
 export async function cropWallpaper(file: Blob, wp: WidgetWallpaper): Promise<Blob | "screen"> {

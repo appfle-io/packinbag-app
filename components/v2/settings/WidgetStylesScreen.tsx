@@ -27,6 +27,7 @@ import {
 import { SubScreen } from "./SubScreen";
 import { WidgetPreview } from "./WidgetPreview";
 import { WidgetStyleEditor } from "./WidgetStyleEditor";
+import { HomeWallpaperCard } from "./HomeWallpaperCard";
 
 const BG_LABEL: Record<string, string> = { plain: "기본 바탕", photo: "사진", solid: "단색" };
 
@@ -169,6 +170,8 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
       <p className="m-0 text-micro text-faint">
         꾸미기를 고치면 그걸 쓰는 위젯이 모두 바뀌어요. 위젯을 누르면 그 가방이 바로 열려요. 개인 잠금한 가방은 위젯에서 고를 수 없어요.
       </p>
+
+      <HomeWallpaperCard premium={premium} />
 
       <SlideScreen active={!!editing} onBackdropClick={() => !saving && setEditing(null)} swipeBack>
         {editing && (

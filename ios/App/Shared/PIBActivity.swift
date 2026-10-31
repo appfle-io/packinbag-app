@@ -138,6 +138,7 @@ enum PIBLiveActivity {
             activity = try Activity.request(attributes: attributes, content: .init(state: state, staleDate: staleDate(attributes)), pushType: nil)
         }
         PIB.defaults.removeObject(forKey: liveSentKey)
+        if let data = try? JSONEncoder().encode(attributes) { PIB.defaults.set(data, forKey: configKey) }
         observe(activity)
         return activity.id
     }
@@ -310,23 +311,34 @@ enum PIBLiveActivity {
 
     // 단축어 "잠금화면 다시 띄우기"(10/11): iOS는 띄운 때부터 8시간이 지나면 끝낸다(갱신해도 늘어나지 않음).
     // 같은 설정(가방 · 팩 · 꾸미기)으로 내렸다 새로 띄워 8시간을 다시 시작한다. 자동화(00 · 08 · 16시 등)에 걸어 둔다.
-    // 8시간이 막 지나 끝난(ended) 것도 잠금화면에 남아 있는 동안은 그 설정으로 다시 띄운다. 떠 있는 게 없거나 다 챙겨 두었으면 false
-    static func restart() async -> Bool {
-        guard let activity = Activity<PackActivityAttributes>.activities.first(where: { $0.activityState != .dismissed }) else {
-            return false
+    // 11/1: 챙길 게 없으면(다 챙김 · 아이템 0개 · 팩이 요약에 없음) 새로 띄우지 않고 남은 카드도 내린다(예전에는 옛 카드가
+    // 그대로 남아 갱신이 안 된 것처럼 보였다). 설정은 기억해 두어(configKey) 카드가 없어도 다음 실행 때 아이템이 생겼으면 다시 띄운다.
+    // 설정을 잊는 건 앱에서 내리기 · 로그아웃(endAll)뿐
+    enum RestartResult { case restarted, nothingLeft, noCard }
+
+    static func restart() async -> RestartResult {
+        let shown = Activity<PackActivityAttributes>.activities.first(where: { $0.activityState != .dismissed })
+        guard let a = shown?.attributes ?? savedConfig else { return .noCard }
+        guard let fresh = state(bagId: a.bagId, packId: a.packId), fresh.total > 0, !isAllDone(fresh) else {
+            await endAll(forget: false)
+            return .nothingLeft
         }
-        let a = activity.attributes
-        guard let fresh = state(bagId: a.bagId, packId: a.packId), !isAllDone(fresh) else { return false }
         do {
             _ = try await start(
                 bagId: a.bagId, packId: a.packId, theme: a.theme, font: a.font, size: a.size,
                 bgColor: a.bgColor, bgAlpha: a.bgAlpha, textTone: a.textTone, textColor: a.textColor, showDone: a.showDone
             )
-            return true
+            return .restarted
         } catch {
             print("[팩인백] 잠금화면 다시 띄우기 실패:", error.localizedDescription)
-            return false
+            return .noCard
         }
+    }
+
+    private static let configKey = "pib.liveConfig"
+
+    private static var savedConfig: PackActivityAttributes? {
+        PIB.defaults.data(forKey: configKey).flatMap { try? JSONDecoder().decode(PackActivityAttributes.self, from: $0) }
     }
 
     // 8시간 제한으로 끝났거나 곧 끝나는 카드를 같은 설정으로 다시 띄운다(10/27). 앱을 열 때 · 잠금화면 카드를 누를 때.
@@ -338,10 +350,12 @@ enum PIBLiveActivity {
         if list.contains(where: { $0.activityState == .active && !isStopped($0) }) { return false }
         guard let activity = list.first, isStopped(activity) else { return false }
         if let bagId, activity.attributes.bagId != bagId { return false }
-        return await restart()
+        return await restart() == .restarted
     }
 
-    static func endAll() async {
+    // forget: 다시 띄울 설정도 잊는다(앱에서 내리기 · 로그아웃). 단축어가 챙길 게 없어 내릴 때는 false
+    static func endAll(forget: Bool = true) async {
+        if forget { PIB.defaults.removeObject(forKey: configKey) }
         let list = Activity<PackActivityAttributes>.activities
         for activity in list {
             await activity.end(nil, dismissalPolicy: .immediate)

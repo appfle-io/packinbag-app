@@ -588,3 +588,63 @@ enum PIBSync {
         return changed
     }
 }
+
+// ---- 홈 화면 배경화면(팩 위젯 "배경 = 배경화면", 1.11 · 2026-11-01) ---------------------------------
+// 웹 설정 > 위젯 꾸미기 > 팩 위젯 배경화면에서 빈 페이지 스크린샷 1장을 고르면, 웹이 위젯이 놓일 수 있는 자리마다 잘라
+// (lib/v2/wallpaperFit homeWallpaperPieces) 넘긴다. 이 기기 App Group에만 둔다(기기마다 배경화면이 달라서 서버에 안 올림).
+// 조각 이름: 작게 s-tl · s-tr · s-ml · s-mr · s-bl · s-br / 중간 m-t · m-m · m-b / 크게 l-t · l-m (t 위 · m 가운데 · b 아래, l 왼 · r 오른)
+enum PIBHomeWallpaper {
+    private static let metaKey = "pib.homeWallpaper"
+
+    private struct Meta: Codable {
+        var setAt: Double
+        // 조각 이름 → 밝은 바탕인지(글자를 진하게 쓸지)
+        var light: [String: Bool]
+    }
+
+    private static var dir: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: PIB.appGroup)?
+            .appendingPathComponent("HomeWallpaper", isDirectory: true)
+    }
+
+    private static var meta: Meta? {
+        PIB.defaults.data(forKey: metaKey).flatMap { try? JSONDecoder().decode(Meta.self, from: $0) }
+    }
+
+    static var setAt: Double? { meta?.setAt }
+
+    // { pieces: { 이름: base64 JPEG }, light: { 이름: Bool } }. 다 쓰면 true
+    static func save(json: String) -> Bool {
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let pieces = obj["pieces"] as? [String: String], !pieces.isEmpty,
+              let dir else { return false }
+        let fm = FileManager.default
+        try? fm.removeItem(at: dir)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        for (name, b64) in pieces {
+            guard name.range(of: "^[a-z]-[a-z]{1,2}$", options: .regularExpression) != nil,
+                  let jpeg = Data(base64Encoded: b64) else { return false }
+            guard (try? jpeg.write(to: dir.appendingPathComponent("\(name).jpg"), options: .atomic)) != nil else { return false }
+        }
+        let light = (obj["light"] as? [String: Bool]) ?? [:]
+        if let m = try? JSONEncoder().encode(Meta(setAt: Date().timeIntervalSince1970, light: light)) {
+            PIB.defaults.set(m, forKey: metaKey)
+        }
+        return true
+    }
+
+    static func clear() {
+        PIB.defaults.removeObject(forKey: metaKey)
+        if let dir { try? FileManager.default.removeItem(at: dir) }
+    }
+
+    static func image(_ name: String) -> UIImage? {
+        guard meta != nil, let url = dir?.appendingPathComponent("\(name).jpg") else { return nil }
+        return UIImage(contentsOfFile: url.path)
+    }
+
+    static func isLight(_ name: String) -> Bool {
+        meta?.light[name] ?? false
+    }
+}

@@ -23,6 +23,8 @@ interface PackInBagNativePlugin {
   pickColor(options: { color?: string; alpha?: number }): Promise<{ color: string; alpha: number }>;
   // 북마크 위젯 꾸미기(1.7, 2026-10-18). 사진은 네이티브가 photoUrl로 내려받는다
   saveWidgetStyles(options: { json: string }): Promise<void>;
+  // 팩 위젯 배경화면(1.11, 2026-11-01). "__probe__" = 상태만, "__clear__" = 지우기, 그 밖에는 { pieces, light }
+  saveHomeWallpaper(options: { json: string }): Promise<{ set: boolean; setAt?: number }>;
 }
 
 // custom = 직접 고른 배경색(bgColor "#RRGGBB" + bgAlpha 0.2~1, 10/11)
@@ -206,4 +208,28 @@ export async function pushWidgetStyles(styles: WidgetStyle[]): Promise<void> {
     lastWidgetStyles = "";
     console.error("[팩인백] 위젯 꾸미기 저장 실패:", err);
   }
+}
+
+// ---- 팩 위젯 배경화면(1.11, 2026-11-01) ----
+// 이 기기에 맞춰 둔 상태. 예전 빌드(메서드 없음)는 null → 설정 칸을 숨긴다
+export async function homeWallpaperState(): Promise<{ set: boolean; setAt?: number } | null> {
+  if (!isNativeBridgeAvailable()) return null;
+  try {
+    return await Native.saveHomeWallpaper({ json: "__probe__" });
+  } catch {
+    return null;
+  }
+}
+
+export function saveHomeWallpaper(pieces: { key: string; base64: string; light: boolean }[]): Promise<{ set: boolean; setAt?: number }> {
+  const json = JSON.stringify({
+    v: 1,
+    pieces: Object.fromEntries(pieces.map((p) => [p.key, p.base64])),
+    light: Object.fromEntries(pieces.map((p) => [p.key, p.light])),
+  });
+  return Native.saveHomeWallpaper({ json });
+}
+
+export function clearHomeWallpaper(): Promise<{ set: boolean; setAt?: number }> {
+  return Native.saveHomeWallpaper({ json: "__clear__" });
 }

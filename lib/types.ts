@@ -589,6 +589,8 @@ export interface BagReminder extends ReminderTimes {
   packs?: Record<string, ReminderTimes>;
   // 아이템 마감일(Item.dueDate) 알림. 없으면 기본(전날 · 당일 09:00), offsets가 비면 끔. 1 = 전날, 0 = 당일
   itemDue?: { offsets: number[]; time?: string };
+  // 아이템마다 따로(2026-11-01, 아이템 id → 마감 며칠 전 · 시간). 있으면 itemDue 대신 이것, offsets가 비면 그 아이템만 끔
+  items?: Record<string, { offsets: number[]; time?: string }>;
 }
 
 // 새 가방을 만들 때(AI 가져오기/샘플/AI 해시태그 생성) 공통으로 쓰는 결과 형태.

@@ -74,8 +74,12 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "팩", description: "비워 두면 가방 전체")
     var pack: WidgetPackEntity?
 
-    @Parameter(title: "배경", default: .system)
+    @Parameter(title: "배경", description: "배경화면은 앱 설정 > 위젯 꾸미기에서 먼저 맞춰요", default: .system)
     var theme: PIBTheme
+
+    // 1.11(11/1). 배경이 "배경화면"일 때만 쓴다
+    @Parameter(title: "배경화면 위치", description: "위젯 왼쪽 위가 있는 칸", default: .tl)
+    var wallSlot: PIBWallSlot
 
     @Parameter(title: "글꼴", default: .system)
     var font: PIBFont

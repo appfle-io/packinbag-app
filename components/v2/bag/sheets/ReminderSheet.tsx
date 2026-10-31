@@ -280,7 +280,7 @@ export function ReminderSheet({
           <>
             {back("home", "알림")}
             <p className="m-0 -mt-2 text-caption text-sub">
-              아이템을 길게 눌러 마감일을 정하면 그 아이템을 알려 드려요. 다른 사람이 맡은 건 빼요
+              아이템을 길게 눌러 마감일을 정하면 그 아이템을 알려 드려요. 다른 사람이 맡은 건 빼요. 아이템마다 다르게 하려면 그 아이템을 길게 눌러 “이 아이템만 따로”
             </p>
             <Box icon={<IconCalendarDue size={20} stroke={1.75} />} title="언제">
               <div className="flex flex-wrap gap-2">
@@ -311,6 +311,7 @@ export function ReminderSheet({
                         <span className="min-w-0 flex-1 truncate">{item.text || "아이템"}</span>
                         <span className="shrink-0 text-caption text-sub">
                           {m}/{d} · {pack.name || "팩"}
+                          {draft.items?.[item.id] ? " · 따로" : ""}
                         </span>
                         {onFocusItem && <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />}
                       </>

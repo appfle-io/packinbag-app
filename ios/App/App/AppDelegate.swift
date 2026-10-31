@@ -167,6 +167,7 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "biometricInfo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "authenticateBiometric", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveWidgetStyles", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveHomeWallpaper", returnType: CAPPluginReturnPromise),
     ]
 
     // 색 고르기 창이 닫힐 때 돌려줄 호출(10/11)
@@ -310,6 +311,28 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             if await PIBStyleStore.syncPhotos() { PIBWidgets.reload() }
         }
+    }
+
+    // 팩 위젯 배경화면(1.11, 11/1). json "__probe__" = 지금 상태만({ set, setAt }), "__clear__" = 지우기,
+    // 그 밖에는 { pieces, light }(Shared/PIBShared.swift PIBHomeWallpaper). 예전 빌드에는 이 메서드가 없어 웹이 칸을 숨긴다
+    @objc func saveHomeWallpaper(_ call: CAPPluginCall) {
+        guard let json = call.getString("json") else {
+            call.reject("json이 필요해요")
+            return
+        }
+        if json == "__clear__" {
+            PIBHomeWallpaper.clear()
+            PIBWidgets.reload()
+        } else if json != "__probe__" {
+            guard PIBHomeWallpaper.save(json: json) else {
+                call.reject("배경화면을 저장하지 못했어요")
+                return
+            }
+            PIBWidgets.reload()
+        }
+        var result: [String: Any] = ["set": PIBHomeWallpaper.setAt != nil]
+        if let at = PIBHomeWallpaper.setAt { result["setAt"] = at * 1000 }
+        call.resolve(result)
     }
 
     // iOS 기본 색 고르기 창(격자 · 스펙트럼 · 슬라이더 + 불투명도, 10/11). 잠금화면에 띄우기 "직접" 배경색

@@ -91,9 +91,30 @@ describe("NAT-NOTI 아이템 마감", () => {
   it("끄면(빈 배열) 안 울린다", () => {
     expect(planBagNotifications([b], { b1: { itemDue: { offsets: [] } } }, NOW)).toEqual([]);
   });
+
+  it("아이템마다 따로: 그 아이템만 정한 때, 가방 마감 알림을 꺼도 울린다", () => {
+    const two = bag([pack("p1", "서류", [item("i1", "여권 사본 출력", { dueDate: "2026-11-18" }), item("i4", "환전", { dueDate: "2026-11-18" })])]);
+    const plan = planBagNotifications([two], { b1: { itemDue: { offsets: [] }, items: { i1: { offsets: [3], time: "20:00" } } } }, NOW);
+    expect(plan.map((p) => [p.body, p.itemId, p.at])).toEqual([["3일 뒤까지: 여권 사본 출력", "i1", new Date(2026, 10, 15, 20, 0)]]);
+  });
+
+  it("아이템마다 따로 끔(빈 배열)이면 그 아이템만 빠진다", () => {
+    const two = bag([pack("p1", "서류", [item("i1", "여권 사본 출력", { dueDate: "2026-11-18" }), item("i4", "환전", { dueDate: "2026-11-18" })])]);
+    const plan = planBagNotifications([two], { b1: { itemDue: { offsets: [0] }, items: { i1: { offsets: [] } } } }, NOW);
+    expect(plan.map((p) => p.body)).toEqual(["오늘까지: 환전"]);
+    expect(reminderSummary({ items: { i1: { offsets: [] } }, itemDue: { offsets: [] } }, true, two)).toBeNull();
+  });
 });
 
 describe("NAT-NOTI 저장 정리", () => {
+  it("아이템마다 따로: 정렬 · 시간 기본값, itemIds를 주면 없는 아이템은 뺀다", () => {
+    expect(normalizeReminder({ items: { i1: { offsets: [0, 3, 3] }, gone: { offsets: [1] } } }, [], ["i1"])).toEqual({
+      items: { i1: { offsets: [3, 0], time: "09:00" } },
+    });
+    expect(normalizeReminder({ items: { gone: { offsets: [1] } } }, [])).toEqual({ items: { gone: { offsets: [1], time: "09:00" } } });
+    expect(isReminderEmpty({ items: { i1: { offsets: [] } } })).toBe(false);
+  });
+
   it("기본값 · 빈 팩 · 사라진 팩은 저장하지 않는다", () => {
     expect(
       normalizeReminder({ itemDue: { offsets: [0, 1], time: "09:00" }, packs: { p1: {}, gone: { repeatDays: [1] } } }, ["p1"]),

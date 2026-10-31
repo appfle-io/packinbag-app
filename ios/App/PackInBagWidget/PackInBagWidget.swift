@@ -133,12 +133,28 @@ struct PackWidgetView: View {
 
     private var rowSpacing: CGFloat { family == .systemSmall ? 4 : 6 }
 
+    // 배경 "배경화면"(1.11): 이 크기 · 위치의 조각. 앱에서 아직 안 맞췄으면 nil(시스템 바탕으로)
+    private var wallPiece: String? {
+        guard entry.configuration.theme == .wallpaper else { return nil }
+        return entry.configuration.wallSlot.piece(for: family)
+    }
+
     var body: some View {
-        let scheme = style.scheme(systemScheme)
-        let c = PIBPalette.of(scheme)
-        content(c)
-            .environment(\.colorScheme, scheme)
-            .containerBackground(c.background, for: .widget)
+        if let name = wallPiece, let image = PIBHomeWallpaper.image(name) {
+            // 글자색은 조각 밝기에 맞춘다(밝으면 라이트 팔레트 = 진한 글자)
+            let scheme: ColorScheme = PIBHomeWallpaper.isLight(name) ? .light : .dark
+            content(PIBPalette.of(scheme))
+                .environment(\.colorScheme, scheme)
+                .containerBackground(for: .widget) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                }
+        } else {
+            let scheme = style.scheme(systemScheme)
+            let c = PIBPalette.of(scheme)
+            content(c, hint: wallPiece != nil ? "앱 설정 > 위젯 꾸미기에서 배경화면을 맞춰 주세요" : nil)
+                .environment(\.colorScheme, scheme)
+                .containerBackground(c.background, for: .widget)
+        }
     }
 
     // 위젯 높이와 글자 크기로 들어갈 줄 수를 정한다. 맨 아래 새로고침 줄(시각 + ↻) 높이도 빼고 계산한다.
@@ -156,8 +172,10 @@ struct PackWidgetView: View {
     private var footerHeight: CGFloat { max(20, 11 * style.scale * 1.3) }
 
     @ViewBuilder
-    private func content(_ c: PIBPalette) -> some View {
-        if !entry.signedIn {
+    private func content(_ c: PIBPalette, hint: String? = nil) -> some View {
+        if let hint {
+            message(hint, c)
+        } else if !entry.signedIn {
             message("팩인백 앱에서 로그인하면 여기에 팩이 보여요", c)
         } else if let bag = entry.bag, let pack = entry.pack {
             GeometryReader { geo in

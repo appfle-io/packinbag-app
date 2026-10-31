@@ -5,6 +5,7 @@ import SwiftUI
 import UIKit
 import CoreText
 import AppIntents
+import WidgetKit
 
 enum PIBFonts {
     // 위젯 묶음 안의 글꼴을 한 번만 등록
@@ -46,12 +47,35 @@ enum PIBFonts {
     }
 }
 
+// wallpaper(1.11, 11/1): 앱 설정 > 위젯 꾸미기 > 팩 위젯 배경화면에서 맞춘 홈 화면 조각(PIBHomeWallpaper)을 깐다. 홈 화면 팩 위젯만
 enum PIBTheme: String, AppEnum {
-    case system, light, dark
+    case system, light, dark, wallpaper
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경"
     static let caseDisplayRepresentations: [PIBTheme: DisplayRepresentation] = [
-        .system: "시스템", .light: "라이트", .dark: "다크",
+        .system: "시스템", .light: "라이트", .dark: "다크", .wallpaper: "배경화면",
     ]
+}
+
+// 배경화면 위치(1.11): 위젯 왼쪽 위 모서리가 있는 칸(작은 위젯 자리 기준 3줄 × 2칸).
+// 작게는 그 칸, 중간은 그 줄, 크게는 위 줄이면 위 · 아니면 아래(가운데 · 아래 줄을 덮음)
+enum PIBWallSlot: String, AppEnum {
+    case tl, tr, ml, mr, bl, br
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경화면 위치"
+    static let caseDisplayRepresentations: [PIBWallSlot: DisplayRepresentation] = [
+        .tl: "위 왼쪽", .tr: "위 오른쪽", .ml: "가운데 왼쪽", .mr: "가운데 오른쪽", .bl: "아래 왼쪽", .br: "아래 오른쪽",
+    ]
+
+    var row: String { String(rawValue.prefix(1)) }
+
+    // 이 위젯 크기에서 쓸 조각 이름(PIBHomeWallpaper)
+    func piece(for family: WidgetFamily) -> String? {
+        switch family {
+        case .systemSmall: return "s-\(rawValue)"
+        case .systemMedium: return "m-\(row)"
+        case .systemLarge: return row == "t" ? "l-t" : "l-m"
+        default: return nil
+        }
+    }
 }
 
 enum PIBFont: String, AppEnum {

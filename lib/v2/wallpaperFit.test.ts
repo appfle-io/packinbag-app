@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultVeil, sameScreen, unveil, widgetSlotLayouts } from "./wallpaperFit";
+import { defaultVeil, sameScreen, unveil, widgetSlotLayouts, homeWallpaperPieces } from "./wallpaperFit";
 
 describe("sameScreen", () => {
   it("같은 크기만 같은 화면", () => {
@@ -52,5 +52,22 @@ describe("iOS 26+ 배치 · 밝기 맞추기", () => {
     }
     expect(unveil(10, 8)).toBe(0);
     expect(unveil(100, 0)).toBe(100);
+  });
+});
+
+describe("SET-WID-12 팩 위젯 배경화면 조각", () => {
+  it("작게 6 · 중간 3 · 크게 2, 중간은 한 줄 전체 · 크게는 두 줄", () => {
+    const [layout] = widgetSlotLayouts(1206, 2622, true)!;
+    const pieces = homeWallpaperPieces(layout);
+    expect(pieces.map((p) => p.key)).toEqual(["s-tl", "s-tr", "s-ml", "s-mr", "s-bl", "s-br", "m-t", "m-m", "m-b", "l-t", "l-m"]);
+    const px = (k: string) => {
+      const w = pieces.find((p) => p.key === k)!.wallpaper;
+      return [w.x! * 1206, w.y! * 2622, w.w! * 1206, w.h! * 2622].map(Math.round);
+    };
+    // 2622 iOS 26 표: 한 변 509, 왼 63 · 오른 632, 위 270 · 가운데 838 · 아래 1408
+    expect(px("s-mr")).toEqual([632, 838, 509, 509]);
+    expect(px("m-b")).toEqual([63, 1408, 1078, 509]);
+    expect(px("l-t")).toEqual([63, 270, 1078, 1077]);
+    expect(px("l-m")).toEqual([63, 838, 1078, 1079]);
   });
 });

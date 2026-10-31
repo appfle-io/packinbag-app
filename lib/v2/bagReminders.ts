@@ -19,6 +19,7 @@ export {
   DEFAULT_REPEAT_TIME,
   ITEM_DUE_PRESETS,
   WEEKDAYS,
+  itemRemindSetting,
   ddayLabel,
   itemDueSetting,
   itemDueSummary,

@@ -214,9 +214,13 @@ struct RestartLiveIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         if !PIBStore.pending().isEmpty { await PIBSync.flush() }
         try? await PIBAPI.refreshSummary()
-        let restarted = await PIBLiveActivity.restart()
+        let result = await PIBLiveActivity.restart()
         PIBWidgets.reload()
-        return .result(dialog: restarted ? "잠금화면에 다시 띄웠어요" : "다시 띄울 게 없어요")
+        switch result {
+        case .restarted: return .result(dialog: "잠금화면에 다시 띄웠어요")
+        case .nothingLeft: return .result(dialog: "챙길 게 없어서 잠금화면에서 내렸어요")
+        case .noCard: return .result(dialog: "다시 띄울 게 없어요")
+        }
     }
 }
 

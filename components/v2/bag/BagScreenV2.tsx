@@ -64,8 +64,11 @@ import {
   ensureNotificationPermission,
   isLocalNotificationsAvailable,
   itemDueSetting,
+  itemRemindSetting,
+  normalizeReminder,
   timesSummary,
 } from "@/lib/v2/bagReminders";
+import type { DueRemind } from "./sheets/ItemSheet";
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -121,7 +124,7 @@ export default function BagScreenV2(props: BagScreenProps) {
     onFocusHandled,
   } = props;
 
-  const { user, isOfflineMode, profile, updateBagPhoneColumns } = useAuth();
+  const { user, isOfflineMode, profile, updateBagPhoneColumns, updateBagReminder } = useAuth();
   const { show } = useToast();
   // 인터넷이 꼭 필요한 기능(AI)은 끊겨 있으면 열기 전에 알린다
   const { guard } = useOnlineGuard();
@@ -251,6 +254,24 @@ export default function BagScreenV2(props: BagScreenProps) {
     const when = ITEM_DUE_PRESETS.filter((o) => due.offsets.includes(o)).map((o) => (o === 0 ? "당일" : "전날")).join(" · ");
     return `${when} ${due.time}에 알려 드려요 · ${shared}`;
   })();
+  // 아이템마다 마감 알림(11/1, iOS 앱만): 내 가방 알림 설정의 items[itemId]만 고친다. 없는 아이템 것은 같이 정리
+  const saveItemRemind = (itemId: string, own: DueRemind | null) => {
+    const cur = profile?.bagReminders?.[bag.id] ?? {};
+    const nextItems = { ...(cur.items ?? {}) };
+    if (own) nextItems[itemId] = own;
+    else delete nextItems[itemId];
+    const next = normalizeReminder(
+      { ...cur, items: nextItems },
+      bag.packs.filter((p) => p.type !== "folder").map((p) => p.id),
+      bag.packs.flatMap((p) => p.items.map((i) => i.id)),
+    );
+    updateBagReminder(bag.id, next)
+      .then(() => show(own ? "이 아이템 알림을 맞춰 두었어요" : "이 아이템은 기본 알림으로 받아요"))
+      .catch((err) => {
+        console.error("[팩인백] 아이템 알림 저장 실패:", err);
+        show("알림 설정을 저장하지 못했어요");
+      });
+  };
   const memberNames = useMemo(
     () => Object.fromEntries(members.members.map((m) => [m.uid, m.isMe ? "나" : m.nickname])),
     [members.members],
@@ -931,6 +952,18 @@ export default function BagScreenV2(props: BagScreenProps) {
         onSelectMany={() => itemTarget && setSelection(new Set([itemTarget.itemId]))}
         dueHint={dueHint}
         onDueSet={notificationsAvailable ? () => void ensureNotificationPermission() : undefined}
+        dueRemind={
+          notificationsAvailable && !isOfflineMode && itemTarget
+            ? {
+                own: (() => {
+                  const r = itemRemindSetting(profile?.bagReminders?.[bag.id], itemTarget.itemId);
+                  return r.own ? { offsets: r.offsets, time: r.time } : null;
+                })(),
+                base: itemDueSetting(profile?.bagReminders?.[bag.id]),
+              }
+            : undefined
+        }
+        onDueRemindSave={(own) => itemTarget && saveItemRemind(itemTarget.itemId, own)}
       />
       <PackSheet
         pack={packTarget}

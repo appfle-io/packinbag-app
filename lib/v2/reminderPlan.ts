@@ -14,6 +14,8 @@ export const DEFAULT_DDAY_TIME = "09:00";
 export const DEFAULT_REPEAT_TIME = "07:30";
 // 아이템 마감 알림: 1 = 전날, 0 = 당일
 export const ITEM_DUE_PRESETS = [1, 0] as const;
+// 아이템마다 따로(11/1, 아이템 시트): 마감 7일 전 · 3일 전 · 전날 · 당일 + 직접 입력
+export const ITEM_REMIND_PRESETS = [7, 3, 1, 0] as const;
 const DEFAULT_ITEM_DUE: { offsets: number[]; time: string } = { offsets: [1, 0], time: "09:00" };
 // 화면 표시 순서(월~일). 값은 JS Date.getDay()와 같다(0 = 일요일)
 export const WEEKDAYS: { day: number; label: string }[] = [
@@ -39,11 +41,24 @@ export function isReminderEmpty(r: BagReminder | undefined | null): boolean {
   if (!r) return true;
   if (!isTimesEmpty(r)) return false;
   if (r.packs && Object.values(r.packs).some((p) => !isTimesEmpty(p))) return false;
+  if (r.items && Object.keys(r.items).length > 0) return false;
   return !r.itemDue;
 }
 
 export function itemDueSetting(r: BagReminder | undefined | null): { offsets: number[]; time: string } {
   return { offsets: r?.itemDue?.offsets ?? DEFAULT_ITEM_DUE.offsets, time: r?.itemDue?.time ?? DEFAULT_ITEM_DUE.time };
+}
+
+// 아이템 하나의 마감 알림(11/1): 따로 정했으면(own) 그것, 아니면 가방의 마감 알림
+export function itemRemindSetting(r: BagReminder | undefined | null, itemId: string): { offsets: number[]; time: string; own: boolean } {
+  const own = r?.items?.[itemId];
+  if (own) return { offsets: own.offsets, time: own.time ?? DEFAULT_ITEM_DUE.time, own: true };
+  return { ...itemDueSetting(r), own: false };
+}
+
+// 마감 며칠 전 → "당일" · "전날" · "3일 전"
+export function dueOffsetLabel(offset: number): string {
+  return offset === 0 ? "당일" : offset === 1 ? "전날" : `${offset}일 전`;
 }
 
 function parseTime(time: string | undefined, fallback: string): { h: number; m: number } {
@@ -98,7 +113,7 @@ export function reminderSummary(r: BagReminder | undefined | null, hasTravelDate
   if (bag) {
     const packCount = bag.packs.filter((p) => !isTimesEmpty(r?.packs?.[p.id])).length;
     if (packCount > 0) parts.push(`팩 ${packCount}개`);
-    if (itemDueSetting(r).offsets.length > 0 && bag.packs.some((p) => p.items.some((i) => parseDate(i.dueDate)))) parts.push("마감");
+    if (bag.packs.some((p) => p.items.some((i) => parseDate(i.dueDate) && itemRemindSetting(r, i.id).offsets.length > 0))) parts.push("마감");
   }
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -249,28 +264,28 @@ export function planBagNotifications(
       out.push({ bagId: bag.id, title: bagName, body: bagBody(f.lead, packs, me, bagHidden, f.kind), at: f.at, weekly: f.weekly, nextFire: f.nextFire });
     }
 
-    // 아이템 마감
-    const due = itemDueSetting(r);
-    if (due.offsets.length === 0) continue;
-    const { h, m } = parseTime(due.time, DEFAULT_ITEM_DUE.time);
-    const groups = new Map<number, { offset: number; entries: { pack: Pack; item: Item }[] }>();
+    // 아이템 마감(11/1: 아이템마다 따로 정한 것이 있으면 그 아이템은 그것대로). 같은 시각 · 같은 "며칠 전"끼리 묶는다
+    const groups = new Map<string, { time: number; offset: number; entries: { pack: Pack; item: Item }[] }>();
     for (const pack of bag.packs) {
       if (!isChecklist(pack)) continue;
       for (const item of pack.items) {
         const d = parseDate(item.dueDate);
         if (!d || item.type !== "check" || item.checked) continue;
         if (item.assigneeUid && item.assigneeUid !== me) continue;
+        const due = itemRemindSetting(r, item.id);
+        const { h, m } = parseTime(due.time, DEFAULT_ITEM_DUE.time);
         for (const offset of new Set(due.offsets)) {
           if (!Number.isInteger(offset) || offset < 0 || offset > MAX_CUSTOM_OFFSET) continue;
           const at = new Date(d[0], d[1] - 1, d[2] - offset, h, m, 0, 0);
           if (at.getTime() <= now.getTime()) continue;
-          const g = groups.get(at.getTime()) ?? { offset, entries: [] };
+          const key = `${at.getTime()}:${offset}`;
+          const g = groups.get(key) ?? { time: at.getTime(), offset, entries: [] };
           g.entries.push({ pack, item });
-          groups.set(at.getTime(), g);
+          groups.set(key, g);
         }
       }
     }
-    for (const [time, g] of groups) {
+    for (const { time, ...g } of groups.values()) {
       const lead = g.offset === 0 ? "오늘까지" : g.offset === 1 ? "내일까지" : `${g.offset}일 뒤까지`;
       const one = g.entries.length === 1 ? g.entries[0] : null;
       const samePack = g.entries.every((e) => e.pack.id === g.entries[0].pack.id) ? g.entries[0].pack : null;
@@ -310,7 +325,8 @@ function normalizeTimes(t: ReminderTimes | undefined): ReminderTimes | undefined
   return out;
 }
 
-export function normalizeReminder(r: BagReminder, packIds: string[]): BagReminder | null {
+// itemIds를 주면 없는 아이템의 따로 설정은 뺀다(안 주면 그대로 둔다 - 가방 알림 시트는 아이템을 안 고친다)
+export function normalizeReminder(r: BagReminder, packIds: string[], itemIds?: string[]): BagReminder | null {
   const out: BagReminder = { ...(normalizeTimes(r) ?? {}) };
   const packs: Record<string, ReminderTimes> = {};
   for (const id of packIds) {
@@ -323,6 +339,16 @@ export function normalizeReminder(r: BagReminder, packIds: string[]): BagReminde
     const same = offsets.join() === DEFAULT_ITEM_DUE.offsets.join() && (r.itemDue.time ?? DEFAULT_ITEM_DUE.time) === DEFAULT_ITEM_DUE.time;
     // 기본값과 같으면 저장하지 않는다(없음 = 기본)
     if (!same) out.itemDue = { offsets, time: r.itemDue.time ?? DEFAULT_ITEM_DUE.time };
+  }
+  if (r.items) {
+    const keep = itemIds ? new Set(itemIds) : null;
+    const items: Record<string, { offsets: number[]; time: string }> = {};
+    for (const [id, v] of Object.entries(r.items)) {
+      if (!v || (keep && !keep.has(id))) continue;
+      const offsets = [...new Set(v.offsets ?? [])].filter((o) => Number.isInteger(o) && o >= 0 && o <= MAX_CUSTOM_OFFSET).sort((a, b) => b - a);
+      items[id] = { offsets, time: v.time ?? DEFAULT_ITEM_DUE.time };
+    }
+    if (Object.keys(items).length) out.items = items;
   }
   return isReminderEmpty(out) ? null : out;
 }
