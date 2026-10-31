@@ -51,20 +51,32 @@ const LAYOUTS: Record<number, Layout[]> = {
   ],
 };
 
+// iOS 26 이상. 공개된 표가 없어서 1206×2622만 실기기(사용자 아이폰 iOS 27 홈 화면 스크린샷)에서 쟀고,
+// 나머지는 그 차이(작은 위젯 한 변 ×509/486, 칸 사이 그대로, 오른쪽 열 x ×632/633, 위 y ×270/261, 줄 간격 ×569/612)를
+// 기종별 iOS 18 표에 똑같이 적용한 추정값. Air · 13 mini는 iOS 18 표도 없어서 2622를 화면 폭(pt) 비율로 늘이고 줄인 값.
+// 실기기 스크린샷을 받으면 그 기종 값으로 바꾼다(_secrets/docs/spec/settings.md SET-WID-11)
 const LAYOUTS_26: Record<number, Layout[]> = {
-  2622: [{ key: "ios26", label: "", v: [509, 63, 632, 270, 838, 1408] }],
+  2868: [{ key: "ios26", label: "", v: [534, 89, 695, 286, 877, 1469] }], // 16 · 17 Pro Max (추정)
+  2796: [{ key: "ios26", label: "", v: [534, 73, 680, 261, 852, 1444] }], // 14 Pro Max · 15 Plus · 15 Pro Max · 16 Plus (추정)
+  2778: [{ key: "ios26", label: "", v: [534, 71, 677, 254, 845, 1437] }], // 13 Pro Max · 14 Plus (추정)
+  2736: [{ key: "ios26", label: "", v: [532, 66, 661, 280, 874, 1468] }], // Air (추정)
+  2622: [{ key: "ios26", label: "", v: [509, 63, 632, 270, 838, 1408] }], // 16 Pro · 17 · 17 Pro (실측)
+  2556: [{ key: "ios26", label: "", v: [496, 58, 623, 248, 795, 1341] }], // 14 Pro · 15 · 15 Pro · 16 (추정)
+  2532: [{ key: "ios26", label: "", v: [496, 55, 617, 239, 786, 1332] }], // 13 · 13 Pro · 14 · 16e (추정)
+  2340: [{ key: "ios26", label: "", v: [456, 56, 566, 242, 752, 1262] }], // 13 mini (추정)
 };
 
-// 아이폰 iOS 큰 버전(웹 · 모르면 null). WKWebView UA "CPU iPhone OS 27_0 like Mac OS X"
-export function iosMajor(ua: string = typeof navigator === "undefined" ? "" : navigator.userAgent): number | null {
-  const m = /iPhone OS (\d+)_/.exec(ua);
-  return m ? Number(m[1]) : null;
+// iOS 26 이상인지. iOS 26부터 웹 UA의 iOS 버전이 18로 고정돼서(10/31 사용자 아이폰 iOS 27이 "18"로 읽힘) UA로는 못 가른다 →
+// iOS 26(Safari 26)에서 처음 들어온 CSS(anchor positioning · scroll-driven animation)가 되면 26 이상으로 본다
+function isIOS26Plus(): boolean {
+  if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return false;
+  return CSS.supports("anchor-name: --pib") || CSS.supports("animation-timeline: scroll()") || CSS.supports("text-wrap-style: pretty");
 }
 
 // iOS 26부터 위젯 바탕에 옅은 흰 유리가 덮인다(10/31 실기기: 짙은 바탕 약 7%, 파란 배경화면 약 10%가 밝아짐).
 // 자른 배경화면을 그만큼 미리 어둡게 해서 덮인 뒤 주변과 같아 보이게 한다(%)
-export function defaultVeil(ios: number | null = iosMajor()): number {
-  return ios !== null && ios >= 26 ? 8 : 0;
+export function defaultVeil(ios26: boolean = isIOS26Plus()): number {
+  return ios26 ? 8 : 0;
 }
 
 // 덮일 유리를 미리 빼 둔 픽셀 값. veil > 0: 흰 유리(v = 결과·(1-a) + 255a를 거꾸로), veil < 0: 검은 유리
@@ -93,10 +105,10 @@ const ROWS = [
 ] as const;
 
 // 이 스크린샷 크기에서 작은 위젯이 놓일 수 있는 칸들. 모르는 기종 · 가로 화면이면 null.
-// iOS 26 이상은 잰 값이 있는 기종만(iOS 18 표는 안 맞음)
-export function widgetSlotLayouts(width: number, height: number, ios: number | null = iosMajor()): SlotLayout[] | null {
+// iOS 26 이상은 LAYOUTS_26(iOS 18 표는 안 맞음)
+export function widgetSlotLayouts(width: number, height: number, ios26: boolean = isIOS26Plus()): SlotLayout[] | null {
   if (width >= height) return null;
-  const layouts = (ios !== null && ios >= 26 ? LAYOUTS_26 : LAYOUTS)[height];
+  const layouts = (ios26 ? LAYOUTS_26 : LAYOUTS)[height];
   if (!layouts) return null;
   const r = (v: number) => Math.round(v * 10000) / 10000;
   const out = layouts
