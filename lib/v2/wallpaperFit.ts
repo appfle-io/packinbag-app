@@ -56,6 +56,84 @@ export function toWallpaper(rect: MarkRect): WidgetWallpaper {
   return { x: r(rect.x), y: r(rect.y), w: r(rect.w), h: r(rect.h), sw: rect.sw, sh: rect.sh };
 }
 
+// ---- 기종별 위젯 자리(스크린샷 1장으로 맞추기, 10/31) ----
+// 빈 페이지 스크린샷 높이(px)로 기종을 알아보고, 작은 위젯이 놓일 수 있는 6칸(왼 · 오른 × 위 · 가운데 · 아래)을 보여 준다.
+// 값은 Scriptable 투명 위젯 스크립트(mzeryck, "iOS 18에서 확인")의 표: [작은 위젯 한 변, 왼쪽 x, 오른쪽 x, 위 y, 가운데 y, 아래 y] px.
+// 표에 없는 기종 · 어긋나는 경우는 분홍 표시로 직접 잰다(findMarkRect)
+type Layout = { key: string; label: string; v: [number, number, number, number, number, number] };
+
+const LAYOUTS: Record<number, Layout[]> = {
+  2868: [
+    { key: "text", label: "앱 이름 보임", v: [510, 114, 696, 276, 912, 1548] },
+    { key: "notext", label: "앱 이름 숨김(크게)", v: [530, 91, 699, 276, 882, 1488] },
+  ],
+  2796: [
+    { key: "text", label: "앱 이름 보임", v: [510, 98, 681, 252, 888, 1524] },
+    { key: "notext", label: "앱 이름 숨김(크게)", v: [530, 75, 684, 252, 858, 1464] },
+  ],
+  2622: [
+    { key: "text", label: "앱 이름 보임", v: [486, 87, 633, 261, 872, 1485] },
+    { key: "notext", label: "앱 이름 숨김(크게)", v: [495, 84, 626, 270, 810, 1350] },
+  ],
+  2556: [
+    { key: "text", label: "앱 이름 보임", v: [474, 81, 624, 240, 828, 1416] },
+    { key: "notext", label: "앱 이름 숨김(크게)", v: [495, 66, 618, 243, 795, 1347] },
+  ],
+  2778: [{ key: "text", label: "", v: [510, 96, 678, 246, 882, 1518] }],
+  2688: [{ key: "text", label: "", v: [507, 81, 654, 228, 858, 1488] }],
+  2532: [{ key: "text", label: "", v: [474, 78, 618, 231, 819, 1407] }],
+  2436: [
+    { key: "x", label: "X · XS · 11 Pro", v: [465, 69, 591, 213, 783, 1353] },
+    { key: "mini", label: "mini", v: [465, 69, 591, 231, 801, 1371] },
+  ],
+  1792: [{ key: "text", label: "", v: [338, 55, 437, 159, 579, 999] }],
+  2208: [{ key: "text", label: "", v: [471, 99, 672, 114, 696, 1278] }],
+  1334: [
+    { key: "text", label: "앱 이름 보임", v: [296, 54, 400, 60, 412, 764] },
+    { key: "notext", label: "앱 이름 숨김(크게)", v: [309, 41, 399, 67, 425, 783] },
+  ],
+};
+
+export interface WidgetSlot {
+  key: string;
+  label: string;
+  wallpaper: WidgetWallpaper;
+}
+
+export interface SlotLayout {
+  key: string;
+  label: string;
+  slots: WidgetSlot[];
+}
+
+const ROWS = [
+  ["t", "위"],
+  ["m", "가운데"],
+  ["b", "아래"],
+] as const;
+
+// 이 스크린샷 크기에서 작은 위젯이 놓일 수 있는 칸들. 모르는 기종 · 가로 화면이면 null
+export function widgetSlotLayouts(width: number, height: number): SlotLayout[] | null {
+  if (width >= height) return null;
+  const layouts = LAYOUTS[height];
+  if (!layouts) return null;
+  const r = (v: number) => Math.round(v * 10000) / 10000;
+  const out = layouts
+    .filter(({ v: [size, , right] }) => right + size <= width)
+    .map(({ key, label, v: [size, left, right, top, middle, bottom] }) => ({
+      key,
+      label,
+      slots: ROWS.flatMap(([rk, rl], ri) =>
+        ([["l", "왼쪽", left], ["r", "오른쪽", right]] as const).map(([ck, cl, x]) => ({
+          key: rk + ck,
+          label: `${cl} ${rl}`,
+          wallpaper: { x: r(x / width), y: r([top, middle, bottom][ri] / height), w: r(size / width), h: r(size / height), sw: width, sh: height },
+        })),
+      ),
+    }));
+  return out.length > 0 ? out : null;
+}
+
 // ---- 브라우저 ----
 
 async function readPixels(file: Blob): Promise<{ data: Uint8ClampedArray; width: number; height: number; bitmap: ImageBitmap }> {

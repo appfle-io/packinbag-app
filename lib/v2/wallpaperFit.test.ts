@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findMarkRect, sameScreen } from "./wallpaperFit";
+import { findMarkRect, sameScreen, widgetSlotLayouts } from "./wallpaperFit";
 
 // width×height 회색 화면에 분홍 칸들을 칠한다(text: 칸 안 가운데 줄을 흰 글자로 가림)
 function screen(width: number, height: number, boxes: { x: number; y: number; w: number; h: number; text?: boolean }[]) {
@@ -42,5 +42,20 @@ describe("sameScreen", () => {
     expect(sameScreen(wp, 1206, 2622)).toBe(true);
     expect(sameScreen(wp, 1170, 2532)).toBe(false);
     expect(sameScreen(wp, 2622, 1206)).toBe(false);
+  });
+});
+
+describe("widgetSlotLayouts", () => {
+  it("16 Pro(1206×2622): 앱 이름 보임 · 숨김 두 가지, 6칸", () => {
+    const l = widgetSlotLayouts(1206, 2622);
+    expect(l?.map((x) => x.key)).toEqual(["text", "notext"]);
+    expect(l?.[0].slots.map((s) => s.key)).toEqual(["tl", "tr", "ml", "mr", "bl", "br"]);
+    expect(l?.[0].slots[1].wallpaper).toEqual({ x: 0.5249, y: 0.0995, w: 0.403, h: 0.1854, sw: 1206, sh: 2622 });
+  });
+
+  it("모르는 기종 · 가로 · 폭이 안 맞으면 null", () => {
+    expect(widgetSlotLayouts(1000, 2000)).toBeNull();
+    expect(widgetSlotLayouts(2622, 1206)).toBeNull();
+    expect(widgetSlotLayouts(600, 2622)).toBeNull();
   });
 });

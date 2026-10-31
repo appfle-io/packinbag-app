@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.10.1",
+    date: "2026-10-31",
+    items: ["위젯 배경화면 맞추기가 쉬워졌어요. 빈 홈 화면 스크린샷 한 장을 고르고 위젯 자리를 누르면 돼요"],
+  },
+  {
     // 1.9.0(10/29)은 잠수함 패치라 노트가 없어서, 그때 바뀐 것 중 아이폰 앱 1.10에 들어가는 것을 여기에 같이 적는다
     version: "1.10.0",
     date: "2026-10-31",
