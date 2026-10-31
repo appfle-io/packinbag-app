@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconCheck, IconChevronDown, IconChevronLeft, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconPackage, IconRotateClockwise, IconSun, IconUsers, IconX } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChecklist, IconChevronDown, IconChevronLeft, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconNotes, IconPackage, IconRotateClockwise, IconSun, IconUsers, IconX } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -34,7 +34,7 @@ import {
   findInbox,
   type PackingState,
 } from "@/hooks/bag";
-import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, Sheet, cx } from "@/components/v2/ui";
+import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, ReorderSheet, Sheet, cx } from "@/components/v2/ui";
 import { PackSection, LockedPackSection } from "./PackSection";
 import { LockScreen, useLockGuard } from "@/components/v2/lock/LockUI";
 import { packLockKey } from "@/lib/v2/privateLock";
@@ -190,6 +190,15 @@ export default function BagScreenV2(props: BagScreenProps) {
     return inbox && inbox.items.length > 0 ? [inbox, ...rest] : rest;
   }, [viewable, inbox]);
   const checklist = ordered.filter((p) => p.kind !== "editor");
+  // 팩 순서 바꾸기(2026-10-31): 화면에 보이는 팩 중 미분류를 뺀 것(미분류는 늘 맨 위). 2개 이상일 때만 줄을 보인다
+  const reorderable = ordered.filter((p) => p.id !== inbox?.id);
+  const [reorderOpen, setReorderOpen] = useState(false);
+  const openReorder =
+    reorderable.length > 1
+      ? () => {
+          if (!doc.guard()) window.setTimeout(() => setReorderOpen(true), 300);
+        }
+      : undefined;
   const stats = statsOf(viewable);
   const packingState = packingStateOf(viewable);
   const ratio = stats.total > 0 ? stats.done / stats.total : 0;
@@ -939,6 +948,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         }}
         library={packTarget ? libraryRowFor(packTarget) : null}
         onMoveToBag={library.moveTargets.length > 0 && packTargetId ? () => setMoveTargetId(packTargetId) : undefined}
+        onReorder={packTarget && !packTarget.isInbox ? openReorder : undefined}
         privacyLock={
           packTarget && privacy.available
             ? {
@@ -963,6 +973,24 @@ export default function BagScreenV2(props: BagScreenProps) {
               }
             : undefined
         }
+      />
+      <ReorderSheet
+        open={reorderOpen}
+        title="팩 순서"
+        hint={`오른쪽 ≡를 끌어서 옮겨요.${ordered[0]?.id === inbox?.id && inbox ? " 미분류는 항상 맨 위라 여기서 빠져요." : ""}`}
+        groups={[
+          {
+            key: "packs",
+            items: reorderable.map((p) => ({
+              id: p.id,
+              label: p.name,
+              sub: p.kind === "editor" ? "메모" : `아이템 ${p.items.length}개`,
+              icon: p.kind === "editor" ? <IconNotes size={20} stroke={1.75} aria-hidden="true" /> : <IconChecklist size={20} stroke={1.75} aria-hidden="true" />,
+            })),
+          },
+        ]}
+        onClose={() => setReorderOpen(false)}
+        onSave={(orders) => packOps.reorderPacks(orders.packs ?? [])}
       />
       {notificationsAvailable && (
         <ReminderSheet
@@ -1026,6 +1054,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         onSetNotice={(notice) => !doc.guard() && doc.update((prev) => ({ ...prev, notice: notice || undefined }))}
         onAddChecklist={() => packOps.addPack("checklist")}
         onFocusItem={(packId, itemId) => window.setTimeout(() => setInnerFocus({ packId, itemId }), 300)}
+        onReorderPacks={openReorder}
         onAddMemo={() => {
           const id = packOps.addPack("editor");
           if (id) openNote(id);

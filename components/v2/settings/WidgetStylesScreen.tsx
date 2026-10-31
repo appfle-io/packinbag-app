@@ -20,6 +20,7 @@ import {
   newWidgetStyle,
   normalizeWidgetStyle,
   uploadWidgetPhoto,
+  wallpaperState,
   widgetBagStats,
   widgetStyleLocked,
 } from "@/lib/v2/widgetStyles";
@@ -54,7 +55,7 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
     setEditing({ style: newWidgetStyle(), isNew: true });
   };
 
-  const doSave = async (draft: WidgetStyle, photo: File | null) => {
+  const doSave = async (draft: WidgetStyle, photo: Blob | null) => {
     if (!user || saving) return;
     setSaving(true);
     const before = styles.find((s) => s.id === draft.id) ?? null;
@@ -72,7 +73,13 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
       await updateWidgetStyles(list);
       if (before?.photoPath && before.photoPath !== next.photoPath) void deleteWidgetPhoto(before.photoPath);
       setEditing(null);
-      show(before ? "꾸미기를 저장했어요" : "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요");
+      show(
+        wallpaperState(next) === "marking"
+          ? "분홍으로 저장했어요. 홈 화면 위젯에 이 꾸미기를 고르고 스크린샷을 찍은 뒤 다시 열어 주세요"
+          : before
+            ? "꾸미기를 저장했어요"
+            : "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요",
+      );
     } catch (err) {
       console.error("[팩인백] 위젯 꾸미기 저장 실패:", err);
       // 올린 사진은 쓰지 않게 됐으니 지운다
@@ -143,7 +150,9 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
               </span>
               <span className="flex flex-col px-1">
                 <span className="truncate text-body font-semibold">{s.name}</span>
-                <span className="text-micro text-faint">{locked ? "프리미엄 · 잠김" : premium ? BG_LABEL[s.bg] : "기본 바탕(무료)"}</span>
+                <span className="text-micro text-faint">
+                  {locked ? "프리미엄 · 잠김" : !premium ? "기본 바탕(무료)" : wallpaperState(s) === "marking" ? "배경화면 · 자리 재는 중" : wallpaperState(s) ? "배경화면" : BG_LABEL[s.bg]}
+                </span>
               </span>
             </button>
           );

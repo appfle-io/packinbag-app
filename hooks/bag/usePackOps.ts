@@ -8,6 +8,7 @@ import { checkBagSizeForSave } from "@/lib/editorDocLimits";
 import { splitBagForSave } from "@/lib/bagNotesCore";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
+import { reorderSubset } from "@/lib/packOrder";
 import { newId } from "./ids";
 import type { PackLimit } from "./useBagItems";
 
@@ -132,6 +133,15 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, 
     [bag, update, show],
   );
 
+  // 팩 순서 바꾸기(2026-10-31): 순서 시트에 보인 팩만 새 순서로, 나머지는 제자리(lib/packOrder)
+  const reorderPacks = useCallback(
+    (orderedIds: string[]) => {
+      if (guard()) return;
+      update((prev) => ({ ...prev, packs: reorderSubset(prev.packs, orderedIds) }));
+    },
+    [guard, update],
+  );
+
   const toggleAutoSync = useCallback(
     (packId: string) => {
       if (guard()) return;
@@ -170,5 +180,5 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bag.packs, libraryPacks, doc.notesReady]);
 
-  return { importPacks, addPack, renamePack, deletePack, saveNotePack, toggleAutoSync };
+  return { importPacks, addPack, renamePack, deletePack, saveNotePack, toggleAutoSync, reorderPacks };
 }

@@ -2,8 +2,9 @@
 
 // 북마크 위젯 꾸미기 편집(2026-10-18, 1.7). 설정 > 위젯 꾸미기 > 칸 누르기 / 새로 만들기.
 // 맨 위 미리 보기는 고르는 즉시 바뀐다. 사진은 저장할 때 올린다(그 전에는 이 기기 안 blob 주소로 미리 보기)
+// "배경화면"(2026-10-31): 분홍으로 위젯 자리 표시 → 그 홈 화면 스크린샷으로 자리 재기 → 빈 페이지 스크린샷에서 잘라 사진으로(lib/v2/wallpaperFit)
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconPhoto } from "@tabler/icons-react";
+import { IconCheck, IconPhoto } from "@tabler/icons-react";
 import type { Bag, WidgetStyle, WidgetStyleBg, WidgetStyleInk } from "@/lib/types";
 import { Button, Chip, SectionHeader, SegmentedControl, Toggle, cx } from "@/components/v2/ui";
 import { useToast } from "@/components/Toast";
@@ -18,15 +19,21 @@ import {
   WIDGET_ZOOM_MIN,
   clamp,
   clampOffset,
+  wallpaperState,
   widgetBagStats,
 } from "@/lib/v2/widgetStyles";
+import { WALLPAPER_MARK_COLOR, cropWallpaper, detectMark } from "@/lib/v2/wallpaperFit";
 import { SubScreen } from "./SubScreen";
 import { WidgetPreview } from "./WidgetPreview";
 
-const BG_OPTIONS: { value: WidgetStyleBg; label: string }[] = [
+// 화면에서 고르는 배경. "wallpaper"는 저장할 때 bg photo/solid + wallpaper 값이 된다
+type BgChoice = WidgetStyleBg | "wallpaper";
+
+const BG_OPTIONS: { value: BgChoice; label: string }[] = [
   { value: "plain", label: "기본" },
   { value: "photo", label: "사진" },
   { value: "solid", label: "단색" },
+  { value: "wallpaper", label: "배경화면" },
 ];
 
 const INK_OPTIONS: { value: WidgetStyleInk; label: string }[] = [
@@ -54,12 +61,12 @@ export function WidgetStyleEditor({
   bags: Bag[];
   saving: boolean;
   onBack: () => void;
-  onSave: (style: WidgetStyle, photo: File | null) => void;
+  onSave: (style: WidgetStyle, photo: Blob | null) => void;
   onDelete: () => void;
 }) {
   const { show } = useToast();
   const [draft, setDraft] = useState<WidgetStyle>(initial);
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<Blob | null>(null);
   // 고른 사진의 blob 주소. 고를 때 만들고(예전 것은 놓아 줌), 화면을 닫을 때 놓아 준다
   const [photoSrc, setPhotoSrc] = useState<string | null>(null);
   const photoSrcRef = useRef<string | null>(null);
@@ -76,14 +83,79 @@ export function WidgetStyleEditor({
 
   const patch = (p: Partial<WidgetStyle>) => setDraft((d) => ({ ...d, ...p }));
 
-  const lockedToast = () => show("사진 · 단색 배경은 프리미엄이에요");
+  const lockedToast = () => show("사진 · 단색 · 배경화면 배경은 프리미엄이에요");
 
-  const pickBg = (bg: WidgetStyleBg) => {
+  const wp = wallpaperState(draft);
+  const bgChoice: BgChoice = wp ? "wallpaper" : draft.bg;
+  // 단색을 고르다 배경화면(분홍)으로 갔다 돌아오면 원래 색으로
+  const solidColor = initial.color && initial.color !== WALLPAPER_MARK_COLOR ? initial.color : undefined;
+
+  const pickBg = (bg: BgChoice) => {
     if (bg !== "plain" && !premium) {
       lockedToast();
       return;
     }
-    patch({ bg });
+    if (bg === bgChoice) return;
+    if (bg === "wallpaper") {
+      // 처음이면 분홍 자리 표시부터. 예전에 맞춘 배경화면이 있던 꾸미기면 그대로 되돌린다
+      if (wallpaperState(initial) === "fitted") setDraft((d) => ({ ...d, bg: "photo", wallpaper: initial.wallpaper, photoUrl: initial.photoUrl, zoom: 1, x: 0, y: 0 }));
+      else patch({ bg: "solid", color: WALLPAPER_MARK_COLOR, wallpaper: {} });
+      setPhoto(null);
+      setPhotoSrc(null);
+      return;
+    }
+    patch({ bg, wallpaper: undefined, ...(bg === "solid" && draft.color === WALLPAPER_MARK_COLOR ? { color: solidColor ?? WIDGET_SWATCHES[0].hex } : {}) });
+  };
+
+  // ---- 배경화면 ----
+  // 저장된 꾸미기가 분홍 자리 표시 중이어야 홈 화면에 분홍 위젯이 보인다(그래야 자리를 잴 스크린샷을 찍을 수 있다)
+  const markSaved = !isNew && wallpaperState(initial) === "marking";
+  const measured = draft.wallpaper?.w !== undefined;
+  const [busy, setBusy] = useState(false);
+  const onMarkShot = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const rect = await detectMark(file);
+      if (!rect) {
+        show("분홍 위젯을 찾지 못했어요. 분홍 위젯 하나가 다 보이게 찍어 주세요");
+        return;
+      }
+      // 자리를 다시 쟀으면 예전에 자른 사진은 맞지 않는다 → 빈 페이지를 다시 고르게
+      setPhoto(null);
+      setPhotoSrc(null);
+      patch({ bg: "solid", color: WALLPAPER_MARK_COLOR, wallpaper: rect, photoUrl: undefined });
+      show("위젯 자리를 찾았어요. 이제 빈 페이지 스크린샷을 골라 주세요");
+    } catch {
+      show("사진을 읽지 못했어요");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const onEmptyShot = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || busy || !draft.wallpaper) return;
+    setBusy(true);
+    try {
+      const cut = await cropWallpaper(file, draft.wallpaper);
+      if (cut === "screen") {
+        show("위젯 자리를 잰 스크린샷과 다른 화면이에요. 같은 아이폰에서 세로로 찍어 주세요");
+        return;
+      }
+      setPhoto(cut);
+      if (photoSrcRef.current) URL.revokeObjectURL(photoSrcRef.current);
+      const url = URL.createObjectURL(cut);
+      photoSrcRef.current = url;
+      setPhotoSrc(url);
+      patch({ bg: "photo", zoom: 1, x: 0, y: 0, ...(wp === "fitted" ? {} : { dim: 0 }) });
+    } catch {
+      show("사진을 읽지 못했어요");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onPhotoPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,6 +213,10 @@ export function WidgetStyleEditor({
   const posLabel = WIDGET_POSITIONS.find((p) => p.key === draft.pos)?.label ?? "";
 
   const save = () => {
+    if (wp === "marking" && measured) {
+      show("빈 페이지 스크린샷을 골라 주세요");
+      return;
+    }
     if (draft.bg === "photo" && !hasPhoto) {
       show("사진을 골라 주세요");
       return;
@@ -187,11 +263,58 @@ export function WidgetStyleEditor({
       {/* 배경 */}
       <section className="flex flex-col gap-3">
         <SectionHeader>배경</SectionHeader>
-        <SegmentedControl label="배경" options={BG_OPTIONS} value={premium ? draft.bg : "plain"} onChange={pickBg} />
-        {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 배경은 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
+        <SegmentedControl label="배경" options={BG_OPTIONS} value={premium ? bgChoice : "plain"} onChange={pickBg} />
+        {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 · 배경화면 배경은 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
         {premium && draft.bg === "plain" && <p className="m-0 text-caption text-sub">앱과 같은 바탕이에요(다크 모드면 어둡게).</p>}
 
-        {premium && draft.bg === "photo" && (
+        {premium && wp && (
+          <div className="flex flex-col gap-4">
+            <p className="m-0 text-caption text-sub">
+              홈 화면 배경화면을 위젯 자리만큼 잘라 깔아서 위젯이 투명한 것처럼 보여요. 위젯을 옮기거나 배경화면을 바꾸면 다시 맞춰 주세요.
+            </p>
+            <ol className="m-0 flex list-none flex-col gap-3 p-0">
+              <WallpaperStep n={1} done={markSaved || wp === "fitted"} title="분홍으로 위젯 자리 표시">
+                {wp === "fitted"
+                  ? "위젯을 다른 자리로 옮겼으면 분홍으로 되돌려 저장한 뒤 다시 재요."
+                  : markSaved
+                    ? "홈 화면에서 위젯을 길게 눌러 위젯 편집 → 꾸미기에서 이 꾸미기를 고르면 분홍으로 보여요."
+                    : "먼저 저장해 주세요. 그다음 홈 화면에 \"가방 바로가기\" 위젯을 둘 자리에 놓고, 위젯을 길게 눌러 위젯 편집 → 꾸미기에서 이 꾸미기를 고르면 분홍으로 보여요."}
+                {wp === "fitted" && (
+                  <Button variant="secondary" size="sm" onClick={() => (setPhoto(null), setPhotoSrc(null), patch({ bg: "solid", color: WALLPAPER_MARK_COLOR, wallpaper: {} }))}>
+                    분홍으로 되돌려 다시 재기
+                  </Button>
+                )}
+              </WallpaperStep>
+              <WallpaperStep n={2} done={measured} title="분홍 위젯이 보이는 홈 화면 스크린샷">
+                분홍 위젯이 다 보이게 홈 화면을 스크린샷으로 찍고 여기서 골라요.
+                <ShotButton label={measured ? "다시 고르기" : "스크린샷 고르기"} disabled={!markSaved || busy} onChange={onMarkShot} />
+              </WallpaperStep>
+              <WallpaperStep n={3} done={wp === "fitted"} title="빈 페이지 스크린샷">
+                홈 화면을 길게 눌러 편집 상태로 만든 뒤 맨 오른쪽 빈 페이지로 넘겨 스크린샷을 찍고 여기서 골라요. 배경화면만 바꿨으면 이것만 다시 하면 돼요.
+                <ShotButton label={wp === "fitted" ? "다시 고르기" : "스크린샷 고르기"} disabled={!measured || busy} onChange={onEmptyShot} />
+              </WallpaperStep>
+            </ol>
+            {wp === "fitted" && (
+              <label className="flex flex-col gap-2">
+                <span className="flex justify-between text-caption text-sub">
+                  <span>글자 쪽 어둡게</span>
+                  <span>{draft.dim ?? 0}%</span>
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={WIDGET_DIM_MAX}
+                  step={5}
+                  value={draft.dim ?? 0}
+                  onChange={(e) => patch({ dim: Number(e.target.value) })}
+                  className="w-full accent-brand"
+                />
+              </label>
+            )}
+          </div>
+        )}
+
+        {premium && draft.bg === "photo" && !wp && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
               <div
@@ -265,7 +388,7 @@ export function WidgetStyleEditor({
           </div>
         )}
 
-        {premium && draft.bg === "solid" && (
+        {premium && draft.bg === "solid" && !wp && (
           // 샘플은 늘 한 줄: 폭이 좁으면 동그라미가 같이 작아진다. 맨 오른쪽은 직접 고르기
           <div role="radiogroup" aria-label="단색" className="flex flex-nowrap items-center gap-2">
             {WIDGET_SWATCHES.map((s) => (
@@ -403,5 +526,40 @@ export function WidgetStyleEditor({
         </Button>
       )}
     </SubScreen>
+  );
+}
+
+// 배경화면 맞추기 단계 한 줄(번호 · 제목 · 설명 · 버튼)
+function WallpaperStep({ n, done, title, children }: { n: number; done: boolean; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span
+        className={cx(
+          "flex size-6 shrink-0 items-center justify-center rounded-full text-caption font-semibold",
+          done ? "bg-brand text-on-brand" : "bg-fill text-sub",
+        )}
+      >
+        {done ? <IconCheck size={14} stroke={2.5} aria-label="끝" /> : n}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-2">
+        <span className="text-body font-semibold text-ink">{title}</span>
+        <span className="flex flex-col items-start gap-2 text-caption text-sub">{children}</span>
+      </span>
+    </li>
+  );
+}
+
+function ShotButton({ label, disabled, onChange }: { label: string; disabled: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+  return (
+    <label
+      aria-disabled={disabled || undefined}
+      className={cx(
+        "flex h-10 items-center justify-center rounded-field border border-line bg-card px-4 text-caption font-semibold text-ink",
+        disabled ? "pointer-events-none opacity-50" : "cursor-pointer active:bg-fill",
+      )}
+    >
+      {label}
+      <input type="file" accept="image/*" className="hidden" disabled={disabled} onChange={onChange} />
+    </label>
   );
 }

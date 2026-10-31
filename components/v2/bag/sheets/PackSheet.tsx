@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconArrowRight, IconBell, IconCloudCheck, IconCloudUpload, IconLock, IconLockOpen, IconRefreshAlert } from "@tabler/icons-react";
+import { IconArrowRight, IconBell, IconMenu2, IconCloudCheck, IconCloudUpload, IconLock, IconLockOpen, IconRefreshAlert } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Button, Sheet, Toggle, cx } from "@/components/v2/ui";
 
@@ -26,7 +26,7 @@ export interface PackReminderRow {
   onClick: () => void;
 }
 
-// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · 알림(iOS 앱) · (메모) 보관함 자동 동기화 · 팩 보관함 · 다른 가방으로 옮기기 · 삭제
+// 팩 머리줄 길게 누르기: 이름 바꾸기 · 모두 체크/해제 · 알림(iOS 앱) · (메모) 보관함 자동 동기화 · 팩 보관함 · 팩 순서 바꾸기 · 다른 가방으로 옮기기 · 삭제
 // 이름 칸을 고쳤으면 시트를 어떻게 닫든(완료 · 다른 줄 · 바깥 · 끌어내리기 · Esc) 이름을 같이 저장한다. 삭제만 예외(2026-10-14)
 export function PackSheet({
   pack,
@@ -38,6 +38,7 @@ export function PackSheet({
   onDelete,
   library,
   onMoveToBag,
+  onReorder,
   privacyLock,
   reminder,
 }: {
@@ -53,6 +54,8 @@ export function PackSheet({
   library?: PackLibraryRow | null;
   // 없으면(옮길 가방이 없음) 줄을 숨긴다
   onMoveToBag?: () => void;
+  // 팩 순서 바꾸기(2026-10-31). 없으면(옮길 팩이 2개 미만 · 미분류) 줄을 숨긴다
+  onReorder?: () => void;
   // 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
   privacyLock?: PackPrivacyRow;
   // 이 팩 알림(iOS 앱만, 2026-10-26). 없으면 줄을 숨긴다
@@ -79,6 +82,7 @@ export function PackSheet({
           onDelete={onDelete}
           library={library}
           onMoveToBag={onMoveToBag}
+          onReorder={onReorder}
           privacyLock={privacyLock}
           reminder={reminder}
         />
@@ -98,6 +102,7 @@ function PackSheetBody({
   onDelete,
   library,
   onMoveToBag,
+  onReorder,
   privacyLock,
   reminder,
 }: {
@@ -111,6 +116,7 @@ function PackSheetBody({
   onDelete: () => void;
   library?: PackLibraryRow | null;
   onMoveToBag?: () => void;
+  onReorder?: () => void;
   privacyLock?: PackPrivacyRow;
   reminder?: PackReminderRow;
 }) {
@@ -228,6 +234,20 @@ function PackSheetBody({
             <IconBell size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
             <span className="min-w-0 flex-1">알림</span>
             <span className="truncate text-caption text-sub">{reminder.summary ?? "꺼짐"}</span>
+          </button>
+        )}
+        {onReorder && (
+          <button
+            type="button"
+            className={rowCls}
+            onClick={() => {
+              commitName();
+              onClose();
+              onReorder();
+            }}
+          >
+            <IconMenu2 size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+            팩 순서 바꾸기
           </button>
         )}
         {onMoveToBag && (

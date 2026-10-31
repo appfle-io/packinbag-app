@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconLockOpen, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile, IconLayoutGrid } from "@tabler/icons-react";
+import { IconCalendar, IconChecklist, IconNotes, IconPhoto, IconClipboardText, IconSearch, IconCloudRain, IconLock, IconLockOpen, IconHelpCircle, IconBell, IconChevronRight, IconDeviceMobile, IconLayoutGrid, IconMenu2 } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
@@ -15,7 +15,7 @@ import { WidgetStylesScreen } from "@/components/v2/settings/WidgetStylesScreen"
 import { ReminderSheet } from "./ReminderSheet";
 import { LiveActivitySheet } from "./LiveActivitySheet";
 
-// 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
+// 가방 더보기: 날짜 · 설명 한 줄 · 새 팩/메모 · 팩 순서 바꾸기 · 사진·파일 · 추천(날씨) · AI(가져오기, 빠진 것 확인) · 삭제/나가기
 export function MoreSheet({
   open,
   onClose,
@@ -28,6 +28,7 @@ export function MoreSheet({
   onSetNotice,
   onAddChecklist,
   onAddMemo,
+  onReorderPacks,
   onFocusItem,
   onAddFiles,
   onImportClipboard,
@@ -51,6 +52,8 @@ export function MoreSheet({
   onSetNotice: (notice: string) => void;
   onAddChecklist: () => void;
   onAddMemo: () => void;
+  // 팩 순서 바꾸기(2026-10-31). 없으면(옮길 팩이 2개 미만) 줄을 숨긴다
+  onReorderPacks?: () => void;
   // 알림 > 아이템 마감일 목록에서 아이템을 누르면 그 아이템으로(2026-10-26)
   onFocusItem?: (packId: string, itemId: string) => void;
   onAddFiles: (files: FileList | null) => void;
@@ -239,6 +242,11 @@ export function MoreSheet({
           <button type="button" className={row} onClick={() => (onAddMemo(), onClose())}>
             <IconNotes size={20} stroke={1.75} className="text-sub" aria-hidden="true" />새 메모
           </button>
+          {onReorderPacks && (
+            <button type="button" className={row} onClick={() => (onClose(), onReorderPacks())}>
+              <IconMenu2 size={20} stroke={1.75} className="text-sub" aria-hidden="true" />팩 순서 바꾸기
+            </button>
+          )}
           <button
             type="button"
             className={row}

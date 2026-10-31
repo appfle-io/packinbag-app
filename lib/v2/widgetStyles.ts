@@ -6,7 +6,8 @@
 // - iOS 위젯에는 nativeBridge.pushWidgetStyles로 넘긴다(사진은 네이티브가 주소로 내려받아 App Group에 둔다)
 import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from "firebase/storage";
 import { storage } from "@/lib/firebase";
-import type { WidgetStyle, WidgetStylePos, WidgetStyleShow } from "@/lib/types";
+import type { WidgetStyle, WidgetStylePos, WidgetStyleShow, WidgetWallpaper } from "@/lib/types";
+import { WALLPAPER_MARK_COLOR } from "./wallpaperFit";
 
 export const FREE_WIDGET_STYLES = 1;
 export const MAX_WIDGET_STYLES = 20;
@@ -76,11 +77,35 @@ export function newWidgetStyle(): WidgetStyle {
 const HEX = /^#[0-9A-F]{6}$/;
 const POS = new Set(WIDGET_POSITIONS.map((p) => p.key));
 
+// 배경화면 바탕 값 정리: 자리를 잰 것(w)만 사진, 안 잰 것은 분홍 자리 표시. 비율이 이상하면 버린다
+function cleanWallpaper(w: WidgetWallpaper | undefined): WidgetWallpaper | undefined {
+  if (!w || typeof w !== "object") return undefined;
+  const ok = (v: unknown) => typeof v === "number" && v >= 0 && v <= 1;
+  if (w.w === undefined) return {};
+  const px = (v: unknown) => typeof v === "number" && Number.isInteger(v) && v > 0;
+  if (![w.x, w.y, w.w, w.h].every(ok) || !px(w.sw) || !px(w.sh)) return undefined;
+  return { x: w.x, y: w.y, w: w.w, h: w.h, sw: w.sw, sh: w.sh };
+}
+
+// "배경화면"으로 보일지: marking = 분홍으로 자리 표시 중, fitted = 잘라 올린 사진
+export function wallpaperState(s: Pick<WidgetStyle, "bg" | "wallpaper">): "marking" | "fitted" | null {
+  if (!s.wallpaper) return null;
+  return s.wallpaper.w === undefined ? (s.bg === "solid" ? "marking" : null) : s.bg === "photo" ? "fitted" : null;
+}
+
 // 저장 전 값 정리(범위 밖 · 모르는 값은 기본으로). 무료면 배경을 기본으로
 export function normalizeWidgetStyle(s: WidgetStyle, premium: boolean): WidgetStyle {
-  const zoom = clamp(Number(s.zoom) || 1, WIDGET_ZOOM_MIN, WIDGET_ZOOM_MAX);
   const bg = !premium ? "plain" : s.bg === "photo" && !s.photoUrl ? "plain" : s.bg;
-  const color = typeof s.color === "string" && HEX.test(s.color.toUpperCase()) ? s.color.toUpperCase() : WIDGET_SWATCHES[0].hex;
+  const wallpaper = cleanWallpaper(s.wallpaper);
+  const wp = wallpaperState({ bg, wallpaper });
+  // 배경화면 사진은 자른 그대로(크기 · 위치 고정)
+  const zoom = wp === "fitted" ? 1 : clamp(Number(s.zoom) || 1, WIDGET_ZOOM_MIN, WIDGET_ZOOM_MAX);
+  const color =
+    wp === "marking"
+      ? WALLPAPER_MARK_COLOR
+      : typeof s.color === "string" && HEX.test(s.color.toUpperCase())
+        ? s.color.toUpperCase()
+        : WIDGET_SWATCHES[0].hex;
   const inkColor = typeof s.inkColor === "string" && HEX.test(s.inkColor.toUpperCase()) ? s.inkColor.toUpperCase() : undefined;
   const ink = s.ink === "custom" && !inkColor ? "auto" : (["auto", "white", "black", "custom"].includes(s.ink) ? s.ink : "auto");
   return {
@@ -89,13 +114,14 @@ export function normalizeWidgetStyle(s: WidgetStyle, premium: boolean): WidgetSt
     bg,
     color,
     zoom,
-    x: clampOffset(Number(s.x) || 0, zoom),
-    y: clampOffset(Number(s.y) || 0, zoom),
+    x: wp === "fitted" ? 0 : clampOffset(Number(s.x) || 0, zoom),
+    y: wp === "fitted" ? 0 : clampOffset(Number(s.y) || 0, zoom),
     dim: clamp(Math.round(Number(s.dim ?? 40)), 0, WIDGET_DIM_MAX),
     ink,
     inkColor: ink === "custom" ? inkColor : undefined,
     pos: POS.has(s.pos) ? s.pos : "bl",
     show: { ...DEFAULT_WIDGET_SHOW, ...(s.show ?? {}) },
+    wallpaper: wp ? wallpaper : undefined,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -204,7 +230,7 @@ export const SAMPLE_WIDGET_BAG: WidgetBagStats = { name: "제주 3박 4일", dda
 
 // ---- 사진 ----------------------------------------------------------------
 
-async function toJpeg(file: File): Promise<Blob> {
+async function toJpeg(file: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const w = Math.max(1, Math.round(bitmap.width * scale));
@@ -222,7 +248,7 @@ async function toJpeg(file: File): Promise<Blob> {
 }
 
 // 고른 사진을 줄여 올리고 { url, path }를 돌려준다. 예전 사진은 부르는 쪽이 저장 뒤 지운다(deleteWidgetPhoto)
-export async function uploadWidgetPhoto(uid: string, styleId: string, file: File): Promise<{ url: string; path: string }> {
+export async function uploadWidgetPhoto(uid: string, styleId: string, file: Blob): Promise<{ url: string; path: string }> {
   const blob = await toJpeg(file);
   const path = `users/${uid}/widgetPhotos/${styleId}-${Date.now()}.jpg`;
   const r = ref(storage, path);

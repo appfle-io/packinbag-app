@@ -533,7 +533,21 @@ export interface WidgetStyle {
   inkColor?: string;
   pos: WidgetStylePos;
   show: WidgetStyleShow;
+  // 배경화면 바탕(2026-10-31, lib/v2/wallpaperFit): 있으면 이 꾸미기는 "배경화면"으로 보인다.
+  // 자리를 아직 안 쟀으면(w 없음) 분홍 단색(bg solid)으로 위젯 자리를 표시하는 중, 쟀으면 잘라 올린 사진(bg photo).
+  // 위젯(Swift)은 이 값을 모르고 bg대로 그린다
+  wallpaper?: WidgetWallpaper;
   updatedAt: string;
+}
+
+// 위젯 자리: 스크린샷 폭 · 높이에 대한 비율(0~1)과 스크린샷 픽셀 크기(같은 기기 · 방향인지 확인)
+export interface WidgetWallpaper {
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  sw?: number;
+  sh?: number;
 }
 
 // 개인 잠금 설정. PIN은 PBKDF2-SHA256 해시(base64)만 저장한다
