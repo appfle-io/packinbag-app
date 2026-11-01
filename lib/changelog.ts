@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.12.2",
+    date: "2026-11-01",
+    items: [
+      "아래쪽 안내 문구가 떠 있어도 그 밑을 바로 누를 수 있어요. 다른 곳을 누르면 안내가 바로 사라져요",
+      "완료함 \"바로\"에서 여러 개를 연달아 체크해도 자리가 밀리지 않아요",
+    ],
+  },
+  {
     version: "1.12.1",
     date: "2026-11-01",
     items: [

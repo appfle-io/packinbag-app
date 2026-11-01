@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 export interface ToastOptions {
   // 되돌리기 등 짧은 실행취소 액션이 필요할 때 지정한다. 지정하면 표시 시간이
@@ -47,31 +47,53 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, resolvedDurationMs);
   }, []);
 
+  // 다른 곳을 누르거나 손으로 스크롤하면 바로 닫는다(2026-11-01). 누른 탭은 막지 않아 아래 화면에 그대로 들어간다.
+  // 스크롤은 사용자 동작(wheel · touchmove)만 본다 - 앱이 스스로 굴리는 scroll 이벤트로 방금 띄운 토스트가 닫히지 않게
+  const actionRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const close = (e: Event) => {
+      if (actionRef.current && e.target instanceof Node && actionRef.current.contains(e.target)) return;
+      if (hideTimer.current) window.clearTimeout(hideTimer.current);
+      setToast(null);
+    };
+    const opts = { capture: true, passive: true } as const;
+    document.addEventListener("pointerdown", close, opts);
+    document.addEventListener("wheel", close, opts);
+    document.addEventListener("touchmove", close, opts);
+    return () => {
+      document.removeEventListener("pointerdown", close, opts);
+      document.removeEventListener("wheel", close, opts);
+      document.removeEventListener("touchmove", close, opts);
+    };
+  }, [toast]);
+
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
       {toast && (
         // 화면 아래쪽 검은 띠 하나(아이콘 없음). 하단 탭바·입력창을 가리지 않게 띄운다(toast-lift: 떠 있는 탭바 높이를 따라감).
+        // 띠는 탭이 통과하고 "되돌리기" 버튼만 눌린다(2026-11-01 - 예전엔 되돌리기 토스트 4초 동안 띠 전체가 아래 아이템을 막았다)
         // .pib-v2는 배경을 칠하므로 쓰지 않고 폰트만 font-ui로 맞춘다.
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[300] flex justify-center px-5 toast-lift" role="status">
           <div
             key={toast.key}
             className="pib-toast-pop flex w-full max-w-md items-center gap-3 rounded-card bg-ink px-4 py-3 font-ui text-on-ink shadow-sheet"
             style={{
-              pointerEvents: toast.actionLabel ? "auto" : "none",
               ["--toast-fade-delay" as string]: `${Math.max(0, toast.resolvedDurationMs - 220)}ms`,
             }}
           >
             <span className="min-w-0 flex-1 text-body">{toast.message}</span>
             {toast.actionLabel && (
               <button
+                ref={actionRef}
                 type="button"
                 onClick={() => {
                   toast.onAction?.();
                   if (hideTimer.current) window.clearTimeout(hideTimer.current);
                   setToast(null);
                 }}
-                className="-my-2 -mr-2 h-11 shrink-0 rounded-field bg-transparent px-3 text-body font-semibold text-brand-soft active:opacity-60"
+                className="pointer-events-auto -my-2 -mr-2 h-11 shrink-0 rounded-field bg-transparent px-3 text-body font-semibold text-brand-soft active:opacity-60"
               >
                 {toast.actionLabel}
               </button>

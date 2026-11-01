@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconArrowUp, IconCheck, IconChecklist, IconChevronDown, IconChevronLeft, IconChevronRight, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconNotes, IconPackage, IconRotateClockwise, IconSun, IconUsers, IconX } from "@tabler/icons-react";
-import type { Bag, Pack } from "@/lib/types";
+import type { Bag, Item, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { ATTACH_PREMIUM_MESSAGE, MEDIA_SAVE_PREMIUM_MESSAGE, bagMemberLimit, bagPackLimit, bagPackLimitMessage, getViewablePacks, isPremiumUser } from "@/lib/premiumLimits";
@@ -71,6 +71,9 @@ import {
   timesSummary,
 } from "@/lib/v2/bagReminders";
 import type { DueRemind } from "./sheets/ItemSheet";
+
+// "바로" 완료함: 마지막 체크 뒤 이만큼 팩에 둔 다음 뺀다
+const DONE_HOLD_MS = 800;
 
 // 구 BagEditorScreen과 같은 props를 받는다 - AppShell/DesktopShell에서 플래그로 바꿔 끼우기만 하면 된다.
 export interface BagScreenProps {
@@ -222,6 +225,16 @@ export default function BagScreenV2(props: BagScreenProps) {
   const hasChecks = checklist.some((p) => p.items.some((i) => i.type === "check"));
   // "바로"일 때 체크하면 팩에서 사라지니 되돌리기를 준다. 연달아 체크하면 한 토스트로 모은다
   const justBoxed = useRef<{ ids: { packId: string; itemId: string }[]; at: number }>({ ids: [], at: 0 });
+  // "바로"로 체크한 아이템은 마지막 체크 뒤 잠깐 팩에 체크된 채로 두었다가 한꺼번에 뺀다(BAG-DONE-04).
+  // 바로 빼면 아래 줄이 올라와 연달아 누를 때 다른 아이템 · 팩 머리줄이 눌렸다(11/1 웹 QA)
+  const [doneHold, setDoneHold] = useState<Set<string>>(() => new Set());
+  const doneHoldTimer = useRef<number | undefined>(undefined);
+  const holdInPack = (itemId: string) => {
+    setDoneHold((h) => new Set(h).add(itemId));
+    window.clearTimeout(doneHoldTimer.current);
+    doneHoldTimer.current = window.setTimeout(() => setDoneHold(new Set()), DONE_HOLD_MS);
+  };
+  useEffect(() => () => window.clearTimeout(doneHoldTimer.current), []);
   // 팩 순서 바꾸기(2026-10-31): 화면에 보이는 팩 중 미분류를 뺀 것(미분류는 늘 맨 위). 2개 이상일 때만 줄을 보인다
   const reorderable = ordered.filter((p) => p.id !== inbox?.id);
   const [reorderOpen, setReorderOpen] = useState(false);
@@ -339,17 +352,24 @@ export default function BagScreenV2(props: BagScreenProps) {
 
   // 설정 > 가방 > "다 챙긴 아이템은 아래로"(구 UI 팩 설정과 같은 값, 없으면 켜짐). 화면 순서만 바꾸고 저장 순서는 그대로
   const moveDoneDown = profile?.packSettings?.moveCompletedToBottom ?? true;
-  const itemsFor = (p: Pack) =>
-    getDisplayOrderedItems(
-      doneBox.ids.size > 0 ? p.items.filter((i) => !doneBox.ids.has(i.id)) : p.items,
-      moveDoneDown,
-    ).filter((i) =>
+  // "바로"로 방금 체크해 잠깐 남겨 둔 아이템(doneHold)은 자리를 지킨다 - 아래로 내리거나 "남은 것"에서 빼면 줄이 밀린다
+  const itemsFor = (p: Pack) => {
+    const shown = doneBox.ids.size > 0 ? p.items.filter((i) => !doneBox.ids.has(i.id) || doneHold.has(i.id)) : p.items;
+    const ordered =
+      doneHold.size === 0
+        ? getDisplayOrderedItems(shown, moveDoneDown)
+        : moveDoneDown
+          ? [...shown].sort((a, b) => doneRank(a) - doneRank(b))
+          : shown;
+    return ordered.filter((i) =>
       activeFilter === "left"
-        ? i.type === "check" && !i.checked
+        ? i.type === "check" && (!i.checked || doneHold.has(i.id))
         : activeFilter === "mine"
           ? isMine(i)
           : true,
     );
+  };
+  const doneRank = (i: Item) => Number(i.type === "check" && !!i.checked && !doneHold.has(i.id));
   // 사용 가이드에서 비출 팩: 화면에 보이는 첫 체크리스트 팩(메모 제외)
   const guidePackId = visibleSections.find((p) => p.kind !== "editor")?.id;
 
@@ -782,6 +802,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                       const prev = justBoxed.current;
                       const ids = now - prev.at < 4000 ? [...prev.ids, { packId: p.id, itemId }] : [{ packId: p.id, itemId }];
                       justBoxed.current = { ids, at: now };
+                      holdInPack(itemId);
                       show(`${ids.length > 1 ? `${ids.length}개를` : "완료함으로"} 옮겼어요`, {
                         actionLabel: "되돌리기",
                         onAction: () => {
