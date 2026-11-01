@@ -47,34 +47,54 @@ enum PIBFonts {
     }
 }
 
-// wallpaper(1.11, 11/1): 앱 설정 > 위젯 꾸미기 > 팩 위젯 배경화면에서 맞춘 홈 화면 조각(PIBHomeWallpaper)을 깐다. 홈 화면 팩 위젯만
+// wallpaper(1.11, 11/1): 앱 설정 > 위젯 > 투명 위젯 맞추기에서 맞춘 홈 화면 조각(PIBHomeWallpaper)을 깐다. 홈 화면 팩 위젯만.
+// 1.12(11/1): 보이는 이름 "배경화면" → "투명"(rawValue는 그대로라 놓아 둔 위젯 설정이 유지된다)
 enum PIBTheme: String, AppEnum {
     case system, light, dark, wallpaper
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경"
     static let caseDisplayRepresentations: [PIBTheme: DisplayRepresentation] = [
-        .system: "시스템", .light: "라이트", .dark: "다크", .wallpaper: "배경화면",
+        .system: "시스템", .light: "라이트", .dark: "다크", .wallpaper: "투명",
     ]
 }
 
-// 배경화면 위치(1.11): 위젯 왼쪽 위 모서리가 있는 칸(작은 위젯 자리 기준 3줄 × 2칸).
-// 작게는 그 칸, 중간은 그 줄, 크게는 위 줄이면 위 · 아니면 아래(가운데 · 아래 줄을 덮음)
+// 투명 위치(1.11 "배경화면 위치"): 작은 위젯이 놓인 칸(3줄 × 2칸).
+// 1.12(11/1): 중간 · 크게는 아래 PIBWallRow · PIBWallHalf를 따로 고른다(위젯 편집에 크기별로 보임).
+// 1.11에서 놓은 중간 · 크게 위젯은 그 값이 비어 있어 이 칸의 줄로 정한다(예전과 같은 조각)
 enum PIBWallSlot: String, AppEnum {
     case tl, tr, ml, mr, bl, br
-    static let typeDisplayRepresentation: TypeDisplayRepresentation = "배경화면 위치"
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "투명 위치"
     static let caseDisplayRepresentations: [PIBWallSlot: DisplayRepresentation] = [
         .tl: "위 왼쪽", .tr: "위 오른쪽", .ml: "가운데 왼쪽", .mr: "가운데 오른쪽", .bl: "아래 왼쪽", .br: "아래 오른쪽",
     ]
 
     var row: String { String(rawValue.prefix(1)) }
+}
 
-    // 이 위젯 크기에서 쓸 조각 이름(PIBHomeWallpaper)
-    func piece(for family: WidgetFamily) -> String? {
-        switch family {
-        case .systemSmall: return "s-\(rawValue)"
-        case .systemMedium: return "m-\(row)"
-        case .systemLarge: return row == "t" ? "l-t" : "l-m"
-        default: return nil
-        }
+// 중간 위젯 투명 위치(1.12): 놓인 줄
+enum PIBWallRow: String, AppEnum {
+    case t, m, b
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "투명 위치"
+    static let caseDisplayRepresentations: [PIBWallRow: DisplayRepresentation] = [
+        .t: "위 줄", .m: "가운데 줄", .b: "아래 줄",
+    ]
+}
+
+// 크게 위젯 투명 위치(1.12): 위 두 줄 · 아래 두 줄(가운데 · 아래 줄)
+enum PIBWallHalf: String, AppEnum {
+    case t, m
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "투명 위치"
+    static let caseDisplayRepresentations: [PIBWallHalf: DisplayRepresentation] = [
+        .t: "위 두 줄", .m: "아래 두 줄",
+    ]
+}
+
+// 이 위젯 크기에서 쓸 조각 이름(PIBHomeWallpaper: s-tl … · m-t/m/b · l-t/l-m)
+func pibWallPiece(family: WidgetFamily, slot: PIBWallSlot, row: PIBWallRow?, half: PIBWallHalf?) -> String? {
+    switch family {
+    case .systemSmall: return "s-\(slot.rawValue)"
+    case .systemMedium: return "m-\(row?.rawValue ?? slot.row)"
+    case .systemLarge: return "l-\(half?.rawValue ?? (slot.row == "t" ? "t" : "m"))"
+    default: return nil
     }
 }
 

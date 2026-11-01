@@ -330,7 +330,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             PIBWidgets.reload()
         }
-        var result: [String: Any] = ["set": PIBHomeWallpaper.setAt != nil]
+        // v 2(1.12) = 위젯 편집이 "투명" · 크기별 투명 위치(웹 안내 그림이 이 값으로 글자를 고른다)
+        var result: [String: Any] = ["set": PIBHomeWallpaper.setAt != nil, "v": 2]
         if let at = PIBHomeWallpaper.setAt { result["setAt"] = at * 1000 }
         call.resolve(result)
     }

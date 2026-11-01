@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.12.0",
+    date: "2026-11-01",
+    items: [
+      "투명 위젯을 따라 하기 3단계로 쉽게 맞춰요(설정 > 위젯)",
+      "팩 위젯과 가방 바로가기를 나눠서 보여 줘요. 팩 위젯 투명 위치는 크기마다 맞는 것만 골라요(아이폰 앱 1.12)",
+    ],
+  },
+  {
     version: "1.11.0",
     date: "2026-11-01",
     items: [

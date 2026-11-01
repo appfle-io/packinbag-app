@@ -2,7 +2,7 @@
 
 // 북마크 위젯 꾸미기 편집(2026-10-18, 1.7). 설정 > 위젯 꾸미기 > 칸 누르기 / 새로 만들기.
 // 맨 위 미리 보기는 고르는 즉시 바뀐다. 사진은 저장할 때 올린다(그 전에는 이 기기 안 blob 주소로 미리 보기)
-// "배경화면"(2026-10-31): 빈 페이지 스크린샷 1장 → 기종 표로 위젯 칸을 그려 주고 누른 칸을 잘라 사진으로(lib/v2/wallpaperFit).
+// "투명"(2026-10-31 "배경화면", 1.12에 이름만 바꿈): 빈 페이지 스크린샷 1장 → 기종 표로 위젯 칸을 그려 주고 누른 칸을 잘라 사진으로(lib/v2/wallpaperFit).
 // 표에 없는 기종은 못 씀(분홍 표시로 직접 재는 방식 · 밝기 슬라이더는 어렵다고 해서 뺌, 사용자 10/31)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IconCheck, IconPhoto } from "@tabler/icons-react";
@@ -41,7 +41,7 @@ const BG_OPTIONS: { value: BgChoice; label: string }[] = [
   { value: "plain", label: "기본" },
   { value: "photo", label: "사진" },
   { value: "solid", label: "단색" },
-  { value: "wallpaper", label: "배경화면" },
+  { value: "wallpaper", label: "투명" },
 ];
 
 const INK_OPTIONS: { value: WidgetStyleInk; label: string }[] = [
@@ -91,7 +91,7 @@ export function WidgetStyleEditor({
 
   const patch = (p: Partial<WidgetStyle>) => setDraft((d) => ({ ...d, ...p }));
 
-  const lockedToast = () => show("사진 · 단색 · 배경화면 배경은 프리미엄이에요");
+  const lockedToast = () => show("사진 · 단색 · 투명 배경은 프리미엄이에요");
 
   const wp = wallpaperState(draft);
   // "배경화면"을 골랐는지(스크린샷을 고르기 전에는 draft에 아직 배경화면 값이 없다)
@@ -155,7 +155,7 @@ export function WidgetStyleEditor({
       const layouts = widgetSlotLayouts(bitmap.width, bitmap.height);
       bitmap.close?.();
       if (!layouts) {
-        show("이 아이폰은 아직 배경화면 맞추기를 쓸 수 없어요");
+        show("이 아이폰은 아직 투명 위젯을 쓸 수 없어요");
         return;
       }
       if (shotUrlRef.current) URL.revokeObjectURL(shotUrlRef.current);
@@ -301,20 +301,19 @@ export function WidgetStyleEditor({
       <section className="flex flex-col gap-3">
         <SectionHeader>배경</SectionHeader>
         <SegmentedControl label="배경" options={BG_OPTIONS} value={premium ? bgChoice : "plain"} onChange={pickBg} />
-        {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 · 배경화면 배경은 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
+        {!premium && <p className="m-0 text-caption text-sub">사진 · 단색 · 투명 배경은 프리미엄이에요. 무료는 기본 바탕으로 쓸 수 있어요.</p>}
         {premium && !wallOn && draft.bg === "plain" && <p className="m-0 text-caption text-sub">앱과 같은 바탕이에요(다크 모드면 어둡게).</p>}
 
         {premium && wallOn && (
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-caption text-sub">위젯 자리만큼 배경화면을 깔아서 투명한 것처럼 보여요.</p>
             <ol className="m-0 flex list-none flex-col gap-3 p-0">
               <WallpaperStep n={1} done={!!shot || wp === "fitted"} title="빈 페이지 스크린샷 고르기">
-                홈 화면을 길게 눌러 맨 오른쪽 빈 페이지로 넘긴 뒤 스크린샷을 찍어 골라요.
+                홈 화면을 길게 눌러 맨 오른쪽 빈 페이지에서 찍어요.
                 <ShotButton label={shot || wp === "fitted" ? "다시 고르기" : "스크린샷 고르기"} disabled={busy} onChange={onShot} />
               </WallpaperStep>
               {shot && layout && (
                 <WallpaperStep n={2} done={!!slotKey} title="위젯 자리 누르기">
-                  위젯을 둔(둘) 칸을 눌러요.
+                  위젯을 둔 칸을 눌러요.
                   {shot.layouts.length > 1 && (
                     <div className="flex flex-wrap gap-2">
                       {shot.layouts.map((l) => (
@@ -352,7 +351,7 @@ export function WidgetStyleEditor({
                 </WallpaperStep>
               )}
             </ol>
-            <span className="text-micro text-faint">위젯을 옮기거나 배경화면을 바꾸면 다시 골라 주세요. 저장한 뒤 홈 화면 위젯을 길게 눌러 이 꾸미기를 골라요.</span>
+            <span className="text-micro text-faint">위젯을 옮기거나 배경화면을 바꾸면 다시 골라요.</span>
           </div>
         )}
 

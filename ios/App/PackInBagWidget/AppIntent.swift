@@ -74,12 +74,19 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     @Parameter(title: "팩", description: "비워 두면 가방 전체")
     var pack: WidgetPackEntity?
 
-    @Parameter(title: "배경", description: "배경화면은 앱 설정 > 위젯 꾸미기에서 먼저 맞춰요", default: .system)
+    @Parameter(title: "배경", description: "투명은 앱 설정 > 위젯에서 먼저 맞춰요", default: .system)
     var theme: PIBTheme
 
-    // 1.11(11/1). 배경이 "배경화면"일 때만 쓴다
-    @Parameter(title: "배경화면 위치", description: "위젯 왼쪽 위가 있는 칸", default: .tl)
+    // 1.11(11/1). 배경이 "투명"일 때만 쓴다. 작게 = 놓인 칸(1.11에서는 모든 크기가 이 값)
+    @Parameter(title: "투명 위치", description: "위젯이 놓인 칸", default: .tl)
     var wallSlot: PIBWallSlot
+
+    // 1.12(11/1). 중간 = 놓인 줄, 크게 = 위 · 아래 두 줄. 비어 있으면(1.11에서 놓은 위젯) wallSlot의 줄
+    @Parameter(title: "투명 위치", description: "위젯이 놓인 줄")
+    var wallRow: PIBWallRow?
+
+    @Parameter(title: "투명 위치", description: "위젯이 놓인 곳")
+    var wallHalf: PIBWallHalf?
 
     @Parameter(title: "글꼴", default: .system)
     var font: PIBFont
@@ -94,10 +101,37 @@ struct ConfigurationAppIntent: WidgetConfigurationIntent {
     // 1.6(10/13). 끄면 챙긴 아이템을 목록에서 뺀다. 예전에 놓인 위젯은 켬(예전과 같음)
     @Parameter(title: "완료된 항목 보이기", default: true)
     var showDone: Bool
+
+    // 1.12(11/1): 위젯 편집에 크기마다 맞는 투명 위치만, 배경이 투명일 때만 보인다(iOS 17+). 작게는 열 수를 숨김(항상 1열)
+    static var parameterSummary: some ParameterSummary {
+        Switch(.widgetFamily) {
+            Case(.systemSmall) {
+                When(\.$theme, .equalTo, .wallpaper) {
+                    Summary { \.$bag; \.$pack; \.$theme; \.$wallSlot; \.$font; \.$textSize; \.$showDone }
+                } otherwise: {
+                    Summary { \.$bag; \.$pack; \.$theme; \.$font; \.$textSize; \.$showDone }
+                }
+            }
+            Case(.systemMedium) {
+                When(\.$theme, .equalTo, .wallpaper) {
+                    Summary { \.$bag; \.$pack; \.$theme; \.$wallRow; \.$font; \.$textSize; \.$columns; \.$showDone }
+                } otherwise: {
+                    Summary { \.$bag; \.$pack; \.$theme; \.$font; \.$textSize; \.$columns; \.$showDone }
+                }
+            }
+            DefaultCase {
+                When(\.$theme, .equalTo, .wallpaper) {
+                    Summary { \.$bag; \.$pack; \.$theme; \.$wallHalf; \.$font; \.$textSize; \.$columns; \.$showDone }
+                } otherwise: {
+                    Summary { \.$bag; \.$pack; \.$theme; \.$font; \.$textSize; \.$columns; \.$showDone }
+                }
+            }
+        }
+    }
 }
 
 // ---- 북마크 위젯(가방 바로가기, 1.7 · 2026-10-18) ----------------------------------------------
-// 위젯 편집: 가방(위 BagEntity 그대로) + 꾸미기(앱 설정 > 위젯 꾸미기에서 저장한 것 + "기본").
+// 위젯 편집: 가방(위 BagEntity 그대로) + 꾸미기(앱 설정 > 위젯 > 가방 바로가기에서 저장한 것 + "기본").
 // 꾸미기 목록은 App Group(PIBStyleStore)에서. 지워진 꾸미기를 고른 위젯은 기본 모양으로 그린다
 struct WidgetStyleEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "꾸미기"
@@ -115,7 +149,8 @@ struct WidgetStyleEntity: AppEntity {
     static func all() -> [WidgetStyleEntity] {
         let plain = WidgetStyleEntity(id: plainId, name: "기본", detail: "앱과 같은 바탕")
         return [plain] + PIBStyleStore.all().map { s in
-            let kind = s.bg == "photo" ? "사진" : s.bg == "solid" ? "단색" : "기본 바탕"
+            // 투명(1.12 이름, 웹이 빈 페이지 스크린샷에서 잘라 올린 사진 — wallpaper가 있음)
+            let kind = s.wallpaper != nil ? "투명" : s.bg == "photo" ? "사진" : s.bg == "solid" ? "단색" : "기본 바탕"
             return WidgetStyleEntity(id: s.id, name: s.name, detail: kind)
         }
     }
@@ -134,7 +169,7 @@ struct WidgetStyleQuery: EntityQuery {
 
 struct BookmarkConfigIntent: WidgetConfigurationIntent {
     static let title: LocalizedStringResource = "가방 바로가기"
-    static let description = IntentDescription("누르면 고른 가방이 바로 열려요. 꾸미기는 앱 설정 > 위젯 꾸미기에서 만들어요")
+    static let description = IntentDescription("누르면 고른 가방이 바로 열려요. 꾸미기는 앱 설정 > 위젯 > 가방 바로가기에서 만들어요")
 
     @Parameter(title: "가방")
     var bag: BagEntity?

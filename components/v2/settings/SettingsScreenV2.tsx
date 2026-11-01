@@ -51,7 +51,7 @@ import { LockSettingsScreen } from "./LockSettingsScreen";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 import { lockedCount } from "@/lib/v2/privateLock";
 import { supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
-import { WidgetStylesScreen } from "./WidgetStylesScreen";
+import { WidgetHubScreen } from "./WidgetHubScreen";
 import { notificationSettingsPath } from "@/lib/v2/platform";
 import { useOpenInquiryRequests } from "@/lib/v2/shell";
 
@@ -131,7 +131,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const { guard } = useOnlineGuard();
   // 개인 잠금(2026-10-12). 오프라인 모드 · 게스트는 본인 확인을 할 수 없어 숨긴다
   const privacy = usePrivateLock();
-  // 북마크 위젯 꾸미기(1.7 iOS 앱부터, 2026-10-18). 계정 모드에서만
+  // 위젯(1.7 iOS 앱부터 "위젯 꾸미기", 1.12에 투명 위젯 · 종류별 허브, 2026-11-01). 계정 모드에서만
   const [widgetAvailable, setWidgetAvailable] = useState(false);
   useEffect(() => {
     if (isOfflineMode) return;
@@ -441,9 +441,8 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
           {showWidgetRow && (
             <ListRow
               divider={false}
-              title="위젯 꾸미기"
-              subtitle="홈 화면 ‘가방 바로가기’ 위젯"
-              trailing={(profile?.widgetStyles?.length ?? 0) > 0 ? `${profile?.widgetStyles?.length}개` : undefined}
+              title="위젯"
+              subtitle="투명 위젯 · 가방 바로가기 꾸미기"
               onClick={() => setView("widgets")}
               chevron
             />
@@ -721,7 +720,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       )}
       {showWidgetRow && (
         <SlideScreen active={view === "widgets"} onBackdropClick={close} swipeBack>
-          <WidgetStylesScreen onBack={close} bags={bags ?? []} />
+          <WidgetHubScreen onBack={close} bags={bags ?? []} />
         </SlideScreen>
       )}
 

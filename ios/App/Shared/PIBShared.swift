@@ -249,6 +249,8 @@ struct PIBWidgetStyle: Codable, Hashable {
     // tl tc tr ml mc mr bl bc br
     var pos: String
     var show: PIBWidgetStyleShow
+    // 투명 꾸미기(웹 WidgetStyle.wallpaper, 1.12에서 위젯 편집 부제 "투명"으로만 씀 — 그림은 사진 그대로)
+    var wallpaper: PIBWidgetWallpaperMark?
 
     // 사진 파일 이름: Storage 경로의 마지막(사진을 바꾸면 경로가 바뀌어 새로 받는다)
     var photoFileName: String? {
@@ -257,6 +259,9 @@ struct PIBWidgetStyle: Codable, Hashable {
         return name.isEmpty ? nil : name
     }
 }
+
+// 웹 wallpaper 값의 내용(자리 비율 등)은 위젯이 안 쓴다 — 있는지만 본다
+struct PIBWidgetWallpaperMark: Codable, Hashable {}
 
 private struct PIBWidgetStyleList: Codable {
     var v: Int
@@ -590,7 +595,7 @@ enum PIBSync {
 }
 
 // ---- 홈 화면 배경화면(팩 위젯 "배경 = 배경화면", 1.11 · 2026-11-01) ---------------------------------
-// 웹 설정 > 위젯 꾸미기 > 팩 위젯 배경화면에서 빈 페이지 스크린샷 1장을 고르면, 웹이 위젯이 놓일 수 있는 자리마다 잘라
+// 웹 설정 > 위젯 > 투명 위젯 맞추기(1.11 "팩 위젯 배경화면")에서 빈 페이지 스크린샷 1장을 고르면, 웹이 위젯이 놓일 수 있는 자리마다 잘라
 // (lib/v2/wallpaperFit homeWallpaperPieces) 넘긴다. 이 기기 App Group에만 둔다(기기마다 배경화면이 달라서 서버에 안 올림).
 // 조각 이름: 작게 s-tl · s-tr · s-ml · s-mr · s-bl · s-br / 중간 m-t · m-m · m-b / 크게 l-t · l-m (t 위 · m 가운데 · b 아래, l 왼 · r 오른)
 enum PIBHomeWallpaper {

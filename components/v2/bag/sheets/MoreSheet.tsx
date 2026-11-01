@@ -11,7 +11,7 @@ import { isLocalNotificationsAvailable, reminderSummary } from "@/lib/v2/bagRemi
 import { isNativeBridgeAvailable, supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
 import { bagPushSummary, bagPushView, showsBagPush } from "@/lib/v2/serverPush";
 import SlideScreen from "@/components/SlideScreen";
-import { WidgetStylesScreen } from "@/components/v2/settings/WidgetStylesScreen";
+import { WidgetHubScreen } from "@/components/v2/settings/WidgetHubScreen";
 import { ReminderSheet } from "./ReminderSheet";
 import { LiveActivitySheet } from "./LiveActivitySheet";
 
@@ -81,7 +81,7 @@ export function MoreSheet({
   // 잠금화면 실시간 현황은 네이티브 다리가 든 iOS 앱(1.5 이상)에서만
   const [liveAvailable] = useState(isNativeBridgeAvailable);
   const [liveOpen, setLiveOpen] = useState(false);
-  // 홈 화면 위젯 꾸미기(1.7 iOS 앱 · 계정 모드, 2026-10-18). 설정 > 위젯 꾸미기와 같은 화면, 미리 보기는 이 가방
+  // 홈 화면 위젯(1.7 iOS 앱 · 계정 모드, 2026-10-18). 설정 > 위젯과 같은 화면(1.12 허브), 미리 보기는 이 가방
   const [widgetAvailable, setWidgetAvailable] = useState(false);
   const [widgetOpen, setWidgetOpen] = useState(false);
   useEffect(() => {
@@ -216,8 +216,8 @@ export function MoreSheet({
               <button type="button" className={row} onClick={() => (close(), window.setTimeout(() => setWidgetOpen(true), 300))}>
                 <IconLayoutGrid size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
                 <span className="flex min-w-0 flex-1 flex-col py-2">
-                  <span>홈 화면 위젯 꾸미기</span>
-                  <span className="text-micro text-sub">‘가방 바로가기’ 위젯에 쓸 사진 · 색</span>
+                  <span>홈 화면 위젯</span>
+                  <span className="text-micro text-sub">투명 위젯 · 가방 바로가기 꾸미기</span>
                 </span>
                 <IconChevronRight size={18} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
               </button>
@@ -317,7 +317,7 @@ export function MoreSheet({
     {liveAvailable && <LiveActivitySheet open={liveOpen} onClose={() => setLiveOpen(false)} bag={bag} />}
     {showWidget && (
       <SlideScreen active={widgetOpen} onBackdropClick={() => setWidgetOpen(false)} swipeBack>
-        <WidgetStylesScreen onBack={() => setWidgetOpen(false)} bags={[bag]} />
+        <WidgetHubScreen onBack={() => setWidgetOpen(false)} bags={[bag]} />
       </SlideScreen>
     )}
     </>

@@ -1067,3 +1067,11 @@ aside {
   --color-emerald-800: var(--v2-line);
   --color-emerald-950: var(--v2-brand-soft);
 }
+
+/* 투명 위젯 안내 그림의 예시 배경화면(1.12, 2026-11-01, components/v2/settings/TransparentWizard · HomeWallpaperCard).
+   라이트 · 다크 같은 값(아이폰 배경화면 예시라 테마를 따르지 않음) */
+.pib-tw-wall {
+  background:
+    radial-gradient(circle at 72% 22%, #ffe6b8 0 7%, rgb(255 230 184 / 0) 7.5%),
+    linear-gradient(180deg, #f2c4a2 0%, #e59e86 28%, #9aafcb 56%, #4a6b93 80%, #23344c 100%);
+}

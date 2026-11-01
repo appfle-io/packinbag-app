@@ -1,25 +1,20 @@
 "use client";
 
-// 설정 > 위젯 꾸미기(2026-10-18, 1.7). 저장한 꾸미기를 위젯 모양 그대로 칸으로 보여 주고, 눌러서 고친다.
+// 설정 > 위젯 > 가방 바로가기(2026-10-18, 1.7 "위젯 꾸미기" → 1.12에 위젯 허브 아래로). 저장한 꾸미기를 위젯 모양 그대로 칸으로 보여 주고, 눌러서 고친다.
 // iOS 홈 화면에서 "가방 바로가기" 위젯을 길게 눌러 위젯 편집 → 가방 · 꾸미기를 고른다(꾸미기를 고치면 그걸 쓰는 위젯이 모두 바뀜).
 // 무료: 1개 · 기본 바탕만(2번째부터 잠김, 지우지는 않음). 지금은 FREE_LAUNCH라 모두 프리미엄
 import { useMemo, useState } from "react";
-import { IconLock, IconPlus } from "@tabler/icons-react";
+import { IconChevronRight, IconLock, IconPlus } from "@tabler/icons-react";
 import type { Bag, WidgetStyle } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import { isPremiumUser } from "@/lib/premiumLimits";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import SlideScreen from "@/components/SlideScreen";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import {
-  FREE_WIDGET_STYLES,
-  MAX_WIDGET_STYLES,
   SAMPLE_WIDGET_BAG,
   deleteWidgetPhoto,
   newWidgetStyle,
-  normalizeWidgetStyle,
-  uploadWidgetPhoto,
   wallpaperState,
   widgetBagStats,
   widgetStyleLocked,
@@ -27,18 +22,16 @@ import {
 import { SubScreen } from "./SubScreen";
 import { WidgetPreview } from "./WidgetPreview";
 import { WidgetStyleEditor } from "./WidgetStyleEditor";
-import { HomeWallpaperCard } from "./HomeWallpaperCard";
+import { useWidgetStyleSave } from "./useWidgetStyleSave";
 
 const BG_LABEL: Record<string, string> = { plain: "기본 바탕", photo: "사진", solid: "단색" };
 
 export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags: Bag[] }) {
-  const { user, profile, updateWidgetStyles } = useAuth();
+  const { updateWidgetStyles } = useAuth();
   const { show } = useToast();
   const { guard } = useOnlineGuard();
-  const premium = isPremiumUser(profile?.email, profile);
-  const styles = useMemo(() => profile?.widgetStyles ?? [], [profile?.widgetStyles]);
+  const { premium, styles, saving, setSaving, canAdd, limitMessage, save } = useWidgetStyleSave();
   const [editing, setEditing] = useState<{ style: WidgetStyle; isNew: boolean } | null>(null);
-  const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const sampleBag = useMemo(() => {
@@ -46,43 +39,16 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
     return b ? widgetBagStats(b) : SAMPLE_WIDGET_BAG;
   }, [bags]);
 
-  const canAdd = styles.length < (premium ? MAX_WIDGET_STYLES : FREE_WIDGET_STYLES);
-
   const openNew = () => {
     if (!canAdd) {
-      show(premium ? `꾸미기는 ${MAX_WIDGET_STYLES}개까지 저장할 수 있어요` : "무료는 꾸미기 1개까지예요. 여러 개는 프리미엄이에요");
+      show(limitMessage);
       return;
     }
     setEditing({ style: newWidgetStyle(), isNew: true });
   };
 
   const doSave = async (draft: WidgetStyle, photo: Blob | null) => {
-    if (!user || saving) return;
-    setSaving(true);
-    const before = styles.find((s) => s.id === draft.id) ?? null;
-    let uploaded: { url: string; path: string } | null = null;
-    try {
-      let next = draft;
-      if (premium && draft.bg === "photo" && photo) {
-        uploaded = await uploadWidgetPhoto(user.uid, draft.id, photo);
-        next = { ...next, photoUrl: uploaded.url, photoPath: uploaded.path };
-      }
-      next = normalizeWidgetStyle(next, premium);
-      // 사진 배경이 아니면 사진은 떼어 낸다(아래에서 Storage도 지움)
-      if (next.bg !== "photo") next = { ...next, photoUrl: undefined, photoPath: undefined };
-      const list = before ? styles.map((s) => (s.id === next.id ? next : s)) : [...styles, next];
-      await updateWidgetStyles(list);
-      if (before?.photoPath && before.photoPath !== next.photoPath) void deleteWidgetPhoto(before.photoPath);
-      setEditing(null);
-      show(before ? "꾸미기를 저장했어요" : "꾸미기를 만들었어요. 홈 화면 위젯을 길게 눌러 골라 주세요");
-    } catch (err) {
-      console.error("[팩인백] 위젯 꾸미기 저장 실패:", err);
-      // 올린 사진은 쓰지 않게 됐으니 지운다
-      if (uploaded) void deleteWidgetPhoto(uploaded.path);
-      show("저장하지 못했어요. 인터넷 연결을 확인해 주세요");
-    } finally {
-      setSaving(false);
-    }
+    if (await save(draft, photo)) setEditing(null);
   };
 
   const doDelete = async () => {
@@ -103,10 +69,22 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
   };
 
   return (
-    <SubScreen title="위젯 꾸미기" onBack={onBack} bodyClassName="gap-6">
-      <p className="m-0 text-caption text-sub">
-        저장해 두고 위젯마다 골라 써요. 홈 화면에서 &quot;가방 바로가기&quot; 위젯을 길게 눌러 위젯 편집 → 가방과 꾸미기를 골라요.
-      </p>
+    <SubScreen title="가방 바로가기" onBack={onBack} bodyClassName="gap-6">
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-body text-sub">누르면 그 가방이 바로 열리는 작은 위젯</p>
+        {/* 꾸미는 법: 두 단계만 위에 */}
+        <div className="flex items-center gap-2 rounded-card bg-brand-soft px-4 py-3 text-caption font-semibold text-brand">
+          <span className="flex flex-1 items-center gap-2">
+            <StepDot n={1} />
+            여기서 꾸미기 만들기
+          </span>
+          <IconChevronRight size={16} stroke={2} aria-hidden="true" />
+          <span className="flex flex-1 items-center gap-2">
+            <StepDot n={2} />
+            위젯 길게 눌러 고르기
+          </span>
+        </div>
+      </div>
 
       {!premium && (
         <p className="m-0 rounded-card bg-brand-soft px-4 py-3 text-caption text-ink">
@@ -146,7 +124,7 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
               <span className="flex flex-col px-1">
                 <span className="truncate text-body font-semibold">{s.name}</span>
                 <span className="text-micro text-faint">
-                  {locked ? "프리미엄 · 잠김" : !premium ? "기본 바탕(무료)" : wallpaperState(s) === "marking" ? "배경화면 · 자리 재는 중" : wallpaperState(s) ? "배경화면" : BG_LABEL[s.bg]}
+                  {locked ? "프리미엄 · 잠김" : !premium ? "기본 바탕(무료)" : wallpaperState(s) === "marking" ? "투명 · 자리 재는 중" : wallpaperState(s) ? "투명" : BG_LABEL[s.bg]}
                 </span>
               </span>
             </button>
@@ -164,14 +142,11 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
         >
           <IconPlus size={24} stroke={1.75} aria-hidden="true" />
           <span className="text-caption font-semibold">새로 만들기</span>
+          <span className="text-micro text-faint">기본 · 사진 · 단색 · 투명</span>
         </button>
       </div>
 
-      <p className="m-0 text-micro text-faint">
-        꾸미기를 고치면 그걸 쓰는 위젯이 모두 바뀌어요. 위젯을 누르면 그 가방이 바로 열려요. 개인 잠금한 가방은 위젯에서 고를 수 없어요.
-      </p>
-
-      <HomeWallpaperCard premium={premium} />
+      <p className="m-0 text-micro text-faint">꾸미기를 고치면 그걸 쓰는 위젯이 모두 바뀌어요. 개인 잠금한 가방은 위젯에서 고를 수 없어요.</p>
 
       <SlideScreen active={!!editing} onBackdropClick={() => !saving && setEditing(null)} swipeBack>
         {editing && (
@@ -201,4 +176,8 @@ export function WidgetStylesScreen({ onBack, bags }: { onBack: () => void; bags:
       </SlideScreen>
     </SubScreen>
   );
+}
+
+function StepDot({ n }: { n: number }) {
+  return <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand text-micro font-bold text-on-brand">{n}</span>;
 }

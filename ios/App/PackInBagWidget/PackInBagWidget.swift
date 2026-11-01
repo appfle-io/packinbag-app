@@ -133,10 +133,11 @@ struct PackWidgetView: View {
 
     private var rowSpacing: CGFloat { family == .systemSmall ? 4 : 6 }
 
-    // 배경 "배경화면"(1.11): 이 크기 · 위치의 조각. 앱에서 아직 안 맞췄으면 nil(시스템 바탕으로)
+    // 배경 "투명"(1.11 "배경화면"): 이 크기 · 위치의 조각. 앱에서 아직 안 맞췄으면 nil(시스템 바탕으로)
     private var wallPiece: String? {
-        guard entry.configuration.theme == .wallpaper else { return nil }
-        return entry.configuration.wallSlot.piece(for: family)
+        let c = entry.configuration
+        guard c.theme == .wallpaper else { return nil }
+        return pibWallPiece(family: family, slot: c.wallSlot, row: c.wallRow, half: c.wallHalf)
     }
 
     var body: some View {
@@ -151,7 +152,7 @@ struct PackWidgetView: View {
         } else {
             let scheme = style.scheme(systemScheme)
             let c = PIBPalette.of(scheme)
-            content(c, hint: wallPiece != nil ? "앱 설정 > 위젯 꾸미기에서 배경화면을 맞춰 주세요" : nil)
+            content(c, hint: wallPiece != nil ? "앱 설정 > 위젯에서 투명 위젯을 맞춰 주세요" : nil)
                 .environment(\.colorScheme, scheme)
                 .containerBackground(c.background, for: .widget)
         }
@@ -627,7 +628,7 @@ struct PackInBagBookmarkWidget: Widget {
             BookmarkWidgetView(entry: entry)
         }
         .configurationDisplayName("가방 바로가기")
-        .description("누르면 그 가방이 바로 열려요. 앱 설정 > 위젯 꾸미기에서 사진 · 색을 골라 꾸며요.")
+        .description("누르면 그 가방이 바로 열려요. 앱 설정 > 위젯 > 가방 바로가기에서 꾸며요.")
         .supportedFamilies([.systemSmall])
     }
 }
