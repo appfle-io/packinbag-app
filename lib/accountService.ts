@@ -11,6 +11,7 @@ import { bagFileUrls, deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/s
 import type { Bag } from "@/lib/types";
 import { getApiUrl } from "@/lib/apiBase";
 import { deleteAllWidgetPhotos } from "@/lib/v2/widgetStyles";
+import { deleteOtherAvatarPhotos } from "@/lib/v2/avatarPhoto";
 
 // 함께 쓰는 가방을 넘겨받을 사람: 가장 먼저 들어온 다른 멤버
 function nextOwner(bag: Bag, uid: string): string | null {
@@ -91,6 +92,8 @@ export async function deleteAllUserData(uid: string) {
 
   // 북마크 위젯 배경 사진(2026-10-18)
   await deleteAllWidgetPhotos(uid);
+  // 프로필 사진(2026-11-01)
+  await deleteOtherAvatarPhotos(uid);
 
   await deleteDoc(doc(db, "users", uid));
 }

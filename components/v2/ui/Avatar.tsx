@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { cx } from "./cx";
 
 type Size = "sm" | "md";
@@ -16,14 +19,15 @@ const SIZE: Record<Size, string> = {
   md: "size-10 text-body",
 };
 
-// 멤버 아바타. 사진이 없으면 이름 첫 글자.
+// 멤버 아바타. 사진이 없거나 못 불러오면(바꾸기 전 주소 등) 이름 첫 글자.
 export function Avatar({ name, imageUrl, size = "md", tone = "neutral", online, className }: AvatarProps) {
   const initial = Array.from(name.trim())[0]?.toUpperCase() ?? "?";
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   return (
     <span className={cx("relative inline-flex shrink-0", className)}>
-      {imageUrl ? (
+      {imageUrl && failedUrl !== imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- 사용자 업로드 이미지(외부 URL), next/image 최적화 대상 아님
-        <img src={imageUrl} alt="" className={cx("rounded-full object-cover", SIZE[size])} />
+        <img src={imageUrl} alt="" onError={() => setFailedUrl(imageUrl)} className={cx("rounded-full object-cover", SIZE[size])} />
       ) : (
         <span
           aria-hidden="true"

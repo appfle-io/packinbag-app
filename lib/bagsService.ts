@@ -472,11 +472,12 @@ export async function removeMemberRemote(bagId: string, memberUid: string) {
 export async function updateMemberProfileSnapshot(
   bagId: string,
   uid: string,
-  profile: { nickname: string; avatarId: string }
+  profile: { nickname: string; avatarId: string; avatarUrl: string | null }
 ) {
   await updateDoc(doc(bagsCol(), bagId), {
     [`memberProfiles.${uid}.nickname`]: profile.nickname,
     [`memberProfiles.${uid}.avatarId`]: profile.avatarId,
+    [`memberProfiles.${uid}.avatarUrl`]: profile.avatarUrl ?? deleteField(),
   });
 }
 

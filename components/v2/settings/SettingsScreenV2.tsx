@@ -28,6 +28,7 @@ import SlideScreen from "@/components/SlideScreen";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { AccountLinkSheet } from "@/components/v2/sheets/AccountLinkSheet";
 import { ProfileScreenV2 } from "./ProfileScreenV2";
+import { visibleAvatarUrl } from "@/lib/v2/avatarCrop";
 import { LicensesScreenV2, VersionScreenV2 } from "./InfoScreens";
 import { TrashScreenV2 } from "./TrashScreenV2";
 import { InquiryScreenV2 } from "./InquiryScreenV2";
@@ -406,7 +407,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <ListRow
               divider={isGuest && !isOfflineMode}
               onClick={() => (isGuest && !isOfflineMode ? guard(() => setShowAccountLink(true)) : setView("profile"))}
-              leading={<LegacyAvatar avatarId={profile.avatarId} size={40} />}
+              leading={<LegacyAvatar avatarId={profile.avatarId} photoUrl={visibleAvatarUrl(profile.avatarUrl, premium)} size={40} />}
               title={
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-semibold">{nickname}</span>

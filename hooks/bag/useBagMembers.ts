@@ -8,6 +8,7 @@ export interface BagMember {
   uid: string;
   nickname: string;
   avatarId: string;
+  avatarUrl?: string;
   isOwner: boolean;
   isMe: boolean;
 }
@@ -45,6 +46,7 @@ export function useBagMembers({
         uid,
         nickname: isMe ? myNickname : profile?.nickname ?? "멤버",
         avatarId: isMe ? myAvatarId : profile?.avatarId ?? "",
+        avatarUrl: profile?.avatarUrl,
         isOwner: uid === bag.ownerId,
         isMe,
       };

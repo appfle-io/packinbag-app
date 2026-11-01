@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { IconRefresh } from "@tabler/icons-react";
+import { useEffect, useRef, useState } from "react";
+import { IconLock, IconRefresh } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
 import { AVATAR_OPTIONS } from "@/lib/avatars";
@@ -11,7 +11,12 @@ import LegacyAvatar from "@/components/Avatar";
 import { Badge, Button, IconButton, SectionHeader, Sheet, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { AccountLinkSheet } from "@/components/v2/sheets/AccountLinkSheet";
+import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
 import { SubScreen } from "./SubScreen";
+import { AvatarCropSheet } from "./AvatarCropSheet";
+import { isPremiumUser } from "@/lib/premiumLimits";
+import { visibleAvatarUrl } from "@/lib/v2/avatarCrop";
+import { deleteOtherAvatarPhotos, uploadAvatarPhoto } from "@/lib/v2/avatarPhoto";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { isDemoMode } from "@/lib/demoMode";
 
@@ -180,9 +185,9 @@ function DeleteAccountSheet({ open, nickname, needsPassword, onClose }: { open: 
 }
 
 // 설정 > 프로필. 구 ProfileEditScreen 대체(같은 AuthProvider 함수).
-// 닉네임·캐릭터를 고치고 아래 "저장". 비밀번호 바꾸기(이메일 계정) · 로그아웃 · 회원 탈퇴. 게스트면 계정 전환 안내
+// 닉네임·캐릭터·사진을 고치고 아래 "저장". 비밀번호 바꾸기(이메일 계정) · 로그아웃 · 회원 탈퇴. 게스트면 계정 전환 안내
 export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
-  const { user, profile, updateNickname, updateAvatar, logout, isGuest, isOfflineMode, exitOfflineMode } = useAuth();
+  const { user, profile, updateNickname, updateAvatar, updateAvatarPhoto, logout, isGuest, isOfflineMode, exitOfflineMode } = useAuth();
   // 오프라인 모드도 isGuest가 true지만 게스트(익명 계정)와 다르다: 계정 전환·"지워질 수 있어요" 경고가 맞지 않는다
   const onlineGuest = isGuest && !isOfflineMode;
   // 비밀번호·탈퇴·계정 전환은 인터넷이 필요하다. 끊겨 있으면 흐리게 두고 누르면 이유를 알린다
@@ -190,6 +195,18 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
   const { show } = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
   const [avatarId, setAvatarId] = useState(profile?.avatarId ?? AVATAR_OPTIONS[0].id);
+  // 사진: 고른 것은 "저장" 때 올린다(안 하고 나가면 서버에 아무것도 안 남음). 사진을 쓰는 동안 캐릭터는 안 보임
+  const premium = !!profile && isPremiumUser(profile.email, profile);
+  const savedPhoto = visibleAvatarUrl(profile?.avatarUrl, premium);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(savedPhoto);
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [cropFile, setCropFile] = useState<Blob | null>(null);
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const previewUrl = useRef<string | null>(null);
+  useEffect(() => () => {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+  }, []);
   const [saving, setSaving] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -198,7 +215,26 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
 
   const isPasswordAccount = !!user?.providerData?.some((p) => p.providerId === "password");
   const trimmed = nickname.trim();
-  const dirty = trimmed !== (profile?.nickname ?? "") || avatarId !== (profile?.avatarId ?? "");
+  const photoChanged = photoUrl !== savedPhoto;
+  const dirty = trimmed !== (profile?.nickname ?? "") || avatarId !== (profile?.avatarId ?? "") || photoChanged;
+
+  const setPhoto = (url: string | null, blob: Blob | null) => {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current = blob ? url : null;
+    setPhotoUrl(url);
+    setPhotoBlob(blob);
+  };
+
+  const pickPhoto = () => {
+    guard(() => (premium ? fileRef.current?.click() : setPremiumOpen(true)));
+  };
+
+  const savePhoto = async () => {
+    if (!user) return;
+    const uploaded = photoBlob ? await uploadAvatarPhoto(user.uid, photoBlob) : null;
+    await updateAvatarPhoto(uploaded?.url ?? null);
+    void deleteOtherAvatarPhotos(user.uid, uploaded?.path);
+  };
 
   const save = async () => {
     if (!trimmed || saving) return;
@@ -206,6 +242,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
     try {
       if (trimmed !== profile?.nickname) await updateNickname(trimmed.slice(0, NICK_MAX));
       if (avatarId !== profile?.avatarId) await updateAvatar(avatarId);
+      if (photoChanged) await savePhoto();
       show("프로필을 저장했어요");
       onBack();
     } catch {
@@ -221,13 +258,13 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
       onBack={onBack}
       bodyClassName="gap-8"
       footer={
-        <Button block disabled={!dirty || !trimmed || saving} onClick={save}>
+        <Button block disabled={!dirty || !trimmed || saving} onClick={() => (photoChanged ? guard(save) : save())}>
           {saving ? "저장 중" : "저장"}
         </Button>
       }
     >
       <section className="flex flex-col items-center gap-2 pt-2">
-        <LegacyAvatar avatarId={avatarId} size={72} />
+        <LegacyAvatar avatarId={avatarId} photoUrl={photoUrl} size={72} />
         {isOfflineMode ? (
           <span className="flex items-center gap-2">
             <Badge>{isDemoMode() ? "체험" : "오프라인"}</Badge>
@@ -245,6 +282,30 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
           <Button variant="text" size="sm" className={cx(offline && "opacity-40")} onClick={() => guard(() => setLinkOpen(true))}>
             정식 계정으로 전환하기
           </Button>
+        )}
+        {/* 사진은 정식 계정만(게스트 · 오프라인은 이 기기에만 저장돼 멤버에게 보여 줄 곳이 없다) */}
+        {!isGuest && (
+          <div className="flex items-center gap-2">
+            <Button variant="text" size="sm" className={cx(offline && "opacity-40")} onClick={pickPhoto}>
+              {!premium && <IconLock size={14} stroke={2} />}
+              {photoUrl ? "사진 바꾸기" : "사진에서 고르기"}
+            </Button>
+            {photoUrl && (
+              <Button variant="text" size="sm" onClick={() => setPhoto(null, null)}>
+                사진 빼기
+              </Button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                setCropFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+          </div>
         )}
       </section>
 
@@ -269,7 +330,7 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
         <SectionHeader>캐릭터</SectionHeader>
         <div role="radiogroup" aria-label="캐릭터" className="grid grid-cols-6 gap-2">
           {AVATAR_OPTIONS.map((a, i) => {
-            const on = avatarId === a.id;
+            const on = !photoUrl && avatarId === a.id;
             return (
               <button
                 key={a.id}
@@ -277,7 +338,10 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
                 role="radio"
                 aria-checked={on}
                 aria-label={`캐릭터 ${i + 1}`}
-                onClick={() => setAvatarId(a.id)}
+                onClick={() => {
+                  setAvatarId(a.id);
+                  setPhoto(null, null);
+                }}
                 className={cx(
                   "flex aspect-square items-center justify-center rounded-full bg-transparent transition-shadow duration-160 ease-snappy",
                   on ? "ring-2 ring-brand ring-offset-2 ring-offset-canvas" : "active:opacity-60",
@@ -317,6 +381,24 @@ export function ProfileScreenV2({ onBack }: { onBack: () => void }) {
       </section>
       )}
 
+      {/* 설정 탭의 프리미엄 시트는 이 화면 뒤에 깔려서 여기서 띄운다 */}
+      <PremiumSheet
+        open={premiumOpen}
+        message="프로필 사진은 프리미엄 기능이에요. 무료는 캐릭터로 보여요."
+        onClose={() => setPremiumOpen(false)}
+        onUnlocked={() => {
+          setPremiumOpen(false);
+          show("프리미엄이 적용됐어요");
+        }}
+      />
+      <AvatarCropSheet
+        file={cropFile}
+        onClose={() => setCropFile(null)}
+        onDone={(blob) => {
+          setPhoto(URL.createObjectURL(blob), blob);
+          setCropFile(null);
+        }}
+      />
       <PasswordSheet open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <DeleteAccountSheet open={deleteOpen} nickname={profile?.nickname ?? ""} needsPassword={isPasswordAccount} onClose={() => setDeleteOpen(false)} />
       <AccountLinkSheet open={linkOpen} onClose={() => setLinkOpen(false)} />

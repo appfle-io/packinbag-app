@@ -597,7 +597,7 @@ export default function BagScreenV2(props: BagScreenProps) {
           {presence.others.length > 0 && (
             <div className="mr-1 flex items-center" aria-label={`지금 보는 사람 ${presence.others.length}명`}>
               {presence.others.slice(0, 3).map((p, i) => (
-                <Avatar key={p.uid} name={p.nickname} size="sm" online className={i > 0 ? "-ml-2" : undefined} />
+                <Avatar key={p.uid} name={p.nickname} imageUrl={bag.memberProfiles?.[p.uid]?.avatarUrl} size="sm" online className={i > 0 ? "-ml-2" : undefined} />
               ))}
             </div>
           )}

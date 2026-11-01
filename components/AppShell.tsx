@@ -90,6 +90,7 @@ import { WideShell } from "@/components/v2/shell/WideShell";
 import { WIDE_QUERY, useMediaQuery, useOpenInquiryListener, type TabKey } from "@/lib/v2/shell";
 import { useAndroidBackButton } from "@/lib/v2/androidBack";
 import { RECONNECTED_EVENT, getConnectivity, reportNetworkFailure } from "@/lib/v2/connectivity";
+import { visibleAvatarUrl } from "@/lib/v2/avatarCrop";
 import { stopPackShares } from "@/lib/shareCleanup";
 import {
   PENDING_CHANGE_EVENT,
@@ -333,9 +334,11 @@ export default function AppShell() {
   // 같은 프로필 값에서는 가방마다 한 번만 확인한다(뒤늦게 도착한 가방도 그때 확인).
   // 예전에는 프로필 값만 기억해서, 가방 목록이 아직 비어 있는 첫 실행에서 "처리함"으로 표시돼
   // 실제 가방이 도착해도 다시 돌지 않았다(2026-10-07).
+  // 프로필 사진(2026-11-01)도 같이: 프리미엄이 아니면 스냅샷에서 뺀다(내 값은 그대로, SET-PROF-14)
+  const snapshotPhoto = visibleAvatarUrl(profile?.avatarUrl, !!user && !!profile && isPremiumUser(user.email, profile));
   useEffect(() => {
     if (!user || isOfflineMode || !profile?.nickname || !profile.avatarId) return;
-    const profileKey = `${profile.nickname}:${profile.avatarId}`;
+    const profileKey = `${profile.nickname}:${profile.avatarId}:${snapshotPhoto ?? ""}`;
     const synced = lastSyncedProfileRef.current;
     if (synced.key !== profileKey) {
       synced.key = profileKey;
@@ -349,13 +352,14 @@ export default function AppShell() {
       if (bag.trashedByOwnerAt) return;
       const snap = bag.memberProfiles?.[user.uid];
       if (!snap) return;
-      if (snap.nickname === profile.nickname && snap.avatarId === profile.avatarId) return;
+      if (snap.nickname === profile.nickname && snap.avatarId === profile.avatarId && (snap.avatarUrl ?? null) === snapshotPhoto) return;
       updateMemberProfileSnapshot(bag.id, user.uid, {
         nickname: profile.nickname!,
         avatarId: profile.avatarId!,
+        avatarUrl: snapshotPhoto,
       }).catch(() => {});
     });
-  }, [bags, user, isOfflineMode, profile?.nickname, profile?.avatarId]);
+  }, [bags, user, isOfflineMode, profile?.nickname, profile?.avatarId, snapshotPhoto]);
 
   useEffect(() => {
     if (!user) return;

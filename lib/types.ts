@@ -163,6 +163,7 @@ export interface SharedPackSnapshot {
 export interface BagMemberProfile {
   nickname: string;
   avatarId: string;
+  avatarUrl?: string; // 프로필 사진 내려받기 주소(2026-11-01, 프리미엄인 동안만 찍힘). /v/ 손님 화면에는 안 넘긴다
   joinedAt: string;
 }
 
@@ -308,6 +309,8 @@ export interface UserProfile {
   displayName: string | null;
   nickname: string | null; // 최대 12자, 설정에서 자유롭게 수정 가능
   avatarId: AvatarId | null;
+  // 프로필 사진(2026-11-01, lib/v2/avatarPhoto). 있으면 캐릭터 대신. 무료는 화면만 캐릭터(값은 그대로)
+  avatarUrl?: string;
   role?: "master" | "user";
   createdAt?: string;
   // 화면 모드/강조 색상 - 계정에 저장해서 기기 간 동기화 (없으면 기기 로컬 값 사용)

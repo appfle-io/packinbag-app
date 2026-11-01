@@ -163,6 +163,18 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // 프로필 사진(2026-11-01, lib/v2/avatarPhoto): 프리미엄 본인만 올린다. 앱이 256px JPEG로 잘라 올리니 1MB면 충분.
+    // 다른 멤버는 가방 memberProfiles의 내려받기 주소(토큰)로 봐서 규칙을 거치지 않는다 → 읽기(목록 포함)는 본인만
+    match /users/{userId}/avatar/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null &&
+        request.auth.uid == userId &&
+        isPremium() &&
+        request.resource.contentType == 'image/jpeg' &&
+        request.resource.size < 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
     // 이벤트 커버 · 본문(2026-10-19, lib/eventsService): 마스터만 올리고 지운다. 읽기는 공개(앱은 내려받기 주소로 띄움).
     // 이미지 또는 HTML, 10MB 미만(앱은 커버 2MB · 본문 8MB로 더 좁게 막음)
     match /events/{eventId}/{fileName} {

@@ -101,6 +101,7 @@ interface AuthContextValue {
   completeProfile: (nickname: string, avatarId: string) => Promise<void>;
   updateNickname: (nickname: string) => Promise<void>;
   updateAvatar: (avatarId: string) => Promise<void>;
+  updateAvatarPhoto: (avatarUrl: string | null) => Promise<void>;
   updateThemePrefs: (prefs: {
     themeMode?: UserProfile["themeMode"];
     accentId?: string;
@@ -534,6 +535,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: user.displayName,
           nickname: (data?.nickname as string | undefined) ?? null,
           avatarId: (data?.avatarId as string | undefined) ?? null,
+          avatarUrl: data?.avatarUrl as string | undefined,
           role: (data?.role as "master" | "user" | undefined) ?? undefined,
           themeMode: data?.themeMode as UserProfile["themeMode"],
           accentId: data?.accentId as string | undefined,
@@ -1039,6 +1041,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateAvatar = async (avatarId: string) => {
     if (!user) return;
     await writeUser({ avatarId });
+  };
+
+  const updateAvatarPhoto = async (avatarUrl: string | null) => {
+    if (!user) return;
+    await writeUser({ avatarUrl: avatarUrl ?? REMOVE_FIELD });
   };
 
   // 화면 모드/강조 색상을 계정에 저장 (기기 간 동기화용). 슬라이더/피커 조작 시
@@ -1711,6 +1718,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         completeProfile,
         updateNickname,
         updateAvatar,
+        updateAvatarPhoto,
         updateThemePrefs,
         updateFontScale,
         updateDefaultTab,

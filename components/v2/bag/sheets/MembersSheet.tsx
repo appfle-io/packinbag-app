@@ -98,6 +98,7 @@ export function MembersSheet({
               >
                 <Avatar
                   name={m.nickname}
+                  imageUrl={m.avatarUrl}
                   tone={m.isMe ? "brand" : "neutral"}
                   online={m.isMe || onlineUids.has(m.uid)}
                 />
