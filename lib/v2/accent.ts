@@ -2,21 +2,21 @@
 // - 적용: html[data-accent="..."] → globals.css가 --v2-brand · --v2-brand-soft · --v2-on-brand를 바꾼다(라이트 · 다크 따로)
 // - 저장: 이 기기(localStorage, 첫 화면 깜빡임 방지) + 계정(UserProfile.accentPreset, 기기 간 동기화)
 // - 기본 딥그린은 data-accent 속성을 두지 않는다
-// - iOS 위젯 · 잠금화면 · 스플래시 · 앱 아이콘은 다음 단계(_secrets/docs/packinbag_테마_프로필사진_기획.md 2단계)
+// - iOS 위젯 · 잠금화면: 보이는 색을 네이티브에 넘긴다(ThemeProvider → saveNativeAccent, 1.13 앱부터). 값은 PIBStyle.swift PIBAccent와 같게
 import type { AccentPreset } from "@/lib/types";
 
 export const ACCENT_KEY = "packinbag-accent-preset";
 export const DEFAULT_ACCENT: AccentPreset = "green";
 
-// swatch = 라이트 모드 강조색(globals.css 값과 같게)
-export const ACCENTS: { id: AccentPreset; label: string; swatch: string }[] = [
-  { id: "green", label: "딥그린", swatch: "#2e5e4e" },
-  { id: "navy", label: "네이비", swatch: "#2b4a7a" },
-  { id: "burgundy", label: "버건디", swatch: "#8a2e43" },
-  { id: "mustard", label: "머스터드", swatch: "#8a6510" },
-  { id: "lavender", label: "라벤더", swatch: "#5b4a9e" },
-  { id: "charcoal", label: "차콜", swatch: "#3a3a40" },
-  { id: "coral", label: "코랄", swatch: "#b04a2f" },
+// swatch = 라이트 모드 강조색, dark = 다크 모드(globals.css 값과 같게. 딥그린 다크는 위젯 · 잠금화면 값)
+export const ACCENTS: { id: AccentPreset; label: string; swatch: string; dark: string }[] = [
+  { id: "green", label: "딥그린", swatch: "#2e5e4e", dark: "#7dbda3" },
+  { id: "navy", label: "네이비", swatch: "#2b4a7a", dark: "#7fa3dc" },
+  { id: "burgundy", label: "버건디", swatch: "#8a2e43", dark: "#e08a9d" },
+  { id: "mustard", label: "머스터드", swatch: "#8a6510", dark: "#e0b45a" },
+  { id: "lavender", label: "라벤더", swatch: "#5b4a9e", dark: "#ab9ce6" },
+  { id: "charcoal", label: "차콜", swatch: "#3a3a40", dark: "#c8c8cc" },
+  { id: "coral", label: "코랄", swatch: "#b04a2f", dark: "#f0957a" },
 ];
 
 export function isAccentPreset(v: unknown): v is AccentPreset {

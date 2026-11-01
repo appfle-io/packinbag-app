@@ -1,5 +1,8 @@
 "use client";
 
+import type { AccentPreset } from "@/lib/types";
+import { DEFAULT_ACCENT } from "@/lib/v2/accent";
+
 // 앱 곳곳(스플래시, 로그인 화면 등)에 쓰는 백팩 로고 마크.
 // 앱 아이콘(app/icon.png)과 완전히 같은 이미지를 그대로 쓴다 - 벡터로 다시 그리면
 // 미세하게 달라지는 문제가 있어서, 로고는 강조색 개인화 대상에서 빼고 고정 이미지로 통일했다.
@@ -7,16 +10,18 @@
 export default function BackpackLogo({
   size = 76,
   className,
+  accent,
 }: {
   size?: number;
   className?: string;
+  accent?: AccentPreset; // 주면 그 색 아이콘(public/app-icons, 앱 아이콘 고르기)
 }) {
   const radius = Math.round(size * 0.29);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/backpack-logo.png"
+      src={accent && accent !== DEFAULT_ACCENT ? `/app-icons/${accent}.png` : "/backpack-logo.png"}
       alt="팩인백"
       width={size}
       height={size}

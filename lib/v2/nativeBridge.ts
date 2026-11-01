@@ -7,7 +7,8 @@
 // 플러그인이 없는 웹 · PC · 스토어 1.3 앱에서는 아무것도 하지 않는다.
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { User } from "firebase/auth";
-import type { Bag, Pack, PrivateLock, WidgetStyle } from "@/lib/types";
+import type { AccentPreset, Bag, Pack, PrivateLock, WidgetStyle } from "@/lib/types";
+import { DEFAULT_ACCENT, isAccentPreset } from "@/lib/v2/accent";
 import { buildNativeLibrary, buildNativeSummary, type NativeSummaryProfile } from "@/lib/nativeSummary";
 import { getApiUrl } from "@/lib/apiBase";
 import { nativeLockFilter } from "@/lib/v2/privateLock";
@@ -25,6 +26,10 @@ interface PackInBagNativePlugin {
   saveWidgetStyles(options: { json: string }): Promise<void>;
   // 팩 위젯 배경화면(1.11, 2026-11-01). "__probe__" = 상태만, "__clear__" = 지우기, 그 밖에는 { pieces, light }
   saveHomeWallpaper(options: { json: string }): Promise<{ set: boolean; setAt?: number; v?: number }>;
+  // 1.13: 강조색 · 앱 아이콘
+  setAccent(options: { id: string }): Promise<void>;
+  appIconState(): Promise<{ supported: boolean; name?: string }>;
+  setAppIcon(options: { name?: string }): Promise<void>;
 }
 
 // custom = 직접 고른 배경색(bgColor "#RRGGBB" + bgAlpha 0.2~1, 10/11)
@@ -235,4 +240,31 @@ export function saveHomeWallpaper(pieces: { key: string; base64: string; light: 
 
 export function clearHomeWallpaper(): Promise<HomeWallpaperState> {
   return Native.saveHomeWallpaper({ json: "__clear__" });
+}
+
+// ---- 강조색 · 앱 아이콘(1.13, 2026-11-01) -----------------------------------------------------
+// 예전 앱은 이 메서드가 없어 실패한다 → 조용히 넘기거나 줄을 숨긴다
+
+export function saveNativeAccent(id: AccentPreset): void {
+  if (!isNativeBridgeAvailable()) return;
+  Native.setAccent({ id }).catch(() => {});
+}
+
+const APP_ICON_PREFIX = "AppIcon-";
+
+// 지금 앱 아이콘(강조색과 따로 고름). null이면 바꿀 수 없음(웹 · 포터블 · 예전 앱)
+export async function getAppIcon(): Promise<AccentPreset | null> {
+  if (!isNativeBridgeAvailable()) return null;
+  try {
+    const { supported, name } = await Native.appIconState();
+    if (!supported) return null;
+    const id = name?.startsWith(APP_ICON_PREFIX) ? name.slice(APP_ICON_PREFIX.length) : DEFAULT_ACCENT;
+    return isAccentPreset(id) ? id : DEFAULT_ACCENT;
+  } catch {
+    return null;
+  }
+}
+
+export function setAppIcon(id: AccentPreset): Promise<void> {
+  return Native.setAppIcon(id === DEFAULT_ACCENT ? {} : { name: APP_ICON_PREFIX + id });
 }

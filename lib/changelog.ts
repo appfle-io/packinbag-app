@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.13.0",
+    date: "2026-11-01",
+    items: ["아이폰 위젯 · 잠금화면도 강조색을 따라가고, 앱 아이콘 색을 고를 수 있어요(설정 > 화면, 새 앱 버전 필요)"],
+  },
+  {
     version: "1.12.4",
     date: "2026-11-01",
     items: ["캐릭터 대신 내 사진을 프로필로 쓸 수 있어요(설정 > 프로필, 함께 쓰는 멤버에게도 보여요)"],

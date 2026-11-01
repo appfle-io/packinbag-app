@@ -123,6 +123,25 @@ enum PIBColumns: String, AppEnum {
     ]
 }
 
+// 강조색 값(웹 lib/v2/accent.ts ACCENTS · app/globals.css와 같게)
+extension PIBAccent {
+    private static func rgb(_ hex: Int) -> Color {
+        Color(red: Double(hex >> 16 & 255) / 255, green: Double(hex >> 8 & 255) / 255, blue: Double(hex & 255) / 255)
+    }
+
+    static func brand(dark: Bool) -> Color {
+        switch id {
+        case "navy": return rgb(dark ? 0x7FA3DC : 0x2B4A7A)
+        case "burgundy": return rgb(dark ? 0xE08A9D : 0x8A2E43)
+        case "mustard": return rgb(dark ? 0xE0B45A : 0x8A6510)
+        case "lavender": return rgb(dark ? 0xAB9CE6 : 0x5B4A9E)
+        case "charcoal": return rgb(dark ? 0xC8C8CC : 0x3A3A40)
+        case "coral": return rgb(dark ? 0xF0957A : 0xB04A2F)
+        default: return dark ? Color(red: 0.49, green: 0.74, blue: 0.64) : Color(red: 0.18, green: 0.369, blue: 0.306) // #2E5E4E
+        }
+    }
+}
+
 struct PIBPalette {
     let background: Color
     let card: Color
@@ -139,7 +158,7 @@ struct PIBPalette {
                 ink: Color(red: 0.94, green: 0.95, blue: 0.94),
                 sub: Color(red: 0.62, green: 0.65, blue: 0.63),
                 line: Color.white.opacity(0.12),
-                brand: Color(red: 0.49, green: 0.74, blue: 0.64)
+                brand: PIBAccent.brand(dark: true)
             )
             : PIBPalette(
                 background: .white,
@@ -147,7 +166,7 @@ struct PIBPalette {
                 ink: Color(red: 0.10, green: 0.11, blue: 0.105),
                 sub: Color(red: 0.45, green: 0.48, blue: 0.46),
                 line: Color.black.opacity(0.08),
-                brand: Color(red: 0.18, green: 0.369, blue: 0.306) // #2E5E4E
+                brand: PIBAccent.brand(dark: false)
             )
     }
 }

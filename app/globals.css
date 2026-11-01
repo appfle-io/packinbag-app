@@ -794,6 +794,14 @@ aside {
 [data-theme="dark"][data-accent="lavender"] { --v2-brand: #ab9ce6; --v2-brand-soft: #27223a; --v2-on-brand: #151027; }
 [data-theme="dark"][data-accent="charcoal"] { --v2-brand: #c8c8cc; --v2-brand-soft: #2a2a2e; --v2-on-brand: #161618; }
 [data-theme="dark"][data-accent="coral"] { --v2-brand: #f0957a; --v2-brand-soft: #3a231c; --v2-on-brand: #22110b; }
+/* 스플래시 로고(components/SplashScreen) */
+.pib-splash-mark { width: 104px; height: 104px; border-radius: 30px; background: url(/backpack-logo.png) center / cover; }
+[data-accent="navy"] .pib-splash-mark { background-image: url(/app-icons/navy.png); }
+[data-accent="burgundy"] .pib-splash-mark { background-image: url(/app-icons/burgundy.png); }
+[data-accent="mustard"] .pib-splash-mark { background-image: url(/app-icons/mustard.png); }
+[data-accent="lavender"] .pib-splash-mark { background-image: url(/app-icons/lavender.png); }
+[data-accent="charcoal"] .pib-splash-mark { background-image: url(/app-icons/charcoal.png); }
+[data-accent="coral"] .pib-splash-mark { background-image: url(/app-icons/coral.png); }
 
 @theme inline {
   --color-canvas: var(--v2-canvas);

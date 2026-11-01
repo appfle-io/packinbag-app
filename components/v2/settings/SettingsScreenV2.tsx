@@ -6,7 +6,7 @@ import { IconChevronRight, IconCloudUpload, IconDownload, IconUpload } from "@ta
 import { useTheme, type FontScale, type ThemeMode } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
-import type { Announcement, Bag, Pack } from "@/lib/types";
+import type { AccentPreset, Announcement, Bag, Pack } from "@/lib/types";
 import { isAnnouncementActive } from "@/lib/announcementsService";
 import { BACKUP_IMPORT_PREMIUM_MESSAGE, isPremiumUser } from "@/lib/premiumLimits";
 import { isDemoMode, openRealApp } from "@/lib/demoMode";
@@ -53,7 +53,8 @@ import { FREE_LAUNCH } from "@/lib/freeLaunch";
 import { LockSettingsScreen } from "./LockSettingsScreen";
 import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 import { lockedCount } from "@/lib/v2/privateLock";
-import { supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
+import { getAppIcon, supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
+import { AppIconSheet } from "./AppIconSheet";
 import { WidgetHubScreen } from "./WidgetHubScreen";
 import { notificationSettingsPath } from "@/lib/v2/platform";
 import { useOpenInquiryRequests } from "@/lib/v2/shell";
@@ -159,6 +160,12 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [showMyShortLinks, setShowMyShortLinks] = useState(false);
   const [showAccountLink, setShowAccountLink] = useState(false);
   const [showOfflineImport, setShowOfflineImport] = useState(false);
+  // 앱 아이콘(SET-DISP-09, 1.13 아이폰 앱만). null이면 줄을 숨긴다
+  const [appIcon, setAppIconState] = useState<AccentPreset | null>(null);
+  const [showAppIcon, setShowAppIcon] = useState(false);
+  useEffect(() => {
+    getAppIcon().then(setAppIconState);
+  }, []);
   const [showFont, setShowFont] = useState(false);
   const [showAccent, setShowAccent] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -447,6 +454,9 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             onClick={() => setShowAccent(true)}
             chevron
           />
+          {appIcon && (
+            <ListRow title="앱 아이콘" trailing={ACCENTS.find((a) => a.id === appIcon)?.label} onClick={() => setShowAppIcon(true)} chevron />
+          )}
           <ListRow
             divider={showWidgetRow}
             title="글꼴"
@@ -774,6 +784,17 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
         onLocked={() => {
           setShowAccent(false);
           guard(() => openPremium("강조색 고르기는 프리미엄 기능이에요. 무료는 딥그린으로 보여요."));
+        }}
+      />
+      <AppIconSheet
+        open={showAppIcon}
+        onClose={() => setShowAppIcon(false)}
+        value={appIcon}
+        onChanged={setAppIconState}
+        locked={!premium}
+        onLocked={() => {
+          setShowAppIcon(false);
+          guard(() => openPremium("앱 아이콘 고르기는 프리미엄 기능이에요."));
         }}
       />
       <FontSheet

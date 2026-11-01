@@ -168,6 +168,9 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "authenticateBiometric", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveWidgetStyles", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveHomeWallpaper", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setAccent", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "appIconState", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setAppIcon", returnType: CAPPluginReturnPromise),
     ]
 
     // 색 고르기 창이 닫힐 때 돌려줄 호출(10/11)
@@ -315,6 +318,39 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
 
     // 팩 위젯 배경화면(1.11, 11/1). json "__probe__" = 지금 상태만({ set, setAt }), "__clear__" = 지우기,
     // 그 밖에는 { pieces, light }(Shared/PIBShared.swift PIBHomeWallpaper). 예전 빌드에는 이 메서드가 없어 웹이 칸을 숨긴다
+    // 강조색(1.13): 위젯 · 잠금화면 카드 색. 바뀌었을 때만 다시 그린다
+    @objc func setAccent(_ call: CAPPluginCall) {
+        guard let id = call.getString("id") else {
+            call.reject("id가 필요해요")
+            return
+        }
+        call.resolve()
+        guard PIBAccent.save(id) else { return }
+        PIBWidgets.reload()
+        Task {
+            if #available(iOS 16.2, *) { await PIBLiveActivity.updateAll() }
+        }
+    }
+
+    // 앱 아이콘(1.13). 아이콘은 Assets의 AppIcon-<색> 세트(빌드 설정 INCLUDE_ALL_APPICON_ASSETS로 앱에 들어감)
+    @objc func appIconState(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            var result: [String: Any] = ["supported": UIApplication.shared.supportsAlternateIcons]
+            if let name = UIApplication.shared.alternateIconName { result["name"] = name }
+            call.resolve(result)
+        }
+    }
+
+    // name이 없으면 기본 아이콘. iOS가 바꿀 때 "아이콘을 변경했습니다" 알림을 띄운다(막을 수 없음)
+    @objc func setAppIcon(_ call: CAPPluginCall) {
+        let name = call.getString("name")
+        DispatchQueue.main.async {
+            UIApplication.shared.setAlternateIconName(name) { error in
+                if let error { call.reject(error.localizedDescription) } else { call.resolve() }
+            }
+        }
+    }
+
     @objc func saveHomeWallpaper(_ call: CAPPluginCall) {
         guard let json = call.getString("json") else {
             call.reject("json이 필요해요")

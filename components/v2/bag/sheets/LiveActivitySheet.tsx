@@ -1,5 +1,7 @@
 "use client";
 
+import { useTheme } from "@/components/ThemeProvider";
+import { ACCENTS } from "@/lib/v2/accent";
 import { useEffect, useMemo, useState } from "react";
 import { IconCircle, IconCircleCheckFilled, IconColorPicker, IconRefresh } from "@tabler/icons-react";
 import type { Bag } from "@/lib/types";
@@ -184,7 +186,9 @@ function LockScreenPreview({ data, style, systemDark }: { data: PreviewData | nu
       : systemDark
         ? "dark"
         : "light";
-  const base = PALETTE[scheme];
+  const { accent } = useTheme();
+  const accentColor = ACCENTS.find((a) => a.id === accent);
+  const base = { ...PALETTE[scheme], brand: (scheme === "dark" ? accentColor?.dark : accentColor?.swatch) ?? PALETTE[scheme].brand };
   const ink =
     style.textTone === "white" ? "#FFFFFF" : style.textTone === "black" ? "#17171A" : style.textTone === "custom" ? style.textColor : base.ink;
   const sub =

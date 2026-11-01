@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import type { AccentPreset, AppFontFamily } from "@/lib/types";
 import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily } from "@/lib/v2/appFonts";
 import { isPremiumUser } from "@/lib/premiumLimits";
+import { saveNativeAccent } from "@/lib/v2/nativeBridge";
 import { ACCENT_KEY, DEFAULT_ACCENT, applyAccent, isAccentPreset } from "@/lib/v2/accent";
 
 // 설정 > 화면: 화면 모드 · 글자 크기 · 글꼴(_secrets/docs/spec/settings.md SET-DISP).
@@ -150,6 +151,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     applyAccent(shownAccent);
   }, [shownAccent]);
+  // 아이폰 위젯 · 잠금화면도 같은 색(1.13 앱부터). 프로필이 오기 전에는 무료 여부를 몰라 넘기지 않는다
+  const hasProfileForNative = !!profile;
+  useEffect(() => {
+    if (hasProfileForNative) saveNativeAccent(shownAccent);
+  }, [hasProfileForNative, shownAccent]);
 
   // 계정에 저장된 값이 있으면 따라간다(처음 로드 + 다른 기기에서 바꾼 것). 계정에 값이 없으면 이 기기 값을 그대로 둔다.
   // 이미 구독 중인 프로필을 쓰므로 추가 읽기는 없다. 이 기기에서 바꾼 값은 되돌아와도 같은 값이라 아무 일도 없다

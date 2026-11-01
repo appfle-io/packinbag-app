@@ -5,6 +5,7 @@
   두 배쯤 크게 보였다 → 웹 스플래시로 넘어갈 때 "확대됐다가 줄어드는" 것처럼 보임.
   이제 이미지를 화면 가운데 404pt 정사각형으로 둔다. 이미지 안 로고가 폭의 약 25.7%라 로고가 웹과 같은 약 104pt가 된다.
   배경은 흰색(플러그인 backgroundColor #ffffff, 이미지 바탕과 같음).
+  2026-11-01(1.13): Splash 이미지를 로고 없는 흰색으로. 이 화면은 코드로 색을 못 바꿔 강조색과 어긋나서. 로고는 이어지는 웹 스플래시가 보여 준다.
 -->
 <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
     <device id="retina4_7" orientation="portrait" appearance="light"/>

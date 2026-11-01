@@ -562,6 +562,20 @@ enum PIBAPI {
     }
 }
 
+// 강조색(1.13, 2026-11-01): 웹이 보이는 색(무료면 딥그린)을 넘긴다. 위젯 · 잠금화면 카드는 그릴 때마다 여기서 읽는다.
+// 요약이 아니라 따로 두는 것: 서버(요약 · 잠금화면 푸시)는 색을 몰라도 되고, 받는 쪽이 이 기기 값으로 그린다
+enum PIBAccent {
+    private static let key = "pib.accent"
+    static var id: String { PIB.defaults.string(forKey: key) ?? "green" }
+
+    // 바뀌었으면 true(앱을 열 때마다 위젯을 새로고침하지 않게)
+    static func save(_ id: String) -> Bool {
+        guard id != self.id else { return false }
+        PIB.defaults.set(id, forKey: key)
+        return true
+    }
+}
+
 enum PIBWidgets {
     static func reload() {
         WidgetCenter.shared.reloadAllTimelines()
