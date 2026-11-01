@@ -3,6 +3,7 @@ import Script from "next/script";
 import localFont from "next/font/local";
 import "./globals.css";
 import { INITIAL_FONT_SCRIPT } from "@/lib/v2/appFonts";
+import { INITIAL_ACCENT_SCRIPT } from "@/lib/v2/accent";
 
 // 기본 폰트. 폐쇄망/Electron 오프라인에서도 동작해야 해서 CDN 대신 앱에 포함한다.
 // (Pretendard Variable, SIL OFL 1.1) 화면은 body(globals.css)와 .pib-v2 클래스가 var(--font-ui)를 쓴다.
@@ -148,6 +149,12 @@ export default function RootLayout({
           id="set-initial-font"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: INITIAL_FONT_SCRIPT }}
+        />
+        {/* 고른 강조색도 첫 화면부터(lib/v2/accent) */}
+        <Script
+          id="set-initial-accent"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: INITIAL_ACCENT_SCRIPT }}
         />
         {/* 안드로이드 크롬 PWA 설치 배너(beforeinstallprompt)가 뜨려면
             fetch 핸들러가 있는 서비스 워커 등록이 필수라서 추가함.

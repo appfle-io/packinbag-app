@@ -294,6 +294,7 @@ type StartPageType = "home" | "packs" | "last_used" | "bag" | "pack";
 
 // 리디자인 v2 앱 글꼴(설정 > 화면 > 글꼴). lib/v2/appFonts.ts 참고
 export type AppFontFamily = "pretendard" | "gmarket" | "gaegu" | "d2coding";
+export type AccentPreset = "green" | "navy" | "burgundy" | "mustard" | "lavender" | "charcoal" | "coral";
 
 export interface StartPageConfig {
   type: StartPageType;
@@ -351,6 +352,8 @@ export interface UserProfile {
   fontScale?: "sm" | "md" | "lg";
   // 리디자인 v2 앱 글꼴(없으면 "pretendard"). 메모팩 본문까지 앱 전체에 적용. 구 UI에서는 읽지 않는다
   fontFamily?: AppFontFamily;
+  // 강조색 프리셋(2026-11-01, lib/v2/accent). 없으면 딥그린. 무료는 화면만 기본색(값은 그대로)
+  accentPreset?: AccentPreset;
   // v68: 하단탑이 가방보관함/설정 2개로 재개편되어 "packs" 옵션은 사라졌다(팩 트리는
   // 이제 스와이프로 열리는 풀스크린 화면임). 앱 실행 시 처음 보여줄 탭(없으면 "home" 기본값).
   defaultTab?: "home" | "settings" | "packs";

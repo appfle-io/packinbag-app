@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
-import type { AppFontFamily } from "@/lib/types";
+import type { AccentPreset, AppFontFamily } from "@/lib/types";
 import { DEFAULT_FONT_FAMILY, FONT_FAMILY_KEY, applyFontFamily, isAppFontFamily } from "@/lib/v2/appFonts";
 import { isPremiumUser } from "@/lib/premiumLimits";
+import { ACCENT_KEY, DEFAULT_ACCENT, applyAccent, isAccentPreset } from "@/lib/v2/accent";
 
 // 설정 > 화면: 화면 모드 · 글자 크기 · 글꼴(_secrets/docs/spec/settings.md SET-DISP).
 // 저장: 이 기기(localStorage, 첫 화면 깜빡임 방지) + 계정(UserProfile.themeMode · fontScale · fontFamily, 기기 간 동기화).
@@ -92,6 +93,9 @@ const ThemeContext = createContext<{
   // 앱 글꼴(lib/v2/appFonts.ts)
   fontFamily: AppFontFamily;
   setFontFamily: (family: AppFontFamily) => void;
+  // 강조색(lib/v2/accent)
+  accent: AccentPreset;
+  setAccent: (accent: AccentPreset) => void;
 }>({
   mode: "system",
   setMode: () => {},
@@ -99,6 +103,8 @@ const ThemeContext = createContext<{
   setFontScale: () => {},
   fontFamily: DEFAULT_FONT_FAMILY,
   setFontFamily: () => {},
+  accent: DEFAULT_ACCENT,
+  setAccent: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -109,6 +115,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [fontFamily, setFontFamilyState] = useState<AppFontFamily>(() =>
     readLocal(FONT_FAMILY_KEY, isAppFontFamily, DEFAULT_FONT_FAMILY),
   );
+  const [accent, setAccentState] = useState<AccentPreset>(() => readLocal(ACCENT_KEY, isAccentPreset, DEFAULT_ACCENT));
 
   // 예전 꾸밈 설정 키 정리(한 번). 예전에 html에 넣던 인라인 색 변수는 이제 넣지 않는다
   useEffect(() => {
@@ -138,12 +145,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     applyFontFamily(shownFamily);
   }, [shownFamily]);
+  // 강조색도 글꼴과 같은 규칙: 무료는 화면만 기본 딥그린(저장값은 그대로)
+  const shownAccent: AccentPreset = fontAllowed ? accent : DEFAULT_ACCENT;
+  useEffect(() => {
+    applyAccent(shownAccent);
+  }, [shownAccent]);
 
   // 계정에 저장된 값이 있으면 따라간다(처음 로드 + 다른 기기에서 바꾼 것). 계정에 값이 없으면 이 기기 값을 그대로 둔다.
   // 이미 구독 중인 프로필을 쓰므로 추가 읽기는 없다. 이 기기에서 바꾼 값은 되돌아와도 같은 값이라 아무 일도 없다
   const remoteMode = profile?.themeMode;
   const remoteFont = profile?.fontScale;
   const remoteFamily = profile?.fontFamily;
+  const remoteAccent = profile?.accentPreset;
   const hasProfile = !!profile;
   useEffect(() => {
     if (!hasProfile) return;
@@ -160,8 +173,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setFontFamilyState(remoteFamily);
       writeLocal(FONT_FAMILY_KEY, remoteFamily);
     }
+    if (isAccentPreset(remoteAccent) && remoteAccent !== accent) {
+      setAccentState(remoteAccent);
+      writeLocal(ACCENT_KEY, remoteAccent);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasProfile, remoteMode, remoteFont, remoteFamily]);
+  }, [hasProfile, remoteMode, remoteFont, remoteFamily, remoteAccent]);
 
   const setMode = (next: ThemeMode) => {
     setModeState(next);
@@ -186,8 +203,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     updateThemePrefs({ fontFamily: family }).catch(() => {});
   };
 
+  const setAccent = (next: AccentPreset) => {
+    if (!fontAllowed && next !== DEFAULT_ACCENT) return;
+    setAccentState(next);
+    writeLocal(ACCENT_KEY, next);
+    applyAccent(next);
+    updateThemePrefs({ accentPreset: next }).catch(() => {});
+  };
+
   return (
-    <ThemeContext.Provider value={{ mode, setMode, fontScale, setFontScale, fontFamily: shownFamily, setFontFamily }}>
+    <ThemeContext.Provider
+      value={{ mode, setMode, fontScale, setFontScale, fontFamily: shownFamily, setFontFamily, accent: shownAccent, setAccent }}
+    >
       {children}
     </ThemeContext.Provider>
   );

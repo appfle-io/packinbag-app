@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.12.3",
+    date: "2026-11-01",
+    items: ["앱 강조색을 7가지 중에서 고를 수 있어요(설정 > 화면 > 강조색, 위젯 · 잠금화면은 다음 아이폰 앱에서)"],
+  },
+  {
     version: "1.12.2",
     date: "2026-11-01",
     items: [

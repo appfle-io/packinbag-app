@@ -121,6 +121,7 @@ interface AuthContextValue {
     packLibraryCardScale?: number;
     packCardFontScale?: number;
     fontFamily?: UserProfile["fontFamily"];
+    accentPreset?: UserProfile["accentPreset"];
   }) => Promise<void>;
   updateFontScale: (fontScale: "sm" | "md" | "lg") => Promise<void>;
   updateDefaultTab: (defaultTab: "home" | "settings" | "packs") => Promise<void>;
@@ -555,6 +556,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fontScale: data?.fontScale as UserProfile["fontScale"],
           // 주의: UserProfile에 필드를 만들면 여기에도 추가해야 화면에 반영된다
           fontFamily: data?.fontFamily as UserProfile["fontFamily"],
+          accentPreset: data?.accentPreset as UserProfile["accentPreset"],
           defaultTab: data?.defaultTab as UserProfile["defaultTab"],
           startPage: data?.startPage as UserProfile["startPage"],
           dismissedAnnouncementIds: data?.dismissedAnnouncementIds as string[] | undefined,
@@ -1061,6 +1063,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     packLibraryCardScale?: number;
     packCardFontScale?: number;
     fontFamily?: UserProfile["fontFamily"];
+    accentPreset?: UserProfile["accentPreset"];
   }) => {
     if (!user) return;
     setRawProfile((prev) => (prev ? { ...prev, ...prefs } : prev));

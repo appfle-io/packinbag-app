@@ -35,7 +35,9 @@ import { AnnouncementsListSheet, FaqSheet } from "./HelpSheets";
 import { MyLinksSheet } from "./MyLinksSheet";
 import { OfflineImportSheet } from "./OfflineImportSheet";
 import { FontSheet } from "./FontSheet";
+import { AccentSheet } from "./AccentSheet";
 import { APP_FONTS } from "@/lib/v2/appFonts";
+import { ACCENTS } from "@/lib/v2/accent";
 import { Badge, Button, ListRow, ScreenBody, ScreenHeader, SectionHeader, SegmentedControl, Sheet, Toggle, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { resetBagGuide } from "@/lib/v2/guide";
@@ -93,7 +95,7 @@ const FONT_OPTIONS: { value: FontScale; label: string }[] = [
 ];
 
 const PREMIUM_MESSAGE =
-  "가족 모두와 무제한으로. 가방 · 참여 가방 · 팩 보관함 개수 제한이 없어지고, 사진 · 파일 첨부, AI 하루 50회, 글꼴 고르기, PC 포터블 계정 사용, 오프라인 · 백업 데이터 가져오기, 커스텀 URL을 쓸 수 있어요.";
+  "가족 모두와 무제한으로. 가방 · 참여 가방 · 팩 보관함 개수 제한이 없어지고, 사진 · 파일 첨부, AI 하루 50회, 글꼴 · 강조색 고르기, PC 포터블 계정 사용, 오프라인 · 백업 데이터 가져오기, 커스텀 URL을 쓸 수 있어요.";
 
 // 누를 수 없는 정보 줄(ListRow와 같은 높이·구분선)
 function InfoRow({ title, trailing, divider = true }: { title: React.ReactNode; trailing?: React.ReactNode; divider?: boolean }) {
@@ -123,7 +125,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
     onPermanentDeletePack,
     hideNotificationBell,
   } = props;
-  const { mode, setMode, fontScale, setFontScale, fontFamily, setFontFamily } = useTheme();
+  const { mode, setMode, fontScale, setFontScale, fontFamily, setFontFamily, accent, setAccent } = useTheme();
   const { user, profile, isMaster, isGuest, logout, isOfflineMode, exitOfflineMode, switchToOnlineMode, updatePackSettings, updatePushPref } =
     useAuth();
   const { show } = useToast();
@@ -157,6 +159,7 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
   const [showAccountLink, setShowAccountLink] = useState(false);
   const [showOfflineImport, setShowOfflineImport] = useState(false);
   const [showFont, setShowFont] = useState(false);
+  const [showAccent, setShowAccent] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   // 내가 그룹장인 함께 쓰는 가방이 있어 초기화를 막을 때(SET-ACC-05)
@@ -431,6 +434,18 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
             <span className="text-caption text-sub">글자 크기</span>
             <SegmentedControl label="글자 크기" options={FONT_OPTIONS} value={fontScale} onChange={setFontScale} />
           </div>
+          {/* 강조색(SET-DISP-08, 2026-11-01 · 프리미엄): 글꼴처럼 줄 → 시트(미리 보기) */}
+          <ListRow
+            title="강조색"
+            trailing={
+              <span className="flex items-center gap-2">
+                <span aria-hidden="true" className="size-4 rounded-full bg-brand" />
+                {ACCENTS.find((a) => a.id === accent)?.label}
+              </span>
+            }
+            onClick={() => setShowAccent(true)}
+            chevron
+          />
           <ListRow
             divider={showWidgetRow}
             title="글꼴"
@@ -749,6 +764,17 @@ export default function SettingsScreenV2(props: SettingsScreenProps) {
       />
       <MyLinksSheet open={showMyShortLinks && !!user} user={user ?? null} onClose={() => setShowMyShortLinks(false)} />
       <OfflineImportSheet open={showOfflineImport} onClose={() => setShowOfflineImport(false)} onLimit={(msg) => guard(() => openPremium(msg))} />
+      <AccentSheet
+        open={showAccent}
+        onClose={() => setShowAccent(false)}
+        value={accent}
+        onChange={setAccent}
+        locked={!premium}
+        onLocked={() => {
+          setShowAccent(false);
+          guard(() => openPremium("강조색 고르기는 프리미엄 기능이에요. 무료는 딥그린으로 보여요."));
+        }}
+      />
       <FontSheet
         open={showFont}
         onClose={() => setShowFont(false)}

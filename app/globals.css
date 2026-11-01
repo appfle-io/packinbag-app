@@ -780,6 +780,21 @@ aside {
   --v2-dock-shadow: 0 8px 24px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
+/* 강조색 프리셋(2026-11-01, 설정 > 화면 > 강조색 · lib/v2/accent). 기본 딥그린은 위 값 그대로(data-accent 없음).
+   라이트는 흰 글자(on-brand)와 4.5:1 이상, 다크는 어두운 글자와 대비가 나게 밝게. 다크 조합이 라이트보다 명시도가 높아 이긴다 */
+[data-accent="navy"] { --v2-brand: #2b4a7a; --v2-brand-soft: #e6ecf5; --v2-on-brand: #ffffff; }
+[data-accent="burgundy"] { --v2-brand: #8a2e43; --v2-brand-soft: #f5e6ea; --v2-on-brand: #ffffff; }
+[data-accent="mustard"] { --v2-brand: #8a6510; --v2-brand-soft: #f6eedb; --v2-on-brand: #ffffff; }
+[data-accent="lavender"] { --v2-brand: #5b4a9e; --v2-brand-soft: #ece8f7; --v2-on-brand: #ffffff; }
+[data-accent="charcoal"] { --v2-brand: #3a3a40; --v2-brand-soft: #ececea; --v2-on-brand: #ffffff; }
+[data-accent="coral"] { --v2-brand: #b04a2f; --v2-brand-soft: #f8e9e3; --v2-on-brand: #ffffff; }
+[data-theme="dark"][data-accent="navy"] { --v2-brand: #7fa3dc; --v2-brand-soft: #1c2638; --v2-on-brand: #0d1524; }
+[data-theme="dark"][data-accent="burgundy"] { --v2-brand: #e08a9d; --v2-brand-soft: #35202a; --v2-on-brand: #1f0e14; }
+[data-theme="dark"][data-accent="mustard"] { --v2-brand: #e0b45a; --v2-brand-soft: #33291a; --v2-on-brand: #1f1708; }
+[data-theme="dark"][data-accent="lavender"] { --v2-brand: #ab9ce6; --v2-brand-soft: #27223a; --v2-on-brand: #151027; }
+[data-theme="dark"][data-accent="charcoal"] { --v2-brand: #c8c8cc; --v2-brand-soft: #2a2a2e; --v2-on-brand: #161618; }
+[data-theme="dark"][data-accent="coral"] { --v2-brand: #f0957a; --v2-brand-soft: #3a231c; --v2-on-brand: #22110b; }
+
 @theme inline {
   --color-canvas: var(--v2-canvas);
   --color-card: var(--v2-card);
