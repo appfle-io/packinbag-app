@@ -34,6 +34,9 @@ export interface Item {
   // 아이템 담당자 UID (공유 가방에서 "내가 챙길게!" 등으로 특정 멤버를 지정할 때 씀).
   // 없으면 전체 공용 또는 미지정.
   assigneeUid?: string;
+  // 체크한 시각(ISO, 2026-11-01 가방 완료함). 체크하면 찍고 풀면 지운다(useBagDocument.update → lib/v2/doneBox).
+  // 예전 앱 · 11/1 전 체크는 없을 수 있다 - 그때는 오래전에 챙긴 것으로 본다. 보관함에는 넣지 않는다
+  checkedAt?: string;
 }
 
 export interface Pack {
@@ -244,6 +247,9 @@ export interface Bag {
   // 리디자인 v2: 누군가 마지막으로 체크(또는 해제)한 시각(ISO). 홈 목록을 "최근 체크 순"으로 정렬하는 기준.
   // 없으면(예전 가방) updatedAt으로 대신한다.
   lastCheckedAt?: string;
+  // 가방 완료함(2026-11-01): 챙긴 체크 아이템을 가방 맨 아래 "완료함"으로 옮기는 때. 없으면 "off"(옮기지 않음).
+  // 가방 문서에 있어 멤버 모두 같다. 실제로 옮기지 않고 화면에서만 나눈다(lib/v2/doneBox)
+  doneBoxMode?: "off" | "now" | "hour" | "nextday" | "dday" | "week";
   // 2 = 메모 본문을 notes 하위 문서로 분리한 가방(2026-10-08). 이 값이 2인 가방은 packs를 바꿀 때
   // packsRev를 정확히 1 올려야 한다(firestore.rules) - 새 구조를 모르는 옛 앱이 본문 없는 메모를 덮어쓰지 못하게.
   notesV?: number;

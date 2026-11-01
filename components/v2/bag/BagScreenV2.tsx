@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconArrowUp, IconCheck, IconChecklist, IconChevronDown, IconChevronLeft, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconNotes, IconPackage, IconRotateClockwise, IconSun, IconUsers, IconX } from "@tabler/icons-react";
+import { IconArrowUp, IconCheck, IconChecklist, IconChevronDown, IconChevronLeft, IconChevronRight, IconDots, IconEye, IconLayoutColumns, IconLayoutList, IconNotes, IconPackage, IconRotateClockwise, IconSun, IconUsers, IconX } from "@tabler/icons-react";
 import type { Bag, Pack } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useToast } from "@/components/Toast";
@@ -50,6 +50,8 @@ import { WeatherSheet } from "./sheets/WeatherSheet";
 import { successHaptic, tapHaptic } from "@/lib/haptics";
 import { MoreSheet } from "./sheets/MoreSheet";
 import { ConfirmSheet } from "./sheets/ConfirmSheet";
+import { DoneBoxSheet } from "./sheets/DoneBoxSheet";
+import { DONE_BOX_MODES, doneBoxModeOf, splitDoneBox, type DoneBoxEntry } from "@/lib/v2/doneBox";
 import { formatRelativeDay, formatShortDate } from "./format";
 import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
@@ -193,6 +195,33 @@ export default function BagScreenV2(props: BagScreenProps) {
     return inbox && inbox.items.length > 0 ? [inbox, ...rest] : rest;
   }, [viewable, inbox]);
   const checklist = ordered.filter((p) => p.kind !== "editor");
+
+  // 가방 완료함(2026-11-01, BAG-DONE): 챙긴 체크 아이템을 시간이 되면 팩에서 빼 맨 아래 "완료함"에 모은다(화면에서만).
+  // doneNow는 다음에 누가 넘어갈 때 타이머로 다시 잰다. 앱에 돌아올 때도
+  const doneMode = doneBoxModeOf(bag);
+  const [doneNow, setDoneNow] = useState(() => Date.now());
+  const doneBox = useMemo(
+    () => splitDoneBox({ ...bag, packs: viewable }, doneNow, (p) => privacy.packHidden(bag.id, p)),
+    [bag, viewable, doneNow, privacy],
+  );
+  useEffect(() => {
+    const refresh = () => setDoneNow(Date.now());
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    let t: number | undefined;
+    if (doneBox.nextChangeAt !== null) {
+      // setTimeout 한도(약 24.8일)를 넘지 않게
+      t = window.setTimeout(refresh, Math.min(Math.max(doneBox.nextChangeAt - Date.now(), 0) + 500, 2_000_000_000));
+    }
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      if (t !== undefined) window.clearTimeout(t);
+    };
+  }, [doneBox.nextChangeAt]);
+  const [doneOpen, setDoneOpen] = useState(false);
+  const hasChecks = checklist.some((p) => p.items.some((i) => i.type === "check"));
+  // "바로"일 때 체크하면 팩에서 사라지니 되돌리기를 준다. 연달아 체크하면 한 토스트로 모은다
+  const justBoxed = useRef<{ ids: { packId: string; itemId: string }[]; at: number }>({ ids: [], at: 0 });
   // 팩 순서 바꾸기(2026-10-31): 화면에 보이는 팩 중 미분류를 뺀 것(미분류는 늘 맨 위). 2개 이상일 때만 줄을 보인다
   const reorderable = ordered.filter((p) => p.id !== inbox?.id);
   const [reorderOpen, setReorderOpen] = useState(false);
@@ -312,12 +341,14 @@ export default function BagScreenV2(props: BagScreenProps) {
   const moveDoneDown = profile?.packSettings?.moveCompletedToBottom ?? true;
   const itemsFor = (p: Pack) =>
     getDisplayOrderedItems(
-      activeFilter === "left"
-        ? p.items.filter((i) => i.type === "check" && !i.checked)
-        : activeFilter === "mine"
-          ? p.items.filter(isMine)
-          : p.items,
+      doneBox.ids.size > 0 ? p.items.filter((i) => !doneBox.ids.has(i.id)) : p.items,
       moveDoneDown,
+    ).filter((i) =>
+      activeFilter === "left"
+        ? i.type === "check" && !i.checked
+        : activeFilter === "mine"
+          ? isMine(i)
+          : true,
     );
   // 사용 가이드에서 비출 팩: 화면에 보이는 첫 체크리스트 팩(메모 제외)
   const guidePackId = visibleSections.find((p) => p.kind !== "editor")?.id;
@@ -744,7 +775,21 @@ export default function BagScreenV2(props: BagScreenProps) {
                       return;
                     }
                     tapHaptic();
+                    const wasOpen = p.items.find((i) => i.id === itemId)?.checked === false;
                     items.toggleItem(p.id, itemId);
+                    if (wasOpen && doneMode === "now" && !readOnly) {
+                      const now = Date.now();
+                      const prev = justBoxed.current;
+                      const ids = now - prev.at < 4000 ? [...prev.ids, { packId: p.id, itemId }] : [{ packId: p.id, itemId }];
+                      justBoxed.current = { ids, at: now };
+                      show(`${ids.length > 1 ? `${ids.length}개를` : "완료함으로"} 옮겼어요`, {
+                        actionLabel: "되돌리기",
+                        onAction: () => {
+                          justBoxed.current = { ids: [], at: 0 };
+                          for (const r of ids) items.toggleItem(r.packId, r.itemId);
+                        },
+                      });
+                    }
                   }}
                   onItemMenu={(itemId) =>
                     selection ? toggleSelect(itemId) : readOnly ? onRequestUnlock() : setItemTarget({ packId: p.id, itemId })
@@ -762,6 +807,27 @@ export default function BagScreenV2(props: BagScreenProps) {
               ),
             )}
             </div>
+
+            {/* 완료함 줄(BAG-DONE-01): 전체 필터 · 여러 개 선택 중이 아닐 때. 누르면 완료함 시트(꺼져 있으면 설정부터) */}
+            {hasChecks && activeFilter === "all" && !selection && (
+              <button
+                type="button"
+                data-guide="bag-done-box"
+                onClick={() => setDoneOpen(true)}
+                className="mt-4 flex min-h-16 w-full items-center justify-between gap-3 rounded-card border border-line bg-card px-4 text-left transition-colors duration-160 ease-snappy active:bg-fill"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <IconChecklist size={20} stroke={1.9} className={doneMode === "off" ? "shrink-0 text-faint" : "shrink-0 text-brand"} aria-hidden="true" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-body font-bold">
+                      완료함{doneMode !== "off" && <span className="ml-1 font-semibold text-sub">{doneBox.entries.length}</span>}
+                    </span>
+                    <span className="truncate text-caption text-sub">{DONE_BOX_MODES.find((m) => m.id === doneMode)?.line}</span>
+                  </span>
+                </span>
+                <IconChevronRight size={18} stroke={1.9} className="shrink-0 text-faint" aria-hidden="true" />
+              </button>
+            )}
 
             {!hasContent && (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
@@ -1074,6 +1140,24 @@ export default function BagScreenV2(props: BagScreenProps) {
           ].filter(Boolean);
           if (parts.length > 0) show(`${parts.join(", ")} 담았어요`);
         }}
+      />
+      <DoneBoxSheet
+        open={doneOpen}
+        onClose={() => setDoneOpen(false)}
+        entries={doneBox.entries}
+        mode={doneMode}
+        hasDday={!!bag.travelDate}
+        cols={phoneCols}
+        onUncheck={(e: DoneBoxEntry) => {
+          if (doc.guard()) return;
+          items.toggleItem(e.packId, e.item.id);
+          show(`'${e.item.text}' 원래 팩으로 돌렸어요`, {
+            actionLabel: "되돌리기",
+            onAction: () => items.toggleItem(e.packId, e.item.id),
+          });
+        }}
+        onDelete={(ids) => items.deleteItems(ids)}
+        onSetMode={(m) => !doc.guard() && doc.update((prev) => ({ ...prev, doneBoxMode: m === "off" ? undefined : m }))}
       />
       <MoreSheet
         open={moreOpen}

@@ -51,10 +51,17 @@ export async function POST(req: NextRequest) {
       if (!item) throw new BadRequest("아이템을 찾을 수 없어요", 404);
       if (!!item.checked === checked) return; // 이미 그 상태
 
-      const nextPacks = packs.map((p) =>
-        p?.id !== packId ? p : { ...p, items: items.map((i) => (i?.id === itemId ? { ...i, checked } : i)) },
-      );
       const now = new Date().toISOString();
+      // 체크한 시각(가방 완료함, lib/v2/doneBox) - 체크하면 찍고 풀면 뺀다(undefined는 Admin SDK가 거부해서 키째 뺌)
+      const flip = (i: Item): Item => {
+        if (checked) return { ...i, checked, checkedAt: now };
+        const { checkedAt: _drop, ...rest } = i;
+        void _drop;
+        return { ...rest, checked };
+      };
+      const nextPacks = packs.map((p) =>
+        p?.id !== packId ? p : { ...p, items: items.map((i) => (i?.id === itemId ? flip(i) : i)) },
+      );
       const patch: Record<string, unknown> = { packs: nextPacks, lastCheckedAt: now, updatedAt: now, editedBy: uid };
       if (data.notesV === 2) patch.packsRev = (typeof data.packsRev === "number" ? data.packsRev : 0) + 1;
 

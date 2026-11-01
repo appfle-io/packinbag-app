@@ -164,6 +164,7 @@ const BAG_OPTIONAL_KEYS = [
   "lastPackedAt",
   "lastPackedBy",
   "lastCheckedAt",
+  "doneBoxMode",
 ];
 function bagContentPatch(serialized: Record<string, unknown>): Record<string, unknown> {
   const clean = stripUndefined(serialized) as Record<string, unknown>;

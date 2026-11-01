@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.12.1",
+    date: "2026-11-01",
+    items: [
+      "가방 완료함: 챙긴 아이템을 가방 맨 아래 완료함에 모아요. 옮기는 때를 고르고, 다 쓴 건 골라서 지워요(가방 맨 아래 \"완료함\")",
+      "안정성을 높였어요",
+    ],
+  },
+  {
     version: "1.12.0",
     date: "2026-11-01",
     items: [

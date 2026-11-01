@@ -78,7 +78,10 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
   // 실수로 눌렀을 때를 위해 직전 체크 상태로 되돌리는 토스트를 띄운다.
   const uncheckAll = useCallback(() => {
     if (guard()) return;
-    const checkedIds = new Set(bag.packs.flatMap((p) => p.items.filter((i) => i.type === "check" && i.checked).map((i) => i.id)));
+    // 되돌리면 체크한 시각도 그대로(가방 완료함에 있던 것은 다시 완료함으로)
+    const checkedIds = new Map(
+      bag.packs.flatMap((p) => p.items.filter((i) => i.type === "check" && i.checked).map((i) => [i.id, i.checkedAt] as const)),
+    );
     if (checkedIds.size === 0) return;
     update((prev) => ({
       ...prev,
@@ -93,7 +96,9 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
         update((prev) => ({
           ...prev,
           packs: prev.packs.map((p) =>
-            p.kind === "editor" ? p : { ...p, items: p.items.map((i) => (checkedIds.has(i.id) ? { ...i, checked: true } : i)) },
+            p.kind === "editor"
+              ? p
+              : { ...p, items: p.items.map((i) => (checkedIds.has(i.id) ? { ...i, checked: true, checkedAt: checkedIds.get(i.id) } : i)) },
           ),
         })),
     });

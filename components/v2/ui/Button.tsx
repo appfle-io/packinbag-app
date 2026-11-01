@@ -3,7 +3,7 @@
 import { forwardRef } from "react";
 import { cx } from "./cx";
 
-type Variant = "primary" | "secondary" | "text" | "danger";
+type Variant = "primary" | "secondary" | "text" | "danger" | "destructive";
 type Size = "md" | "sm";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -18,6 +18,8 @@ const VARIANT: Record<Variant, string> = {
   secondary: "bg-card text-ink border border-line-strong active:bg-fill disabled:opacity-40",
   text: "bg-transparent text-brand active:opacity-60 disabled:opacity-40",
   danger: "bg-transparent text-alert active:opacity-60 disabled:opacity-40",
+  // 빨간 채움(지우기 확인). className에 bg-alert를 덧붙이면 CSS 순서상 bg-ink가 이겨서 회색으로 나왔다(2026-11-01)
+  destructive: "bg-alert text-on-brand active:opacity-80 disabled:bg-line disabled:text-sub",
 };
 
 const SIZE: Record<Size, string> = {
@@ -49,4 +51,4 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {children}
     </button>
   );
-});
+});

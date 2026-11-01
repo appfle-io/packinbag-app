@@ -30,6 +30,7 @@ const toLibraryItems = (items: Item[]): Item[] =>
     checked: i.type === "check" ? false : undefined,
     assigneeUid: undefined,
     dueDate: undefined,
+    checkedAt: undefined,
   }));
 
 export function useBagLibrary({
@@ -139,6 +140,7 @@ export function useBagLibrary({
               checked: si.type === "check" ? !!before?.checked : undefined,
               assigneeUid: before?.assigneeUid,
               dueDate: undefined,
+              checkedAt: before?.checked ? before.checkedAt : undefined,
             };
           });
     patchPack(packId, {

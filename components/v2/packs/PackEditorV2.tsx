@@ -626,7 +626,8 @@ function PackEditorV2Inner(props: PackEditorProps) {
               취소
             </Button>
             <Button
-              className="flex-1 bg-alert text-on-brand"
+              variant="destructive"
+              className="flex-1"
               onClick={() => {
                 setConfirmDelete(false);
                 deletingRef.current = true;

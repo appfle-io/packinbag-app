@@ -30,7 +30,8 @@ export function ConfirmSheet({
             취소
           </Button>
           <Button
-            className={danger ? "flex-1 bg-alert text-on-brand" : "flex-1"}
+            variant={danger ? "destructive" : "primary"}
+            className="flex-1"
             onClick={() => {
               onConfirm();
               onClose();
@@ -44,4 +45,4 @@ export function ConfirmSheet({
       {message && <p className="m-0 text-body text-sub">{message}</p>}
     </Sheet>
   );
-}
+}

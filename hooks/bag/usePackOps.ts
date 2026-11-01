@@ -25,6 +25,7 @@ function cloneLibraryPackForBag(pack: Pack): Pack {
       ...item,
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       dueDate: undefined,
+      checkedAt: undefined,
     })),
   };
 }
@@ -181,4 +182,4 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, 
   }, [bag.packs, libraryPacks, doc.notesReady]);
 
   return { importPacks, addPack, renamePack, deletePack, saveNotePack, toggleAutoSync, reorderPacks };
-}
+}

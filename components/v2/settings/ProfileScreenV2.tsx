@@ -129,7 +129,7 @@ function DeleteAccountSheet({ open, nickname, needsPassword, onClose }: { open: 
       title="회원 탈퇴"
       showClose={!busy}
       footer={
-        <Button block disabled={!matches || busy} className={cx(matches && !busy && "bg-alert text-on-brand")} onClick={submit}>
+        <Button block variant="destructive" disabled={!matches || busy} onClick={submit}>
           {busy ? "지우는 중" : "영구 삭제"}
         </Button>
       }

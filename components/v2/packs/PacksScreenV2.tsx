@@ -638,7 +638,8 @@ export default function PacksScreenV2(props: PacksScreenProps) {
               취소
             </Button>
             <Button
-              className="flex-1 bg-alert text-on-brand"
+              variant="destructive"
+              className="flex-1"
               onClick={() => {
                 if (deleteTarget) onBulkDeletePacks([deleteTarget.id], deleteLinked > 0 ? alsoDeleteFromBags : undefined);
                 setDeleteId(null);

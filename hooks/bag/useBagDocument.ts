@@ -11,6 +11,7 @@ import { hydrateBag, type BagNote } from "@/lib/bagNotesCore";
 import { isOfflineEnvironment } from "@/lib/premiumLimits";
 import { auth } from "@/lib/firebase";
 import { isPendingBag } from "@/lib/v2/pendingCreates";
+import { stampCheckedAt } from "@/lib/v2/doneBox";
 
 // 가방 문서 하나를 편집하는 동안의 로컬 상태 + 자동저장 + 다른 멤버·기기 변경 반영.
 // - 모든 변경은 500ms 디바운스 후 저장한다. 혼자 쓰는 가방은 saveBagRemote(쓰기 1번),
@@ -248,7 +249,9 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     };
   }, []);
   const update = useCallback(
-    (updater: (b: Bag) => Bag) => {
+    (raw: (b: Bag) => Bag) => {
+      // 체크가 바뀐 아이템에 체크한 시각(checkedAt)을 맞춘다 - 가방 완료함이 이 값으로 나눈다(lib/v2/doneBox)
+      const updater = (b: Bag) => stampCheckedAt(b, raw(b), new Date().toISOString());
       if (mountedRef.current) {
         setBag(updater);
         return;
