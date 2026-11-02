@@ -32,10 +32,6 @@ function isoDaysFromNow(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function textItem(text: string, bold = false): Item {
-  return { id: uid(), type: "text", text, ...(bold ? { bold: true } : {}) };
-}
-
 // 마감일이 있는 체크 아이템(BAG-ISHEET-12). days = 오늘부터 며칠 뒤
 function dueItem(text: string, days: number, checked = false): Item {
   return { ...checkItem(text, checked), dueDate: isoDaysFromNow(days) };
@@ -653,12 +649,11 @@ export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags:
         linkedLibraryPackId: libraryDaycarePack.id,
         linkedLibraryUpdatedAt: libraryDaycarePack.updatedAt,
       },
-      // 팩 2: D-Day 행사 — 마감일 아이템 · 글 아이템 예시
+      // 팩 2: D-Day 행사 — 마감일 아이템 예시
       {
         id: uid(),
         name: "현장학습 · 고구마 캐기 (D-Day)",
         items: [
-          textItem("📌 원 안내: 도시락은 한입 크기로, 간식은 한 가지만 보내 주세요", true),
           dueItem("현장학습 참가 동의서 서명해서 보내기", 1),
           dueItem("참가비 5,000원 — 봉투에 이름 써서 보내기", 2),
           checkItem("도시락: 한입 유부초밥 · 방울토마토 · 사과 (보냉 가방에)"),
@@ -670,19 +665,16 @@ export function buildSampleData(ownerUid: string): { libraryPacks: Pack[]; bags:
           checkItem("흙 묻을 때 갈아 신을 양말 · 물티슈"),
         ],
       },
-      // 팩 3: 요일별 챙길 것 — 글 아이템을 소제목처럼
+      // 팩 3: 요일별 챙길 것
       {
         id: uid(),
         name: "요일별 챙길 것",
         items: [
-          textItem("월요일 — 가져가기", true),
-          checkItem("세탁한 낮잠 이불 · 베개 커버"),
-          checkItem("새 칫솔 · 치약 (매달 첫 월요일)"),
-          textItem("수요일 — 영어 · 체육 특활", true),
-          checkItem("특활 가방 · 실내 운동화"),
-          textItem("금요일 — 가져오기", true),
-          checkItem("낮잠 이불 · 실내화 가져와서 세탁", true),
-          checkItem("남은 기저귀 · 물티슈 개수 확인", true),
+          checkItem("월요일: 세탁한 낮잠 이불 · 베개 커버"),
+          checkItem("월요일: 새 칫솔 · 치약 (매달 첫 월요일)"),
+          checkItem("수요일: 특활 가방 · 실내 운동화"),
+          checkItem("금요일: 낮잠 이불 · 실내화 가져와서 세탁", true),
+          checkItem("금요일: 남은 기저귀 · 물티슈 개수 확인", true),
         ],
       },
       // 팩 4: 선생님 전달 사항 & 연락처 (가방 전용 메모팩 — 표 · 할 일 목록)

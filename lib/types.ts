@@ -3,6 +3,7 @@
 
 import type { WeatherInfo, TravelRecommendation, WeatherAiResult } from "./weatherService";
 
+// 아이템은 체크 항목 하나만 쓴다(2026-11-02). "text"는 예전 데이터에 남아 있는 값이고, 화면 · 서버 모두 체크 항목으로 다룬다
 type ItemType = "check" | "text";
 
 interface RichSpan {
@@ -434,9 +435,9 @@ export interface UserProfile {
   // 보여줄지. 없으면 false(펼쳐진 바 형태) 기본값. 계정에 저장되어 기기/화면(팩·가방)
   // 어디서나 동일하게 적용된다.
   quickPackCollapsed?: boolean;
-  // 리디자인 v2: 폰 세로처럼 좁은 화면에서 가방 속 팩을 몇 열로 볼지(없으면 1). 넓은 화면(폰 가로·아이패드·PC)은
+  // 폰 세로처럼 좁은 화면에서 2열로 보는 가방(2026-11-02 가방마다, 없으면 1열). 넓은 화면(폰 가로·아이패드·PC)은
   // 이 값과 상관없이 화면 폭에 맞춰 2열·3열이 된다. 계정에 저장돼 기기 간 동일.
-  bagPhoneColumns?: 1 | 2;
+  bagColumns?: Record<string, 2>;
   // 데스크톱 레이아웃(DesktopSidebar) 폭(px). 오른쪽 가장자리를 드래그해서 조절한 값을 계정에
   // 저장한다(기기 간 동기화). 없으면 288(기본값, w-72) 사용. DesktopSidebar.tsx의
   // MIN/MAX_SIDEBAR_WIDTH 범위로 항상 클램프해서 저장된다.

@@ -133,7 +133,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
     setPack((p) => ({ ...p, items: p.items.map((i) => (i.id === itemId ? { ...i, checked: !i.checked } : i)) }));
   };
 
-  const updateItem = (itemId: string, patch: { text?: string; type?: Item["type"] }) => {
+  const updateItem = (itemId: string, patch: { text?: string }) => {
     if (guard()) return;
     setPack((p) => ({
       ...p,
@@ -144,10 +144,6 @@ function PackEditorV2Inner(props: PackEditorProps) {
           next.text = patch.text;
           // 글자를 고치면 예전 부분 서식(spans)은 위치가 맞지 않으므로 뗀다(구 화면 changeItemText와 같음)
           next.spans = undefined;
-        }
-        if (patch.type && patch.type !== i.type) {
-          next.type = patch.type;
-          next.checked = patch.type === "check" ? false : undefined;
         }
         return next;
       }),
@@ -160,7 +156,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
     setPack((p) => {
       const idx = p.items.findIndex((i) => i.id === itemId);
       if (idx < 0) return p;
-      const copy: Item = { ...p.items[idx], id: uid(), ...(p.items[idx].type === "check" ? { checked: false } : {}) };
+      const copy: Item = { ...p.items[idx], id: uid(), checked: false };
       const items = [...p.items];
       items.splice(idx + 1, 0, copy);
       return { ...p, items };
@@ -418,7 +414,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
     };
   }, []);
 
-  const checks = pack.items.filter((i) => i.type === "check");
+  const checks = pack.items;
   const done = checks.filter((i) => i.checked).length;
 
   return (
@@ -511,7 +507,7 @@ function PackEditorV2Inner(props: PackEditorProps) {
                     selecting={selecting}
                     selected={!!selected?.has(item.id)}
                     highlighted={highlightId === item.id}
-                    onTap={() => (selecting ? toggleSelect(item.id) : item.type === "check" ? toggleItem(item.id) : guard() || setItemTargetId(item.id))}
+                    onTap={() => (selecting ? toggleSelect(item.id) : toggleItem(item.id))}
                     onMenu={() => (selecting ? toggleSelect(item.id) : guard() || setItemTargetId(item.id))}
                   />
                 ))}
@@ -688,15 +684,14 @@ function ItemLine({
   onTap: () => void;
   onMenu: () => void;
 }) {
-  const isCheck = item.type === "check";
   const press = useLongPress(onMenu, onTap);
-  const done = isCheck && !!item.checked;
+  const done = !!item.checked;
   return (
-    <li data-item-id={item.id} className={cx("min-w-0", !isCheck && "col-span-full")}>
+    <li data-item-id={item.id} className="min-w-0">
       <button
         type="button"
         {...press}
-        aria-pressed={selecting ? selected : isCheck ? done : undefined}
+        aria-pressed={selecting ? selected : done}
         className={cx(
           "flex min-h-12 w-full select-none items-center gap-3 rounded-field bg-transparent text-left",
           "transition-colors duration-160 ease-snappy active:bg-fill",
@@ -705,16 +700,13 @@ function ItemLine({
       >
         {selecting ? (
           <CheckMark checked={selected} shape="square" />
-        ) : isCheck ? (
-          <CheckMark checked={done} />
         ) : (
-          <span aria-hidden="true" className="size-5.5 shrink-0" />
+          <CheckMark checked={done} />
         )}
         <span
           className={cx(
             "min-w-0 flex-1 text-body transition-colors duration-160 ease-snappy",
             done && !selecting ? "text-faint" : "text-ink",
-            !isCheck && "text-sub",
             item.bold && "font-semibold",
           )}
         >

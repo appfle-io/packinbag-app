@@ -141,7 +141,7 @@ export function ReminderSheet({
 
   const due = itemDueSetting(draft);
   const dueItems = packs
-    .flatMap((p) => p.items.filter((i) => i.type === "check" && !i.checked && /^\d{4}-\d{2}-\d{2}$/.test(i.dueDate ?? "")).map((i) => ({ pack: p, item: i })))
+    .flatMap((p) => p.items.filter((i) => !i.checked && /^\d{4}-\d{2}-\d{2}$/.test(i.dueDate ?? "")).map((i) => ({ pack: p, item: i })))
     .sort((a, b) => a.item.dueDate!.localeCompare(b.item.dueDate!));
   const toggleDue = (o: number) =>
     update({ ...draft, itemDue: { offsets: due.offsets.includes(o) ? due.offsets.filter((x) => x !== o) : [...due.offsets, o], time: due.time } });

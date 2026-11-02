@@ -140,8 +140,8 @@ export interface ReminderLock {
 }
 
 const isChecklist = (p: Pack) => p.kind !== "editor" && p.type !== "folder";
-const openChecks = (p: Pack) => p.items.filter((i) => i.type === "check" && !i.checked);
-const countChecks = (p: Pack) => p.items.filter((i) => i.type === "check").length;
+const openChecks = (p: Pack) => p.items.filter((i) => !i.checked);
+const countChecks = (p: Pack) => p.items.length;
 
 function names(items: Item[]): string {
   const shown = items.slice(0, NAMES_SHOWN).map((i) => i.text.trim() || "아이템");
@@ -270,7 +270,7 @@ export function planBagNotifications(
       if (!isChecklist(pack)) continue;
       for (const item of pack.items) {
         const d = parseDate(item.dueDate);
-        if (!d || item.type !== "check" || item.checked) continue;
+        if (!d || item.checked) continue;
         if (item.assigneeUid && item.assigneeUid !== me) continue;
         const due = itemRemindSetting(r, item.id);
         const { h, m } = parseTime(due.time, DEFAULT_ITEM_DUE.time);

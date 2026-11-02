@@ -27,7 +27,7 @@ export type LibraryStatus =
 const toLibraryItems = (items: Item[]): Item[] =>
   items.map((i) => ({
     ...i,
-    checked: i.type === "check" ? false : undefined,
+    checked: false,
     assigneeUid: undefined,
     dueDate: undefined,
     checkedAt: undefined,
@@ -137,7 +137,7 @@ export function useBagLibrary({
             return {
               ...si,
               id: before?.id ?? newId(),
-              checked: si.type === "check" ? !!before?.checked : undefined,
+              checked: !!before?.checked,
               assigneeUid: before?.assigneeUid,
               dueDate: undefined,
               checkedAt: before?.checked ? before.checkedAt : undefined,

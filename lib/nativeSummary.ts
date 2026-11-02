@@ -80,7 +80,7 @@ export function buildNativeLibrary(packs: Pack[], lockedLibraryIds: string[] = [
             id: p.id,
             name: clip(p.name) || "팩",
             kind: "checklist" as const,
-            count: (Array.isArray(p.items) ? p.items : []).filter((i) => i && i.type !== "text").length,
+            count: (Array.isArray(p.items) ? p.items : []).filter(Boolean).length,
           },
     );
 }
@@ -126,7 +126,7 @@ export function buildNativeSummary(
           id: p.id,
           name: clip(p.name) || "팩",
           items: (Array.isArray(p.items) ? p.items : [])
-            .filter((i) => i && i.type !== "text")
+            .filter(Boolean)
             .slice(0, MAX_ITEMS)
             .map((i) => ({ id: i.id, text: clip(i.text), checked: !!i.checked })),
           ...(p.isInbox ? { inbox: true as const } : {}),

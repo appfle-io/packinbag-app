@@ -185,7 +185,7 @@ export default function UiGallery() {
           <div className="flex flex-col">
             <ListRow
               title="주말 캠핑"
-              subtitle="싸는 중 · 어제 체크"
+              subtitle="어제 체크"
               leading={<ProgressRing value={31 / 40} label="주말 캠핑" />}
               trailing="31/40"
             />

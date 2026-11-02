@@ -6,6 +6,7 @@ import type { Bag } from "@/lib/types";
 import { formatDDayLabel } from "@/lib/dday";
 import { Button, SectionHeader, Sheet, Toggle } from "@/components/v2/ui";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
+import { formatShortDate } from "@/components/v2/bag/format";
 import { useAuth } from "@/contexts/AuthProvider";
 import { isLocalNotificationsAvailable, reminderSummary } from "@/lib/v2/bagReminders";
 import { isNativeBridgeAvailable, supportsBookmarkWidget } from "@/lib/v2/nativeBridge";
@@ -77,6 +78,7 @@ export function MoreSheet({
   const { user, profile, isOfflineMode } = useAuth();
   // 알림은 iOS 앱(로컬 알림 플러그인이 든 1.5 이상)에서만 보인다
   const [notificationsAvailable] = useState(isLocalNotificationsAvailable);
+  const [ddayOpen, setDdayOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
   // 잠금화면 실시간 현황은 네이티브 다리가 든 iOS 앱(1.5 이상)에서만
   const [liveAvailable] = useState(isNativeBridgeAvailable);
@@ -118,51 +120,14 @@ export function MoreSheet({
       <div className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
           <SectionHeader>가방 정보</SectionHeader>
-          {/* label로 감싸면 iOS에서 '지우기'를 눌러도 날짜 입력으로 누름이 넘어가 지워지지 않았다 - 줄은 div, 입력에만 aria-label */}
-          <div className="flex min-h-13 items-center justify-between gap-3 border-b border-line">
-            <span className="flex items-center gap-3 text-body">
-              <IconCalendar size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
-              D-Day
-              {dday && <span className="text-caption font-semibold text-brand">{dday}</span>}
-            </span>
-            <span className="flex items-center gap-2">
-              <input
-                type="date"
-                aria-label="D-Day 날짜"
-                value={bag.travelDate ?? ""}
-                onChange={(e) => onSetTravelDate(e.target.value || undefined)}
-                className="h-10 rounded-field border border-line bg-card px-2 text-caption outline-none"
-              />
-              {bag.travelDate && (
-                <Button
-                  variant="text"
-                  size="sm"
-                  className="px-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onSetTravelDate(undefined);
-                  }}
-                >
-                  지우기
-                </Button>
-              )}
-            </span>
-          </div>
-          {bag.travelDate && (
-            <div className="border-b border-line">
-              <Toggle
-                checked={!!bag.ddayCountTodayAsDayOne}
-                onChange={onSetCountDayOne}
-                label="D-Day 당일을 1일로 세기"
-                description={
-                  bag.ddayCountTodayAsDayOne
-                    ? "D-Day 당일이 D+1, 다음 날이 D+2예요"
-                    : "지금은 D-Day 다음 날이 D+1이에요. 태어난 날 · 기념일처럼 셀 때 켜요"
-                }
-              />
-            </div>
-          )}
+          {/* D-Day는 한 줄만, 날짜 · 세는 방식은 하위 시트(2026-11-02) */}
+          <button type="button" className={row} onClick={() => setDdayOpen(true)}>
+            <IconCalendar size={20} stroke={1.75} className="text-sub" aria-hidden="true" />
+            <span className="min-w-0 flex-1">D-Day</span>
+            {dday && <span className="shrink-0 text-caption font-semibold text-brand">{dday}</span>}
+            <span className="shrink-0 text-caption text-sub">{formatShortDate(bag.travelDate) ?? "없음"}</span>
+            <IconChevronRight size={18} stroke={1.9} className="shrink-0 text-faint" aria-hidden="true" />
+          </button>
           <label className="flex flex-col gap-2 pt-2">
             <span className="text-caption text-sub">설명 한 줄 (예: 8시까지 챙기기)</span>
             <input
@@ -311,6 +276,45 @@ export function MoreSheet({
         <Button variant="danger" className="self-start px-0" onClick={() => (onDeleteOrLeave(), onClose())}>
           {isOwner ? "가방 삭제" : "이 가방에서 나가기"}
         </Button>
+      </div>
+    </Sheet>
+    <Sheet open={ddayOpen} onClose={() => setDdayOpen(false)} title="D-Day">
+      <div className="flex flex-col gap-3">
+        {/* label로 감싸면 iOS에서 '지우기'를 눌러도 날짜 입력으로 누름이 넘어가 지워지지 않았다 - 줄은 div, 입력에만 aria-label */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            aria-label="D-Day 날짜"
+            value={bag.travelDate ?? ""}
+            onChange={(e) => onSetTravelDate(e.target.value || undefined)}
+            className="h-11 min-w-0 flex-1 rounded-field border border-line bg-card px-3 text-body outline-none focus:border-ink"
+          />
+          {bag.travelDate && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSetTravelDate(undefined);
+              }}
+            >
+              지우기
+            </Button>
+          )}
+        </div>
+        {bag.travelDate && (
+          <Toggle
+            checked={!!bag.ddayCountTodayAsDayOne}
+            onChange={onSetCountDayOne}
+            label="D-Day 당일을 1일로 세기"
+            description={
+              bag.ddayCountTodayAsDayOne
+                ? "D-Day 당일이 D+1, 다음 날이 D+2예요"
+                : "지금은 D-Day 다음 날이 D+1이에요. 태어난 날 · 기념일처럼 셀 때 켜요"
+            }
+          />
+        )}
       </div>
     </Sheet>
     {notificationsAvailable && <ReminderSheet open={reminderOpen} onClose={() => setReminderOpen(false)} bag={bag} onFocusItem={onFocusItem} />}

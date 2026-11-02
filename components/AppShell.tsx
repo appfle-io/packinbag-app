@@ -1010,7 +1010,7 @@ export default function AppShell() {
               items: Array.isArray(p.items)
                 ? p.items.map((raw) => {
                     const text = typeof raw === "string" ? raw : raw.text;
-                    const type = typeof raw === "string" ? "check" : raw.type ?? "check";
+                    const type = "check" as const;
                     // AI(import-note/clipboard-organize)가 원본에서 이미 체크된 것으로 인식한
                     // 항목이면 checked를 그대로 살려서 만든다(단순 문자열이면 구버전 응답이라 false).
                     const checked = typeof raw === "string" ? false : !!raw.checked;

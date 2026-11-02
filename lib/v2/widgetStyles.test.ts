@@ -35,13 +35,13 @@ describe("NAT-BMK-03 위젯 가방 정보 한 줄", () => {
     ddayCountTodayAsDayOne: true,
     lastPackedAt: new Date(2026, 10, 9, 20, 0).toISOString(),
     packs: [
-      { items: [{ checked: true }, { checked: false }, { type: "text", checked: false }] },
+      { items: [{ checked: true }, { checked: false }] },
       { kind: "editor", items: [{ checked: false }] },
       { type: "folder", items: [{ checked: false }] },
     ],
   };
 
-  it("체크리스트 팩의 체크 아이템만 센다(메모 · 폴더 · 글 아이템 빼고), 당일 1일 반영", () => {
+  it("체크리스트 팩의 아이템만 센다(메모 · 폴더 빼고), 당일 1일 반영", () => {
     expect(widgetBagStats(bag, NOW)).toEqual({ name: "어린이집 등원 가방", dday: "D+1", done: 1, total: 2, packed: "어제 다 쌌어요" });
   });
 

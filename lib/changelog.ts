@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.13.1",
+    date: "2026-11-02",
+    items: ["가방마다 1열 · 2열을 따로 기억해요", "아이템 알림을 켜기 쉬워졌어요", "아이템은 체크 항목으로 통일했어요"],
+  },
+  {
     version: "1.13.0",
     date: "2026-11-01",
     items: ["아이폰 위젯 · 잠금화면도 강조색을 따라가고, 앱 아이콘 색을 고를 수 있어요(설정 > 화면, 새 앱 버전 필요)"],

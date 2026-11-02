@@ -1,12 +1,12 @@
 import type { Bag, Item, Pack } from "@/lib/types";
 
-// 체크리스트 팩(메모팩 제외)의 체크 아이템만 모은다. 진행률·다 쌌는지 판단의 기준.
+// 체크리스트 팩(메모팩 제외)의 아이템을 모은다. 진행률·다 쌌는지 판단의 기준.
 function checklistPacks(packs: Pack[]): Pack[] {
   return packs.filter((p) => p.kind !== "editor" && p.type !== "folder");
 }
 
 function checkItemsOf(packs: Pack[]): Item[] {
-  return checklistPacks(packs).flatMap((p) => p.items.filter((i) => i.type === "check"));
+  return checklistPacks(packs).flatMap((p) => p.items);
 }
 
 export interface PackStats {

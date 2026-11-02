@@ -32,9 +32,8 @@ import {
   statsOf,
   packingStateOf,
   findInbox,
-  type PackingState,
 } from "@/hooks/bag";
-import { Avatar, Badge, Button, Chip, IconButton, ProgressBar, ReorderSheet, Sheet, cx } from "@/components/v2/ui";
+import { Avatar, Button, Chip, IconButton, ProgressBar, ReorderSheet, Sheet, cx } from "@/components/v2/ui";
 import { PackSection, LockedPackSection } from "./PackSection";
 import { LockScreen, useLockGuard } from "@/components/v2/lock/LockUI";
 import { packLockKey } from "@/lib/v2/privateLock";
@@ -101,8 +100,6 @@ export interface BagScreenProps {
 
 type Filter = "all" | "left" | string;
 
-const STATE_LABEL: Record<PackingState, string> = { empty: "비어 있음", packing: "싸는 중", packed: "다 쌌어요" };
-const STATE_TONE: Record<PackingState, "neutral" | "brand" | "solid"> = { empty: "neutral", packing: "brand", packed: "solid" };
 
 // 리디자인 v2 가방 화면 (체크 모드). 기준 목업: 팩인백 미니멀 리디자인 캔버스 "가방 · 체크 모드".
 export default function BagScreenV2(props: BagScreenProps) {
@@ -129,16 +126,16 @@ export default function BagScreenV2(props: BagScreenProps) {
     onFocusHandled,
   } = props;
 
-  const { user, isOfflineMode, profile, updateBagPhoneColumns, updateBagReminder } = useAuth();
+  const { user, isOfflineMode, profile, updateBagColumns, updateBagReminder } = useAuth();
   const { show } = useToast();
   // 인터넷이 꼭 필요한 기능(AI)은 끊겨 있으면 열기 전에 알린다
   const { guard } = useOnlineGuard();
   const premium = isOfflineMode ? true : isPremiumUser(profile?.email, profile ?? null);
-  // 좁은 화면(폰 세로)에서 팩 안 아이템을 몇 열로 볼지. 넓은 화면은 PackSection이 컨테이너 쿼리로 2열·3열 자동.
-  const phoneCols = profile?.bagPhoneColumns === 2 ? 2 : 1;
 
   const doc = useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnlock, onSave });
   const { bag } = doc;
+  // 좁은 화면(폰 세로)에서 팩 안 아이템을 몇 열로 볼지. 가방마다 따로, 기본 1열(2026-11-02). 넓은 화면은 PackSection이 컨테이너 쿼리로 2열·3열 자동.
+  const phoneCols = profile?.bagColumns?.[bag.id] === 2 ? 2 : 1;
   // 가방당 팩 한도: 무료 5 · 프리미엄 30(2026-10-20, 넣는 사람 기준)
   const packLimit = useMemo(() => ({ max: bagPackLimit(premium), message: bagPackLimitMessage(premium) }), [premium]);
   const items = useBagItems(doc, libraryPacks, currentUid, packLimit);
@@ -222,7 +219,7 @@ export default function BagScreenV2(props: BagScreenProps) {
     };
   }, [doneBox.nextChangeAt]);
   const [doneOpen, setDoneOpen] = useState(false);
-  const hasChecks = checklist.some((p) => p.items.some((i) => i.type === "check"));
+  const hasChecks = checklist.some((p) => p.items.length > 0);
   // "바로"일 때 체크하면 팩에서 사라지니 되돌리기를 준다. 연달아 체크하면 한 토스트로 모은다
   const justBoxed = useRef<{ ids: { packId: string; itemId: string }[]; at: number }>({ ids: [], at: 0 });
   // "바로"로 체크한 아이템은 마지막 체크 뒤 잠깐 팩에 체크된 채로 두었다가 한꺼번에 뺀다(BAG-DONE-04).
@@ -248,7 +245,7 @@ export default function BagScreenV2(props: BagScreenProps) {
   const packingState = packingStateOf(viewable);
   const ratio = stats.total > 0 ? stats.done / stats.total : 0;
   // "내 담당" 필터: 함께 쓰는 가방에서 나한테 맡긴 체크 아이템이 있을 때만(구 UI 집중 패킹 모드의 "내 아이템만")
-  const isMine = (i: Pack["items"][number]) => i.type === "check" && i.assigneeUid === currentUid;
+  const isMine = (i: Pack["items"][number]) => i.assigneeUid === currentUid;
   const mineLeft = bag.memberIds.length > 1 ? checklist.reduce((n, p) => n + p.items.filter((i) => isMine(i) && !i.checked).length, 0) : 0;
   const hasMine = bag.memberIds.length > 1 && checklist.some((p) => p.items.some(isMine));
 
@@ -336,7 +333,7 @@ export default function BagScreenV2(props: BagScreenProps) {
   const isOpen = (p: Pack) => {
     if (activeFilter !== "all") return true;
     if (openOverride[p.id] !== undefined) return openOverride[p.id];
-    const checks = p.items.filter((i) => i.type === "check");
+    const checks = p.items;
     return !(checks.length > 0 && checks.every((i) => i.checked));
   };
 
@@ -345,7 +342,7 @@ export default function BagScreenV2(props: BagScreenProps) {
     if (activeFilter === "mine") return p.kind !== "editor" && p.items.some(isMine);
     if (activeFilter === "left") {
       if (p.kind === "editor") return false;
-      return p.items.some((i) => i.type === "check" && !i.checked);
+      return p.items.some((i) => !i.checked);
     }
     return p.id === activeFilter;
   });
@@ -363,13 +360,13 @@ export default function BagScreenV2(props: BagScreenProps) {
           : shown;
     return ordered.filter((i) =>
       activeFilter === "left"
-        ? i.type === "check" && (!i.checked || doneHold.has(i.id))
+        ? !i.checked || doneHold.has(i.id)
         : activeFilter === "mine"
           ? isMine(i)
           : true,
     );
   };
-  const doneRank = (i: Item) => Number(i.type === "check" && !!i.checked && !doneHold.has(i.id));
+  const doneRank = (i: Item) => Number(!!i.checked && !doneHold.has(i.id));
   // 사용 가이드에서 비출 팩: 화면에 보이는 첫 체크리스트 팩(메모 제외)
   const guidePackId = visibleSections.find((p) => p.kind !== "editor")?.id;
 
@@ -611,7 +608,7 @@ export default function BagScreenV2(props: BagScreenProps) {
             label={phoneCols === 2 ? "1열로 보기" : "2열로 보기"}
             className="@2xl/bag:hidden"
             data-guide="bag-columns"
-            onClick={() => updateBagPhoneColumns(phoneCols === 2 ? 1 : 2).catch(() => {})}
+            onClick={() => updateBagColumns(bag.id, phoneCols === 2 ? 1 : 2).catch(() => {})}
           >
             {phoneCols === 2 ? <IconLayoutList size={22} stroke={1.75} /> : <IconLayoutColumns size={22} stroke={1.75} />}
           </IconButton>
@@ -714,9 +711,6 @@ export default function BagScreenV2(props: BagScreenProps) {
                   <div className="flex items-baseline gap-1">
                     <span className="text-title font-bold">{stats.done}</span>
                     <span className="text-body text-sub">/ {stats.total}</span>
-                    <Badge tone={STATE_TONE[packingState]} className="ml-2 self-center">
-                      {STATE_LABEL[packingState]}
-                    </Badge>
                   </div>
                   <Button
                     variant="text"
@@ -748,7 +742,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                   <Chip
                     key={p.id}
                     label={p.name}
-                    count={p.items.filter((i) => i.type === "check" && !i.checked).length}
+                    count={p.items.filter((i) => !i.checked).length}
                     selected={activeFilter === p.id}
                     onClick={() => {
                       const next = activeFilter === p.id ? "all" : p.id;

@@ -75,7 +75,7 @@ export const BAG_GUIDE_STEPS: TourStep[] = [
   {
     target: "bag-columns",
     title: "한 화면에 더 많이",
-    body: "이 버튼으로 아이템을 2열로 볼 수 있어요. 아이패드나 넓은 화면에서는 폭에 맞춰 알아서 2열·3열이 돼요.",
+    body: "이 버튼으로 아이템을 2열로 볼 수 있어요. 가방마다 따로 기억해요. 아이패드나 넓은 화면에서는 폭에 맞춰 알아서 2열·3열이 돼요.",
   },
   {
     target: "bag-repack",
@@ -86,6 +86,11 @@ export const BAG_GUIDE_STEPS: TourStep[] = [
     target: "bag-filter",
     title: "남은 것만 보기",
     body: "'남은 것'을 누르면 아직 안 챙긴 것만 보여요. 고른 채로 나가면 이 가방은 다음에도 그대로 열려요. 팩 이름을 누르면 그 팩만 봐요.",
+  },
+  {
+    target: "bag-done-box",
+    title: "완료함",
+    body: "챙긴 아이템을 정해 둔 때에 여기로 옮겨 가방을 깔끔하게 둬요. 옮기는 때는 눌러서 고르고, 완료함에서 아이템을 누르면 원래 팩으로 돌아와요.",
   },
   {
     target: "bag-members",
@@ -114,7 +119,7 @@ export const HOME_GUIDE_STEPS: TourStep[] = [
   {
     target: "home-carousel",
     title: "지금 챙길 가방",
-    body: "D-Day가 가깝거나 싸는 중인 가방이 여기 크게 보여요. 옆으로 넘겨 볼 수 있어요.",
+    body: "D-Day가 가깝거나 최근에 챙긴 가방이 여기 크게 보여요. 옆으로 넘겨 볼 수 있어요.",
   },
   {
     target: "home-row",

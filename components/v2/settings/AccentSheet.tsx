@@ -31,7 +31,6 @@ export function AccentSheet({
           <span className="flex items-baseline gap-1">
             <span className="text-title font-bold text-ink">3</span>
             <span className="text-caption text-sub">/ 5</span>
-            <span className="ml-1 rounded-full bg-brand-soft px-2 text-caption font-semibold text-brand">싸는 중</span>
           </span>
           <span className="flex items-center gap-1 text-caption font-semibold text-brand">
             <IconRotateClockwise size={16} stroke={1.9} />

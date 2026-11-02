@@ -151,7 +151,7 @@ interface AuthContextValue {
   updateBagSettings: (settings: Partial<NonNullable<UserProfile["bagSettings"]>>) => Promise<void>;
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
-  updateBagPhoneColumns: (columns: 1 | 2) => Promise<void>;
+  updateBagColumns: (bagId: string, columns: 1 | 2) => Promise<void>;
   updateSidebarWidth: (width: number) => Promise<void>;
   updateSidebarCollapsed: (collapsed: boolean) => Promise<void>;
   updateShortUrlEnabled: (enabled: boolean) => Promise<void>;
@@ -581,7 +581,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           bagSettings: data?.bagSettings as UserProfile["bagSettings"],
           packSettings: data?.packSettings as UserProfile["packSettings"],
           quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
-          bagPhoneColumns: data?.bagPhoneColumns as UserProfile["bagPhoneColumns"],
+          bagColumns: data?.bagColumns as UserProfile["bagColumns"],
           sidebarWidth: data?.sidebarWidth as number | undefined,
           sidebarCollapsed: data?.sidebarCollapsed as boolean | undefined,
           packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
@@ -1402,15 +1402,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await writeUser({ quickPackCollapsed: collapsed });
   };
 
-  // 리디자인 v2: 좁은 화면에서 가방 속 팩 열 수(1/2). 화면에 먼저 반영하고 계정에 저장한다.
-  const updateBagPhoneColumns = async (columns: 1 | 2) => {
+  // 좁은 화면에서 이 가방 아이템 열 수(2026-11-02 가방마다). 2열인 가방만 저장하고 1열이면 지운다. 화면에 먼저 반영하고 계정에 저장한다.
+  const updateBagColumns = async (bagId: string, columns: 1 | 2) => {
     if (!user) return;
-    setRawProfile((prev) => (prev ? { ...prev, bagPhoneColumns: columns } : prev));
-    if (isOfflineMode) {
-      saveLocalProfile({ bagPhoneColumns: columns });
-      return;
-    }
-    await writeUser({ bagPhoneColumns: columns });
+    setRawProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev.bagColumns };
+      if (columns === 2) next[bagId] = 2;
+      else delete next[bagId];
+      return { ...prev, bagColumns: next };
+    });
+    await writeUser({ [`bagColumns.${bagId}`]: columns === 2 ? 2 : REMOVE_FIELD }, true);
   };
 
   // 데스크톱 사이드바 폭(px) - 오른쪽 가장자리 드래그가 끝난 지점에서만 호출되므로(드래그 중에는
@@ -1747,7 +1749,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateBagSettings,
         updatePackSettings,
         updateQuickPackCollapsed,
-        updateBagPhoneColumns,
+        updateBagColumns,
         updateSidebarWidth,
         updateSidebarCollapsed,
         updateShortUrlEnabled,

@@ -51,7 +51,7 @@ type Lite = { id: string; text: string; checked: boolean };
 
 function checkItems(items: RawItem[] | undefined): Lite[] {
   return (Array.isArray(items) ? items : [])
-    .filter((i) => i && i.type !== "text" && typeof i.id === "string")
+    .filter((i) => i && typeof i.id === "string")
     .slice(0, MAX_ITEMS)
     .map((i) => ({ id: String(i.id), text: clip(i.text), checked: !!i.checked }));
 }

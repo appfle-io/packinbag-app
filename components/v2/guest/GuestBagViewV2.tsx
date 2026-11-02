@@ -61,7 +61,7 @@ export function GuestBagViewV2({ bag }: { bag: Bag }) {
       return next;
     });
 
-  const checkItems = packs.filter((p) => p.kind !== "editor").flatMap((p) => (p.items ?? []).filter((i) => i.type !== "text"));
+  const checkItems = packs.filter((p) => p.kind !== "editor").flatMap((p) => p.items ?? []);
   const done = checkItems.filter((i) => checks[i.id]).length;
   // 위젯과 같은 문구 · 기기 날짜 기준(예전엔 날짜를 UTC로 읽어 하루 어긋날 수 있었음), 당일을 1일로 세기도 따른다(2026-10-29)
   const dday = ddayText(bag.travelDate, new Date(), !!bag.ddayCountTodayAsDayOne) ?? "";
@@ -132,7 +132,7 @@ export function GuestBagViewV2({ bag }: { bag: Bag }) {
           {packs.map((p) => {
             const isMemo = p.kind === "editor";
             const items = p.items ?? [];
-            const checkable = items.filter((i) => i.type !== "text");
+            const checkable = items;
             const packDone = checkable.filter((i) => checks[i.id]).length;
             const isOpen = open.has(p.id);
             return (
@@ -167,27 +167,21 @@ export function GuestBagViewV2({ bag }: { bag: Bag }) {
                       <p className="m-0 py-2 text-caption text-faint">아이템이 없어요</p>
                     ) : (
                       <ul className="m-0 flex list-none flex-col p-0">
-                        {items.map((i) =>
-                          i.type === "text" ? (
-                            <li key={i.id} className={cx("py-2 text-body text-sub", i.bold && "font-semibold")}>
-                              {i.text}
-                            </li>
-                          ) : (
-                            <li key={i.id}>
-                              <button
-                                type="button"
-                                onClick={() => toggle(i.id)}
-                                aria-pressed={!!checks[i.id]}
-                                className="flex min-h-12 w-full items-center gap-3 rounded-field text-left active:bg-fill"
-                              >
-                                <CheckMark checked={!!checks[i.id]} />
-                                <span className={cx("min-w-0 flex-1 text-body", checks[i.id] ? "text-faint line-through" : "text-ink", i.bold && "font-semibold")}>
-                                  {i.text}
-                                </span>
-                              </button>
-                            </li>
-                          ),
-                        )}
+                        {items.map((i) => (
+                          <li key={i.id}>
+                            <button
+                              type="button"
+                              onClick={() => toggle(i.id)}
+                              aria-pressed={!!checks[i.id]}
+                              className="flex min-h-12 w-full items-center gap-3 rounded-field text-left active:bg-fill"
+                            >
+                              <CheckMark checked={!!checks[i.id]} />
+                              <span className={cx("min-w-0 flex-1 text-body", checks[i.id] ? "text-faint line-through" : "text-ink", i.bold && "font-semibold")}>
+                                {i.text}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
                       </ul>
                     )}
                   </div>

@@ -9,12 +9,6 @@ const SOON_DAYS = 7;
 // 여행일이 이만큼 지난 가방은 "보관함으로 옮길까요?"로 제안한다(구 홈과 같은 기준).
 const ARCHIVE_SUGGEST_DAYS_PAST = 7;
 
-export const STATE_LABEL: Record<PackingState, string> = {
-  empty: "비어 있음",
-  packing: "싸는 중",
-  packed: "다 쌌어요",
-};
-
 export interface BagSummary {
   bag: Bag;
   done: number;
@@ -30,7 +24,7 @@ export interface BagSummary {
   // 다가오는 D-Day만 "D-3" / "D-DAY". 당일을 1일로 세는 가방은 지난 뒤에도 "D+N"
   ddayLabel: string | null;
   soon: boolean;
-  // "싸는 중 · 10월 12일 · 어제 체크 · 2명"
+  // "10월 12일 · 어제 체크 · 2명"
   status: string;
   // 끊긴 동안 만들어서 아직 계정에 안 올라간 가방(lib/v2/pendingCreates)
   pending: boolean;
@@ -49,7 +43,6 @@ export function summarizeBag(bag: Bag, premium: boolean, pending = false): BagSu
   const countingUp = dday !== null && !!bag.ddayCountTodayAsDayOne;
   const ddayLabel = upcoming || countingUp ? formatDDayLabel(bag.travelDate, !!bag.ddayCountTodayAsDayOne) : null;
   const status = [
-    STATE_LABEL[state],
     formatShortDate(bag.travelDate),
     activityLabel || null,
     bag.memberIds.length > 1 ? `${bag.memberIds.length}명` : null,

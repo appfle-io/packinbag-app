@@ -13,7 +13,7 @@ export function getDisplayOrderedItems(
 ): Item[] {
   return moveCompletedToBottom
     ? [...items].sort(
-        (a, b) => Number(a.type === "check" && !!a.checked) - Number(b.type === "check" && !!b.checked)
+        (a, b) => Number(!!a.checked) - Number(!!b.checked)
       )
     : items;
 }

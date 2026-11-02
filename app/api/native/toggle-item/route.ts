@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         const checks = nextPacks
           .filter((p) => p && p.kind !== "editor" && p.type !== "folder")
           .flatMap((p) => (Array.isArray(p.items) ? p.items : []))
-          .filter((i) => i && i.type !== "text");
+          .filter(Boolean);
         if (checks.length > 0 && checks.every((i) => i.checked)) {
           patch.lastPackedAt = now;
           patch.lastPackedBy = uid;

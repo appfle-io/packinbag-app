@@ -9,13 +9,13 @@ const bag = (id: string, packs: Pack[], extra: Partial<Bag> = {}): Bag =>
 const NOW = new Date("2026-11-10T03:00:00.000Z");
 
 describe("NAT-SUM 가방 요약", () => {
-  it("NAT-SUM-02 체크 아이템만, 메모 · 폴더 팩 · 글 아이템 빼고", () => {
+  it("NAT-SUM-02 메모 · 폴더 팩 빼고, 예전 글 아이템도 체크로", () => {
     const s = buildNativeSummary(
       [bag("b1", [pack("p1", [item("a"), item("t", { type: "text" })]), pack("m", [], { kind: "editor" }), pack("f", [], { type: "folder" })])],
       "me",
       NOW,
     );
-    expect(s.bags[0].packs).toEqual([{ id: "p1", name: "p1", items: [{ id: "a", text: "a", checked: false }] }]);
+    expect(s.bags[0].packs).toEqual([{ id: "p1", name: "p1", items: [{ id: "a", text: "a", checked: false }, { id: "t", text: "t", checked: false }] }]);
   });
 
   it("NAT-SUM-03 휴지통 · 보관 · 잠근 가방 빼고, 고정한 가방이 먼저", () => {
@@ -82,7 +82,7 @@ describe("NAT-SUM 보관함 검색 목록", () => {
     );
     expect(list).toEqual([
       { id: "note", name: "note", kind: "note" },
-      { id: "old", name: "old", kind: "checklist", count: 1 },
+      { id: "old", name: "old", kind: "checklist", count: 2 },
     ]);
   });
 });

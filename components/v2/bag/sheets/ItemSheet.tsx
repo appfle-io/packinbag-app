@@ -3,18 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import type { Item, Pack } from "@/lib/types";
 import type { BagMember, ItemPatch } from "@/hooks/bag";
-import { Button, Chip, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
+import { Button, Chip, SectionHeader, SegmentedControl, Sheet, Toggle } from "@/components/v2/ui";
 import { useToast } from "@/components/Toast";
 import { ITEM_REMIND_PRESETS, MAX_CUSTOM_OFFSET, dueOffsetLabel } from "@/lib/v2/reminderPlan";
 
 // 아이템 마감 알림 한 묶음(마감 며칠 전 · "HH:MM")
 export type DueRemind = { offsets: number[]; time: string };
 
-// 아이템 길게 누르기: 이름 · 종류 · 담당 · 마감일 · 다른 팩으로 옮기기 · 복제 · 삭제
-// 마감일(2026-10-26): 체크 항목만. 멤버 모두에게 보이고, 알림은 각자 가방 더보기 > 알림 "아이템 마감"대로(dueHint)
+// 아이템 길게 누르기: 이름 · 담당 · 마감일 · 다른 팩으로 옮기기 · 복제 · 삭제
+// 마감일(2026-10-26): 멤버 모두에게 보이고, 알림은 각자 가방 더보기 > 알림 "아이템 마감"대로(dueHint)
 // 11/1: iOS 앱에서는 마감일 아래 "마감 알림" 기본 / 이 아이템만 따로(며칠 전 칩 · 직접 입력 · 받을 시간). 따로 정한 것은 내 계정에만(dueRemind)
-// 종류(체크 항목 · 글)는 팩 탭 아이템 시트와 같은 모양(2026-10-17)
+// 11/2: "알림 받기"를 마감일이 없어도 늘 보인다(켜면 마감일을 내일로). 끄면 이 아이템만 offsets 빈 값으로 저장
 // 고친 내용은 삭제를 뺀 모든 닫기(완료 · 바깥 · 끌어내리기 · Esc · 다른 줄)에서 저장한다(2026-10-14)
+// 이 기기 날짜 기준 내일(YYYY-MM-DD)
+function tomorrowDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function ItemSheet({
   target,
   onClose,
@@ -108,7 +115,6 @@ function ItemSheetBody({
 }) {
   const { show } = useToast();
   const [text, setText] = useState(target.item.text);
-  const [type, setType] = useState<Item["type"]>(target.item.type);
   const [assignee, setAssignee] = useState<string>(target.item.assigneeUid ?? "");
   const [packId, setPackId] = useState(target.pack.id);
   const [due, setDue] = useState(target.item.dueDate ?? "");
@@ -130,6 +136,23 @@ function ItemSheetBody({
     setCustomOpen(false);
     setCustomValue("");
   };
+  // 알림 받기(11/2): 마감일이 있고 기본 또는 따로 정한 알림이 하나라도 있으면 켜짐
+  const baseRemindOn = (dueRemind?.base.offsets.length ?? 0) > 0;
+  const remindOn = !!dueRemind && !!due && (remindMode === "own" ? remind.offsets.length > 0 : baseRemindOn);
+  const changeRemindOn = (on: boolean) => {
+    if (!on) {
+      setRemindMode("own");
+      setRemind((r) => ({ ...r, offsets: [] }));
+      return;
+    }
+    if (!due) {
+      onDueSet?.();
+      setDue(tomorrowDate());
+    }
+    // 가방 마감 알림을 꺼 둔 가방이면 이 아이템만 전날 · 당일로 켠다
+    setRemindMode(baseRemindOn ? "base" : "own");
+    if (!baseRemindOn) setRemind((r) => ({ ...r, offsets: [1, 0] }));
+  };
   const customOffsets = remind.offsets.filter((o) => !(ITEM_REMIND_PRESETS as readonly number[]).includes(o)).sort((a, b) => b - a);
 
   // 한 번 저장하면 다시 쓰지 않는다. move=false면 팩 옮기기는 빼고(복제는 원래 팩에서 하므로) 이름 · 담당만
@@ -139,14 +162,13 @@ function ItemSheetBody({
     doneRef.current = true;
     const patch: ItemPatch = {};
     if (text.trim() && text.trim() !== target.item.text) patch.text = text;
-    if (type !== target.item.type) patch.type = type;
     if ((target.item.assigneeUid ?? "") !== assignee) patch.assigneeUid = assignee || null;
     if ((target.item.dueDate ?? "") !== due) patch.dueDate = due || null;
     if (move && packId !== target.pack.id) patch.targetPackId = packId;
     if (Object.keys(patch).length > 0) onSave(patch);
     if (dueRemind && onDueRemindSave) {
-      // 마감일을 지우거나 글로 바꾸면 따로 정한 것도 지운다
-      const own = due && type === "check" && remindMode === "own" ? { offsets: [...remind.offsets].sort((a, b) => b - a), time: remind.time } : null;
+      // 마감일을 지우면 따로 정한 것도 지운다
+      const own = due && remindMode === "own" ? { offsets: [...remind.offsets].sort((a, b) => b - a), time: remind.time } : null;
       const key = (r: DueRemind | null) => (r ? `${[...r.offsets].sort((x, y) => y - x).join(",")}@${r.time}` : "");
       if (key(own) !== key(dueRemind.own)) onDueRemindSave(own);
     }
@@ -180,19 +202,6 @@ function ItemSheetBody({
         />
       </label>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-caption font-semibold text-sub">종류</span>
-        <SegmentedControl
-          label="아이템 종류"
-          value={type}
-          onChange={setType}
-          options={[
-            { value: "check", label: "체크 항목" },
-            { value: "text", label: "글" },
-          ]}
-        />
-      </div>
-
       {shared && (
         <div className="flex flex-col gap-2">
           <span className="text-caption font-semibold text-sub">담당</span>
@@ -214,95 +223,95 @@ function ItemSheetBody({
         </div>
       )}
 
-      {type === "check" && (
-        <div className="flex flex-col gap-2">
-          <span className="text-caption font-semibold text-sub">마감일</span>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              aria-label="마감일"
-              value={due}
-              onChange={(e) => {
-                if (e.target.value && !due) onDueSet?.();
-                setDue(e.target.value);
-              }}
-              className="h-11 min-w-0 flex-1 rounded-field border border-line bg-card px-3 text-body outline-none focus:border-ink"
-            />
-            {due && (
-              <Button size="sm" variant="secondary" onClick={() => setDue("")}>
-                지우기
-              </Button>
-            )}
-          </div>
-          {due && dueRemind && (
-            <SegmentedControl
-              label="마감 알림"
-              value={remindMode}
-              onChange={setRemindMode}
-              options={[
-                { value: "base", label: "기본 알림" },
-                { value: "own", label: "이 아이템만 따로" },
-              ]}
-            />
-          )}
-          {due && dueRemind && remindMode === "own" ? (
-            <div className="flex flex-col gap-3 rounded-card border border-line bg-card p-3">
-              <div className="flex flex-wrap gap-2">
-                {ITEM_REMIND_PRESETS.map((o) => (
-                  <Chip key={o} label={`마감 ${dueOffsetLabel(o)}`} selected={remind.offsets.includes(o)} onClick={() => toggleRemind(o)} />
-                ))}
-                {customOffsets.map((o) => (
-                  <Chip key={o} label={`마감 ${dueOffsetLabel(o)}`} selected onClick={() => toggleRemind(o)} />
-                ))}
-                <Chip label="직접 입력" onClick={() => setCustomOpen((v) => !v)} />
-              </div>
-              {customOpen && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={MAX_CUSTOM_OFFSET}
-                    aria-label="마감 며칠 전"
-                    value={customValue}
-                    onChange={(e) => setCustomValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addCustom();
-                      }
-                    }}
-                    className="h-10 w-20 rounded-field border border-line bg-card px-2 text-body outline-none"
-                  />
-                  <span className="text-body">일 전</span>
-                  <Button size="sm" variant="secondary" onClick={addCustom}>
-                    추가
-                  </Button>
-                </div>
-              )}
-              {remind.offsets.length > 0 && (
-                <div className="flex min-h-12 items-center justify-between border-t border-line pt-3">
-                  <span className="text-body">받을 시간</span>
-                  <input
-                    type="time"
-                    aria-label="이 아이템 알림 시간"
-                    value={remind.time}
-                    onChange={(e) => e.target.value && setRemind((r) => ({ ...r, time: e.target.value }))}
-                    className="h-10 rounded-field border border-line bg-card px-2 text-caption outline-none"
-                  />
-                </div>
-              )}
-              <p className="m-0 text-micro text-faint">
-                {remind.offsets.length > 0
-                  ? "이 아이템만 이때 알려 드려요 · 내 계정에만 저장돼요"
-                  : "이 아이템은 알리지 않아요 · 고르면 받을 시간이 나와요"}
-              </p>
-            </div>
-          ) : (
-            due && dueHint && <p className="m-0 text-micro text-faint">{dueHint}</p>
+      <div className="flex flex-col gap-2">
+        <span className="text-caption font-semibold text-sub">마감일</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            aria-label="마감일"
+            value={due}
+            onChange={(e) => {
+              if (e.target.value && !due) onDueSet?.();
+              setDue(e.target.value);
+            }}
+            className="h-11 min-w-0 flex-1 rounded-field border border-line bg-card px-3 text-body outline-none focus:border-ink"
+          />
+          {due && (
+            <Button size="sm" variant="secondary" onClick={() => setDue("")}>
+              지우기
+            </Button>
           )}
         </div>
-      )}
+        {dueRemind && (
+          <Toggle
+            checked={remindOn}
+            onChange={changeRemindOn}
+            label="알림 받기"
+            description={remindOn ? undefined : due ? "이 아이템은 알리지 않아요" : "켜면 마감일을 내일로 넣어요 · 날짜는 바꿀 수 있어요"}
+          />
+        )}
+        {remindOn && (
+          <SegmentedControl
+            label="마감 알림"
+            value={remindMode}
+            onChange={setRemindMode}
+            options={[
+              { value: "base", label: "기본 알림" },
+              { value: "own", label: "이 아이템만 따로" },
+            ]}
+          />
+        )}
+        {remindOn && remindMode === "own" ? (
+          <div className="flex flex-col gap-3 rounded-card border border-line bg-card p-3">
+            <div className="flex flex-wrap gap-2">
+              {ITEM_REMIND_PRESETS.map((o) => (
+                <Chip key={o} label={`마감 ${dueOffsetLabel(o)}`} selected={remind.offsets.includes(o)} onClick={() => toggleRemind(o)} />
+              ))}
+              {customOffsets.map((o) => (
+                <Chip key={o} label={`마감 ${dueOffsetLabel(o)}`} selected onClick={() => toggleRemind(o)} />
+              ))}
+              <Chip label="직접 입력" onClick={() => setCustomOpen((v) => !v)} />
+            </div>
+            {customOpen && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={MAX_CUSTOM_OFFSET}
+                  aria-label="마감 며칠 전"
+                  value={customValue}
+                  onChange={(e) => setCustomValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustom();
+                    }
+                  }}
+                  className="h-10 w-20 rounded-field border border-line bg-card px-2 text-body outline-none"
+                />
+                <span className="text-body">일 전</span>
+                <Button size="sm" variant="secondary" onClick={addCustom}>
+                  추가
+                </Button>
+              </div>
+            )}
+            <div className="flex min-h-12 items-center justify-between border-t border-line pt-3">
+              <span className="text-body">받을 시간</span>
+              <input
+                type="time"
+                aria-label="이 아이템 알림 시간"
+                value={remind.time}
+                onChange={(e) => e.target.value && setRemind((r) => ({ ...r, time: e.target.value }))}
+                className="h-10 rounded-field border border-line bg-card px-2 text-caption outline-none"
+              />
+            </div>
+            <p className="m-0 text-micro text-faint">이 아이템만 이때 알려 드려요 · 내 계정에만 저장돼요</p>
+          </div>
+        ) : (
+          due && (!dueRemind || remindOn) && dueHint && <p className="m-0 text-micro text-faint">{dueHint}</p>
+        )}
+      </div>
 
       {packs.length > 1 && (
         <div className="flex flex-col gap-2">

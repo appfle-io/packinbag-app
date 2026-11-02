@@ -43,7 +43,7 @@ function checklistItems(bag: BagLite): ItemLite[] {
 }
 
 export function progressOf(bag: BagLite): { done: number; total: number } {
-  const checks = checklistItems(bag).filter((i) => i.type !== "text");
+  const checks = checklistItems(bag);
   return { done: checks.filter((i) => i.checked).length, total: checks.length };
 }
 
@@ -71,7 +71,7 @@ export function diffBag(before: BagLite, after: BagLite, actor: string | undefin
     const old = prev.get(item.id);
     if (!old) {
       added.push((item.text ?? "").trim());
-    } else if (item.type !== "text" && item.checked && !old.checked) {
+    } else if (item.checked && !old.checked) {
       checked += 1;
     }
     const to = item.assigneeUid;

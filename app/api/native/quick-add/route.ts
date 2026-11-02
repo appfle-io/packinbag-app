@@ -22,8 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
 
-  const body = (await req.json().catch(() => null)) as { text?: unknown; type?: unknown } | null;
-  const type: Item["type"] = body?.type === "text" ? "text" : "check";
+  const body = (await req.json().catch(() => null)) as { text?: unknown } | null;
   const lines = (typeof body?.text === "string" ? body.text : "")
     .split(/\r?\n/)
     .map((l) => l.trim().slice(0, MAX_TEXT))
@@ -40,7 +39,7 @@ export async function POST(req: NextRequest) {
       // 탈퇴한 계정의 남은 토큰으로 데이터를 다시 만들지 않는다
       if (!userSnap.exists) throw new DeviceAuthError("다시 로그인해 주세요");
       const now = new Date().toISOString();
-      const items: Item[] = lines.map((text) => ({ id: newId(), type, text, checked: false }));
+      const items: Item[] = lines.map((text) => ({ id: newId(), type: "check", text, checked: false }));
       if (packSnap.exists) {
         const prev = packSnap.data()!;
         const prevItems: Item[] = Array.isArray(prev.items) ? prev.items : [];

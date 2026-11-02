@@ -220,7 +220,7 @@ export function widgetBagStats(
   for (const p of bag.packs ?? []) {
     if (!p || p.kind === "editor" || p.type === "folder") continue;
     for (const i of p.items ?? []) {
-      if (!i || i.type === "text") continue;
+      if (!i) continue;
       total += 1;
       if (i.checked) done += 1;
     }

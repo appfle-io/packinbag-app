@@ -46,8 +46,8 @@ function PackCard({ pack }: { pack: Pack }) {
         <ul className="m-0 flex list-none flex-col p-0">
           {items.map((i) => (
             <li key={i.id} className="flex min-h-10 items-center gap-3">
-              {i.type === "text" ? <span className="size-5.5 shrink-0" aria-hidden="true" /> : <CheckMark checked={!!i.checked} />}
-              <span className={cx("min-w-0 flex-1 text-body", i.type === "text" ? "text-sub" : "text-ink", i.bold && "font-semibold")}>{i.text}</span>
+              <CheckMark checked={!!i.checked} />
+              <span className={cx("min-w-0 flex-1 text-body text-ink", i.bold && "font-semibold")}>{i.text}</span>
             </li>
           ))}
         </ul>

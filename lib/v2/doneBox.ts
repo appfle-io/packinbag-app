@@ -48,7 +48,7 @@ function checkedTime(item: Item): number {
 
 // 이 아이템이 완료함으로 넘어가는 시각(ms). 완료함을 안 쓰거나 안 챙긴 아이템은 null
 export function doneBoxMoveAt(item: Item, bag: Bag, now = Date.now()): number | null {
-  if (item.type !== "check" || !item.checked) return null;
+  if (!item.checked) return null;
   const mode = doneBoxModeOf(bag);
   if (mode === "off") return null;
   const t = checkedTime(item);
@@ -105,12 +105,12 @@ export function splitDoneBox(
 export function stampCheckedAt(prev: Bag, next: Bag, nowIso: string): Bag {
   if (prev.packs === next.packs) return next;
   const wasChecked = new Set<string>();
-  for (const p of prev.packs) for (const i of p.items) if (i.type === "check" && i.checked) wasChecked.add(i.id);
+  for (const p of prev.packs) for (const i of p.items) if (i.checked) wasChecked.add(i.id);
   let changed = false;
   const packs = next.packs.map((p) => {
     let packChanged = false;
     const items = p.items.map((i) => {
-      if (i.type === "check" && i.checked) {
+      if (i.checked) {
         if (i.checkedAt || wasChecked.has(i.id)) return i;
         packChanged = true;
         return { ...i, checkedAt: nowIso };

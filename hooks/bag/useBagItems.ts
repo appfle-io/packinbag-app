@@ -24,8 +24,6 @@ export interface ItemPatch {
   dueDate?: string | null;
   // 다른 팩으로 옮길 때
   targetPackId?: string;
-  // 체크 항목 ↔ 글(2026-10-17, 팩 탭 아이템 시트와 같게). 글 → 체크는 체크 해제 상태로, 체크 → 글은 체크 값을 뜬다
-  type?: Item["type"];
 }
 
 // 아이템 단위 조작. 구 BagEditorScreen의 handleToggleItem / handleCreateItem / handleUpdateItem /
@@ -80,14 +78,14 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     if (guard()) return;
     // 되돌리면 체크한 시각도 그대로(가방 완료함에 있던 것은 다시 완료함으로)
     const checkedIds = new Map(
-      bag.packs.flatMap((p) => p.items.filter((i) => i.type === "check" && i.checked).map((i) => [i.id, i.checkedAt] as const)),
+      bag.packs.flatMap((p) => p.items.filter((i) => i.checked).map((i) => [i.id, i.checkedAt] as const)),
     );
     if (checkedIds.size === 0) return;
     update((prev) => ({
       ...prev,
       lastCheckedAt: new Date().toISOString(),
       packs: prev.packs.map((p) =>
-        p.kind === "editor" ? p : { ...p, items: p.items.map((i) => (i.type === "check" ? { ...i, checked: false } : i)) },
+        p.kind === "editor" ? p : { ...p, items: p.items.map((i) => ({ ...i, checked: false })) },
       ),
     }));
     show("모두 해제했어요. 새로 싸 볼까요?", {
@@ -164,7 +162,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
         const next: Bag = {
           ...prev,
           packs: prev.packs.map((p) =>
-            p.id !== packId ? p : { ...p, items: p.items.map((i) => (i.type === "check" ? { ...i, checked } : i)) },
+            p.id !== packId ? p : { ...p, items: p.items.map((i) => ({ ...i, checked })) },
           ),
         };
         return withPackedStamp(prev, next);
@@ -215,13 +213,11 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
     [guard, update, bag.packs, show, maxPacks, packLimit.message],
   );
 
-  // 이름/담당자/종류 수정 + 다른 팩으로 이동. 같은 팩이면 제자리, 다른 팩이면 대상 팩 맨 끝으로.
-  // 종류가 바뀌면 체크 수가 달라져 다 쌀 상태가 될 수 있어 체크 도장 규칙(withPackedStamp)을 같이 탄다
+  // 이름/담당자 수정 + 다른 팩으로 이동. 같은 팩이면 제자리, 다른 팩이면 대상 팩 맨 끝으로.
   const updateItem = useCallback(
     (sourcePackId: string, itemId: string, patch: ItemPatch) => {
       if (guard()) return;
       const target = patch.targetPackId ?? sourcePackId;
-      const stamp = (prev: Bag, next: Bag) => (patch.type ? withPackedStamp(prev, next) : next);
       update((prev) => {
         const original = prev.packs.find((p) => p.id === sourcePackId)?.items.find((i) => i.id === itemId);
         if (!original) return prev;
@@ -231,31 +227,26 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
           ...(patch.assigneeUid !== undefined ? { assigneeUid: patch.assigneeUid ?? undefined } : {}),
           ...(patch.dueDate !== undefined ? { dueDate: patch.dueDate ?? undefined } : {}),
         };
-        if (patch.type && patch.type !== original.type) {
-          nextItem.type = patch.type;
-          if (patch.type === "check") nextItem.checked = false;
-          else delete nextItem.checked;
-        }
         if (target === sourcePackId) {
-          return stamp(prev, {
+          return {
             ...prev,
             packs: prev.packs.map((p) =>
               p.id === sourcePackId ? synced({ ...p, items: p.items.map((i) => (i.id === itemId ? nextItem : i)) }) : p,
             ),
-          });
+          };
         }
-        return stamp(prev, {
+        return {
           ...prev,
           packs: prev.packs.map((p) => {
             if (p.id === sourcePackId) return synced({ ...p, items: p.items.filter((i) => i.id !== itemId) });
             if (p.id === target) return synced({ ...p, items: [...p.items, nextItem] });
             return p;
           }),
-        });
+        };
       });
       if (target !== sourcePackId) show("아이템을 옮겼어요");
     },
-    [guard, update, synced, show, withPackedStamp],
+    [guard, update, synced, show],
   );
 
   const duplicateItem = useCallback(
@@ -267,7 +258,7 @@ export function useBagItems(doc: BagDocument, libraryPacks: Pack[], currentUid: 
           if (p.id !== packId) return p;
           const idx = p.items.findIndex((i) => i.id === itemId);
           if (idx < 0) return p;
-          const copy: Item = { ...p.items[idx], id: newId(), ...(p.items[idx].type === "check" ? { checked: false } : {}) };
+          const copy: Item = { ...p.items[idx], id: newId(), checked: false };
           const items = [...p.items];
           items.splice(idx + 1, 0, copy);
           return synced({ ...p, items });

@@ -102,12 +102,8 @@ export function QuickAddSheet({
                   key={entry.id}
                   className={cx("flex min-h-11 items-center gap-3", i < justAdded.length - 1 && "border-b border-line")}
                 >
-                  {entry.type === "check" ? (
-                    <IconCheck size={18} stroke={2} className="shrink-0 text-brand" aria-hidden="true" />
-                  ) : (
-                    <span aria-hidden="true" className="size-4 shrink-0" />
-                  )}
-                  <span className={cx("min-w-0 flex-1 truncate text-body", entry.type === "check" ? "text-ink" : "text-sub")}>
+                  <IconCheck size={18} stroke={2} className="shrink-0 text-brand" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-body text-ink">
                     {entry.text}
                   </span>
                 </li>

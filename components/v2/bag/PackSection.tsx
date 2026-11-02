@@ -49,7 +49,7 @@ export function PackSection({
   onAdd,
   addActive,
 }: PackSectionProps) {
-  const checks = pack.items.filter((i) => i.type === "check");
+  const checks = pack.items;
   const done = checks.filter((i) => i.checked).length;
   const allDone = checks.length > 0 && done === checks.length;
   const header = useLongPress(onPackMenu, onToggleOpen);
@@ -179,17 +179,16 @@ function ItemLine({
   onToggle: () => void;
   onMenu: () => void;
 }) {
-  const isCheck = item.type === "check";
   const selecting = selected !== undefined;
-  const press = useLongPress(onMenu, isCheck || selecting ? onToggle : onMenu);
-  const done = isCheck && !!item.checked;
-  const due = isCheck && !done ? dueBadge(item.dueDate) : null;
+  const press = useLongPress(onMenu, onToggle);
+  const done = !!item.checked;
+  const due = !done ? dueBadge(item.dueDate) : null;
   return (
-    <li data-item-id={item.id} className={cx("min-w-0", !isCheck && "col-span-full")}>
+    <li data-item-id={item.id} className="min-w-0">
       <button
         type="button"
         {...press}
-        aria-pressed={selecting ? selected : isCheck ? done : undefined}
+        aria-pressed={selecting ? selected : done}
         className={cx(
           "flex w-full select-none items-center rounded-field bg-transparent text-left",
           dense ? "min-h-11 gap-2" : "min-h-12 gap-3",
@@ -207,17 +206,14 @@ function ItemLine({
           >
             {selected && <IconCheck size={14} stroke={2.6} />}
           </span>
-        ) : isCheck ? (
-          <CheckMark checked={done} />
         ) : (
-          <span aria-hidden="true" className="size-5.5 shrink-0" />
+          <CheckMark checked={done} />
         )}
         <span
           className={cx(
             "min-w-0 flex-1 text-body transition-colors duration-160 ease-snappy",
             dense && "line-clamp-2 break-keep",
             done ? "text-faint" : "text-ink",
-            !isCheck && "text-sub",
             item.bold && "font-semibold",
           )}
         >

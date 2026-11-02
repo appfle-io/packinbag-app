@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import type { Bag, Item, Pack } from "@/lib/types";
-import { Button, CheckMark, ListRow, SectionHeader, SegmentedControl, Sheet } from "@/components/v2/ui";
+import { Button, CheckMark, ListRow, SectionHeader, Sheet } from "@/components/v2/ui";
 
 // 팩 보관함 체크리스트 팩 화면(PackEditorV2)이 쓰는 시트들.
 
@@ -20,7 +20,7 @@ export function LibraryItemSheet({
 }: {
   item: Item | null;
   onClose: () => void;
-  onSave: (patch: { text?: string; type?: Item["type"] }) => void;
+  onSave: (patch: { text?: string }) => void;
   onSelectMany: () => void;
   onMove: () => void;
   onDuplicate: () => void;
@@ -63,14 +63,13 @@ function ItemBody({
   item: Item;
   commitRef: React.RefObject<(() => void) | null>;
   onClose: () => void;
-  onSave: (patch: { text?: string; type?: Item["type"] }) => void;
+  onSave: (patch: { text?: string }) => void;
   onSelectMany: () => void;
   onMove: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
   const [text, setText] = useState(item.text);
-  const [type, setType] = useState<Item["type"]>(item.type);
   const rowCls = "flex min-h-13 items-center border-b border-line bg-transparent text-left text-body";
 
   // 한 번 저장한 변경은 다시 쓰지 않는다. 삭제하면 저장하지 않는다
@@ -78,9 +77,8 @@ function ItemBody({
   const commit = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const patch: { text?: string; type?: Item["type"] } = {};
+    const patch: { text?: string } = {};
     if (text.trim() && text.trim() !== item.text) patch.text = text.trim();
-    if (type !== item.type) patch.type = type;
     if (Object.keys(patch).length > 0) onSave(patch);
   };
   useEffect(() => {
@@ -122,18 +120,6 @@ function ItemBody({
           className="h-12 rounded-field border border-line bg-card px-4 text-body-lg font-semibold outline-none focus:border-ink"
         />
       </label>
-      <div className="flex flex-col gap-2">
-        <span className="text-caption font-semibold text-sub">종류</span>
-        <SegmentedControl
-          label="아이템 종류"
-          value={type}
-          onChange={setType}
-          options={[
-            { value: "check", label: "체크 항목" },
-            { value: "text", label: "글" },
-          ]}
-        />
-      </div>
       <div className="flex flex-col rounded-card border border-line bg-card px-4">
         <button type="button" className={rowCls} onClick={then(onSelectMany)}>
           여러 개 선택

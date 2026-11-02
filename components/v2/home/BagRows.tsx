@@ -80,7 +80,7 @@ export function BagRow({ summary, locked, privateLocked, last, archived, guide, 
   );
 }
 
-// 홈 상단 큰 카드(캐러셀 한 장). eyebrow = 제목 위 작은 줄(고정 / 곧 출발 / 지금 싸는 중).
+// 홈 상단 큰 카드(캐러셀 한 장). eyebrow = 제목 위 작은 줄(고정 / 곧 D-Day / 어제 체크).
 export function FeaturedBagCard({
   summary,
   locked,
@@ -90,7 +90,7 @@ export function FeaturedBagCard({
 }: Omit<RowProps, "last" | "archived"> & { eyebrow?: string }) {
   const press = useLongPress(onMenu, onOpen);
   const { bag } = summary;
-  const label = eyebrow ?? `지금 싸는 중${summary.activityLabel ? ` · ${summary.activityLabel}` : ""}`;
+  const label = eyebrow ?? (summary.activityLabel || "최근에 챙긴 가방");
   return (
     <button
       type="button"
@@ -116,7 +116,7 @@ export function FeaturedBagCard({
       <span className="flex w-full flex-col gap-2">
         <ProgressBar value={summary.ratio} label={`${bag.name} 챙긴 비율`} />
         <span className="flex items-center justify-between gap-3 text-caption text-sub">
-          <span>{summary.total > 0 ? `${summary.done} / ${summary.total} 챙김` : "아직 비어 있어요"}</span>
+          <span>{summary.total > 0 ? `${summary.done} / ${summary.total} 챙김` : "아직 아이템이 없어요"}</span>
           {bag.lastPackedAt && <span className="truncate">마지막으로 다 싼 날 · {formatRelativeDay(bag.lastPackedAt)}</span>}
         </span>
       </span>
