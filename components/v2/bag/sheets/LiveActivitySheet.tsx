@@ -29,6 +29,7 @@ import { usePrivateLock } from "@/components/v2/lock/usePrivateLock";
 // 10/12: 맨 위에 실제 잠금화면 카드와 같은 미리 보기(고르는 즉시 바뀜), 글자색(자동 · 흰색 · 검정 · 직접), 화면 정리.
 //   미리 보기는 ios/App/PackInBagWidget/PackInBagWidgetLiveActivity.swift(여백 18/14 · 2열 2줄 · 진행 막대 · "외 N개 · 시각")와
 //   PIBStyle.swift(PIBPalette 색 · 글자 크기 배율)를 그대로 옮긴 것. 둘 중 하나를 바꾸면 같이 바꾼다
+// 11/2: "두 번 눌러 체크"(1.14 앱에서만 보임, 기본 끔). 잘못 눌러 체크되는 것을 막는다
 // 10/13: "완료된 항목 보이기"(끄면 챙긴 것을 뺀다), 색 샘플은 6개 + 더 고르기를 한 줄 격자로(좁은 폭에서는 동그라미가 줄어든다)
 const STYLE_KEY = "pib_live_activity_style";
 const WHOLE_BAG = "*";
@@ -88,6 +89,7 @@ type Style = {
   textTone: LiveActivityTextTone;
   textColor: string;
   showDone: boolean;
+  tapTwice: boolean;
 };
 const DEFAULT_STYLE: Style = {
   theme: "system",
@@ -98,6 +100,7 @@ const DEFAULT_STYLE: Style = {
   textTone: "auto",
   textColor: "#FFFFFF",
   showDone: true,
+  tapTwice: false,
 };
 
 const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9A-Fa-f]{6}$/.test(v);
@@ -130,6 +133,7 @@ function loadStyle(): Style {
         textTone: TEXT_TONES.some((t) => t.value === saved.textTone) ? saved.textTone : DEFAULT_STYLE.textTone,
         textColor: isHex(saved.textColor) ? saved.textColor.toUpperCase() : DEFAULT_STYLE.textColor,
         showDone: saved.showDone !== false,
+        tapTwice: saved.tapTwice === true,
       };
     }
   } catch {}
@@ -355,6 +359,7 @@ export function LiveActivitySheet({ open, onClose, bag }: { open: boolean; onClo
         textTone: style.textTone,
         ...(style.textTone === "custom" ? { textColor: style.textColor } : {}),
         showDone: style.showDone,
+        ...(state?.tapTwice ? { tapTwice: style.tapTwice } : {}),
       });
       show("잠금화면에 띄웠어요");
       onClose();
@@ -431,6 +436,14 @@ export function LiveActivitySheet({ open, onClose, bag }: { open: boolean; onClo
             checked={style.showDone}
             onChange={(showDone) => changeStyle({ showDone })}
           />
+          {state?.tapTwice && (
+            <Toggle
+              label="두 번 눌러 체크"
+              description="잘못 눌러 체크되는 걸 막아요. 한 번 누르면 확인 표시가 뜨고, 다시 누르면 체크돼요"
+              checked={style.tapTwice}
+              onChange={(tapTwice) => changeStyle({ tapTwice })}
+            />
+          )}
         </section>
 
         <section className="flex flex-col gap-3">

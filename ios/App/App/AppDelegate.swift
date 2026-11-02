@@ -256,11 +256,13 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
         if textTone == "custom" && textColor == nil { textTone = "auto" }
         // 완료된 항목 보이기(1.6, 10/13). 없으면 보임
         let showDone = call.getBool("showDone") ?? true
+        // 두 번 눌러 체크(1.14, 11/2). 없으면 바로 체크
+        let tapTwice = call.getBool("tapTwice") ?? false
         Task {
             do {
                 let id = try await PIBLiveActivity.start(
                     bagId: bagId, packId: packId, theme: theme, font: font, size: size, bgColor: bgColor, bgAlpha: bgAlpha,
-                    textTone: textTone, textColor: textColor, showDone: showDone
+                    textTone: textTone, textColor: textColor, showDone: showDone, tapTwice: tapTwice
                 )
                 call.resolve(["id": id])
             } catch {
@@ -285,6 +287,8 @@ public class PackInBagNativePlugin: CAPPlugin, CAPBridgedPlugin {
             "supported": true,
             "enabled": ActivityAuthorizationInfo().areActivitiesEnabled,
             "active": PIBLiveActivity.current != nil,
+            // 이 앱이 두 번 눌러 체크를 아는지(1.14). 웹이 옵션을 보일지 정한다
+            "tapTwice": true,
         ]
         if let current = PIBLiveActivity.current {
             result["bagId"] = current.bagId

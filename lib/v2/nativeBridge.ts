@@ -52,12 +52,16 @@ export interface LiveActivityOptions {
   textColor?: string;
   // 완료된 항목 보이기(2026-10-13). false면 잠금화면에서 챙긴 것을 뺀다. 1.6 네이티브부터, 그 전 빌드는 무시(항상 보임)
   showDone?: boolean;
+  // 두 번 눌러 체크(2026-11-02). true면 잠금화면 첫 탭은 확인 표시만. 1.14 네이티브부터, 그 전 빌드는 무시(바로 체크)
+  tapTwice?: boolean;
 }
 
 export interface LiveActivityState {
   supported: boolean;
   enabled: boolean;
   active: boolean;
+  // 1.14 앱부터 true: 두 번 눌러 체크를 쓸 수 있음
+  tapTwice?: boolean;
   bagId?: string;
   packId?: string;
 }

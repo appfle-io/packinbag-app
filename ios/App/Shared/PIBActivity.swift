@@ -21,6 +21,9 @@ struct PackActivityAttributes: ActivityAttributes {
         var itemPacks: [String: String]?
         // 다 챙긴 시각(1970년부터 초, 10/11). 이때부터 5분 뒤 내린다. 하나라도 풀면 없어진다
         var doneAt: Double?
+        // 두 번 눌러 체크(1.14, 11/2): 첫 탭을 받은 아이템 id와 그 시각. 서버는 보내지 않는다(없으면 평소 화면)
+        var armedItemId: String?
+        var armedAt: Double?
     }
 
     var bagId: String
@@ -42,6 +45,8 @@ struct PackActivityAttributes: ActivityAttributes {
     // 띄운 시각(1970년부터 초, 10/27). iOS가 8시간 뒤 끝내므로 그 직전을 멈춤 시각(staleDate)으로 둔다.
     // 옛 빌드가 띄운 활동에는 없다(멈춤 표시 없이 예전처럼)
     var startedAt: Double? = nil
+    // 두 번 눌러 체크(1.14, 11/2): true면 첫 탭은 확인 표시만, 다시 눌러야 체크. nil = 바로 체크(예전과 같음)
+    var tapTwice: Bool? = nil
 }
 
 @available(iOS 16.2, *)
@@ -54,6 +59,10 @@ enum PIBLiveActivity {
     // 체크해도 먹통 · 앱에서 체크해도 안 바뀜) 5분 전부터 "멈췄어요"로 보이고, 앱을 열거나 카드를 누르면 다시 띄운다.
     // 서버(functions/src/live.ts STALE_AFTER_SEC)도 같은 값으로 stale-date를 보낸다
     static let staleAfter: TimeInterval = 8 * 3600 - 5 * 60
+
+    // 두 번 눌러 체크: 확인 표시를 보이는 시간. 표시가 못 지워진 채 남아 있어도(앱이 곧바로 멈춘 경우) 이 시간이 지나면 다시 첫 탭으로 친다
+    private static let armedShowSeconds: UInt64 = 4
+    private static let armedValidSeconds: TimeInterval = 6
 
     static func staleDate(_ a: PackActivityAttributes) -> Date? {
         a.startedAt.map { Date(timeIntervalSince1970: $0 + staleAfter) }
@@ -113,7 +122,7 @@ enum PIBLiveActivity {
     @discardableResult
     static func start(
         bagId: String, packId: String, theme: String, font: String, size: String,
-        bgColor: String? = nil, bgAlpha: Double? = nil, textTone: String? = nil, textColor: String? = nil, showDone: Bool? = nil
+        bgColor: String? = nil, bgAlpha: Double? = nil, textTone: String? = nil, textColor: String? = nil, showDone: Bool? = nil, tapTwice: Bool? = nil
     ) async throws -> String {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             throw PIBError.server("설정 > 팩인백에서 실시간 현황을 켜 주세요")
@@ -128,7 +137,8 @@ enum PIBLiveActivity {
             bgColor: theme == "custom" ? bgColor : nil, bgAlpha: theme == "custom" ? bgAlpha : nil,
             textTone: tone, textColor: tone == "custom" ? textColor : nil,
             showDone: showDone == false ? false : nil,
-            startedAt: Date().timeIntervalSince1970
+            startedAt: Date().timeIntervalSince1970,
+            tapTwice: tapTwice == true ? true : nil
         )
         let activity: Activity<PackActivityAttributes>
         do {
@@ -212,6 +222,37 @@ enum PIBLiveActivity {
             .content.state.items.first(where: { $0.id == itemId })?.checked
     }
 
+    // 두 번 눌러 체크(1.14, 11/2): 이번 탭을 체크하지 않고 멈춰야 하면 true.
+    // 옵션이 꺼져 있거나 확인 표시가 뜬 같은 아이템을 다시 눌렀으면 false(원래대로 체크).
+    // 멈춘 카드는 체크 없이 다시 띄우기만 한다(한 번 눌러 체크되면 옵션을 켠 뜻이 없어서)
+    static func holdForSecondTap(bagId: String, packId: String, itemId: String) async -> Bool {
+        let shown = Activity<PackActivityAttributes>.activities.first(where: { $0.activityState != .dismissed && $0.attributes.bagId == bagId })
+        guard shown?.attributes.tapTwice == true else { return false }
+        if await restartIfStopped(bagId: bagId) { return true }
+        guard let activity = find(bagId: bagId, packId: packId) else { return false }
+        var state = activity.content.state
+        let now = Date().timeIntervalSince1970
+        if state.armedItemId == itemId, let at = state.armedAt, now - at <= armedValidSeconds { return false }
+        state.armedItemId = itemId
+        state.armedAt = now
+        await apply(state, to: activity)
+        // perform 안에서 기다리지 않는다(시스템이 인텐트를 순서대로 돌리면 두 번째 탭이 표시가 지워진 뒤에 실행될 수 있어서)
+        Task {
+            try? await Task.sleep(nanoseconds: armedShowSeconds * 1_000_000_000)
+            await disarm(bagId: bagId, packId: packId, armedAt: now)
+        }
+        return true
+    }
+
+    // 그 사이 다른 아이템을 눌렀으면(armedAt이 다름) 그대로 둔다
+    private static func disarm(bagId: String, packId: String, armedAt: Double) async {
+        guard let activity = find(bagId: bagId, packId: packId), activity.content.state.armedAt == armedAt else { return }
+        var state = activity.content.state
+        state.armedItemId = nil
+        state.armedAt = nil
+        await apply(state, to: activity)
+    }
+
     // 잠금화면에서 누른 체크: 지금 보이는 화면을 기준으로 바로 고친다(요약이 서버 원격 갱신보다 늦을 수 있어서).
     // 여기서는 체크 표시만 바꾼다. 정렬은 잠깐 뒤 reorder(B안, 10/13 - 누른 게 먼저 보이고 이어서 맨 뒤로)
     static func toggle(bagId: String, packId: String, itemId: String) async -> Bool? {
@@ -221,6 +262,8 @@ enum PIBLiveActivity {
         let next = !state.items[index].checked
         state.items[index].checked = next
         state.done = max(0, min(state.total, state.done + (next ? 1 : -1)))
+        state.armedItemId = nil
+        state.armedAt = nil
         await apply(state, to: activity)
         return next
     }
@@ -248,6 +291,8 @@ enum PIBLiveActivity {
             return
         }
         state.done = max(0, min(state.total, state.done + (checked ? 1 : -1)))
+        state.armedItemId = nil
+        state.armedAt = nil
         await apply(resorted(state, attributes: activity.attributes), to: activity)
     }
 
@@ -326,7 +371,7 @@ enum PIBLiveActivity {
         do {
             _ = try await start(
                 bagId: a.bagId, packId: a.packId, theme: a.theme, font: a.font, size: a.size,
-                bgColor: a.bgColor, bgAlpha: a.bgAlpha, textTone: a.textTone, textColor: a.textColor, showDone: a.showDone
+                bgColor: a.bgColor, bgAlpha: a.bgAlpha, textTone: a.textTone, textColor: a.textColor, showDone: a.showDone, tapTwice: a.tapTwice
             )
             return .restarted
         } catch {

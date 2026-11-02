@@ -263,22 +263,32 @@ struct ItemRow: View {
     let item: PIBItem
     let style: PIBStyle
     let c: PIBPalette
+    // 잠금화면 두 번 눌러 체크(1.14, 11/2): 첫 탭을 받은 줄
+    var armed = false
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: item.checked ? "checkmark.circle.fill" : "circle")
+            Image(systemName: armed ? "hand.tap.fill" : item.checked ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 16 * style.scale, weight: .medium))
-                .foregroundStyle(item.checked ? c.brand : c.sub)
-            Text(item.text)
-                .font(style.font(14))
-                .foregroundStyle(item.checked ? c.sub : c.ink)
-                .lineLimit(1)
-                // 위젯에서는 strikethrough가 그려지지 않는 경우가 있어 줄을 직접 긋는다(10/10)
-                .overlay {
-                    if item.checked {
-                        Rectangle().fill(c.sub).frame(height: 1)
+                .foregroundStyle(armed || item.checked ? c.brand : c.sub)
+            if armed {
+                Text(item.checked ? "한 번 더 누르면 해제" : "한 번 더 누르면 체크")
+                    .font(style.font(14, bold: true))
+                    .foregroundStyle(c.brand)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            } else {
+                Text(item.text)
+                    .font(style.font(14))
+                    .foregroundStyle(item.checked ? c.sub : c.ink)
+                    .lineLimit(1)
+                    // 위젯에서는 strikethrough가 그려지지 않는 경우가 있어 줄을 직접 긋는다(10/10)
+                    .overlay {
+                        if item.checked {
+                            Rectangle().fill(c.sub).frame(height: 1)
+                        }
                     }
-                }
+            }
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())

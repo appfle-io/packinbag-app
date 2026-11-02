@@ -6,6 +6,7 @@
 //   아이템은 2열 2줄(최대 4개), "외 N개"와 새로고침 시각은 맨 아래 한 줄에
 // 다이내믹 아일랜드 · 잠금화면을 누르면 그 가방이 열린다(packinbag://bag/{id}, 10/11). 잠금화면 아래 줄에 받은 시각 + ↻
 // 글자색(1.6, 10/12): attributes.textTone(자동 · 흰색 · 검정 · 직접). 잠금화면 카드만, 다이내믹 아일랜드는 그대로
+// 두 번 눌러 체크(1.14, 11/2): 첫 탭을 받은 줄(state.armedItemId)은 ItemRow가 "한 번 더 누르면 체크"로 보인다. 줄 높이는 그대로
 import ActivityKit
 import WidgetKit
 import SwiftUI
@@ -119,7 +120,7 @@ struct PackLockScreenView: View {
         // 가방 전체로 띄우면 체크는 아이템의 원래 팩으로
         let packId = state.itemPacks?[item.id] ?? attributes.packId
         return Button(intent: ToggleItemLiveIntent(bagId: attributes.bagId, packId: packId, itemId: item.id)) {
-            ItemRow(item: item, style: style, c: c)
+            ItemRow(item: item, style: style, c: c, armed: state.armedItemId == item.id)
         }
         .buttonStyle(.plain)
     }
@@ -149,7 +150,7 @@ struct PackInBagWidgetLiveActivity: Widget {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(islandItems, id: \.id) { item in
                             Button(intent: ToggleItemLiveIntent(bagId: context.attributes.bagId, packId: context.state.itemPacks?[item.id] ?? context.attributes.packId, itemId: item.id)) {
-                                ItemRow(item: item, style: style, c: c)
+                                ItemRow(item: item, style: style, c: c, armed: context.state.armedItemId == item.id)
                             }
                             .buttonStyle(.plain)
                         }

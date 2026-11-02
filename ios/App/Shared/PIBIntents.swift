@@ -58,6 +58,8 @@ struct ToggleItemLiveIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
+        // 두 번 눌러 체크(1.14, 11/2): 첫 탭은 확인 표시만
+        if await PIBLiveActivity.holdForSecondTap(bagId: bagId, packId: packId, itemId: itemId) { return .result() }
         // 지금 잠금화면에 보이는 값을 기준으로 뒤집는다(서버가 원격으로 고쳤을 수 있어 요약보다 최신일 수 있다, 10/11)
         let next: Bool
         let shownBefore = PIBLiveActivity.shownChecked(bagId: bagId, itemId: itemId)
