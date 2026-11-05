@@ -5,6 +5,7 @@ import type { Pack } from "@/lib/types";
 import { resolveEditorSyncDirection, buildEditorSyncPatch } from "@/lib/packSync";
 import { updateLibraryPackEditorContent } from "@/lib/packsService";
 import { checkBagSizeForSave } from "@/lib/editorDocLimits";
+import { noteSummary } from "@/lib/bagNotesCore";
 import { splitBagForSave } from "@/lib/bagNotesCore";
 import { useToast } from "@/components/Toast";
 import type { BagDocument } from "./useBagDocument";
@@ -134,6 +135,25 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, 
     [bag, update, show],
   );
 
+  // 편집기가 본문을 직접 저장하는 메모(lib/noteSync). 나갈 때 가방 문서에 요약 · 이름을 쓴다. 본문은 이미 notes에 있다
+  const saveNoteSummary = useCallback(
+    (updated: Pack) => {
+      const body = updated.editorDoc as object | undefined;
+      if (body) doc.applySavedNoteBody(updated.id, body);
+      const next: Pack = { ...updated, ...noteSummary(updated, body), noteSeparated: true };
+      update((prev) => ({ ...prev, packs: prev.packs.map((p) => (p.id === updated.id ? next : p)) }));
+    },
+    [doc, update],
+  );
+
+  // 이름 · 연결 설정처럼 본문이 아닌 값만 바꿀 때(본문은 화면에 있는 그대로 둔다)
+  const saveNoteMeta = useCallback(
+    (updated: Pack) => {
+      update((prev) => ({ ...prev, packs: prev.packs.map((p) => (p.id === updated.id ? { ...updated, editorDoc: p.editorDoc } : p)) }));
+    },
+    [update],
+  );
+
   // 팩 순서 바꾸기(2026-10-31): 순서 시트에 보인 팩만 새 순서로, 나머지는 제자리(lib/packOrder)
   const reorderPacks = useCallback(
     (orderedIds: string[]) => {
@@ -181,5 +201,5 @@ export function usePackOps({ doc, libraryPacks, currentUid, onTrashPackFromBag, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bag.packs, libraryPacks, doc.notesReady]);
 
-  return { importPacks, addPack, renamePack, deletePack, saveNotePack, toggleAutoSync, reorderPacks };
+  return { importPacks, addPack, renamePack, deletePack, saveNotePack, saveNoteSummary, saveNoteMeta, toggleAutoSync, reorderPacks };
 }

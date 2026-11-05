@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.14.1",
+    date: "2026-11-05",
+    items: ["메모를 함께 쓸 때 글이 겹치거나 사라지지 않게 고쳤어요"],
+  },
+  {
     version: "1.14.0",
     date: "2026-11-02",
     items: ["잠금화면 실시간 현황을 두 번 눌러 체크하게 할 수 있어요(새 앱 버전 필요)"],

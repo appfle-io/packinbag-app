@@ -80,6 +80,10 @@ import { MemoShareSheet } from "@/components/v2/note/MemoShareSheet";
 import { PhotoViewer } from "@/components/v2/bag/PhotoViewer";
 import { PdfViewer } from "@/components/v2/bag/PdfViewer";
 import { mergeEditorDocs } from "@/lib/syncMerge";
+import { NoteSyncSession } from "@/lib/noteSync";
+import { firebaseErrorCode } from "@/lib/errorMessage";
+import { commitNote, writeNoteQueued } from "@/lib/bagNotesService";
+import { rawOf, type BagNote } from "@/lib/bagNotesCore";
 import { useOnlineGuard } from "@/components/v2/shell/useOnlineGuard";
 import { sweepRemovedAttachments } from "@/lib/storageCleanup";
 import { PrivateLockGate } from "@/components/v2/lock/LockUI";
@@ -112,7 +116,33 @@ function applyDocKeepingCursor(ed: Editor, nextDoc: object | string) {
   }
 }
 
+// 다른 사람 글을 합쳐 넣을 때 바뀐 부분만 고친다. 통째로 바꾸면 커서 · 화면 위치 · 되돌리기가 흔들린다(2026-11-05)
+function applyDocChangedPart(ed: Editor, nextDoc: object) {
+  try {
+    const current = ed.state.doc;
+    const next = ed.schema.nodeFromJSON(nextDoc);
+    const start = current.content.findDiffStart(next.content);
+    if (start === null) return;
+    const ends = current.content.findDiffEnd(next.content);
+    if (!ends) return;
+    let { a: endA, b: endB } = ends;
+    const overlap = start - Math.min(endA, endB);
+    if (overlap > 0) {
+      endA += overlap;
+      endB += overlap;
+    }
+    const tr = ed.state.tr.replace(start, endA, next.slice(start, endB));
+    tr.setMeta("preventUpdate", true);
+    tr.setMeta("addToHistory", false);
+    ed.view.dispatch(tr);
+  } catch {
+    applyDocKeepingCursor(ed, nextDoc);
+  }
+}
+
 const AUTOSAVE_DEBOUNCE_MS = 600;
+// 가방 안 메모: 저장 1번이 읽기 1 + 쓰기 1이라 조금 더 모은다. 앱을 떠날 때는 바로 보낸다
+const NOTE_SYNC_DEBOUNCE_MS = 1000;
 // 이미지가 아닌 파일(PDF/기타 문서 형식)은 이미지처럼 압축되지 않고 원본 크기 그대로
 // 올라가므로, 큰 파일을 막기 위해 따로 크기 상한을 둔다(2026-08~ 10MB로 상향).
 const MAX_PACK_ATTACHMENT_FILE_BYTES = 10 * 1024 * 1024;
@@ -140,6 +170,7 @@ function PackNoteEditorScreenInner({
   premium,
   initialSearchQuery,
   isNameTaken,
+  noteSync,
 }: {
   pack: Pack;
   readOnly?: boolean;
@@ -163,8 +194,11 @@ function PackNoteEditorScreenInner({
   initialSearchQuery?: string;
   // 같은 이름 검사(2026-10-14). 보관함 메모만 AppShell이 넘긴다(같은 폴더의 팩 · 메모 이름과 겹치면 true)
   isNameTaken?: (name: string) => boolean;
+  // 있으면 본문을 이 화면이 직접 저장한다(lib/noteSync, 가방 안 메모). 가방 문서 요약은 나갈 때 onSummary로 한 번
+  noteSync?: { remote: BagNote | undefined; onSummary: (pack: Pack) => void };
 }) {
   const commitSaveRef = useRef<(() => void) | null>(null);
+  const finalizeNoteRef = useRef<(() => void) | null>(null);
   // v2: 이미 공유한 메모를 고친 뒤 나갈 때 공유 스냅샷을 조용히 갱신(아래 refreshShareRef.current 정의 참고)
   const refreshShareRef = useRef<(() => void) | null>(null);
   const handleBack = useCallback(() => {
@@ -175,6 +209,7 @@ function PackNoteEditorScreenInner({
         commitSaveRef.current?.();
       }
     }
+    finalizeNoteRef.current?.();
     refreshShareRef.current?.();
     onBack();
   }, [onBack]);
@@ -225,6 +260,10 @@ function PackNoteEditorScreenInner({
   const [headings, setHeadings] = useState<{ pos: number; level: number; text: string }[]>([]);
 
   const packRef = useRef(pack);
+  const noteSyncRef = useRef(noteSync);
+  noteSyncRef.current = noteSync;
+  // 예전 images를 본문으로 옮긴 메모(열 때 한 번): 세션이 준비되면 저장한다
+  const noteMigratedRef = useRef(false);
   // 이번에 열어 둔 동안 본문·사진 칸에 한 번이라도 있었던 첨부 주소
   const seenAttachmentUrlsRef = useRef<Set<string>>(
     new Set([...(pack.images ?? []), ...extractDocAttachmentUrls(pack.editorDoc)]),
@@ -549,7 +588,8 @@ function PackNoteEditorScreenInner({
         updatedAt: new Date().toISOString(),
       };
       packRef.current = updated;
-      onSave(updated);
+      if (noteSyncRef.current) noteMigratedRef.current = true;
+      else onSave(updated);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -693,8 +733,64 @@ function PackNoteEditorScreenInner({
 
   const lastSyncedDocRef = useRef<unknown>(pack.editorDoc);
 
+  // --- 가방 안 메모: 저장 · 받기를 NoteSyncSession이 맡는다 ---------------------------------
+  const sessionRef = useRef<NoteSyncSession | null>(null);
+  // 마지막 요약(가방 문서) 뒤로 본문을 저장했는지. 나갈 때 한 번만 쓴다
+  const summaryDirtyRef = useRef(false);
+  const refreshHeadingsRef = useRef(refreshHeadings);
+  refreshHeadingsRef.current = refreshHeadings;
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !noteSyncRef.current || sessionRef.current || !bagId) return;
+    const packId = packRef.current.id;
+    const remote = noteSyncRef.current.remote;
+    const seed = remote?.doc ?? pack.editorDoc;
+    sessionRef.current = new NoteSyncSession({
+      initial: remote ? { doc: remote.doc, raw: remote.raw, rev: remote.rev } : { doc: seed as object | undefined, raw: rawOf(seed as object | undefined), rev: 0 },
+      commit: (base, sent) => commitNote(bagId, packId, base, sent),
+      writeQueued: (sent) => writeNoteQueued(bagId, packId, sent),
+      getDoc: () => editor.getJSON(),
+      applyDoc: (next) => {
+        if (editor.isDestroyed) return;
+        applyDocChangedPart(editor, next);
+        lastSyncedDocRef.current = editor.getJSON();
+        refreshHeadingsRef.current();
+      },
+      isComposing: () => !editor.isDestroyed && editor.view.composing,
+      onError: (err) => show(`메모를 저장하지 못했어요 (${firebaseErrorCode(err)})`),
+    });
+    if (noteMigratedRef.current) {
+      noteMigratedRef.current = false;
+      summaryDirtyRef.current = true;
+      sessionRef.current.flush();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 화면당 한 번만 만든다
+  }, [editor]);
+
+  useEffect(() => {
+    if (noteSync?.remote) sessionRef.current?.onRemote(noteSync.remote);
+  }, [noteSync?.remote]);
+
+  // 나갈 때 · 앱이 뒤로 갈 때 가방 문서에 요약을 한 번 쓴다(이름 · 미리보기 · 검색 글 · 첨부 목록)
+  finalizeNoteRef.current = () => {
+    const sync = noteSyncRef.current;
+    if (!sync || !summaryDirtyRef.current || sessionRef.current?.isStopped()) return;
+    summaryDirtyRef.current = false;
+    sync.onSummary({ ...packRef.current, name: nameRef.current });
+  };
+
+  // 다른 멤버가 바꾼 이름 · 설정을 따른다. 본문은 위 세션이 받는다
+  useEffect(() => {
+    if (!noteSyncRef.current) return;
+    packRef.current = { ...pack, name: packRef.current.name, editorDoc: packRef.current.editorDoc };
+    if (pack.name !== nameRef.current && document.activeElement?.getAttribute("aria-label") !== "메모 이름") {
+      setName(pack.name);
+      nameRef.current = pack.name;
+      packRef.current = { ...packRef.current, name: pack.name };
+    }
+  }, [pack]);
+
+  useEffect(() => {
+    if (!editor || noteSyncRef.current) return;
     const incomingDoc = pack.editorDoc;
     // 내가 로컬에서 편집/저장하여 발생한 prop 변경이거나 이미 동기화된 문서면 건너뛴다
     if (incomingDoc === lastSyncedDocRef.current || incomingDoc === packRef.current.editorDoc) return;
@@ -795,6 +891,20 @@ function PackNoteEditorScreenInner({
     setDepthBlocked(false);
     // 이번에 열어 둔 동안 본문에 있었던 첨부를 모은다(닫을 때 지운 것만 정리 - sweepRemovedAttachments)
     extractDocAttachmentUrls(doc).forEach((u) => seenAttachmentUrlsRef.current.add(u));
+    if (sessionRef.current) {
+      packRef.current = {
+        ...packRef.current,
+        name: nameRef.current,
+        editorDoc: doc,
+        editorPreviewText: extractPlainTextPreview(doc),
+        updatedAt: new Date().toISOString(),
+      };
+      lastSyncedDocRef.current = doc;
+      summaryDirtyRef.current = true;
+      editedSinceShareRef.current = true;
+      sessionRef.current.flush();
+      return;
+    }
     const updated: Pack = {
       ...packRef.current,
       name: nameRef.current,
@@ -849,8 +959,9 @@ function PackNoteEditorScreenInner({
       }
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = setTimeout(() => {
-        commitSave(editor.getJSON());
-      }, AUTOSAVE_DEBOUNCE_MS);
+        autosaveTimerRef.current = null;
+        commitSaveRef.current?.();
+      }, noteSyncRef.current ? NOTE_SYNC_DEBOUNCE_MS : AUTOSAVE_DEBOUNCE_MS);
     };
     editor.on("update", handler);
     return () => {
@@ -866,6 +977,7 @@ function PackNoteEditorScreenInner({
     nameRef.current = nextName;
     if (effectiveReadOnly) return;
     commitSave(editor?.getJSON());
+    finalizeNoteRef.current?.();
   };
 
   // 글자 크기 -/+ 버튼. 지금 선택(또는 커서 위치)의 fontSize 마크 속성만 바꿔서, 문서 전체가 아니라
@@ -907,6 +1019,7 @@ function PackNoteEditorScreenInner({
           commitSaveRef.current?.();
         }
       }
+      if (!effectiveReadOnlyRef.current) finalizeNoteRef.current?.();
     };
 
     const handleVisibilityChange = () => {
@@ -924,6 +1037,7 @@ function PackNoteEditorScreenInner({
       window.removeEventListener("pagehide", flushAutosave);
       window.removeEventListener("beforeunload", flushAutosave);
       flushAutosave();
+      sessionRef.current?.close();
       // 뒤로가기가 아닌 경로로 화면이 없어져도 공유 스냅샷을 갱신(이미 했으면 아무 일도 안 함)
       refreshShareRef.current?.();
       // 본문에서 지운 첨부를 Storage에서도 지운다(다른 곳이 쓰면 남김, 공유 가방은 건드리지 않음).

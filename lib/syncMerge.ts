@@ -6,8 +6,8 @@
 //
 // 규칙: base에서 "내가 바꾼 것"만 remote 위에 얹는다. 둘이 같은 칸을 바꿨으면 내 쪽이 이긴다.
 // - 가방/팩/아이템은 id로 짝을 맞춘다(체크·이름·추가·삭제·다른 팩으로 옮기기가 아이템 단위로 합쳐짐).
-// - 메모 문서(editorDoc)는 맨 위 문단(블록) 단위로 diff3 병합한다. 서로 다른 문단은 둘 다 살고,
-//   같은 문단을 둘이 고쳤으면 둘 다 남긴다(내 것 다음 상대 것) - 지우는 것보다 낫다.
+// - 메모 문서(editorDoc)는 문단(블록) 단위로 diff3 병합한다. 서로 다른 문단은 둘 다 살고, 같은 문단을 둘이 고쳤으면
+//   글자 단위로 합친다(2026-11-05). 같은 글자 자리에 다르게 쳤으면 둘 다 남긴다(내 것 다음 상대 것) - 지우는 것보다 낫다.
 
 import type { Bag, Item, Pack } from "@/lib/types";
 
@@ -152,7 +152,16 @@ function lcsPairs(a: string[], b: string[]): [number, number][] {
   return pairs;
 }
 
-function diff3<T>(base: T[], local: T[], remote: T[], key: (x: T) => string): T[] {
+// resolve: 같은 곳을 양쪽이 고쳤을 때 짝을 맞춰 합치는 방법(없거나 null이면 둘 다 남긴다).
+// keepRepeats: 글자처럼 같은 값이 여러 번 나올 수 있는 것은 "이미 있는 값"이라고 빼지 않는다(글자가 사라지면 안 된다)
+function diff3<T>(
+  base: T[],
+  local: T[],
+  remote: T[],
+  key: (x: T) => string,
+  resolve?: (b: T, l: T, r: T) => T | null,
+  keepRepeats = false,
+): T[] {
   const bk = base.map(key);
   const lk = local.map(key);
   const rk = remote.map(key);
@@ -160,10 +169,16 @@ function diff3<T>(base: T[], local: T[], remote: T[], key: (x: T) => string): T[
   const toR = new Map(lcsPairs(bk, rk));
   // 세 버전 모두에 그대로 남아 있는 base 블록이 기준점
   const stable: [number, number, number][] = [];
+  let lastL = -1;
+  let lastR = -1;
   for (let i = 0; i < bk.length; i++) {
     const li = toL.get(i);
     const ri = toR.get(i);
-    if (li !== undefined && ri !== undefined) stable.push([i, li, ri]);
+    if (li !== undefined && ri !== undefined && li > lastL && ri > lastR) {
+      stable.push([i, li, ri]);
+      lastL = li;
+      lastR = ri;
+    }
   }
   stable.push([bk.length, lk.length, rk.length]);
 
@@ -180,12 +195,23 @@ function diff3<T>(base: T[], local: T[], remote: T[], key: (x: T) => string): T[
     if (lStr === bChunk) out.push(...rChunk);
     else if (rStr === bChunk || lStr === rStr) out.push(...lChunk);
     else {
-      // 같은 곳을 양쪽이 고침: 내 것 + 상대 것(똑같은 블록은 한 번만)
-      out.push(...lChunk);
-      const seen = new Set(lk.slice(pl, sl));
-      rChunk.forEach((x, idx) => {
-        if (!seen.has(rk[pr + idx])) out.push(x);
-      });
+      const n = sb - pb;
+      const paired = resolve && n > 0 && lChunk.length === n && rChunk.length === n;
+      if (paired) {
+        // 같은 문단을 양쪽이 고침: 안쪽(글자)까지 내려가 합친다. 못 합치면 그 문단만 둘 다 남긴다
+        for (let k = 0; k < n; k++) {
+          const merged = resolve(base[pb + k], lChunk[k], rChunk[k]);
+          if (merged !== null) out.push(merged);
+          else out.push(lChunk[k], rChunk[k]);
+        }
+      } else {
+        // 같은 곳을 양쪽이 고침: 내 것 + 상대 것(똑같은 블록은 한 번만)
+        out.push(...lChunk);
+        const seen = new Set(keepRepeats ? [] : lk.slice(pl, sl));
+        rChunk.forEach((x, idx) => {
+          if (!seen.has(rk[pr + idx])) out.push(x);
+        });
+      }
     }
     if (sb < bk.length) out.push(local[sl]);
     pb = sb + 1;
@@ -197,6 +223,111 @@ function diff3<T>(base: T[], local: T[], remote: T[], key: (x: T) => string): T[
 
 type DocJson = { type?: string; content?: unknown[] } & Rec;
 
+// 글자 하나 또는 글이 아닌 인라인(줄바꿈 등) 하나
+type InlineToken = { key: string; text?: string; marks?: unknown; node?: unknown };
+
+function toTokens(content: DocJson[]): InlineToken[] {
+  const out: InlineToken[] = [];
+  for (const n of content) {
+    if (n.type === "text" && typeof n.text === "string") {
+      const marksKey = JSON.stringify(n.marks ?? null);
+      for (const ch of Array.from(n.text)) out.push({ key: `t${marksKey}${ch}`, text: ch, marks: n.marks });
+    } else {
+      out.push({ key: `n${JSON.stringify(n)}`, node: n });
+    }
+  }
+  return out;
+}
+
+function fromTokens(tokens: InlineToken[]): DocJson[] {
+  const out: DocJson[] = [];
+  let run: { text: string; marks: unknown; marksKey: string } | null = null;
+  const closeRun = () => {
+    if (!run) return;
+    out.push({ type: "text", ...(run.marks === undefined ? {} : { marks: run.marks }), text: run.text });
+    run = null;
+  };
+  for (const t of tokens) {
+    if (t.text === undefined) {
+      closeRun();
+      out.push(t.node as DocJson);
+      continue;
+    }
+    const marksKey = JSON.stringify(t.marks ?? null);
+    if (run && run.marksKey === marksKey) run.text += t.text;
+    else {
+      closeRun();
+      run = { text: t.text, marks: t.marks, marksKey };
+    }
+  }
+  closeRun();
+  return out;
+}
+
+// 아주 긴 문단은 글자 비교가 무거워서 합치지 않고 둘 다 남긴다(앞뒤 같은 부분을 뺀 길이의 곱)
+const MAX_INLINE_DIFF_CELLS = 4_000_000;
+
+function mergeInline(b: DocJson[], l: DocJson[], r: DocJson[]): DocJson[] | null {
+  const bt = toTokens(b);
+  const lt = toTokens(l);
+  const rt = toTokens(r);
+  let start = 0;
+  while (start < bt.length && start < lt.length && start < rt.length && bt[start].key === lt[start].key && bt[start].key === rt[start].key) start++;
+  let end = 0;
+  while (
+    end < bt.length - start &&
+    end < lt.length - start &&
+    end < rt.length - start &&
+    bt[bt.length - 1 - end].key === lt[lt.length - 1 - end].key &&
+    bt[bt.length - 1 - end].key === rt[rt.length - 1 - end].key
+  ) {
+    end++;
+  }
+  const bm = bt.slice(start, bt.length - end);
+  const lm = lt.slice(start, lt.length - end);
+  const rm = rt.slice(start, rt.length - end);
+  if (bm.length * Math.max(lm.length, rm.length) > MAX_INLINE_DIFF_CELLS) return null;
+  const middle = diff3(bm, lm, rm, (t) => t.key, undefined, true);
+  return fromTokens([...lt.slice(0, start), ...middle, ...lt.slice(lt.length - end)]);
+}
+
+const isInlineNode = (n: DocJson) => n.type === "text" || n.type === "hardBreak";
+
+// 같은 자리의 블록을 양쪽이 고쳤을 때 안쪽까지 내려가 합친다. 종류가 다르면 null(둘 다 남긴다)
+function mergeBlock(bv: unknown, lv: unknown, rv: unknown): unknown | null {
+  if (same(lv, rv) || same(rv, bv)) return lv;
+  if (same(lv, bv)) return rv;
+  const b = bv as DocJson;
+  const l = lv as DocJson;
+  const r = rv as DocJson;
+  if (b.type !== l.type || l.type !== r.type) return null;
+  const out: DocJson = { ...r };
+  const keys = new Set([...Object.keys(b), ...Object.keys(l), ...Object.keys(r)]);
+  for (const k of keys) {
+    if (k === "content" || same(l[k], b[k])) continue;
+    if (l[k] === undefined) delete out[k];
+    else out[k] = l[k];
+  }
+  const bc = (b.content ?? []) as DocJson[];
+  const lc = (l.content ?? []) as DocJson[];
+  const rc = (r.content ?? []) as DocJson[];
+  const all = [...bc, ...lc, ...rc];
+  if (all.length === 0) return out;
+  let content: unknown[];
+  if (all.every(isInlineNode)) {
+    const merged = mergeInline(bc, lc, rc);
+    if (!merged) return null;
+    content = merged;
+  } else if (all.some(isInlineNode)) {
+    return null;
+  } else {
+    content = diff3<unknown>(bc, lc, rc, (x) => JSON.stringify(x), mergeBlock);
+  }
+  if (content.length > 0) out.content = content;
+  else delete out.content;
+  return out;
+}
+
 export function mergeEditorDocs(base: object | undefined, local: object | undefined, remote: object | undefined): object | undefined {
   if (same(local, remote)) return local;
   if (same(local, base)) return remote;
@@ -206,6 +337,6 @@ export function mergeEditorDocs(base: object | undefined, local: object | undefi
   const b = ((base as DocJson | undefined)?.content ?? []) as unknown[];
   const l = ((local as DocJson).content ?? []) as unknown[];
   const r = ((remote as DocJson).content ?? []) as unknown[];
-  const content = diff3(b, l, r, (x) => JSON.stringify(x));
+  const content = diff3(b, l, r, (x) => JSON.stringify(x), mergeBlock);
   return { ...(local as DocJson), content };
 }

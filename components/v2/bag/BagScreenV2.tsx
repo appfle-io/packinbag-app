@@ -1291,7 +1291,8 @@ export default function BagScreenV2(props: BagScreenProps) {
               setEditingNoteId(null);
               setNoteQuery(null);
             }}
-            onSave={packOps.saveNotePack}
+            onSave={doc.remoteNotes ? packOps.saveNoteMeta : packOps.saveNotePack}
+            noteSync={doc.remoteNotes ? { remote: doc.noteOf(noteForEditor.id), onSummary: packOps.saveNoteSummary } : undefined}
             onDeletePack={() => {
               setEditingNoteId(null);
               packOps.deletePack(noteForEditor.id);

@@ -216,7 +216,15 @@ export async function saveSharedBagMergedRemote(
       const merged = mergeBag(base, local, server);
       const serverPacks = new Map(server.packs.map((p) => [p.id, p]));
       merged.packs = merged.packs.map((p) => {
-        if (!changedIds.includes(p.id)) return p;
+        if (!changedIds.includes(p.id)) {
+          // 본문이 notes에 있는 메모에 가방 안 옛 본문이 남아 있으면 notes를 그걸로 덮지 않는다(2026-11-05)
+          if (p.kind === "editor" && p.editorDoc !== undefined && known?.has(p.id)) {
+            const { editorDoc: _old, ...rest } = p;
+            void _old;
+            return { ...rest, noteSeparated: true } as typeof p;
+          }
+          return p;
+        }
         const ns = noteSnaps.get(p.id);
         const serverDoc = ns?.exists() ? parseNoteData(ns.data()).doc : serverPacks.get(p.id)?.editorDoc;
         const localDoc = local.packs.find((x) => x.id === p.id)?.editorDoc;

@@ -14,9 +14,11 @@
 // 오프라인 모드(localStorage)는 이 파일을 쓰지 않는다(본문을 가방 안에 그대로 둔다).
 // 순수 함수(분리·합치기·요약)는 lib/bagNotesCore.ts.
 
-import { collection, doc, getDocs, deleteDoc, onSnapshot, type Unsubscribe } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { parseNoteData, type BagNote } from "@/lib/bagNotesCore";
+import { collection, doc, getDocs, deleteDoc, increment, onSnapshot, runTransaction, setDoc, type Unsubscribe } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { parseNoteData, rawOf, type BagNote } from "@/lib/bagNotesCore";
+import { mergeEditorDocs } from "@/lib/syncMerge";
+import type { NoteVersion } from "@/lib/noteSync";
 
 function notesCol(bagId: string) {
   return collection(db, "bags", bagId, "notes");
@@ -40,6 +42,34 @@ export function subscribeBagNotes(
     },
     onError,
   );
+}
+
+/**
+ * 메모 편집기의 저장(lib/noteSync): 서버 최신 본문을 읽어 내 변경만 얹어 쓴다. 가방 문서는 건드리지 않는다.
+ * 저장 1번 = 읽기 1 + 쓰기 1. 내용이 서버와 같으면 쓰지 않는다. 그 사이 메모가 지워졌으면 다시 만들지 않고 null.
+ */
+export function commitNote(bagId: string, packId: string, base: NoteVersion, sent: object): Promise<NoteVersion | null> {
+  const ref = noteRef(bagId, packId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists() && base.rev > 0) return null;
+    const server = snap.exists() ? parseNoteData(snap.data()) : null;
+    const merged = server && server.raw !== base.raw ? (mergeEditorDocs(base.doc, sent, server.doc) ?? sent) : sent;
+    const raw = rawOf(merged);
+    if (server && server.raw === raw) return { doc: server.doc, raw, rev: server.rev };
+    const rev = (server?.rev ?? 0) + 1;
+    tx.set(ref, { doc: raw, rev, updatedAt: new Date().toISOString(), updatedBy: auth.currentUser?.uid ?? null }, { merge: true });
+    return { doc: merged, raw, rev };
+  });
+}
+
+/** 끊긴 채 편집기를 떠날 때: SDK 대기열에 넣어 연결되면 보낸다 */
+export function writeNoteQueued(bagId: string, packId: string, sent: object): void {
+  setDoc(
+    noteRef(bagId, packId),
+    { doc: rawOf(sent), rev: increment(1), updatedAt: new Date().toISOString(), updatedBy: auth.currentUser?.uid ?? null },
+    { merge: true },
+  ).catch((err) => console.error("[팩인백] 메모 저장 실패:", err));
 }
 
 /** 가방을 완전히 지우기 전에 본문 문서를 지운다(가방 문서가 먼저 지워지면 규칙의 멤버 확인이 안 돼 못 지운다) */

@@ -48,9 +48,11 @@ export function hydrateBag(bag: Bag, notes: Map<string, BagNote> | null): Bag {
     if (p.kind !== "editor") return p;
     const n = notes.get(p.id);
     if (!n) return p;
-    if (p.editorDoc !== undefined && rawOf(p.editorDoc) === n.raw) return p;
+    // 입력 중에는 notes만 쓰고 가방 문서는 나갈 때 쓴다(2026-11-05). 메모 시각은 본문 쪽이 더 새것일 수 있다(보관함 동기화 방향 판단)
+    const updatedAt = n.updatedAt && (!p.updatedAt || n.updatedAt > p.updatedAt) ? n.updatedAt : p.updatedAt;
+    if (p.editorDoc !== undefined && rawOf(p.editorDoc) === n.raw && updatedAt === p.updatedAt) return p;
     changed = true;
-    return { ...p, editorDoc: n.doc };
+    return { ...p, editorDoc: n.doc, ...(updatedAt ? { updatedAt } : {}) };
   });
   return changed ? { ...bag, packs } : bag;
 }

@@ -7,7 +7,7 @@ import { mergeBag, sameContent } from "@/lib/syncMerge";
 import { useToast } from "@/components/Toast";
 import { firebaseErrorCode } from "@/lib/errorMessage";
 import { subscribeBagNotes } from "@/lib/bagNotesService";
-import { hydrateBag, type BagNote } from "@/lib/bagNotesCore";
+import { hydrateBag, rawOf, type BagNote } from "@/lib/bagNotesCore";
 import { isOfflineEnvironment } from "@/lib/premiumLimits";
 import { auth } from "@/lib/firebase";
 import { isPendingBag } from "@/lib/v2/pendingCreates";
@@ -48,6 +48,12 @@ export interface BagDocument {
   guard: () => boolean;
   // 메모 본문을 받았는지(받기 전에는 메모 편집기를 열지 않는다)
   notesReady: boolean;
+  // 메모 편집기가 직접 본문을 저장하는 가방인지(오프라인 모드 · 만들기 대기 가방은 가방 저장으로)
+  remoteNotes: boolean;
+  // 구독으로 받은 메모 본문(편집기로 넘긴다)
+  noteOf: (packId: string) => BagNote | undefined;
+  // 편집기가 이미 올린 본문을 화면 · 기준점에 맞춘다(가방 저장이 본문을 다시 쓰지 않게)
+  applySavedNoteBody: (packId: string, body: object) => void;
 }
 
 // 메모 본문을 notes에서 받아야 하는 가방인지. 오프라인 모드·만들기 대기 가방은 본문이 가방 안에 그대로 있다
@@ -115,11 +121,24 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     bagRef.current = bag;
   }, [bag]);
 
+  // 내가 고치지 않은 메모(화면 본문 = 기준점)는 서버에 있는 것으로 친다. 구독 소식과 순서가 어긋나도 옛 본문을 다시 쓰지 않게(2026-11-05)
+  const knownFor = useCallback((target: Bag): Map<string, string> | null => {
+    if (!knownRef.current) return null;
+    const known = new Map(knownRef.current);
+    const basePacks = new Map(baseRef.current.packs.map((p) => [p.id, p]));
+    for (const p of target.packs) {
+      if (p.kind !== "editor" || p.editorDoc === undefined) continue;
+      const raw = rawOf(p.editorDoc);
+      if (raw === rawOf(basePacks.get(p.id)?.editorDoc)) known.set(p.id, raw);
+    }
+    return known;
+  }, []);
+
   const persist = useCallback(
     (target: Bag, silent: boolean) =>
       (target.memberIds.length > 1
-        ? saveSharedBagMergedRemote(target, baseRef.current, knownRef.current)
-        : saveBagRemote(target, knownRef.current)
+        ? saveSharedBagMergedRemote(target, baseRef.current, knownFor(target))
+        : saveBagRemote(target, knownFor(target))
       )
         .then((written) => {
           // 방금 쓴 본문은 서버에 있다고 기록(같은 본문을 다시 쓰지 않게)
@@ -133,7 +152,7 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
           console.error("[팩인백] 실시간 저장 실패:", err);
           if (!silent) show(`실시간 저장에 실패했어요 (${firebaseErrorCode(err)})`);
         }),
-    [show],
+    [show, knownFor],
   );
 
   // 변경 감지 -> 디바운스 저장
@@ -210,8 +229,9 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     const remoteBag: Bag = {
       ...hydrated,
       packs: hydrated.packs.map((p) => {
-        if (p.kind !== "editor") return p;
-        if (notes?.get(p.id)?.raw !== prevNotes?.get(p.id)?.raw) return p; // 이 메모의 본문이 바뀜 → 새 본문
+        // notes가 없으면(오프라인 · 체험 모드, 구독 전) 본문은 가방 안에 있다. 옛 기준점으로 되돌리면 방금 쓴 글이 사라진다(2026-11-05)
+        if (p.kind !== "editor" || !notes) return p;
+        if (notes.get(p.id)?.raw !== prevNotes?.get(p.id)?.raw) return p; // 이 메모의 본문이 바뀜 → 새 본문
         const bp = basePacks.get(p.id);
         return bp && bp.editorDoc !== undefined ? { ...p, editorDoc: bp.editorDoc } : p;
       }),
@@ -274,5 +294,14 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     return true;
   }, [readOnly, onRequestUnlock]);
 
-  return { bag, update, applyServerChange, guard, notesReady };
+  const noteOf = useCallback((packId: string) => notes?.get(packId), [notes]);
+
+  const applySavedNoteBody = useCallback((packId: string, body: object) => {
+    const withBody = (b: Bag): Bag => ({ ...b, packs: b.packs.map((p) => (p.id === packId ? { ...p, editorDoc: body } : p)) });
+    baseRef.current = withBody(baseRef.current);
+    bagRef.current = withBody(bagRef.current);
+    knownRef.current?.set(packId, rawOf(body));
+  }, []);
+
+  return { bag, update, applyServerChange, guard, notesReady, remoteNotes, noteOf, applySavedNoteBody };
 }
