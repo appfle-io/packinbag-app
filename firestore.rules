@@ -90,6 +90,16 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // 보관함 메모 이전 버전(2026-11-07, lib/noteHistoryService). 본인만. 고치기는 없음
+      match /noteHistory/{entryId} {
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid &&
+          request.resource.data.packId is string &&
+          request.resource.data.doc is string &&
+          request.resource.data.doc.size() < 1000000;
+        allow update: if false;
+      }
+
       // 팩 보관함 새로 만들기(create)는 항상 막혀있어 app/api/create-library-pack(또는 trash-bag-pack ·
       // import-shared-pack · native/quick-add)에서만 가능하다(Admin SDK는 이 규칙을 그대로 통과한다).
       // 무료 보관함 10개를 넘긴 팩은 서버(sync-lock-status)가 locked:true로 표시하고, 아래 수정 규칙이 막는다.
@@ -366,6 +376,21 @@ service cloud.firestore {
           request.resource.data.doc is string &&
           request.resource.data.doc.size() < 1000000;
         allow delete: if isNoteMember();
+      }
+
+      // 메모 이전 버전(2026-11-07, lib/noteHistoryService). 멤버만 읽고 남기고 지운다. 고치기는 없음.
+      // 남길 때는 내 uid로만, 본문은 문자열 1MB 미만. 가방 완전삭제 전에 앱이 지운다
+      match /noteHistory/{entryId} {
+        function historyBag() {
+          return get(/databases/$(database)/documents/bags/$(bagId)).data;
+        }
+        allow read, delete: if request.auth != null && request.auth.uid in historyBag().memberIds;
+        allow create: if request.auth != null && request.auth.uid in historyBag().memberIds &&
+          request.resource.data.byUid == request.auth.uid &&
+          request.resource.data.packId is string &&
+          request.resource.data.doc is string &&
+          request.resource.data.doc.size() < 1000000;
+        allow update: if false;
       }
 
       // 댓글(2026-10-05 기능 삭제) 데이터는 bags/{bagId}/comments 서브컴렉션에, 리액션은 bags/{bagId}/reactions에 남아 있다.

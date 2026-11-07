@@ -438,6 +438,10 @@ export interface UserProfile {
   // 폰 세로처럼 좁은 화면에서 2열로 보는 가방(2026-11-02 가방마다, 없으면 1열). 넓은 화면(폰 가로·아이패드·PC)은
   // 이 값과 상관없이 화면 폭에 맞춰 2열·3열이 된다. 계정에 저장돼 기기 간 동일.
   bagColumns?: Record<string, 2>;
+  // 가방 화면에서 메모 미리보기 3줄을 끈 가방(2026-11-07, 없으면 보임). 나만 적용
+  bagMemoPreviewOff?: Record<string, true>;
+  // 읽기 모드로 여는 메모(2026-11-07, 나만). 키는 lib/noteReadMode.noteReadModeKey(가방 메모 "가방id_팩id", 보관함 "팩id")
+  noteReadMode?: Record<string, true>;
   // 데스크톱 레이아웃(DesktopSidebar) 폭(px). 오른쪽 가장자리를 드래그해서 조절한 값을 계정에
   // 저장한다(기기 간 동기화). 없으면 288(기본값, w-72) 사용. DesktopSidebar.tsx의
   // MIN/MAX_SIDEBAR_WIDTH 범위로 항상 클램프해서 저장된다.

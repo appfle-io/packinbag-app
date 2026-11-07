@@ -152,6 +152,8 @@ interface AuthContextValue {
   updatePackSettings: (settings: Partial<NonNullable<UserProfile["packSettings"]>>) => Promise<void>;
   updateQuickPackCollapsed: (collapsed: boolean) => Promise<void>;
   updateBagColumns: (bagId: string, columns: 1 | 2) => Promise<void>;
+  updateBagMemoPreview: (bagId: string, show: boolean) => Promise<void>;
+  updateNoteReadMode: (noteKey: string, on: boolean) => Promise<void>;
   updateSidebarWidth: (width: number) => Promise<void>;
   updateSidebarCollapsed: (collapsed: boolean) => Promise<void>;
   updateShortUrlEnabled: (enabled: boolean) => Promise<void>;
@@ -582,6 +584,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           packSettings: data?.packSettings as UserProfile["packSettings"],
           quickPackCollapsed: data?.quickPackCollapsed as boolean | undefined,
           bagColumns: data?.bagColumns as UserProfile["bagColumns"],
+          bagMemoPreviewOff: data?.bagMemoPreviewOff as UserProfile["bagMemoPreviewOff"],
+          noteReadMode: data?.noteReadMode as UserProfile["noteReadMode"],
           sidebarWidth: data?.sidebarWidth as number | undefined,
           sidebarCollapsed: data?.sidebarCollapsed as boolean | undefined,
           packDisplayStates: data?.packDisplayStates as UserProfile["packDisplayStates"],
@@ -1415,6 +1419,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await writeUser({ [`bagColumns.${bagId}`]: columns === 2 ? 2 : REMOVE_FIELD }, true);
   };
 
+  // 이 가방에서 메모 미리보기 3줄을 끌지(2026-11-07 가방마다, 나만). 끈 가방만 저장하고 켜면 지운다
+  const updateBagMemoPreview = async (bagId: string, show: boolean) => {
+    if (!user) return;
+    setRawProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev.bagMemoPreviewOff };
+      if (show) delete next[bagId];
+      else next[bagId] = true;
+      return { ...prev, bagMemoPreviewOff: next };
+    });
+    await writeUser({ [`bagMemoPreviewOff.${bagId}`]: show ? REMOVE_FIELD : true }, true);
+  };
+
+  // 메모 읽기 모드(2026-11-07 메모마다, 나만). 키는 lib/noteReadMode.noteReadModeKey. 켠 메모만 저장한다
+  const updateNoteReadMode = async (noteKey: string, on: boolean) => {
+    if (!user) return;
+    setRawProfile((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev.noteReadMode };
+      if (on) next[noteKey] = true;
+      else delete next[noteKey];
+      return { ...prev, noteReadMode: next };
+    });
+    await writeUser({ [`noteReadMode.${noteKey}`]: on ? true : REMOVE_FIELD }, true);
+  };
+
   // 데스크톱 사이드바 폭(px) - 오른쪽 가장자리 드래그가 끝난 지점에서만 호출되므로(드래그 중에는
   // 로컬 state만 바꾸다), 매번 쓰기가 일어나지 않아 다른 설정값들과 달리 디바운스가 필요하지 않다.
   const updateSidebarWidth = async (width: number) => {
@@ -1750,6 +1780,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatePackSettings,
         updateQuickPackCollapsed,
         updateBagColumns,
+        updateBagMemoPreview,
+        updateNoteReadMode,
         updateSidebarWidth,
         updateSidebarCollapsed,
         updateShortUrlEnabled,

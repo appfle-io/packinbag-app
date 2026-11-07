@@ -3,6 +3,7 @@
 import type { Editor } from "@tiptap/react";
 import {
   IconCode,
+  IconHistory,
   IconItalic,
   IconList,
   IconMinus,
@@ -71,6 +72,8 @@ export function NoteMoreSheet({
   onShare,
   percentOfLimit,
   onDelete,
+  readMode,
+  onHistory,
 }: {
   open: boolean;
   onClose: () => void;
@@ -88,6 +91,10 @@ export function NoteMoreSheet({
   percentOfLimit: number;
   // 보관함에서 연 메모만(가방 안 메모는 팩 시트에서 삭제)
   onDelete?: () => void;
+  // 읽기 모드(11/7, 나만 · 메모마다). 없으면(무료 한도 잠김 · 게스트) 줄을 숨긴다
+  readMode?: { on: boolean; onToggle: () => void };
+  // 이전 버전(11/7). 없으면(오프라인 모드 · 체험) 줄을 숨긴다
+  onHistory?: () => void;
 }) {
   const ed = editor;
   const level = ed ? ([1, 2, 3] as const).find((l) => ed.isActive("heading", { level: l })) ?? 0 : 0;
@@ -175,6 +182,16 @@ export function NoteMoreSheet({
 
         <section className="flex flex-col">
           <SectionHeader>메모</SectionHeader>
+          {readMode && (
+            <div className="border-b border-line">
+              <Toggle
+                checked={readMode.on}
+                onChange={readMode.onToggle}
+                label="읽기 모드"
+                description="글은 고칠 수 없고 체크만 돼요 · 나에게만 적용"
+              />
+            </div>
+          )}
           {!readOnly && (
             <div className="border-b border-line">
               <Toggle checked={spellcheck} onChange={onToggleSpellcheck} label="맞춤법 검사" description="틀린 글자 아래 빨간 밑줄" />
@@ -185,6 +202,15 @@ export function NoteMoreSheet({
               title="목차"
               leading={<IconList size={20} stroke={1.75} className="text-sub" aria-hidden="true" />}
               onClick={onOpenToc}
+              chevron
+            />
+          )}
+          {onHistory && !readOnly && (
+            <ListRow
+              title="이전 버전"
+              subtitle="고치기 전 모습으로 되돌려요"
+              leading={<IconHistory size={20} stroke={1.75} className="text-sub" aria-hidden="true" />}
+              onClick={onHistory}
               chevron
             />
           )}

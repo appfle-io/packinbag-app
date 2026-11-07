@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
   removed.customShortLinks = await deleteQuery(db.collection("customShortLinks").where("createdBy", "==", uid), "customShortLinks");
   removed.sharedPacks = await deleteQuery(db.collection("sharedPacks").where("ownerUid", "==", uid), "sharedPacks");
   removed.notifications = await deleteQuery(db.collection("users").doc(uid).collection("notifications"), "notifications");
+  // 보관함 메모 이전 버전(2026-11-07, lib/noteHistoryService)
+  removed.noteHistory = await deleteQuery(db.collection("users").doc(uid).collection("noteHistory"), "noteHistory");
   removed.deviceTokens = await deleteQuery(db.collection("deviceTokens").where("uid", "==", uid), "deviceTokens");
   // 문의는 예전 문서가 userId를 쓸 수도 있어 둘 다 본다
   removed.inquiries =

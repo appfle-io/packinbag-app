@@ -4,14 +4,16 @@ import { IconNotes, IconChevronRight } from "@tabler/icons-react";
 import type { Pack } from "@/lib/types";
 import { Badge, cx, useLongPress } from "@/components/v2/ui";
 
-// 가방 안 메모팩. 미리보기 3줄, 누르면 메모 편집기로 이동. 진행률 계산에서는 빠진다.
+// 가방 안 메모팩. 미리보기 3줄(가방 더보기에서 끌 수 있음, 11/7), 누르면 메모 편집기로 이동. 진행률 계산에서는 빠진다.
 export function MemoSection({
   pack,
   editors,
+  showPreview = true,
   onOpen,
   onMenu,
 }: {
   pack: Pack;
+  showPreview?: boolean;
   // 지금 이 메모를 편집 중인 다른 멤버 이름
   editors: string[];
   onOpen: () => void;
@@ -31,9 +33,9 @@ export function MemoSection({
           </span>
           <IconChevronRight size={16} stroke={1.75} className="shrink-0 text-faint" aria-hidden="true" />
         </span>
-        <span className={cx("line-clamp-3 text-caption", preview ? "text-sub" : "text-faint")}>{preview || "비어 있는 메모"}</span>
+        {showPreview && <span className={cx("line-clamp-3 text-caption", preview ? "text-sub" : "text-faint")}>{preview || "비어 있는 메모"}</span>}
         {editors.length > 0 && <span className="text-micro font-semibold text-brand">{editors.join(", ")} 편집 중</span>}
       </button>
     </section>
   );
-}
+}

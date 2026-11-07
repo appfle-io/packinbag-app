@@ -38,6 +38,7 @@ export function MoreSheet({
   weather,
   onGuide,
   keepScreenOn,
+  memoPreview,
   privacyLock,
   attachLocked,
 }: {
@@ -67,6 +68,8 @@ export function MoreSheet({
   onGuide?: () => void;
   // 화면 켜두기(구 UI 집중 패킹 모드). 이 기기에 기억
   keepScreenOn?: { on: boolean; onChange: (on: boolean) => void };
+  // 메모 미리보기 3줄(11/7 가방마다, 나만). 메모가 있는 가방에서만
+  memoPreview?: { on: boolean; onChange: (on: boolean) => void };
   // 개인 잠금(2026-10-12). 없으면(오프라인 모드 · 게스트) 줄을 숨긴다
   privacyLock?: { locked: boolean; onToggle: () => void };
   // 무료는 첨부 없음(2026-10-21): 자물쇠 + 누르면 파일 고르기 대신 onLocked(프리미엄 안내)
@@ -159,7 +162,7 @@ export function MoreSheet({
           )}
         </section>
 
-        {(keepScreenOn || notificationsAvailable || liveAvailable || showWidget) && (
+        {(keepScreenOn || memoPreview || notificationsAvailable || liveAvailable || showWidget) && (
           <section className="flex flex-col">
             <SectionHeader>챙길 때</SectionHeader>
             {notificationsAvailable && (
@@ -193,6 +196,15 @@ export function MoreSheet({
                 onChange={keepScreenOn.onChange}
                 label="화면 켜두기"
                 description="가방을 보는 동안 화면이 꺼지지 않아요 · 이 기기에만 적용"
+                className="border-b border-line"
+              />
+            )}
+            {memoPreview && (
+              <Toggle
+                checked={memoPreview.on}
+                onChange={memoPreview.onChange}
+                label="메모 미리보기"
+                description="가방 화면에 메모 앞부분을 3줄까지 보여 줘요 · 나에게만 적용"
                 className="border-b border-line"
               />
             )}

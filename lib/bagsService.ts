@@ -25,6 +25,7 @@ import { serializeBag, deserializeBag } from "@/lib/editorDocSerialize";
 import { mergeBag, mergeEditorDocs } from "@/lib/syncMerge";
 import { NOTES_VERSION, parseNoteData, rawOf, splitBagForSave, type NoteWrite } from "@/lib/bagNotesCore";
 import { deleteAllBagNotes, noteRef } from "@/lib/bagNotesService";
+import { deleteBagNoteHistory } from "@/lib/noteHistoryService";
 import { PremiumLimitError, isOfflineEnvironment } from "@/lib/premiumLimits";
 import { getApiUrl } from "@/lib/apiBase";
 import { bagShareTokens, cleanupInviteCode, stopPackShares } from "@/lib/shareCleanup";
@@ -365,6 +366,8 @@ export async function deleteBagWithInviteCodeRemote(bag: Bag) {
   }
   // 메모 본문 문서를 먼저 지운다(가방 문서가 없으면 규칙의 멤버 확인이 안 돼 못 지운다)
   await deleteAllBagNotes(bag.id).catch(() => {});
+  // 메모 이전 버전도 같은 이유로 먼저(2026-11-07)
+  await deleteBagNoteHistory(bag.id).catch(() => {});
   await deleteDoc(doc(bagsCol(), bag.id));
   // 초대코드 문서와 가방 속 팩의 공유 링크는 서버만 지울 수 있다. 가방이 없어진 뒤에 부른다 -
   // 서버는 가방이 이미 없을 때만 지운다(2026-10-15, share.md 확인 필요 3 · 4). 실패해도 삭제는 끝난 것으로 본다

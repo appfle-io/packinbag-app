@@ -116,6 +116,8 @@ const CustomCodeBlock = CodeBlockLowlight.extend({
 
 export interface NoteEditorExtensionOptions {
   placeholder?: string;
+  // 편집 못 하는 상태(읽기 모드)에서 체크박스를 눌렀을 때. true면 체크가 남는다(문서 반영은 부르는 쪽, 11/7)
+  onReadOnlyChecked?: () => boolean;
 }
 
 export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOptions) {
@@ -142,7 +144,9 @@ export function getNoteEditorExtensions(options?: string | NoteEditorExtensionOp
     ToggleSummary,
     ToggleContent,
     TaskList,
-    TaskItem.configure({ nested: true }),
+    TaskItem.configure(
+      opts.onReadOnlyChecked ? { nested: true, onReadOnlyChecked: opts.onReadOnlyChecked } : { nested: true },
+    ),
     IndentExtension,
     ImageAttachment,
     FileAttachment,

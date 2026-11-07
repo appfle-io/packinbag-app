@@ -19,11 +19,13 @@ import {
   IconStrikethrough,
   IconTable,
   IconTableOptions,
+  IconArrowBackUp,
+  IconArrowForwardUp,
   IconUnderline,
 } from "@tabler/icons-react";
 import { cx } from "@/components/v2/ui";
 
-// 메모 편집기 툴바 한 줄: 체크박스 · 제목 · 굵게 · 표 · 링크 · 첨부 · 더보기.
+// 메모 편집기 툴바 한 줄: 실행 취소 · 다시 실행(11/7) · 체크박스 · 제목 · 굵게 · 표 · 링크 · 첨부 · 더보기.
 // 글자를 고르면 같은 자리가 굵게 · 기울임 · 밑줄 · 취소선 · 글씨 색 · 링크 · 서식 지우기로 바뀐다
 // (iOS 복사/붙여넣기 말풍선과 겹치지 않게 떠 있는 메뉴 대신 툴바 자체를 바꾼다).
 // 커서가 표 안이면 행+ · 열+ · 행- · 열- · 표 메뉴 · 굵게 · 더보기.
@@ -156,6 +158,13 @@ export function NoteToolbar({
         </>
       ) : (
         <>
+          {/* 다른 멤버 글이 합쳐진 것은 기록에 안 들어간다(addToHistory false) → 내가 고친 것만 되돌린다 */}
+          <ToolButton label="실행 취소" disabled={!editor.can().undo()} onClick={run((e) => e.chain().focus().undo().run())}>
+            <IconArrowBackUp size={22} stroke={1.75} />
+          </ToolButton>
+          <ToolButton label="다시 실행" disabled={!editor.can().redo()} onClick={run((e) => e.chain().focus().redo().run())}>
+            <IconArrowForwardUp size={22} stroke={1.75} />
+          </ToolButton>
           <ToolButton
             label="체크박스 목록"
             active={editor.isActive("taskList")}

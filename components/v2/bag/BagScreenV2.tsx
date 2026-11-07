@@ -126,7 +126,7 @@ export default function BagScreenV2(props: BagScreenProps) {
     onFocusHandled,
   } = props;
 
-  const { user, isOfflineMode, profile, updateBagColumns, updateBagReminder } = useAuth();
+  const { user, isOfflineMode, profile, updateBagColumns, updateBagReminder, updateBagMemoPreview } = useAuth();
   const { show } = useToast();
   // 인터넷이 꼭 필요한 기능(AI)은 끊겨 있으면 열기 전에 알린다
   const { guard } = useOnlineGuard();
@@ -136,6 +136,8 @@ export default function BagScreenV2(props: BagScreenProps) {
   const { bag } = doc;
   // 좁은 화면(폰 세로)에서 팩 안 아이템을 몇 열로 볼지. 가방마다 따로, 기본 1열(2026-11-02). 넓은 화면은 PackSection이 컨테이너 쿼리로 2열·3열 자동.
   const phoneCols = profile?.bagColumns?.[bag.id] === 2 ? 2 : 1;
+  // 메모 미리보기 3줄(가방마다, 나만 · 11/7). 끈 가방만 계정에 있다
+  const memoPreviewOn = !profile?.bagMemoPreviewOff?.[bag.id];
   // 가방당 팩 한도: 무료 5 · 프리미엄 30(2026-10-20, 넣는 사람 기준)
   const packLimit = useMemo(() => ({ max: bagPackLimit(premium), message: bagPackLimitMessage(premium) }), [premium]);
   const items = useBagItems(doc, libraryPacks, currentUid, packLimit);
@@ -773,6 +775,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                   key={p.id}
                   pack={p}
                   editors={presence.noteEditorsOf(p.id).map((e) => e.nickname)}
+                  showPreview={memoPreviewOn}
                   onOpen={() => openNoteChecked(p)}
                   onMenu={() => (readOnly ? onRequestUnlock() : setPackTargetId(p.id))}
                 />
@@ -1210,6 +1213,11 @@ export default function BagScreenV2(props: BagScreenProps) {
         }
         onGuide={() => window.setTimeout(() => setTourOpen(true), 320)}
         keepScreenOn={{ on: keepOn, onChange: changeKeepOn }}
+        memoPreview={
+          user && bag.packs.some((p) => p.kind === "editor" && !p.trashedAt)
+            ? { on: memoPreviewOn, onChange: (on) => updateBagMemoPreview(bag.id, on).catch(() => {}) }
+            : undefined
+        }
         privacyLock={
           privacy.available
             ? { locked: privacy.bagLocked(bag.id), onToggle: () => privacy.toggleLock("bag", bag.id, !privacy.bagLocked(bag.id), { name: bag.name }) }

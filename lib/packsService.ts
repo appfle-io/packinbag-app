@@ -27,6 +27,7 @@ import {
 } from "@/lib/localBagsService";
 import { deleteUnusedFiles, packFileUrls, urlsInUse } from "@/lib/storageCleanup";
 import { packShareTokens, stopPackShares } from "@/lib/shareCleanup";
+import { deleteLibraryNoteHistory } from "@/lib/noteHistoryService";
 
 // 팩 보관함은 공유되지 않는 개인 전용 공간이다.
 // 가방은 여러 명이 같이 쓰지만, 그 가방 안에서 누가 불러온 팩이든
@@ -283,4 +284,8 @@ export async function deleteLibraryEntryRecursive(uid: string, allPacks: Pack[],
   if (!isOfflineEnvironment()) await stopPackShares(null, packShareTokens(targets));
   await deleteUnusedFiles(targets.flatMap(packFileUrls), urlsInUse(bags, allPacks, { packIds: ids }));
   await Promise.all(ids.map((id) => deleteLibraryPackRemote(uid, id)));
+  // 메모의 이전 버전도 지운다(2026-11-07, 메모만 - 팩마다 읽기가 생기지 않게)
+  if (!isOfflineEnvironment()) {
+    await Promise.all(targets.filter((p) => p.kind === "editor").map((p) => deleteLibraryNoteHistory(uid, p.id).catch(() => {})));
+  }
 }

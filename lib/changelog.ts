@@ -19,6 +19,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.14.2",
+    date: "2026-11-07",
+    items: [
+      "메모에 실행 취소 · 다시 실행 버튼과 이전 버전 되돌리기가 생겼어요",
+      "메모를 읽기 모드로 열 수 있어요(체크만 돼요)",
+      "가방마다 메모 미리보기를 끌 수 있어요",
+    ],
+  },
+  {
     version: "1.14.1",
     date: "2026-11-05",
     items: ["메모를 함께 쓸 때 글이 겹치거나 사라지지 않게 고쳤어요"],

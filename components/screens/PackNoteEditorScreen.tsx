@@ -10,6 +10,9 @@ import {
 } from "@tabler/icons-react";
 import { Pack } from "@/lib/types";
 import { getNoteEditorExtensions } from "@/lib/noteEditorExtensions";
+import { noteReadModeKey } from "@/lib/noteReadMode";
+import { listNoteHistory, saveNoteHistory, type NoteHistoryScope } from "@/lib/noteHistoryService";
+import { NoteHistorySheet } from "@/components/v2/note/NoteHistorySheet";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
   isShortUrlFeatureEnabled,
@@ -67,7 +70,7 @@ import { uploadPackImage } from "@/lib/storageService";
 import { useToast } from "@/components/Toast";
 import { useSwipeBack } from "@/lib/useSwipeBack";
 import { useIsDesktop } from "@/lib/useIsDesktop";
-import { IconChevronLeft, IconDots, IconRefresh } from "@tabler/icons-react";
+import { IconChevronLeft, IconDots, IconPencil, IconRefresh } from "@tabler/icons-react";
 import { IconButton, cx } from "@/components/v2/ui";
 import { ConfirmSheet } from "@/components/v2/bag/sheets/ConfirmSheet";
 import { PremiumSheet } from "@/components/v2/sheets/PremiumSheet";
@@ -218,7 +221,7 @@ function PackNoteEditorScreenInner({
   const { show } = useToast();
   // v2: 공유 링크·첨부 올리기는 인터넷이 필요하다(오프라인 모드 첨부는 이 기기 저장이라 그대로 된다)
   const { guard: guardOnline } = useOnlineGuard();
-  const { user, profile, updatePackSettings, isOfflineMode } = useAuth();
+  const { user, profile, updatePackSettings, updateNoteReadMode, isOfflineMode } = useAuth();
   // 사용자의 유료(프리미엄) 여부: 오프라인 모드는 무조건 무제한
   const isEffectivePremium =
     isOfflineMode
@@ -246,6 +249,21 @@ function PackNoteEditorScreenInner({
   const [premiumAttachMessage, setPremiumAttachMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const effectiveReadOnly = !!readOnly;
+  // 읽기 모드(11/7, 나만 · 메모마다 계정에 기억): 글 · 제목은 못 고치고 체크박스만 된다. 저장은 그대로(체크)
+  const readModeKey = noteReadModeKey(pack.id, bagId);
+  const readModeAvailable = !effectiveReadOnly && !!user;
+  const readMode = readModeAvailable && !!profile?.noteReadMode?.[readModeKey];
+  const viewOnly = effectiveReadOnly || readMode;
+  const readModeRef = useRef(readMode);
+  readModeRef.current = readMode;
+  // 이전 버전(11/7): 계정 모드만. 가방 안 메모는 notes에 직접 저장하는 경우(noteSync)만 → 만들기 대기 · 체험 가방은 없음
+  const historyScope: NoteHistoryScope | null =
+    isOfflineMode || !user ? null : bagId ? (noteSync ? { kind: "bag", bagId } : null) : { kind: "library", uid: user.uid };
+  const historyScopeRef = useRef(historyScope);
+  historyScopeRef.current = historyScope;
+  // 이번에 열어 둔 동안 "고치기 전" 버전을 이미 남겼는지(한 번만)
+  const historySavedRef = useRef(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // 문서가 너무 커져서 지금 상태로는 저장이 막혔는지. true인 동안은 자동저장을 건너뛰고
   // 배너로 알려서, 사용자가 내용을 줄여야 한다는 걸 바로 알 수 있게 한다(타이핑한 내용
   // 자체는 화면에 그대로 남아있어 잃어버리지 않는다).
@@ -456,9 +474,11 @@ function PackNoteEditorScreenInner({
     {
       extensions: getNoteEditorExtensions({
         placeholder: "메모를 입력해보세요",
+        // 읽기 모드에서만 체크가 남는다(문서 반영은 아래 change 리스너). 무료 한도 잠김은 되돌린다
+        onReadOnlyChecked: () => readModeRef.current,
       }),
       content: initialMigratedDoc,
-      editable: !effectiveReadOnly,
+      editable: !viewOnly,
       immediatelyRender: false,
       editorProps: {
         handleClick: (_view, _pos, event) => {
@@ -615,8 +635,43 @@ function PackNoteEditorScreenInner({
   }, [editor, noteSpellcheckEnabled]);
 
   useEffect(() => {
-    editor?.setEditable(!effectiveReadOnly);
-  }, [editor, effectiveReadOnly]);
+    if (!editor || editor.isDestroyed) return;
+    // emitUpdate false: 모드만 바꿨을 때 자동저장이 돌지 않게
+    editor.setEditable(!viewOnly, false);
+    if (viewOnly) editor.commands.blur();
+  }, [editor, viewOnly]);
+
+  // 읽기 모드 체크박스: 편집 못 하는 편집기는 TaskItem이 문서를 안 바꾸므로 여기서 그 항목의 checked를 바꾼다(자동저장은 update로)
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !readMode) return;
+    const dom = editor.view.dom;
+    const onChange = (event: Event) => {
+      const box = event.target as HTMLInputElement | null;
+      if (!box || box.type !== "checkbox" || editor.isEditable) return;
+      const content = box.closest("li")?.querySelector(":scope > div");
+      if (!content) return;
+      try {
+        const $pos = editor.state.doc.resolve(editor.view.posAtDOM(content, 0));
+        for (let d = $pos.depth; d > 0; d--) {
+          const node = $pos.node(d);
+          if (node.type.name !== "taskItem") continue;
+          editor.view.dispatch(editor.state.tr.setNodeMarkup($pos.before(d), undefined, { ...node.attrs, checked: box.checked }));
+          return;
+        }
+      } catch {
+        // 못 찾으면 화면 체크만 남는다 → 다음 렌더에서 문서 값으로 돌아감
+      }
+    };
+    dom.addEventListener("change", onChange);
+    return () => dom.removeEventListener("change", onChange);
+  }, [editor, readMode]);
+
+  const toggleReadMode = () => {
+    if (!readModeAvailable) return;
+    const next = !readMode;
+    void updateNoteReadMode(readModeKey, next).catch(() => {});
+    show(next ? "읽기 모드예요 · 체크만 돼요" : "다시 고칠 수 있어요");
+  };
 
   const refreshHeadings = useCallback(() => {
     if (!editor) return;
@@ -889,6 +944,17 @@ function PackNoteEditorScreenInner({
       return;
     }
     setDepthBlocked(false);
+    // 이번에 처음 본문을 바꿔 저장할 때 고치기 전 모습을 이전 버전으로 한 번 남긴다(MEMO-HIST-02)
+    const scope = historyScopeRef.current;
+    if (scope && !historySavedRef.current) {
+      const before = lastSyncedDocRef.current;
+      if (JSON.stringify(before ?? null) !== JSON.stringify(doc)) {
+        historySavedRef.current = true;
+        void saveNoteHistory(scope, packRef.current.id, { doc: before, name: packRef.current.name, byName: profile?.nickname ?? null }).catch(
+          (err) => console.error("[팩인백] 이전 버전 저장 실패:", err),
+        );
+      }
+    }
     // 이번에 열어 둔 동안 본문에 있었던 첨부를 모은다(닫을 때 지운 것만 정리 - sweepRemovedAttachments)
     extractDocAttachmentUrls(doc).forEach((u) => seenAttachmentUrlsRef.current.add(u));
     if (sessionRef.current) {
@@ -1134,6 +1200,16 @@ function PackNoteEditorScreenInner({
             <IconChevronLeft size={22} stroke={1.9} />
           </IconButton>
           <div className="flex items-center">
+            {readMode && (
+              <button
+                type="button"
+                onClick={toggleReadMode}
+                className="inline-flex h-11 shrink-0 items-center gap-1 bg-transparent px-2 text-caption font-semibold text-brand active:opacity-60"
+              >
+                <IconPencil size={18} stroke={1.9} aria-hidden="true" />
+                편집
+              </button>
+            )}
             {!isOfflineMode && !pack.isQuickPack && (
               <IconButton label="공유" onClick={() => guardOnline(() => setShowShareModal(true))}>
                 <IconShare size={22} stroke={1.75} />
@@ -1149,7 +1225,7 @@ function PackNoteEditorScreenInner({
         <div className="shrink-0 px-5 pt-2 pb-3">
           <input
             value={name}
-            readOnly={effectiveReadOnly}
+            readOnly={viewOnly}
             aria-label="메모 이름"
             placeholder="새 메모"
             onChange={(e) => setName(e.target.value)}
@@ -1210,7 +1286,7 @@ function PackNoteEditorScreenInner({
           />
         )}
 
-        {!effectiveReadOnly && (
+        {!viewOnly && (
           <NoteToolbar
             editor={editor}
             canAttach={canAttach}
@@ -1282,7 +1358,16 @@ function PackNoteEditorScreenInner({
           open={moreOpen}
           onClose={() => setMoreOpen(false)}
           editor={editor}
-          readOnly={effectiveReadOnly}
+          readOnly={viewOnly}
+          readMode={readModeAvailable ? { on: readMode, onToggle: toggleReadMode } : undefined}
+          onHistory={
+            historyScope
+              ? () => {
+                  setMoreOpen(false);
+                  guardOnline(() => setHistoryOpen(true));
+                }
+              : undefined
+          }
           fontSize={getCurrentFontSize()}
           onFontSize={changeFontSize}
           onOpenColor={() => {
@@ -1359,6 +1444,24 @@ function PackNoteEditorScreenInner({
           danger
           onConfirm={() => onDeletePack?.()}
         />
+        {historyScope && (
+          <NoteHistorySheet
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            load={() => listNoteHistory(historyScope, pack.id)}
+            onRestore={(entry) => {
+              if (!editor || viewOnly) return;
+              // 지금 내용을 먼저 이전 버전으로 남겨 되돌린 것도 다시 되돌릴 수 있게 한다
+              void saveNoteHistory(historyScope, pack.id, { doc: editor.getJSON(), name: nameRef.current, byName: profile?.nickname ?? null }).catch(
+                () => {},
+              );
+              historySavedRef.current = true;
+              editor.commands.setContent(entry.doc ?? "", true);
+              setHistoryOpen(false);
+              show("이전 버전으로 되돌렸어요");
+            }}
+          />
+        )}
         <ConfirmSheet
           open={confirmDeleteTable}
           onClose={() => setConfirmDeleteTable(false)}
