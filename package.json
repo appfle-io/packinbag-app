@@ -1,6 +1,6 @@
 {
   "name": "packinbag",
-  "version": "1.14.3",
+  "version": "1.15.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {

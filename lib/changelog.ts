@@ -19,6 +19,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.15.0",
+    date: "2026-11-12",
+    items: ["단축어 '팩인백에서 찾기'로 가방 · 팩 · 메모 · 아이템을 찾아 바로 열어요(아이폰 앱 1.15)"],
+  },
+  {
     version: "1.14.3",
     date: "2026-11-12",
     items: [
