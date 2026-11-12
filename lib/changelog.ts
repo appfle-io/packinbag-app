@@ -19,6 +19,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.14.3",
+    date: "2026-11-12",
+    items: [
+      "완료함으로 옮긴 아이템은 챙길 개수 · 위젯에서 빠져요",
+      "함께 쓰는 가방에서 빠르게 체크할 때 저장 오류가 뜨던 문제를 고쳤어요",
+    ],
+  },
+  {
     version: "1.14.2",
     date: "2026-11-07",
     items: [

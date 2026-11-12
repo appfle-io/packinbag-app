@@ -50,7 +50,7 @@ import { successHaptic, tapHaptic } from "@/lib/haptics";
 import { MoreSheet } from "./sheets/MoreSheet";
 import { ConfirmSheet } from "./sheets/ConfirmSheet";
 import { DoneBoxSheet } from "./sheets/DoneBoxSheet";
-import { DONE_BOX_MODES, doneBoxModeOf, splitDoneBox, type DoneBoxEntry } from "@/lib/v2/doneBox";
+import { DONE_BOX_MODES, doneBoxModeOf, packsWithoutDoneBox, splitDoneBox, type DoneBoxEntry } from "@/lib/v2/doneBox";
 import { formatRelativeDay, formatShortDate } from "./format";
 import { formatDDayLabel } from "@/lib/dday";
 import { CoachTour } from "@/components/v2/guide/CoachTour";
@@ -243,7 +243,15 @@ export default function BagScreenV2(props: BagScreenProps) {
           if (!doc.guard()) window.setTimeout(() => setReorderOpen(true), 300);
         }
       : undefined;
-  const stats = statsOf(viewable);
+  // 숫자(진행률 · 전체 칩 · 팩 머리줄)는 완료함으로 넘어간 것을 빼고 센다(11/12 사용자, BAG-DONE-10). 잠깐 제자리에 둔 것은 센다.
+  // 다 쌌는지(햅틱) · 다시 싸기 버튼은 완료함까지 포함해서
+  const counted = useMemo(
+    () => packsWithoutDoneBox(bag, viewable, doneNow, doneHold),
+    [bag, viewable, doneNow, doneHold],
+  );
+  const countedPack = (p: Pack) => counted.find((c) => c.id === p.id) ?? p;
+  const stats = statsOf(counted);
+  const anyChecked = statsOf(viewable).done > 0;
   const packingState = packingStateOf(viewable);
   const ratio = stats.total > 0 ? stats.done / stats.total : 0;
   // "내 담당" 필터: 함께 쓰는 가방에서 나한테 맡긴 체크 아이템이 있을 때만(구 UI 집중 패킹 모드의 "내 아이템만")
@@ -707,7 +715,7 @@ export default function BagScreenV2(props: BagScreenProps) {
               </div>
             )}
 
-            {stats.total > 0 && (
+            {(stats.total > 0 || doneBox.entries.length > 0) && (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-1">
@@ -719,7 +727,7 @@ export default function BagScreenV2(props: BagScreenProps) {
                     size="sm"
                     className="pr-1"
                     data-guide="bag-repack"
-                    disabled={stats.done === 0 || readOnly}
+                    disabled={!anyChecked || readOnly}
                     onClick={items.uncheckAll}
                     leading={<IconRotateClockwise size={18} stroke={1.9} />}
                   >
@@ -782,7 +790,7 @@ export default function BagScreenV2(props: BagScreenProps) {
               ) : (
                 <PackSection
                   key={p.id}
-                  pack={p}
+                  pack={countedPack(p)}
                   items={itemsFor(p)}
                   open={isOpen(p)}
                   onToggleOpen={() => setOpenOverride((o) => ({ ...o, [p.id]: !isOpen(p) }))}

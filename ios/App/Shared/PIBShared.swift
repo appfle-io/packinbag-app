@@ -46,6 +46,8 @@ struct PIBBag: Codable, Hashable {
     var lastPackedAt: String? = nil
     // D-Day 당일을 1일로 세기(웹 Bag.ddayCountTodayAsDayOne, 2026-10-29). 켠 가방만 true — 당일부터 D+1
     var ddayDayOne: Bool? = nil
+    // 가방 속 메모팩 이름(1.15 · 2026-11-12, 단축어 "팩인백에서 찾기"). 본문은 없다. 예전 웹 요약에는 없음
+    var notes: [PIBNoteRef]? = nil
 
     // D-Day까지 남은 날(오늘 0, 지났으면 음수). 날짜가 없으면 nil
     var daysLeft: Int? {
@@ -56,6 +58,11 @@ struct PIBBag: Codable, Hashable {
         guard let day = cal.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else { return nil }
         return cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: day).day
     }
+}
+
+struct PIBNoteRef: Codable, Hashable {
+    let id: String
+    var name: String
 }
 
 struct PIBSummary: Codable {

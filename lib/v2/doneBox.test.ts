@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Bag, Item, Pack } from "@/lib/types";
-import { doneBoxModeOf, splitDoneBox, stampCheckedAt } from "./doneBox";
+import { doneBoxModeOf, packsWithoutDoneBox, splitDoneBox, stampCheckedAt } from "./doneBox";
 
 const item = (id: string, checked: boolean, checkedAt?: string): Item => ({ id, type: "check", text: id, checked, checkedAt });
 const bagOf = (packs: Pack[], extra: Partial<Bag> = {}): Bag =>
@@ -77,5 +77,21 @@ describe("BAG-DONE 완료함", () => {
     // 되돌리기로 예전 값을 넣으면 그대로 둔다
     const restored = bagOf([{ id: "p", name: "팩", items: [item("a", true, "2026-09-01T00:00:00.000Z")] }]);
     expect(stampCheckedAt(prev, restored, "z").packs[0].items[0].checkedAt).toBe("2026-09-01T00:00:00.000Z");
+  });
+
+  it("BAG-DONE-10 완료함 것은 개수에서 뺀다(잠깐 제자리 둔 것은 셈, 꺼져 있으면 그대로)", () => {
+    const t = at(2026, 11, 1, 9);
+    const packs: Pack[] = [
+      { id: "p", name: "팩", items: [item("a", true, iso(t)), item("b", false), item("c", true, iso(t))] },
+      { id: "m", name: "메모", kind: "editor", items: [] },
+    ];
+    const off = bagOf(packs);
+    expect(packsWithoutDoneBox(off)).toBe(off.packs);
+    const now = bagOf(packs, { doneBoxMode: "now" });
+    expect(packsWithoutDoneBox(now)[0].items.map((i) => i.id)).toEqual(["b"]);
+    expect(packsWithoutDoneBox(now, now.packs, Date.now(), new Set(["c"]))[0].items.map((i) => i.id)).toEqual(["b", "c"]);
+    const hour = bagOf(packs, { doneBoxMode: "hour" });
+    expect(packsWithoutDoneBox(hour, hour.packs, t + 1000)[0].items).toHaveLength(3);
+    expect(packsWithoutDoneBox(hour, hour.packs, t + 3_600_000)[0].items.map((i) => i.id)).toEqual(["b"]);
   });
 });

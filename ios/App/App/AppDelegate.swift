@@ -521,6 +521,13 @@ struct PackInBagShortcuts: AppShortcutsProvider {
             shortTitle: "팩인백 새로고침",
             systemImageName: "arrow.clockwise"
         )
+        // 가방 · 팩 · 메모 · 아이템 찾기(1.15, 11/12)
+        AppShortcut(
+            intent: SearchPackInBagIntent(),
+            phrases: ["\(.applicationName)에서 찾기", "\(.applicationName) 검색"],
+            shortTitle: "팩인백에서 찾기",
+            systemImageName: "magnifyingglass"
+        )
         // 실시간 현황 8시간 제한을 다시 시작(10/11). 자동화에 걸어 둔다
         AppShortcut(
             intent: RestartLiveIntent(),
@@ -623,6 +630,152 @@ struct OpenLibraryPackIntent: OpenIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         if let url = PIBLinks.library(target.id) { PIBOpen.open(url) }
+        return .result()
+    }
+}
+
+// ---- 단축어 "팩인백에서 찾기"(1.15, 2026-11-12) ------------------------------------------
+// 찾을 말을 받아 App Group 요약(가방 · 팩 · 메모 이름 · 아이템 · 보관함 팩)에서 이름으로 찾고, 목록에서 고르면 앱을 열어 그 자리로 간다.
+// 서버를 부르지 않는다(앱을 마지막으로 연 때 · 서버 요약 기준). 개인 잠금한 것 · 완료함 아이템은 요약에 없어서 안 나온다.
+// 여는 주소: 가방 packinbag://bag/{id} · 팩 · 메모 ?pack={packId} · 아이템 &item={itemId} · 보관함 packinbag://library/{id}
+// → 웹 lib/v2/bagReminders.onBagNotificationTap(메모는 열고, 아이템은 그 줄로 스크롤 + 강조)
+@available(iOS 17.0, *)
+struct SearchHitEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "검색 결과"
+    static let defaultQuery = SearchHitQuery()
+
+    // "종류|가방id|팩id|아이템id"(종류 b 가방 · p 팩 · m 메모 · i 아이템 · l 보관함 팩 — l은 가방id 자리에 보관함 팩 id)
+    let id: String
+    let title: String
+    let subtitle: String
+    let symbol: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(title)", subtitle: "\(subtitle)", image: .init(systemName: symbol))
+    }
+
+    var url: URL? {
+        let p = id.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard p.count == 4, !p[1].isEmpty else { return nil }
+        switch p[0] {
+        case "l": return PIBLinks.library(p[1])
+        case "b": return PIBLinks.bag(p[1])
+        case "i": return URL(string: "packinbag://bag/\(p[1])?pack=\(p[2])&item=\(p[3])")
+        default: return PIBLinks.bag(p[1], packId: p[2])
+        }
+    }
+}
+
+@available(iOS 17.0, *)
+enum PIBSearch {
+    static let limit = 40
+
+    // 가방 → 팩 → 메모 → 보관함 → 아이템 순
+    static func all() -> [SearchHitEntity] {
+        guard let summary = PIBStore.summary() else { return [] }
+        var bags: [SearchHitEntity] = [], packs: [SearchHitEntity] = [], notes: [SearchHitEntity] = [], items: [SearchHitEntity] = []
+        for bag in summary.bags {
+            bags.append(SearchHitEntity(id: "b|\(bag.id)||", title: bag.name, subtitle: "가방", symbol: "bag"))
+            for pack in bag.packs {
+                let packName = pack.inbox == true ? "미분류" : pack.name
+                if pack.inbox != true {
+                    packs.append(SearchHitEntity(id: "p|\(bag.id)|\(pack.id)|", title: pack.name, subtitle: "\(bag.name) · 팩 · \(pack.items.count)개", symbol: "shippingbox"))
+                }
+                for item in pack.items {
+                    items.append(SearchHitEntity(
+                        id: "i|\(bag.id)|\(pack.id)|\(item.id)",
+                        title: item.text,
+                        subtitle: "\(bag.name) › \(packName)" + (item.checked ? " · 챙김" : ""),
+                        symbol: item.checked ? "checkmark.circle.fill" : "circle"
+                    ))
+                }
+            }
+            for note in bag.notes ?? [] {
+                notes.append(SearchHitEntity(id: "m|\(bag.id)|\(note.id)|", title: note.name, subtitle: "\(bag.name) · 메모", symbol: "doc.text"))
+            }
+        }
+        let library = (summary.library ?? []).map { p in
+            SearchHitEntity(
+                id: "l|\(p.id)||",
+                title: p.name,
+                subtitle: p.kind == "note" ? "보관함 · 메모" : "보관함 · 팩 · \(p.count ?? 0)개",
+                symbol: p.kind == "note" ? "doc.text" : "tray.full"
+            )
+        }
+        return bags + packs + notes + library + items
+    }
+
+    static func find(_ query: String) -> [SearchHitEntity] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return [] }
+        return Array(all().filter { $0.title.localizedStandardContains(q) }.prefix(limit))
+    }
+}
+
+@available(iOS 17.0, *)
+struct SearchHitQuery: EntityStringQuery {
+    func entities(for identifiers: [String]) async throws -> [SearchHitEntity] {
+        let all = PIBSearch.all()
+        return identifiers.compactMap { id in all.first { $0.id == id } }
+    }
+
+    func entities(matching string: String) async throws -> [SearchHitEntity] {
+        PIBSearch.find(string)
+    }
+
+    func suggestedEntities() async throws -> [SearchHitEntity] { [] }
+}
+
+@available(iOS 17.0, *)
+struct SearchPackInBagIntent: AppIntent {
+    static let title: LocalizedStringResource = "팩인백에서 찾기"
+    static let description = IntentDescription("가방 · 팩 · 메모 · 아이템 이름으로 찾아요. 목록에서 고르면 팩인백이 열리며 그 자리로 가요")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "찾을 말", requestValueDialog: IntentDialog("무엇을 찾을까요?"))
+    var query: String
+
+    // 목록에서 고른 결과(직접 채우지 않는다)
+    @Parameter(title: "고른 결과")
+    var hit: SearchHitEntity?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("팩인백에서 \(\.$query) 찾기")
+    }
+
+    init() {}
+
+    func perform() async throws -> some IntentResult & OpensIntent {
+        guard PIBStore.token != nil else { throw PIBError.notSignedIn }
+        let hits = PIBSearch.find(query)
+        guard !hits.isEmpty else {
+            throw PIBError.rejected("‘\(query)’을(를) 찾지 못했어요. 팩인백 앱을 한 번 열면 최신 내용으로 찾아요")
+        }
+        let picked = hits.count == 1
+            ? hits[0]
+            : try await $hit.requestDisambiguation(among: hits, dialog: IntentDialog("\(hits.count)개를 찾았어요. 열 것을 골라 주세요"))
+        return .result(opensIntent: OpenSearchHitIntent(target: picked))
+    }
+}
+
+@available(iOS 17.0, *)
+struct OpenSearchHitIntent: AppIntent {
+    static let title: LocalizedStringResource = "검색 결과 열기"
+    static let openAppWhenRun = true
+    static let isDiscoverable = false
+
+    @Parameter(title: "검색 결과")
+    var target: SearchHitEntity
+
+    init() {}
+
+    init(target: SearchHitEntity) {
+        self.target = target
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        if let url = target.url { PIBOpen.open(url) }
         return .result()
     }
 }

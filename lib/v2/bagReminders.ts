@@ -197,15 +197,17 @@ export function onBagNotificationTap(
         } catch {}
         return;
       }
-      // packinbag://bag/{id}(?pack={packId}) · packinbag://library/{id}
+      // packinbag://bag/{id}(?pack={packId}(&item={itemId})) · packinbag://library/{id}
       if (!url?.startsWith("packinbag://")) return;
       try {
         const u = new URL(url.replace(/^packinbag:\/\//, "https://app/"));
         const [kind, id] = u.pathname.split("/").filter(Boolean);
         if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) return;
         if (kind === "bag") {
-          const pack = u.searchParams.get("pack");
-          open(id, pack && /^[A-Za-z0-9_-]+$/.test(pack) ? pack : undefined);
+          // 단축어 "팩인백에서 찾기"(iOS 1.15, 11/12)는 아이템까지: ?pack={packId}&item={itemId}
+          const safe = (v: string | null) => (v && /^[A-Za-z0-9_-]+$/.test(v) ? v : undefined);
+          const pack = safe(u.searchParams.get("pack"));
+          open(id, pack, pack ? safe(u.searchParams.get("item")) : undefined);
         } else if (kind === "library" && onLibrary) {
           const now = Date.now();
           if (last.id === `lib|${id}` && now - last.at < 1500) return;

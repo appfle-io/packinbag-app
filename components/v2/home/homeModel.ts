@@ -3,6 +3,7 @@ import { daysUntil, formatDDayLabel } from "@/lib/dday";
 import { getViewablePacks } from "@/lib/premiumLimits";
 import { statsOf, packingStateOf, type PackingState } from "@/hooks/bag";
 import { formatAgo, formatShortDate } from "@/components/v2/bag/format";
+import { packsWithoutDoneBox } from "@/lib/v2/doneBox";
 
 // D-day가 이 일수 이내(0~7일 남음)인 가방은 최근 순서와 무관하게 목록 맨 위로 올린다.
 const SOON_DAYS = 7;
@@ -32,7 +33,8 @@ export interface BagSummary {
 
 export function summarizeBag(bag: Bag, premium: boolean, pending = false): BagSummary {
   const packs = getViewablePacks(bag.packs, premium);
-  const { done, total } = statsOf(packs);
+  // 숫자는 완료함으로 넘어간 것을 빼고 센다(11/12). 다 쌌는지는 완료함까지 포함해서
+  const { done, total } = statsOf(packsWithoutDoneBox(bag, packs));
   const state = packingStateOf(packs);
   const activityAt = bag.lastCheckedAt ?? bag.updatedAt ?? bag.createdAt;
   const ago = formatAgo(activityAt);

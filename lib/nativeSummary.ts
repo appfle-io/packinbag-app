@@ -4,6 +4,7 @@
 // - 체크리스트 팩의 체크 아이템만(메모 · 글 아이템 · 폴더 제외). 메모 본문은 절대 넣지 않는다
 // - 크기를 작게: 가방 최근 30개, 팩당 아이템 80개, 글자 80자
 import type { Bag, Pack } from "@/lib/types";
+import { packsWithoutDoneBox } from "@/lib/v2/doneBox";
 
 const NATIVE_SUMMARY_VERSION = 1;
 const MAX_BAGS = 30;
@@ -35,6 +36,9 @@ interface NativeSummaryBag {
   // D-Day 당일을 1일로 세기(Bag.ddayCountTodayAsDayOne, 2026-10-29). 켠 가방만 키를 넣는다 — 당일부터 D+1
   ddayDayOne?: true;
   packs: NativeSummaryPack[];
+  // 가방 속 메모팩 이름(단축어 "팩인백에서 찾기", iOS 1.15 · 2026-11-12). 본문은 절대 넣지 않는다.
+  // packs에 넣지 않고 따로 두는 이유: 예전 앱은 packs의 메모를 체크 팩으로 알고 위젯 · "가방에 추가"에 보인다. 모르는 키는 무시한다
+  notes?: { id: string; name: string }[];
 }
 
 // 요약에 쓰는 내 계정 설정(users/{uid}). 보관함 가방은 빼고, 고정한 가방은 표시한다(10/11)
@@ -87,6 +91,15 @@ export function buildNativeLibrary(packs: Pack[], lockedLibraryIds: string[] = [
 
 const clip = (s: unknown) => (typeof s === "string" ? s : "").slice(0, MAX_TEXT);
 
+// 가방 속 메모팩(이름만). 개인 잠금한 메모 · 잠근 보관함 팩을 불러온 메모는 뺀다. 없으면 키를 넣지 않는다
+function notesOf(bag: Bag, lockedPacks: Set<string>, lockedLibrary: Set<string>): { notes?: { id: string; name: string }[] } {
+  const notes = (Array.isArray(bag.packs) ? bag.packs : [])
+    .filter((p) => p && p.kind === "editor" && p.type !== "folder")
+    .filter((p) => !lockedPacks.has(`${bag.id}/${p.id}`) && !(p.linkedLibraryPackId && lockedLibrary.has(p.linkedLibraryPackId)))
+    .map((p) => ({ id: p.id, name: clip(p.name) || "메모" }));
+  return notes.length > 0 ? { notes } : {};
+}
+
 // uid가 소유자이면서 휴지통에 넣은 가방은 뺀다(목록 화면과 같은 기준). 보관함 가방도 뺀다(10/11).
 // 고정한 가방이 먼저(30개 안에 꼭 들게), 그다음 최근 체크 순.
 // 팩 순서는 가방 화면과 같게 미분류가 맨 앞. 체크 아이템이 없는 팩도 넣는다(단축어 "가방에 추가"에서 고를 수 있게, 10/11)
@@ -118,7 +131,8 @@ export function buildNativeSummary(
       ...(pinned.has(bag.id) ? { pinned: true as const } : {}),
       ...(typeof bag.lastPackedAt === "string" && bag.lastPackedAt ? { lastPackedAt: bag.lastPackedAt } : {}),
       ...(bag.ddayCountTodayAsDayOne === true ? { ddayDayOne: true as const } : {}),
-      packs: (Array.isArray(bag.packs) ? bag.packs : [])
+      // 완료함으로 넘어간 아이템은 위젯 · 잠금화면 · 단축어에서도 뺀다(11/12, lib/v2/doneBox)
+      packs: packsWithoutDoneBox(bag, (Array.isArray(bag.packs) ? bag.packs : []).filter(Boolean), now.getTime())
         .filter((p) => p && p.kind !== "editor" && p.type !== "folder")
         .filter((p) => !lockedPacks.has(`${bag.id}/${p.id}`) && !(p.linkedLibraryPackId && lockedLibrary.has(p.linkedLibraryPackId)))
         .sort((a, b) => Number(!!b.isInbox) - Number(!!a.isInbox))
@@ -133,6 +147,7 @@ export function buildNativeSummary(
         }))
         // 빈 미분류는 숨긴다(가방 화면도 빈 미분류는 안 보임)
         .filter((p) => !(p.inbox && p.items.length === 0)),
+      ...notesOf(bag, lockedPacks, lockedLibrary),
     })),
   };
 }

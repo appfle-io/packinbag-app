@@ -18,6 +18,22 @@ describe("NAT-SUM 가방 요약", () => {
     expect(s.bags[0].packs).toEqual([{ id: "p1", name: "p1", items: [{ id: "a", text: "a", checked: false }, { id: "t", text: "t", checked: false }] }]);
   });
 
+  it("NAT-SUM-10 메모팩은 notes에 이름만(본문 없음), 잠근 메모 빼고, 없으면 키 없음", () => {
+    const s = buildNativeSummary(
+      [
+        bag("b1", [pack("p1", [item("a")]), pack("m1", [], { kind: "editor", name: "준비 메모", editorDoc: { type: "doc" } }), pack("m2", [], { kind: "editor" })]),
+        bag("b2", [pack("p2", [])]),
+      ],
+      "me",
+      NOW,
+      { lockedPackKeys: ["b1/m2"] },
+    );
+    const b1 = s.bags.find((b) => b.id === "b1")!;
+    expect(b1.notes).toEqual([{ id: "m1", name: "준비 메모" }]);
+    expect(b1.packs.map((p) => p.id)).toEqual(["p1"]);
+    expect("notes" in s.bags.find((b) => b.id === "b2")!).toBe(false);
+  });
+
   it("NAT-SUM-03 휴지통 · 보관 · 잠근 가방 빼고, 고정한 가방이 먼저", () => {
     const s = buildNativeSummary(
       [

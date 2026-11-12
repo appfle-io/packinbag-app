@@ -25,10 +25,13 @@ interface RawItem {
   type?: unknown;
   text?: unknown;
   checked?: unknown;
+  checkedAt?: unknown;
 }
 
 interface RawBag {
   name?: unknown;
+  doneBoxMode?: unknown;
+  travelDate?: unknown;
   memberIds?: unknown;
   packs?: { id?: unknown; name?: unknown; kind?: unknown; type?: unknown; items?: RawItem[] }[];
 }
@@ -49,9 +52,44 @@ export const WHOLE_BAG = "*";
 
 type Lite = { id: string; text: string; checked: boolean };
 
-function checkItems(items: RawItem[] | undefined): Lite[] {
+// 가방 완료함(웹 lib/v2/doneBox.ts doneBoxMoveAt과 같은 기준, 11/12): 넘어간 아이템은 잠금화면에서도 뺀다.
+// 서버는 UTC라 "다음 날 새벽 4시"는 한국 시간(UTC+9)으로 잰다
+const HOUR_MS = 3_600_000;
+const KST_MS = 9 * HOUR_MS;
+function nextDayStartKst(t: number): number {
+  const d = new Date(t + KST_MS);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 4) - KST_MS;
+}
+function inDoneBox(bag: RawBag, item: RawItem, now: number): boolean {
+  if (!item.checked) return false;
+  let mode = typeof bag.doneBoxMode === "string" ? bag.doneBoxMode : "off";
+  const dm = typeof bag.travelDate === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(bag.travelDate) : null;
+  if (mode === "dday" && !dm) mode = "nextday";
+  const parsed = typeof item.checkedAt === "string" ? Date.parse(item.checkedAt) : NaN;
+  const t = Number.isNaN(parsed) ? 0 : parsed;
+  switch (mode) {
+    case "now":
+      return true;
+    case "hour":
+      return t + HOUR_MS <= now;
+    case "nextday":
+      return nextDayStartKst(t) <= now;
+    case "dday": {
+      const dday = Date.UTC(Number(dm![1]), Number(dm![2]) - 1, Number(dm![3])) - KST_MS;
+      return Math.max(t, nextDayStartKst(dday)) <= now;
+    }
+    case "week":
+      return t + 7 * 24 * HOUR_MS <= now;
+    default:
+      return false;
+  }
+}
+
+function checkItems(bag: RawBag, items: RawItem[] | undefined): Lite[] {
+  const now = Date.now();
   return (Array.isArray(items) ? items : [])
     .filter((i) => i && typeof i.id === "string")
+    .filter((i) => !inDoneBox(bag, i, now))
     .slice(0, MAX_ITEMS)
     .map((i) => ({ id: String(i.id), text: clip(i.text), checked: !!i.checked }));
 }
@@ -66,7 +104,7 @@ export function liveState(bag: RawBag, packId: string): LiveState | null {
     const owner = new Map<string, string>();
     const items: Lite[] = [];
     for (const p of ordered) {
-      for (const i of checkItems(p.items)) {
+      for (const i of checkItems(bag, p.items)) {
         if (owner.has(i.id)) continue;
         owner.set(i.id, String(p.id));
         items.push(i);
@@ -86,7 +124,7 @@ export function liveState(bag: RawBag, packId: string): LiveState | null {
   }
   const pack = packs.find((p) => p.id === packId);
   if (!pack) return null;
-  const items = checkItems(pack.items);
+  const items = checkItems(bag, pack.items);
   const ordered = [...items.filter((i) => !i.checked), ...items.filter((i) => i.checked)];
   return {
     bagName: clip(bag.name) || "가방",

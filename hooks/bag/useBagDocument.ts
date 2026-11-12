@@ -28,6 +28,8 @@ import { stampCheckedAt } from "@/lib/v2/doneBox";
 // 구 화면의 undo/redo 스택은 v2에서 쓰지 않아 옮기지 않았다(삭제는 토스트 "되돌리기"로 처리).
 
 const AUTOSAVE_DEBOUNCE_MS = 500;
+// 자동저장이 실패하면 이만큼 뒤에 한 번 더(토스트는 그것도 실패할 때만)
+const SAVE_RETRY_MS = 1200;
 
 export interface BagDocumentOptions {
   initialBag: Bag;
@@ -135,25 +137,48 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
   }, []);
 
   const persist = useCallback(
-    (target: Bag, silent: boolean) =>
-      (target.memberIds.length > 1
-        ? saveSharedBagMergedRemote(target, baseRef.current, knownFor(target))
-        : saveBagRemote(target, knownFor(target))
-      )
-        .then((written) => {
-          // 방금 쓴 본문은 서버에 있다고 기록(같은 본문을 다시 쓰지 않게)
-          if (written.size > 0 && knownRef.current) written.forEach((raw, id) => knownRef.current!.set(id, raw));
-          if (isNewRef.current && !hasConfirmedNewRef.current) {
-            hasConfirmedNewRef.current = true;
-            onSaveRef.current(target);
-          }
-        })
-        .catch((err) => {
-          console.error("[팩인백] 실시간 저장 실패:", err);
-          if (!silent) show(`실시간 저장에 실패했어요 (${firebaseErrorCode(err)})`);
-        }),
+    (first: Bag, silent: boolean): Promise<void> => {
+      const attempt = (target: Bag, retried: boolean): Promise<void> =>
+        (target.memberIds.length > 1
+          ? saveSharedBagMergedRemote(target, baseRef.current, knownFor(target))
+          : saveBagRemote(target, knownFor(target))
+        )
+          .then((written) => {
+            // 방금 쓴 본문은 서버에 있다고 기록(같은 본문을 다시 쓰지 않게)
+            if (written.size > 0 && knownRef.current) written.forEach((raw, id) => knownRef.current!.set(id, raw));
+            if (isNewRef.current && !hasConfirmedNewRef.current) {
+              hasConfirmedNewRef.current = true;
+              onSaveRef.current(target);
+            }
+          })
+          .catch(async (err) => {
+            console.error("[팩인백] 실시간 저장 실패:", err);
+            // 한 번은 조용히 다시(최신 화면 값으로). 잠깐 끊기거나 겹친 저장이 부딪힌 경우가 대부분이다(11/12)
+            if (!retried && firebaseErrorCode(err) !== "permission-denied") {
+              await new Promise((r) => setTimeout(r, SAVE_RETRY_MS));
+              return attempt(bagRef.current, true);
+            }
+            if (!silent) show(`실시간 저장에 실패했어요 (${firebaseErrorCode(err)})`);
+          });
+      return attempt(first, false);
+    },
     [show, knownFor],
   );
+
+  // 자동저장은 한 번에 하나씩(11/12). 공유 가방 저장은 서버 최신본을 읽고 쓰는 트랜잭션이라, 빠르게 연달아 체크해
+  // 저장이 겹치면 같은 기기의 저장끼리 부딪혀 재시도를 다 쓰고 "실시간 저장에 실패했어요" 토스트가 떴다(시우 기저귀가방).
+  // 진행 중이면 뒤에 하나만 걸어 두고, 차례가 오면 그때의 최신 화면 값을 저장한다
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const saveQueuedRef = useRef(false);
+  const enqueueSave = useCallback(() => {
+    if (saveQueuedRef.current) return saveChainRef.current;
+    saveQueuedRef.current = true;
+    saveChainRef.current = saveChainRef.current.then(() => {
+      saveQueuedRef.current = false;
+      return persist(bagRef.current, false);
+    });
+    return saveChainRef.current;
+  }, [persist]);
 
   // 변경 감지 -> 디바운스 저장
   useEffect(() => {
@@ -174,7 +199,7 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       const seq = editSeqRef.current;
-      persist(bag, false).finally(() => {
+      void enqueueSave().finally(() => {
         // 저장하는 동안 새 변경이 생겼으면(다음 저장 대기 중) 아직 dirty다
         if (editSeqRef.current === seq && !timerRef.current) isDirtyRef.current = false;
       });
@@ -182,7 +207,7 @@ export function useBagDocument({ initialBag, bags, isNew, readOnly, onRequestUnl
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [bag, persist]);
+  }, [bag, enqueueSave]);
 
   // 화면 이탈/백그라운드 전환 시 대기 중인 저장 즉시 반영
   useEffect(() => {

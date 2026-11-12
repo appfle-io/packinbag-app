@@ -127,3 +127,24 @@ export function stampCheckedAt(prev: Bag, next: Bag, nowIso: string): Bag {
   });
   return changed ? { ...next, packs } : next;
 }
+
+// 완료함으로 넘어간 아이템을 뺀 팩 목록(11/12 사용자: 완료함 것은 더 볼 게 아니라 백업으로 두는 것 →
+// 진행률 · 전체 개수 · 팩 머리줄 · 홈 카드 · 위젯 · 잠금화면 숫자에서 모두 뺀다. 풀면 다시 셈).
+// keep: 화면이 잠깐 제자리에 둔 아이템(BAG-DONE-04 "바로" 0.8초)처럼 아직 세야 하는 것
+export function packsWithoutDoneBox(bag: Bag, packs: Pack[] = bag.packs, now = Date.now(), keep?: Set<string>): Pack[] {
+  const mode = doneBoxModeOf(bag);
+  if (mode === "off") return packs;
+  let changed = false;
+  const out = packs.map((p) => {
+    if (p.kind === "editor" || p.type === "folder" || !Array.isArray(p.items)) return p;
+    const items = p.items.filter((i) => {
+      if (!i || keep?.has(i.id)) return true;
+      const at = doneBoxMoveAt(i, bag, now);
+      return at === null || (mode !== "now" && at > now);
+    });
+    if (items.length === p.items.length) return p;
+    changed = true;
+    return { ...p, items };
+  });
+  return changed ? out : packs;
+}
