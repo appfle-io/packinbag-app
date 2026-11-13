@@ -950,7 +950,7 @@ export default function BagScreenV2(props: BagScreenProps) {
         <div className="flex flex-col">
           {[{ id: null as string | null, name: "미분류", hint: "나중에 팩으로 나눠 담아요" }, ...checklist
             .filter((p) => !p.isInbox)
-            .map((p) => ({ id: p.id as string | null, name: p.name, hint: `${p.items.length}개` }))].map((row, i, arr) => {
+            .map((p) => ({ id: p.id as string | null, name: p.name, hint: `${countedPack(p).items.length}개` }))].map((row, i, arr) => {
             const current = (addTarget?.id ?? null) === row.id;
             return (
               <button
@@ -992,7 +992,7 @@ export default function BagScreenV2(props: BagScreenProps) {
               )}
             >
               <span className="truncate text-body">{p.name}</span>
-              <span className="shrink-0 text-caption text-faint">{p.items.length}</span>
+              <span className="shrink-0 text-caption text-faint">{countedPack(p).items.length}</span>
             </button>
           ))}
         </div>
@@ -1109,7 +1109,7 @@ export default function BagScreenV2(props: BagScreenProps) {
             items: reorderable.map((p) => ({
               id: p.id,
               label: p.name,
-              sub: p.kind === "editor" ? "메모" : `아이템 ${p.items.length}개`,
+              sub: p.kind === "editor" ? "메모" : `아이템 ${countedPack(p).items.length}개`,
               icon: p.kind === "editor" ? <IconNotes size={20} stroke={1.75} aria-hidden="true" /> : <IconChecklist size={20} stroke={1.75} aria-hidden="true" />,
             })),
           },
