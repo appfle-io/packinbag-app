@@ -127,9 +127,22 @@ struct PackLockScreenView: View {
 }
 
 struct PackInBagWidgetLiveActivity: Widget {
+    // 두 번 눌러 체크 확인 표시는 멈춤 시각을 4초 뒤로 두고 건다(11/13, PIBActivity.holdForSecondTap).
+    // isStale이면 표시를 숨기고, "8시간 멈춤" 안내는 표시 때문에 멈춘 게 아니라 8시간이 정말 지났을 때만 보인다
+    static func shown(_ context: ActivityViewContext<PackActivityAttributes>) -> (state: PackActivityAttributes.ContentState, stopped: Bool) {
+        guard context.isStale else { return (context.state, false) }
+        var state = context.state
+        let armed = state.armedItemId != nil
+        state.armedItemId = nil
+        state.armedAt = nil
+        let overdue = PIBLiveActivity.staleDate(context.attributes).map { $0 <= Date() } ?? true
+        return (state, !armed || overdue)
+    }
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PackActivityAttributes.self) { context in
-            PackLockScreenView(attributes: context.attributes, state: context.state, stale: context.isStale)
+            let shown = Self.shown(context)
+            PackLockScreenView(attributes: context.attributes, state: shown.state, stale: shown.stopped)
         } dynamicIsland: { context in
             // 다이내믹 아일랜드는 늘 검은 바탕이라 글자색만 다크 기준
             let style = PIBStyle(theme: "dark", font: context.attributes.font, size: context.attributes.size)
@@ -150,7 +163,7 @@ struct PackInBagWidgetLiveActivity: Widget {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(islandItems, id: \.id) { item in
                             Button(intent: ToggleItemLiveIntent(bagId: context.attributes.bagId, packId: context.state.itemPacks?[item.id] ?? context.attributes.packId, itemId: item.id)) {
-                                ItemRow(item: item, style: style, c: c, armed: context.state.armedItemId == item.id)
+                                ItemRow(item: item, style: style, c: c, armed: !context.isStale && context.state.armedItemId == item.id)
                             }
                             .buttonStyle(.plain)
                         }

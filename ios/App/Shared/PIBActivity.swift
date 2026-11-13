@@ -74,9 +74,11 @@ enum PIBLiveActivity {
     }
 
     // 8시간 제한으로 끝났거나 곧 끝나는 카드
+    // .stale은 8시간 멈춤 말고 두 번 눌러 체크의 확인 표시가 끝날 때도 된다(11/13) → 띄운 시각이 있으면 그것으로만 판단
     private static func isStopped(_ activity: Activity<PackActivityAttributes>) -> Bool {
-        if activity.activityState == .ended || activity.activityState == .stale { return true }
-        return staleDate(activity.attributes).map { $0 <= Date() } ?? false
+        if activity.activityState == .ended { return true }
+        guard let stale = staleDate(activity.attributes) else { return activity.activityState == .stale }
+        return stale <= Date()
     }
 
     static func order(_ items: [PIBItem]) -> [PIBItem] {
@@ -235,8 +237,12 @@ enum PIBLiveActivity {
         if state.armedItemId == itemId, let at = state.armedAt, now - at <= armedValidSeconds { return false }
         state.armedItemId = itemId
         state.armedAt = now
-        await apply(state, to: activity)
-        // perform 안에서 기다리지 않는다(시스템이 인텐트를 순서대로 돌리면 두 번째 탭이 표시가 지워진 뒤에 실행될 수 있어서)
+        // 확인 표시는 멈춤 시각(staleDate)을 4초 뒤로 두어 지운다(11/13 버그: 아래 Task는 인텐트가 끝나면 프로세스가 멈춰
+        // 안 돌 때가 많아 표시가 계속 남았다). 그 시각이 되면 앱이 꺼져 있어도 iOS가 isStale로 다시 그리고, 화면은 표시를 숨긴다
+        let showUntil = Date(timeIntervalSince1970: now + TimeInterval(armedShowSeconds))
+        await apply(state, to: activity, staleDate: min(showUntil, staleDate(activity.attributes) ?? showUntil))
+        // perform 안에서 기다리지 않는다(시스템이 인텐트를 순서대로 돌리면 두 번째 탭이 표시가 지워진 뒤에 실행될 수 있어서).
+        // 프로세스가 살아 있으면 상태에서도 지운다(멈춤 시각도 원래대로)
         Task {
             try? await Task.sleep(nanoseconds: armedShowSeconds * 1_000_000_000)
             await disarm(bagId: bagId, packId: packId, armedAt: now)
@@ -335,14 +341,15 @@ enum PIBLiveActivity {
     // 다 챙겨도 바로 내리지 않는다(10/11 버그: 예전에는 다 챙기는 순간 end(5분 뒤 사라짐) → 끝난 화면은 고칠 수 없어
     // 잠금화면에서 해제를 눌러도 화면은 그대로이고 서버만 풀렸다). 다 챙긴 시각(doneAt)만 남기고 계속 띄워 두며,
     // 5분이 지나면 다음 갱신(앱 · 새로고침 · 조용한 푸시) 때 내린다. 그 전에 사용자가 옆으로 밀어 지울 수도 있다
-    private static func apply(_ state: PackActivityAttributes.ContentState, to activity: Activity<PackActivityAttributes>) async {
+    // staleDate: 두 번 눌러 체크 확인 표시를 걸 때만 더 이른 시각을 준다. 그 밖에는 8시간 멈춤 시각(다음 갱신 때 원래대로 돌아옴)
+    private static func apply(_ state: PackActivityAttributes.ContentState, to activity: Activity<PackActivityAttributes>, staleDate early: Date? = nil) async {
         var state = state
         if isAllDone(state) {
             state.doneAt = activity.content.state.doneAt ?? state.doneAt ?? Date().timeIntervalSince1970
         } else {
             state.doneAt = nil
         }
-        let stale = staleDate(activity.attributes)
+        let stale = early ?? staleDate(activity.attributes)
         guard activity.content.state != state || activity.content.staleDate != stale else { return }
         await activity.update(ActivityContent(state: state, staleDate: stale))
     }
